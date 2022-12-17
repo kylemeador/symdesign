@@ -7168,7 +7168,7 @@ class Pose(SymmetricModel):
         for design, scores in design_scores.items():
             residue_data = {}
             for key, value in scores.items():
-                if not key.startswith('per_res_'):
+                if 'res_' not in key:  # if not key.startswith('per_res_'):
                     continue
                 # per_res_energysolv_complex_15W or per_res_energysolv_2_bound_415B
                 _, _, metric, entity_or_complex, *_ = metadata = key.strip('_').split('_')

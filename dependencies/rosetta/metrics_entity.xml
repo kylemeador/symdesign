@@ -49,10 +49,10 @@
 		# gather the residues involved in a residue selector
 		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="interface_hbond_residues"/>
 		# find the per residue energy of residues in a residue_selector
-<!--		<PerResidueEnergyMetric name="S_M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>-->
-		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors" use_native="false" scoretype="total_score" scorefxn="2015"/>
-<!--		<PerResidueEnergyMetric name="S_M_solvation_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano_solvation"/>-->
-		<PerResidueEnergyMetric name="M_solvation_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors" use_native="false" scoretype="total_score" scorefxn="2015_solvation"/>
+<!--		<PerResidueEnergyMetric name="S_M_int_energy_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>-->
+		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors" use_native="false" scoretype="total_score" scorefxn="2015"/>
+<!--		<PerResidueEnergyMetric name="S_M_solvation_energy_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano_solvation"/>-->
+		<PerResidueEnergyMetric name="M_solvation_energy_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors" use_native="false" scoretype="total_score" scorefxn="2015_solvation"/>
 	</SIMPLE_METRICS>
 
 	<MOVE_MAP_FACTORIES>
@@ -72,11 +72,11 @@
 		<ReadPoseExtraScoreFilter name="read_repacking" term_name="repacking" threshold="-0.5"/>
 		# find the average degree of connectivity to residues surrounding specified residues
 		<AverageDegree name="entity%%entity%%_interface_connectivity" threshold="0" distance_threshold="10.0" task_operations="no_interface_no_pack,entity_interface_and_neighbors_pack"/>
-<!--		<BuriedUnsatHbonds name="S_buns_%%entity%%_unbound" residue_selector="entity_interface_and_neighbors_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement-->
-		<BuriedUnsatHbonds name="buns_%%entity%%_unbound" residue_selector="entity_interface_and_neighbors" scorefxn="2015" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
+<!--		<BuriedUnsatHbonds name="S_buns%%entity%%_unbound" residue_selector="entity_interface_and_neighbors_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement-->
+		<BuriedUnsatHbonds name="buns%%entity%%_unbound" residue_selector="entity_interface_and_neighbors" scorefxn="2015" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
 		<Report name="R_entity%%entity%%_interface_connectivity" 		filter="entity%%entity%%_interface_connectivity"/>
-<!--		<Report name="R_S_buns_%%entity%%_unbound" 						filter="S_buns_%%entity%%_unbound"/>-->
-		<Report name="R_buns_%%entity%%_unbound" 						filter="buns_%%entity%%_unbound"/>
+<!--		<Report name="R_S_buns%%entity%%_unbound" 						filter="S_buns%%entity%%_unbound"/>-->
+		<Report name="R_buns%%entity%%_unbound" 						filter="buns%%entity%%_unbound"/>
 	</FILTERS>
 
     # Symmetry set up - generates symmetry for the system in question using %%sdf%% or %%dist%%
@@ -134,7 +134,7 @@
 <!--&lt;!&ndash;			<Add mover_name="run_metrics_bound_sum_sasa_hydrophobic"/>&ndash;&gt;-->
 <!--&lt;!&ndash;			<Add mover_name="run_metrics_bound_sum_sasa_polar"/>&ndash;&gt;-->
 <!--&lt;!&ndash;			<Add mover_name="run_metrics_bound_sum_sasa_total"/>&ndash;&gt;-->
-<!--			<Add filter_name="R_S_buns_%%entity%%_unbound"/>-->
+<!--			<Add filter_name="R_S_buns%%entity%%_unbound"/>-->
 <!--			<Add mover_name="repack_interface"/> # Unused in P432 for minimization of the unbound state-->
 <!--			<Add filter_name="R_entity%%entity%%_interface_connectivity"/>-->
 <!--			<Add mover_name="S_run_metrics_unbound"/>-->
@@ -147,7 +147,7 @@
 <!--&lt;!&ndash;			<Add mover_name="run_metrics_bound_sum_sasa_hydrophobic"/>&ndash;&gt;-->
 <!--&lt;!&ndash;			<Add mover_name="run_metrics_bound_sum_sasa_polar"/>&ndash;&gt;-->
 <!--&lt;!&ndash;			<Add mover_name="run_metrics_bound_sum_sasa_total"/>&ndash;&gt;-->
-<!--			<Add filter_name="R_buns_%%entity%%_unbound"/>-->
+<!--			<Add filter_name="R_buns%%entity%%_unbound"/>-->
 <!--			<Add mover_name="repack_interface"/> # Unused in P432 for minimization of the unbound state-->
 <!--			<Add filter_name="R_entity%%entity%%_interface_connectivity"/>-->
 <!--			<Add mover_name="run_metrics_unbound"/>-->
@@ -155,7 +155,7 @@
 		<ParsedProtocol name="metrics">
 			<Add mover_name="run_metrics_bound"/>
 			<Add mover_name="run_solv_metrics_bound"/>
-			<Add filter_name="R_buns_%%entity%%_unbound"/>
+			<Add filter_name="R_buns%%entity%%_unbound"/>
 			<Add mover_name="repack_interface"/> # Unused in P432 for minimization of the unbound state
 			<Add filter_name="R_entity%%entity%%_interface_connectivity"/>
 			<Add mover_name="run_metrics_unbound"/>

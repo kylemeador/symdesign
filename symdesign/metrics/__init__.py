@@ -55,7 +55,7 @@ nanohedra_metrics = ['multiple_fragment_ratio', 'nanohedra_score', 'nanohedra_sc
                      'percent_residues_fragment_interface_total', 'percent_residues_fragment_interface_center',
                      'total_interface_residues', 'total_non_fragment_interface_residues']
 # These metrics are necessary for all calculations performed during the analysis script. If missing, something will fail
-necessary_metrics = {'buns_complex', 'buns_1_unbound', 'contact_count', 'coordinate_constraint',
+necessary_metrics = {'buns_complex', 'buns1_unbound', 'contact_count', 'coordinate_constraint',
                      'favor_residue_energy', 'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound',
                      # 'interface_connectivity1',
                      'interface_separation',
@@ -65,7 +65,7 @@ necessary_metrics = {'buns_complex', 'buns_1_unbound', 'contact_count', 'coordin
                      # 'sasa_hydrophobic_1_bound', 'sasa_polar_1_bound', 'sasa_total_1_bound',
                      # 'solvation_energy_complex', 'solvation_energy_1_bound', 'solvation_energy_1_unbound'
                      }
-#                      'buns_2_unbound',
+#                      'buns2_unbound',
 #                      'hbonds_res_selection_2_bound', 'interface_connectivity2',
 #                      'interface_energy_2_bound', 'interface_energy_2_unbound',
 #                      'sasa_hydrophobic_2_bound', 'sasa_polar_2_bound', 'sasa_total_2_bound',
@@ -145,7 +145,7 @@ clean_up_intermediate_columns = ['int_energy_no_intra_residue_score',
                                  'sasa_hydrophobic_bound', 'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound',
                                  'sasa_polar_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
                                  'sasa_total_bound', 'sasa_total_1_bound', 'sasa_total_2_bound',
-                                 'buns_complex', 'buns_unbound', 'buns_1_unbound', 'buns_2_unbound',
+                                 'buns_complex', 'buns_unbound', 'buns1_unbound', 'buns2_unbound',
                                  'solvation_energy', 'solvation_energy_complex',
                                  'solvation_energy_1_bound', 'solvation_energy_2_bound', 'solvation_energy_1_unbound',
                                  'solvation_energy_2_unbound',
@@ -259,13 +259,14 @@ def read_scores(file: AnyStr, key: str = 'decoy') -> dict[str, dict[str, str]]:
         for json_entry in f.readlines():
             formatted_scores = {}
             for score, value in loads(json_entry).items():
-                if score.startswith('per_res_'):  # There are a lot of these scores in particular
+                if 'res_' in score:  # 'per_res_'):  # There are a lot of these scores in particular
                     formatted_scores[score] = value
                 elif score.startswith('R_'):
                     formatted_scores[score.replace('R_', '').replace('S_', '')] = value
                 else:
-                    # res_summary replace is used to take sasa_res_summary and other per_res metrics "string" off
-                    score = score.replace('res_summary_', '').replace('solvation_total', 'solvation')
+                    # # res_summary replace is used to take sasa_res_summary and other res_summary metrics "string" off
+                    # score = score.replace('res_summary_', '')
+                    # score = score.replace('res_summary_', '').replace('solvation_total', 'solvation')
                     formatted_scores[columns_to_rename.get(score, score)] = value
 
             design = formatted_scores.pop(key)
@@ -384,7 +385,7 @@ def dirty_hbond_processing(design_scores: dict) -> dict[str, set]:
     for design, scores in design_scores.items():
         unbound_bonds, complex_bonds = set(), set()
         for column, value in scores.items():
-            if not column.startswith('hbonds_res_selection'):
+            if 'hbonds_res_' not in column:  # if not column.startswith('hbonds_res_selection'):
                 continue
             meta_data = column.split('_')  # ['hbonds', 'res', 'selection', 'complex/interface_number', '[unbound]']
             parsed_hbonds = set(int(hbond.translate(utils.keep_digit_table))

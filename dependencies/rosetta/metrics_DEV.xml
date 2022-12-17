@@ -41,11 +41,11 @@
 		# gather the residues involved in a residue selector
 		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="hbond_residues_sym"/>
 		# find the per residue energy of residues in a residue_selector
-		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="interface%%interface%%_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
+		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="interface%%interface%%_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
 		# gather the per residue SASA of a residue selection
-		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="hydrophobic_sasa"/>
-		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="polar_sasa"/>
-		<PerResidueSasaMetric name="M_sasa_total_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="all_sasa"/>
+		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="hydrophobic_sasa"/>
+		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="polar_sasa"/>
+		<PerResidueSasaMetric name="M_sasa_total_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="all_sasa"/>
 		# summarize the energy metrics from above
 		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum"/>
 		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum"/>
@@ -99,15 +99,15 @@
 	</MOVERS>
 
 	<FILTERS>
-		<BuriedUnsatHbonds name="buns_%%interface%%_unbound" residue_selector="interface%%interface%%" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
-		<BuriedUnsatHbonds name="buns_%%interface%%_unbound_ignore" residue_selector="interface%%interface%%" ignore_surface_res="true" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement
-		<BuriedUnsatHbonds name="buns_%%interface%%_unbound_sym" residue_selector="interface%%interface%%_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement
-		<BuriedUnsatHbonds name="buns_%%interface%%_unbound_sym_ignore" residue_selector="interface%%interface%%_sym" ignore_surface_res="true" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement
+		<BuriedUnsatHbonds name="buns%%interface%%_unbound" residue_selector="interface%%interface%%" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
+		<BuriedUnsatHbonds name="buns%%interface%%_unbound_ignore" residue_selector="interface%%interface%%" ignore_surface_res="true" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement
+		<BuriedUnsatHbonds name="buns%%interface%%_unbound_sym" residue_selector="interface%%interface%%_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement
+		<BuriedUnsatHbonds name="buns%%interface%%_unbound_sym_ignore" residue_selector="interface%%interface%%_sym" ignore_surface_res="true" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement
 <!--		<Holes name="interface_holes" threshold="2" residue_selector="tot_interface" normalize_per_atom="true" exclude_bb_atoms="false" confidence="0"/>-->
-		<Report name="R_buns_%%interface%%_unbound" 					filter="buns_%%interface%%_unbound"/>
-		<Report name="R_buns_%%interface%%_unbound_ignore" 				filter="buns_%%interface%%_unbound_ignore"/>
-		<Report name="R_buns_%%interface%%_unbound_sym" 				filter="buns_%%interface%%_unbound_sym"/>
-		<Report name="R_buns_%%interface%%_unbound_sym_ignore" 			filter="buns_%%interface%%_unbound_sym_ignore"/>
+		<Report name="R_buns%%interface%%_unbound" 					filter="buns%%interface%%_unbound"/>
+		<Report name="R_buns%%interface%%_unbound_ignore" 			filter="buns%%interface%%_unbound_ignore"/>
+		<Report name="R_buns%%interface%%_unbound_sym" 				filter="buns%%interface%%_unbound_sym"/>
+		<Report name="R_buns%%interface%%_unbound_sym_ignore" 		filter="buns%%interface%%_unbound_sym_ignore"/>
 		# holes score only around h-bond networks
 	</FILTERS>
 

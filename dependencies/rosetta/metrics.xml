@@ -38,11 +38,11 @@
 		# gather the residues involved in a residue selector
 		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="hbond_residues"/>
 		# find the per residue energy of residues in a residue_selector
-		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="interface%%interface%%_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
+		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="interface%%interface%%_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
 		# gather the per residue SASA of a residue selection
-		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="hydrophobic_sasa"/>
-		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="polar_sasa"/>
-		<PerResidueSasaMetric name="M_sasa_total_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="all_sasa"/>
+		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="hydrophobic_sasa"/>
+		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="polar_sasa"/>
+		<PerResidueSasaMetric name="M_sasa_total_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="all_sasa"/>
 		# summarize the energy metrics from above
 		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum"/>
 		<ResidueSummaryMetric name="M_int_energy_total_unbound" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%interface%%_unbound"/>
@@ -98,10 +98,10 @@
 	<FILTERS>
 		# find the average degree of connectivity to residues surrounding specified residues
 		<AverageDegree name="entity%%interface%%_interface_connectivity" threshold="0" distance_threshold="10.0" task_operations="design_around%%interface%%"/>
-		<BuriedUnsatHbonds name="buns_%%interface%%_unbound" residue_selector="interface%%interface%%" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
+		<BuriedUnsatHbonds name="buns%%interface%%_unbound" residue_selector="interface%%interface%%" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
 <!--		<BuriedUnsatHbonds name="buns_hpol_unbound" residue_selector="tot_interface" scorefxn="2015_nano" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true"/>-->
 		<Report name="R_entity%%interface%%_interface_connectivity" 		filter="entity%%interface%%_interface_connectivity"/>
-		<Report name="R_buns_%%interface%%_unbound" 						filter="buns_%%interface%%_unbound"/>
+		<Report name="R_buns%%interface%%_unbound" 						filter="buns%%interface%%_unbound"/>
 	</FILTERS>
 
 	<PROTOCOLS>
@@ -115,7 +115,7 @@
 		<Add mover_name="run_metrics_bound_sum_sasa_hydrophobic"/>
 		<Add mover_name="run_metrics_bound_sum_sasa_polar"/>
 		<Add mover_name="run_metrics_bound_sum_sasa_total"/>
-		<Add filter_name="R_buns_%%interface%%_unbound"/>
+		<Add filter_name="R_buns%%interface%%_unbound"/>
 		<Add mover_name="repack_loop"/> # Unused in P432 for minimization of the unbound state
 		<Add filter_name="R_entity%%interface%%_interface_connectivity"/>
 		<!--		<Add filter_name="R_full_stability_%%interface%%_unbound"/>-->

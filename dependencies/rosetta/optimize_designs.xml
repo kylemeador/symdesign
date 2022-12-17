@@ -140,8 +140,8 @@
 		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_cst"/>
 <!--		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_nano_cst"/>-->
         <SelectedResidueCountMetric name="M_interface_residue_count" residue_selector="tot_interface"/>
-<!--		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="hydrophobic_sasa"/>-->
-<!--		<PerResidueSasaMetric name="M_sasa_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="all_sasa"/>-->
+<!--		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="tot_interface" mode="hydrophobic_sasa"/>-->
+<!--		<PerResidueSasaMetric name="M_sasa_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="tot_interface" mode="all_sasa"/>-->
 <!--		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum" use_cached_data="1" cache_suffix="_hydrophobic"/> # cache_prefix=""-->
 <!--		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_per_res" action="sum" use_cached_data="1" cache_suffix="_total"/> # cache_prefix="" #-->
 	</SIMPLE_METRICS>
