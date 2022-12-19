@@ -405,12 +405,12 @@ def dirty_hbond_processing(design_scores: dict) -> dict[str, set]:
             #     parsed_hbonds = set(residue + res_offset for residue in parsed_hbonds)
             if meta_data[3] == 'complex':
                 complex_bonds = parsed_hbonds
-            else:  # from another state
+            else:  # From another state
                 unbound_bonds = unbound_bonds.union(parsed_hbonds)
         if complex_bonds:  # 'complex', '1', '2'
             hbonds[design] = complex_bonds.difference(unbound_bonds)
             # hbonds[design] = [hbonds_entry['complex'].difference(hbonds_entry['1']).difference(hbonds_entry['2']))]
-            #                                                         hbonds_entry['A']).difference(hbonds_entry['B'])
+            # #                                                       hbonds_entry['A']).difference(hbonds_entry['B']))]
         else:  # no hbonds were found in the complex
             hbonds[design] = complex_bonds
             # logger.error('%s: Missing hbonds_res_selection_ scores for %s. Hbonds inaccurate!' % (pose, design))

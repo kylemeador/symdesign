@@ -657,25 +657,25 @@ def create_mulitcistronic_sequences(args):
     file = args.file[0]  # since args.file is collected with nargs='*', select the first
     if file.endswith('.csv'):
         with open(file) as f:
-            design_sequences = [SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
-                                for name, sequence in csv.reader(f)]
+            protein_sequences = [SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
+                                 for name, sequence in csv.reader(f)]
     elif file.endswith('.fasta'):
-        design_sequences = list(read_fasta_file(file))
+        protein_sequences = list(read_fasta_file(file))
     else:
         raise NotImplementedError(f'Sequence file with extension {os.path.splitext(file)[-1]} is not supported!')
 
     # Convert the SeqRecord to a plain sequence
     # design_sequences = [str(seq_record.seq) for seq_record in design_sequences]
     nucleotide_sequences = {}
-    for idx, group_start_idx in enumerate(list(range(len(design_sequences)))[::args.number_of_genes], 1):
+    for idx, group_start_idx in enumerate(list(range(len(protein_sequences)))[::args.number_of_genes], 1):
         # Call attribute .seq to get the sequence
-        cistronic_sequence = optimize_protein_sequence(design_sequences[group_start_idx].seq,
+        cistronic_sequence = optimize_protein_sequence(protein_sequences[group_start_idx].seq,
                                                        species=args.optimize_species)
-        for protein_sequence in design_sequences[group_start_idx + 1: group_start_idx + args.number_of_genes]:
+        for protein_sequence in protein_sequences[group_start_idx + 1: group_start_idx + args.number_of_genes]:
             cistronic_sequence += args.multicistronic_intergenic_sequence
             cistronic_sequence += optimize_protein_sequence(protein_sequence.seq,
                                                             species=args.optimize_species)
-        new_name = f'{design_sequences[group_start_idx].id}_cistronic'
+        new_name = f'{protein_sequences[group_start_idx].id}_cistronic'
         nucleotide_sequences[new_name] = cistronic_sequence
         logger.info(f'Finished sequence {idx} - {new_name}')
 

@@ -470,7 +470,6 @@ def sequences(pose_directories: list[protocols.protocols.PoseDirectory]):
             prior_offset = 0
             # all_missing_residues = {}
             # mutations = []
-            # referenced_design_sequences = {}
             sequences_and_tags = {}
             entity_termini_availability, entity_helical_termini = {}, {}
             for idx, (source_entity, design_entity) in enumerate(zip(des_dir.pose.entities, design_pose.entities)):
