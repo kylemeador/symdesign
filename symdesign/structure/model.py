@@ -7192,11 +7192,12 @@ class Pose(SymmetricModel):
         # residue_template = {'energy': {'complex': 0., 'fsp': 0., 'cst': 0.,
         #                                'unbound': [0. for _ in self.entities], 'bound': [0. for _ in self.entities]}}
         pose_length = self.number_of_residues
+        c_term_residue_numbers = [entity.c_terminal_residue.number for entity in self.entities]
         # Adjust the energy based on pose specifics
         pose_energy_multiplier = self.number_of_symmetry_mates  # Will be 1 if not symmetric
         entity_energy_multiplier = [entity.number_of_symmetry_mates for entity in self.entities]
 
-        warn = False
+        warn = True
         parsed_design_residues = {}
         for design, scores in design_scores.items():
             residue_data = {}
@@ -7211,9 +7212,9 @@ class Pose(SymmetricModel):
                 # if we have enough chains, weird chain characters appear "per_res_energy_complex_19_" which mess up
                 # split. Also numbers appear, "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
                 residue_number = int(metadata[-1].translate(utils.keep_digit_table))
-                if residue_number > pose_length:
-                    if not warn:
-                        warn = True
+                if any(residue_number > last_residue for last_residue in c_term_residue_numbers):  # pose_length:
+                    if warn:
+                        warn = False
                         logger.warning(
                             f'Encountered {key} which has residue number > the pose length ({pose_length}). If this '
                             'system is NOT a large symmetric system and output_as_pdb_nums="true" was used in Rosetta '
@@ -7241,7 +7242,17 @@ class Pose(SymmetricModel):
                     residue_data[residue_number][metric_str] += (value / pose_energy_multiplier)
                 # else:  # sasa or something else old
                 #     pass
-            parsed_design_residues[design] = residue_data
+            # Turn the residue_data into Residue.index values
+            parsed_residue_numbers = residue_data.keys()
+            clean_residue_data = \
+                {residue.index: residue_data.pop(original_number)
+                 for original_number, residue in zip(parsed_residue_numbers, self.get_residues(parsed_residue_numbers))}
+
+            # Finally, check that we are cleaned for sanity
+            if residue_data:
+                raise DesignError(f"Found a design that couldn't be cleaned for residues in the Pose. "
+                                  f"Remaining contents:\n{residue_data}")
+            parsed_design_residues[design] = clean_residue_data  # residue_data
 
         return parsed_design_residues
 
