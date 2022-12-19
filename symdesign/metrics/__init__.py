@@ -60,7 +60,7 @@ nanohedra_metrics = ['multiple_fragment_ratio', 'nanohedra_score', 'nanohedra_sc
                      'number_interface_residues', 'number_of_fragments',
                      'percent_fragment_helix', 'percent_fragment_strand', 'percent_fragment_coil',
                      'percent_residues_fragment_interface_total', 'percent_residues_fragment_interface_center',
-                     'total_interface_residues', 'total_non_fragment_interface_residues']
+                     'total_non_fragment_interface_residues']
 # These metrics are necessary for all calculations performed during the analysis script. If missing, something will fail
 necessary_metrics = {'buns_complex', 'buns1_unbound', 'contact_count', 'coordinate_constraint',
                      'favor_residue_energy', 'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound',
@@ -476,52 +476,53 @@ def interface_composition_similarity(series: Mapping) -> float:
     return sum(class_ratio_differences) / len(class_ratio_differences)
 
 
-def incorporate_mutation_info(design_residue_scores: dict,
-                              mutations: dict[str, 'structure.sequence.mutation_dictionary']) -> dict:
+def incorporate_sequence_info(design_residue_scores: dict[str, dict], sequences: dict[str, Sequence[str]]) \
+        -> dict[str, dict]:
     """Incorporate mutation measurements into residue info. design_residue_scores and mutations must be the same index
 
     Args:
         design_residue_scores: {'001': {15: {'complex': -2.71, 'bound': [-1.9, 0], 'unbound': [-1.9, 0],
                                              'solv_complex': -2.71, 'solv_bound': [-1.9, 0], 'solv_unbound': [-1.9, 0],
                                              'fsp': 0., 'cst': 0.}, ...}, ...}
-        mutations: {'reference': {mutation_index: {'from': 'A', 'to: 'K'}, ...},
-                    '001': {mutation_index: {}, ...}, ...}
+        sequences: {'001': 'MKDLSAVLIRLAD...', '002': '', ...}
     Returns:
         {'001': {15: {'type': 'T', 'energy_delta': -2.71, 'coordinate_constraint': 0. 'residue_favored': 0., 'hbond': 0}
                  ...}, ...}
     """
-    warn = False
-    reference_data = mutations.get(putils.reference_name)
-    pose_length = len(reference_data)
+    # warn = False
+    # reference_data = mutations.get(putils.reference_name)
+    # pose_length = len(reference_data)
     for design, residue_info in design_residue_scores.items():
-        mutation_data = mutations.get(design)
-        if not mutation_data:
-            continue
+        sequence = sequences.get(design)
+        # mutation_data = mutations.get(design)
+        # if not mutation_data:
+        #     continue
 
-        remove_residues = []
-        for residue_number, data in residue_info.items():
-            try:  # Set residue AA type based on provided mutations
-                data['type'] = mutation_data[residue_number]
-            except KeyError:  # Residue is not in mutations, probably missing as it is not a mutation
-                try:  # Fill in with AA from putils.reference_name seq
-                    data['type'] = reference_data[residue_number]
-                except KeyError:  # Residue is out of bounds on pose length
-                    # Possibly a virtual residue or string that was processed incorrectly from the keep_digit_table
-                    if not warn:
-                        logger.error(f'Encountered residue number "{residue_number}" which is not within the pose size '
-                                     f'"{pose_length}" and will be removed from processing. This is likely an error '
-                                     f'with residue processing or residue selection in the specified rosetta protocol.'
-                                     f' If there were warnings produced indicating a larger residue number than pose '
-                                     f'size, this problem was not addressable heuristically and something else has '
-                                     f'occurred. It is likely that this residue number is not useful if you indeed have'
-                                     f' output_as_pdb_nums="true"')
-                        warn = True
-                    remove_residues.append(residue_number)
-                    continue
+        # remove_residues = []
+        for residue_index, data in residue_info.items():
+            data['type'] = sequence[residue_index]
+            # try:  # Set residue AA type based on provided mutations
+            #     data['type'] = mutation_data[residue_index]
+            # except KeyError:  # Residue is not in mutations, probably missing as it is not a mutation
+            #     try:  # Fill in with AA from putils.reference_name seq
+            #         data['type'] = reference_data[residue_index]
+            #     except KeyError:  # Residue is out of bounds on pose length
+            #         # Possibly a virtual residue or string that was processed incorrectly from the keep_digit_table
+            #         if not warn:
+            #             logger.error(f'Encountered residue index "{residue_index}" which is not within the pose size '
+            #                          f'"{pose_length}" and will be removed from processing. This is likely an error '
+            #                          f'with residue processing or residue selection in the specified rosetta protocol.'
+            #                          f' If there were warnings produced indicating a larger residue number than pose '
+            #                          f'size, this problem was not addressable heuristically and something else has '
+            #                          f'occurred. It is likely that this residue number is not useful if you indeed have'
+            #                          f' output_as_pdb_nums="true"')
+            #             warn = True
+            #         remove_residues.append(residue_index)
+            #         continue
 
-        # Clean up any incorrect residues
-        for residue in remove_residues:
-            residue_info.pop(residue)
+        # # Clean up any incorrect residues
+        # for residue in remove_residues:
+        #     residue_info.pop(residue)
 
     return design_residue_scores
 

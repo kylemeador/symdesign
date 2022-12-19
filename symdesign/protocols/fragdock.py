@@ -4036,7 +4036,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 #
                 #     # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
                 #     # residue_info = process_residue_info(residue_info)  # Only useful in Rosetta
-                #     # residue_info = incorporate_mutation_info(residue_info, all_mutations)
+                #     # residue_info = incorporate_sequence_info(residue_info, all_mutations)
                 #     # residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
                 #
                 #     # Calculate hydrophobic collapse for each design

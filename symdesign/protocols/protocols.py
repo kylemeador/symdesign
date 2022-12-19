@@ -3038,7 +3038,7 @@ class PoseDirectory(PoseProtocol):
             # Can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
             # interface_hbonds = hbond_processing(structure_design_scores, hbonds_columns)
             residue_info = metrics.process_residue_info(residue_info, hbonds=interface_hbonds)
-            residue_info = metrics.incorporate_mutation_info(residue_info, all_mutations)
+            residue_info = metrics.incorporate_sequence_info(residue_info, pose_sequences)
             # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
             # residue_info.update(residue_processing(structure_design_scores, simplify_mutation_dict(all_mutations),
             #                                        per_res_columns, hbonds=interface_hbonds))
@@ -3116,10 +3116,6 @@ class PoseDirectory(PoseProtocol):
             remove_columns = metrics.rosetta_terms + metrics.unnecessary
             residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.to_list()})
             # Todo generate energy scores internally which matches output from residue_processing
-            # interface_hbonds = metrics.dirty_hbond_processing(design_scores)
-            # residue_info = self.pose.rosetta_residue_processing(design_scores)
-            # residue_info = metrics.process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
-            #                                             hbonds=interface_hbonds)
             viable_designs = [pose.name for pose in design_poses]
 
         scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
