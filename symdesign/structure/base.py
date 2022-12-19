@@ -2091,6 +2091,24 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
 
         return [residue for residue in next_residues if residue]
 
+    def get_neighbors(self, distance: float = 8., **kwargs) -> list[Residue]:
+        """The neighbors to the Residue in the Structure if this Residue is part of a polymer
+
+        Args:
+            distance – The distance to measure neighbors by
+        Returns:
+            The Residues that are within the distance to this residue neighbors
+        """
+        # try:
+        #     return self._neighbors
+        # except AttributeError:
+        #     self._neighbors = self.get_residues_by_atom_indices(self.neighboring_atom_indices(**kwargs))
+        try:
+            return self.parent.get_residues_by_atom_indices(self.neighboring_atom_indices(distance=distance, **kwargs))
+        except AttributeError:  # This Residue is the parent
+            return [self]
+        #     return self._neighbors
+
     # Below properties are considered part of the Residue state
     @property
     def local_density(self) -> float:

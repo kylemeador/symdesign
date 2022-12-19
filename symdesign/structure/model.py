@@ -5291,6 +5291,7 @@ class Pose(SymmetricModel):
     _active_entities: list[Entity]
     _center_residue_indices: list[int]
     _design_residues: list[Residue]
+    _interface_neighbor_residues: list[Residue]
     _interface_residues: list[Residue]
     _no_reset: bool
     design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] | None
@@ -5368,10 +5369,25 @@ class Pose(SymmetricModel):
         try:
             return self._interface_residues
         except AttributeError:
+            if not self.split_interface_residues:
+                self.find_and_split_interface()
+
             self._interface_residues = []
             for number, residues_entities in self.split_interface_residues.items():
                 self._interface_residues.extend([residue for residue, _ in residues_entities])
             return self._interface_residues
+
+    @property
+    def interface_neighbor_residues(self) -> list[Residue]:
+        """The Residue instances identified as neighbors to interfaces in the Pose. Assumes default distance of 8 A"""
+        try:
+            return self._interface_neighbor_residues
+        except AttributeError:
+            self._interface_neighbor_residues = []
+            for idx, residue in self.interface_residues:
+                self._interface_neighbor_residues.extend(residue.get_neighbors())
+
+            return self._interface_neighbor_residues
 
         # This finds only those residues actively contributing to the interface
         # self._interface_residues_only = set()
@@ -5475,7 +5491,7 @@ class Pose(SymmetricModel):
 
     def get_proteinmpnn_params(self, ca_only: bool = False, pssm_multi: float = 0., pssm_log_odds_flag: bool = False,
                                pssm_bias_flag: bool = False, bias_profile_by_probabilities: bool = False,
-                               interface: bool = True, **kwargs) -> dict[str, np.ndarray]:
+                               interface: bool = True, neighbors: bool = False, **kwargs) -> dict[str, np.ndarray]:
         # decode_core_first: bool = False
         """
 
@@ -5487,7 +5503,8 @@ class Pose(SymmetricModel):
             pssm_log_odds_flag: Whether to use log_odds mask to limit the residues designed
             pssm_bias_flag: Whether to use bias to modulate the residue probabilities designed
             bias_profile_by_probabilities: Whether to produce bias by profile probabilities as opposed to profile lods
-            interface: Whether to design the interface only
+            interface: Whether to design the interface
+            neighbors: Whether to design interface neighbors
         Keyword Args:
             distance: float = 8. - The distance to measure Residues across an interface
         Returns:
@@ -5499,9 +5516,15 @@ class Pose(SymmetricModel):
             self.find_and_split_interface(**kwargs)
 
             # Add all interface + required residues
-            design_residues = [residue.index for residue in self.design_residues]
+            if neighbors:
+                self.design_residues = \
+                    self.required_residues + self.interface_residues + self.interface_neighbor_residues
+            else:
+                self.design_residues = self.required_residues + self.interface_residues
+            design_indices = [residue.index for residue in self.design_residues]
         else:
-            design_residues = list(range(self.number_of_residues))
+            self.design_residues = self.residues
+            design_indices = list(range(self.number_of_residues))
 
         if ca_only:  # self.job.design.ca_only:
             coords_type = 'ca_coords'
@@ -5513,7 +5536,7 @@ class Pose(SymmetricModel):
         # Make masks for the sequence design task
         # Residue position mask denotes which residues should be designed. 1 - designed, 0 - known
         residue_mask = np.zeros(self.number_of_residues, dtype=np.int32)  # (number_of_residues,)
-        residue_mask[design_residues] = 1
+        residue_mask[design_indices] = 1
 
         # Todo resolve these data structures as flags
         omit_AAs_np = np.zeros(resources.ml.mpnn_alphabet_length, dtype=np.int32)  # (alphabet_length,)
@@ -5601,7 +5624,7 @@ class Pose(SymmetricModel):
             self.log.debug(f'Tiled bias_by_res: '
                            f'{bias_by_res[number_of_residues-5: number_of_residues+5]}')
             tied_beta = np.ones_like(residue_mask)  # (number_of_sym_residues,)
-            tied_pos = [self.make_indices_symmetric([idx], dtype='residue') for idx in design_residues]
+            tied_pos = [self.make_indices_symmetric([idx], dtype='residue') for idx in design_indices]
             # (design_residues, number_of_symmetry_mates)
         else:
             X = getattr(self, coords_type).reshape((self.number_of_residues, num_model_residues, 3))  # (residues, 4, 3)
@@ -5670,18 +5693,18 @@ class Pose(SymmetricModel):
     @torch.no_grad()  # Ensure no gradients are produced
     def design_sequences(self, method: flags.design_programs_literal = putils.proteinmpnn, number: int = flags.nstruct,
                          temperatures: Sequence[float] = (0.1,), interface: bool = True, measure_unbound: bool = True,
-                         ca_only: bool = False, **kwargs) \
-            -> dict[str, np.ndarray]:
+                         ca_only: bool = False, **kwargs) -> dict[str, np.ndarray]:
         """Perform sequence design on the Pose
 
         Args:
             method: Whether to design using ProteinMPNN or Rosetta
             number: The number of sequences to design
             temperatures: The temperatures to perform design at
-            interface: Whether to design the interface only
+            interface: Whether to design the interface
             measure_unbound: Whether the protein should be designed with concern for the unbound state
             ca_only: Whether a minimal CA variant of the protein should be used for design calculations
         Keyword Args:
+            neighbors: bool = False - Whether to design interface neighbors
             model_name: str = 'v_48_020' - The name of the model to use from ProteinMPNN.
                 v_X_Y where X is neighbor distance, and Y is noise
             backbone_noise: float = 0.0 - The amount of backbone noise to add to the pose during design

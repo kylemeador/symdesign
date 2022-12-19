@@ -39,6 +39,7 @@ modules = 'modules'
 score = 'score'
 module = 'module'
 method = 'method'
+neighbors = 'neighbors'
 # dock_only = 'dock_only'
 rotation_step1 = 'rotation_step1'
 rotation_step2 = 'rotation_step2'
@@ -803,6 +804,9 @@ sequences_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,  # 
 structures_args = (f'--{structures}',)
 structures_kwargs = dict(action='store_true',
                          help='Whether the structure of each new sequence should be calculated'),
+neighbors_args = (f'--{neighbors}',)
+neighbors_kwargs = \
+    dict(action='store_true', help='Whether the neighboring residues should be considered during sequence design')
 design_method_args = ('-m', f'--{method}', f'--design-{method}')
 design_method_kwargs = dict(type=str.lower, default=proteinmpnn, choices=design_programs, metavar='',
                             help='Which design method should be used?\nChoices=%(choices)s\nDefault=%(default)s')
@@ -815,9 +819,9 @@ structure_background_args = ('-sb', f'--{structure_background}')
 structure_background_kwargs = dict(action=argparse.BooleanOptionalAction, default=False,
                                    help='Whether to skip all constraints and measure the structure using only the '
                                         'selected energy function')
-trajectory_args = ('-n', f'--{number_of_designs}')
-trajectory_kwargs = dict(type=int, default=nstruct, metavar='INT',
-                         help='How many unique sequences should be generated for each input?\nDefault=%(default)s')
+design_number_args = ('-n', f'--{number_of_designs}')
+design_number_kwargs = dict(type=int, default=nstruct, metavar='INT',
+                            help='How many unique sequences should be generated for each input?\nDefault=%(default)s')
 scout_args = ('-sc', f'--{scout}')
 scout_kwargs = dict(action=argparse.BooleanOptionalAction, default=False,
                     help='Whether to set up a low resolution scouting protocol to survey designability')
@@ -829,7 +833,7 @@ design_arguments = {
     evolution_constraint_args: evolution_constraint_kwargs,
     hbnet_args: hbnet_kwargs,
     design_method_args: design_method_kwargs,
-    trajectory_args: trajectory_kwargs,
+    design_number_args: design_number_kwargs,
     structure_background_args: structure_background_kwargs,
     scout_args: scout_kwargs,
     term_constraint_args: term_constraint_kwargs
@@ -840,9 +844,10 @@ interface_design_help = 'Gather poses of interest and format for interface speci
 parser_interface_design = {interface_design: dict(description=interface_design_help, help=interface_design_help)}
 interface_design_arguments = {
     evolution_constraint_args: evolution_constraint_kwargs,
-    hbnet_args: hbnet_kwargs,
     design_method_args: design_method_kwargs,
-    trajectory_args: trajectory_kwargs,
+    hbnet_args: hbnet_kwargs,
+    neighbors_args: neighbors_kwargs,
+    design_number_args: design_number_kwargs,
     structure_background_args: structure_background_kwargs,
     scout_args: scout_kwargs,
     term_constraint_args: term_constraint_kwargs
