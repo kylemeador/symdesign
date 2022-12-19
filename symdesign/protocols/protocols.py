@@ -157,8 +157,8 @@ class PoseProtocol:
         else:
             score = []
 
-        if self.job.design.number_of_trajectories:
-            trajectories = ['-nstruct', str(self.job.design.number_of_trajectories)]
+        if self.job.design.number:
+            trajectories = ['-nstruct', str(self.job.design.number)]
         else:
             trajectories = ['-no_nstruct_label true']
 
@@ -584,7 +584,7 @@ class PoseProtocol:
 
         self.protocol = protocol_xml1 = putils.optimize_designs
         # nstruct_instruct = ['-no_nstruct_label', 'true']
-        nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
+        nstruct_instruct = ['-nstruct', str(self.job.design.number)]
         design_list_file = os.path.join(self.scripts, f'design_files_{self.protocol}.txt')
         generate_files_cmd = \
             ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + self.protocol]
@@ -679,20 +679,20 @@ class PoseProtocol:
             The selected designs for the Pose trajectories
         """
         # Load relevant data from the design directory
-        trajectory_df = pd.read_csv(self.trajectories, index_col=0, header=[0])
-        trajectory_df.dropna(inplace=True)
+        designs_df = pd.read_csv(self.trajectories, index_col=0, header=[0])
+        designs_df.dropna(inplace=True)
         if protocols:
             designs = []
             for protocol in protocols:
-                designs.extend(trajectory_df[trajectory_df['protocol'] == protocol].index.to_list())
+                designs.extend(designs_df[designs_df['protocol'] == protocol].index.to_list())
 
             if not designs:
                 raise DesignError(f'No designs found for protocols {protocols}!')
         else:
-            designs = trajectory_df.index.to_list()
+            designs = designs_df.index.to_list()
 
-        self.log.info(f'Number of starting trajectories = {len(trajectory_df)}')
-        df = trajectory_df.loc[designs, :]
+        self.log.info(f'Number of starting trajectories = {len(designs_df)}')
+        df = designs_df.loc[designs, :]
 
         if filters:
             self.log.info(f'Using filter parameters: {filters}')
@@ -2245,20 +2245,21 @@ class PoseDirectory(PoseProtocol):
             # metrics_flags = 'repack=yes'
             if self.job.design.structure_background:
                 self.protocol = protocol_xml1 = putils.structure_background
-                nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
+                nstruct_instruct = ['-nstruct', str(self.job.design.number)]
             elif self.job.design.hbnet:  # Run hbnet_design_profile protocol
                 self.protocol, protocol_xml1 = putils.hbnet_design_profile, 'hbnet_scout'
                 nstruct_instruct = ['-no_nstruct_label', 'true']
                 # Set up an additional command to perform interface design on hydrogen bond network from hbnet_scout
                 additional_cmds = \
                     [[putils.hbnet_sort, os.path.join(self.data, 'hbnet_silent.o'),
-                      str(self.job.design.number_of_trajectories)]] + main_cmd + profile_cmd \
-                    + ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), f'@{self.flags}',
-                       '-in:file:silent_struct_type', 'binary',
-                       # '-out:suffix', f'_{self.protocol}',  adding no_nstruct_label true as only hbnet uses this mechanism
-                       # hbnet_design_profile.xml could be just design_profile.xml
-                       '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{self.protocol}.xml')] \
-                    + nstruct_instruct
+                      str(self.job.design.number)]] \
+                    + [main_cmd + profile_cmd
+                       + ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), f'@{self.flags}',
+                          '-in:file:silent_struct_type', 'binary',  # '-out:suffix', f'_{self.protocol}',
+                          # adding no_nstruct_label true as only hbnet uses this mechanism
+                          # hbnet_design_profile.xml could be just design_profile.xml
+                          '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{self.protocol}.xml')] \
+                       + nstruct_instruct]
                 # Set up additional out_file
                 out_file = ['-out:file:silent', os.path.join(self.data, 'hbnet_silent.o'),
                             '-out:file:silent_struct_type', 'binary']
@@ -2271,7 +2272,7 @@ class PoseDirectory(PoseProtocol):
                 #     ]
             else:  # Run the legacy protocol
                 self.protocol = protocol_xml1 = putils.interface_design
-                nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
+                nstruct_instruct = ['-nstruct', str(self.job.design.number)]
 
         # DESIGN: Prepare command and flags file
         if not os.path.exists(self.flags) or self.job.force:
@@ -2358,19 +2359,19 @@ class PoseDirectory(PoseProtocol):
 
         """
         self.protocol = 'proteinmpnn'
-        self.log.info(f'Starting {self.protocol} design calculation with {self.job.design.number_of_trajectories} '
-                      f'trajectories over the temperatures: {self.job.design.temperatures}')
+        self.log.info(f'Starting {self.protocol} design calculation with {self.job.design.number} '
+                      f'designs over each of the temperatures: {self.job.design.temperatures}')
         sequences_and_scores: dict[str, np.ndarray | list] = \
-            self.pose.design_sequences(number=self.job.design.number_of_trajectories,
+            self.pose.design_sequences(number=self.job.design.number,
                                        temperatures=self.job.design.temperatures,
                                        interface=interface,
                                        ca_only=self.job.design.ca_only
                                        )
         # Add protocol (job info) and temperature to sequences_and_scores
         sequences_and_scores[putils.protocol] = \
-            repeat(self.protocol, len(self.job.design.number_of_trajectories * self.job.design.temperatures))
+            repeat(self.protocol, len(self.job.design.number * self.job.design.temperatures))
         sequences_and_scores['temperatures'] = [temperature for temperature in self.job.design.temperatures
-                                                for _ in range(self.job.design.number_of_trajectories)]
+                                                for _ in range(self.job.design.number)]
 
         design_names = [f'{self.name}_{self.protocol}{seq_idx:04d}'
                         for seq_idx in range(1, 1 + len(sequences_and_scores['sequences']))]
@@ -2404,15 +2405,15 @@ class PoseDirectory(PoseProtocol):
         #     # if isinstance(data, np.ndarray):
         #     sequences_and_scores[score_type] = data.tolist()
 
-        # # trajectories_temperatures_ids = [f'temp{temperature}' for idx in self.job.design.number_of_trajectories
+        # # trajectories_temperatures_ids = [f'temp{temperature}' for idx in self.job.design.number
         # #                                  for temperature in self.job.design.temperatures]
-        # # trajectories_temperatures_ids = [{'temperatures': temperature} for idx in self.job.design.number_of_trajectories
+        # # trajectories_temperatures_ids = [{'temperatures': temperature} for idx in self.job.design.number
         # #                                  for temperature in self.job.design.temperatures]
         # protocol = 'proteinmpnn'
         # sequences_and_scores[putils.protocol] = \
-        #     repeat(protocol, len(self.job.design.number_of_trajectories * self.job.design.temperatures))
+        #     repeat(protocol, len(self.job.design.number * self.job.design.temperatures))
         # sequences_and_scores['temperatures'] = [temperature for temperature in self.job.design.temperatures
-        #                                         for _ in range(self.job.design.number_of_trajectories)]
+        #                                         for _ in range(self.job.design.number)]
 
         def write_per_residue_scores(_design_ids: Sequence[str], scores: dict[str, list]) -> AnyStr:
             """"""
@@ -2963,6 +2964,7 @@ class PoseDirectory(PoseProtocol):
 
         source_df = pd.DataFrame(empty_source, index=putils.pose_source)
 
+        # Get the metrics from the score file for each design
         if os.path.exists(self.scores_file):  # Rosetta scores file is present  # Todo PoseDirectory(.path)
             self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseDirectory(.path)
             design_was_performed = True
@@ -3503,17 +3505,17 @@ class PoseDirectory(PoseProtocol):
         # scores_df = pd.concat([scores_df, proteinmpnn_df], axis=1)
         scores_df.dropna(how='all', inplace=True, axis=1)  # Remove completely empty columns
         # Refine is not considered sequence design and destroys mean. remove v
-        # trajectory_df = scores_df.sort_index().drop(putils.refine, axis=0, errors='ignore')
+        # designs_df = scores_df.sort_index().drop(putils.refine, axis=0, errors='ignore')
         # Consensus cst_weights are very large and destroy the mean.
         # Remove this drop for consensus or refine if they are run multiple times
-        trajectory_df = \
+        designs_df = \
             scores_df.drop([putils.pose_source, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
 
         # Get total design statistics for every sequence in the pose and every protocol specifically
         scores_df[putils.protocol] = protocol_s
         protocol_groups = scores_df.groupby(putils.protocol)
         # numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
-        # print(trajectory_df.select_dtypes(exclude=numerics))
+        # print(designs_df.select_dtypes(exclude=numerics))
 
         pose_stats, protocol_stats = [], []
         for idx, stat in enumerate(stats_metrics):
@@ -3521,7 +3523,7 @@ class PoseDirectory(PoseProtocol):
             #  FutureWarning: The default value of numeric_only in DataFrame.mean is deprecated. In a future version,
             #  it will default to False. In addition, specifying 'numeric_only=None' is deprecated. Select only valid
             #  columns or specify the value of numeric_only to silence this warning.
-            pose_stats.append(getattr(trajectory_df, stat)().rename(stat))
+            pose_stats.append(getattr(designs_df, stat)().rename(stat))
             protocol_stats.append(getattr(protocol_groups, stat)())
 
         # Format stats_s for final pose_s Series
@@ -3536,20 +3538,17 @@ class PoseDirectory(PoseProtocol):
                 protocol_stats[idx] = protocol_stats[idx].rename(index={protocol: f'{protocol}_{stat}'
                                                                         for protocol in unique_design_protocols})
         # Remove std rows if there is no stdev
-        # number_of_trajectories = len(trajectory_df) + len(protocol_groups) + 1  # 1 for the mean
-        final_trajectory_indices = trajectory_df.index.to_list() + unique_protocols + [mean]
-        trajectory_df = pd.concat([trajectory_df]
-                                  + [df.dropna(how='all', axis=0) for df in protocol_stats]  # v don't add if nothing
-                                  + [pd.to_numeric(s).to_frame().T for s in pose_stats if not all(s.isna())])
-        # This concat ^ puts back putils.pose_source, refine, consensus designs since protocol_stats is calculated on scores_df
-        # Add all pose information to each trajectory
-        # interface_metrics_s = pd.Series(other_pose_metrics)
-        # # Todo transpose may cause issues. Can this be created with a join and fill? merge?
-        # pose_metrics_df = pd.concat([interface_metrics_s] * number_of_trajectories, axis=1).T
-        pose_metrics_df = pd.DataFrame.from_dict({idx: other_pose_metrics for idx in final_trajectory_indices},
-                                                 orient='index')
-        trajectory_df = pd.concat([trajectory_df, pose_metrics_df], axis=1)
-        trajectory_df = trajectory_df.fillna({'observations': 1})
+        # number_of_trajectories = len(designs_df) + len(protocol_groups) + 1  # 1 for the mean
+        # final_trajectory_indices = designs_df.index.to_list() + unique_protocols + [mean]
+        designs_df = pd.concat([designs_df]
+                               + [df.dropna(how='all', axis=0) for df in protocol_stats]  # v don't add if nothing
+                               + [pd.to_numeric(s).to_frame().T for s in pose_stats if not all(s.isna())])
+        # This concat puts back putils.pose_source, refine, consensus index as protocol_stats is calculated on scores_df
+        # # Add all pose information to each trajectory
+        # pose_metrics_df = pd.DataFrame.from_dict({idx: other_pose_metrics for idx in final_trajectory_indices},
+        #                                          orient='index')
+        # designs_df = pd.concat([designs_df, pose_metrics_df], axis=1)
+        designs_df = designs_df.fillna({'observations': 1})
 
         # Calculate protocol significance
         pvalue_df = pd.DataFrame()
@@ -3565,16 +3564,16 @@ class PoseDirectory(PoseProtocol):
         else:  # Test significance between all combinations of protocols by grabbing mean entries per protocol
             for prot1, prot2 in combinations(sorted(similarity_protocols), 2):
                 select_df = \
-                    trajectory_df.loc[[design for designs in [designs_by_protocol[prot1], designs_by_protocol[prot2]]
-                                       for design in designs], metrics.significance_columns]
-                # prot1/2 pull out means from trajectory_df by using the protocol name
+                    designs_df.loc[[design for designs in [designs_by_protocol[prot1], designs_by_protocol[prot2]]
+                                    for design in designs], metrics.significance_columns]
+                # prot1/2 pull out means from designs_df by using the protocol name
                 difference_s = \
-                    trajectory_df.loc[prot1, metrics.significance_columns].sub(
-                        trajectory_df.loc[prot2, metrics.significance_columns])
+                    designs_df.loc[prot1, metrics.significance_columns].sub(
+                        designs_df.loc[prot2, metrics.significance_columns])
                 pvalue_df[(prot1, prot2)] = metrics.df_permutation_test(select_df, difference_s, compare='mean',
                                                                         group1_size=len(designs_by_protocol[prot1]))
             pvalue_df = pvalue_df.T  # transpose significance pairs to indices and significance metrics to columns
-            trajectory_df = pd.concat([trajectory_df, pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1)])
+            designs_df = pd.concat([designs_df, pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1)])
 
             # Compute residue energy/sequence differences between each protocol
             residue_energy_df = residue_df.loc[:, idx_slice[:, 'energy_delta']]
@@ -3622,8 +3621,8 @@ class PoseDirectory(PoseProtocol):
                     background_distance = \
                         cdist(residue_energy_pc,
                               grouped_pc_energy_df.loc[putils.structure_background, :].values[np.newaxis, :])
-                    trajectory_df = \
-                        pd.concat([trajectory_df,
+                    designs_df = \
+                        pd.concat([designs_df,
                                    pd.Series(background_distance.flatten(), index=residue_energy_pc_df.index,
                                              name=f'energy_distance_from_{putils.structure_background}_mean')], axis=1)
 
@@ -3747,7 +3746,7 @@ class PoseDirectory(PoseProtocol):
 
         # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
         if self.job.save:
-            trajectory_df.sort_index(inplace=True, axis=1)
+            designs_df.sort_index(inplace=True, axis=1)
             residue_df.sort_index(inplace=True)
             residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
             residue_df[(putils.protocol, putils.protocol)] = protocol_s
@@ -3759,11 +3758,11 @@ class PoseDirectory(PoseProtocol):
             else:
                 putils.make_path(self.job.all_scores)
                 # if self.job.merge:
-                #     trajectory_df = pd.concat([trajectory_df], axis=1, keys=['metrics'])
-                #     trajectory_df = pd.merge(trajectory_df, residue_df, left_index=True, right_index=True)
+                #     designs_df = pd.concat([designs_df], axis=1, keys=['metrics'])
+                #     designs_df = pd.merge(designs_df, residue_df, left_index=True, right_index=True)
                 # else:
                 residue_df.to_csv(self.residues_file)  # Todo PoseDirectory(.path)
-                trajectory_df.to_csv(self.trajectories)  # Todo PoseDirectory(.path)
+                designs_df.to_csv(self.trajectories)  # Todo PoseDirectory(.path)
             # pickle_object(pose_sequences, self.designed_sequences_file, out_path='')  # Todo PoseDirectory(.path)
             write_sequences(pose_sequences, file_name=self.designed_sequences_file)
 

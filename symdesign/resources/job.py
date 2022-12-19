@@ -289,6 +289,8 @@ class JobResources:
         self.force: bool = kwargs.get(putils.force)
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
         self.design = Design.from_flags(**kwargs)
+        # Alias number_of_designs
+        self.design.number = self.design.number_of_designs
         # self.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
         if self.design.ignore_clashes:
             self.design.ignore_pose_clashes = self.design.ignore_symmetric_clashes = True
@@ -315,7 +317,7 @@ class JobResources:
         # self.evolution_constraint: bool = kwargs.get(evolution_constraint, False)
         # self.hbnet: bool = kwargs.get(hbnet, False)
         # self.term_constraint: bool = kwargs.get(term_constraint, False)
-        # self.number_of_trajectories: int = kwargs.get(number_of_trajectories, flags.nstruct)
+        # self.number_of_designs: int = kwargs.get(number_of_designs, flags.nstruct)
         # self.pre_refine: bool = kwargs.get('pre_refine', True)
         # self.pre_loop_model: bool = kwargs.get('pre_loop_model', True)
         self.interface_to_alanine: bool = kwargs.get('interface_to_alanine')
