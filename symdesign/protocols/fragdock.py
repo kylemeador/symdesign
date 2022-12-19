@@ -3798,7 +3798,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # if job.design.sequences:
                 # if proteinmpnn_used:
                 if job.dock.proteinmpnn_score:
-                    design_dock_params = {'designed_residues_total': per_residue_design_indices[idx]}
+                    design_dock_params = {'design_residue': per_residue_design_indices[idx]}
                     # if job.dock.proteinmpnn_score:
                         # dock_per_residue_design_cross_entropy = per_residue_design_cross_entropy[idx]
                         # dock_per_residue_evolution_cross_entropy = per_residue_evolution_cross_entropy[idx]
@@ -3951,7 +3951,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                     #         per_residue_data[pose_id] = {
                     #             **per_res_interface_metrics,
                     #             **design_dock_params,
-                    #             'designed_residues_total': dock_per_residue_design_indices,
+                    #             'design_residue': dock_per_residue_design_indices,
                     #             'proteinmpnn_loss_complex': dock_per_residue_complex_sequence_loss[temp_idx],
                     #             'proteinmpnn_loss_unbound': dock_per_residue_unbound_sequence_loss[temp_idx],
                     #             # 'proteinmpnn_v_design_probability_cross_entropy_loss': dock_per_residue_design_cross_entropy,
@@ -4102,7 +4102,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 #     # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
                 #     scores_df['interface_area_to_residue_surface_ratio'] = \
                 #         (bsa_assembly_df / (bsa_assembly_df+scores_df['sasa_total_complex']))
-                #     #      / scores_df['total_interface_residues']
+                #     #      / scores_df['number_interface_residues']
                 #
                 #     # Make scores_df errat_deviation that takes into account the pose_source sequence errat_deviation
                 #     # This overwrites the metrics.sum_per_residue_metrics() value
@@ -4121,9 +4121,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 scores_df = scores_df.drop(scores_drop_columns, errors='ignore', axis=1)
                 scores_df = scores_df.rename(columns={'type': 'sequence'})
                 #                                       'evolution': 'proteinmpnn_loss_evolution',
-                #                                       'fragment': 'proteinmpnn_loss_fragment',
-                #                                       'designed': 'designed_residues_total'})
-                designed_df = per_residue_df.loc[:, idx_slice[:, 'designed_residues_total']].droplevel(1, axis=1)
+                #                                       'fragment': 'proteinmpnn_loss_fragment'})
+                designed_df = per_residue_df.loc[:, idx_slice[:, 'design_residue']].droplevel(1, axis=1)
 
                 if job.dock.proteinmpnn_score:
                     # scores_df['collapse_new_positions'] /= scores_df['pose_length']
