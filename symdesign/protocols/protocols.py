@@ -2912,8 +2912,6 @@ class PoseDirectory(PoseProtocol):
             self._generate_fragments(interface=True)
             self.pose.calculate_fragment_profile()
 
-        # Gather miscellaneous pose specific metrics
-        other_pose_metrics = self.pose.interface_metrics()
         # CAUTION: Assumes each structure is the same length
         pose_length = self.pose.number_of_residues
         residue_indices = list(range(pose_length))
@@ -2942,10 +2940,11 @@ class PoseDirectory(PoseProtocol):
              for entity in self.pose.entities for residue in entity.residues}
         residue_info = {putils.pose_source: pose_source_residue_info}
 
-        # Take metrics for the pose_source
-        job_key = 'no_energy'
-        # Get the scores from the score file on design trajectory metrics
+        # Gather miscellaneous pose specific metrics
+        other_pose_metrics = self.pose.interface_metrics()
+        # Create metrics for the pose_source
         empty_source = dict(
+            **other_pose_metrics,
             buns_complex=0,
             # buns_unbound=0,
             contact_count=0,
@@ -2958,6 +2957,7 @@ class PoseDirectory(PoseProtocol):
             rosetta_reference_energy=0,
             shape_complementarity=0,
         )
+        job_key = 'no_energy'
         empty_source[putils.protocol] = job_key
         for idx, entity in enumerate(self.pose.entities, 1):
             empty_source[f'buns{idx}_unbound'] = 0
@@ -3000,8 +3000,8 @@ class PoseDirectory(PoseProtocol):
 
             # Create protocol dataframe
             scores_df = pd.DataFrame.from_dict(structure_design_scores, orient='index')
-            # Fill in all the missing values with that of the default pose_source
-            scores_df = pd.concat([source_df, scores_df]).fillna(method='ffill')
+            # # Fill in all the missing values with that of the default pose_source
+            # scores_df = pd.concat([source_df, scores_df]).fillna(method='ffill')
             # Gather all columns into specific types for processing and formatting
             per_res_columns = []
             # hbonds_columns = []
@@ -3113,8 +3113,8 @@ class PoseDirectory(PoseProtocol):
             # source_df['shape_complementarity'] = 0
             scores_df = pd.DataFrame.from_dict({pose.name: {putils.protocol: job_key} for pose in design_poses},
                                                orient='index')
-            # Fill in all the missing values with that of the default pose_source
-            scores_df = pd.concat([source_df, scores_df]).fillna(method='ffill')
+            # # Fill in all the missing values with that of the default pose_source
+            # scores_df = pd.concat([source_df, scores_df]).fillna(method='ffill')
 
             remove_columns = metrics.rosetta_terms + metrics.unnecessary
             residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.to_list()})
@@ -3150,7 +3150,9 @@ class PoseDirectory(PoseProtocol):
         # Replace empty strings with np.nan and convert remaining to float
         scores_df.replace('', np.nan, inplace=True)
         scores_df.fillna(dict(zip(metrics.protocol_specific_columns, repeat(0))), inplace=True)
-        scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
+        # scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
+        # Fill in all the missing values with that of the default pose_source
+        scores_df = pd.concat([source_df, scores_df]).fillna(method='ffill')
 
         # atomic_deviation = {}
         # pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
@@ -3336,7 +3338,8 @@ class PoseDirectory(PoseProtocol):
                     {design: len([1 for mutation_idx in mutations if mutation_idx <= entity_c_terminal_residue_index])
                      for design, mutations in all_mutations.items()})
             scores_df[f'entity{idx}_percent_mutations'] = \
-                scores_df[f'entity{idx}_number_of_mutations'] / other_pose_metrics[f'entity{idx}_number_of_residues']
+                scores_df[f'entity{idx}_number_of_mutations'] / scores_df[f'entity{idx}_number_of_residues']
+            #     scores_df[f'entity{idx}_number_of_mutations'] / other_pose_metrics[f'entity{idx}_number_of_residues']
 
         # entity_alignment = multi_chain_alignment(entity_sequences)
         # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
@@ -3521,10 +3524,12 @@ class PoseDirectory(PoseProtocol):
             pose_stats.append(getattr(designs_df, stat)().rename(stat))
             protocol_stats.append(getattr(protocol_groups, stat)())
 
-        # Format stats_s for final pose_s Series
+        # Add the number of observations of each protocol
         protocol_stats[stats_metrics.index(mean)]['observations'] = protocol_groups.size()
+        # Format stats_s for final pose_s Series
         protocol_stats_s = pd.concat([stat_df.T.unstack() for stat_df in protocol_stats], keys=stats_metrics)
         pose_stats_s = pd.concat(pose_stats, keys=list(zip(stats_metrics, repeat('pose'))))
+        pose_stats_s[('mean', 'pose', 'observations')] = len(viable_designs)
         stat_s = pd.concat([protocol_stats_s.dropna(), pose_stats_s.dropna()])  # dropna removes NaN metrics
 
         # Change statistic names for all df that are not groupby means for the final trajectory dataframe
@@ -3923,11 +3928,12 @@ class PoseDirectory(PoseProtocol):
             fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))  # Todo PoseDirectory(.path)
 
         # After parsing data sources
-        other_pose_metrics['observations'] = len(viable_designs)
-        interface_metrics_s = pd.concat([pd.Series(other_pose_metrics)], keys=[('dock', 'pose')])
+        # other_pose_metrics['observations'] = len(viable_designs)
+        # interface_metrics_s = pd.concat([pd.Series(other_pose_metrics)], keys=[('dock', 'pose')])
 
         # CONSTRUCT: Create pose series and format index names
-        pose_s = pd.concat([interface_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
+        # pose_s = pd.concat([interface_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
+        pose_s = pd.concat([stat_s, divergence_s] + sim_series).swaplevel(0, 1)
         # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
         pose_s.drop([putils.protocol], level=2, inplace=True, errors='ignore')
         pose_s.sort_index(level=2, inplace=True, sort_remaining=False)
