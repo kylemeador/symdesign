@@ -2762,10 +2762,10 @@ class PoseDirectory(PoseProtocol):
 
         idx = 1
         for idx, entity in enumerate(self.pose.entities, idx):
-            c_terminal_residue_index_in_pose = entity.c_terminal_residue.index
+            entity_c_terminal_residue_index = entity.c_terminal_residue.index
             scores_df[f'entity{idx}_number_of_mutations'] = \
                 pd.Series({design: len([1 for mutation_idx in mutations
-                                        if mutation_idx < c_terminal_residue_index_in_pose])
+                                        if mutation_idx <= entity_c_terminal_residue_index])
                            for design, mutations in all_mutations.items()})
             scores_df[f'entity{idx}_percent_mutations'] = \
                 scores_df[f'entity{idx}_number_of_mutations'] \
@@ -3037,6 +3037,9 @@ class PoseDirectory(PoseProtocol):
             interface_hbonds = metrics.dirty_hbond_processing(structure_design_scores)
             # Can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
             # interface_hbonds = hbond_processing(structure_design_scores, hbonds_columns)
+            # Convert interface_hbonds to indices
+            interface_hbonds = {design: [residue.index for residue in self.pose.get_residues(hbond_residues)]
+                                for design, hbond_residues in interface_hbonds.items()}
             residue_info = metrics.process_residue_info(residue_info, hbonds=interface_hbonds)
             residue_info = metrics.incorporate_sequence_info(residue_info, pose_sequences)
             # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
@@ -3327,10 +3330,10 @@ class PoseDirectory(PoseProtocol):
         # residue_indices_per_entity = self.pose.residue_indices_per_entity
         idx = 1
         for idx, entity in enumerate(self.pose.entities, idx):
-            pose_c_terminal_residue_number = entity.c_terminal_residue.index + 1
+            entity_c_terminal_residue_index = entity.c_terminal_residue.index
             scores_df[f'entity{idx}_number_of_mutations'] = \
                 pd.Series(
-                    {design: len([1 for mutation_idx in mutations if mutation_idx < pose_c_terminal_residue_number])
+                    {design: len([1 for mutation_idx in mutations if mutation_idx <= entity_c_terminal_residue_index])
                      for design, mutations in all_mutations.items()})
             scores_df[f'entity{idx}_percent_mutations'] = \
                 scores_df[f'entity{idx}_number_of_mutations'] / other_pose_metrics[f'entity{idx}_number_of_residues']
