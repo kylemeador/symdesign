@@ -14,7 +14,7 @@ module_help_string = \
     f'\nEnter:{nltb}{program_command} MODULE --help\nto get help formatting program flags properly'
 help_sentence = ' If you need guidance on structuring your job submission, include --help in any command.'
 general_rosetta_module_flags = \
-    f'If the script should be run multiple times, include the flag "--{flags.number_of_trajectories}" INT. ' \
+    f'If the script should be run multiple times, include the flag "--{flags.number_of_designs}" INT. ' \
     f'If any program files should be generated fresh, say because of modified arguments, use "--{flags.force}"'
 available_design_methods = \
     'Currently, the available landscape can be sampled and scored according to ProteinMPNN or the Rosetta Energy ' \

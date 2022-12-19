@@ -20,7 +20,7 @@ from symdesign.utils.path import fragment_dbs, biological_interfaces, default_lo
 from symdesign.utils.path import submodule_guide, submodule_help, force, sym_entry, program_output, projects, \
     interface_metrics, nano_entity_flag1, nano_entity_flag2, data, multi_processing, residue_selector, options, \
     cluster_poses, orient, default_clustered_pose_file, interface_design, evolution_constraint, hbnet, term_constraint,\
-    number_of_trajectories, refine, structure_background, scout, design_profile, evolutionary_profile, \
+    number_of_designs, refine, structure_background, scout, design_profile, evolutionary_profile, \
     fragment_profile, all_scores, default_analysis_file, select_sequences, program_name, nanohedra, predict_structure, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, proteinmpnn, \
@@ -70,8 +70,8 @@ allow_multiple_poses = 'allow_multiple_poses'
 # Set up JobResources namespaces for different categories of flags
 design_namespace = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
-    number_of_trajectories, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
-    sequences, structures
+    number_of_designs, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
+    sequences, structures, neighbors
 }
 dock_namespace = {
     proteinmpnn_score, contiguous_ghosts, perturb_dof, perturb_dof_rot, perturb_dof_tx,
@@ -113,7 +113,7 @@ expand_asu = format_for_cmdline(expand_asu)
 rename_chains = format_for_cmdline(rename_chains)
 evolution_constraint = format_for_cmdline(evolution_constraint)
 term_constraint = format_for_cmdline(term_constraint)
-number_of_trajectories = format_for_cmdline(number_of_trajectories)
+number_of_designs = format_for_cmdline(number_of_designs)
 structure_background = format_for_cmdline(structure_background)
 # design_profile = format_for_cmdline(design_profile)
 # evolutionary_profile = format_for_cmdline(evolutionary_profile)
@@ -815,7 +815,7 @@ structure_background_args = ('-sb', f'--{structure_background}')
 structure_background_kwargs = dict(action=argparse.BooleanOptionalAction, default=False,
                                    help='Whether to skip all constraints and measure the structure using only the '
                                         'selected energy function')
-trajectory_args = ('-n', f'--{number_of_trajectories}')
+trajectory_args = ('-n', f'--{number_of_designs}')
 trajectory_kwargs = dict(type=int, default=nstruct, metavar='INT',
                          help='How many unique sequences should be generated for each input?\nDefault=%(default)s')
 scout_args = ('-sc', f'--{scout}')

@@ -1061,13 +1061,13 @@ def main():
         #         for design in pose_directories:
         #             update_status(design.serialized_info, args.stage, mode=args.update)
         #     else:
-        #         if args.number_of_trajectories:
-        #             logger.info('Checking for %d files based on --number_of_trajectories flag' % args.number_of_trajectories)
+        #         if job.design.number:
+        #             logger.info('Checking for %d files based on --number_of_designs flag' % args.number_of_designs)
         #         if args.stage:
-        #             status(pose_directories, args.stage, number=args.number_of_trajectories)
+        #             status(pose_directories, args.stage, number=job.design.number)
         #         else:
         #             for stage in putils.stage_f:
-        #                 s = status(pose_directories, stage, number=args.number_of_trajectories)
+        #                 s = status(pose_directories, stage, number=job.design.number)
         #                 if s:
         #                     logger.info('For "%s" stage, default settings should generate %d files'
         #                                 % (stage, putils.stage_f[stage]['len']))
