@@ -11,6 +11,20 @@ weight_functions_literal = Literal['rank', 'normalize']
 metric_weight_functions: tuple[weight_functions_literal, ...] = get_args(weight_functions_literal)
 
 metrics = {
+    'area_hydrophobic_complex':
+        dict(description='Total hydrophobic solvent accessible surface area in the complexed state',
+             direction=_min, function=rank, filter=True),
+    'area_hydrophobic_unbound':
+        dict(description='Total hydrophobic solvent accessible surface area in the unbound state',
+             direction=_min, function=rank, filter=True),
+    'area_polar_complex': dict(description='Total polar solvent accessible surface area in the complexed state',
+                               direction=_min, function=rank, filter=True),
+    'area_polar_unbound': dict(description='Total polar solvent accessible surface area in the unbound state',
+                               direction=_min, function=rank, filter=True),
+    'area_total_complex': dict(description='Total solvent accessible surface area in the complexed state',
+                               direction=_min, function=rank, filter=True),
+    'area_total_unbound': dict(description='Total solvent accessible surface area in the unbound state',
+                               direction=_min, function=rank, filter=True),
     'average_fragment_z_score':
         dict(description='The average fragment z-value used in docking/design',
              direction=_min, function=normalize, filter=True),

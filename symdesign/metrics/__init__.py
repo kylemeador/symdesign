@@ -25,11 +25,13 @@ energy_metric_names = ['interface_energy_complex', 'interface_energy_bound', 'in
                        'interface_energy',
                        'interface_solvation_energy_complex', 'interface_solvation_energy_bound',
                        'interface_solvation_energy_unbound']
-per_residue_sasa_states = ['sasa_hydrophobic_bound', 'sasa_polar_bound', 'sasa_hydrophobic_complex',
-                           'sasa_polar_complex', 'sasa_relative_complex', 'sasa_relative_bound',
-                           'sasa_total_bound', 'sasa_total_complex']
-per_residue_intermediate_states = ['bsa_polar', 'bsa_hydrophobic', 'bsa_total']
-sasa_metric_names = ['interface_area_polar', 'interface_area_hydrophobic', 'interface_area_total']
+# relative_sasa_states = ['sasa_relative_complex', 'sasa_relative_bound']
+per_residue_sasa_states = ['sasa_hydrophobic_bound', 'sasa_polar_bound', 'sasa_total_bound',
+                           'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex']
+sasa_metric_names = ['area_hydrophobic_unbound', 'area_polar_unbound', 'area_total_unbound',
+                     'area_hydrophobic_complex', 'area_polar_complex', 'area_total_complex']
+per_residue_interface_states = ['bsa_polar', 'bsa_hydrophobic', 'bsa_total']
+interface_sasa_metric_names = ['interface_area_polar', 'interface_area_hydrophobic', 'interface_area_total']
 collapse_metrics = ['collapse_new_positions', 'collapse_new_position_significance',
                     'collapse_significance_by_contact_order_z', 'collapse_increase_significance_by_contact_order_z',
                     'collapse_increased_z', 'collapse_deviation_magnitude', 'collapse_sequential_peaks_z',
@@ -37,7 +39,8 @@ collapse_metrics = ['collapse_new_positions', 'collapse_new_position_significanc
 zero_probability_frag_value = -20
 proteinmpnn_scores = ['sequences', 'proteinmpnn_loss_complex', 'proteinmpnn_loss_unbound', 'design_indices']
 # Only slice the final 3 values
-sasa_metrics_rename_mapping = dict(zip(per_residue_intermediate_states, sasa_metric_names))
+sasa_metrics_rename_mapping = dict([*zip(per_residue_interface_states, interface_sasa_metric_names),
+                                    *zip(per_residue_sasa_states, sasa_metric_names)])
 # Based on bsa_total values for highest deviating surface residue of one design from multiple measurements
 # Ex: 0.45, 0.22, 0.04, 0.19, 0.01, 0.2, 0.04, 0.19, 0.01, 0.19, 0.01, 0.21, 0.06, 0.17, 0.01, 0.21, -0.04, 0.22
 bsa_tolerance = 0.25
