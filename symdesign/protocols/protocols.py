@@ -454,7 +454,7 @@ class PoseProtocol:
                 self.pose.fragment_profile.write(file_name=self.fragment_profile_file)
                 self.rosetta_interface_design()  # Sets self.protocol
             case putils.proteinmpnn:
-                self.proteinmpnn_design(interface=True)  # Sets self.protocol
+                self.proteinmpnn_design(interface=True, neighbors=self.job.design.neighbors)  # Sets self.protocol
             case other:
                 raise ValueError(f"The method '{self.job.design.method}' isn't available")
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
@@ -2347,7 +2347,7 @@ class PoseDirectory(PoseProtocol):
                 header = True
             pose_s.to_csv(out_path, mode='a', header=header)
 
-    def proteinmpnn_design(self, interface: bool = False):
+    def proteinmpnn_design(self, interface: bool = False, neighbors: bool = False):
         """Perform design based on the ProteinMPNN graph encoder/decoder network and output sequences and scores to the
         PoseDirectory scorefile
 
@@ -2355,6 +2355,7 @@ class PoseDirectory(PoseProtocol):
             self.protocol = 'proteinmpnn'
         Args:
             interface: Whether to only specify the interface as designable, otherwise, use all residues
+            neighbors: Whether to design interface neighbors
         Returns:
 
         """
@@ -2364,7 +2365,7 @@ class PoseDirectory(PoseProtocol):
         sequences_and_scores: dict[str, np.ndarray | list] = \
             self.pose.design_sequences(number=self.job.design.number,
                                        temperatures=self.job.design.temperatures,
-                                       interface=interface,
+                                       interface=interface, neighbors=neighbors,
                                        ca_only=self.job.design.ca_only
                                        )
         # Add protocol (job info) and temperature to sequences_and_scores
@@ -3469,10 +3470,7 @@ class PoseDirectory(PoseProtocol):
              'interface_connectivity':
                  list(filter(re.compile('entity[0-9]+_interface_connectivity').match, scores_columns)),  # Rosetta
              }
-        # 'sasa_hydrophobic_bound':
-        #     list(filter(re.compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
-        # 'sasa_polar_bound': list(filter(re.compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
-        # 'sasa_total_bound': list(filter(re.compile('sasa_total_[0-9]+_bound').match, scores_columns))}
+
         scores_df = metrics.columns_to_new_column(scores_df, summation_pairs)
         scores_df = metrics.columns_to_new_column(scores_df, metrics.delta_pairs, mode='sub')
         # Add number_interface_residues for div_pairs and int_comp_similarity
