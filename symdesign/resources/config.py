@@ -156,8 +156,8 @@ metrics = {
                          'background',
              direction=_min, function=rank, filter=True),
     'energy_distance_from_structure_background_mean':
-        dict(description='The distance of the design\'s per residue energy from a design with no constraint on'
-                         ' amino acid selection',
+        dict(description="The distance of the design's per residue energy from a design with no constraint on "
+                         'amino acid selection',
              direction=_min, function=rank, filter=True),
     # 'entity_1_c_terminal_helix':
     #     dict(description='Whether the entity has a c-terminal helix',

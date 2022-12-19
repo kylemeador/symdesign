@@ -364,8 +364,8 @@ class MultipleSequenceAlignment:
         #             for profile, background in backgrounds.items()}
 
 
-def sequence_to_numeric(sequence: Sequence) -> numerical_profile:  # np.ndarray:
-    """Convert a position specific profile matrix into a numeric array
+def sequence_to_numeric(sequence: Sequence[str]) -> np.ndarray:
+    """Convert a sequence into a numeric array
 
     Args:
         sequence: The sequence to encode
@@ -377,8 +377,8 @@ def sequence_to_numeric(sequence: Sequence) -> numerical_profile:  # np.ndarray:
     return np.vectorize(utils.numerical_translation_alph1_bytes.__getitem__)(_array)
 
 
-def sequences_to_numeric(sequences: list[Sequence]) -> numerical_profile:
-    """Convert a position specific profile matrix into a numeric array
+def sequences_to_numeric(sequences: Iterable[Sequence[str]]) -> np.ndarray:
+    """Convert sequences into a numeric array
 
     Args:
         sequences: The sequences to encode
@@ -2710,8 +2710,8 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
                        return_all: bool = False, return_to: bool = False, return_from: bool = False) \
         -> mutation_dictionary | sequence_dictionary:
     """Create mutation data in a typical A5K format. One-indexed dictionary keys with the index matching the reference
-     sequence index. Sequence mutations accessed by "from" and "to" keys. By default, only mutated positions are
-     returned and all gaped sequences are excluded
+    sequence index. Sequence mutations accessed by "from" and "to" keys. By default, only mutated positions are
+    returned and all gaped sequences are excluded
 
     For PDB comparison, reference should be expression sequence (SEQRES), query should be atomic sequence (ATOM)
 
@@ -3074,17 +3074,17 @@ def generate_mutations_from_reference(reference: Sequence[str], sequences: dict[
         sequences: The template sequences to align, i.e. {alias: sequence, ...}.
             Character values are returned to the "to" key
     Keyword Args:
-        offset: (bool) = True - Whether sequences are different lengths. Will create an alignment of the two sequences
-        blanks: (bool) = False - Include all gaped indices, i.e. outside the reference sequence or missing characters
+        offset: bool = True - Whether sequences are different lengths. Will create an alignment of the two sequences
+        blanks: bool = False - Include all gaped indices, i.e. outside the reference sequence or missing characters
             in the sequence
-        remove_termini: (bool) = True - Remove indices that are outside the reference sequence boundaries
-        remove_query_gaps: (bool) = True - Remove indices where there are gaps present in the query sequence
-        only_gaps: (bool) = False - Only include reference indices that are missing query residues.
+        remove_termini: bool = True - Remove indices that are outside the reference sequence boundaries
+        remove_query_gaps: bool = True - Remove indices where there are gaps present in the query sequence
+        only_gaps: bool = False - Only include reference indices that are missing query residues.
             All "to" values will be a gap "-"
-        zero_index: (bool) = False - Whether to return the indices zero-indexed (like python Sequence) or one-indexed
-        return_all: (bool) = False - Whether to return all the indices and there corresponding mutational data
-        return_to: (bool) = False - Whether to return only the "to" amino acid type
-        return_from: (bool) = False - Whether to return only the "from" amino acid type
+        zero_index: bool = False - Whether to return the indices zero-indexed (like python Sequence) or one-indexed
+        return_all: bool = False - Whether to return all the indices and there corresponding mutational data
+        return_to: bool = False - Whether to return only the "to" amino acid type
+        return_from: bool = False - Whether to return only the "from" amino acid type
     Returns:
         {alias: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...} unless return_to or return_from is True, then
             {alias: {mutation_index: 'K', ...}, ...}

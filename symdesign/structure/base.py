@@ -1512,25 +1512,25 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         super().__init__(**kwargs)
 
         parent = self.parent
-        if parent:  # we are setting up a dependent Residue
+        if parent:  # We are setting up a dependent Residue
             self._atom_indices = atom_indices
             try:
                 self._start_index = atom_indices[0]
             except (TypeError, IndexError):
                 raise ValueError("The Residue wasn't passed atom_indices which are required for initialization")
-        # we are setting up a parent (independent) Residue
-        elif atoms:  # is not None  # no parent passed, construct from atoms
+        # We are setting up a parent (independent) Residue
+        elif atoms:  # is not None  # No parent passed, construct from atoms
             self._assign_atoms(atoms)
             self.is_residue_valid()
             # Structure._populate_coords(self)
             # Structure._validate_coords(self)
             self._start_index = 0
-            # update Atom instance attributes to ensure they are dependants of this instance
-            # must do this after (potential) coords setting to ensure that coordinate info isn't overwritten
+            # Update Atom instance attributes to ensure they are dependants of this instance
+            # Must do this after (potential) coords setting to ensure that coordinate info isn't overwritten
             # self._atoms.set_attributes(_parent=self)
             # self._atoms.reindex()
             # self.renumber_atoms()
-        else:  # create an empty Residue
+        else:  # Create an empty Residue
             self._atoms = Atoms()
         self.delegate_atoms()
 
@@ -2066,7 +2066,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         for idx in range(abs(number) - 1):
             try:
                 prior_residues.append(prior_residues[idx].prev_residue)
-            except AttributeError:  # we hit a termini
+            except AttributeError:  # We hit a termini
                 break
 
         return [residue for residue in prior_residues[::-1] if residue]
@@ -2086,7 +2086,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         for idx in range(abs(number) - 1):
             try:
                 next_residues.append(next_residues[idx].next_residue)
-            except AttributeError:  # we hit a termini
+            except AttributeError:  # We hit a termini
                 break
 
         return [residue for residue in next_residues if residue]
@@ -2098,7 +2098,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         try:
             return self._local_density
         except AttributeError:
-            self._local_density = 0.  # set to 0 so summation can occur
+            self._local_density = 0.  # Set to 0 so summation can occur
             try:
                 self.parent.local_density()
                 return self._local_density
@@ -2135,7 +2135,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             #  this was causing TypeError on 8/15/22
             for atom in self.atoms:
                 polarity_list[residue_atom_polarity[atom.type]].append(atom.sasa)
-        except AttributeError:  # missing atom.sasa
+        except AttributeError:  # Missing atom.sasa
             self.parent.get_sasa()
             for atom in self.atoms:
                 polarity_list[residue_atom_polarity[atom.type]].append(atom.sasa)
@@ -2208,7 +2208,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     @property
     def relative_sasa(self) -> float:
         """The solvent accessible surface area relative to the standard surface accessibility of the Residue type"""
-        return self.sasa / gxg_sasa[self.type]  # may cause problems if self.type attribute can be non-cannonical AA
+        return self.sasa / gxg_sasa[self.type]  # May cause problems if self.type attribute can be non-cannonical AA
 
     @property
     def contact_order(self) -> float:
@@ -2216,7 +2216,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         try:
             return self._contact_order
         except AttributeError:
-            # self._contact_order = 0.  # set to 0 so summation can occur
+            # self._contact_order = 0.  # Set to 0 so summation can occur
             try:
                 self.parent.contact_order_per_residue()
                 return self._contact_order
@@ -2231,13 +2231,8 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
 
     # End state properties
 
-    # @property
-    # def number_of_atoms(self) -> int:
-    #     """The number of atoms in the Structure"""
-    #     return len(self._atom_indices)
-
     @property
-    def number_of_heavy_atoms(self) -> int:
+    def number_of_heavy_atoms(self) -> int:    # Todo ContainsAtomsMixin
         return len(self._heavy_indices)
 
     @property
@@ -2595,19 +2590,19 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     _heavy_indices: list[int]
     _helix_cb_indices: list[int]
     _side_chain_indices: list[int]
-    _contact_order: np.ndarry
-    _coords_indexed_residues: np.ndarray  # list[Residue]
-    _coords_indexed_residue_atoms: np.ndarray  # list[int]
-    _residues: Residues | None
-    _residue_indices: list[int] | None
-    _sequence: str
+    _contact_order: np.ndarry  # Todo ContainsResiduesMixin
+    _coords_indexed_residues: np.ndarray  # list[Residue]  # Todo ContainsResiduesMixin
+    _coords_indexed_residue_atoms: np.ndarray  # list[int]  # Todo ContainsResiduesMixin
+    _residues: Residues | None  # Todo ContainsResiduesMixin
+    _residue_indices: list[int] | None  # Todo ContainsResiduesMixin
+    _sequence: str  # Todo ContainsResiduesMixin
     biomt: list
     biomt_header: str
     file_path: AnyStr | None
     name: str
     nucleotides_present: bool
-    secondary_structure: str | None
-    sasa: float | None
+    secondary_structure: str | None  # Todo ContainsResiduesMixin
+    sasa: float | None  # Todo ContainsResiduesMixin
     structure_containers: list | list[str]
     state_attributes: set[str] = ContainsAtomsMixin.state_attributes | {'_sequence', '_helix_cb_indices'}
 
@@ -3006,7 +3001,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     # def residue_indexed_atom_indices(self, indices: list[list[int]]):
     #     self._residue_indexed_atom_indices = indices
 
-    def _set_coords_indexed(self):
+    def _set_coords_indexed(self):  # Todo ContainsResiduesMixin
         """Index the coordinates to the Residue they belong to and their associated atom_index"""
         residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
         self._coords_indexed_residues, self._coords_indexed_residue_atoms = map(np.array, zip(*residues_atom_idx))
@@ -3015,7 +3010,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                              f'!= _atom_indices {len(self._atom_indices)}')
 
     @property
-    def coords_indexed_residues(self) -> list[Residue]:
+    def coords_indexed_residues(self) -> list[Residue]:  # Todo ContainsResiduesMixin
         """Returns the Residue associated with each Coord in the Structure
 
         Returns:
@@ -3032,7 +3027,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #     self._coords_indexed_residues = np.array(residues)
 
     @property
-    def backbone_coords_indexed_residues(self) -> list[Residue]:
+    def backbone_coords_indexed_residues(self) -> list[Residue]:  # Todo ContainsResiduesMixin
         """Returns the Residue associated with each backbone Atom/Coord in the Structure
 
         Returns:
@@ -3044,7 +3039,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             return self.parent._coords_indexed_residues[self.backbone_indices].tolist()
 
     @property
-    def backbone_and_cb_coords_indexed_residues(self) -> list[Residue]:
+    def backbone_and_cb_coords_indexed_residues(self) -> list[Residue]:  # Todo ContainsResiduesMixin
         """Returns the Residue associated with each backbone and CB Atom/Coord in the Structure
 
         Returns:
@@ -3056,7 +3051,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             return self.parent._coords_indexed_residues[self.backbone_and_cb_indices].tolist()
 
     @property
-    def heavy_coords_indexed_residues(self) -> list[Residue]:
+    def heavy_coords_indexed_residues(self) -> list[Residue]:  # Todo ContainsResiduesMixin
         """Returns the Residue associated with each heavy Atom/Coord in the Structure
 
         Returns:
@@ -3068,7 +3063,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             return self.parent._coords_indexed_residues[self.heavy_indices].tolist()
 
     @property
-    def side_chain_coords_indexed_residues(self) -> list[Residue]:
+    def side_chain_coords_indexed_residues(self) -> list[Residue]:  # Todo ContainsResiduesMixin
         """Returns the Residue associated with each side chain Atom/Coord in the Structure
 
         Returns:
@@ -3080,7 +3075,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             return self.parent._coords_indexed_residues[self.side_chain_indices].tolist()
 
     @property
-    def coords_indexed_residue_atoms(self) -> list[int]:
+    def coords_indexed_residue_atoms(self) -> list[int]:  # Todo ContainsResiduesMixin
         """Returns a map of the Residue atom_indices for each Coord in the Structure
 
         Returns:
@@ -3159,11 +3154,11 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #             setattr(residue, key, value[idx])
 
     def get_residue_atom_indices(self, **kwargs) -> list[int]:
-        """Retrieve Atom indices for Residues in the Structure. Returns all by default. If residue numbers are provided
-         the selected Residues are returned
+        """Retrieve Atom indices for Residues in the Structure. Returns all by default. If numbers are provided the
+        selected Residue numbers are returned
 
         Keyword Args:
-            numbers=None (Container[int]): The Residue numbers of interest
+            numbers: Container[int] = None - The Residue numbers of interest
         """
         # return [atom.index for atom in self.get_residue_atoms(numbers=numbers, **kwargs)]
         atom_indices = []
@@ -3171,8 +3166,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             atom_indices.extend(residue.atom_indices)
         return atom_indices
 
-    def get_residues_by_atom_indices(self, atom_indices: Iterable[int]) -> list[Residue]:
-        """Retrieve Residues in the Structure specified by Atom indices. Must be the coords_owner
+    def get_residues_by_atom_indices(self, atom_indices: Iterable[int]) -> list[Residue]:  # Todo ContainsResiduesMixin?
+        """Retrieve Residues in the Structure specified by Atom indices
 
         Args:
             atom_indices: The atom indices to retrieve Residue objects from
@@ -3701,7 +3696,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         #  this check and error really isn't True with the Residues object shared. It can be overcome...
         if self.is_dependent():
             raise stutils.DesignError(f"This Structure '{self.name}' isn't the owner of it's attributes and therefore "
-                                    "can't handle residue insertion!")
+                                      "can't handle residue insertion!")
         # Convert incoming aa to residue index so that AAReference can fetch the correct amino acid
         reference_index = \
             protein_letters_alph1.find(protein_letters_3to1_extended.get(residue_type, residue_type.upper()))

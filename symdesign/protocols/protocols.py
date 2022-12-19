@@ -3152,7 +3152,6 @@ class PoseDirectory(PoseProtocol):
         scores_df.fillna(dict(zip(metrics.protocol_specific_columns, repeat(0))), inplace=True)
         scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
 
-        interface_local_density = {putils.pose_source: self.pose.local_density_interface()}
         # atomic_deviation = {}
         # pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
         # perform SASA measurements
@@ -3204,9 +3203,8 @@ class PoseDirectory(PoseProtocol):
         per_residue_data[putils.pose_source]['errat_deviation'] = pose_source_errat
 
         # Compute structural measurements for all designs
-        # interface_metrics = {}
+        interface_local_density = {putils.pose_source: self.pose.local_density_interface()}
         for pose in design_poses:  # Takes 1-2 seconds for Structure -> assembly -> errat
-            # interface_metrics[pose.name] = other_pose_metrics
             # Must find interface residues before measure local_density
             pose.find_and_split_interface()
             per_residue_data[pose.name] = pose.per_residue_interface_surface_area()
