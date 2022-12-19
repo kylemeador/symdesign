@@ -138,9 +138,6 @@ metrics = {
     'design_dimension':
         dict(description='The underlying dimension of the design. 0 - point, 2 - layer, 3 - space group',
              direction=_min, function=normalize, filter=True),
-    'designed_residues_total':
-        dict(description='The number of residues selected for sequence design',
-             direction=max, function=normalize, filter=True),
     'divergence_design_per_residue':
         dict(description='The Jensen-Shannon divergence of interface residues from the position specific '
                          'design profile values. Includes fragment & evolution if both are True, otherwise '
@@ -420,6 +417,12 @@ metrics = {
     'number_fragment_residues_center':
         dict(description='The number of interface residues that belong to a central fragment residue',
              direction=_max, function=rank, filter=None),
+    'number_design_residues':
+        dict(description='The number of residues selected for sequence design',
+             direction=max, function=normalize, filter=True),
+    'number_interface_residues':
+        dict(description='The total number of interface residues found in the pose (default is residue CB within 8A)',
+             direction=_max, function=rank, filter=True),
     'number_of_hbonds':
         dict(description='The number of residues making H-bonds in the total interface. Residues may make '
                          'more than one H-bond', direction=_max, function=rank, filter=True),
@@ -631,9 +634,6 @@ metrics = {
     # 'symmetry':
     #     dict(description='The specific symmetry type used design (point (0), layer (2), lattice(3))',
     #      direction=None, function=None, filter=False),
-    'total_interface_residues':
-        dict(description='The total number of interface residues found in the pose (residue CB within 8A)',
-             direction=_max, function=rank, filter=True),
     'total_non_fragment_interface_residues':
         dict(description='The number of interface residues that are missing central fragment observations',
              direction='max', function=rank, filter=True),

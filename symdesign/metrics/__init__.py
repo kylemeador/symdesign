@@ -42,7 +42,7 @@ sasa_metrics_rename_mapping = dict(zip(per_residue_intermediate_states, sasa_met
 # Ex: 0.45, 0.22, 0.04, 0.19, 0.01, 0.2, 0.04, 0.19, 0.01, 0.19, 0.01, 0.21, 0.06, 0.17, 0.01, 0.21, -0.04, 0.22
 bsa_tolerance = 0.25
 energy_metrics_rename_mapping = dict(zip(per_residue_energy_states, energy_metric_names))
-other_metrics_rename_mapping = dict(hbond='number_of_hbonds')
+other_metrics_rename_mapping = dict(hbond='number_of_hbonds', design_residue='total_design_residues')
 errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # These are approximate magnitude of deviation
 collapse_thresholds = {
     'standard': 0.43,
@@ -53,7 +53,8 @@ idx_slice = pd.IndexSlice
 filter_df = pd.DataFrame(config.metrics)
 nanohedra_metrics = ['multiple_fragment_ratio', 'nanohedra_score', 'nanohedra_score_center',
                      'nanohedra_score_normalized', 'nanohedra_score_center_normalized',
-                     'number_fragment_residues_center', 'number_fragment_residues_total', 'number_of_fragments',
+                     'number_fragment_residues_center', 'number_fragment_residues_total',
+                     'number_interface_residues', 'number_of_fragments',
                      'percent_fragment_helix', 'percent_fragment_strand', 'percent_fragment_coil',
                      'percent_residues_fragment_interface_total', 'percent_residues_fragment_interface_center',
                      'total_interface_residues', 'total_non_fragment_interface_residues']
@@ -77,7 +78,7 @@ necessary_metrics = {'buns_complex', 'buns1_unbound', 'contact_count', 'coordina
 #                    'rmsd'
 #                      'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total',
 #                      'fsp_total_stability', 'full_stability_complex',
-#                      'number_of_hbonds', 'total_interface_residues',
+#                      'number_of_hbonds', 'number_interface_residues',
 #                      'average_fragment_z_score', 'nanohedra_score', 'number_of_fragments',
 #                      'interface_b_factor_per_res',
 rosetta_required_metrics = []
@@ -108,7 +109,7 @@ final_metrics = {'buried_unsatisfied_hbonds', 'contact_count', 'core', 'coordina
 #                   'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex',
 #                   'int_energy_context_delta', 'int_energy_context_oligomer',
 #                These are accounted for in other pose metrics
-#                   'nanohedra_score', 'average_fragment_z_score', 'number_of_fragments', 'total_interface_residues',
+#                   'nanohedra_score', 'average_fragment_z_score', 'number_of_fragments', 'number_interface_residues',
 #                   'interface_b_factor_per_res'}
 #                These could be added in, but seem to be unnecessary
 #                   'fsp_total_stability', 'full_stability_complex',
@@ -219,9 +220,9 @@ division_pairs = {
     'interface_energy_density': ('interface_energy', 'interface_area_total'),
     'percent_interface_area_hydrophobic': ('interface_area_hydrophobic', 'interface_area_total'),
     'percent_interface_area_polar': ('interface_area_polar', 'interface_area_total'),
-    'percent_core': ('core', 'total_interface_residues'),
-    'percent_rim': ('rim', 'total_interface_residues'),
-    'percent_support': ('support', 'total_interface_residues'),
+    'percent_core': ('core', 'number_interface_residues'),
+    'percent_rim': ('rim', 'number_interface_residues'),
+    'percent_support': ('support', 'number_interface_residues'),
 }  # Rosetta
 
 # All Rosetta based score terms ref is most useful to keep for whole pose to give "unfolded ground state"
@@ -875,9 +876,9 @@ def sum_per_residue_metrics(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def calculate_sequence_observations_and_divergence(alignment: 'structure.sequence.MultipleSequenceAlignment',
-                                                   backgrounds: dict[str, np.ndarray],
-                                                   select_indices: list[int] = None) \
+                                                   backgrounds: dict[str, np.ndarray]) \
         -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+    #                                                select_indices: list[int] = None) \
     """Gather the observed frequencies from each sequence in a MultipleSequenceAlignment"""
     # mutation_frequencies = pose_alignment.frequencies[[residue-1 for residue in pose.interface_design_residue_numbers]]
     # mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, pose.interface_design_residue_numbers)
@@ -915,7 +916,7 @@ def calculate_sequence_observations_and_divergence(alignment: 'structure.sequenc
     #                                              both mut_freq and profile_background[profile] are one-indexed
     divergence = {f'divergence_{profile}':
                   # position_specific_jsd(pose_alignment.frequencies, background)
-                  position_specific_divergence(alignment.frequencies, background)[select_indices]
+                  position_specific_divergence(alignment.frequencies, background)  # [select_indices]
                   for profile, background in backgrounds.items()}
 
     return observed, divergence

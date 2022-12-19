@@ -5397,6 +5397,11 @@ class Pose(SymmetricModel):
             self._design_residues = self.required_residues + self.interface_residues
             return self._design_residues
 
+    @design_residues.setter
+    def design_residues(self, residues: Iterable[Residue]):
+        """The Residue instances identified for design in the Pose. Includes interface_residues"""
+        self._design_residues = list(residues)
+
     def create_design_selector(self):
         """Set up a design selector for the Pose including selections, masks, and required Entities and Atoms
 
@@ -5994,7 +5999,7 @@ class Pose(SymmetricModel):
              'number_of_fragments',
              'percent_residues_fragment_interface_total',
              'percent_residues_fragment_interface_center'
-             'total_interface_residues',
+             'number_interface_residues',
              'pose_length',
              'pose_thermophilicity',
              'minimum_radius',
@@ -6033,17 +6038,17 @@ class Pose(SymmetricModel):
         pose_metrics.pop('total_indices')
         self.center_residue_indices = pose_metrics.pop('center_indices', [])
 
-        total_interface_residues = len(self.interface_residues)
+        number_interface_residues = len(self.interface_residues)
         total_non_fragment_interface_residues = \
-            max(total_interface_residues - pose_metrics['number_fragment_residues_center'], 0)
+            max(number_interface_residues - pose_metrics['number_fragment_residues_center'], 0)
         # Interface B Factor
         int_b_factor = sum(residue.b_factor for residue in self.interface_residues)
         try:  # If interface_distance is different from interface query and fragment generation these can be < 0 or > 1
             percent_residues_fragment_interface_center = \
-                min(pose_metrics['number_fragment_residues_center'] / total_interface_residues, 1)
+                min(pose_metrics['number_fragment_residues_center'] / number_interface_residues, 1)
             percent_residues_fragment_interface_total = \
-                min(pose_metrics['number_fragment_residues_total'] / total_interface_residues, 1)
-            ave_b_factor = int_b_factor / total_interface_residues
+                min(pose_metrics['number_fragment_residues_total'] / number_interface_residues, 1)
+            ave_b_factor = int_b_factor / number_interface_residues
         except ZeroDivisionError:
             self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your design?')
             ave_b_factor = percent_residues_fragment_interface_center = percent_residues_fragment_interface_total = 0.
@@ -6061,7 +6066,7 @@ class Pose(SymmetricModel):
             # 'percent_fragment_strand': strand_fragment_content,
             # 'percent_fragment_coil': coil_fragment_content,
             # 'number_of_fragments': number_of_fragments,
-            'total_interface_residues': total_interface_residues,
+            'number_interface_residues': number_interface_residues,
             'total_non_fragment_interface_residues': total_non_fragment_interface_residues,
             'percent_residues_fragment_interface_total': percent_residues_fragment_interface_total,
             'percent_residues_fragment_interface_center': percent_residues_fragment_interface_center})
@@ -6965,7 +6970,7 @@ class Pose(SymmetricModel):
         # Todo consolidate return to (dict[(dict)]) like by_entity
         # Todo incorporate these
         #  'fragment_cluster_ids': ','.join(clusters),
-        #  'total_interface_residues': total_residues,
+        #  'number_interface_residues': total_residues,
         #  'percent_residues_fragment_interface_total': percent_interface_covered,
         #  'percent_residues_fragment_interface_center': percent_interface_matched,
 

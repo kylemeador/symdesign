@@ -800,6 +800,7 @@ class PoseProtocol:
 
 # class PoseDirectory:
 class PoseDirectory(PoseProtocol):
+    # _design_indices: list[int]
     _design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict
     _designed_sequences: list[Sequence]
     _entity_names: list[str]
@@ -1289,6 +1290,26 @@ class PoseDirectory(PoseProtocol):
             self._design_selector = self.info['design_selector'] = design_selector
         else:
             raise ValueError(f'The attribute design_selector must be a dict, not {type(design_selector)}')
+
+    # @property
+    # def design_indices(self) -> list[int]:
+    #     """Provide the design_indices for the design in question
+    #
+    #     Returns:
+    #         All the indices in the design which are considered designable
+    #     """
+    #     try:
+    #         return self._design_indices
+    #     except AttributeError:  # Get from the pose state
+    #         self._design_indices = self.info.get('design_indices', [])
+    #         return self._design_indices
+    #
+    # @design_indices.setter
+    # def design_indices(self, design_indices: Sequence[int]):
+    #     if isinstance(design_indices, Sequence):
+    #         self._design_indices = self.info['design_indices'] = list(design_indices)
+    #     else:
+    #         raise ValueError(f'The attribute design_indices must be a Sequence type, not {type(design_indices)}')
 
     @property
     def fragment_observations(self) -> list | None:
@@ -2598,9 +2619,7 @@ class PoseDirectory(PoseProtocol):
                 # self.pose.fragment_profile = None
 
             # observed, divergence = \
-            #     calculate_sequence_observations_and_divergence(pose_alignment,
-            #                                                    profile_background,
-            #                                                    interface_residue_indices)
+            #     calculate_sequence_observations_and_divergence(pose_alignment, profile_background)
             # # Get pose sequence divergence
             # divergence_s = pd.Series({f'{divergence_type}_per_residue': _divergence.mean()
             #                           for divergence_type, _divergence in divergence.items()},
@@ -2641,14 +2660,14 @@ class PoseDirectory(PoseProtocol):
                 per_residue_fragment_profile_scores = \
                     resources.ml.sequence_nllloss(torch_numeric, torch.from_numpy(corrected_frag_array))
                 # Find the non-zero sites in the profile
-                # interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
-                # interface_observed_from_fragment_profile = fragment_profile_frequencies[idx][interface_residue_indices]
+                # interface_observed_from_fragment_profile = \
+                #     fragment_profile_frequencies[idx][per_residue_design_indices[idx]]
             else:
                 per_residue_fragment_profile_scores = nan_blank_data
 
             per_residue_data[design_id] = {
                 'type': sequences[idx],
-                'designed_residues_total': per_residue_design_indices[idx],
+                'design_residue': per_residue_design_indices[idx],
                 'proteinmpnn_loss_complex': per_residue_complex_sequence_loss[idx],
                 'proteinmpnn_loss_unbound': per_residue_unbound_sequence_loss[idx],
                 'proteinmpnn_loss_design': per_residue_design_profile_scores,
@@ -2763,7 +2782,7 @@ class PoseDirectory(PoseProtocol):
         #     # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
         #     scores_df['interface_area_to_residue_surface_ratio'] = \
         #         (bsa_assembly_df / (bsa_assembly_df+scores_df['sasa_total_complex']))
-        #     #      / scores_df['total_interface_residues']
+        #     #      / scores_df['number_interface_residues']
         #
         #     # Make scores_df errat_deviation that takes into account the pose_source sequence errat_deviation
         #     # This overwrites the metrics.sum_per_residue_metrics() value
@@ -2782,9 +2801,8 @@ class PoseDirectory(PoseProtocol):
         scores_df = scores_df.drop(scores_drop_columns, errors='ignore', axis=1)
         scores_df = scores_df.rename(columns={'type': 'sequence'})
         #                                       'evolution': 'proteinmpnn_loss_evolution',
-        #                                       'fragment': 'proteinmpnn_loss_fragment',
-        #                                       'designed': 'designed_residues_total'})
-        designed_df = per_residue_df.loc[:, idx_slice[:, 'designed_residues_total']].droplevel(1, axis=1)
+        #                                       'fragment': 'proteinmpnn_loss_fragment'})
+        designed_df = per_residue_df.loc[:, idx_slice[:, 'design_residue']].droplevel(1, axis=1)
 
         # if self.job.design.sequences:
         # scores_df['collapse_new_positions'] /= pose_length
@@ -2896,9 +2914,9 @@ class PoseDirectory(PoseProtocol):
         other_pose_metrics = self.pose.interface_metrics()
         # CAUTION: Assumes each structure is the same length
         pose_length = self.pose.number_of_residues
-        residue_indices = list(range(1, pose_length + 1))
+        residue_indices = list(range(pose_length))
         # residue_numbers = [residue.number for residue in self.pose.residues]
-        interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
+        # interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
 
         # Find all designs files
         # Todo fold these into Model(s) and attack metrics from Pose objects?
@@ -3247,9 +3265,6 @@ class PoseDirectory(PoseProtocol):
         # returns multi-index column with residue number as first (top) column index, metric as second index
         # during residue_df unstack, all residues with missing dicts are copied as nan
         # Merge interface design specific residue metrics with total per residue metrics
-        # residue_df = pd.merge(residue_df.loc[:, idx_slice[interface_residue_indices, :]],
-        #                       rosetta_info_df.loc[:, idx_slice[interface_residue_indices, :]],
-        #                       left_index=True, right_index=True)
         residue_df = pd.merge(residue_df, rosetta_info_df, left_index=True, right_index=True)
 
         if not profile_background:
@@ -3258,8 +3273,7 @@ class PoseDirectory(PoseProtocol):
             # First, for entire pose
             pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
             observed, divergence = \
-                metrics.calculate_sequence_observations_and_divergence(pose_alignment, profile_background,
-                                                                       interface_residue_indices)
+                metrics.calculate_sequence_observations_and_divergence(pose_alignment, profile_background)
             observed_dfs = []
             for profile, observed_values in observed.items():
                 # scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
@@ -3270,7 +3284,9 @@ class PoseDirectory(PoseProtocol):
             # Add observation information into the residue_df
             residue_df = residue_df.join(observed_dfs)
             # Get pose sequence divergence
-            pose_divergence_s = pd.concat([pd.Series({f'{divergence_type}_per_residue': _divergence.mean()
+            design_residue_indices = [residue.index for residue in self.pose.design_residues]
+            pose_divergence_s = pd.concat([pd.Series({f'{divergence_type}_per_residue':
+                                                      _divergence[design_residue_indices].mean()
                                                       for divergence_type, _divergence in divergence.items()})],
                                           keys=[('sequence_design', 'pose')])
             # pose_divergence_s = pd.Series({f'{divergence_type}_per_residue': per_res_metric(stat)
@@ -3290,16 +3306,15 @@ class PoseDirectory(PoseProtocol):
                     #                                                 self.pose.interface_residues)
                     # protocol_mutation_freq = protocol_alignment.frequencies
                     protocol_divergence = {f'divergence_{profile}':
-                                           metrics.position_specific_divergence(protocol_alignment.frequencies,
-                                                                                bgd)[interface_residue_indices]
+                                           metrics.position_specific_divergence(protocol_alignment.frequencies, bgd)
                                            for profile, bgd in profile_background.items()}
                     # if interface_bkgd is not None:
                     #     protocol_divergence['divergence_interface'] = \
-                    #         metrics.position_specific_divergence(protocol_alignment.frequencies[interface_residue_indices],
-                    #                                              tiled_int_background)
+                    #         metrics.position_specific_divergence(protocol_alignment.frequencies, tiled_int_background)
                     # Get per residue divergence metric by protocol
-                    divergence_by_protocol[protocol] = {f'{divergence_type}_per_residue': divergence.mean()
-                                                        for divergence_type, divergence in protocol_divergence.items()}
+                    divergence_by_protocol[protocol] = \
+                        {f'{divergence_type}_per_residue': divergence[design_residue_indices].mean()
+                         for divergence_type, divergence in protocol_divergence.items()}
                 # new = dfd.columns.to_frame()
                 # new.insert(0, 'new2_level_name', new_level_values)
                 # dfd.columns = pd.MultiIndex.from_frame(new)
@@ -3460,8 +3475,8 @@ class PoseDirectory(PoseProtocol):
         # 'sasa_total_bound': list(filter(re.compile('sasa_total_[0-9]+_bound').match, scores_columns))}
         scores_df = metrics.columns_to_new_column(scores_df, summation_pairs)
         scores_df = metrics.columns_to_new_column(scores_df, metrics.delta_pairs, mode='sub')
-        # add total_interface_residues for div_pairs and int_comp_similarity
-        scores_df['total_interface_residues'] = other_pose_metrics.pop('total_interface_residues')
+        # Add number_interface_residues for div_pairs and int_comp_similarity
+        # scores_df['number_interface_residues'] = other_pose_metrics.pop('number_interface_residues')
         scores_df = metrics.columns_to_new_column(scores_df, metrics.division_pairs, mode='truediv')
         scores_df['interface_composition_similarity'] = \
             scores_df.apply(metrics.interface_composition_similarity, axis=1)
@@ -3570,8 +3585,7 @@ class PoseDirectory(PoseProtocol):
             residue_energy_pc = res_pca.fit_transform(residue_energy_np)
 
             seq_pca = skl.decomposition.PCA(variance)
-            designed_sequence_modifications = \
-                residue_df.loc[:, idx_slice[interface_residue_indices, 'type']].sum(axis=1).to_list()
+            designed_sequence_modifications = residue_df.loc[:, idx_slice[:, 'type']].sum(axis=1).to_list()
             pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_sequence_modifications,
                                                                         sequence_difference))
             seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
@@ -3734,7 +3748,6 @@ class PoseDirectory(PoseProtocol):
         # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
         if self.job.save:
             trajectory_df.sort_index(inplace=True, axis=1)
-            residue_df = residue_df.loc[:, idx_slice[interface_residue_indices, :]]
             residue_df.sort_index(inplace=True)
             residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
             residue_df[(putils.protocol, putils.protocol)] = protocol_s
@@ -3756,6 +3769,7 @@ class PoseDirectory(PoseProtocol):
 
         # Create figures
         if self.job.figures:  # For plotting collapse profile, errat data, contact order
+            interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
             # Plot: Format the collapse data with residues as index and each design as column
             # collapse_graph_df = pd.DataFrame(per_residue_data['hydrophobic_collapse'])
             collapse_graph_df = residue_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
