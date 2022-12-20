@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import copy
 import logging
 import math
 import os
 import time
-import warnings
 from collections.abc import Iterable
 from itertools import repeat, count
 from math import prod
@@ -207,7 +205,7 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
         if getattr(sym_entry, f'is_internal_tx{group_idx}'):
             # Repeat the translation according to the number of perturbations raised to the power of the
             # remaining dof (remaining_dof), then tile that by how many dof have been seen (seen_dof)
-            internal_translation_grid = copy.copy(translation_grid)
+            internal_translation_grid = translation_grid.copy()
             translation_perturb_vector = \
                 np.linspace(-translation_range[idx], translation_range[idx], translation_number)
             # internal_translation_grid[:, 2] = np.tile(np.repeat(translation_perturb_vector, number**remaining_dof),
@@ -230,7 +228,7 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
     #     # This solution doesn't vary the translation_grid in all dofs
     #     # ext_dof_perturbs[:, :number_dof_external] = np.tile(translation_grid, (number_dof_external, 1)).T
     # This solution iterates over the translation_grid, adding a new grid over all remaining dofs
-    external_translation_grid = copy.copy(translation_grid)
+    external_translation_grid = translation_grid.copy()
     for idx, ext_idx in enumerate(range(n_dof_external)):
         translation_perturb_vector = \
             np.linspace(-ext_translation_range[idx], ext_translation_range[idx], translation_number)
@@ -1774,10 +1772,10 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     # entity_energies = tuple(0. for _ in pose.entities)
     # pose_source_residue_info = \
     #     {residue.number: {'complex': 0.,
-    #                       # 'bound': 0.,  # copy(entity_energies),
-    #                       'unbound': 0.,  # copy(entity_energies),
-    #                       # 'solv_complex': 0., 'solv_bound': 0.,  # copy(entity_energies),
-    #                       # 'solv_unbound': 0.,  # copy(entity_energies),
+    #                       # 'bound': 0.,  # entity_energies.copy(),
+    #                       'unbound': 0.,  # entity_energies.copy(),
+    #                       # 'solv_complex': 0., 'solv_bound': 0.,  # entity_energies.copy(),
+    #                       # 'solv_unbound': 0.,  # entity_energies.copy(),
     #                       # 'fsp': 0., 'cst': 0.,
     #                       'type': protein_letters_3to1.get(residue.type),
     #                       # 'hbond': 0
@@ -3680,8 +3678,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             if job.write_trajectory:
                 nonlocal idx
                 if idx % 2 == 0:
-                    new_pose = copy.copy(pose)
-                    # new_pose = copy.copy(pose.models[0])
+                    new_pose = pose.copy()
+                    # new_pose = pose.models[0]copy()
                     for entity in new_pose.chains[1:]:  # new_pose.entities[1:]:
                         entity.chain_id = 'D'
                         # Todo make more reliable
@@ -3963,11 +3961,11 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                     #             'proteinmpnn_loss_design': per_residue_design_profile_scores,
                     #             'proteinmpnn_loss_evolution': per_residue_evolutionary_profile_scores,
                     #             'proteinmpnn_loss_fragment': per_residue_fragment_profile_scores,
-                    #             # 'bound': 0.,  # copy(entity_energies),
-                    #             # copy(entity_energies),
+                    #             # 'bound': 0.,  # entity_energies.copy(),
+                    #             # entity_energies.copy(),
                     #             # 'solv_complex': 0., 'solv_bound': 0.,
-                    #             # copy(entity_energies),
-                    #             # 'solv_unbound': 0.,  # copy(entity_energies),
+                    #             # entity_energies.copy(),
+                    #             # 'solv_unbound': 0.,  # entity_energies.copy(),
                     #             # 'fsp': 0., 'cst': 0.,
                     #             # 'type': protein_letters_3to1.get(residue.type),
                     #             # 'hbond': 0

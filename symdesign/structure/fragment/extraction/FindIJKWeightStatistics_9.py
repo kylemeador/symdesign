@@ -1,7 +1,7 @@
 import os
 import math
 import pickle
-import copy
+from copy import deepcopy
 
 # GLOBALS
 bio_fragmentDB = '/home/kmeador/yeates/fragment_database/bio'
@@ -125,7 +125,7 @@ def get_cluster_info(cluster_dict, frag_size=5):
 def recurse_weights(_dict):
     start_key = next(iter(_dict))
     frag_d = {k: 0 for k in range(lower, upper + 1)}
-    info = [0.0, 0.0, frag_d, copy.copy(frag_d)]  # , None: 0
+    info = [0.0, 0.0, frag_d, frag_d.copy()]  # , None: 0
     prior_list = ['', [], []]
     last = [start_key.split('_')[0], start_key.split('_')[1], '']
     count = [0, 0, 0]
@@ -142,7 +142,7 @@ def recurse_weights(_dict):
             if key_index > 0:
                 func(key, key_index, double=True)
             new_key = last[key_index - 1] + last[key_index]
-            count_dict[new_key] = [copy.deepcopy(info), count[key_index]]
+            count_dict[new_key] = [deepcopy(info), count[key_index]]
             if prior_list[len(new_key)] != list():
                 # Remove old list counts
                 # for index in range(len(count_dict[new_key][0])):

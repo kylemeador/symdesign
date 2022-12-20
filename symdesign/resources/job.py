@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import argparse
-import copy
 import logging
 import inspect
 import os
+from copy import deepcopy
 from dataclasses import make_dataclass, field
 from subprocess import list2cmdline
 from typing import Annotated, AnyStr, Any, Iterable
@@ -176,7 +176,7 @@ class JobResources:
 
         # Format argparse.Namespace arguments
         if arguments is not None:
-            kwargs.update(copy.deepcopy(vars(arguments)))
+            kwargs.update(deepcopy(vars(arguments)))
 
         # Computing environment and development Flags
         # self.command_only: bool = kwargs.get('command_only', False)

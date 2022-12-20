@@ -92,11 +92,13 @@ class Coords:
         yield from self.coords.tolist()
 
     def __copy__(self) -> Coords:  # -> Self Todo python3.11
-        other = self.__class__.__new__(self.__class__)
-        # other.__dict__ = self.__dict__.copy()
+        cls = self.__class__
+        other = cls.__new__(cls)
+        # other.__dict__.update(self.__dict__)
         other.coords = self.coords.copy()
-
         return other
+
+    copy = __copy__
 
 
 def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weights: np.ndarray = None,

@@ -473,6 +473,14 @@ class Log:
     def __init__(self, log: Logger | None = logging.getLogger('null')):
         self.log = log
 
+    def __copy__(self) -> Log:  # Todo -> Self: in python 3.11
+        cls = self.__class__
+        other = cls.__new__(cls)
+        other.__dict__.update(self.__dict__)
+        return other
+
+    copy = __copy__
+
 
 null_struct_log = Log()
 
@@ -661,6 +669,14 @@ class StructureBase(Symmetry, ABC):
                 delattr(self, attr)
             except AttributeError:
                 continue
+
+    def __copy__(self) -> StructureBase:  # Todo -> Self: in python 3.11
+        cls = self.__class__
+        other = cls.__new__(cls)
+        other.__dict__.update(self.__dict__)
+        return other
+
+    copy = __copy__
 
 
 class Atom(StructureBase):
@@ -914,32 +930,36 @@ class Atom(StructureBase):
     def __hash__(self) -> int:
         return hash(self.__key())
 
-    # def __copy__(self):  # Todo this is ready, but isn't needed anywhere
-    #     other = self.__class__.__new__(self.__class__)
-    #     other.__dict__ = copy(self.__dict__)
-    #
-    #     if self.is_parent():  # this Structure is the parent, it's copy should be too
-    #         # set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy
-    #         self.spawn = other
-    #         try:
-    #             for attr in parent_attributes:
-    #                 other.__dict__[attr] = copy(self.__dict__[attr])
-    #         except KeyError:  # '_atoms' is not present and will be after _log, _coords
-    #             pass
-    #         # remove the attribute spawn after other Structure containers are copied
-    #         del self.spawn
-    #     else:  # this Structure is a dependent, it's copy should be too
-    #         try:
-    #             other._parent = self.parent.spawn
-    #         except AttributeError:  # this copy was initiated by a Structure that is not the parent
-    #             # self.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
-    #             #                f'previously')
-    #             if self._copier:  # Copy initiated by Atoms container
-    #                 pass
-    #             else:
-    #                 other.detach_from_parent()
-    #
-    #     return other
+    def __copy__(self) -> Atom:  # -> Self: Todo python3.11 Todo this is ready, but isn't needed anywhere
+        cls = self.__class__
+        other = cls.__new__(cls)
+        other.__dict__.update(self.__dict__)
+
+        if self.is_parent():  # This Structure is the parent, it's copy should be too
+            # Set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy
+            self.spawn = other
+            try:
+                other.__dict__[parent_variable] = self.__dict__[parent_variable]
+                for attr in new_parent_attributes:
+                    other.__dict__[attr] = self.__dict__[attr].copy()
+            except KeyError:  # '_atoms' is not present and comes after _log, _coords
+                pass
+            # Remove the attribute spawn after other Structure containers are copied
+            del self.spawn
+        else:  # This Structure is a dependent, it's copy should be too
+            try:
+                other._parent = self.parent.spawn
+            except AttributeError:  # This copy was initiated by a Structure that is not the parent
+                if self._copier:  # Copy initiated by Atoms container
+                    pass
+                else:
+                    other.detach_from_parent()
+                    # self.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
+                    #                f'previously')
+
+        return other
+
+    copy = __copy__
 
 
 alpha_helix_15 = [Atom(0, 1, 'N', ' ', 'ALA', 'A', 1, ' ', 27.128, 20.897, 37.943, 1.00, 0.00, 'N', ''),
@@ -1102,21 +1122,23 @@ class Atoms:
             for key, value in kwargs.items():
                 setattr(atom, key, value)
 
-    def __copy__(self) -> Atoms:  # -> Self Todo python3.11
-        other = self.__class__.__new__(self.__class__)
-        # other.__dict__ = self.__dict__.copy()
+    def __copy__(self) -> Atoms:  # -> Self: Todo python3.11
+        cls = self.__class__
+        other = cls.__new__(cls)
+        # other.__dict__.update(self.__dict__)
         other.atoms = self.atoms.copy()
-        # copy all Atom
+        # Copy all Atom instances
+        atom: Atom
         for idx, atom in enumerate(other.atoms):
             # Set an attribute to indicate the atom shouldn't be "detached"
             # since a Structure owns this Atoms instance
             atom._copier = True
-            other.atoms[idx] = copy(atom)
-            atom._copier = False
-
-        # other.find_prev_and_next()
+            new_atom = other.atoms[idx] = atom.copy()
+            new_atom._copier = atom._copier = False
 
         return other
+
+    copy = __copy__
 
     def __len__(self) -> int:
         return self.atoms.shape[0]
@@ -1314,7 +1336,7 @@ class ContainsAtomsMixin(StructureBase, ABC):
             atoms = Atoms(atoms)
 
         if atoms.are_dependents():  # Copy Atoms object to set new attributes on each member Atom
-            atoms = copy(atoms)
+            atoms = atoms.copy()
             atoms.reset_state()  # Clear runtime attributes
         self._atoms = atoms
         self.renumber_atoms()
@@ -2400,24 +2422,26 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         return hash(self.__key())
 
     def __copy__(self) -> Residue:  # -> Self Todo python3.11
-        other = self.__class__.__new__(self.__class__)
+        cls = self.__class__
+        other = cls.__new__(cls)
         # Todo only copy mutable objects like
         #  _atom_indices
         #  _bb_indices
         #  _bb_and_cb_indices
         #  _heavy_atom_indices
         #  _sc_indices
-        other.__dict__ = copy(self.__dict__)
+        other.__dict__.update(self.__dict__)
 
         if self.is_parent():  # This Structure is the parent, it's copy should be too
             # Set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy
             self.spawn = other
             try:
-                for attr in parent_attributes:
-                    other.__dict__[attr] = copy(self.__dict__[attr])
-            except KeyError:  # '_residues' is not present and will be last
+                other.__dict__[parent_variable] = self.__dict__[parent_variable]
+                for attr in new_parent_attributes:
+                    other.__dict__[attr] = self.__dict__[attr].copy()
+            except KeyError:  # '_residues' is not present and comes after _log, _coords, _atoms
                 pass
-            other._atoms.set_attributes(_parent=other)  # Todo comment out when Atom.__copy__ needed somewhere
+            # other._atoms.set_attributes(_parent=other)  # Todo comment out when Atom.__copy__ needed somewhere
             # Remove the attribute spawn after other Structure containers are copied
             del self.spawn
         else:  # This Structure is a dependent, it's copy should be too
@@ -2432,6 +2456,8 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                     #                f'previously')
 
         return other
+
+    copy = __copy__
 
 
 class Residues:
@@ -2561,21 +2587,25 @@ class Residues:
                 setattr(residue, key, value[idx])
 
     def __copy__(self) -> Residues:  # -> Self Todo python3.11
-        other = self.__class__.__new__(self.__class__)
+        cls = self.__class__
+        other = cls.__new__(cls)
+        # other.__dict__.update(self.__dict__)
         other.residues = self.residues.copy()
         for idx, residue in enumerate(other.residues):
             # Set an attribute to indicate the atom shouldn't be "detached"
             # since a Structure owns this Atoms instance
             residue._copier = True
-            new_residue = copy(residue)
+            other.residues[idx] = new_residue = residue.copy()
             new_residue._copier = residue._copier = False
-            other.residues[idx] = new_residue
+            # other.residues[idx] = new_residue
 
         # Todo, these were removed as current caller of Residues.__copy__ typically calls both of them
         # other.find_prev_and_next()
         # other.set_index()
 
         return other
+
+    copy = __copy__
 
     def __len__(self) -> int:
         return self.residues.shape[0]
@@ -2598,7 +2628,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             Used with a parent to specify a subdivision of a larger Structure
         parent: If a Structure is creating this Structure as a division of itself, pass the parent instance
     """
-    _atoms: Atoms | None
+    # _atoms: Atoms | None
     _backbone_and_cb_indices: list[int]
     _backbone_indices: list[int]
     _ca_indices: list[int]
@@ -2957,7 +2987,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         if residues.are_dependents():  # Copy Residues object to set new attributes on each member Residue
             # This may be an additional copy with the Residues(residues) construction above
-            residues = copy(residues)
+            residues = residues.copy()
             residues.reset_state()  # Clear runtime attributes
         else:
             raise RuntimeError(f'{type(self).__name__} {self.name} '
@@ -2974,8 +3004,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # Update Residue instance attributes to ensure they are dependants of this instance
         # Perform after _populate_coords as .coords may be set and then 'residues' .coords are overwritten
         self._residues.set_attributes(_parent=self)
-        self._residues.find_prev_and_next()  # # Duplicate call with "residues = copy(residues)"
-        self._residues.reindex()  # # Duplicates call .set_index with "residues = copy(residues)"
+        self._residues.find_prev_and_next()  # # Duplicate call with "residues = residues.copy()"
+        self._residues.reindex()  # # Duplicates call .set_index with "residues = residues.copy()"
         self._set_coords_indexed()
 
     # def store_coordinate_index_residue_map(self):
@@ -3724,7 +3754,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             raise IndexError(f'{self.insert_residue_type.__name__} at index {at} < 1 is not allowed')
 
         # Grab the reference atom coordinates and push into the atom list
-        new_residue = copy(stutils.reference_residues[reference_index])
+        new_residue = stutils.reference_residues[reference_index].copy()
         new_residue.number = at
         residue_index = at - 1  # since at is one-indexed integer, take from pose numbering to zero-indexed
         # insert the new_residue coords and atoms into the Structure Atoms
@@ -3883,7 +3913,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         if translation2 is not None:  # required for np.ndarray or None checks
             new_coords += np.array(translation2)
 
-        new_structure = copy(self)
+        new_structure = self.copy()
         new_structure.coords = new_coords
 
         return new_structure
@@ -4903,25 +4933,28 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         for structure_type in self.structure_containers:
             structures = getattr(self, structure_type)
             for idx, structure in enumerate(structures):
-                structures[idx] = copy(structure)
+                structures[idx] = structure.copy()
 
     def __copy__(self) -> Structure:  # -> Self Todo python3.11
-        other = self.__class__.__new__(self.__class__)
+        cls = self.__class__
+        other = cls.__new__(cls)
+        # other.__dict__.update(self.__dict__)
         # Copy each of the key value pairs to the new, other dictionary
         for attr, obj in self.__dict__.items():
             if attr in parent_attributes:
                 # Perform shallow copy on these attributes. They will be handled correctly below
                 other.__dict__[attr] = obj
             else:  # Perform a deeper copy
-                other.__dict__[attr] = copy(obj)
+                other.__dict__[attr] = copy(obj)  # This won't work for str or bool... obj.copy()
 
         if self.is_parent():  # This Structure is the parent, it's copy should be too
             # Set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy
             self.spawn = other
-            for attr in parent_attributes:
-                other.__dict__[attr] = copy(self.__dict__[attr])
-            # Todo comment out when Atom.__copy__ needed somewhere. Maybe used in Atoms.__copy__
-            other._atoms.set_attributes(_parent=other)
+            other.__dict__[parent_variable] = self.__dict__[parent_variable]
+            for attr in new_parent_attributes:
+                other.__dict__[attr] = self.__dict__[attr].copy()
+            # # Todo comment out when Atom.__copy__ needed somewhere. Maybe used in Atoms.__copy__
+            # other._atoms.set_attributes(_parent=other)
             # other._residues.set_attributes(_parent=other)
             # self.log.warning(f'In Structure __copy__')
             other._copy_structure_containers()
@@ -4939,6 +4972,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 other._update_structure_container_attributes(_parent=other)
 
         return other
+
+    copy = __copy__
 
     # Todo this isn't long term sustainable. Perhaps a better case would be the ._sequence
     def __key(self) -> tuple[str, int, ...]:
@@ -5056,7 +5091,7 @@ class Structures(Structure, UserList):
     #     else:
     #         raise AttributeError(
     #             'The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-    #             'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
+    #             'view. To pass the Coords object for a Structure, use the private attribute _coords')
 
     # @property
     # def coords(self) -> np.ndarray:

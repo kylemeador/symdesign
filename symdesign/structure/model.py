@@ -5,7 +5,7 @@ import math
 import os
 import subprocess
 import time
-from copy import copy, deepcopy
+from copy import deepcopy
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
 from logging import Logger
 from pathlib import Path
@@ -1491,7 +1491,7 @@ class Entity(Chain, ContainsChainsMixin):
         if translation2 is not None:  # required for np.ndarray or None checks
             new_coords += np.array(translation2)
 
-        new_structure = copy(self)
+        new_structure = self.copy()
         new_structure._make_mate(self)
         # _make_mate executes the following
         # self._captain = other
@@ -2142,7 +2142,7 @@ class Entity(Chain, ContainsChainsMixin):
             for idx, structure in enumerate(structures[1:], 1):  # only operate on [1:] slice since index 0 is different
                 # structures[idx] = copy(structure)
                 structure.entity_spawn = True
-                new_structure = copy(structure)
+                new_structure = structure.copy()
                 new_structure._captain = self
                 structures[idx] = new_structure
 
@@ -2181,6 +2181,8 @@ class Entity(Chain, ContainsChainsMixin):
         self._captain = captain
 
         return other
+
+    copy = __copy__
 
     def __key(self) -> tuple[str, int, ...]:
         return self.name, *self._residue_indices
@@ -2374,7 +2376,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         if chains:  # Create the instance from existing chains
             if isinstance(chains, (list, Structures)):
-                self.chains = copy(chains)  # copy the passed chains
+                self.chains = chains.copy()  # copy the passed chains
                 self._copy_structure_containers()  # copy each Chain in chains
                 # Reindex all residue and atom indices
                 self.chains[0].reset_state()
@@ -2404,7 +2406,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         if entities:  # Create the instance from existing entities
             if isinstance(entities, (list, Structures)):
-                self.entities = copy(entities)  # copy the passed entities
+                self.entities = entities.copy()  # copy the passed entities
                 self._copy_structure_containers()  # copy each Entity in entities
                 # Reindex all residue and atom indices
                 self.entities[0].reset_state()
@@ -2462,7 +2464,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     #          'max_symmetry_chain': other.__dict__['max_symmetry_chain'],
     #          'dihedral_chain': other.__dict__['dihedral_chain'],
     #          }
-    #     # temp_metadata = copy(other.__dict__)
+    #     # temp_metadata = other.__dict__.copy()
     #     # temp_metadata.pop('atoms')
     #     # temp_metadata.pop('residues')
     #     # temp_metadata.pop('secondary_structure')
@@ -4290,7 +4292,7 @@ class SymmetricModel(Models):
         if len(self.models) != self.number_of_symmetry_mates:
             # self.log.debug(f'Generating symmetry mates')
             for coord_idx in range(self.number_of_symmetry_mates):
-                symmetry_mate = copy(self)
+                symmetry_mate = self.copy()
                 self.models.append(symmetry_mate)
 
         number_of_atoms = self.number_of_atoms
@@ -4568,7 +4570,7 @@ class SymmetricModel(Models):
 
         sym_mates = []
         for coord_set in np.split(sym_coords, number_of_symmetry_mates):
-            symmetry_mate = copy(structure)
+            symmetry_mate = structure.copy()
             symmetry_mate.coords = coord_set
             sym_mates.append(symmetry_mate)
 
@@ -4786,7 +4788,7 @@ class SymmetricModel(Models):
                 #     #                                          rotation2=rotation2, translation2=translation2)
                 #     final_coords = transform_coordinate_sets(temp_coords, rotation=rot_op, translation=ext_tx)
                 #     # Entity representative stays in the .chains attribute as chain[0] given the iterator slice above
-                #     sub_symmetry_mate_pdb = copy(entity.chain_representative)
+                #     sub_symmetry_mate_pdb = entity.chain_representative.copy()
                 #     sub_symmetry_mate_pdb.replace_coords(final_coords)
                 #     entity.chains.append(sub_symmetry_mate_pdb)
                 #     # need to take the cyclic system generated and somehow transpose it on the dihedral group.
@@ -6757,13 +6759,13 @@ class Pose(SymmetricModel):
                 if entity1 == entity2:  # if query is with self, have to record it
                     _self = True
                     if not residues2:  # the interface is symmetric dimer and residues were removed from interface 2
-                        residues2 = copy(residues1)  # add residues1 to residues2
+                        residues2 = residues1.copy()  # add residues1 to residues2
                 else:
                     _self = False
 
                 if not interface[first_side]:  # This is first interface observation
                     # add the pair to the dictionary in their indexed order
-                    interface[first_side][entity1], interface[second_side][entity2] = copy(residues1), copy(residues2)
+                    interface[first_side][entity1], interface[second_side][entity2] = residues1.copy(), residues2.copy()
                     # indicate whether the interface is a self symmetric interface by marking side 2 with _self
                     interface['self'][second_side] = _self
                 else:  # We have interface assigned, so interface observation >= 2
@@ -6774,13 +6776,13 @@ class Pose(SymmetricModel):
                             # if so, flip Entity1 to interface side 2, add new Entity2 to interface side 1
                             # Ex4 - self Entity was added to index 0 while ASU added to index 1
                             interface[second_side][entity1].extend(residues1)
-                            interface[first_side][entity2] = copy(residues2)
+                            interface[first_side][entity2] = residues2.copy()
                         else:  # Entities are properly indexed, extend the first index
                             interface[first_side][entity1].extend(residues1)
                             # Because of combinations with replacement Entity search, the second Entity is not in
                             # interface side 2, UNLESS the Entity self interaction is on interface 1 (above if check)
                             # Therefore, add without checking for overwrite
-                            interface[second_side][entity2] = copy(residues2)
+                            interface[second_side][entity2] = residues2.copy()
                             # if _self:  # This can't happen, it would VIOLATE RULES
                             #     interface['self'][second] = _self
                     # Entity1 is not in the first index. It may be in the second, it may not
@@ -6788,7 +6790,7 @@ class Pose(SymmetricModel):
                         interface[second_side][entity1].extend(residues1)
                         # also add it's partner entity to the first index
                         # Entity 2 can't be in interface side 1 due to combinations with replacement check
-                        interface[first_side][entity2] = copy(residues2)  # Ex5
+                        interface[first_side][entity2] = residues2.copy()  # Ex5
                         if _self:  # only modify if self is True, don't want to overwrite an existing True value
                             interface['self'][first_side] = _self
                     # If Entity1 is missing, check Entity2 to see if it has been identified yet
@@ -6796,7 +6798,7 @@ class Pose(SymmetricModel):
                         # Possible in an iteration Ex: (A:D) (C:D)
                         interface[second_side][entity2].extend(residues2)
                         # entity 1 was not in first interface (from if #1), therefore we can set directly
-                        interface[first_side][entity1] = copy(residues1)
+                        interface[first_side][entity1] = residues1.copy()
                         if _self:  # only modify if self is True, don't want to overwrite an existing True value
                             interface['self'][first_side] = _self  # Ex3
                     elif entity2 in interface[first_side]:
