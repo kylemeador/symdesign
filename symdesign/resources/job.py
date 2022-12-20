@@ -10,6 +10,8 @@ from subprocess import list2cmdline
 from typing import Annotated, AnyStr, Any, Iterable
 
 import psutil
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 
 from symdesign import flags, utils
 from symdesign.resources import structure_db, wrapapi
@@ -216,6 +218,7 @@ class JobResources:
         self.pdbs = os.path.join(self.structure_info, 'PDBs')  # Used to store downloaded PDB's
         self.sequence_info = os.path.join(self.data, putils.sequence_info)
         self.external_db = os.path.join(self.data, 'ExternalDatabases')
+        self.internal_db = os.path.join(self.data, 'db')
         # pdbs subdirectories
         self.orient_dir = os.path.join(self.pdbs, 'oriented')
         self.orient_asu_dir = os.path.join(self.pdbs, 'oriented_asu')
@@ -241,6 +244,17 @@ class JobResources:
         self.api_db = wrapapi.api_database_factory.get(source=self.data)
         self.structure_db = structure_db.structure_database_factory.get(source=self.data)
         self.fragment_db: 'db.FragmentDatabase' | None = None
+        self.db: Engine = create_engine(f'sqlite:///{self.internal_db}', echo=True, future=True)
+        if self.development:
+            # All tables are deleted
+            utils.sql.Base.metadata.drop_all(self.db)
+            # Emit CREATE TABLE DDL
+            utils.sql.Base.metadata.create_all(self.db)
+        if not os.path.exists(self.internal_db):
+            # Emit CREATE TABLE DDL
+            utils.sql.Base.metadata.create_all(self.db)
+
+        # self.score_db: Engine = create_engine(utils.sql.residues)
 
         # PoseDirectory initialize Flags
         self.initial_refinement = self.initial_loop_model = None
