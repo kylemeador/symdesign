@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from copy import copy
 from typing import Annotated, Literal, get_args, Type, Union
 
 import numpy as np
@@ -137,8 +136,8 @@ class FragmentDatabase(info.FragmentInfo):
             return {}
 
         fragment_i_index_count_d = {frag_idx: 0 for frag_idx in range(1, self.fragment_length + 1)}
-        fragment_j_index_count_d = copy(fragment_i_index_count_d)
-        total_fragment_content = copy(fragment_i_index_count_d)
+        fragment_j_index_count_d = fragment_i_index_count_d.copy()
+        total_fragment_content = fragment_i_index_count_d.copy()
 
         entity1_center_match_scores, entity2_center_match_scores = {}, {}
         entity1_match_scores, entity2_match_scores = {}, {}

@@ -9,7 +9,6 @@ import re
 import shutil
 import warnings
 from collections.abc import Sequence
-from copy import copy
 from glob import glob
 from itertools import combinations, repeat
 from logging import Logger
@@ -119,7 +118,7 @@ class PoseProtocol:
                               score_only=None, variables=None, **kwargs):
         """Generate a custom script to dispatch to the design using a variety of parameters"""
         raise DesignError('This module is outdated, please update it to use')  # Todo reflect modern metrics collection
-        cmd = copy(rosetta.script_cmd)
+        cmd = rosetta.script_cmd.copy()
         script_name = os.path.splitext(os.path.basename(script))[0]
         # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
         self.identify_interface()
@@ -203,7 +202,7 @@ class PoseProtocol:
         """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
         # metrics_flags = 'repack=yes'
         self.protocol = putils.interface_metrics
-        main_cmd = copy(rosetta.script_cmd)
+        main_cmd = rosetta.script_cmd.copy()
         # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
         self.identify_interface()
         # else:  # We only need to load pose as we already calculated interface
@@ -590,7 +589,7 @@ class PoseProtocol:
         generate_files_cmd = \
             ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + self.protocol]
 
-        main_cmd = copy(rosetta.script_cmd)
+        main_cmd = rosetta.script_cmd.copy()
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
         if not os.path.exists(self.flags) or self.job.force:
             self.prepare_rosetta_flags(out_dir=self.scripts)
@@ -1968,7 +1967,7 @@ class PoseDirectory(PoseProtocol):
         else:  # Get an out-of-bounds index
             variables.extend([('core_residues', out_of_bounds_residue)])
 
-        rosetta_flags = copy(rosetta.rosetta_flags)
+        rosetta_flags = rosetta.rosetta_flags.copy()
         if pdb_out_path:
             rosetta_flags.extend([f'-out:path:pdb {pdb_out_path}', f'-scorefile {self.scores_file}'])
         else:
@@ -2095,7 +2094,7 @@ class PoseDirectory(PoseProtocol):
             metrics: Whether metrics should be calculated for the Pose
             in_file_list: A list of files to perform refinement on
         """
-        main_cmd = copy(rosetta.script_cmd)
+        main_cmd = rosetta.script_cmd.copy()
 
         infile = []
         if to_pose_directory:  # Original protocol to refine a pose as provided from Nanohedra
@@ -2240,7 +2239,7 @@ class PoseDirectory(PoseProtocol):
         on the PoseDirectory
         """
         # Set up the command base (rosetta bin and database paths)
-        main_cmd = copy(rosetta.script_cmd)
+        main_cmd = rosetta.script_cmd.copy()
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         profile_cmd = ['-in:file:pssm', self.evolutionary_profile_file] \
@@ -2692,11 +2691,11 @@ class PoseDirectory(PoseProtocol):
                 'proteinmpnn_loss_design': per_residue_design_profile_scores,
                 'proteinmpnn_loss_evolution': per_residue_evolutionary_profile_scores,
                 'proteinmpnn_loss_fragment': per_residue_fragment_profile_scores,
-                # 'bound': 0.,  # copy(entity_energies),
-                # copy(entity_energies),
+                # 'bound': 0.,  # entity_energies.copy(),
+                # entity_energies.copy(),
                 # 'solv_complex': 0., 'solv_bound': 0.,
-                # copy(entity_energies),
-                # 'solv_unbound': 0.,  # copy(entity_energies),
+                # entity_energies.copy(),
+                # 'solv_unbound': 0.,  # entity_energies.copy(),
                 # 'fsp': 0., 'cst': 0.,
                 # 'type': protein_letters_3to1.get(residue.type),
                 # 'hbond': 0
@@ -2939,9 +2938,9 @@ class PoseDirectory(PoseProtocol):
 
         entity_energies = [0. for _ in self.pose.entities]
         pose_source_residue_info = \
-            {residue.number: {'complex': 0., 'bound': copy(entity_energies), 'unbound': copy(entity_energies),
-                              'solv_complex': 0., 'solv_bound': copy(entity_energies),
-                              'solv_unbound': copy(entity_energies), 'fsp': 0., 'cst': 0.,
+            {residue.number: {'complex': 0., 'bound': entity_energies.copy(), 'unbound': entity_energies.copy(),
+                              'solv_complex': 0., 'solv_bound': entity_energies.copy(),
+                              'solv_unbound': entity_energies.copy(), 'fsp': 0., 'cst': 0.,
                               'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
              for entity in self.pose.entities for residue in entity.residues}
         residue_info = {putils.pose_source: pose_source_residue_info}

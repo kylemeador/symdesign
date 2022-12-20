@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
-from copy import copy
 from glob import glob
 from logging import Logger
 from pathlib import Path
@@ -529,10 +528,10 @@ class StructureDatabase(Database):
                 # Generate sbatch refine command
                 flags_file = os.path.join(refine_dir, 'refine_flags')
                 # if not os.path.exists(flags_file):
-                flags = copy(rosetta.rosetta_flags) + rosetta.relax_flags
+                flags = rosetta.rosetta_flags.copy() + rosetta.relax_flags
                 flags.extend([f'-out:path:pdb {refine_dir}', '-no_scorefile true'])
                 flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
-                variables = copy(rosetta.rosetta_variables)
+                variables = rosetta.rosetta_variables.copy()
                 variables.append(('dist', 0))  # Todo modify if not point groups used
                 flags.append('-parser:script_vars %s' % ' '.join(f'{var}={val}' for var, val in variables))
 
@@ -593,7 +592,7 @@ class StructureDatabase(Database):
                 # if not os.path.exists(flags_file):
                 loop_model_flags = ['-remodel::save_top 0', '-run:chain A', '-remodel:num_trajectory 1']
                 #                   '-remodel:run_confirmation true', '-remodel:quick_and_dirty',
-                flags = copy(rosetta.rosetta_flags) + loop_model_flags
+                flags = rosetta.rosetta_flags.copy() + loop_model_flags
                 # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
                 flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
                 variables = [('script_nstruct', '100')]  # generate 100 trial loops, 500 is typically sufficient

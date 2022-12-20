@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import os
-from copy import copy
 
 from symdesign import utils
 from symdesign.interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_interfaces
@@ -295,7 +294,7 @@ def find_representative_pdbs_for_uniprot_entry(unp_d, pdb_uniprot_info, min_reso
         crystalline, and hetero partners. Finds the highest resolution structure for each category.
     """
     # Find Uniprot ID with highest resolution and save PDB Code
-    min_res = copy(min_resolution_threshold)
+    min_res = min_resolution_threshold
     unp_d['top'] = None
     for pdb_code in unp_d['unique_pdb']:
         pdb_res = pdb_uniprot_info[pdb_code]['res']
@@ -309,7 +308,7 @@ def find_representative_pdbs_for_uniprot_entry(unp_d, pdb_uniprot_info, min_reso
     # Add the highest resolution UniProt Partners to the Hetero Biological Assemblies
     unp_d['hetero'] = set()
     for partner, partner_data in unp_d['partners'].items():
-        min_partner_res = copy(min_resolution_threshold)
+        min_partner_res = min_resolution_threshold
         top_partner = None
         for pdb_code_chain in partner_data['all']:
             pdb_code, chain = pdb_code_chain.split('.')
@@ -322,7 +321,7 @@ def find_representative_pdbs_for_uniprot_entry(unp_d, pdb_uniprot_info, min_reso
 
     # Save highest Resolution PDB Codes for each Space Group
     for cryst, cryst_data in unp_d['space_groups']:
-        min_xtal_res = copy(min_resolution_threshold)
+        min_xtal_res = min_resolution_threshold
         top_xtal_pdb = None
         for pdb_code in cryst_data['all']:
             xtal_res = pdb_uniprot_info[pdb_code]['res']
@@ -628,7 +627,7 @@ if __name__ == '__main__':
             if top_pdb in pdb_codes:
                 uniprot_id_bio_dict[top_pdb] = interface_type_number_sets[top_pdb]
             else:
-                best_metric = copy(pdb_resolution_threshold)
+                best_metric = pdb_resolution_threshold
                 highest_pdb_code = None
                 for pdb_code in pdb_codes:
                     pdb_metric = pdb_uniprot_info[pdb_code][representative_metric]
