@@ -27,7 +27,7 @@ import psutil
 
 # from Query.utils import validate_input
 # from . import CommandDistributer, ProteinExpression  # Doesn't work due to circular imports
-from . import path as putils
+from . import path as putils, sql
 # from ..utils import cluster, CommandDistributer, ProteinExpression, SymEntry, symmetry, path as putils
 
 # Globals
