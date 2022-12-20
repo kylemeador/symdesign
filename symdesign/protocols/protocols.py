@@ -520,6 +520,7 @@ class PoseProtocol:
                     write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
                 write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
                 self.pose.fragment_profile.write(file_name=self.fragment_profile_file)
+                raise NotImplementedError(f'No function for all residue Rosetta design yet')
                 self.rosetta_design()  # Sets self.protocol
             case putils.proteinmpnn:
                 self.proteinmpnn_design()  # Sets self.protocol
@@ -1861,7 +1862,7 @@ class PoseDirectory(PoseProtocol):
                 trajectory_models = Models()
 
                 if self.sym_entry.unit_cell:
-                    logger.warning('No unit cell dimensions applicable to the trajectory file.')
+                    self.log.warning('No unit cell dimensions applicable to the trajectory file.')
 
                 trajectory_models.write(out_path=os.path.join(self.frags, 'all_frags.pdb'),
                                         oligomer=True)
@@ -2542,7 +2543,8 @@ class PoseDirectory(PoseProtocol):
         """
         # Calculate metrics on input Pose before any manipulation
         pose_length = self.pose.number_of_residues
-        residue_numbers = [residue.number for residue in self.pose.residues]
+        residue_indices = list(range(pose_length))  # [residue.index for residue in self.pose.residues]
+        # residue_numbers = [residue.number for residue in self.pose.residues]
 
         temperature_df = pd.DataFrame(sequences_and_scores['temperatures'], index=design_ids, columns=['temperature'])
         numeric_sequences = sequences_and_scores['numeric_sequences']
@@ -2629,7 +2631,7 @@ class PoseDirectory(PoseProtocol):
                 fragment_profile_frequencies.append(
                     self.pose.get_sequence_probabilities_from_profile(precomputed=fragment_profile_array))
             except IndexError as error:  # We are missing fragments for this Pose
-                logger.warning(f"We didn't find any fragment information... due to: {error}")
+                self.log.warning(f"We didn't find any fragment information... due to: {error}")
                 #                "\nSetting the self.pose.fragment_profile = None")
                 # raise IndexError(f'With new updates to calculate_fragment_profile this code should be '
                 #                  f'unreachable. Original error:\n{error}')
@@ -2649,7 +2651,7 @@ class PoseDirectory(PoseProtocol):
             # # for profile, observed_values in observed.items():
             # #     scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
             # #     observed_dfs.append(pd.DataFrame(data=observed_values, index=design_id,
-            # #                                      columns=pd.MultiIndex.from_product([residue_numbers,
+            # #                                      columns=pd.MultiIndex.from_product([residue_indices,
             # #                                                                          [f'observed_{profile}']]))
             # #                         )
             # # Add observation information into the residues_df
@@ -2709,16 +2711,15 @@ class PoseDirectory(PoseProtocol):
         scores_df = scores_df.join(temperature_df)
         # Collect sequence metrics on every designed Pose
         # Construct residues_df
-        residues_df = pd.concat({design_id: pd.DataFrame(data, index=residue_numbers)
-                                 for design_id, data in per_residue_data.items()}).unstack().swaplevel(0, 1,
-                                                                                                          axis=1)
+        residues_df = pd.concat({design_id: pd.DataFrame(data, index=residue_indices)
+                                 for design_id, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
         # if self.job.design.sequences:
         # sequences = numeric_to_sequence(numeric_sequences)
         # # Format the sequences from design with shape (size, number_of_temperatures, pose_length)
         # # to (size * number_of_temperatures, pose_length)
         # sequences = sequences.reshape(-1, pose_length)
         # per_residue_sequence_df = pd.DataFrame(sequences, index=design_ids,
-        #                                        columns=pd.MultiIndex.from_product([residue_numbers, ['type']]))
+        #                                        columns=pd.MultiIndex.from_product([residue_indices, ['type']]))
         # per_residue_sequence_df.loc[putils.pose_source, :] = list(self.pose.sequence)
         # per_residue_sequence_df.append(pd.DataFrame(list(self.pose.sequence), columns=[putils.pose_source]).T)
         pose_sequences = dict(zip(design_ids, [''.join(sequence) for sequence in sequences.tolist()]))
@@ -2745,7 +2746,7 @@ class PoseDirectory(PoseProtocol):
 
         per_residue_background_frequencies = \
             pd.concat([pd.DataFrame(background, index=design_ids,
-                                    columns=pd.MultiIndex.from_product([residue_numbers, [f'observed_{profile}']]))
+                                    columns=pd.MultiIndex.from_product([residue_indices, [f'observed_{profile}']]))
                        for profile, background in background_frequencies.items()], axis=1)
 
         # Calculate hydrophobic collapse for each design
@@ -2763,7 +2764,7 @@ class PoseDirectory(PoseProtocol):
             self.pose.get_folding_metrics(hydrophobicity='expanded')
         folding_and_collapse = metrics.collapse_per_residue(all_sequences_by_entity, contact_order_per_res_z,
                                                             reference_collapse)
-        per_residue_collapse_df = pd.concat({pose_id: pd.DataFrame(data, index=residue_numbers)
+        per_residue_collapse_df = pd.concat({pose_id: pd.DataFrame(data, index=residue_indices)
                                              for pose_id, data in zip(design_ids, folding_and_collapse)},
                                             ).unstack().swaplevel(0, 1, axis=1)
         # Calculate mutational content
@@ -2863,7 +2864,7 @@ class PoseDirectory(PoseProtocol):
         #     # residues_df = pd.DataFrame()
 
         scores_columns = scores_df.columns.to_list()
-        logger.debug(f'Metrics present: {scores_columns}')
+        self.log.debug(f'Metrics present: {scores_columns}')
 
         # Concatenate all design information after parsing data sources
         # interface_metrics_df = pd.concat([interface_metrics_df], keys=[('dock', 'pose')])
@@ -2884,7 +2885,7 @@ class PoseDirectory(PoseProtocol):
         # trajectory_metrics_csv = os.path.join(self.job.all_scores, f'{building_blocks}_docked_poses_Trajectories.csv')
         self.job.dataframe = self.trajectories
         pose_df.to_csv(self.trajectories)
-        logger.info(f'Wrote trajectory metrics to {self.trajectories}')
+        self.log.info(f'Wrote trajectory metrics to {self.trajectories}')
         # if self.job.design.sequences:
         # residue_metrics_csv = os.path.join(self.job.all_scores, f'{building_blocks}_docked_poses_Residues.csv')
         if self.job.db:
