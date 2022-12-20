@@ -569,25 +569,25 @@ def main():
             logger.info(f'Selecting poses within range: {low_range if low_range else 1}-{high_range}')
 
         logger.info(f'Setting up input files for {job.module}')
-        if args.nanohedra_output:  # Nanohedra directory
-            all_poses, job.location = utils.collect_nanohedra_designs(files=args.file, directory=args.directory)
-            if all_poses:
-                first_pose_path = all_poses[0]
-                if first_pose_path.count(os.sep) == 0:
-                    job.nanohedra_root = args.directory
-                else:
-                    job.nanohedra_root = f'{os.sep}{os.path.join(*first_pose_path.split(os.sep)[:-4])}'
-                if not job.sym_entry:  # Get from the Nanohedra output
-                    job.sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
-                pose_directories = [PoseDirectory.from_file(pose, root=root)
-                                    for pose in all_poses[low_range:high_range]]
-                # copy the master nanohedra log
-                project_designs = \
-                    os.path.join(job.projects, f'{os.path.basename(job.nanohedra_root)}_{putils.pose_directory}')
-                if not os.path.exists(os.path.join(project_designs, putils.master_log)):
-                    putils.make_path(project_designs)
-                    shutil.copy(os.path.join(job.nanohedra_root, putils.master_log), project_designs)
-        elif args.specification_file:
+        # if args.nanohedra_output:  # Nanohedra directory
+        #     all_poses, job.location = utils.collect_nanohedra_designs(files=args.file, directory=args.directory)
+        #     if all_poses:
+        #         first_pose_path = all_poses[0]
+        #         if first_pose_path.count(os.sep) == 0:
+        #             job.nanohedra_root = args.directory
+        #         else:
+        #             job.nanohedra_root = f'{os.sep}{os.path.join(*first_pose_path.split(os.sep)[:-4])}'
+        #         if not job.sym_entry:  # Get from the Nanohedra output
+        #             job.sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
+        #         pose_directories = [PoseDirectory.from_file(pose, root=root)
+        #                             for pose in all_poses[low_range:high_range]]
+        #         # Copy the master nanohedra log
+        #         project_designs = \
+        #             os.path.join(job.projects, f'{os.path.basename(job.nanohedra_root)}')  # _{putils.pose_directory}')
+        #         if not os.path.exists(os.path.join(project_designs, putils.master_log)):
+        #             putils.make_path(project_designs)
+        #             shutil.copy(os.path.join(job.nanohedra_root, putils.master_log), project_designs)
+        if args.specification_file:
             if not args.directory:
                 raise utils.InputError(f'A --{flags.directory} must be provided when using '
                                        f'--{flags.specification_file}')
@@ -602,8 +602,8 @@ def main():
             all_poses, job.location = utils.collect_designs(files=args.file, directory=args.directory,
                                                             projects=args.project, singles=args.single)
             if all_poses:
-                if all_poses[0].count(os.sep) == 0:  # check to ensure -f wasn't used when -pf was meant
-                    # assume that we have received pose-IDs and process accordingly
+                if all_poses[0].count(os.sep) == 0:  # Check to ensure -f wasn't used when -pf was meant
+                    # Assume that we have received pose-IDs and process accordingly
                     if not args.directory:
                         raise utils.InputError('Your input specification appears to be pose IDs, however no '
                                                f'--{flags.directory} was passed. Please resubmit with '
@@ -628,7 +628,7 @@ def main():
         #      flags.analysis,  # maybe hhblits, bmDCA. Only refine if Rosetta were used, no loop_modelling
         #      flags.refine]  # pre_refine not necessary. maybe hhblits, bmDCA, loop_modelling
         # Todo fix below sloppy logic
-        if (not initialized and job.module in initialize_modules) or args.nanohedra_output or args.update_database:
+        if (not initialized and job.module in initialize_modules) or args.update_database:  # or args.nanohedra_output
             all_structures = []
             if not initialized and args.preprocessed:
                 # args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
@@ -719,8 +719,10 @@ def main():
             job.api_db.load_all_data()
         # Set up in series
         for pose in pose_directories:
-            pose.initialize_structure_attributes(pre_refine=job.initial_refinement,
-                                                 pre_loop_model=job.initial_loop_model)
+            # pose.initialize_structure_attributes(pre_refine=job.initial_refinement,
+            #                                      pre_loop_model=job.initial_loop_model)
+            pose.pre_refine = job.initial_refinement
+            pose.pre_loop_model = job.initial_loop_model
 
         logger.info(f'{len(pose_directories)} unique poses found in "{job.location}"')
         if not job.debug and not job.skip_logging:
@@ -926,7 +928,7 @@ def main():
         # This logic is possible with job.module as select_poses with --metric or --dataframe
         # job.structure_db = None
         # job.api_db = None
-        # design_source = os.path.basename(representative_pose_directory.project_designs)
+        # design_source = os.path.basename(representative_pose_directory.project)
         pass
 
     # -----------------------------------------------------------------------------------------------------------------
