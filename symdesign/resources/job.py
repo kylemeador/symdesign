@@ -408,12 +408,12 @@ class JobResources:
         else:
             self.output: bool = False
 
-        self.nanohedra_output: bool = kwargs.get(flags.nanohedra_output)
-        self.nanohedra_root: str | None = None
-        if self.nanohedra_output:
-            self.construct_pose: bool = kwargs.get('construct_pose', True)
-        else:
-            self.construct_pose = True
+        # self.nanohedra_output: bool = kwargs.get(flags.nanohedra_output)
+        # self.nanohedra_root: str | None = None
+        # if self.nanohedra_output:
+        #     self.construct_pose: bool = kwargs.get('construct_pose', True)
+        # else:
+        self.construct_pose = True
 
         # Prediction flags
         self.predict = Predict.from_flags(**kwargs)
