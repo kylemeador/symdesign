@@ -10,9 +10,8 @@ import subprocess
 from itertools import repeat
 from typing import AnyStr
 
-from symdesign import flags, utils
-from symdesign.utils.path import sbatch_template_dir, submodule_help, program_name, hbnet_design_profile, hhblits, \
-    make_path
+from symdesign import flags
+from . import calculate_mp_cores, collect_designs, InputError, mp_starmap, pickle_object, unpickle, path as putils
 
 # Globals
 cmd_dist = os.path.abspath(__file__)
@@ -33,25 +32,25 @@ sb_flag = '#SBATCH --'
 process_scale = {
     flags.refine: 2, flags.interface_design: 2, 'metrics': 2, flags.consensus: 2, flags.nanohedra: 1,  # 2,
     'rmsd_calculation': 1, 'all_to_all': 1, 'rmsd_clustering': 1, 'rmsd_to_cluster': 1, 'rmsd': 1, 'all_to_cluster': 1,
-    flags.scout: 2, hbnet_design_profile: 2, flags.optimize_designs: 2, 'metrics_bound': 2, flags.interface_metrics: 2,
-    hhblits: 1, 'bmdca': 2}
+    flags.scout: 2, putils.hbnet_design_profile: 2, flags.optimize_designs: 2, 'metrics_bound': 2, flags.interface_metrics: 2,
+    putils.hhblits: 1, 'bmdca': 2}
 # Cluster Dependencies and Multiprocessing
-sbatch_templates = {flags.refine: os.path.join(sbatch_template_dir, flags.refine),
-                    flags.interface_design: os.path.join(sbatch_template_dir, flags.interface_design),
-                    flags.scout: os.path.join(sbatch_template_dir, flags.interface_design),
-                    'metrics': os.path.join(sbatch_template_dir, flags.interface_design),
-                    flags.analysis: os.path.join(sbatch_template_dir, flags.refine),
-                    flags.consensus: os.path.join(sbatch_template_dir, flags.refine),
-                    flags.nanohedra: os.path.join(sbatch_template_dir, flags.nanohedra),
-                    'rmsd_calculation': os.path.join(sbatch_template_dir, 'rmsd_calculation'),
-                    'all_to_all': os.path.join(sbatch_template_dir, 'rmsd_calculation'),
-                    'rmsd_clustering': os.path.join(sbatch_template_dir, 'rmsd_calculation'),
-                    'rmsd_to_cluster': os.path.join(sbatch_template_dir, 'rmsd_calculation'),
-                    'metrics_bound': os.path.join(sbatch_template_dir, flags.interface_design),
-                    flags.interface_metrics: os.path.join(sbatch_template_dir, flags.interface_design),
-                    flags.optimize_designs: os.path.join(sbatch_template_dir, hhblits),
-                    hhblits: os.path.join(sbatch_template_dir, hhblits),
-                    'bmdca': os.path.join(sbatch_template_dir, 'bmdca')
+sbatch_templates = {flags.refine: os.path.join(putils.sbatch_template_dir, flags.refine),
+                    flags.interface_design: os.path.join(putils.sbatch_template_dir, flags.interface_design),
+                    flags.scout: os.path.join(putils.sbatch_template_dir, flags.interface_design),
+                    'metrics': os.path.join(putils.sbatch_template_dir, flags.interface_design),
+                    flags.analysis: os.path.join(putils.sbatch_template_dir, flags.refine),
+                    flags.consensus: os.path.join(putils.sbatch_template_dir, flags.refine),
+                    flags.nanohedra: os.path.join(putils.sbatch_template_dir, flags.nanohedra),
+                    'rmsd_calculation': os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
+                    'all_to_all': os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
+                    'rmsd_clustering': os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
+                    'rmsd_to_cluster': os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
+                    'metrics_bound': os.path.join(putils.sbatch_template_dir, flags.interface_design),
+                    flags.interface_metrics: os.path.join(putils.sbatch_template_dir, flags.interface_design),
+                    flags.optimize_designs: os.path.join(putils.sbatch_template_dir, putils.hhblits),
+                    putils.hhblits: os.path.join(putils.sbatch_template_dir, putils.hhblits),
+                    'bmdca': os.path.join(putils.sbatch_template_dir, 'bmdca')
                     }
 
 
@@ -141,7 +140,7 @@ def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str =
         #                      Could add a hyperthreading=True parameter to remove process scale
         #     command_divisor = process_scale
         # else:
-        raise utils.InputError('Required argument "scale" not specified')
+        raise InputError('Required argument "scale" not specified')
 
     script_or_command = \
         '{} is malformed at line {}. All commands should match.\n* * *\n{}\n* * *' \
@@ -150,7 +149,7 @@ def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str =
         directives = [0 for _ in range(number_of_commands)]
     elif file:  # Automatically detect if the commands file has executable scripts or errors
         # use collect_designs to get commands from the provided file
-        directives, location = utils.collect_designs(files=[file])  # , directory=out_path)
+        directives, location = collect_designs(files=[file])  # , directory=out_path)
         # Check if the file lines (directives) contain a script or a command
         scripts = True if directives[0].endswith('.sh') else False
         # command_present = not scripts
@@ -159,19 +158,19 @@ def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str =
             # Check if the command string is a shell script type file string. Ex: "refine.sh"
             if directive.endswith('.sh'):  # This is a file
                 if not os.path.exists(directive):  # Check if file is missing
-                    raise utils.InputError(f"{file} is malformed at line {idx}. "
+                    raise InputError(f"{file} is malformed at line {idx}. "
                                            f"The command at location '{directive}' doesn't exist")
                 if not scripts:  # There was a change from non-script files
-                    raise utils.InputError(script_or_command.format(file, idx, directive))
+                    raise InputError(script_or_command.format(file, idx, directive))
             else:  # directive is a command
                 # Check if there was a change from script files to non-script files
                 if scripts:
-                    raise utils.InputError(script_or_command.format(file, idx, directive))
+                    raise InputError(script_or_command.format(file, idx, directive))
                 else:
                     scripts = False
 
     else:
-        raise utils.InputError(f'Must pass number_of_commands or file to {distribute.__name__}')
+        raise InputError(f'Must pass number_of_commands or file to {distribute.__name__}')
 
     # Create success and failures files
     name = os.path.basename(os.path.splitext(file)[0])
@@ -180,7 +179,7 @@ def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str =
     if failure_file is None:
         failure_file = os.path.join(out_path, f'{name}-{sbatch}.failures')
     output = os.path.join(out_path, 'sbatch_output')
-    make_path(output)
+    putils.make_path(output)
 
     # Make sbatch file from template, array details, and command distribution script
     filename = os.path.join(out_path, f'{name}_{sbatch}.sh')
@@ -206,17 +205,17 @@ def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str =
 # @handle_errors(errors=(FileNotFoundError,))
 def update_status(serialized_info: AnyStr, stage: str, mode: str = 'check'):
     """Update the serialized info for a designs commands such as checking or removing status, and marking completed"""
-    info = utils.unpickle(serialized_info)
+    info = unpickle(serialized_info)
     if mode == 'check':
         if info['status'][stage]:  # if the status of the stage is True
             exit(1)
     elif mode == 'set':
         info['status'][stage] = True
-        utils.pickle_object(info, name=serialized_info, out_path='')
+        pickle_object(info, name=serialized_info, out_path='')
         # exit()
     elif mode == 'remove':
         info['status'][stage] = False
-        utils.pickle_object(info, name=serialized_info, out_path='')
+        pickle_object(info, name=serialized_info, out_path='')
         # exit()
     else:
         exit(127)
@@ -224,7 +223,8 @@ def update_status(serialized_info: AnyStr, stage: str, mode: str = 'check'):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=f'{os.path.basename(__file__)}\nGather commands set up by '
-                                                 f'{program_name} and distribute to computational nodes for processing')
+                                                 f'{putils.program_name} and distribute to computational nodes for '
+                                                 f'processing')
     parser.add_argument('--stage', choices=tuple(process_scale.keys()),
                         help='The stage of design to be distributed. Each stage has optimal computing requirements to '
                              f'maximally utilize computers. One of {", ".join(list(process_scale.keys()))}')
@@ -232,7 +232,7 @@ if __name__ == '__main__':
                                        description='These are the different modes that designs are processed',
                                        help='Chose one of the SubModules followed by SubModule specific flags. To get '
                                             'help on a SubModule such as specific commands and flags enter: \n'
-                                            f"{submodule_help}\n\nAny module's help can be accessed in this way")
+                                            f"{putils.submodule_help}\n\nAny module's help can be accessed in this way")
     # ---------------------------------------------------
     parser_distribute = subparsers.add_parser('distribute', help='Submit a job to SLURM for processing')
     parser_distribute.add_argument('-f', '--command_file',
@@ -339,8 +339,8 @@ if __name__ == '__main__':
         number_of_commands = len(specific_commands)
         if number_of_commands > 1:
             # The args.jobs was set by the process_scale dictionary
-            results = utils.mp_starmap(run, zipped_commands,
-                                       processes=utils.calculate_mp_cores(cores=number_of_commands, jobs=args.jobs))
+            results = mp_starmap(run, zipped_commands,
+                                 processes=calculate_mp_cores(cores=number_of_commands, jobs=args.jobs))
         else:
             results = [run(*command) for command in zipped_commands]
         #    iteration += 1

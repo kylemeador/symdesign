@@ -176,11 +176,34 @@ class JobResources:
         if arguments is not None:
             kwargs.update(copy.deepcopy(vars(arguments)))
 
+        # Computing environment and development Flags
+        # self.command_only: bool = kwargs.get('command_only', False)
+        """Whether to reissue commands, only if distribute_work=False"""
+        self.cores: int = kwargs.get('cores', 0)
+        self.development: bool = kwargs.get(putils.development)
+        self.profile: bool = kwargs.get(putils.profile)
+        if self.profile and not self.development:
+            logger.warning(f"--profile flag was set but --development wasn't")
+        self.distribute_work: bool = kwargs.get(putils.distribute_work)
+        self.mpi: int = kwargs.get('mpi', 0)
+        self.multi_processing: int = kwargs.get(putils.multi_processing)
+        if self.multi_processing:
+            # Calculate the number of cores to use depending on computer resources
+            self.cores = utils.calculate_mp_cores(cores=self.cores)  # mpi=self.mpi, Todo
+        else:
+            self.cores = 1
+
+        if self.mpi > 0:
+            self.distribute_work = True
+        # self.reduce_memory = False
+
         # Input location and parameters
         self.location = None
         self.output_file = kwargs.get(putils.output_file)
         # program_root subdirectories
         self.data = os.path.join(self.program_root, putils.data.title())
+        # if self.output_to_directory:
+        #     self.projects = ''
         self.projects = os.path.join(self.program_root, putils.projects)
         self.job_paths = os.path.join(self.program_root, 'JobPaths')
         self.sbatch_scripts = os.path.join(self.program_root, 'Scripts')
@@ -207,12 +230,7 @@ class JobResources:
         # self.pdb_entity_api = os.path.join(self.external_db, 'pdb_entity')
         # self.pdb_assembly_api = os.path.join(self.external_db, 'pdb_assembly')
         self.uniprot_api = os.path.join(self.external_db, 'uniprot')
-        # try:
-        # if not self.projects:  # used for subclasses
-        # if not getattr(self, 'projects', None):  # used for subclasses
-        #     self.projects = os.path.join(self.program_root, projects)
-        # except AttributeError:
-        #     self.projects = os.path.join(self.program_root, projects)
+
         # self.design_db = None
         # self.score_db = None
         putils.make_path(self.pdb_api)
@@ -226,27 +244,6 @@ class JobResources:
 
         # PoseDirectory initialize Flags
         self.initial_refinement = self.initial_loop_model = None
-
-        # Computing environment and development Flags
-        # self.command_only: bool = kwargs.get('command_only', False)
-        """Whether to reissue commands, only if distribute_work=False"""
-        self.cores: int = kwargs.get('cores', 0)
-        self.development: bool = kwargs.get(putils.development)
-        self.profile: bool = kwargs.get(putils.profile)
-        if self.profile and not self.development:
-            logger.warning(f"--profile flag was set but --development wasn't")
-        self.distribute_work: bool = kwargs.get(putils.distribute_work)
-        self.mpi: int = kwargs.get('mpi', 0)
-        self.multi_processing: int = kwargs.get(putils.multi_processing)
-        if self.multi_processing:
-            # Calculate the number of cores to use depending on computer resources
-            self.cores = utils.calculate_mp_cores(cores=self.cores)  # mpi=self.mpi, Todo
-        else:
-            self.cores = 1
-
-        if self.mpi > 0:
-            self.distribute_work = True
-        # self.reduce_memory = False
 
         # Program flags
         # self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus
