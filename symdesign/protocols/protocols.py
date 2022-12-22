@@ -2782,7 +2782,7 @@ class PoseDirectory(PoseProtocol):
         #                                      for design_id, data in zip(design_ids, folding_and_collapse)},
         #                                     ).unstack().swaplevel(0, 1, axis=1)
         # Calculate mutational content
-        # mutation_df = residues_df.loc[:, idx_slice[:, 'mutations']]
+        # mutation_df = residues_df.loc[:, idx_slice[:, 'mutation']]
         # designs_df['number_of_mutations'] = mutation_df.sum(axis=1)
         # designs_df['percent_mutations'] = designs_df['number_of_mutations'] / pose_length
         #
@@ -2792,8 +2792,8 @@ class PoseDirectory(PoseProtocol):
         #     # entity_n_terminal_residue_index = entity.n_terminal_residue.index
         #     # entity_c_terminal_residue_index = entity.c_terminal_residue.index
         #     designs_df[f'entity{idx}_number_of_mutations'] = \
-        #         mutation_df[:, idx_slice[residue_indices[entity.n_terminal_residue.index:  # prior_xlice
-        #                                                  1 + entity.c_terminal_residue.index], :]].sum(axis=1)
+        #         mutation_df.loc[:, idx_slice[residue_indices[entity.n_terminal_residue.index:  # prior_slice
+        #                                                      1 + entity.c_terminal_residue.index], :]].sum(axis=1)
         #     # prior_slice = entity_c_terminal_residue_index
         #     designs_df[f'entity{idx}_percent_mutations'] = \
         #         designs_df[f'entity{idx}_number_of_mutations'] \
@@ -2918,7 +2918,7 @@ class PoseDirectory(PoseProtocol):
             sequences: The sequences to analyze compared to the "pose source" sequence
             design_ids: If sequences isn't a mapping from identifier to sequence, the identifiers for each sequence
         Returns:
-            The per-residue DataFrame where the index are the design name and the columns are
+            The per-residue DataFrame where the index are the design id and the columns are
             (residue index, residue metric)
         """
         # Todo handle design sequences from a read_fasta_file?
@@ -2929,15 +2929,23 @@ class PoseDirectory(PoseProtocol):
             design_sequences = sequences
             design_ids = [putils.pose_source] + list(sequences.keys())
             sequences = [self.pose.sequence] + list(sequences.values())
-        elif isinstance(sequences, Sequence) and isinstance(design_ids, Sequence):
-            design_sequences = {putils.pose_source: self.pose.sequence}
-            design_sequences.update(dict(zip(design_ids, sequences)))
-            design_ids = [putils.pose_source] + list(sequences)
-            sequences = [self.pose.sequence] + list(sequences)
         else:
-            design_sequences = design_ids = sequences = None
-            raise ValueError(f"Can't {self.sequence_metrics.__name__} without argument sequences as a mapping "
-                             f"of design_id to amino acid sequence, or both arguments sequences and design_ids")
+            if isinstance(design_ids, Sequence):
+                design_ids = [putils.pose_source] + list(design_ids)
+            else:
+                raise ValueError(f"Can't perform {self.sequence_metrics.__name__} without argument 'design_ids' when "
+                                 "'sequences' isn't a dictionary")
+            # All sequences must be string for Biopython
+            if isinstance(sequences, np.ndarray):
+                sequences = [self.pose.sequence] + [''.join(sequence) for sequence in sequences.tolist()]
+            elif isinstance(sequences, Sequence):
+                # design_sequences = {putils.pose_source: self.pose.sequence}
+                sequences = [self.pose.sequence] + [''.join(sequence) for sequence in sequences]
+            else:
+                design_sequences = design_ids = sequences = None
+                raise ValueError(f"Can't perform {self.sequence_metrics.__name__} with argument 'sequences' as a "
+                                 f"{type(sequences).__name__}. Pass 'sequences' as a Sequence[str]")
+            design_sequences = dict(zip(design_ids, sequences))
 
         # Create numeric sequence types
         number_of_sequences = len(sequences)
@@ -3113,13 +3121,14 @@ class PoseDirectory(PoseProtocol):
         # residues_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
 
         # if self.job.db:
+        #     # Rename to temporary as we are returning residues_df
         #     # Add the pose name to the dataframe
-        #     residues_df = pd.concat([residues_df], keys=[str(self)], axis=0)
+        #     _residues_df = pd.concat([residues_df], keys=[str(self)], axis=0)
         #     # Place the residue indices from the column names into the index at position -1
-        #     residues_df = residues_df.stack(0)
-        #     residues_df.index.set_names(['pose', 'design', 'index'], inplace=True)
-        #     residues_df.to_sql('residues', con=self.job.db, if_exists='append', index=True)
-        #     #                   dtype=self.job.db.table['residues'].dtypes)
+        #     _residues_df = _residues_df.stack(0)
+        #     _residues_df.index.set_names(['pose', 'design', 'index'], inplace=True)
+        #     _residues_df.to_sql('residues', con=self.job.db, if_exists='append', index=True)
+        #     #                     dtype=self.job.db.table['residues'].dtypes)
         #     self.log.info(f'Wrote residue metrics to DataBase {self.job.internal_db}')
         # else:
         #     putils.make_path(self.job.all_scores)
@@ -3129,6 +3138,7 @@ class PoseDirectory(PoseProtocol):
         #     # else:
         #     residues_df.to_csv(self.residues_metrics_csv)  # Todo PoseDirectory(.path)
         #     self.log.info(f'Wrote residue metrics to {self.residues_metrics_csv}')
+
         return residues_df
 
     def _interface_design_analysis(self, design_poses: Iterable[Pose] = None) -> pd.Series:
@@ -3424,6 +3434,8 @@ class PoseDirectory(PoseProtocol):
             #  This is a measurement of interface_connectivity like from Rosetta
             interface_local_density[pose.name] = pose.local_density_interface()
 
+        scores_df['interface_local_density'] = pd.Series(interface_local_density)
+
         # Load profiles of interest into the analysis
         if self.job.design.evolution_constraint:
             self._generate_evolutionary_profile(warn_metrics=True)
@@ -3543,39 +3555,6 @@ class PoseDirectory(PoseProtocol):
                 protocol_divergence_s = pd.Series(dtype=float)
             divergence_s = pd.concat([protocol_divergence_s, pose_divergence_s])
 
-        # Calculate mutational content
-        mutation_df = residues_df.loc[:, idx_slice[:, 'mutations']]
-        scores_df['number_of_mutations'] = mutation_df.sum(axis=1)
-        scores_df['percent_mutations'] = scores_df['number_of_mutations'] / pose_length
-
-        idx = 1
-        # prior_slice = 0
-        for idx, entity in enumerate(self.pose.entities, idx):
-            # entity_n_terminal_residue_index = entity.n_terminal_residue.index
-            # entity_c_terminal_residue_index = entity.c_terminal_residue.index
-            scores_df[f'entity{idx}_number_of_mutations'] = \
-                mutation_df[:, idx_slice[residue_indices[entity.n_terminal_residue.index:  # prior_xlice
-                                                         1 + entity.c_terminal_residue.index], :]].sum(axis=1)
-            # prior_slice = entity_c_terminal_residue_index
-            scores_df[f'entity{idx}_percent_mutations'] = \
-                scores_df[f'entity{idx}_number_of_mutations'] \
-                / scores_df[f'entity{idx}_number_of_residues']
-
-        # scores_df['number_of_mutations'] = \
-        #     pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
-        # scores_df['percent_mutations'] = scores_df['number_of_mutations'] / pose_length
-        #
-        # idx = 1
-        # for idx, entity in enumerate(self.pose.entities, idx):
-        #     entity_c_terminal_residue_index = entity.c_terminal_residue.index
-        #     scores_df[f'entity{idx}_number_of_mutations'] = \
-        #         pd.Series(
-        #             {design: len([1 for mutation_idx in mutations if mutation_idx <= entity_c_terminal_residue_index])
-        #              for design, mutations in all_mutations.items()})
-        #     scores_df[f'entity{idx}_percent_mutations'] = \
-        #         scores_df[f'entity{idx}_number_of_mutations'] / scores_df[f'entity{idx}_number_of_residues']
-        #     #     scores_df[f'entity{idx}_number_of_mutations'] / other_pose_metrics[f'entity{idx}_number_of_residues']
-
         # entity_alignment = multi_chain_alignment(entity_sequences)
         # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
         # entity_alignments = \
@@ -3616,7 +3595,6 @@ class PoseDirectory(PoseProtocol):
             # Merge with residues_df
             residues_df = pd.merge(residues_df, dca_concatenated_df, left_index=True, right_index=True)
 
-        scores_df['interface_local_density'] = pd.Series(interface_local_density)
         # Make buried surface area (bsa) columns, and residue classification
         residues_df = metrics.calculate_residue_surface_area(residues_df)
 
@@ -3624,7 +3602,8 @@ class PoseDirectory(PoseProtocol):
         # Add design residue information to scores_df such as how many core, rim, and support residues were measured
         summed_df = metrics.sum_per_residue_metrics(residues_df)
         summed_drop_columns = ['hydrophobic_collapse', 'sasa_relative_bound', 'sasa_relative_complex']
-        summed_df = summed_df.drop(summed_drop_columns, errors='ignore', axis=1).rename(columns={'type': 'sequence'})
+        summed_df = summed_df.drop(summed_drop_columns, errors='ignore', axis=1).rename(
+            columns={'type': 'sequence', 'mutation': 'number_of_mutations'})
         scores_df = scores_df.join(summed_df)
 
         # scores_df['collapse_new_positions'] /= pose_length
@@ -3652,7 +3631,7 @@ class PoseDirectory(PoseProtocol):
         # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
         bsa_assembly_df = scores_df['interface_area_total']
         scores_df['interface_area_to_residue_surface_ratio'] = \
-            (bsa_assembly_df / (bsa_assembly_df + scores_df['sasa_total_complex']))
+            (bsa_assembly_df / (bsa_assembly_df + scores_df['area_total_complex']))
 
         # Make scores_df errat_deviation that takes into account the pose_source sequence errat_deviation
         # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
@@ -3667,6 +3646,39 @@ class PoseDirectory(PoseProtocol):
         # Then select only those residues which are expressly important by the inclusion boolean
         # This overwrites the metrics.sum_per_residue_metrics() value
         scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
+
+        # Calculate mutational content
+        mutation_df = residues_df.loc[:, idx_slice[:, 'mutation']]
+        # scores_df['number_of_mutations'] = mutation_df.sum(axis=1)
+        scores_df['percent_mutations'] = scores_df['number_of_mutations'] / pose_length
+
+        idx = 1
+        # prior_slice = 0
+        for idx, entity in enumerate(self.pose.entities, idx):
+            # entity_n_terminal_residue_index = entity.n_terminal_residue.index
+            # entity_c_terminal_residue_index = entity.c_terminal_residue.index
+            scores_df[f'entity{idx}_number_of_mutations'] = \
+                mutation_df.loc[:, idx_slice[residue_indices[entity.n_terminal_residue.index:  # prior_slice
+                                                             1 + entity.c_terminal_residue.index], :]].sum(axis=1)
+            # prior_slice = entity_c_terminal_residue_index
+            scores_df[f'entity{idx}_percent_mutations'] = \
+                scores_df[f'entity{idx}_number_of_mutations'] \
+                / scores_df[f'entity{idx}_number_of_residues']
+
+        # scores_df['number_of_mutations'] = \
+        #     pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
+        # scores_df['percent_mutations'] = scores_df['number_of_mutations'] / pose_length
+        #
+        # idx = 1
+        # for idx, entity in enumerate(self.pose.entities, idx):
+        #     entity_c_terminal_residue_index = entity.c_terminal_residue.index
+        #     scores_df[f'entity{idx}_number_of_mutations'] = \
+        #         pd.Series(
+        #             {design: len([1 for mutation_idx in mutations if mutation_idx <= entity_c_terminal_residue_index])
+        #              for design, mutations in all_mutations.items()})
+        #     scores_df[f'entity{idx}_percent_mutations'] = \
+        #         scores_df[f'entity{idx}_number_of_mutations'] / scores_df[f'entity{idx}_number_of_residues']
+        #     #     scores_df[f'entity{idx}_number_of_mutations'] / other_pose_metrics[f'entity{idx}_number_of_residues']
 
         # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
         # interior_residue_df = residues_df.loc[:, idx_slice[:, 'interior']]
