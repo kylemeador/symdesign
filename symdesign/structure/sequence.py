@@ -808,7 +808,7 @@ class SequenceProfile(ABC):
                 combines 'evolutionary' and 'fragment'
             precomputed: If the profile is precomputed, pass as precomputed=profile_variable
         Returns:
-            The array with shape (number_of_sequences, length) with the value for each amino acid index in profile
+            The array of shape (number_of_residues,) where each element is the value for the amino acid in the profile
         """
         if precomputed is None:
             if dtype is None:
@@ -3240,7 +3240,7 @@ def concatenate_fasta_files(file_names: Iterable[AnyStr], out_path: str = 'conca
 
 def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence = None,
                     out_path: AnyStr = os.getcwd(), file_name: AnyStr = None, csv: bool = False) -> AnyStr:
-    """Write a fasta file from sequence(s)
+    """Write a fasta file from sequence(s). If a single sequence is provided, pass as a string
 
     Args:
         sequences: If a list, can be list of tuples(name, sequence), or list[sequence] where names contain the
@@ -3279,8 +3279,11 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
         if isinstance(sequences, np.ndarray):
             sequences = sequences.tolist()
 
+        if not sequences:
+            raise ValueError(f"No sequences provided, couldn't write anything")
+
         if isinstance(sequences, list):
-            if isinstance(sequences[0], tuple):  # where seq[0] is name, seq[1] is seq
+            if isinstance(sequences[0], tuple):  # Where seq[0] is name, seq[1] is seq
                 formatted_sequence_gen = (f'{start}{name}{sep}{seq}' for name, seq, *_ in sequences)
             elif isinstance(names, Sequence):
                 if isinstance(sequences[0], str):
@@ -3289,18 +3292,21 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
                     formatted_sequence_gen = (f'{start}{name}{sep}{"".join(seq)}' for name, seq in zip(names, sequences))
                 else:
                     raise TypeError(data_dump())
-            # elif isinstance(sequences[0], list):  # where interior list is alphabet (AA or DNA)
+            # elif isinstance(sequences[0], list):  # Where interior list is alphabet (AA or DNA)
             #     for idx, seq in enumerate(sequences):
-            #         outfile.write(f'>{name}_{idx}\n')  # write header
+            #         outfile.write(f'>{name}_{idx}\n')  # Write header
             #         # Check if alphabet is 3 letter protein
             #         outfile.write(f'{" ".join(seq)}\n' if len(seq[0]) == 3 else f'{"".join(seq)}\n')
-            # elif isinstance(sequences[0], str):  # likely 3 aa format...
+            # elif isinstance(sequences[0], str):  # Likely 3 aa format...
             #     outfile.write(f'>{name}\n{" ".join(sequences)}\n')
             else:
                 raise TypeError(data_dump())
         elif isinstance(sequences, dict):
             formatted_sequence_gen = (f'{start}{name}{sep}{"".join(seq)}' for name, seq in sequences.items())
-        elif isinstance(names, str):  # assume sequences is a str or tuple
+        elif isinstance(sequences, tuple):  # Where seq[0] is name, seq[1] is seq
+            name, seq, *_ = sequences
+            formatted_sequence_gen = (f'{start}{name}{sep}{seq}',)
+        elif isinstance(names, str):  # Assume sequences is a str or tuple
             formatted_sequence_gen = (f'{start}{names}{sep}{"".join(sequences)}\n',)
         else:
             raise TypeError(data_dump())

@@ -39,7 +39,7 @@ def load_total_dataframe(pose_directories: Iterable[PoseDirectory], pose: bool =
     all_dfs = []  # None for design in pose_directories]
     for idx, pose_dir in enumerate(pose_directories):
         try:
-            all_dfs.append(pd.read_csv(pose_dir.trajectories, index_col=0, header=[0]))
+            all_dfs.append(pd.read_csv(pose_dir.designs_metrics_csv, index_col=0, header=[0]))
         except FileNotFoundError:  # as error
             # results[idx] = error
             logger.warning(f'{pose_dir}: No trajectory analysis file found. Skipping')

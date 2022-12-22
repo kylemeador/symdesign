@@ -555,24 +555,24 @@ metrics = {
     'proteinmpnn_loss_unbound':
         dict(description='The magnitude of information missing from the sequence in the unbound state',
              direction=_min, function=normalize, filter=True),
-    'proteinmpnn_loss_design':
+    'sequence_loss_design':
         dict(description='The magnitude of information missing from the sequence compared to the design profile',
              direction=_min, function=normalize, filter=True),
-    'proteinmpnn_loss_design_per_residue':
+    'sequence_loss_design_per_residue':
         dict(description='The magnitude of information missing from the sequence compared to the design profile on a '
                          'per-residue basis',
              direction=_min, function=normalize, filter=True),
-    'proteinmpnn_loss_evolution':
+    'sequence_loss_evolution':
         dict(description='The magnitude of information missing from the sequence compared to the evolution profile',
              direction=_min, function=normalize, filter=True),
-    'proteinmpnn_loss_evolution_per_residue':
+    'sequence_loss_evolution_per_residue':
         dict(description='The magnitude of information missing from the sequence compared to the evolution profile on a'
                          ' per-residue basis',
              direction=_min, function=normalize, filter=True),
-    'proteinmpnn_loss_fragment':
+    'sequence_loss_fragment':
         dict(description='The magnitude of information missing from the sequence compared to the fragment profile',
              direction=_min, function=normalize, filter=True),
-    'proteinmpnn_loss_fragment_per_residue':
+    'sequence_loss_fragment_per_residue':
         dict(description='The magnitude of information missing from the sequence compared to the fragment profile on a '
                          'per-residue basis. Only counts residues with fragment information',
              direction=_min, function=normalize, filter=True),

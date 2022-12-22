@@ -319,7 +319,7 @@ def designs(pose_directories: Iterable[protocols.protocols.PoseDirectory]) \
                 representative_pose_directory = next(iter(pose_directories))
             except StopIteration:
                 raise RuntimeError('Missing the required argument pose_directories. It must be passed to continue')
-            example_trajectory = representative_pose_directory.trajectories
+            example_trajectory = representative_pose_directory.designs_metrics_csv
             trajectory_df = pd.read_csv(example_trajectory, index_col=0, header=[0])
             sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
 
@@ -383,13 +383,13 @@ def designs(pose_directories: Iterable[protocols.protocols.PoseDirectory]) \
             out_path = os.path.join(job.output_directory, f'{pose_dir}_design_{design}.pdb')
             if not os.path.exists(out_path):
                 shutil.copy(file[0], out_path)  # [i])))
-                # shutil.copy(des_dir.trajectories, os.path.join(outdir_traj, os.path.basename(des_dir.trajectories)))
-                # shutil.copy(des_dir.residues_file, os.path.join(outdir_res, os.path.basename(des_dir.residues_file)))
+                # shutil.copy(des_dir.designs_metrics_csv, os.path.join(outdir_traj, os.path.basename(des_dir.designs_metrics_csv)))
+                # shutil.copy(des_dir.residues_metrics_csv, os.path.join(outdir_res, os.path.basename(des_dir.residues_metrics_csv)))
         # try:
         #     # Create symbolic links to the output PDB's
         #     os.symlink(file[0], os.path.join(job.output_directory, '%s_design_%s.pdb' % (str(des_dir), design)))  # [i])))
-        #     os.symlink(des_dir.trajectories, os.path.join(outdir_traj, os.path.basename(des_dir.trajectories)))
-        #     os.symlink(des_dir.residues_file, os.path.join(outdir_res, os.path.basename(des_dir.residues_file)))
+        #     os.symlink(des_dir.designs_metrics_csv, os.path.join(outdir_traj, os.path.basename(des_dir.designs_metrics_csv)))
+        #     os.symlink(des_dir.residues_metrics_csv, os.path.join(outdir_res, os.path.basename(des_dir.residues_metrics_csv)))
         # except FileExistsError:
         #     pass
 

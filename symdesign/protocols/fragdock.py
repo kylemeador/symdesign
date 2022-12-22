@@ -2134,7 +2134,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
     # Calculate metrics on input Pose before any manipulation
     pose_length = pose.number_of_residues
-    residue_indices = list(range(1, pose_length + 1))
+    residue_indices = list(range(pose_length))
     # residue_numbers = [residue.number for residue in pose.residues]
     entity_tuple = tuple(pose.entities)
     # model_tuple = tuple(models)
@@ -3753,7 +3753,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             # fragment_profile_frequencies = []
             # pose_paths = []
             # nan_blank_data = list(repeat(np.nan, pose_length))
-            pose_params = {'type': pose.sequence}
+            pose_params = {'type': tuple(pose.sequence)}
             for idx, pose_id in enumerate(pose_ids):
                 # Add the next set of coordinates
                 update_pose_coords(idx)
@@ -3958,9 +3958,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                     #             # 'proteinmpnn_v_evolution_probability_cross_entropy_loss': dock_per_residue_evolution_cross_entropy,
                     #             # 'proteinmpnn_v_fragment_probability_cross_entropy_loss': dock_per_residue_fragment_cross_entropy,
                     #             # 'collapse_profile_z': dock_per_residue_batch_collapse_z,
-                    #             'proteinmpnn_loss_design': per_residue_design_profile_scores,
-                    #             'proteinmpnn_loss_evolution': per_residue_evolutionary_profile_scores,
-                    #             'proteinmpnn_loss_fragment': per_residue_fragment_profile_scores,
+                    #             'sequence_loss_design': per_residue_design_profile_scores,
+                    #             'sequence_loss_evolution': per_residue_evolutionary_profile_scores,
+                    #             'sequence_loss_fragment': per_residue_fragment_profile_scores,
                     #             # 'bound': 0.,  # entity_energies.copy(),
                     #             # entity_energies.copy(),
                     #             # 'solv_complex': 0., 'solv_bound': 0.,
@@ -4024,7 +4024,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 #     if collapse_profile.size and job.dock.proteinmpnn_score:
                 #         scores_df['collapse_violation_design_residues'] = collapse_violation
                 #
-                #     per_residue_background_frequencies = \
+                #     per_residue_background_frequency_df = \
                 #         pd.concat([pd.DataFrame(background, index=pose_ids,
                 #                                 columns=pd.MultiIndex.from_product([residue_indices, [f'observed_{profile}']]))
                 #                    for profile, background in background_frequencies.items()], axis=1)
@@ -4078,10 +4078,10 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 #         scores_df[f'entity{idx}_percent_mutations'] = \
                 #             scores_df[f'entity{idx}_number_of_mutations'] \
                 #             / scores_df[f'entity{idx}_number_of_residues']
-                #     residues_df = residues_df.join([per_residue_sequence_df, per_residue_background_frequencies,
+                #     residues_df = residues_df.join([per_residue_sequence_df, per_residue_background_frequency_df,
                 #                                           per_residue_collapse_df])
                 # # else:
-                # #     per_residue_sequence_df = per_residue_background_frequencies = per_residue_collapse_df = \
+                # #     per_residue_sequence_df = per_residue_background_frequency_df = per_residue_collapse_df = \
                 # #         pd.DataFrame()
                 #
                 # if job.design.structures:
@@ -4103,8 +4103,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 scores_drop_columns = ['hydrophobic_collapse', 'sasa_relative_bound', 'sasa_relative_complex']
                 scores_df = scores_df.drop(scores_drop_columns, errors='ignore', axis=1)
                 scores_df = scores_df.rename(columns={'type': 'sequence'})
-                #                                       'evolution': 'proteinmpnn_loss_evolution',
-                #                                       'fragment': 'proteinmpnn_loss_fragment'})
+                #                                       'evolution': 'sequence_loss_evolution',
+                #                                       'fragment': 'sequence_loss_fragment'})
                 designed_df = residues_df.loc[:, idx_slice[:, 'design_residue']].droplevel(1, axis=1)
 
                 if job.dock.proteinmpnn_score:
@@ -4171,14 +4171,14 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 #             scores_df['collapse_sequential_z'] / total_increased_collapse
                 #
                 #     scores_df[putils.protocol] = 'proteinmpnn'
-                #     scores_df['proteinmpnn_loss_design_per_residue'] = \
-                #         scores_df['proteinmpnn_loss_design'] / scores_df['pose_length']
+                #     scores_df['sequence_loss_design_per_residue'] = \
+                #         scores_df['sequence_loss_design'] / scores_df['pose_length']
                 #     # The per residue average loss compared to the design profile
-                #     scores_df['proteinmpnn_loss_evolution_per_residue'] = \
-                #         scores_df['proteinmpnn_loss_evolution'] / scores_df['pose_length']
+                #     scores_df['sequence_loss_evolution_per_residue'] = \
+                #         scores_df['sequence_loss_evolution'] / scores_df['pose_length']
                 #     # The per residue average loss compared to the evolution profile
-                #     scores_df['proteinmpnn_loss_fragment_per_residue'] = \
-                #         scores_df['proteinmpnn_loss_fragment'] / scores_df['number_fragment_residues_total']
+                #     scores_df['sequence_loss_fragment_per_residue'] = \
+                #         scores_df['sequence_loss_fragment'] / scores_df['number_fragment_residues_total']
                 #     # The per residue average loss compared to the fragment profile
                 #     scores_df['proteinmpnn_score_complex'] = \
                 #         scores_df['proteinmpnn_loss_complex'] / scores_df['pose_length']
@@ -4214,7 +4214,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             # else:  # Get metrics and output
             #     # Generate placeholder all_mutations which only contains "reference"
             #     # all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)
-            #     # per_residue_sequence_df = per_residue_background_frequencies = per_residue_collapse_df = pd.DataFrame()
+            #     # per_residue_sequence_df = per_residue_background_frequency_df = per_residue_collapse_df = \
+            #     #     pd.DataFrame()
             #     # all_pose_divergence_df = pd.DataFrame()
             #     # residue_df = pd.DataFrame()
 
