@@ -5794,6 +5794,7 @@ class Pose(SymmetricModel):
                 return resources.ml.proteinmpnn_batch_design(*args, **kwargs)
 
             # Data has shape (batch_length, number_of_temperatures, pose_length)
+            # design_start = time.time()
             sequences_and_scores = \
                 _proteinmpnn_batch_design(proteinmpnn_model, temperatures=temperatures, pose_length=pose_length,
                                           setup_args=(device,),
@@ -5803,6 +5804,7 @@ class Pose(SymmetricModel):
                                               'proteinmpnn_loss_complex': per_residue_complex_sequence_loss,
                                               'proteinmpnn_loss_unbound': per_residue_unbound_sequence_loss,
                                               'design_indices': design_indices})
+            # self.log.debug(f"Took {time.time() - design_start:8f}s for _proteinmpnn_batch_design")
 
             sequences_and_scores['numeric_sequences'] = sequences_and_scores.pop('sequences')
             sequences_and_scores['sequences'] = numeric_to_sequence(sequences_and_scores['numeric_sequences'])

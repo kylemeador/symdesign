@@ -598,6 +598,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         batch_sequences.append(_batch_sequences)
         decoding_order = sample_dict['decoding_order']
         # decoding_order_out = decoding_order  # When using the same decoding order for all
+        log_probs_start_time = time.time()
         if X_unbound is not None:
             # unbound_log_prob_start_time = time.time()
             unbound_log_probs = \
@@ -609,7 +610,6 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
             # logger.debug(f'Unbound log probabilities calculation took '
             #              f'{time.time() - unbound_log_prob_start_time:8f}s')
 
-        log_probs_start_time = time.time()
         complex_log_probs = \
             proteinmpnn(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
                         None,  # This argument is provided but with below args, is not used
@@ -636,7 +636,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         # tensor([2.1039, 2.0618, 2.0802, 2.0538, 2.0114, 2.0002], device='cuda:0')
         _per_residue_complex_sequence_loss.append(
             sequence_nllloss(_batch_sequences, complex_log_probs[:, :pose_length]).numpy())
-        logger.debug(f'Log probabilities calculation took {time.time() - log_probs_start_time:8f}s')
+        logger.info(f'Log probabilities calculation took {time.time() - log_probs_start_time:8f}s')
 
     # Reshape data structures to have shape (batch_length, number_of_temperatures, pose_length)
     _residue_indices_of_interest = residue_mask[:, :pose_length].cpu().numpy().astype(bool)
