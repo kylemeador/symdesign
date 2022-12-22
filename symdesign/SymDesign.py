@@ -156,7 +156,7 @@ def main():
             print('\n')
 
         if success and output:
-            nonlocal design_source
+            design_source = job.input_source
             job_paths = job.job_paths
 
             if low and high:
@@ -615,10 +615,8 @@ def main():
                     pose_directories = [PoseDirectory.from_file(pose, root=root)
                                         for pose in all_poses[low_range:high_range]]
         if not pose_directories:
-            raise utils.InputError(f'No {putils.program_name} directories found within "{job.location}"! Please ensure '
-                                   f'correct location')
+            raise utils.InputError(f'No {putils.program_name} directories found at location "{job.location}"')
         representative_pose_directory = next(iter(pose_directories))
-        design_source = os.path.splitext(os.path.basename(job.location))[0]
 
         # Todo logic error when initialization occurs with module that doesn't call this, subsequent runs are missing
         #  directories/resources that haven't been made
@@ -724,7 +722,7 @@ def main():
             pose.pre_refine = job.initial_refinement
             pose.pre_loop_model = job.initial_loop_model
 
-        logger.info(f'{len(pose_directories)} unique poses found in "{job.location}"')
+        logger.info(f'Found {len(pose_directories)} unique poses from provided input location "{job.location}"')
         if not job.debug and not job.skip_logging:
             if representative_pose_directory.log_path:
                 logger.info(f'All design specific logs are located in their corresponding directories\n\tEx: '
@@ -883,12 +881,12 @@ def main():
             # structures2 = [entity for entity in all_entities if entity.name in structures2]
             pose_directories = list(product(structures1, structures2))
 
+        job.location = f'NanohedraEntry{job.sym_entry.entry_number}'  # Used for terminate()
         if not pose_directories:  # No pairs were located
             exit('No docking pairs were located from your input. Please ensure that your input flags are as intended! '
                  f'{putils.issue_submit_warning}')
         elif job.distribute_work:
             # Write all commands to a file and use sbatch
-            design_source = f'Entry{job.sym_entry.entry_number}'  # used for terminate()
             # script_out_dir = os.path.join(job.output_directory, putils.scripts)
             # os.makedirs(script_out_dir, exist_ok=True)
             possible_input_args = [arg for args in flags.nanohedra_mutual1_arguments.keys() for arg in args] \
@@ -921,14 +919,9 @@ def main():
             # logger.debug([list2cmdline(cmd) for cmd in commands])
             # utils.write_shell_script(list2cmdline(commands), name=flags.nanohedra, out_path=job.job_paths)
             terminate(results=commands)
-
-        job.location = args.oligomer1
-        design_source = os.path.splitext(os.path.basename(job.location))[0]
     else:
         # This logic is possible with job.module as select_poses with --metric or --dataframe
-        # job.structure_db = None
-        # job.api_db = None
-        # design_source = os.path.basename(representative_pose_directory.project)
+        # job.location = os.path.basename(representative_pose_directory.project)
         pass
 
     # -----------------------------------------------------------------------------------------------------------------
@@ -1120,23 +1113,20 @@ def main():
             terminate(output=False)
         # ---------------------------------------------------
         elif job.module == flags.select_poses:
-            # Need to initialize pose_directories, design_source to terminate()
+            # Need to initialize pose_directories to terminate()
             pose_directories = results = protocols.select.poses(pose_directories)
-            design_source = job.program_root
             # Write out the chosen poses to a pose.paths file
             terminate(results=results)
         # ---------------------------------------------------
         elif job.module == flags.select_designs:
-            # Need to initialize pose_directories, design_source to terminate()
+            # Need to initialize pose_directories to terminate()
             pose_directories = results = protocols.select.designs(pose_directories)
-            design_source = job.program_root
             # Write out the chosen poses to a pose.paths file
             terminate(results=results)
         # ---------------------------------------------------
         elif job.module == flags.select_sequences:
-            # Need to initialize pose_directories, design_source to terminate()
+            # Need to initialize pose_directories to terminate()
             pose_directories = results = protocols.select.sequences(pose_directories)
-            design_source = job.program_root
             # Write out the chosen poses to a pose.paths file
             terminate(results=results)
         # ---------------------------------------------------
@@ -1191,8 +1181,9 @@ def main():
                     try:
                         job.dataframe = df_glob[0]
                     except IndexError:
-                        raise IndexError(f"There was no --{flags.dataframe} specified and one couldn't be located in "
-                                         f'{job.location}. Initialize again with the path to the relevant dataframe')
+                        raise IndexError(f"There was no --{flags.dataframe} specified and one couldn't be located at "
+                                         f'the location "{job.location}". Initialize again with the path to the '
+                                         'relevant dataframe')
 
                 df = pd.read_csv(job.dataframe, index_col=0, header=[0])
                 print('INDICES:\n %s' % df.index.to_list()[:4])
@@ -1207,7 +1198,7 @@ def main():
                 files = ordered_files
 
             if not files:
-                exit(f'No .pdb files found at "{job.location}". Are you sure this is correct?')
+                exit(f'No .pdb files found at location "{job.location}"')
 
             # if len(sys.argv) > 2:
             #     low, high = map(float, sys.argv[2].split('-'))

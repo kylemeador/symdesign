@@ -944,7 +944,7 @@ def collect_designs(files: Sequence = None, directory: AnyStr = None, projects: 
 
     location = (files or directory or projects or singles)
 
-    return sorted(set(all_paths)), location if isinstance(location, str) else location[0]  # grab first index
+    return sorted(set(all_paths)), location  # if isinstance(location, str) else location[0]  # Grab first index
 
 
 def get_base_symdesign_dir(search_path: str = None) -> AnyStr | None:
