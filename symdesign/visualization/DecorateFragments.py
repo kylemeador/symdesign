@@ -87,7 +87,7 @@ if __name__ == '__main__':
                  '\n\t'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
 
     if args.directory or args.file:
-        file_paths, location = utils.collect_designs(file=args.file, directory=args.directory)
+        file_paths, _ = utils.collect_designs(file=args.file, directory=args.directory)
     elif args.single:
         file_paths = [args.single]
     else:
