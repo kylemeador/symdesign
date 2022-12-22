@@ -517,7 +517,7 @@ class PoseProtocol:
         putils.make_path(self.designs)
         # putils.make_path(self.data)  # Used above
         match self.job.design.method:
-            case putils.rosetta_str:
+            case [putils.rosetta_str | putils.consensus]:
                 # Write generated files
                 self.pose.pssm_file = \
                     write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
@@ -2382,7 +2382,8 @@ class PoseDirectory(PoseProtocol):
             self.prepare_rosetta_flags(out_dir=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
-        if self.job.design.consensus:  # Todo add consensus sbatch generator to SymDesign main
+        if self.job.design.method == putils.consensus:
+            self.protocol = putils.consensus
             consensus_cmd = main_cmd + rosetta.relax_flags_cmdline + \
                             [f'@{self.flags}', '-in:file:s', self.consensus_pdb,
                              # '-in:file:native', self.refined_pdb,

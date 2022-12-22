@@ -219,12 +219,21 @@ def main():
 
             # Set up sbatch scripts for processed Poses
             if job.module == flags.interface_design:
-                design_stage = putils.scout if job.design.scout \
-                    else (putils.hbnet_design_profile if job.design.hbnet
-                          else (putils.structure_background if job.design.structure_background
-                                else putils.interface_design))
-            else:
+                if job.design.method == putils.consensus:
+                    # Todo ensure consensus sbatch generator working
+                    design_stage = flags.refine
+                elif job.design.method == putils.proteinmpnn:
+                    design_stage = putils.proteinmpnn
+                else:  # if job.design.method == putils.rosetta_str:
+                    design_stage = putils.scout if job.design.scout \
+                        else (putils.hbnet_design_profile if job.design.hbnet
+                              else (putils.structure_background if job.design.structure_background
+                                    else putils.interface_design))
+            elif job.module == flags.design:
+                # Todo make viable rosettascripts
                 design_stage = flags.design
+            else:
+                design_stage = None
 
             module_files = {
                 flags.design: design_stage,

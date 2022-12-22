@@ -307,7 +307,7 @@ class JobResources:
         if self.design.ignore_clashes:
             self.design.ignore_pose_clashes = self.design.ignore_symmetric_clashes = True
         # Handle protocol specific flags
-        if self.design.consensus:
+        if self.design.method == putils.consensus:
             self.design.term_constraint = True
         if self.design.term_constraint:
             self.generate_fragments: bool = True
