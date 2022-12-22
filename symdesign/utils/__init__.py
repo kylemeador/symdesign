@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import logging
 import math
@@ -9,16 +10,14 @@ import pickle
 import string
 import subprocess
 import time
-from _csv import Dialect, QUOTE_MINIMAL, reader
-from _operator import getitem
 from collections import defaultdict
 from functools import reduce, wraps
 from glob import glob
 from itertools import repeat
 from logging import Logger, DEBUG, INFO, WARNING, ERROR, CRITICAL, getLogger, StreamHandler, FileHandler, NullHandler, \
     Formatter, root as root_logger
-from typing import Any, Callable, Union, Iterable, List, Tuple, AnyStr, Dict, DefaultDict, Sequence, Iterator, \
-    Literal, Type
+from operator import getitem
+from typing import Any, Callable, Iterable, AnyStr, Sequence, Iterator, Literal, Type
 
 import numpy as np
 import psutil
@@ -228,7 +227,7 @@ def set_loggers_to_propagate():
 
 
 def pretty_format_table(data: Iterable, justification: Sequence = None, header: Sequence = None,
-                        header_justification: Sequence = None) -> List[str]:
+                        header_justification: Sequence = None) -> list[str]:
     """Present a table in readable format by sizing and justifying columns in a nested data structure
     i.e. [row1[column1, column2, ...], row2[], ...]
 
@@ -278,7 +277,7 @@ def pretty_format_table(data: Iterable, justification: Sequence = None, header: 
             for row_idx, row_entry in enumerate(data)]
 
 
-def get_table_column_widths(data: Iterable) -> Tuple[int]:
+def get_table_column_widths(data: Iterable) -> tuple[int]:
     """Find the widths of each column in a nested data structure
 
     Args:
@@ -376,7 +375,7 @@ def pickle_object(target_object: Any, name: str = None, out_path: AnyStr = os.ge
 #
 #         return dictionary
 
-def remove_interior_keys(dictionary: Dict, keys: Iterable, keep: bool = False) -> Dict[Any, Dict[Any, Any]]:
+def remove_interior_keys(dictionary: dict, keys: Iterable, keep: bool = False) -> dict[Any, dict[Any, Any]]:
     """Clean specified keys from a dictionaries internal dictionary. Default removes the specified keys
 
     Args:
@@ -494,7 +493,7 @@ def io_save(data: Iterable, file_name: AnyStr = None) -> AnyStr:
     return file_name
 
 
-def to_iterable(obj: Union[str, bytes, List], ensure_file: bool = False, skip_comma: bool = False) -> List[str]:
+def to_iterable(obj: str | bytes | list, ensure_file: bool = False, skip_comma: bool = False) -> list[str]:
     """Take an object and return a list of individual objects splitting on newline or comma
 
     Args:
@@ -532,7 +531,7 @@ def to_iterable(obj: Union[str, bytes, List], ensure_file: bool = False, skip_co
     return clean_list
 
 
-def remove_duplicates(_iter: Iterable) -> List:
+def remove_duplicates(_iter: Iterable) -> list:
     """An efficient, order maintaining, and set free function to remove duplicates"""
     seen = set()
     seen_add = seen.add
@@ -540,7 +539,7 @@ def remove_duplicates(_iter: Iterable) -> List:
 
 
 def write_shell_script(command: str, name: str = 'script', out_path: AnyStr = os.getcwd(),
-                       additional: List = None, shell: str = 'bash', status_wrap: str = None) -> AnyStr:
+                       additional: list = None, shell: str = 'bash', status_wrap: str = None) -> AnyStr:
     """Take a command and write to a name.sh script. By default, bash is used as the shell interpreter
 
     Args:
@@ -704,7 +703,7 @@ def set_worker_affinity():
     p.communicate()
 
 
-def mp_map(function: Callable, arg: Iterable, processes: int = 1, context: str = 'spawn') -> List[Any]:
+def mp_map(function: Callable, arg: Iterable, processes: int = 1, context: str = 'spawn') -> list[Any]:
     """Maps an interable input with a single argument to a function using multiprocessing Pool
 
     Args:
@@ -722,7 +721,7 @@ def mp_map(function: Callable, arg: Iterable, processes: int = 1, context: str =
     return results
 
 
-def mp_starmap(function: Callable, star_args: Iterable[Tuple], processes: int = 1, context: str = 'spawn') -> List[Any]:
+def mp_starmap(function: Callable, star_args: Iterable[tuple], processes: int = 1, context: str = 'spawn') -> list[Any]:
     """Maps an iterable input with multiple arguments to a function using multiprocessing Pool
 
     Args:
@@ -900,8 +899,8 @@ class SymmetryInputError(Exception):
     pass
 
 
-def collect_designs(files: Sequence = None, directory: str = None, projects: Sequence = None, singles: Sequence = None)\
-        -> Tuple[List, str]:
+def collect_designs(files: Sequence = None, directory: AnyStr = None, projects: Sequence = None,
+                    singles: Sequence = None) -> tuple[list, str]:
     """Grab all poses from an input source
 
     Args:
@@ -1003,26 +1002,26 @@ def ex_path(*directories: Sequence[str]) -> AnyStr:
     return os.path.join('path', 'to', *directories)
 
 
-class PoseSpecification(Dialect):
-    delimiter = ','
-    doublequote = True
-    escapechar = None
-    lineterminator = '\r\n'
-    quotechar = '"'
-    quoting = QUOTE_MINIMAL
-    skipinitialspace = False
-    strict = False
-
-    def __init__(self, file):
+# class PoseSpecification(csv.Dialect):
+#     delimiter = ','
+#     quotechar = '"'
+#     escapechar = None
+#     doublequote = True
+#     skipinitialspace = False
+#     lineterminator = '\n'
+#     quoting = csv.QUOTE_MINIMAL
+#     strict = False
+class PoseSpecification:
+    def __init__(self, file: AnyStr):
         super().__init__()
         self.directive_delimiter: str = ':'
         self.file: AnyStr = file
         self.directives: list[dict[int, str]] = []
 
         all_poses, design_names, all_design_directives, = [], [], []
-        with open(self.file) as file:
+        with open(self.file) as f:
             # pose_ids, design_names, all_design_directives, *_ = zip(*reader(file, dialect=self))
-            all_info = list(zip(*reader(file, dialect=self)))
+            all_info = list(zip(*csv.reader(f)))  # dialect=self)))
 
         for idx in range(len(all_info)):
             if idx == 0:
@@ -1141,7 +1140,7 @@ def all_vs_all(iterable: Iterable, func: Callable, symmetrize: bool = True) -> n
     """Calculate an all versus all comparison using a defined function. Matrix is symmetrized by default
 
     Args:
-        iterable: Dict or array like object
+        iterable: Dictionary or array like object
         func: Function to calculate different iterations of the iterable
         symmetrize: Whether to make the resulting matrix symmetric
     Returns:
