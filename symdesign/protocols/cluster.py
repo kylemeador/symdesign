@@ -129,7 +129,7 @@ def cluster_poses(pose_directories: list[PoseDirectory]):
                     [str(member) for member in pose_cluster_map.pop(representative)]
 
         if not job.output_file:
-            job.output_file = putils.default_clustered_pose_file.format(utils.starttime, job.location)
+            job.output_file = putils.default_clustered_pose_file.format(utils.starttime, job.input_source)
         #     if len(job.output_file.split(os.sep)) <= 1:
         #         # The path isn't an absolute or relative path, so prepend the job.clustered_poses location
         #         job.output_file = os.path.join(job.clustered_poses, job.output_file)

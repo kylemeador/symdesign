@@ -156,6 +156,8 @@ class JobResources:
     """The intention of JobResources is to serve as a singular source of design info which is common across all
     jobs. This includes common paths, databases, and design flags which should only be set once in program operation,
     then shared across all member designs"""
+    _input_source: str | list[str] | None
+    _location: str | None
     _output_directory: AnyStr | None
     reduce_memory: bool = False
 
@@ -199,8 +201,7 @@ class JobResources:
             self.distribute_work = True
         # self.reduce_memory = False
 
-        # Input location and parameters
-        self.location = None
+        # Input parameters
         self.output_file = kwargs.get(putils.output_file)
         # program_root subdirectories
         self.data = os.path.join(self.program_root, putils.data.title())
@@ -460,8 +461,8 @@ class JobResources:
 
         if self.module in [flags.select_designs, flags.select_sequences]:
             if self.prefix == '':
-                # self.location must be set...
-                self.prefix = f'{os.path.basename(os.path.splitext(self.location)[0])}_'
+                # self.location must not be None
+                self.prefix = f'{os.path.basename(os.path.splitext(self.input_source)[0])}_'
             if not self.output_to_directory:
                 self.output_directory = \
                     os.path.join(os.path.dirname(self.program_root), f'{self.prefix}SelectedDesigns{self.suffix}')
@@ -485,6 +486,38 @@ class JobResources:
     def output_directory(self, output_directory: str):
         """Where to output the Job"""
         self._output_directory = f'{self.prefix}{output_directory}{self.suffix}'
+
+    @property
+    def location(self) -> str | None:
+        """The location where PoseDirectory instances are located"""
+        try:
+            return self._location
+        except AttributeError:
+            self._location = self._input_source = None
+            return self._location
+
+    @location.setter
+    def location(self, location: str | list[str]):
+        if location is None:
+            self._input_source = self.program_root
+        elif isinstance(location, str):
+            self._location = location
+            self._input_source = os.path.splitext(os.path.basename(location))[0]
+        elif isinstance(location, list):
+            self._location = ', '.join(location)
+            self._input_source = '+'.join(map(os.path.basename, [os.path.splitext(_location)[0]
+                                                                 for _location in location]))
+        else:
+            raise ValueError(f"Couldn't handle the provided location type {type(location).__name__}")
+
+    @property
+    def input_source(self) -> str:
+        """Provide the name of the specified PoseDirectory instances to perform work on"""
+        try:
+            return self._input_source
+        except AttributeError:
+            self._input_source = self.program_root
+            return self._input_source
 
     @property
     def construct_pose(self):
