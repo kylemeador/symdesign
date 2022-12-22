@@ -599,15 +599,15 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         decoding_order = sample_dict['decoding_order']
         # decoding_order_out = decoding_order  # When using the same decoding order for all
         if X_unbound is not None:
-            unbound_log_prob_start_time = time.time()
+            # unbound_log_prob_start_time = time.time()
             unbound_log_probs = \
                 proteinmpnn(X_unbound, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
                             None,  # This argument is provided but with below args, is not used
                             use_input_decoding_order=True, decoding_order=decoding_order).cpu()
             _per_residue_unbound_sequence_loss.append(
                 sequence_nllloss(_batch_sequences, unbound_log_probs[:, :pose_length]).numpy())
-            logger.debug(f'Unbound log probabilities calculation took '
-                         f'{time.time() - unbound_log_prob_start_time:8f}s')
+            # logger.debug(f'Unbound log probabilities calculation took '
+            #              f'{time.time() - unbound_log_prob_start_time:8f}s')
 
         log_probs_start_time = time.time()
         complex_log_probs = \

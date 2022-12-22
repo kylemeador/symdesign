@@ -1704,7 +1704,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                         self._o_index = idx
                     case 'H':
                         self._h_index = idx
-                    case other:
+                    case _:
                         side_chain_indices.append(idx)
                         if 'H' not in atom.type:
                             heavy_indices.append(idx)

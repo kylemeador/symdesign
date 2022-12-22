@@ -71,12 +71,12 @@ if __name__ == '__main__':
         logger = utils.start_log(name=os.path.basename(__file__))
 
     all_poses, location = utils.collect_designs(files=args.file, directory=args.directory)
-    assert all_poses, 'No %s directories found within \'%s\'! Please ensure correct location' \
-                      % (putils.nanohedra.title(), location)
+    assert all_poses, \
+        f'No {putils.nanohedra} directories found at location "{location}". Please ensure correct location'
 
     all_design_directories = [protocols.protocols.PoseDirectory.from_nanohedra(design_path, symmetry=args.design_string)
                               for design_path in all_poses]
-    logger.info('%d Poses found in \'%s\'' % (len(all_poses), location))
+    logger.info(f'{len(all_poses)} Poses found in "{location}"')
     logger.info('All pose specific logs are located in corresponding directories, ex:\n%s' %
                 os.path.join(all_design_directories[0].path, os.path.basename(all_design_directories[0].path) + '.log'))
 

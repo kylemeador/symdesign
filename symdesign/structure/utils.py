@@ -112,7 +112,7 @@ def create_translation_tables(alphabet_type: alphabet_types) -> defaultdict:
                 numeric_translation_type = numerical_translation_alph1_unknown_gapped_bytes
             case 'protein_letters_alph3_unknown_gapped':
                 numeric_translation_type = numerical_translation_alph3_unknown_gapped_bytes
-            case other:
+            case _:
                 try:  # To see if we already have the alphabet, and just return defaultdict
                     numeric_translation_type = alphabet_to_type[alphabet_type]
                 except KeyError:

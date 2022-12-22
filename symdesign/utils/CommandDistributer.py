@@ -149,7 +149,7 @@ def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str =
         directives = [0 for _ in range(number_of_commands)]
     elif file:  # Automatically detect if the commands file has executable scripts or errors
         # use collect_designs to get commands from the provided file
-        directives, location = collect_designs(files=[file])  # , directory=out_path)
+        directives, _ = collect_designs(files=[file])  # , directory=out_path)
         # Check if the file lines (directives) contain a script or a command
         scripts = True if directives[0].endswith('.sh') else False
         # command_present = not scripts
@@ -159,7 +159,7 @@ def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str =
             if directive.endswith('.sh'):  # This is a file
                 if not os.path.exists(directive):  # Check if file is missing
                     raise InputError(f"{file} is malformed at line {idx}. "
-                                           f"The command at location '{directive}' doesn't exist")
+                                     f"The command at location '{directive}' doesn't exist")
                 if not scripts:  # There was a change from non-script files
                     raise InputError(script_or_command.format(file, idx, directive))
             else:  # directive is a command

@@ -170,7 +170,7 @@ class JobResources:
             if os.path.exists(program_root):
                 self.program_root = program_root
             else:
-                raise FileNotFoundError(f"Path doesn't exist!\n\t{program_root}")
+                raise FileNotFoundError(f"Path doesn't exist\n\t{program_root}")
         except TypeError:
             raise TypeError(f"Can't initialize {JobResources.__name__} without parameter 'program_root'")
 
