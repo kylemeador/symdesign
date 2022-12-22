@@ -2462,12 +2462,14 @@ class PoseDirectory(PoseProtocol):
         self.protocol = 'proteinmpnn'
         self.log.info(f'Starting {self.protocol} design calculation with {self.job.design.number} '
                       f'designs over each of the temperatures: {self.job.design.temperatures}')
+        # design_start = time.time()
         sequences_and_scores: dict[str, np.ndarray | list] = \
             self.pose.design_sequences(number=self.job.design.number,
                                        temperatures=self.job.design.temperatures,
                                        interface=interface, neighbors=neighbors,
                                        ca_only=self.job.design.ca_only
                                        )
+        # self.log.debug(f"Took {time.time() - design_start:8f}s for design_sequences")
         # Add protocol (job info) and temperature to sequences_and_scores
         sequences_and_scores[putils.protocol] = \
             list(repeat(self.protocol, len(self.job.design.number * self.job.design.temperatures)))
@@ -2495,7 +2497,10 @@ class PoseDirectory(PoseProtocol):
         #     #     else:
         #     #         header = True
         #     #     pose_s.to_csv(out_path, mode='a', header=header)
+        # analysis_start = time.time()
         self.proteinmpnn_analysis(design_names, sequences_and_scores)
+        # self.log.debug(f"Took {time.time() - analysis_start:8f}s for proteinmpnn_analysis. "
+        #                f"{time.time() - design_start:8f}s total")
 
     def output_proteinmpnn_scores(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.ndarray | list]):
         """Given the results of a ProteinMPNN design trajectory, format the sequences and scores for the PoseDirectory
