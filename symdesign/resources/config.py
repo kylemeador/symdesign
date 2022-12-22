@@ -95,6 +95,67 @@ metrics = {
     'contact_count':
         dict(description='Number of carbon-carbon contacts across interface',
              direction=_max, function=rank, filter=True),
+    'dock_collapse_deviation_magnitude':
+        dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
+                         ' total deviation in the hydrophobic collapse. Either more or less collapse prone',
+             direction=_min, function=rank, filter=True),
+    'dock_collapse_variance':
+        dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
+                         ' average/expected deviation of the hydrophobic collapse from a reference collapse',
+             direction=_min, function=rank, filter=True),
+    'dock_collapse_increase_significance_by_contact_order_z':
+        dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
+                         ' summation of positions with increased collapse from reference scaled by the inverse contact '
+                         'order z-score. Where positive is more isolated collapse, and negative indicates collapse '
+                         'occurs in higher contact order sites. More significant collapse is more positive',
+             direction=_min, function=rank, filter=True),
+    'dock_collapse_increased_z':
+        dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
+                         ' sum of all sequence regions z-scores experiencing increased collapse. Measures the '
+                         'normalized magnitude of additional hydrophobic collapse',
+             direction=_min, function=rank, filter=True),
+    'dock_collapse_increased_z_mean':
+        dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
+                         ' mean of the collapse_increased_z per-position experiencing increased collapse',
+             direction=_min, function=rank, filter=True),
+    'dock_collapse_new_position_significance':
+        dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
+                         ' magnitude of the collapse_significance_by_contact_order_z (abs(deviation)) for identified'
+                         ' new collapse positions',
+             direction=_min, function=rank, filter=True),
+    'dock_collapse_new_positions':
+        dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
+                         ' number of new collapse positions found',
+             direction=_min, function=rank, filter=True),
+    'dock_collapse_sequential_peaks_z':
+        dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
+                         ' summation of the collapse z-score for each residue scaled sequentially by the number of '
+                         'previously observed collapsable locations',
+             direction=_min, function=rank, filter=True),
+    'dock_collapse_sequential_peaks_z_mean':
+        dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
+                         ' mean of the collapse_sequential_peaks_z per-position experiencing increased collapse',
+             direction=_min, function=rank, filter=True),
+    'dock_collapse_sequential_z':
+        dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
+                         ' summation of the collapse z-score for each residue scaled by the proximity to sequence start',
+             direction=_min, function=rank, filter=True),
+    'dock_collapse_sequential_z_mean':
+        dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
+                         ' mean of the collapse_sequential_z per-position experiencing increased collapse',
+             direction=_min, function=rank, filter=True),
+    'dock_collapse_significance_by_contact_order_z':
+        dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
+                         ' summed significance. Takes the product of collapse z-score at collapsing positions and '
+                         'contact order per residue. Resulting values are positive when collapse occurs in areas with '
+                         'low contact order, and negative when collapse occurs in high contact order positions. A '
+                         'protein fold with high contact order may tolerate collapse differently than low contact order'
+                         ", where the segment would rely on it's collapse to fold",
+             direction=_min, function=rank, filter=True),
+    'dock_collapse_significance_by_contact_order_z_mean':
+        dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
+                         ' mean of the collapse_significance_by_contact_order_z per-position experiencing collapse',
+             direction=_min, function=rank, filter=True),
     'collapse_deviation_magnitude':
         dict(description='The total deviation in the hydrophobic collapse. Either more or less collapse prone',
              direction=_min, function=rank, filter=True),
