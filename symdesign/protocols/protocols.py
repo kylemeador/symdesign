@@ -432,9 +432,10 @@ class PoseProtocol:
 
         # self.pose.combine_sequence_profiles()
         # I could also add the combined profile here instead of at each Entity
-        self.pose.add_profile(evolution=self.job.design.evolution_constraint,
-                              fragments=self.job.generate_fragments, favor_fragments=favor_fragments,
-                              out_dir=self.job.api_db.hhblits_profiles.location)
+        self.pose.calculate_profile(favor_fragments=favor_fragments)
+        # self.pose.add_profile(evolution=self.job.design.evolution_constraint,
+        #                       fragments=self.job.design.term_constraint, favor_fragments=favor_fragments,
+        #                       out_dir=self.job.api_db.hhblits_profiles.location)
 
         # -------------------------------------------------------------------------
         # Todo self.solve_consensus()
@@ -501,9 +502,10 @@ class PoseProtocol:
 
         # self.pose.combine_sequence_profiles()
         # I could also add the combined profile here instead of at each Entity
-        self.pose.add_profile(evolution=self.job.design.evolution_constraint,
-                              fragments=self.job.generate_fragments, favor_fragments=favor_fragments,
-                              out_dir=self.job.api_db.hhblits_profiles.location)
+        self.pose.calculate_profile(favor_fragments=favor_fragments)
+        # self.pose.add_profile(evolution=self.job.design.evolution_constraint,
+        #                       fragments=self.job.design.term_constraint, favor_fragments=favor_fragments,
+        #                       out_dir=self.job.api_db.hhblits_profiles.location)
 
         # -------------------------------------------------------------------------
         # Todo self.solve_consensus()
@@ -3206,8 +3208,7 @@ class PoseDirectory(PoseProtocol):
             self._generate_evolutionary_profile(warn_metrics=True)
 
         # self._generate_fragments() was already called
-        self.pose.add_profile(evolution=self.job.design.evolution_constraint,
-                              fragments=self.job.generate_fragments)
+        self.pose.calculate_profile()
 
         profile_background = {'design': pssm_as_array(self.pose.profile),
                               'evolution': pssm_as_array(self.pose.evolutionary_profile),
