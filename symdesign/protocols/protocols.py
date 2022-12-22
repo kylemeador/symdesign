@@ -2389,13 +2389,16 @@ class PoseDirectory(PoseProtocol):
             repeat(self.protocol, len(self.job.design.number * self.job.design.temperatures))
         sequences_and_scores['temperatures'] = [temperature for temperature in self.job.design.temperatures
                                                 for _ in range(self.job.design.number)]
-
         design_names = [f'{self.name}_{self.protocol}{seq_idx:04d}'
                         for seq_idx in range(1, 1 + len(sequences_and_scores['sequences']))]
+
+        # self.output_proteinmpnn_scores(design_names, sequences_and_scores)
         putils.make_path(self.designs)
-        self.output_proteinmpnn_scores(design_names, sequences_and_scores)
-        putils.make_path(self.data)
-        write_sequences(sequences_and_scores['sequences'], names=design_names, file_name=self.designed_sequences_file)
+        # # Write every designed sequence to the sequences file...
+        # write_sequences(sequences_and_scores['sequences'], names=design_names, file_name=self.designed_sequences_file)
+        # Write every designed sequence to an individual file...
+        for name, sequence in zip(design_names, sequences_and_scores['sequences']):
+            write_sequences(sequence, names=name, file_name=os.path.join(self.designs, name))
         # if self.job.design.structures:
         #     self._predict_structure()
         #     # Todo include ???
@@ -2455,6 +2458,7 @@ class PoseDirectory(PoseProtocol):
             # return write_json(design_scores, self.scores_file)
             return self.scores_file
 
+        putils.make_path(self.data)
         write_per_residue_scores(design_ids, sequences_and_scores)
 
     def _generate_evolutionary_profile(self, warn_metrics: bool = False):
