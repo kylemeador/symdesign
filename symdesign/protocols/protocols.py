@@ -415,14 +415,15 @@ class PoseProtocol:
         else:
             favor_fragments = evo_fill = False
 
-        if self.job.generate_fragments:
+        if self.job.design.term_constraint:
+            # if not self.pose.fragment_queries:
             self._generate_fragments(interface=True)
             self.pose.calculate_fragment_profile(evo_fill=evo_fill)
-        elif isinstance(self.fragment_observations, list):
-            raise NotImplementedError(f"Can't put fragment observations taken away from the pose onto the pose due to "
-                                      f"entities")
-            self.pose.fragment_pairs = self.fragment_observations
-            self.pose.calculate_fragment_profile(evo_fill=evo_fill)
+        # elif isinstance(self.fragment_observations, list):
+        #     raise NotImplementedError(f"Can't put fragment observations taken away from the pose onto the pose due to "
+        #                               f"entities")
+        #     self.pose.fragment_pairs = self.fragment_observations
+        #     self.pose.calculate_fragment_profile(evo_fill=evo_fill)
         # elif os.path.exists(self.frag_file):
         #     self.retrieve_fragment_info_from_file()
 
@@ -481,16 +482,17 @@ class PoseProtocol:
         else:
             favor_fragments = evo_fill = False
 
-        if self.job.generate_fragments:
+        if self.job.design.term_constraint:
+            # if not self.pose.fragment_queries:
             # Todo this is working but the information isn't really used...
             #  ALSO Need to get oligomeric type frags
             self._generate_fragments(interface=True)
             self.pose.calculate_fragment_profile(evo_fill=evo_fill)
-        elif isinstance(self.fragment_observations, list):
-            raise NotImplementedError(f"Can't put fragment observations taken away from the pose onto the pose due to "
-                                      f"entities")
-            self.pose.fragment_pairs = self.fragment_observations
-            self.pose.calculate_fragment_profile(evo_fill=evo_fill)
+        # elif isinstance(self.fragment_observations, list):
+        #     raise NotImplementedError(f"Can't put fragment observations taken away from the pose onto the pose due to "
+        #                               f"entities")
+        #     self.pose.fragment_pairs = self.fragment_observations
+        #     self.pose.calculate_fragment_profile(evo_fill=evo_fill)
         # elif os.path.exists(self.frag_file):
         #     self.retrieve_fragment_info_from_file()
 
@@ -679,7 +681,7 @@ class PoseProtocol:
             The selected designs for the Pose trajectories
         """
         # Load relevant data from the design directory
-        designs_df = pd.read_csv(self.trajectories, index_col=0, header=[0])
+        designs_df = pd.read_csv(self.designs_metrics_csv, index_col=0, header=[0])
         designs_df.dropna(inplace=True)
         if protocols:
             designs = []
@@ -1062,10 +1064,11 @@ class PoseDirectory(PoseProtocol):
         self.pose_file = os.path.join(self.source_path, putils.pose_file)
         self.frag_file = os.path.join(self.source_path, putils.frag_dir, putils.frag_text_file)
         # These files are used as output from analysis protocols
-        self.trajectories = os.path.join(self.job.all_scores, f'{self}_Trajectories.csv')
-        self.residues_file = os.path.join(self.data, f'residues.csv')
+        # self.designs_metrics_csv = os.path.join(self.job.all_scores, f'{self}_Trajectories.csv')
+        self.designs_metrics_csv = os.path.join(self.data, f'designs.csv')
+        self.residues_metrics_csv = os.path.join(self.data, f'residues.csv')
         # self.designed_sequences_file = os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
-        self.designed_sequences_file = os.path.join(self.designs, f'{self}_sequences.fasta')
+        self.designed_sequences_file = os.path.join(self.designs, f'sequences.fasta')
 
         self.initial_model = None
         """Used if the pose structure has never been initialized previously"""
@@ -2295,23 +2298,19 @@ class PoseDirectory(PoseProtocol):
             self.log.debug(f'Pose flags written to: {self.flags}')
 
         if self.job.design.consensus:  # Todo add consensus sbatch generator to SymDesign main
-            if self.job.generate_fragments:  # design_with_fragments
-                consensus_cmd = main_cmd + rosetta.relax_flags_cmdline + \
-                                [f'@{self.flags}', '-in:file:s', self.consensus_pdb,
-                                 # '-in:file:native', self.refined_pdb,
-                                 '-parser:protocol', os.path.join(putils.rosetta_scripts_dir,
-                                                                  f'{putils.consensus}.xml'),
-                                 '-parser:script_vars', f'switch={putils.consensus}']
-                self.log.info(f'Consensus command: {list2cmdline(consensus_cmd)}')
-                if self.job.distribute_work:
-                    write_shell_script(list2cmdline(consensus_cmd), name=putils.consensus, out_path=self.scripts)
-                else:
-                    consensus_process = Popen(consensus_cmd)
-                    consensus_process.communicate()
+            consensus_cmd = main_cmd + rosetta.relax_flags_cmdline + \
+                            [f'@{self.flags}', '-in:file:s', self.consensus_pdb,
+                             # '-in:file:native', self.refined_pdb,
+                             '-parser:protocol', os.path.join(putils.rosetta_scripts_dir,
+                                                              f'{putils.consensus}.xml'),
+                             '-parser:script_vars', f'switch={putils.consensus}']
+            self.log.info(f'Consensus command: {list2cmdline(consensus_cmd)}')
+            if self.job.distribute_work:
+                write_shell_script(list2cmdline(consensus_cmd), name=putils.consensus, out_path=self.scripts)
             else:
-                self.log.critical(f'Cannot run consensus design without fragment info and none was found.'
-                                  f' Did you mean to include --no-{flags.term_constraint}')
-                #                   f'as {self.job.design.term_constraint}?')
+                consensus_process = Popen(consensus_cmd)
+                consensus_process.communicate()
+
         design_cmd = main_cmd + profile_cmd + \
             [f'@{self.flags}', '-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
              '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml'),
@@ -2462,6 +2461,10 @@ class PoseDirectory(PoseProtocol):
         Args:
             warn_metrics: Whether to warn the user about missing files for metric collection
         """
+        if self.measure_evolution and self.measure_alignment:
+            # We have already set and succeeded
+            return
+
         # Assume True given this function call and set False if not possible for one of the Entities
         self.measure_evolution = self.measure_alignment = True
         warn = False
@@ -2785,8 +2788,8 @@ class PoseDirectory(PoseProtocol):
             scores_df[f'entity{idx}_percent_mutations'] = \
                 scores_df[f'entity{idx}_number_of_mutations'] \
                 / scores_df[f'entity{idx}_number_of_residues']
-        residues_df = residues_df.join([per_residue_background_frequencies, per_residue_collapse_df])
-        #                                       per_residue_sequence_df
+        # residues_df = residues_df.join([per_residue_background_frequency_df, per_residue_collapse_df])
+        # #                                       per_residue_sequence_df
 
         # Calculate new metrics from combinations of other metrics
         # Add design residue information to scores_df such as how many core, rim, and support residues were measured
@@ -2797,8 +2800,8 @@ class PoseDirectory(PoseProtocol):
         scores_drop_columns = ['hydrophobic_collapse', 'sasa_relative_bound', 'sasa_relative_complex']
         scores_df = scores_df.drop(scores_drop_columns, errors='ignore', axis=1)
         scores_df = scores_df.rename(columns={'type': 'sequence'})
-        #                                       'evolution': 'proteinmpnn_loss_evolution',
-        #                                       'fragment': 'proteinmpnn_loss_fragment'})
+        #                                       'evolution': 'sequence_loss_evolution',
+        #                                       'fragment': 'sequence_loss_fragment'})
         designed_df = residues_df.loc[:, idx_slice[:, 'design_residue']].droplevel(1, axis=1)
 
         # if self.job.design.sequences:
@@ -2821,12 +2824,12 @@ class PoseDirectory(PoseProtocol):
         scores_df['collapse_sequential_z_mean'] = scores_df['collapse_sequential_z'] / total_increased_collapse
 
         scores_df[putils.protocol] = 'proteinmpnn'
-        scores_df['proteinmpnn_loss_design_per_residue'] = scores_df['proteinmpnn_loss_design'] / pose_length
+        scores_df['sequence_loss_design_per_residue'] = scores_df['sequence_loss_design'] / pose_length
         # The per residue average loss compared to the design profile
-        scores_df['proteinmpnn_loss_evolution_per_residue'] = scores_df['proteinmpnn_loss_evolution'] / pose_length
+        scores_df['sequence_loss_evolution_per_residue'] = scores_df['sequence_loss_evolution'] / pose_length
         # The per residue average loss compared to the evolution profile
-        scores_df['proteinmpnn_loss_fragment_per_residue'] = \
-            scores_df['proteinmpnn_loss_fragment'] / scores_df['number_fragment_residues_total']
+        scores_df['sequence_loss_fragment_per_residue'] = \
+            scores_df['sequence_loss_fragment'] / scores_df['number_fragment_residues_total']
         # The per residue average loss compared to the fragment profile
         scores_df['proteinmpnn_score_complex'] = scores_df['proteinmpnn_loss_complex'] / pose_length
         scores_df['proteinmpnn_score_unbound'] = scores_df['proteinmpnn_loss_unbound'] / pose_length
@@ -2858,7 +2861,7 @@ class PoseDirectory(PoseProtocol):
         # else:  # Get metrics and output
         #     # Generate placeholder all_mutations which only contains "reference"
         #     # all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences, return_to=True)
-        #     # per_residue_sequence_df = per_residue_background_frequencies = per_residue_collapse_df = pd.DataFrame()
+        #     # per_residue_sequence_df = per_residue_background_frequency_df = per_residue_collapse_df = pd.DataFrame()
         #     # all_pose_divergence_df = pd.DataFrame()
         #     # residues_df = pd.DataFrame()
 
@@ -2882,9 +2885,9 @@ class PoseDirectory(PoseProtocol):
 
         putils.make_path(self.job.all_scores)
         # trajectory_metrics_csv = os.path.join(self.job.all_scores, f'{building_blocks}_docked_poses_Trajectories.csv')
-        self.job.dataframe = self.trajectories
-        pose_df.to_csv(self.trajectories)
-        self.log.info(f'Wrote trajectory metrics to {self.trajectories}')
+        self.job.dataframe = self.designs_metrics_csv
+        pose_df.to_csv(self.designs_metrics_csv)
+        self.log.info(f'Wrote trajectory metrics to {self.designs_metrics_csv}')
         # if self.job.design.sequences:
         # residue_metrics_csv = os.path.join(self.job.all_scores, f'{building_blocks}_docked_poses_Residues.csv')
         if self.job.db:
@@ -2897,8 +2900,8 @@ class PoseDirectory(PoseProtocol):
             #                    dtype=self.job.db.table['residues'].dtypes)
             self.log.info(f'Wrote residue metrics to DataBase {self.job.internal_db}')
         else:
-            residues_df.to_csv(self.residues_file)
-            self.log.info(f'Wrote residue metrics to {self.residues_file}')
+            residues_df.to_csv(self.residues_metrics_csv)
+            self.log.info(f'Wrote residue metrics to {self.residues_metrics_csv}')
 
     def _interface_design_analysis(self, design_poses: Iterable[Pose] = None) -> pd.Series:
         """Retrieve all score information from a PoseDirectory and write results to .csv file
@@ -2913,7 +2916,8 @@ class PoseDirectory(PoseProtocol):
         # else:  # We only need to load pose as we already calculated interface
         #     self.load_pose()
 
-        if self.job.generate_fragments and not self.pose.fragment_queries:
+        # Load fragment_profile into the analysis
+        if self.job.design.term_constraint and not self.pose.fragment_queries:
             self._generate_fragments(interface=True)
             self.pose.calculate_fragment_profile()
 
@@ -3010,21 +3014,11 @@ class PoseDirectory(PoseProtocol):
             # Gather all columns into specific types for processing and formatting
             per_res_columns = []
             # hbonds_columns = []
-            proteinmpnn_columns = []
-            proteinmpnn_scores = metrics.proteinmpnn_scores
             for column in scores_df.columns.to_list():
                 if 'res_' in column:  # if column.startswith('per_res_'):
                     per_res_columns.append(column)
                 # elif column.startswith('hbonds_res_selection'):
                 #     hbonds_columns.append(column)
-                elif column in proteinmpnn_scores:
-                    proteinmpnn_columns.append(column)
-
-            if proteinmpnn_columns:
-                proteinmpnn_design_performed = True
-                proteinmpnn_df = scores_df.loc[:, proteinmpnn_columns]
-            else:
-                proteinmpnn_design_performed = False
 
             # Check proper input
             metric_set = metrics.necessary_metrics.difference(set(scores_df.columns))
@@ -3034,7 +3028,7 @@ class PoseDirectory(PoseProtocol):
 
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
             # Todo learn know how to produce Rosetta score terms in output score file. Not in FastRelax...
-            remove_columns = metrics.rosetta_terms + metrics.unnecessary + per_res_columns + proteinmpnn_columns
+            remove_columns = metrics.rosetta_terms + metrics.unnecessary + per_res_columns
             # Todo remove dirty when columns are correct (after P432)
             #  and column tabulation precedes residue/hbond_processing
             # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
@@ -3128,18 +3122,6 @@ class PoseDirectory(PoseProtocol):
 
         scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
 
-        entity_sequences = []
-        for entity in self.pose.entities:
-            entity_slice = slice(entity.n_terminal_residue.index, 1+entity.c_terminal_residue.index)
-            entity_sequences.append({design: sequence[entity_slice] for design, sequence in pose_sequences.items()})
-        # Todo generate_multiple_mutations accounts for offsets from the reference sequence. Not necessary YET
-        # sequence_mutations = \
-        #     generate_multiple_mutations(self.pose.atom_sequences, pose_sequences, pose_num=False)
-        # sequence_mutations.pop('reference')
-        # entity_sequences = generate_sequences(self.pose.atom_sequences, sequence_mutations)
-        # entity_sequences = {chain: keys_from_trajectory_number(named_sequences)
-        #                         for chain, named_sequences in entity_sequences.items()}
-
         # Find protocols for protocol specific data processing removing from scores_df
         protocol_s = scores_df.pop(putils.protocol).copy()
         designs_by_protocol = protocol_s.groupby(protocol_s).groups
@@ -3219,13 +3201,6 @@ class PoseDirectory(PoseProtocol):
             #  This is a measurement of interface_connectivity like from Rosetta
             interface_local_density[pose.name] = pose.local_density_interface()
 
-        if proteinmpnn_columns:
-            for pose in design_poses:
-                per_residue_data[pose.name].update({
-                    'proteinmpnn_loss_complex': proteinmpnn_df.loc[pose.name, 'proteinmpnn_loss_complex'],
-                    'proteinmpnn_loss_unbound': proteinmpnn_df.loc[pose.name, 'proteinmpnn_loss_unbound']
-                })
-
         # Load profiles of interest into the analysis
         if self.job.design.evolution_constraint:
             self._generate_evolutionary_profile(warn_metrics=True)
@@ -3243,19 +3218,29 @@ class PoseDirectory(PoseProtocol):
 
         # Calculate hydrophobic collapse for each design
         # Include the pose_source in the measured designs
-        contact_order_per_res_z, reference_collapse, collapse_profile = self.pose.get_folding_metrics()
-        collapse_significance_threshold = metrics.collapse_thresholds['standard']
+        # Todo use hydrophobicity = 'expanded'
+        #  if collapse_profile.size:  # is used
+        #      hydrophobicity = 'expanded'
+        #  else:
+        hydrophobicity = 'standard'  # Set for figures as well
+        contact_order_per_res_z, reference_collapse, collapse_profile = \
+            self.pose.get_folding_metrics(hydrophobicity=hydrophobicity)
         if collapse_profile.size:  # Not equal to zero, use the profile instead
             reference_collapse = collapse_profile
         #     reference_mean = np.nanmean(collapse_profile, axis=-2)
         #     reference_std = np.nanstd(collapse_profile, axis=-2)
         # else:
         #     reference_mean = reference_std = None
+        entity_sequences = []
+        for entity in self.pose.entities:
+            entity_slice = slice(entity.n_terminal_residue.index, 1 + entity.c_terminal_residue.index)
+            entity_sequences.append({design: sequence[entity_slice] for design, sequence in pose_sequences.items()})
+
+        all_sequences_split = [list(designed_sequences.values()) for designed_sequences in entity_sequences]
+        all_sequences_by_entity = list(zip(*all_sequences_split))
 
         folding_and_collapse = \
-            metrics.collapse_per_residue(list(zip(*[list(designed_sequences.values())
-                                                    for designed_sequences in entity_sequences])),
-                                         contact_order_per_res_z, reference_collapse)
+            metrics.collapse_per_residue(all_sequences_by_entity, contact_order_per_res_z, reference_collapse)
         per_residue_collapse_df = pd.concat({design_id: pd.DataFrame(data, index=residue_indices)
                                              for design_id, data in zip(viable_designs, folding_and_collapse)},
                                             ).unstack().swaplevel(0, 1, axis=1)
@@ -3284,7 +3269,7 @@ class PoseDirectory(PoseProtocol):
             observed_dfs = []
             for profile, observed_values in observed.items():
                 # scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
-                observed_dfs.append(pd.DataFrame(data=observed_values, index=viable_designs,
+                observed_dfs.append(pd.DataFrame(observed_values, index=viable_designs,
                                                  columns=pd.MultiIndex.from_product([residue_indices,
                                                                                      [f'observed_{profile}']]))
                                     )
@@ -3334,7 +3319,7 @@ class PoseDirectory(PoseProtocol):
         scores_df['number_of_mutations'] = \
             pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
         scores_df['percent_mutations'] = scores_df['number_of_mutations'] / pose_length
-        # residue_indices_per_entity = self.pose.residue_indices_per_entity
+
         idx = 1
         for idx, entity in enumerate(self.pose.entities, idx):
             entity_c_terminal_residue_index = entity.c_terminal_residue.index
@@ -3773,9 +3758,9 @@ class PoseDirectory(PoseProtocol):
                 #     designs_df = pd.concat([designs_df], axis=1, keys=['metrics'])
                 #     designs_df = pd.merge(designs_df, residues_df, left_index=True, right_index=True)
                 # else:
-                residues_df.to_csv(self.residues_file)  # Todo PoseDirectory(.path)
-                self.log.info(f'Wrote residue metrics to {self.residues_file}')
-                designs_df.to_csv(self.trajectories)  # Todo PoseDirectory(.path)
+                residues_df.to_csv(self.residues_metrics_csv)  # Todo PoseDirectory(.path)
+                self.log.info(f'Wrote residue metrics to {self.residues_metrics_csv}')
+                designs_df.to_csv(self.designs_metrics_csv)  # Todo PoseDirectory(.path)
             # pickle_object(pose_sequences, self.designed_sequences_file, out_path='')  # Todo PoseDirectory(.path)
             write_sequences(pose_sequences, file_name=self.designed_sequences_file)
 
@@ -3850,6 +3835,7 @@ class PoseDirectory(PoseProtocol):
             collapse_ax.vlines(interface_residue_indices, 0, 0.05, transform=collapse_ax.get_xaxis_transform(),
                                label='Design Residues', colors='#f89938', lw=2)  # , orange)
             # Plot horizontal significance
+            collapse_significance_threshold = metrics.collapse_thresholds[hydrophobicity]
             collapse_ax.hlines([collapse_significance_threshold], 0, 1, transform=collapse_ax.get_yaxis_transform(),
                                label='Collapse Threshold', colors='#fc554f', linestyle='dotted')  # tomato
             # collapse_ax.set_xlabel('Residue Number')

@@ -306,10 +306,12 @@ class JobResources:
         if self.design.ignore_clashes:
             self.design.ignore_pose_clashes = self.design.ignore_symmetric_clashes = True
         # Handle protocol specific flags
-        if not self.design.term_constraint:
-            self.generate_fragments: bool = False
+        if self.design.consensus:
+            self.design.term_constraint = True
+        if self.design.term_constraint:
+            self.generate_fragments: bool = True
         else:
-            self.generate_fragments = True
+            self.generate_fragments = False
 
         if self.design.structure_background:
             self.design.evolution_constraint = False

@@ -5717,13 +5717,13 @@ class Pose(SymmetricModel):
                 Only used with pssm_bias_flag
             decode_core_first: bool = False - Whether to decode identified fragments (constituting the protein core) first
         Returns:
-            A mapping of the design score type to the output data.
-                For proteinmpnn, this is the score string mapped to the corresponding 'sequences', 'numeric_sequences',
-                'proteinmpnn_loss_complex', 'proteinmpnn_loss_unbound', and 'design_indices'. For each data return, the
-                return varies such as: [temp1/repeat1, temp1/repeat2, ..., tempN/repeat1, ...]
-                where designs are sorted by temperature
+            A mapping of the design score type to the output data which is a ndarray with shape
+            (number*temperatures, pose_length). For proteinmpnn, this is the score string mapped to the corresponding
+            'sequences', 'numeric_sequences', 'proteinmpnn_loss_complex', 'proteinmpnn_loss_unbound', and
+            'design_indices'. For each return array, the return varies such as: [temp1/number1, temp1/number2, ...,
+            tempN/number1, ...] where designs are sorted by temperature
 
-                For rosetta
+            For rosetta, this function is not implemented
         """
         # rosetta: Whether to design using Rosetta energy functions
         if method == putils.rosetta_str:
