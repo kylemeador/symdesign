@@ -29,7 +29,7 @@ from symdesign.utils.path import submodule_guide, submodule_help, force, sym_ent
     multicistronic, multicistronic_intergenic_sequence, generate_fragments, input_, output, output_assembly, \
     preferred_tag, expand_asu, check_clashes, rename_chains, optimize_designs, perturb_dof, tag_entities, design
 
-design_programs_literal = Literal['proteinmpnn', 'rosetta']
+design_programs_literal = Literal['consensus', 'proteinmpnn', 'rosetta']
 design_programs: tuple[design_programs_literal] = get_args(design_programs_literal)
 nstruct = 20
 query_codes1 = 'query_codes1'
