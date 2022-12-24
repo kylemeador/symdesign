@@ -3642,8 +3642,7 @@ class PoseDirectory(PoseProtocol):
         # Add design residue information to scores_df such as how many core, rim, and support residues were measured
         summed_df = metrics.sum_per_residue_metrics(residues_df)
         summed_drop_columns = ['hydrophobic_collapse', 'sasa_relative_bound', 'sasa_relative_complex']
-        summed_df = summed_df.drop(summed_drop_columns, errors='ignore', axis=1).rename(
-            columns={'type': 'sequence', 'mutation': 'number_of_mutations'})
+        summed_df.drop(summed_drop_columns, errors='ignore', axis=1, inplace=True)
         scores_df = scores_df.join(summed_df)
 
         # scores_df['collapse_new_positions'] /= pose_length
@@ -4760,8 +4759,7 @@ class PoseDirectory(PoseProtocol):
         # Add design residue information to designs_df such as how many core, rim, and support residues were measured
         summed_df = metrics.sum_per_residue_metrics(residues_df)
         summed_drop_columns = ['hydrophobic_collapse', 'sasa_relative_bound', 'sasa_relative_complex']
-        summed_df = summed_df.drop(summed_drop_columns, errors='ignore', axis=1).rename(
-            columns={'type': 'sequence', 'mutation': 'number_of_mutations'})
+        summed_df.drop(summed_drop_columns, errors='ignore', axis=1, inplace=True)
         designs_df = designs_df.join(summed_df)
 
         # Calculate mutational content

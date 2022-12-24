@@ -45,34 +45,34 @@ class Designs(Base):
     interface_secondary_structure_topology = Column(String(120))  # , nullable=False)
     interface_secondary_structure_count = Column(Integer)  # , nullable=False)
     design_dimension = Column(Integer)  # , nullable=False)
-    entity_max_radius = Column(Float)  # Has a # after entity LIST
-    entity_min_radius = Column(Float)  # Has a # after entity LIST
-    entity_name = Column(String(30))  # Has a # after entity LIST
-    entity_number_of_residues = Column(Integer)  # Has a # after entity LIST
-    entity_radius = Column(Float)  # Has a # after entity LIST
-    entity_symmetry_group = Column(String(4))  # Has a # after entity LIST
-    entity_n_terminal_helix = Column(Boolean)  # Has a # after entity LIST
-    entity_c_terminal_helix = Column(Boolean)  # Has a # after entity LIST
-    entity_n_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
-    entity_c_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
-    entity_thermophile = Column(Boolean)  # Has a # after entity LIST
-    entity_interface_secondary_structure_fragment_topology = Column(String(60))  # Has a # after entity LIST
-    entity_interface_secondary_structure_topology = Column(String(60))  # Has a # after entity LIST
-    entity_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
-    entity_min_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
-    entity_max_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
-    entity_number_of_residues_ratio_v = Column(Float)  # Has a #v# after ratio LIST
+    # entity_max_radius = Column(Float)  # Has a # after entity LIST
+    # entity_min_radius = Column(Float)  # Has a # after entity LIST
+    # entity_name = Column(String(30))  # Has a # after entity LIST
+    # entity_number_of_residues = Column(Integer)  # Has a # after entity LIST
+    # entity_radius = Column(Float)  # Has a # after entity LIST
+    # entity_symmetry_group = Column(String(4))  # Has a # after entity LIST
+    # entity_n_terminal_helix = Column(Boolean)  # Has a # after entity LIST
+    # entity_c_terminal_helix = Column(Boolean)  # Has a # after entity LIST
+    # entity_n_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
+    # entity_c_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
+    # entity_thermophile = Column(Boolean)  # Has a # after entity LIST
+    # entity_interface_secondary_structure_fragment_topology = Column(String(60))  # Has a # after entity LIST
+    # entity_interface_secondary_structure_topology = Column(String(60))  # Has a # after entity LIST
+    # entity_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
+    # entity_min_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
+    # entity_max_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
+    # entity_number_of_residues_ratio_v = Column(Float)  # Has a #v# after ratio LIST
     entity_radius_average_deviation = Column(Float)  # , nullable=False)
     entity_min_radius_average_deviation = Column(Float)  # , nullable=False)
     entity_max_radius_average_deviation = Column(Float)  # , nullable=False)
     entity_number_of_residues_average_deviation = Column(Float)  # , nullable=False)
     # Rosetta metrics
     buns_complex = Column(Integer)  # , nullable=False)
-    buns_unbound = Column(Integer)  # Has a # after buns LIST
+    # buns_unbound = Column(Integer)  # Has a # after buns LIST
     buried_unsatisfied_hbonds = Column(Integer)  # , nullable=False)
     buried_unsatisfied_hbond_density = Column(Float)  # , nullable=False)
     contact_count = Column(Integer)  # , nullable=False)
-    entity_interface_connectivity = Column(Float)  # Has a # after entity LIST
+    # entity_interface_connectivity = Column(Float)  # Has a # after entity LIST
     favor_residue_energy = Column(Float)  # , nullable=False)
     interaction_energy_complex = Column(Float)  # , nullable=False)
     interface_energy_density = Column(Float)  # , nullable=False)
@@ -89,8 +89,8 @@ class Designs(Base):
     # Sequence metrics
     percent_mutations = Column(Float)  # , nullable=False)
     number_of_mutations = Column(Integer)  # , nullable=False)
-    entity_percent_mutations = Column(Float)  # Has a # after entity LIST
-    entity_number_of_mutations = Column(Integer)  # Has a # after entity LIST
+    # entity_percent_mutations = Column(Float)  # Has a # after entity LIST
+    # entity_number_of_mutations = Column(Integer)  # Has a # after entity LIST
     # SymDesign metrics
     interface_local_density = Column(Float)  # , nullable=False)
     interface_composition_similarity = Column(Float)  # , nullable=False)
@@ -195,6 +195,45 @@ class Designs(Base):
 
     # def __repr__(self):
     #     return f"Trajectory(id={self.id!r}, pose={self.pose!r}, name={self.name!r})"
+
+
+# Add metrics which are dependent on multiples. Initialize Column() when setattr() is called to get correct column name
+entity_design_metrics = dict(
+    entity_max_radius=Float,
+    entity_min_radius=Float,
+    entity_name=String(30),
+    entity_number_of_residues=Integer,
+    entity_radius=Float,
+    entity_symmetry_group=String(4),
+    entity_n_terminal_helix=Boolean,
+    entity_c_terminal_helix=Boolean,
+    entity_n_terminal_orientation=Boolean,
+    entity_c_terminal_orientation=Boolean,
+    entity_thermophile=Boolean,
+    entity_interface_secondary_structure_fragment_topology=String(60),
+    entity_interface_secondary_structure_topology=String(60),
+    entity_interface_connectivity=Float,
+    entity_percent_mutations=Float,
+    entity_number_of_mutations=Integer,
+)
+for idx in range(1, 1 + config.MAXIMUM_ENTITIES):
+    for metric, value in entity_design_metrics.items():
+        setattr(Designs, metric.replace('entity', f'entity{idx}'), Column(value))
+ratio_design_metrics = dict(
+    entity_radius_ratio_v=Float,
+    entity_min_radius_ratio_v=Float,
+    entity_max_radius_ratio_v=Float,
+    entity_number_of_residues_ratio_v=Float,
+)
+for idx1, idx2 in combinations(range(1, 1 + config.MAXIMUM_ENTITIES), 2):
+    for metric, value in ratio_design_metrics.items():
+        setattr(Designs, metric.replace('_v', f'_{idx1}v{idx2}'), Column(value))
+interface_design_metrics = dict(
+    buns_unbound=Integer
+)
+for idx in range(1, 1 + config.MAXIMUM_INTERFACES):
+    for metric, value in interface_design_metrics.items():
+        setattr(Designs, metric.replace('buns', f'buns{idx}'), Column(value))
 
 
 class Residues(Base):
