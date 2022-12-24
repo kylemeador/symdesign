@@ -54,9 +54,9 @@ def cluster_poses(pose_directories: list[PoseDirectory]):
         if job.multi_processing:
             results = utils.mp_starmap(ialign, combinations(design_interfaces, 2), processes=job.cores)
         else:
-            for idx, (interface_file1, interface_file2) in enumerate(combinations(design_interfaces, 2)):
+            for idx, interface_files in enumerate(combinations(design_interfaces, 2)):
                 # is_score = utils.cluster.ialign(design1.source, design2.source, out_path='ialign')
-                results.append(ialign(interface_file1, interface_file2))
+                results.append(ialign(*interface_files))
                 #                                     out_path=os.path.join(job.data, 'ialign_output'))
 
         if results:
@@ -207,13 +207,15 @@ def pose_pair_by_rmsd(compositions: Iterable[tuple[PoseDirectory, PoseDirectory]
         return cluster_poses_by_value(pose_dir_pairs, results)
 
 
-def ialign(pdb_file1: AnyStr, pdb_file2: AnyStr, chain1: str = None, chain2: str = None,
+# def ialign(pdb_file1: AnyStr, pdb_file2: AnyStr, chain1: str = None, chain2: str = None,
+def ialign(*pdb_files: AnyStr, chain1: str = None, chain2: str = None,
            out_path: AnyStr = os.path.join(os.getcwd(), 'ialign')) -> float:
     """Run non-sequential iAlign on two .pdb files
 
     Args:
-        pdb_file1:
-        pdb_file2:
+        pdb_files:
+        # pdb_file1:
+        # pdb_file2:
         chain1:
         chain2:
         out_path: The path to write iAlign results to
@@ -226,6 +228,7 @@ def ialign(pdb_file1: AnyStr, pdb_file2: AnyStr, chain1: str = None, chain2: str
         chain2 = 'AB'
     chains = ['-c1', chain1, '-c2', chain2]
 
+    pdb_file1, pdb_file2, *_ = pdb_files
     temp_pdb_file1 = os.path.join(os.getcwd(), 'temp',
                                   os.path.basename(pdb_file1.translate(utils.keep_digit_table)))
     temp_pdb_file2 = os.path.join(os.getcwd(), 'temp',
