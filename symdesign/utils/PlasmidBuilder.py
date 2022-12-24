@@ -1,4 +1,4 @@
-from symdesign.structure.sequence import read_fasta_file
+from symdesign.sequence import read_fasta_file
 from symdesign import utils
 
 # first, import sequence files, by directory name

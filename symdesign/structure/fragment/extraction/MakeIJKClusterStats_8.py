@@ -6,7 +6,7 @@ import numpy as np
 
 import symdesign.structure.fragment.extraction.FragUtils as Frag
 from symdesign.structure.model import Model
-from symdesign.structure.utils import protein_letters_3to1
+from symdesign.sequence import protein_letters_3to1
 
 # Globals
 module = 'Make IJK Cluster Frequency Files:'

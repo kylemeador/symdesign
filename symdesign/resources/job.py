@@ -13,11 +13,9 @@ import psutil
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
-from symdesign import flags, utils
+from symdesign import flags, sequence, structure, utils
 from symdesign.resources import structure_db, wrapapi
 from symdesign.structure.fragment import db
-from symdesign.structure.model import Entity
-from symdesign.structure.sequence import read_fasta_file  # Todo refactor to structure.utils?
 from symdesign.utils import CommandDistributer, SymEntry, InputError, path as putils
 
 logger = logging.getLogger(__name__)
@@ -32,10 +30,10 @@ def generate_sequence_mask(fasta_file: AnyStr) -> list[int]:
     Returns:
         The residue numbers (in pose format) that should be ignored in design
     """
-    sequence_and_mask = list(read_fasta_file(fasta_file))
+    sequence_and_mask = list(sequence.read_fasta_file(fasta_file))
     # sequences = sequence_and_mask
-    sequence, mask, *_ = sequence_and_mask
-    if not len(sequence) == len(mask):
+    _sequence, mask, *_ = sequence_and_mask
+    if not len(_sequence) == len(mask):
         raise ValueError('The sequence and design_selector are different lengths! Please correct the alignment and '
                          'lengths before proceeding.')
 
@@ -685,7 +683,7 @@ class JobResources:
             putils.make_path(self.sequences)
             putils.make_path(self.profiles)
 
-    def setup_evolution_constraint(self, all_entities: Iterable[Entity]) -> list[str]:
+    def setup_evolution_constraint(self, all_entities: Iterable[structure.sequence.SequenceProfile]) -> list[str]:
         """Format the job with evolutionary constraint options
 
         Args:
