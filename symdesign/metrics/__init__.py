@@ -45,7 +45,12 @@ sasa_metrics_rename_mapping = dict([*zip(per_residue_interface_states, interface
 # Ex: 0.45, 0.22, 0.04, 0.19, 0.01, 0.2, 0.04, 0.19, 0.01, 0.19, 0.01, 0.21, 0.06, 0.17, 0.01, 0.21, -0.04, 0.22
 bsa_tolerance = 0.25
 energy_metrics_rename_mapping = dict(zip(per_residue_energy_states, energy_metric_names))
-other_metrics_rename_mapping = dict(hbond='number_of_hbonds', design_residue='total_design_residues')
+# other_metrics_rename_mapping = dict(hbond='number_of_hbonds', design_residue='total_design_residues')
+renamed_design_metrics = {
+    'design_residues': 'number_design_residues', 'hbond': 'number_of_hbonds', 'mutation': 'number_of_mutations',
+    'type': 'sequence' 
+}
+
 errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # These are approximate magnitude of deviation
 collapse_thresholds = {
     'standard': 0.43,
@@ -877,7 +882,10 @@ def sum_per_residue_metrics(df: pd.DataFrame) -> pd.DataFrame:
     summed_df = df.groupby(axis=1, level=-1).sum()
     # logger.debug('After grouby sum: {summed_df}')
 
-    return summed_df.rename(columns={**energy_metrics_rename_mapping, **sasa_metrics_rename_mapping})
+    return summed_df.rename(
+        columns={**energy_metrics_rename_mapping,
+                 **sasa_metrics_rename_mapping,
+                 **renamed_design_metrics})
 
 
 def calculate_sequence_observations_and_divergence(alignment: 'structure.sequence.MultipleSequenceAlignment',
