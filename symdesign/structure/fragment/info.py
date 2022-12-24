@@ -7,15 +7,14 @@ from glob import glob
 from itertools import repeat
 from typing import AnyStr, Literal, get_args, Sequence
 
-from symdesign.structure.utils import protein_letters_alph1, protein_letters_literal
-from symdesign import utils
+from symdesign import sequence, utils
 
 logger = logging.getLogger(__name__)
 source_literal = Literal['size', 'rmsd', 'rep', 'mapped', 'paired']
-old_weighted_counts_keys = Literal[protein_letters_literal, 'stats']
+old_weighted_counts_keys = Literal[sequence.protein_letters_literal, 'stats']
 old_aa_weighted_counts_type: dict[old_weighted_counts_keys, int | tuple[int, int]]
 # Todo add 'weight' instead of 'stats' (0, 1) during creation
-weighted_counts_keys = Literal[protein_letters_literal, 'weight']
+weighted_counts_keys = Literal[sequence.protein_letters_literal, 'weight']
 aa_weighted_counts_type: dict[weighted_counts_keys, int | float]
 
 
@@ -130,7 +129,7 @@ class FragmentInfo:
             #         return
 
     @property
-    def aa_frequencies(self) -> dict[protein_letters_alph1, float]:
+    def aa_frequencies(self) -> dict[sequence.protein_letters_alph1, float]:
         """Retrieve database specific amino acid representation frequencies
 
         Returns:
@@ -140,7 +139,7 @@ class FragmentInfo:
 
     # Todo rework this and below func for Database
     def retrieve_cluster_info(self, cluster: str = None, source: source_literal = None, index: str = None) -> \
-            dict[str, int | float | str | dict[int, dict[protein_letters_literal | str, float | tuple[int, float]]]]:
+            dict[str, int | float | str | dict[int, dict[sequence.protein_letters_literal | str, float | tuple[int, float]]]]:
         """Return information from the fragment information database by cluster_id, information source, and source index
 
         Args:

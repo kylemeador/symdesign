@@ -14,7 +14,8 @@ import torch
 
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, validate_type, verify_choice, header_string
-from symdesign.structure.utils import protein_letters_literal, alphabet_types, create_translation_tables, DesignError
+from symdesign.structure.utils import DesignError
+from ..sequence import protein_letters_literal, alphabet_types, create_translation_tables
 from symdesign import utils, flags
 from symdesign.utils import path as putils
 

@@ -8,7 +8,6 @@ from __future__ import annotations
 # import logging
 import logging.config
 import os
-import shutil
 import sys
 from glob import glob
 from itertools import repeat, product, combinations
@@ -38,7 +37,8 @@ from symdesign.resources.job import job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from symdesign.resources.query.utils import validate_input_return_response_value
 from symdesign.structure.fragment.db import fragment_factory, euler_factory
-from symdesign.utils import guide, nanohedra, ProteinExpression
+from symdesign.sequence import create_mulitcistronic_sequences
+from symdesign.utils import guide, nanohedra
 
 # def format_additional_flags(flags):
 #     """Takes non-argparse specified flags and returns them into a dictionary compatible with argparse style.
@@ -496,7 +496,7 @@ def main():
     #     flags.input, flags.output, flags.options, flags.residue_selector]
     if job.module in symdesign_tools:
         if job.module == flags.multicistronic:
-            ProteinExpression.create_mulitcistronic_sequences(args)
+            create_mulitcistronic_sequences(args)
         else:  # if job.module in decoy_modules:
             pass  # exit()
         exit()

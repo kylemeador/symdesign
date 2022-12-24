@@ -1,21 +1,16 @@
 """Add expression tags onto the termini of specific designs"""
-import csv
+from __future__ import annotations
+
 import logging
-import os
 
 # from itertools import chain as iter_chain  # combinations,
 import numpy as np
-from Bio.Seq import Seq
-from Bio.SeqRecord import SeqRecord
 
+from . import generate_alignment, protein_letters_alph1
 from symdesign import utils
 # EnforceMeltingTemperature
 from symdesign.resources import query
 from symdesign.resources.config import expression_tags
-from symdesign.structure.sequence import generate_alignment, read_fasta_file, write_sequences
-from symdesign.structure.utils import protein_letters_alph1
-from symdesign.third_party.DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, \
-    AvoidHairpins, EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation
 from symdesign.utils import path as putils
 
 # Globals
@@ -256,6 +251,20 @@ def calculate_instability_index(sequence):
 
 # E(Prot) = Numb(Tyr) * Ext(Tyr) + Numb(Trp) * Ext(Trp) + Numb(Cystine) * Ext(Cystine)
 # where(for proteins in water measured at 280 nm): Ext(Tyr) = 1490, Ext(Trp) = 5500, Ext(Cystine) = 125
+def pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=None):
+    # uniprot_pdb_d = SDUtils.unpickle(putils.uniprot_pdb_map)
+    source = 'unique_pdb'
+    pdb_code = pdb_code.upper()
+    if chain:
+        # pdb_code = '%s.%s' % (pdb_code, chain)
+        # source = 'all'
+        dummy = 'TODO ensure that this works once the database is integrated'
+
+    for uniprot_id in uniprot_pdb_d:
+        if pdb_code in uniprot_pdb_d[uniprot_id][source]:
+            return uniprot_id
+    return None
+
 
 def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
     """Take a pose and find expression tags from each PDB reference asking user for input on tag choice
@@ -504,7 +513,7 @@ def add_expression_tag(tag: str, sequence: str) -> str:
     """Add an expression tag to a sequence by aligning a tag specified with PDB reference sequence to the sequence
 
     Args:
-        tag: The tag with additional PDB reference sequence
+        tag: The tag with additional PDB reference sequence appended
         sequence: The sequence of interest
     Returns:
         The final sequence with the tag added
@@ -536,30 +545,15 @@ def add_expression_tag(tag: str, sequence: str) -> str:
     return final_seq
 
 
-def pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=None):
-    # uniprot_pdb_d = SDUtils.unpickle(putils.uniprot_pdb_map)
-    source = 'unique_pdb'
-    pdb_code = pdb_code.upper()
-    if chain:
-        # pdb_code = '%s.%s' % (pdb_code, chain)
-        # source = 'all'
-        dummy = 'TODO ensure that this works once the database is integrated'  # TODO
-
-    for uniprot_id in uniprot_pdb_d:
-        if pdb_code in uniprot_pdb_d[uniprot_id][source]:
-            return uniprot_id
-    return None
-
-
-def find_expression_tags(sequence, alignment_length=12):
+def find_expression_tags(sequence: str, alignment_length: int = 12) -> list | list[dict[str, str]]:
     """Find all expression_tags on an input sequence from a reference set of expression_tags. Returns the matching tag
     sequence with additional protein sequence context equal to the passed alignment_length
 
     Args:
-        sequence (str): 'MSGHHHHHHGKLKPNDLRI...'
+        sequence: 'MSGHHHHHHGKLKPNDLRI...'
+        alignment_length: length to perform the clipping of the native sequence in addition to found tag
     Keyword Args:
         # tag_file=PathUtils.affinity_tags (list): List of tuples where tuple[0] is the name and tuple[1] is the string
-        alignment_length=12 (int): length to perform the clipping of the native sequence in addition to found tag
     Returns:
         (list[dict]): [{'name': tag_name, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...], [] if none are found
     """
@@ -598,97 +592,3 @@ def remove_expression_tags(sequence, tags):
         sequence = sequence[:tag_index] + sequence[tag_index + len(tag):]
 
     return sequence
-
-
-def optimize_protein_sequence(sequence: str, species: str = 'e_coli') -> str:
-    """Optimize a sequence for expression in a desired organism
-
-    Args:
-        sequence: The sequence of interest
-        species: The species context to optimize nucleotide sequence usage
-    Returns:
-        The input sequence optimized to nucleotides for expression considerations
-    """
-    seq_length = len(sequence)
-    species = species.lower()
-    try:
-        dna_sequence = reverse_translate(sequence)
-    except KeyError as error:
-        raise KeyError(f'Warning an invalid character was found in your protein sequence: {error}')
-
-    problem = DnaOptimizationProblem(sequence=dna_sequence,  # max_random_iters=20000,
-                                     objectives=[CodonOptimize(species=species)], logger=None,
-                                     constraints=[EnforceGCContent(mini=0.25, maxi=0.65),  # twist required
-                                                  EnforceGCContent(mini=0.35, maxi=0.65, window=50),  # twist required
-                                                  AvoidHairpins(stem_size=20, hairpin_window=48),  # efficient translate
-                                                  AvoidPattern('GGAGG', location=(1, seq_length, 1)),  # ribosome bind
-                                                  AvoidPattern('TAAGGAG', location=(1, seq_length, 1)),  # ribosome bind
-                                                  AvoidPattern('AAAAA', location=(1, seq_length, 0)),  # terminator
-                                                  # AvoidPattern('TTTTT', location=(1, seq_length, 1)),  # terminator
-                                                  AvoidPattern('GGGGGGGGGG', location=(1, seq_length, 0)),  # homopoly
-                                                  # AvoidPattern('CCCCCCCCCC', location=(1, seq_length)),  # homopoly
-                                                  UniquifyAllKmers(20),  # twist required
-                                                  AvoidRareCodons(0.08, species=species),
-                                                  EnforceTranslation(),
-    #                                             EnforceMeltingTemperature(mini=10, maxi=62, location=(1, seq_length)),
-                                                  ])
-
-    # Solve constraints and solve in regard to the objective
-    problem.max_random_iters = 20000
-    problem.resolve_constraints()
-    problem.optimize()
-
-    # Display summaries of constraints that pass
-    # print(problem.constraints_text_summary())
-    # print(problem.objectives_text_summary())
-
-    # Get final sequence as string
-    final_sequence = problem.sequence
-    # Get final sequene as BioPython record
-    # final_record = problem.to_record(with_sequence_edits=True)
-
-    return final_sequence
-
-
-def create_mulitcistronic_sequences(args):
-    # if not args.multicistronic_intergenic_sequence:
-    #     args.multicistronic_intergenic_sequence = ProteinExpression.default_multicistronic_sequence
-
-    file = args.file[0]  # since args.file is collected with nargs='*', select the first
-    if file.endswith('.csv'):
-        with open(file) as f:
-            protein_sequences = [SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
-                                 for name, sequence in csv.reader(f)]
-    elif file.endswith('.fasta'):
-        protein_sequences = list(read_fasta_file(file))
-    else:
-        raise NotImplementedError(f'Sequence file with extension {os.path.splitext(file)[-1]} is not supported!')
-
-    # Convert the SeqRecord to a plain sequence
-    # design_sequences = [str(seq_record.seq) for seq_record in design_sequences]
-    nucleotide_sequences = {}
-    for idx, group_start_idx in enumerate(list(range(len(protein_sequences)))[::args.number_of_genes], 1):
-        # Call attribute .seq to get the sequence
-        cistronic_sequence = optimize_protein_sequence(protein_sequences[group_start_idx].seq,
-                                                       species=args.optimize_species)
-        for protein_sequence in protein_sequences[group_start_idx + 1: group_start_idx + args.number_of_genes]:
-            cistronic_sequence += args.multicistronic_intergenic_sequence
-            cistronic_sequence += optimize_protein_sequence(protein_sequence.seq,
-                                                            species=args.optimize_species)
-        new_name = f'{protein_sequences[group_start_idx].id}_cistronic'
-        nucleotide_sequences[new_name] = cistronic_sequence
-        logger.info(f'Finished sequence {idx} - {new_name}')
-
-    location = file
-    if not args.prefix:
-        args.prefix = f'{os.path.basename(os.path.splitext(location)[0])}_'
-    else:
-        args.prefix = f'{args.prefix}_'
-    if args.suffix:
-        args.suffix = f'_{args.suffix}'
-
-    nucleotide_sequence_file = write_sequences(nucleotide_sequences, csv=args.csv,
-                                               file_name=os.path.join(os.getcwd(),
-                                                                      f'{args.prefix}MulticistronicNucleotideSequences'
-                                                                      f'{args.suffix}'))
-    logger.info(f'Multicistronic nucleotide sequences written to: {nucleotide_sequence_file}')

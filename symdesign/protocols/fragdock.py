@@ -26,9 +26,9 @@ from symdesign.structure.fragment import GhostFragment
 from symdesign.structure.fragment.metrics import rmsd_z_score, z_value_from_match_score, match_score_from_z_value
 from symdesign.structure.fragment.visuals import write_fragment_pairs_as_accumulating_states
 from symdesign.structure.model import Pose, Model, get_matching_fragment_pairs_info, Models
-from symdesign.structure.sequence import generate_mutations_from_reference, numeric_to_sequence, concatenate_profile, \
-    pssm_as_array, MultipleSequenceAlignment
-from symdesign.structure.utils import chain_id_generator, protein_letters_alph1
+from symdesign.structure.sequence import concatenate_profile, pssm_as_array
+from symdesign.structure.utils import chain_id_generator
+from symdesign.sequence import protein_letters_alph1
 from symdesign import utils
 from symdesign.utils import path as putils
 from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
@@ -4211,13 +4211,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 #     scores_df['interface_composition_similarity'] = \
                 #         scores_df.apply(metrics.interface_composition_similarity, axis=1)
                 scores_df.drop(metrics.clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
-            # else:  # Get metrics and output
-            #     # Generate placeholder all_mutations which only contains "reference"
-            #     # all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)
-            #     # per_residue_sequence_df = per_residue_background_frequency_df = per_residue_collapse_df = \
-            #     #     pd.DataFrame()
-            #     # all_pose_divergence_df = pd.DataFrame()
-            #     # residue_df = pd.DataFrame()
 
             scores_columns = scores_df.columns.to_list()
             logger.debug(f'Metrics present: {scores_columns}')

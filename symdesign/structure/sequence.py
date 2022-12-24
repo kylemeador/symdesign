@@ -5,7 +5,7 @@ import os
 import subprocess
 import time
 from abc import ABC
-from collections import namedtuple, UserList
+from collections import UserList
 from copy import deepcopy, copy
 from itertools import repeat, count
 from logging import Logger
@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Sequence, Any, Iterable, get_args, Literal, AnyStr, Type, NamedTuple
 
 import numpy as np
-from Bio import pairwise2, SeqIO, AlignIO
 from Bio.Align import MultipleSeqAlignment, substitution_matrices
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -23,8 +22,13 @@ from . import utils
 from .fragment import info
 from .fragment.db import alignment_types_literal, alignment_types, fragment_info_type
 from symdesign import metrics, utils as sdutils
-from symdesign.utils import path as putils
+# from symdesign.utils import path as putils
+from ..sequence import read_alignment, write_sequence_to_fasta, write_sequences, mutation_dictionary, \
+    protein_letters_literal, protein_letters_alph1, protein_letters_alph3, protein_letters_3to1, \
+    create_translation_tables, protein_letters_alph1_gapped, numerical_translation_alph1_gapped, \
+    numerical_translation_alph1_bytes, numerical_translation_alph1_gapped_bytes
 # import dependencies.bmdca as bmdca
+putils = sdutils.path
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -34,17 +38,17 @@ zero_offset = 1
 sequence_type_literal = Literal['reference', 'structure']
 sequence_types: tuple[sequence_type_literal, ...] = get_args(sequence_type_literal)
 # aa_counts = dict(zip(utils.protein_letters_alph1, repeat(0)))
-aa_counts_alph3 = dict(zip(utils.protein_letters_alph3, repeat(0)))
+aa_counts_alph3 = dict(zip(protein_letters_alph3, repeat(0)))
 blank_profile_entry = aa_counts_alph3.copy()
 """{utils.profile_keys, repeat(0))}"""
 blank_profile_entry.update({'lod': aa_counts_alph3.copy(), 'info': 0., 'weight': 0.})
-aa_nan_counts_alph3 = dict(zip(utils.protein_letters_alph3, repeat(np.nan)))
+aa_nan_counts_alph3 = dict(zip(protein_letters_alph3, repeat(np.nan)))
 """{protein_letters_alph3, repeat(numpy.nan))}"""
 nan_profile_entry = aa_nan_counts_alph3.copy()
 """{utils.profile_keys, repeat(numpy.nan))}"""
 nan_profile_entry.update({'lod': aa_nan_counts_alph3.copy(), 'info': 0., 'weight': 0.})  # 'type': residue_type,
 
-aa_weighted_counts: info.aa_weighted_counts_type = dict(zip(utils.protein_letters_alph1, repeat(0)))
+aa_weighted_counts: info.aa_weighted_counts_type = dict(zip(protein_letters_alph1, repeat(0)))
 """{protein_letters_alph1, repeat(0) | 'weight': 1}"""  # 'count': 0,
 aa_weighted_counts['weight'] = 1
 # aa_weighted_counts.update({'count': 0, 'weight': 1})
@@ -52,7 +56,6 @@ aa_weighted_counts['weight'] = 1
 # aa_weighted_counts.update({'stats': (0, 1)})
 numerical_profile = np.ndarray  # Type[np.ndarray]
 """The shape should be (number of residues, number of characters in the alphabet"""
-subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 # 'uniclust30_2018_08'
 latest_uniclust_background_frequencies = \
     {'A': 0.0835, 'C': 0.0157, 'D': 0.0542, 'E': 0.0611, 'F': 0.0385, 'G': 0.0669, 'H': 0.0228, 'I': 0.0534,
@@ -93,7 +96,7 @@ class MultipleSequenceAlignment:
     """The sequence used to perform the MultipleSequenceAlignment search. May contain gaps from alignment"""
 
     def __init__(self, alignment: MultipleSeqAlignment = None, aligned_sequence: str = None,
-                 alphabet: str = utils.protein_letters_alph1_gapped,
+                 alphabet: str = protein_letters_alph1_gapped,
                  weight_alignment_by_sequence: bool = False, sequence_weights: list[float] = None,
                  count_gaps: bool = False, **kwargs):
         """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
@@ -179,7 +182,7 @@ class MultipleSequenceAlignment:
                 self._counts = [[0 for letter in alphabet] for _ in range(self.length)]  # list[list]
                 for record in self.alignment:
                     for i, aa in enumerate(record.seq):
-                        self._counts[i][utils.numerical_translation_alph1_gapped[aa]] += 1
+                        self._counts[i][numerical_translation_alph1_gapped[aa]] += 1
                         # self.counts[i][aa] += 1
                 print('OLD self._counts', self._counts)
                 self._observations = [sum(_aa_counts[:self._gap_index]) for _aa_counts in self._counts]  # list[list]
@@ -193,12 +196,12 @@ class MultipleSequenceAlignment:
                 self._counts = [[0 for letter in alphabet] for _ in range(self.length)]  # list[list]
                 for record in self.alignment:
                     for i, aa in enumerate(record.seq):
-                        self._counts[i][utils.numerical_translation_alph1_gapped[aa]] += sequence_weights_[i]
+                        self._counts[i][numerical_translation_alph1_gapped[aa]] += sequence_weights_[i]
                         # self.counts[i][aa] += sequence_weights[i]
                 print('OLD sequence_weight self._counts', self._counts)
 
                 # add each sequence weight to the indices indicated by the numerical_alignment
-                self.counts = np.zeros((self.length, len(utils.protein_letters_alph1_gapped)))
+                self.counts = np.zeros((self.length, len(protein_letters_alph1_gapped)))
                 for idx in range(self.number_of_sequences):
                     self.counts[:, numerical_alignment[idx]] += sequence_weights[idx]
                 print('sequence_weight self.counts', self.counts)
@@ -308,7 +311,7 @@ class MultipleSequenceAlignment:
             try:
                 translation_type = self._numeric_translation_type  # Todo clean setting of this with self.alphabet_type
             except AttributeError:
-                self._numeric_translation_type = utils.create_translation_tables(self.alphabet_type)
+                self._numeric_translation_type = create_translation_tables(self.alphabet_type)
                 translation_type = self._numeric_translation_type
 
             self._numerical_alignment = np.vectorize(translation_type.__getitem__)(self.array)
@@ -374,7 +377,7 @@ def sequence_to_numeric(sequence: Sequence[str]) -> np.ndarray:
             to the 1 letter alphabetical amino acid
     """
     _array = np.array(list(sequence), np.string_)
-    return np.vectorize(utils.numerical_translation_alph1_bytes.__getitem__)(_array)
+    return np.vectorize(numerical_translation_alph1_bytes.__getitem__)(_array)
 
 
 def sequences_to_numeric(sequences: Iterable[Sequence[str]]) -> np.ndarray:
@@ -387,27 +390,10 @@ def sequences_to_numeric(sequences: Iterable[Sequence[str]]) -> np.ndarray:
             to the 1 letter alphabetical amino acid
     """
     _array = np.array([list(sequence) for sequence in sequences], np.string_)
-    return np.vectorize(utils.numerical_translation_alph1_bytes.__getitem__)(_array)
+    return np.vectorize(numerical_translation_alph1_bytes.__getitem__)(_array)
 
 
-def numeric_to_sequence(numeric_sequence: np.ndarray, alphabet_order: int = 1) -> np.ndarray:
-    """Convert a numeric sequence array into a sequence array
-
-    Args:
-        numeric_sequence: The sequence to convert
-        alphabet_order: The alphabetical order of the amino acid alphabet. Can be either 1 or 3
-    Returns:
-        The alphabetically encoded sequence where each entry along axis=-1 is the one letter amino acid
-    """
-    if alphabet_order == 1:
-        return np.vectorize(utils.sequence_translation_alph1.__getitem__)(numeric_sequence)
-    elif alphabet_order == 3:
-        return np.vectorize(utils.sequence_translation_alph3.__getitem__)(numeric_sequence)
-    else:
-        raise ValueError(f"The alphabet_order {alphabet_order} isn't valid. Choose from either 1 or 3")
-
-
-def pssm_as_array(pssm: profile_dictionary, alphabet: str = utils.protein_letters_alph1, lod: bool = False) \
+def pssm_as_array(pssm: profile_dictionary, alphabet: str = protein_letters_alph1, lod: bool = False) \
         -> np.ndarray:
     """Convert a position specific profile matrix into a numeric array
 
@@ -484,21 +470,22 @@ def write_pssm_file(pssm: profile_dictionary, file_name: AnyStr = None, name: st
         file_name = f'{file_name}.pssm'
 
     with open(file_name, 'w') as f:
-        f.write(f'\n\n{" " * 12}{separation1.join(utils.protein_letters_alph3)}'
-                f'{separation1}{(" " * 3).join(utils.protein_letters_alph3)}\n')
+        f.write(f'\n\n{" " * 12}{separation1.join(protein_letters_alph3)}'
+                f'{separation1}{(" " * 3).join(protein_letters_alph3)}\n')
         for residue_number, profile in pssm.items():
             if isinstance(profile['lod']['A'], float):  # lod_freq:  # relevant for favor_fragment
-                lod_string = ' '.join(f'{profile["lod"][aa]:>4.2f}' for aa in utils.protein_letters_alph3) \
+                lod_string = ' '.join(f'{profile["lod"][aa]:>4.2f}' for aa in protein_letters_alph3) \
                     + ' '
             else:
-                lod_string = ' '.join(f'{profile["lod"][aa]:>3d}' for aa in utils.protein_letters_alph3) \
+                lod_string = ' '.join(f'{profile["lod"][aa]:>3d}' for aa in protein_letters_alph3) \
                     + ' '
 
             if isinstance(profile['A'], float):  # counts_freq: # relevant for freq calculations
-                counts_string = ' '.join(f'{floor(profile[aa] * 100):>3.0f}' for aa in utils.protein_letters_alph3) \
+                counts_string = ' '.join(f'{floor(profile[aa] * 100):>3.0f}' for aa in
+                                         protein_letters_alph3) \
                     + ' '
             else:
-                counts_string = ' '.join(f'{profile[aa]:>3d}' for aa in utils.protein_letters_alph3) \
+                counts_string = ' '.join(f'{profile[aa]:>3d}' for aa in protein_letters_alph3) \
                     + ' '
             f.write(f'{residue_number:>5d} {profile["type"]:1s}   {lod_string:80s} {counts_string:80s} '
                     f'{round(profile.get("info", 0.), 4):4.2f} {round(profile.get("weight", 0.), 4):4.2f}\n')
@@ -506,10 +493,11 @@ def write_pssm_file(pssm: profile_dictionary, file_name: AnyStr = None, name: st
     return file_name
 
 
-lod_dictionary: dict[utils.protein_letters_literal, int]
+lod_dictionary: dict[protein_letters_literal, int]
 profile_values: float | str | lod_dictionary
-profile_entry: Type[dict[utils.profile_keys, profile_values]]
-profile_dictionary: Type[dict[int, dict[utils.profile_keys, profile_values]]]
+profile_keys = Literal[protein_letters_literal, 'lod', 'type', 'info', 'weight']
+profile_entry: Type[dict[profile_keys, profile_values]]
+profile_dictionary: Type[dict[int, dict[profile_keys, profile_values]]]
 """{1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
         'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
 """
@@ -550,7 +538,7 @@ class Profile(UserList):
             if 'info' in self.available_keys:
                 self.info = [position_info['info'] for position_info in self]
 
-    def as_array(self, alphabet: str = utils.protein_letters_alph1, lod: bool = False) -> np.ndarray:
+    def as_array(self, alphabet: str = protein_letters_alph1, lod: bool = False) -> np.ndarray:
         """Convert the Profile into a numeric array
 
         Args:
@@ -583,10 +571,10 @@ class Profile(UserList):
         if self.dtype in putils.fragment_profile:
             # Need to convert np.nan to zeros
             logger.warning(f'Converting {self.dtype} type Profile np.nan values to 0.0')
-            data = np.nan_to_num([[position_info[aa] for aa in utils.protein_letters_alph3]
+            data = np.nan_to_num([[position_info[aa] for aa in protein_letters_alph3]
                                   for position_info in self]).tolist()
         else:
-            data = [[position_info[aa] for aa in utils.protein_letters_alph3] for position_info in self]
+            data = [[position_info[aa] for aa in protein_letters_alph3] for position_info in self]
 
         # Find out if the pssm has values expressed as frequencies (percentages) or as counts and modify accordingly
         if isinstance(self.lods[0]['A'], float):
@@ -599,7 +587,7 @@ class Profile(UserList):
 
         if file_name is None:
             if name is None:
-                raise ValueError(f'Must provide argument "file_name" or "name" as a str to {write_sequences.__name__}')
+                raise ValueError(f'Must provide argument "file_name" or "name" as a str to {self.write.__name__}')
             else:
                 file_name = os.path.join(out_dir, name)
 
@@ -607,16 +595,16 @@ class Profile(UserList):
             file_name = f'{file_name}.pssm'
 
         with open(file_name, 'w') as f:
-            f.write(f'\n\n{" " * 12}{separation1.join(utils.protein_letters_alph3)}'
-                    f'{separation1}{(" " * 3).join(utils.protein_letters_alph3)}\n')
+            f.write(f'\n\n{" " * 12}{separation1.join(protein_letters_alph3)}'
+                    f'{separation1}{(" " * 3).join(protein_letters_alph3)}\n')
             for residue_number, (entry, lod, _type, info, weight) in enumerate(
                     zip(data, self.lods, self.types, self.info, self.weights), 1):
                 if isinstance(lod['A'], float):  # relevant for favor_fragment
                     lod_string = \
-                        ' '.join(f'{lod[aa]:>4.2f}' for aa in utils.protein_letters_alph3) + ' '
+                        ' '.join(f'{lod[aa]:>4.2f}' for aa in protein_letters_alph3) + ' '
                 else:
                     lod_string = \
-                        ' '.join(f'{lod[aa]:>3d}' for aa in utils.protein_letters_alph3) + ' '
+                        ' '.join(f'{lod[aa]:>3d}' for aa in protein_letters_alph3) + ' '
 
                 if isinstance(entry[0], float):  # relevant for freq calculations
                     counts_string = ' '.join(f'{floor(value * 100):>3.0f}' for value in entry) + ' '
@@ -774,7 +762,7 @@ class SequenceProfile(ABC):
         except AttributeError:
             self._sequence_array = np.array(list(self.sequence), np.string_)
             self._sequence_numeric = \
-                np.vectorize(utils.numerical_translation_alph1_gapped_bytes.__getitem__, otypes='l')(self._sequence_array)
+                np.vectorize(numerical_translation_alph1_gapped_bytes.__getitem__, otypes='l')(self._sequence_array)
             # using otypes='i' as the datatype for int32. 'f' would be for float32
             # using otypes='l' as the datatype for int64. 'd' would be for float64
             # self.log.critical(f'The sequence_numeric dtype is {self._sequence_numeric.dtype}. It should be int64')
@@ -909,7 +897,7 @@ class SequenceProfile(ABC):
         incorrect_count = 0
         for residue, position_data in zip(self.residues, self.evolutionary_profile.values()):
             profile_res_type = position_data['type']
-            pose_res_type = utils.protein_letters_3to1[residue.type]
+            pose_res_type = protein_letters_3to1[residue.type]
             if profile_res_type != pose_res_type:
                 # This may not be the worst thing in the world... If the profile was made off of an entity
                 # that is not the exact structure, there should be some reality to it. I think the issue would
@@ -1131,11 +1119,11 @@ class SequenceProfile(ABC):
             if len(line_data) == 44:
                 residue_number = int(line_data[0])
                 self.evolutionary_profile[residue_number] = copy(aa_counts_alph3)
-                for i, aa in enumerate(utils.protein_letters_alph3, 22):  # pose_dict[residue_number], 22):
+                for i, aa in enumerate(protein_letters_alph3, 22):  # pose_dict[residue_number], 22):
                     # Get normalized counts for pose_dict
                     self.evolutionary_profile[residue_number][aa] = (int(line_data[i]) / 100.0)
                 self.evolutionary_profile[residue_number]['lod'] = {}
-                for i, aa in enumerate(utils.protein_letters_alph3, 2):
+                for i, aa in enumerate(protein_letters_alph3, 2):
                     self.evolutionary_profile[residue_number]['lod'][aa] = line_data[i]
                 self.evolutionary_profile[residue_number]['type'] = line_data[1]
                 self.evolutionary_profile[residue_number]['info'] = float(line_data[42])
@@ -1747,7 +1735,7 @@ class SequenceProfile(ABC):
                 frag_profile_entry = fragment_profile[entry]
                 _profile_entry = self.profile[entry + zero_offset]
                 _profile_entry.update({aa: weight*frag_profile_entry[aa] + inverse_weight*_profile_entry[aa]
-                                       for aa in utils.protein_letters_alph3})
+                                       for aa in protein_letters_alph3})
         # if log_string:
         #     # self.log.info(f'At {self.name}, combined evolutionary and fragment profiles into Design Profile with:'
         #     #               f'\n\t%s' % '\n\t'.join(log_string))
@@ -1927,8 +1915,8 @@ def populate_design_dictionary(n: int, alphabet: Sequence, zero_index: bool = Fa
     return {entry: dict.fromkeys(alphabet, dtype()) for entry in range(offset, n + offset)}
 
 
-def get_lod(frequencies: dict[utils.protein_letters_literal, float],
-            background: dict[utils.protein_letters_literal, float], as_int: bool = True) -> dict[str, int | float]:
+def get_lod(frequencies: dict[protein_letters_literal, float],
+            background: dict[protein_letters_literal, float], as_int: bool = True) -> dict[str, int | float]:
     """Get the log of the odds that an amino acid is in a frequency distribution compared to a background frequency
 
     Args:
@@ -1945,7 +1933,7 @@ def get_lod(frequencies: dict[utils.protein_letters_literal, float],
         except ValueError:  # math domain error
             lods[aa] = -9
         except KeyError:
-            if aa in utils.protein_letters_alph1:
+            if aa in protein_letters_alph1:
                 raise KeyError(f'{aa} was not in the background frequencies: {", ".join(background)}')
             else:  # we shouldn't worry about a missing value if it's not an amino acid
                 continue
@@ -1986,36 +1974,6 @@ def format_frequencies(frequency_list: list, flip: bool = False) -> dict[str, di
             freq_d[aa_mapped] = {aa_paired: freq}
 
     return freq_d
-
-
-def get_equivalent_indices(sequence1: Sequence, sequence2: Sequence) -> tuple[list[int], list[int]]:
-    """From two sequences, find the indices where both sequences are equal
-
-    Args:
-        sequence1: The first sequence to compare
-        sequence2: The second sequence to compare
-    Returns:
-        The pair of sequence indices were the sequences align.
-            Ex: sequence1 = 'ABCDEF', sequence2 = 'ABDEF', returns [0, 1, 3, 4, 5], [0, 1, 2, 3, 4]
-    """
-    # Get all mutations from the alignment of sequence1 and sequence2
-    mutations = generate_mutations(sequence1, sequence2, blanks=True, return_all=True)
-    # Get only those indices where there is an aligned aa on the opposite chain
-    sequence1_indices, sequence2_indices = [], []
-    to_idx, from_idx = 0, 0
-    # sequence1 'from' is fixed, sequence2 'to' is moving
-    for mutation in mutations.values():
-        if mutation['from'] == '-':  # increment to_idx/fixed_idx
-            to_idx += 1
-        elif mutation['to'] == '-':  # increment from_idx/moving_idx
-            from_idx += 1
-        else:
-            sequence1_indices.append(from_idx)
-            sequence2_indices.append(to_idx)
-            to_idx += 1
-            from_idx += 1
-
-    return sequence1_indices, sequence2_indices
 
 
 # def residue_interaction_graph(pdb, distance=8, gly_ca=True):
@@ -2298,8 +2256,9 @@ def parse_pssm(file: AnyStr, **kwargs) -> dict[int, dict[str, str | float | int 
         if len(line_data) == 44:
             residue_number = int(line_data[0])
             pose_dict[residue_number] = \
-                dict(zip(utils.protein_letters_alph3,
-                         [x / 100. for x in map(int, line_data[22:len(utils.protein_letters_alph3) + 22])]))
+                dict(zip(protein_letters_alph3,
+                         [x / 100. for x in map(int, line_data[22:len(
+                             protein_letters_alph3) + 22])]))
             # pose_dict[residue_number] = aa_counts_alph3.copy()
             # for i, aa in enumerate(utils.protein_letters_alph3, 22):
             #     # Get normalized counts for pose_dict
@@ -2308,7 +2267,8 @@ def parse_pssm(file: AnyStr, **kwargs) -> dict[int, dict[str, str | float | int 
             # for i, aa in enumerate(utils.protein_letters_alph3, 2):
             #     pose_dict[residue_number]['lod'][aa] = line_data[i]
             pose_dict[residue_number]['lod'] = \
-                dict(zip(utils.protein_letters_alph3, line_data[2:len(utils.protein_letters_alph3) + 2]))
+                dict(zip(protein_letters_alph3, line_data[2:len(
+                    protein_letters_alph3) + 2]))
             pose_dict[residue_number]['type'] = line_data[1]
             pose_dict[residue_number]['info'] = float(line_data[42])
             pose_dict[residue_number]['weight'] = float(line_data[43])
@@ -2384,11 +2344,13 @@ def parse_hhblits_pssm(file: AnyStr, null_background: bool = True, **kwargs) -> 
                 if null_background:  # Use the provided null background from the profile search
                     null, *background_values = line.strip().split()
                     # null = 'NULL', background_values = list[str] ['3706', '5728', ...]
-                    null_bg = {aa: to_freq(value) for value, aa in zip(background_values, utils.protein_letters_alph3)}
+                    null_bg = {aa: to_freq(value) for value, aa in zip(background_values,
+                                                                       protein_letters_alph3)}
 
             if len(line.split()) == 23:
                 residue_type, residue_number, *position_values = line.strip().split()
-                aa_freqs = {aa: to_freq(value) for value, aa in zip(position_values, utils.protein_letters_alph1)}
+                aa_freqs = {aa: to_freq(value) for value, aa in zip(position_values,
+                                                                    protein_letters_alph1)}
 
                 evolutionary_profile[int(residue_number)] = \
                     dict(lod=get_lod(aa_freqs, null_bg), type=residue_type, info=dummy, weight=dummy, **aa_freqs)
@@ -2490,7 +2452,7 @@ def consensus_sequence(pssm):
     for residue in pssm:
         max_lod = 0
         max_res = pssm[residue]['type']
-        for aa in utils.protein_letters_alph3:
+        for aa in protein_letters_alph3:
             if pssm[residue]['lod'][aa] > max_lod:
                 max_lod = pssm[residue]['lod'][aa]
                 max_res = aa
@@ -2574,206 +2536,6 @@ def msa_from_seq_records(seq_records: Iterable[SeqRecord]) -> MultipleSeqAlignme
          SeqRecord(Seq('MNTEEL-VAAFEI...', ...), id="Beta"), ...]
     """
     return MultipleSeqAlignment(seq_records)
-
-
-def make_mutations(sequence: Sequence, mutations: dict[int, dict[str, str]], find_orf: bool = True) -> str:
-    """Modify a sequence to contain mutations specified by a mutation dictionary
-
-    Args:
-        sequence: 'Wild-type' sequence to mutate
-        mutations: {mutation_index: {'from': AA, 'to': AA}, ...}
-        find_orf: Whether to find the correct ORF for the mutations and the seq
-    Returns:
-        seq: The mutated sequence
-    """
-    # Seq can be either list or string
-    if find_orf:
-        offset = -find_orf_offset(sequence, mutations)
-        logger.info(f'Found ORF. Offset = {-offset}')
-    else:
-        offset = zero_offset
-
-    # zero index seq and 1 indexed mutation_dict
-    index_errors = []
-    for key in mutations:
-        try:
-            if seq[key - offset] == mutations[key]['from']:  # adjust seq for zero index slicing
-                seq = seq[:key - offset] + mutations[key]['to'] + seq[key - offset + 1:]
-            else:  # find correct offset, or mark mutation source as doomed
-                index_errors.append(key)
-        except IndexError:
-            logger.error(key - offset)
-    if index_errors:
-        logger.warning(f'{make_mutations.__name__} index errors: {", ".join(map(str, index_errors))}')
-
-    return seq
-
-
-def find_orf_offset(sequence: Sequence,  mutations: dict[int, dict[str, str]]) -> int:
-    """Using a sequence and mutation data, find the open reading frame that matches mutations closest
-
-    Args:
-        sequence: Sequence to search for ORF in 1 letter format
-        mutations: {mutation_index: {'from': AA, 'to': AA}, ...} One-indexed sequence dictionary
-    Returns:
-        The zero-indexed integer to offset the provided sequence to best match the provided mutations
-    """
-    unsolvable = False
-    orf_start_idx = 0
-    orf_offsets = {idx: 0 for idx, aa in enumerate(sequence) if aa == 'M'}
-    methionine_positions = list(orf_offsets.keys())
-    while True:
-        if not orf_offsets:  # MET is missing/not the ORF start
-            orf_offsets = {start_idx: 0 for start_idx in range(0, 50)}
-
-        # Weight potential MET offsets by finding the one which gives the highest number correct mutation sites
-        for test_orf_index in orf_offsets:
-            for mutation_index, mutation in mutations.items():
-                try:
-                    if sequence[test_orf_index + mutation_index - zero_offset] == mutation['from']:
-                        orf_offsets[test_orf_index] += 1
-                except IndexError:  # we have reached the end of the sequence
-                    break
-
-        max_count = max(list(orf_offsets.values()))
-        # Check if likely ORF has been identified (count < number mutations/2). If not, MET is missing/not the ORF start
-        if max_count < len(mutations) / 2:
-            if unsolvable:
-                return orf_start_idx
-            orf_offsets = {}
-            unsolvable = True  # if we reach this spot again, the problem is deemed unsolvable
-        else:  # find the index of the max_count
-            for idx, count in orf_offsets.items():
-                if max_count == count:  # orf_offsets[offset]:
-                    orf_start_idx = idx  # select the first occurrence of the max count
-                    break
-
-            # for cases where the orf doesn't begin on Met, try to find a prior Met. Otherwise, selects the id'd Met
-            closest_met = None
-            for met_index in methionine_positions:
-                if met_index <= orf_start_idx:
-                    closest_met = met_index
-                else:  # we have passed the identified orf_start_idx
-                    if closest_met is not None:
-                        orf_start_idx = closest_met  # + zero_offset # change to one-index
-                    break
-            break
-
-    return orf_start_idx
-
-
-Alignment = namedtuple('Alignment', 'seqA, seqB, score, start, end')
-
-
-def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = 'BLOSUM62', local: bool = False,
-                       top_alignment: bool = True) -> Alignment | list[Alignment]:
-    """Use Biopython's pairwise2 to generate a sequence alignment
-
-    Args:
-        seq1: The first sequence to align
-        seq2: The second sequence to align
-        matrix: The matrix used to compare character similarities
-        local: Whether to run a local alignment. Only use for generally similar sequences!
-        top_alignment: Only include the highest scoring alignment
-    Returns:
-        The resulting alignment
-    """
-    if local:
-        _type = 'local'
-    else:
-        _type = 'global'
-    _matrix = subs_matrices.get(matrix, substitution_matrices.load(matrix))
-    gap_penalty = -10
-    gap_ext_penalty = -1
-    # logger.debug(f'Generating sequence alignment between:\n{seq1}\n\tAND:\n{seq2}')
-    # Create sequence alignment
-    align = getattr(pairwise2.align, f'{_type}ds')(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty,
-                                                   one_alignment_only=top_alignment)
-    logger.debug(f'Generated alignment:\n{pairwise2.format_alignment(*align[0])}')
-
-    return align[0] if top_alignment else align
-
-
-mutation_entry = Type[dict[Literal['to', 'from'], utils.protein_letters_alph3_gapped_literal]]
-"""Mapping of a reference sequence amino acid type, 'to', and the resulting sequence amino acid type, 'from'"""
-mutation_dictionary = dict[int, mutation_entry]
-"""The mapping of a residue number to a mutation entry containing the reference, 'to', and sequence, 'from', amino acid 
-type
-"""
-sequence_dictionary = dict[int, utils.protein_letters_alph3_gapped_literal]
-"""The mapping of a residue number to the corresponding amino acid type"""
-
-
-def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True, blanks: bool = False,
-                       remove_termini: bool = True, remove_query_gaps: bool = True, only_gaps: bool = False,
-                       zero_index: bool = False,
-                       return_all: bool = False, return_to: bool = False, return_from: bool = False) \
-        -> mutation_dictionary | sequence_dictionary:
-    """Create mutation data in a typical A5K format. One-indexed dictionary keys with the index matching the reference
-    sequence index. Sequence mutations accessed by "from" and "to" keys. By default, only mutated positions are
-    returned and all gaped sequences are excluded
-
-    For PDB comparison, reference should be expression sequence (SEQRES), query should be atomic sequence (ATOM)
-
-    Args:
-        reference: Reference sequence to align mutations against. Character values are returned to the "from" key
-        query: Query sequence. Character values are returned to the "to" key
-        offset: Whether sequences are different lengths. Will create an alignment of the two sequences
-        blanks: Include all gaped indices, i.e. outside the reference sequence or missing characters in the sequence
-        remove_termini: Remove indices that are outside the reference sequence boundaries
-        remove_query_gaps: Remove indices where there are gaps present in the query sequence
-        only_gaps: Only include reference indices that are missing query residues. All "to" values will be a gap "-"
-        zero_index: Whether to return the indices zero-indexed (like python) or one-indexed
-        return_all: Whether to return all the indices and there corresponding mutational data
-        return_to: Whether to return only the 'to' amino acid type
-        return_from: Whether to return only the 'from' amino acid type
-    Returns:
-        Mutation index to mutations in the format of {1: {'from': 'A', 'to': 'K'}, ...}
-            unless return_to or return_from is True, then {1: 'K', ...}
-    """
-    if offset:
-        align_seq_1, align_seq_2, *_ = generate_alignment(reference, query)
-    else:
-        align_seq_1, align_seq_2 = reference, query
-
-    idx_offset = 0 if zero_index else zero_offset
-
-    # Get the first matching index of the reference sequence
-    starting_idx_of_seq1 = align_seq_1.find(reference[0])
-    # Ensure iteration sequence1/reference starts at idx 1       v
-    sequence_iterator = enumerate(zip(align_seq_1, align_seq_2), -starting_idx_of_seq1 + idx_offset)
-    # Extract differences from the alignment
-    if return_all:
-        mutations = {idx: {'from': seq1, 'to': seq2} for idx, (seq1, seq2) in sequence_iterator}
-    else:
-        mutations = {idx: {'from': seq1, 'to': seq2} for idx, (seq1, seq2) in sequence_iterator if seq1 != seq2}
-
-    # Find last index of reference
-    ending_index_of_seq1 = starting_idx_of_seq1 + align_seq_1.rfind(reference[-1])
-    remove_mutation_list = []
-    if only_gaps:  # remove the actual mutations, keep internal and external gap indices and the reference sequence
-        blanks = True
-        remove_mutation_list.extend([entry for entry, mutation in mutations.items()
-                                     if idx_offset < entry <= ending_index_of_seq1 and mutation['to'] != '-'])
-    if blanks:  # leave all types of blanks, otherwise check for each requested type
-        remove_termini, remove_query_gaps = False, False
-
-    if remove_termini:  # remove indices outside of sequence 1
-        remove_mutation_list.extend([entry for entry in mutations
-                                     if entry < idx_offset or ending_index_of_seq1 < entry])
-
-    if remove_query_gaps:  # remove indices where sequence 2 is gaped
-        remove_mutation_list.extend([entry for entry, mutation in mutations.items()
-                                     if 0 < entry <= ending_index_of_seq1 and mutation['to'] == '-'])
-    for entry in remove_mutation_list:
-        mutations.pop(entry, None)
-
-    if return_to:
-        mutations = {idx: _mutation_dictionary['to'] for idx, _mutation_dictionary in mutations.items()}
-    elif return_from:
-        mutations = {idx: _mutation_dictionary['from'] for idx, _mutation_dictionary in mutations.items()}
-
-    return mutations
 
 
 def format_mutations(mutations):
@@ -2997,319 +2759,3 @@ def multi_chain_alignment(mutated_sequences, **kwargs):
         raise RuntimeError(f'{multi_chain_alignment.__name__} - No sequences were found!')
 
 
-def pdb_to_pose_offset(reference_sequence: dict[Any, Sequence]) -> dict[Any, int]:
-    """Take a dictionary with chain name as keys and return the length of Pose numbering offset
-
-    Args:
-        reference_sequence: {key1: 'MSGKLDA...', ...} or {key2: {1: 'A', 2: 'S', ...}, ...}
-    Returns:
-        {key1: 0, key2: 123, ...}
-    """
-    offset = {}
-    # prior_chain = None
-    prior_chains_len = prior_key = 0  # prior_key not used as 0 but to ensure initialized nonetheless
-    for idx, key in enumerate(reference_sequence):
-        if idx > 0:
-            prior_chains_len += len(reference_sequence[prior_key])
-        offset[key] = prior_chains_len
-        # insert function here? Make this a decorator!?
-        prior_key = key
-
-    return offset
-
-
-def generate_multiple_mutations(reference, sequences, pose_num=True):
-    """Extract mutation data from multiple sequence dictionaries with regard to a reference. Default is Pose numbering
-
-    Args:
-        reference (dict[mapping[str, str]]): {chain: sequence, ...} The reference sequence to compare sequences to
-        sequences (dict[mapping[str, dict[mapping[str, str]]): {pdb_code: {chain: sequence, ...}, ...}
-    Keyword Args:
-        pose_num=True (bool): Whether to return the mutations in Pose numbering with the first Entity as 1 and the
-        second Entity as Entity1 last residue + 1
-    Returns:
-        (dict): {pdb_code: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
-    """
-    # add reference sequence mutations
-    mutations = {'reference': {chain: {sequence_idx: {'from': aa, 'to': aa}
-                                       for sequence_idx, aa in enumerate(ref_sequence, 1)}
-                               for chain, ref_sequence in reference.items()}}
-    #                         returns {1: {'from': 'A', 'to': 'K'}, ...}
-    # mutations = {pdb: {chain: generate_mutations(sequence, reference[chain], offset=False)
-    #                    for chain, sequence in chain_sequences.items()}
-    #              for pdb, chain_sequences in pdb_sequences.items()}
-    try:
-        for name, chain_sequences in sequences.items():
-            mutations[name] = {}
-            for chain, sequence in chain_sequences.items():
-                mutations[name][chain] = generate_mutations(reference[chain], sequence, offset=False)
-    except KeyError:
-        raise RuntimeError(f"The reference sequence and mutated_sequences have different chains! Chain {chain} "
-                           "isn't in the reference")
-    if pose_num:
-        offset_dict = pdb_to_pose_offset(reference)
-        # pose_mutations = {}
-        # for chain, offset in offset_dict.items():
-        #     for pdb_code in mutations:
-        #         if pdb_code not in pose_mutations:
-        #             pose_mutations[pdb_code] = {}
-        #         pose_mutations[pdb_code][chain] = {}
-        #         for mutation_idx in mutations[pdb_code][chain]:
-        #             pose_mutations[pdb_code][chain][mutation_idx + offset] = mutations[pdb_code][chain][mutation_idx]
-        # mutations = pose_mutations
-        mutations = {name: {chain: {idx + offset: mutation for idx, mutation in chain_mutations[chain].iems()}
-                            for chain, offset in offset_dict.items()} for name, chain_mutations in mutations.items()}
-    return mutations
-
-
-def generate_mutations_from_reference(reference: Sequence[str], sequences: dict[str, Sequence[str]], **kwargs) -> \
-        dict[str, mutation_dictionary | sequence_dictionary]:
-    """Generate mutation data from multiple alias mapped sequence dictionaries with regard to a single reference.
-
-    Defaults to returning only mutations (return_all=False) and forgoes any sequence alignment (offset=False)
-
-    Args:
-        reference: The reference sequence to align each sequence against.
-            Character values are returned to the "from" key
-        sequences: The template sequences to align, i.e. {alias: sequence, ...}.
-            Character values are returned to the "to" key
-    Keyword Args:
-        offset: bool = True - Whether sequences are different lengths. Will create an alignment of the two sequences
-        blanks: bool = False - Include all gaped indices, i.e. outside the reference sequence or missing characters
-            in the sequence
-        remove_termini: bool = True - Remove indices that are outside the reference sequence boundaries
-        remove_query_gaps: bool = True - Remove indices where there are gaps present in the query sequence
-        only_gaps: bool = False - Only include reference indices that are missing query residues.
-            All "to" values will be a gap "-"
-        zero_index: bool = False - Whether to return the indices zero-indexed (like python Sequence) or one-indexed
-        return_all: bool = False - Whether to return all the indices and there corresponding mutational data
-        return_to: bool = False - Whether to return only the "to" amino acid type
-        return_from: bool = False - Whether to return only the "from" amino acid type
-    Returns:
-        {alias: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...} unless return_to or return_from is True, then
-            {alias: {mutation_index: 'K', ...}, ...}
-    """
-    # offset_value = kwargs.get('offset')
-    kwargs['offset'] = (kwargs.get('offset') or False)  # Default to False if there was no argument passed
-    mutations = {alias: generate_mutations(reference, sequence, **kwargs)  # offset=False,
-                 for alias, sequence in sequences.items()}
-
-    # Add the reference sequence to mutation data
-    if kwargs.get('return_to') or kwargs.get('return_from'):
-        mutations[putils.reference_name] = dict(enumerate(reference, 0 if kwargs.get('zero_index') else 1))
-    else:
-        mutations[putils.reference_name] = \
-            {sequence_idx: {'from': aa, 'to': aa}
-             for sequence_idx, aa in enumerate(reference, 0 if kwargs.get('zero_index') else 1)}
-
-    return mutations
-
-
-def make_sequences_from_mutations(wild_type, pdb_mutations, aligned=False):
-    """Takes a list of sequence mutations and returns the mutated form on wildtype
-
-    Args:
-        wild_type (str): Sequence to mutate
-        pdb_mutations (dict): {name: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
-    Keyword Args:
-        aligned=False (bool): Whether the input sequences are already aligned
-    Returns:
-        all_sequences (dict): {name: sequence, ...}
-    """
-    return {pdb: make_mutations(wild_type, mutations, find_orf=not aligned) for pdb, mutations in pdb_mutations.items()}
-
-
-def generate_sequences(wild_type_sequences, all_design_mutations):
-    """Separate chains from mutation dictionary and generate mutated sequences
-
-    Args:
-        wild_type_sequences (dict): {chain: sequence, ...}
-        all_design_mutations (dict): {'name': {chain: {mutation_index: {'from': AA, 'to': AA}, ...}, ...}, ...}
-            Index so mutation_index starts at 1
-    Returns:
-        mutated_sequences (dict): {chain: {name: sequence, ...}
-    """
-    mutated_sequences = {}
-    for chain in wild_type_sequences:
-        # pdb_chain_mutations = {pdb: chain_mutations.get(chain) for pdb, chain_mutations in all_design_mutations.items()}
-        pdb_chain_mutations = {}
-        for pdb, chain_mutations in all_design_mutations.items():
-            if chain in chain_mutations:
-                pdb_chain_mutations[pdb] = all_design_mutations[pdb][chain]
-        mutated_sequences[chain] = make_sequences_from_mutations(wild_type_sequences[chain], pdb_chain_mutations,
-                                                                 aligned=True)
-    return mutated_sequences
-
-
-# @sdutils.handle_errors(errors=(FileNotFoundError,))
-def read_fasta_file(file_name: AnyStr, **kwargs) -> Iterable[SeqRecord]:
-    """Opens a fasta file and return a parser object to load the sequences to SeqRecords
-
-    Args:
-        file_name: The location of the file on disk
-    Returns:
-        An iterator of the sequences in the file [record1, record2, ...]
-    """
-    return SeqIO.parse(file_name, 'fasta')
-
-
-# @sdutils.handle_errors(errors=(FileNotFoundError,))
-def read_sequence_file(file_name: AnyStr, **kwargs) -> Iterable[SeqRecord]:
-    """Opens a fasta file and return a parser object to load the sequences to SeqRecords
-
-    Args:
-        file_name: The location of the file on disk
-    Returns:
-        An iterator of the sequences in the file [record1, record2, ...]
-    """
-    raise NotImplementedError()
-    return SeqIO.parse(file_name, 'csv')
-
-
-@sdutils.handle_errors(errors=(FileNotFoundError,))
-def read_alignment(file_name: AnyStr, alignment_type: str = 'fasta', **kwargs) -> MultipleSeqAlignment:
-    """Open an alignment file and parse the alignment to a Biopython MultipleSeqAlignment
-
-    Args:
-        file_name: The location of the file on disk
-        alignment_type: The type of file that the alignment is stored in. Used for parsing
-    Returns:
-        The parsed alignment
-    """
-    return AlignIO.read(file_name, alignment_type)
-
-
-def write_fasta(sequence_records: Iterable[SeqRecord], file_name: AnyStr = None, name: str = None,
-                out_dir: AnyStr = os.getcwd()) -> AnyStr:
-    """Write an iterator of SeqRecords to a .fasta file with fasta format. '.fasta' is appended if not specified in name
-
-    Args:
-        sequence_records: The sequences to write. Should be Biopython SeqRecord format
-        file_name: The explicit name of the file
-        name: The name of the file to output
-        out_dir: The location on disk to output file
-    Returns:
-        The name of the output file
-    """
-    if file_name is None:
-        file_name = os.path.join(out_dir, name)
-        if not file_name.endswith('.fasta'):
-            file_name = f'{file_name}.fasta'
-
-    SeqIO.write(sequence_records, file_name, 'fasta')
-
-    return file_name
-
-
-def write_sequence_to_fasta(sequence: str, file_name: AnyStr, name: str, out_dir: AnyStr = os.getcwd()) -> AnyStr:
-    """Write an iterator of SeqRecords to a .fasta file with fasta format. '.fasta' is appended if not specified in name
-
-    Args:
-        sequence: The sequence to write
-        name: The name of the sequence. Will be used as the default file_name base name if file_name not provided
-        file_name: The explicit name of the file
-        out_dir: The location on disk to output the file. Only used if file_name not explicitly provided
-    Returns:
-        The name of the output file
-    """
-    if file_name is None:
-        file_name = os.path.join(out_dir, name)
-        if not file_name.endswith('.fasta'):
-            file_name = f'{file_name}.fasta'
-
-    with open(file_name, 'w') as outfile:
-        outfile.write(f'>{name}\n{sequence}\n')
-
-    return file_name
-
-
-def concatenate_fasta_files(file_names: Iterable[AnyStr], out_path: str = 'concatenated_fasta') -> AnyStr:
-    """Take multiple fasta files and concatenate into a single file
-
-    Args:
-        file_names: The name of the files to concatenate
-        out_path: The location on disk to output file
-    Returns:
-        The name of the output file
-    """
-    seq_records = []
-    for file in file_names:
-        seq_records.extend(list(read_fasta_file(file)))
-    return write_fasta(seq_records, out_dir=out_path)
-
-
-def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence = None,
-                    out_path: AnyStr = os.getcwd(), file_name: AnyStr = None, csv: bool = False) -> AnyStr:
-    """Write a fasta file from sequence(s). If a single sequence is provided, pass as a string
-
-    Args:
-        sequences: If a list, can be list of tuples(name, sequence), or list[sequence] where names contain the
-            corresponding sequence names. If dict, uses key as name, value as sequence. If str, treats as the sequence
-        names: The name or names of the sequence record(s). If a single name, will be used as the default file_name
-            base name if file_name not provided. Otherwise, will be used iteratively
-        out_path: The location on disk to output file
-        file_name: The explicit name of the file
-        csv: Whether the file should be written as a .csv. Default is .fasta
-    Returns:
-        The name of the output file
-    """
-    if file_name is None:
-        if isinstance(names, str):  # Not an iterable
-            file_name = os.path.join(out_path, names)
-        else:
-            raise ValueError(f'Must provide argument "file_name" or "names" as a str to {write_sequences.__name__}')
-
-    if csv:
-        start, sep = '', ','
-        extension = '.csv'
-    else:
-        start, sep = '>', '\n'
-        extension = '.fasta'
-
-    provided_extension = os.path.splitext(file_name)[-1]
-    if not file_name.endswith(extension) or provided_extension != extension:
-        file_name = f'{os.path.splitext(file_name)[0]}{extension}'
-
-    def data_dump():
-        return f"{write_sequences.__name__} can't parse data to make fasta\n" \
-               f'names={names}, sequences={sequences}, extension={extension}, out_path={out_path}, ' \
-               f'file_name={file_name}'
-
-    with open(file_name, 'a') as outfile:
-        if isinstance(sequences, np.ndarray):
-            sequences = sequences.tolist()
-
-        if not sequences:
-            raise ValueError(f"No sequences provided, couldn't write anything")
-
-        if isinstance(sequences, list):
-            if isinstance(sequences[0], tuple):  # Where seq[0] is name, seq[1] is seq
-                formatted_sequence_gen = (f'{start}{name}{sep}{seq}' for name, seq, *_ in sequences)
-            elif isinstance(names, Sequence):
-                if isinstance(sequences[0], str):
-                    formatted_sequence_gen = (f'{start}{name}{sep}{seq}' for name, seq in zip(names, sequences))
-                elif isinstance(sequences[0], Sequence):
-                    formatted_sequence_gen = (f'{start}{name}{sep}{"".join(seq)}' for name, seq in zip(names, sequences))
-                else:
-                    raise TypeError(data_dump())
-            # elif isinstance(sequences[0], list):  # Where interior list is alphabet (AA or DNA)
-            #     for idx, seq in enumerate(sequences):
-            #         outfile.write(f'>{name}_{idx}\n')  # Write header
-            #         # Check if alphabet is 3 letter protein
-            #         outfile.write(f'{" ".join(seq)}\n' if len(seq[0]) == 3 else f'{"".join(seq)}\n')
-            # elif isinstance(sequences[0], str):  # Likely 3 aa format...
-            #     outfile.write(f'>{name}\n{" ".join(sequences)}\n')
-            else:
-                raise TypeError(data_dump())
-        elif isinstance(sequences, dict):
-            formatted_sequence_gen = (f'{start}{name}{sep}{"".join(seq)}' for name, seq in sequences.items())
-        elif isinstance(sequences, tuple):  # Where seq[0] is name, seq[1] is seq
-            name, seq, *_ = sequences
-            formatted_sequence_gen = (f'{start}{name}{sep}{seq}',)
-        elif isinstance(names, str):  # Assume sequences is a str or tuple
-            formatted_sequence_gen = (f'{start}{names}{sep}{"".join(sequences)}\n',)
-        else:
-            raise TypeError(data_dump())
-        outfile.write('%s\n' % '\n'.join(formatted_sequence_gen))
-
-    return file_name

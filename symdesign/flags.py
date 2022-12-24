@@ -10,11 +10,12 @@ import pandas as pd
 from psutil import cpu_count
 from typing_extensions import get_args
 
+from symdesign.sequence import expression
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
 from symdesign.utils import ex_path, handle_errors, pretty_format_table, read_json, InputError, remove_digit_table, \
-    ProteinExpression, path as putils
+    path as putils
 from symdesign.utils.path import fragment_dbs, biological_interfaces, default_logging_level
 # These attributes ^ shouldn't be moved here. Below should be with proper handling of '-' vs. '_'
 from symdesign.utils.path import submodule_guide, submodule_help, force, sym_entry, program_output, projects, \
@@ -999,7 +1000,7 @@ select_poses_arguments = {
 }
 # ---------------------------------------------------
 intergenic_sequence_args = ('-ms', f'--{multicistronic_intergenic_sequence}')
-intergenic_sequence_kwargs = dict(type=str, default=ProteinExpression.default_multicistronic_sequence,
+intergenic_sequence_kwargs = dict(type=str, default=expression.default_multicistronic_sequence,
                                   help='The sequence to use in the intergenic region of a multicistronic expression '
                                        'output')
 select_sequences_help = 'From the provided poses, generate nucleotide/protein sequences based on specified selection\n'\

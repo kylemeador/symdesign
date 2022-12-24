@@ -12,7 +12,8 @@ from symdesign.resources.job import job_resources_factory
 from symdesign.resources.query.utils import input_string, boolean_choice
 import symdesign.utils.path as putils
 from symdesign.structure.model import Model, Pose
-from symdesign.structure.sequence import generate_mutations, find_orf_offset, write_sequences
+from symdesign.sequence import optimize_protein_sequence, write_sequences, expression, find_orf_offset, \
+    generate_mutations, protein_letters_alph1
 from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 
 logger = logging.getLogger(__name__)
@@ -502,7 +503,7 @@ def sequences(pose_directories: list[protocols.protocols.PoseDirectory]):
                                                for res_number, mutation in source_entity.disorder.items()}
                 # Todo, moved below indexed_disordered_residues on 7/26, ensure correct!
                 prior_offset += len(indexed_disordered_residues)
-                # generate the source TO design mutations before any disorder handling
+                # Generate the source TO design mutations before any disorder handling
                 mutations = generate_mutations(source_entity.sequence, design_entity.sequence, offset=False)
                 # Insert the disordered residues into the design pose
                 for residue_number, mutation in indexed_disordered_residues.items():
@@ -520,7 +521,7 @@ def sequences(pose_directories: list[protocols.protocols.PoseDirectory]):
                 # Check for expression tag addition to the designed sequences after disorder addition
                 inserted_design_sequence = design_entity.sequence
                 selected_tag = {}
-                available_tags = utils.ProteinExpression.find_expression_tags(inserted_design_sequence)
+                available_tags = expression.find_expression_tags(inserted_design_sequence)
                 if available_tags:  # look for existing tag to remove from sequence and save identity
                     tag_names, tag_termini, existing_tag_sequences = \
                         zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in available_tags])
@@ -530,8 +531,8 @@ def sequences(pose_directories: list[protocols.protocols.PoseDirectory]):
                             selected_tag = available_tags[preferred_tag_index]
                     except ValueError:
                         pass
-                    pretag_sequence = utils.ProteinExpression.remove_expression_tags(inserted_design_sequence,
-                                                                                     existing_tag_sequences)
+                    pretag_sequence = expression.remove_expression_tags(inserted_design_sequence,
+                                                                        existing_tag_sequences)
                 else:
                     pretag_sequence = inserted_design_sequence
                 logger.debug(f'The pretag sequence is:\n{pretag_sequence}')
@@ -551,7 +552,7 @@ def sequences(pose_directories: list[protocols.protocols.PoseDirectory]):
                     uniprot_id_matching_tags = tag_sequences.get(uniprot_id, None)
                     if not uniprot_id_matching_tags:
                         uniprot_id_matching_tags = \
-                            utils.ProteinExpression.find_matching_expression_tags(uniprot_id=uniprot_id)
+                            expression.find_matching_expression_tags(uniprot_id=uniprot_id)
                         tag_sequences[uniprot_id] = uniprot_id_matching_tags
 
                     if uniprot_id_matching_tags:
@@ -570,10 +571,10 @@ def sequences(pose_directories: list[protocols.protocols.PoseDirectory]):
                                 break
                         except ValueError:
                             selected_tag = \
-                                utils.ProteinExpression.select_tags_for_sequence(sequence_id,
-                                                                                 uniprot_id_matching_tags,
-                                                                                 preferred=job.preferred_tag,
-                                                                                 **termini_availability)
+                                expression.select_tags_for_sequence(sequence_id,
+                                                                    uniprot_id_matching_tags,
+                                                                    preferred=job.preferred_tag,
+                                                                    **termini_availability)
                             break
                         iteration += 1
 
@@ -688,7 +689,7 @@ def sequences(pose_directories: list[protocols.protocols.PoseDirectory]):
                                 selected_entity = list(sequences_and_tags.keys())[tag_input - 1]
                                 sequences_and_tags[selected_entity]['tag'] = \
                                     {'name': None, 'termini': None, 'sequence': None}
-                                # tag = list(utils.ProteinExpression.expression_tags.keys())[tag_input - 1]
+                                # tag = list(expression.expression_tags.keys())[tag_input - 1]
                                 break
                             else:
                                 print("Input doesn't match an integer from the available options. Please try again")
@@ -697,14 +698,13 @@ def sequences(pose_directories: list[protocols.protocols.PoseDirectory]):
                         number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
 
             # Apply all tags to the sequences
-            from symdesign.structure.utils import protein_letters_alph1
             # Todo indicate the linkers that will be used!
             #  Request a new one if not ideal!
             cistronic_sequence = ''
             for idx, (design_string, sequence_tag) in enumerate(sequences_and_tags.items()):
                 tag, sequence = sequence_tag['tag'], sequence_tag['sequence']
                 # print('TAG:\n', tag.get('sequence'), '\nSEQUENCE:\n', sequence)
-                design_sequence = utils.ProteinExpression.add_expression_tag(tag.get('sequence'), sequence)
+                design_sequence = expression.add_expression_tag(tag.get('sequence'), sequence)
                 if tag.get('sequence') and design_sequence == sequence:  # tag exists and no tag added
                     tag_sequence = resources.config.expression_tags[tag.get('name')]
                     if tag.get('termini') == 'n':
@@ -758,8 +758,7 @@ def sequences(pose_directories: list[protocols.protocols.PoseDirectory]):
                 if job.nucleotide:
                     try:
                         nucleotide_sequence = \
-                            utils.ProteinExpression.optimize_protein_sequence(design_sequence,
-                                                                              species=job.optimize_species)
+                            optimize_protein_sequence(design_sequence, species=job.optimize_species)
                     except NoSolutionError:  # add the protein sequence?
                         logger.warning(f'Optimization of {design_string} was not successful!')
                         codon_optimization_errors[design_string] = design_sequence
