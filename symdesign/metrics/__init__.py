@@ -26,7 +26,7 @@ energy_metric_names = ['interface_energy_complex', 'interface_energy_bound', 'in
                        'interface_energy',
                        'interface_solvation_energy_complex', 'interface_solvation_energy_bound',
                        'interface_solvation_energy_unbound']
-# relative_sasa_states = ['sasa_relative_complex', 'sasa_relative_bound']
+relative_sasa_states = ['sasa_relative_complex', 'sasa_relative_bound']
 per_residue_sasa_states = ['sasa_hydrophobic_bound', 'sasa_polar_bound', 'sasa_total_bound',
                            'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex']
 sasa_metric_names = ['area_hydrophobic_unbound', 'area_polar_unbound', 'area_total_unbound',
@@ -48,7 +48,7 @@ bsa_tolerance = 0.25
 energy_metrics_rename_mapping = dict(zip(per_residue_energy_states, energy_metric_names))
 # other_metrics_rename_mapping = dict(hbond='number_of_hbonds', design_residue='total_design_residues')
 renamed_design_metrics = {
-    'design_residues': 'number_design_residues', 'hbond': 'number_of_hbonds', 'mutation': 'number_of_mutations',
+    'design_residue': 'number_design_residues', 'hbond': 'number_of_hbonds', 'mutation': 'number_of_mutations',
     'type': 'sequence' 
 }
 
@@ -66,7 +66,7 @@ nanohedra_metrics = ['multiple_fragment_ratio', 'nanohedra_score', 'nanohedra_sc
                      'number_interface_residues', 'number_of_fragments',
                      'percent_fragment_helix', 'percent_fragment_strand', 'percent_fragment_coil',
                      'percent_residues_fragment_interface_total', 'percent_residues_fragment_interface_center',
-                     'total_non_fragment_interface_residues']
+                     'number_interface_residues_non_fragment']
 # These metrics are necessary for all calculations performed during the analysis script. If missing, something will fail
 necessary_metrics = {'buns_complex', 'buns1_unbound', 'contact_count', 'coordinate_constraint',
                      'favor_residue_energy', 'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound',
@@ -113,7 +113,7 @@ final_metrics = {'buried_unsatisfied_hbonds', 'contact_count', 'core', 'coordina
                  'protocol_energy_distance_sum', 'protocol_similarity_sum', 'protocol_seq_distance_sum',
                  'rosetta_reference_energy', 'rim', 'rmsd', 'shape_complementarity', 'interface_solvation_energy',
                  'interface_solvation_energy_activation', 'support',
-                 'symmetry', 'total_non_fragment_interface_residues'}
+                 'symmetry', 'number_interface_residues_non_fragment'}
 #                  'buns_heavy_total', 'buns_hpol_total', 'buns_total',
 #                These are missing the bb_hb contribution and are inaccurate
 #                   'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex',
@@ -205,7 +205,7 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
 #                      'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex']
 
 # subtract columns using tuple [0] - [1] to make delta column
-delta_pairs = {
+rosetta_delta_pairs = {
     'buried_unsatisfied_hbonds': ('buns_complex', 'buns_unbound'),  # Rosetta
     # Replace by Residues summation
     # 'interface_energy': ('interface_energy_complex', 'interface_energy_unbound'),  # Rosetta
@@ -225,9 +225,11 @@ delta_pairs = {
 
 
 # divide columns using tuple [0] / [1] to make divide column
-division_pairs = {
-    'buried_unsatisfied_hbond_density': ('buried_unsatisfied_hbonds', 'interface_area_total'),  # Rosetta
+rosetta_division_pairs = {
+    'buried_unsatisfied_hbond_density': ('buried_unsatisfied_hbonds', 'interface_area_total'),
     'interface_energy_density': ('interface_energy', 'interface_area_total'),
+}
+division_pairs = {
     'percent_interface_area_hydrophobic': ('interface_area_hydrophobic', 'interface_area_total'),
     'percent_interface_area_polar': ('interface_area_polar', 'interface_area_total'),
     'percent_core': ('core', 'number_interface_residues'),
@@ -322,27 +324,26 @@ def join_columns(row):  # UNUSED
     return new_data.split(',')[-1]
 
 
-def columns_to_new_column(df, column_dict, mode='add'):
+def columns_to_new_column(df: pd.DataFrame, columns: dict[str, tuple[str, ...]], mode: str = 'add'):
     """Set new column value by taking an operation of one column on another
 
     Can perform summation and subtraction if a set of columns is provided
     Args:
-        df (pandas.DataFrame): Dataframe where the columns are located
-        column_dict (dict[mapping[str,tuple]]): Keys are new column names, values are tuple of existing columns where
-            df[key] = value[0] mode(operation) value[1]
-    Keyword Args:
-        mode='add' (str) = What operator to use?
-            Viable options are included in module operator, but could be 'sub', 'mul', 'truediv', etc.
+        df: Dataframe where the columns are located
+        columns: Keys are new column names, values are tuple of existing columns where
+            df[key] = value[0] mode(operation) value[1] mode(operation) ...
+        mode: What operator to use?
+            Viable options are included in the operator module {'sub', 'mul', 'truediv', ...}
     Returns:
-        (pandas.DataFrame): Dataframe with new column values
+        Dataframe with new column values
     """
-    for new_column, column_set in column_dict.items():
-        try:
+    for new_column, column_set in columns.items():
+        try:  # Todo check why using attrgetter(mod)(operator) ?
             df[new_column] = operator.attrgetter(mode)(operator)(df[column_set[0]], df[column_set[1]])
         except KeyError:
             pass
         except IndexError:
-            raise IndexError(f'Tthe number of columns in the set {column_set} is not >= 2. {new_column} not possible!')
+            raise IndexError(f'The number of columns in the set {column_set} is not >= 2. {new_column} not possible!')
         if len(column_set) > 2 and mode in ['add', 'sub']:  # >2 values in set, perform repeated operations Ex: SUM, SUB
             for extra_column in column_set[2:]:  # perform an iteration for every N-2 items in the column_set
                 try:
@@ -594,8 +595,7 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
     Returns:
         The mapping of collapse metric to per-residue values for the concatenated sequence in each sequence_groups.
             These include:
-            {'hydrophobic_collapse',
-             'collapse_deviation_magnitude',
+            {'collapse_deviation_magnitude',
              'collapse_increase_significance_by_contact_order_z',
              'collapse_increased_z',
              'collapse_new_positions',
@@ -603,6 +603,7 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
              'collapse_sequential_peaks_z',
              'collapse_sequential_z',
              'collapse_significance_by_contact_order_z',
+             'hydrophobic_collapse'
              }
     """
     #    collapse_profile: The per-residue hydrophobic collapse values measured from a reference SequenceProfile
@@ -677,13 +678,14 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
         # i.e. sites where collapse occurs compared to reference
         new_collapsing = (collapse_bool - reference_collapse_bool) == 1
         # Ex, [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, ...]
-        # Finally, check to ensure there are no neighboring collapse residues from the reference
-        # Start with the center positions which are capable of indexing
-        # A list is faster to index than np.ndarray so we use here # new_collapse = np.zeros_like(collapse_bool)
-        new_collapse = [True if collapse and not (ref_collapse_prior or ref_collapse_next) else False
-                        for collapse, ref_collapse_prior, ref_collapse_next in
-                        zip(new_collapsing[1:-1].tolist(),
-                            reference_collapse[:-2].tolist(),
+
+        # Calculate "islands". Ensure position is collapsing, while the reference has no collapsing neighbors
+        # list is faster to index than np.ndarray i.e. new_collapse = np.zeros_like(collapse_bool)
+        new_collapse = [True if collapse and (not ref_minus1 and not ref_plus1) else False
+                        for ref_minus1, collapse, ref_plus1 in
+                        # Trim the sequence to a 3 residue window (-1, 0, 1)
+                        zip(reference_collapse[:-2].tolist(),
+                            new_collapsing[1:-1].tolist(),
                             reference_collapse[2:].tolist())]
         # Finish by calculating first and last indices as well and combining
         new_collapse = [True if new_collapsing[0] and not reference_collapse[1] else False] \
@@ -864,29 +866,60 @@ def calculate_residue_surface_area(per_residue_df: pd.DataFrame) -> pd.DataFrame
                                           core_residues, interior_residues, support_residues, rim_residues,
                                           surface_residues
                                           ])
+    # Perhaps I need to drop
+    per_residue_df.drop(relative_sasa_states, axis=1, level=-1, errors='ignore', inplace=True)
     # per_residue_df = pd.concat([per_residue_df, core_residues, interior_residues, support_residues, rim_residues,
     #                             surface_residues], axis=1)
     return per_residue_df
 
 
-def sum_per_residue_metrics(df: pd.DataFrame) -> pd.DataFrame:
+def sum_per_residue_metrics(df: pd.DataFrame, rename_columns: Mapping[str, str] = None,
+                            mean_metrics: Sequence[str] = None,) -> pd.DataFrame:
     """From a DataFrame with per-residue values (i.e. a metric in level -1), tabulate all values across each residue
 
     Renames specific values relating to interfacial energy and solvation energy
 
     Args:
         df: The DataFrame with MultiIndex columns where level -1 = metric
+        rename_columns: Columns to rename as a result of the summation
+        mean_metrics: Columns to take the mean instead of the sum
     Returns:
         A new DataFrame with the summation of each metric from all residue_numbers in the per_residue columns
     """
-    # Group by the columns according to the metrics (level=-1). Upper level(s) are residue identifiers
-    summed_df = df.groupby(axis=1, level=-1).sum()
-    # logger.debug('After grouby sum: {summed_df}')
+    # # Drop unused particular residues_df columns that have been summed
+    # per_residue_drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states \
+    #                            + collapse_metrics + residue_classification \
+    #                            + ['errat_deviation', 'hydrophobic_collapse', 'contact_order'] \
+    #                            + ['hbond', 'evolution', 'fragment', 'type'] + ['surface', 'interior']
+    # residues_df = residues_df.drop(
+    #     list(residues_df.loc[:, idx_slice[:, per_residue_drop_columns]].columns),
+    #     errors='ignore', axis=1)
 
-    return summed_df.rename(
-        columns={**energy_metrics_rename_mapping,
-                 **sasa_metrics_rename_mapping,
-                 **renamed_design_metrics})
+    # Group by the columns according to the metrics (level=-1). Upper level(s) are residue identifiers
+    groupby_df = df.groupby(axis=1, level=-1)
+    rename_columns = {
+        'hydrophobic_collapse': 'hydrophobicity',
+        # Currently dropped in sum_per_residue_metrics()
+        # 'sasa_relative_bound': 'relative_area_bound',
+        # 'sasa_relative_complex': 'relative_area_complex',
+        **energy_metrics_rename_mapping,
+        **sasa_metrics_rename_mapping,
+        **renamed_design_metrics,
+        **({} if rename_columns is None else rename_columns)}
+    count_df = groupby_df.count().rename(columns=rename_columns)
+    # Using min_count=1, we ensure that those columns with np.nan remain np.nan
+    summed_df = groupby_df.sum(min_count=1).rename(columns=rename_columns)
+    # logger.debug('After residues sum: {summed_df}')
+    # _mean_metrics = ['hydrophobicity', 'relative_area_bound', 'relative_area_complex']
+    if mean_metrics is None:
+        # # Set empty slice
+        # mean_metrics = slice(None)
+        pass
+    else:  # if mean_metrics is not None:  # Make a list and incorporate
+        # _mean_metrics += list(mean_metrics)
+        summed_df[mean_metrics] = summed_df[mean_metrics].div(count_df[mean_metrics], axis=0)
+
+    return summed_df
 
 
 def calculate_sequence_observations_and_divergence(alignment: 'structure.sequence.MultipleSequenceAlignment',
@@ -1826,3 +1859,22 @@ def z_score(sample: float | np.ndarray, mean: float | np.ndarray, stdev: float |
     except ZeroDivisionError:
         logger.error('The passed standard deviation (stdev) was 0! z-score calculation failed')
         return 0.
+
+
+def format_residues_df_for_write(df):
+    df.sort_index(inplace=True)
+    df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
+    # residue_metric_columns = residues.columns.levels[-1].to_list()
+    # self.log.debug(f'Residues metrics present: {residue_metric_columns}')
+
+    # Add the pose identifier to the dataframe
+    # df = pd.concat([df], keys=[str(self)], axis=0)
+    # Place the residue indices from the column names into the index at position -1
+    df = df.stack(0)
+    # df.index.set_names(['pose', 'design', 'index'], inplace=True)
+    df.index.set_names('index', level=-1, inplace=True)
+
+    return df
+
+
+from . import sql

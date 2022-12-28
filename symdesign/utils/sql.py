@@ -1,24 +1,28 @@
 from collections import OrderedDict
+from itertools import combinations
 from typing import AnyStr
 
 from mysql.connector import MySQLConnection, Error
 from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, create_engine
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+from sqlalchemy.dialects.sqlite import insert
+
+from symdesign.resources import config
+
 # from sqlalchemy.orm import Mapped, mapped_column, Session
 
 
 Base = declarative_base()
 
 
-class Designs(Base):
-    __tablename__ = 'designs'
+class Poses(Base):
+    __tablename__ = 'poses'
 
     id = Column(Integer, primary_key=True)
-    pose = Column(String, nullable=False)  # String(60)
-    design = Column(String, nullable=False)  # String(60)
-    # residues_id = relationship('residues', back_populates='')  # LIST
-
+    name = Column(String, nullable=False)  # String(60)
+    project = Column(String)  # , nullable=False)  # String(60)
     # Fragment features
+    dock_collapse_violation = Column(Float)  # , nullable=False)
     nanohedra_score_normalized = Column(Float)  # , nullable=False)
     nanohedra_score_center_normalized = Column(Float)  # , nullable=False)
     nanohedra_score = Column(Float)  # , nullable=False)
@@ -32,18 +36,8 @@ class Designs(Base):
     number_of_fragments = Column(Integer)  # , nullable=False)
     percent_residues_fragment_interface_total = Column(Float)  # , nullable=False)
     percent_residues_fragment_interface_center = Column(Float)  # , nullable=False)
+    number_interface_residues_non_fragment = Column(Float)  # , nullable=False)
     # Pose features
-    number_interface_residues = Column(Integer)  # , nullable=False)
-    number_design_residues = Column(Integer)  # , nullable=False)
-    pose_length = Column(Integer)  # , nullable=False)
-    pose_thermophilicity = Column(Float)  # , nullable=False)
-    minimum_radius = Column(Float)  # , nullable=False)
-    maximum_radius = Column(Float)  # , nullable=False)
-    interface_b_factor_per_residue = Column(Float)  # , nullable=False)
-    interface_secondary_structure_fragment_topology = Column(String(120))  # , nullable=False)
-    interface_secondary_structure_fragment_count = Column(Integer)  # , nullable=False)
-    interface_secondary_structure_topology = Column(String(120))  # , nullable=False)
-    interface_secondary_structure_count = Column(Integer)  # , nullable=False)
     design_dimension = Column(Integer)  # , nullable=False)
     # entity_max_radius = Column(Float)  # Has a # after entity LIST
     # entity_min_radius = Column(Float)  # Has a # after entity LIST
@@ -62,10 +56,113 @@ class Designs(Base):
     # entity_min_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
     # entity_max_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
     # entity_number_of_residues_ratio_v = Column(Float)  # Has a #v# after ratio LIST
-    entity_radius_average_deviation = Column(Float)  # , nullable=False)
-    entity_min_radius_average_deviation = Column(Float)  # , nullable=False)
     entity_max_radius_average_deviation = Column(Float)  # , nullable=False)
+    entity_min_radius_average_deviation = Column(Float)  # , nullable=False)
     entity_number_of_residues_average_deviation = Column(Float)  # , nullable=False)
+    entity_radius_average_deviation = Column(Float)  # , nullable=False)
+    interface_b_factor_per_residue = Column(Float)  # , nullable=False)
+    interface_secondary_structure_fragment_topology = Column(String(120))  # , nullable=False)
+    interface_secondary_structure_fragment_count = Column(Integer)  # , nullable=False)
+    interface_secondary_structure_topology = Column(String(120))  # , nullable=False)
+    interface_secondary_structure_count = Column(Integer)  # , nullable=False)
+    minimum_radius = Column(Float)  # , nullable=False)
+    maximum_radius = Column(Float)  # , nullable=False)
+    number_interface_residues = Column(Integer)  # , nullable=False)
+    number_design_residues = Column(Integer)  # , nullable=False)
+    sequence = Column(String(config.MAXIMUM_SEQUENCE))  # , nullable=False)
+    pose_length = Column(Integer)  # , nullable=False)
+    pose_thermophilicity = Column(Float)  # , nullable=False)
+
+    @classmethod
+    def insert_pose(cls, name: str, project: str) -> int:
+        """Insert a new PoseDirectory instance into the database and return the Database id"""
+        Session = sessionmaker(engine)
+        with Session() as session:
+            stmt = insert(cls).returning(cls.id)
+            result = session.scalars(stmt,  # execute(stmt).inserted_primary_key  # fetchone()
+                                     dict(name=name, project=project))
+            session.commit()
+
+        return result.one()
+
+
+entity_transformation_metrics = dict(
+    rotation=Float,
+    setting_matrix=Integer,
+    internal_translation=Float,
+    external_translation_x=Float,
+    external_translation_y=Float,
+    external_translation_z=Float,
+)
+for idx in range(1, 1 + config.MAXIMUM_ENTITIES):
+    for metric, value in entity_transformation_metrics.items():
+        setattr(Poses, f'{metric}{idx}', Column(value))
+
+
+class Designs(Base):
+    __tablename__ = 'designs'
+
+    id = Column(Integer, primary_key=True)
+    pose = Column(String, nullable=False)  # String(60)
+    design = Column(String, nullable=False)  # String(60)
+    # residues_id = relationship('residues', back_populates='')  # LIST
+
+    protocol = Column(String)  # , nullable=False)  # String(60)
+    temperature = Column(Float)  # , nullable=False)  # String(60)
+    # protocol = relationship()  # LIST
+    # addresses = relationship(
+    #     "Address", back_populates="user", cascade="all, delete-orphan"
+    # )
+    # # Fragment features
+    # nanohedra_score_normalized = Column(Float)  # , nullable=False)
+    # nanohedra_score_center_normalized = Column(Float)  # , nullable=False)
+    # nanohedra_score = Column(Float)  # , nullable=False)
+    # nanohedra_score_center = Column(Float)  # , nullable=False)
+    # number_fragment_residues_total = Column(Integer)  # , nullable=False)
+    # number_fragment_residues_center = Column(Integer)  # , nullable=False)
+    # multiple_fragment_ratio = Column(Float)  # , nullable=False)
+    # percent_fragment_helix = Column(Float)  # , nullable=False)
+    # percent_fragment_strand = Column(Float)  # , nullable=False)
+    # percent_fragment_coil = Column(Float)  # , nullable=False)
+    # number_of_fragments = Column(Integer)  # , nullable=False)
+    # percent_residues_fragment_interface_total = Column(Float)  # , nullable=False)
+    # percent_residues_fragment_interface_center = Column(Float)  # , nullable=False)
+    # number_interface_residues_non_fragment = Column(Float)  # , nullable=False)
+    # # Pose features
+    number_interface_residues = Column(Integer)  # , nullable=False)
+    # pose_length = Column(Integer)  # , nullable=False)
+    # pose_thermophilicity = Column(Float)  # , nullable=False)
+    # minimum_radius = Column(Float)  # , nullable=False)
+    # maximum_radius = Column(Float)  # , nullable=False)
+    # interface_b_factor_per_residue = Column(Float)  # , nullable=False)
+    # interface_secondary_structure_fragment_topology = Column(String(120))  # , nullable=False)
+    # interface_secondary_structure_fragment_count = Column(Integer)  # , nullable=False)
+    # interface_secondary_structure_topology = Column(String(120))  # , nullable=False)
+    # interface_secondary_structure_count = Column(Integer)  # , nullable=False)
+    # design_dimension = Column(Integer)  # , nullable=False)
+    # # entity_max_radius = Column(Float)  # Has a # after entity LIST
+    # # entity_min_radius = Column(Float)  # Has a # after entity LIST
+    # # entity_name = Column(String(30))  # Has a # after entity LIST
+    # # entity_number_of_residues = Column(Integer)  # Has a # after entity LIST
+    # # entity_radius = Column(Float)  # Has a # after entity LIST
+    # # entity_symmetry_group = Column(String(4))  # Has a # after entity LIST
+    # # entity_n_terminal_helix = Column(Boolean)  # Has a # after entity LIST
+    # # entity_c_terminal_helix = Column(Boolean)  # Has a # after entity LIST
+    # # entity_n_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
+    # # entity_c_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
+    # # entity_thermophile = Column(Boolean)  # Has a # after entity LIST
+    # # entity_interface_secondary_structure_fragment_topology = Column(String(60))  # Has a # after entity LIST
+    # # entity_interface_secondary_structure_topology = Column(String(60))  # Has a # after entity LIST
+    # # entity_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
+    # # entity_min_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
+    # # entity_max_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
+    # # entity_number_of_residues_ratio_v = Column(Float)  # Has a #v# after ratio LIST
+    # entity_radius_average_deviation = Column(Float)  # , nullable=False)
+    # entity_min_radius_average_deviation = Column(Float)  # , nullable=False)
+    # entity_max_radius_average_deviation = Column(Float)  # , nullable=False)
+    # entity_number_of_residues_average_deviation = Column(Float)  # , nullable=False)
+    # Design metrics
+    number_design_residues = Column(Integer)  # Residues sum 'design_residue', nullable=False)
     # Rosetta metrics
     buns_complex = Column(Integer)  # , nullable=False)
     # buns_unbound = Column(Integer)  # Has a # after buns LIST
@@ -88,19 +185,14 @@ class Designs(Base):
     # solvation_energy_complex = Column(Float)  # , nullable=False)
     # Sequence metrics
     percent_mutations = Column(Float)  # , nullable=False)
-    number_of_mutations = Column(Integer)  # , nullable=False)
+    number_of_mutations = Column(Integer)  # Residues sum 'mutation', nullable=False)
     # entity_percent_mutations = Column(Float)  # Has a # after entity LIST
     # entity_number_of_mutations = Column(Integer)  # Has a # after entity LIST
     # SymDesign metrics
     interface_local_density = Column(Float)  # , nullable=False)
     interface_composition_similarity = Column(Float)  # , nullable=False)
-    collapse_significance_by_contact_order_z_mean = Column(Float)  # , nullable=False)
-    collapse_increased_z_mean = Column(Float)  # , nullable=False)
-    collapse_variance = Column(Float)  # , nullable=False)
-    collapse_sequential_peaks_z_mean = Column(Float)  # , nullable=False)
-    collapse_sequential_z_mean = Column(Float)  # , nullable=False)
     interface_area_to_residue_surface_ratio = Column(Float)  # , nullable=False)
-    sequence = Column(String(10000))  # , nullable=False)
+    sequence = Column(String(config.MAXIMUM_SEQUENCE))  # , nullable=False)
     # Summed Residues metrics
     # -----------------------
     # column name is changed from Rosetta energy values
@@ -146,6 +238,7 @@ class Designs(Base):
     percent_support = Column(Float)  # , nullable=False)
     # Collapse measurements
     # NOT taken hydrophobic_collapse = Column(Float)  # , nullable=False)
+    hydrophobicity = Column(Float)  # , nullable=False)
     collapse_deviation_magnitude = Column(Float)  # , nullable=False)
     collapse_increase_significance_by_contact_order_z = Column(Float)  # , nullable=False)
     collapse_increased_z = Column(Float)  # , nullable=False)
@@ -154,6 +247,12 @@ class Designs(Base):
     collapse_sequential_peaks_z = Column(Float)  # , nullable=False)
     collapse_sequential_z = Column(Float)  # , nullable=False)
     collapse_significance_by_contact_order_z = Column(Float)  # , nullable=False)
+    collapse_variance = Column(Float)  # , nullable=False)
+    collapse_violation = Column(Float)  # , nullable=False)
+    collapse_significance_by_contact_order_z_mean = Column(Float)  # , nullable=False)
+    collapse_increased_z_mean = Column(Float)  # , nullable=False)
+    collapse_sequential_peaks_z_mean = Column(Float)  # , nullable=False)
+    collapse_sequential_z_mean = Column(Float)  # , nullable=False)
     # ProteinMPNN score terms
     proteinmpnn_loss_complex = Column(Float)  # , nullable=False)
     proteinmpnn_loss_unbound = Column(Float)  # , nullable=False)
@@ -164,11 +263,19 @@ class Designs(Base):
     sequence_loss_fragment = Column(Float)  # , nullable=False)
     sequence_loss_fragment_per_residue = Column(Float)  # , nullable=False)
     proteinmpnn_v_design_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
+    proteinmpnn_v_design_probability_cross_entropy_per_residue = Column(Float)  # , nullable=False)
     proteinmpnn_v_evolution_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
+    proteinmpnn_v_evolution_probability_cross_entropy_per_residue = Column(Float)  # , nullable=False)
     proteinmpnn_v_fragment_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
+    proteinmpnn_v_fragment_probability_cross_entropy_per_residue = Column(Float)  # , nullable=False)
+    proteinmpnn_score_complex_per_designed_residue = Column(Float)
+    proteinmpnn_score_delta = Column(Float)
+    proteinmpnn_score_complex = Column(Float)
+    proteinmpnn_score_unbound = Column(Float)
+    proteinmpnn_score_delta_per_designed_residue = Column(Float)
+    proteinmpnn_score_unbound_per_designed_residue = Column(Float)
     dock_collapse_significance_by_contact_order_z_mean = Column(Float)  # , nullable=False)
     dock_collapse_increased_z_mean = Column(Float)  # , nullable=False)
-    dock_collapse_variance = Column(Float)  # , nullable=False)
     dock_collapse_sequential_peaks_z_mean = Column(Float)  # , nullable=False)
     dock_collapse_sequential_z_mean = Column(Float)  # , nullable=False)
     dock_collapse_deviation_magnitude = Column(Float)  # , nullable=False)
@@ -179,6 +286,9 @@ class Designs(Base):
     dock_collapse_sequential_peaks_z = Column(Float)  # , nullable=False)
     dock_collapse_sequential_z = Column(Float)  # , nullable=False)
     dock_collapse_significance_by_contact_order_z = Column(Float)  # , nullable=False)
+    dock_collapse_variance = Column(Float)  # , nullable=False)
+    dock_collapse_violation = Column(Float)  # , nullable=False)
+    dock_hydrophobicity = Column(Float)  # , nullable=False)
     # Observed in profile measurements
     observed_design = Column(Boolean)  # , nullable=False)
     observed_evolution = Column(Boolean)  # , nullable=False)
@@ -188,17 +298,12 @@ class Designs(Base):
     dca_energy = Column(Boolean)  # , nullable=False)
     # -----------------------
 
-    # protocol = relationship()  # LIST
-    # addresses = relationship(
-    #     "Address", back_populates="user", cascade="all, delete-orphan"
-    # )
-
     # def __repr__(self):
     #     return f"Trajectory(id={self.id!r}, pose={self.pose!r}, name={self.name!r})"
 
 
 # Add metrics which are dependent on multiples. Initialize Column() when setattr() is called to get correct column name
-entity_design_metrics = dict(
+entity_pose_metrics = dict(
     entity_max_radius=Float,
     entity_min_radius=Float,
     entity_name=String(30),
@@ -212,10 +317,15 @@ entity_design_metrics = dict(
     entity_thermophile=Boolean,
     entity_interface_secondary_structure_fragment_topology=String(60),
     entity_interface_secondary_structure_topology=String(60),
+)
+entity_design_metrics = dict(
     entity_interface_connectivity=Float,
     entity_percent_mutations=Float,
     entity_number_of_mutations=Integer,
 )
+for idx in range(1, 1 + config.MAXIMUM_ENTITIES):
+    for metric, value in entity_pose_metrics.items():
+        setattr(Poses, metric.replace('entity', f'entity{idx}'), Column(value))
 for idx in range(1, 1 + config.MAXIMUM_ENTITIES):
     for metric, value in entity_design_metrics.items():
         setattr(Designs, metric.replace('entity', f'entity{idx}'), Column(value))
@@ -227,7 +337,7 @@ ratio_design_metrics = dict(
 )
 for idx1, idx2 in combinations(range(1, 1 + config.MAXIMUM_ENTITIES), 2):
     for metric, value in ratio_design_metrics.items():
-        setattr(Designs, metric.replace('_v', f'_{idx1}v{idx2}'), Column(value))
+        setattr(Poses, metric.replace('_v', f'_{idx1}v{idx2}'), Column(value))
 interface_design_metrics = dict(
     buns_unbound=Integer
 )
@@ -245,8 +355,9 @@ class Residues(Base):
     pose = Column(String, nullable=False)  # String(60)
     design = Column(String, nullable=False)  # String(60)
     index = Column(Integer, nullable=False)
-    type = Column(String(1), nullable=False)
+    type = Column(String(1))  # , nullable=False)
     design_residue = Column(Boolean)
+    mutation = Column(Boolean)
     # Rosetta energy values
     complex = Column(Float)  # , nullable=False)
     bound = Column(Float)  # , nullable=False)
@@ -278,7 +389,6 @@ class Residues(Base):
     rim = Column(Float)  # , nullable=False)
     core = Column(Float)  # , nullable=False)
     # Collapse measurements
-    hydrophobic_collapse = Column(Float)  # , nullable=False)
     collapse_deviation_magnitude = Column(Float)  # , nullable=False)
     collapse_increase_significance_by_contact_order_z = Column(Float)  # , nullable=False)
     collapse_increased_z = Column(Float)  # , nullable=False)
@@ -287,6 +397,7 @@ class Residues(Base):
     collapse_sequential_peaks_z = Column(Float)  # , nullable=False)
     collapse_sequential_z = Column(Float)  # , nullable=False)
     collapse_significance_by_contact_order_z = Column(Float)  # , nullable=False)
+    hydrophobic_collapse = Column(Float)  # , nullable=False)
     # ProteinMPNN score terms
     proteinmpnn_loss_complex = Column(Float)  # , nullable=False)
     proteinmpnn_loss_unbound = Column(Float)  # , nullable=False)
@@ -304,6 +415,7 @@ class Residues(Base):
     dock_collapse_sequential_peaks_z = Column(Float)  # , nullable=False)
     dock_collapse_sequential_z = Column(Float)  # , nullable=False)
     dock_collapse_significance_by_contact_order_z = Column(Float)  # , nullable=False)
+    dock_hydrophobic_collapse = Column(Float)  # , nullable=False)
     # Observed in profile measurements
     observed_design = Column(Boolean)  # , nullable=False)
     observed_evolution = Column(Boolean)  # , nullable=False)

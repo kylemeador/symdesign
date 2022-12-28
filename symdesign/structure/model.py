@@ -6027,6 +6027,7 @@ class Pose(SymmetricModel):
              'percent_residues_fragment_interface_total',
              'percent_residues_fragment_interface_center'
              'number_interface_residues',
+             'number_interface_residues_non_fragment',
              'pose_length',
              'pose_thermophilicity',
              'minimum_radius',
@@ -6066,7 +6067,7 @@ class Pose(SymmetricModel):
         self.center_residue_indices = pose_metrics.pop('center_indices', [])
 
         number_interface_residues = len(self.interface_residues)
-        total_non_fragment_interface_residues = \
+        number_interface_residues_non_fragment = \
             max(number_interface_residues - pose_metrics['number_fragment_residues_center'], 0)
         # Interface B Factor
         int_b_factor = sum(residue.b_factor for residue in self.interface_residues)
@@ -6094,7 +6095,7 @@ class Pose(SymmetricModel):
             # 'percent_fragment_coil': coil_fragment_content,
             # 'number_of_fragments': number_of_fragments,
             'number_interface_residues': number_interface_residues,
-            'total_non_fragment_interface_residues': total_non_fragment_interface_residues,
+            'number_interface_residues_non_fragment': number_interface_residues_non_fragment,
             'percent_residues_fragment_interface_total': percent_residues_fragment_interface_total,
             'percent_residues_fragment_interface_center': percent_residues_fragment_interface_center})
 
