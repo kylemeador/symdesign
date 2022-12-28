@@ -5,12 +5,27 @@ from typing import Literal, get_args
 
 from symdesign.utils import path as putils
 
+MAXIMUM_SEQUENCE = 10000
+MAXIMUM_ENTITIES = 4
+MAXIMUM_INTERFACES = 2
 _min, _max = 'min', 'max'
 rank, normalize, boolean = 'rank', 'normalize', 'boolean'
 weight_functions_literal = Literal['rank', 'normalize']
 metric_weight_functions: tuple[weight_functions_literal, ...] = get_args(weight_functions_literal)
 
 metrics = {
+    'rotation': dict(description='The rotation transformation parameter',
+                     direction=None, function=None, filter=True),
+    'setting_matrix': dict(description='The setting_matrix transformation parameter',
+                           direction=None, function=None, filter=True),
+    'internal_translation': dict(description='The internal_translation transformation parameter',
+                                 direction=None, function=None, filter=True),
+    'external_translation_x': dict(description='The external_translation_x transformation parameter',
+                                   direction=None, function=None, filter=True),
+    'external_translation_y': dict(description='The external_translation_y transformation parameter',
+                                   direction=None, function=None, filter=True),
+    'external_translation_z': dict(description='The external_translation_z transformation parameter',
+                                   direction=None, function=None, filter=True),
     'area_hydrophobic_complex':
         dict(description='Total hydrophobic solvent accessible surface area in the complexed state',
              direction=_min, function=rank, filter=True),
@@ -99,10 +114,6 @@ metrics = {
         dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
                          ' total deviation in the hydrophobic collapse. Either more or less collapse prone',
              direction=_min, function=rank, filter=True),
-    'dock_collapse_variance':
-        dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
-                         ' average/expected deviation of the hydrophobic collapse from a reference collapse',
-             direction=_min, function=rank, filter=True),
     'dock_collapse_increase_significance_by_contact_order_z':
         dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
                          ' summation of positions with increased collapse from reference scaled by the inverse contact '
@@ -156,11 +167,15 @@ metrics = {
         dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
                          ' mean of the collapse_significance_by_contact_order_z per-position experiencing collapse',
              direction=_min, function=rank, filter=True),
+    'dock_collapse_variance':
+        dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
+                         ' average/expected deviation of the hydrophobic collapse from a reference collapse',
+             direction=_min, function=rank, filter=True),
+    'dock_collapse_violation':
+        dict(description='Whether there are dock_collapse_new_positions and the collapse profile is altered',
+             direction=_min, function=rank, filter=True),  # Boolean
     'collapse_deviation_magnitude':
         dict(description='The total deviation in the hydrophobic collapse. Either more or less collapse prone',
-             direction=_min, function=rank, filter=True),
-    'collapse_variance':
-        dict(description='The average/expected deviation of the hydrophobic collapse from a reference collapse',
              direction=_min, function=rank, filter=True),
     'collapse_increase_significance_by_contact_order_z':
         dict(description='Summation of positions with increased collapse from reference scaled by the inverse contact '
@@ -204,6 +219,12 @@ metrics = {
     'collapse_significance_by_contact_order_z_mean':
         dict(description='Mean of the collapse_significance_by_contact_order_z per-position experiencing collapse',
              direction=_min, function=rank, filter=True),
+    'collapse_variance':
+        dict(description='The average/expected deviation of the hydrophobic collapse from a reference collapse',
+             direction=_min, function=rank, filter=True),
+    'collapse_violation':
+        dict(description='Whether there are collapse_new_positions and the collapse profile is altered',
+             direction=_min, function=rank, filter=True),  # Boolean
     'core':
         dict(description='The number of "core" residues as classified by E. Levy 2010',
              direction=_max, function=rank, filter=True),
@@ -576,21 +597,21 @@ metrics = {
     'proteinmpnn_v_design_probability_cross_entropy_loss':
         dict(description='The total loss between the ProteinMPNN probabilities and the design profile probabilities',
              direction=max, function=normalize, filter=True),
-    'proteinmpnn_v_design_probability_cross_entropy_score':
+    'proteinmpnn_v_design_probability_cross_entropy_per_residue':
         dict(description='The per-designed residue cross entropy loss between the ProteinMPNN probabilities and the '
                          'design profile probabilities',
              direction=max, function=normalize, filter=True),
     'proteinmpnn_v_evolution_probability_cross_entropy_loss':
         dict(description='The total loss between the ProteinMPNN probabilities and the evolution profile probabilities',
              direction=max, function=normalize, filter=True),
-    'proteinmpnn_v_evolution_probability_cross_entropy_score':
+    'proteinmpnn_v_evolution_probability_cross_entropy_per_residue':
         dict(description='The per-designed residue cross entropy loss between the ProteinMPNN probabilities and the '
                          'evolution profile probabilities',
              direction=max, function=normalize, filter=True),
     'proteinmpnn_v_fragment_probability_cross_entropy_loss':
         dict(description='The total loss between the ProteinMPNN probabilities and the fragment profile probabilities',
              direction=max, function=normalize, filter=True),
-    'proteinmpnn_v_fragment_probability_cross_entropy_score':
+    'proteinmpnn_v_fragment_probability_cross_entropy_per_residue':
         dict(description='The per-designed residue cross entropy loss between the ProteinMPNN probabilities and the '
                          'fragment profile probabilities',
              direction=max, function=normalize, filter=True),
@@ -709,7 +730,7 @@ metrics = {
     # 'symmetry':
     #     dict(description='The specific symmetry type used design (point (0), layer (2), lattice(3))',
     #      direction=None, function=None, filter=False),
-    'total_non_fragment_interface_residues':
+    'number_interface_residues_non_fragment':
         dict(description='The number of interface residues that are missing central fragment observations',
              direction='max', function=rank, filter=True),
     'REU':
