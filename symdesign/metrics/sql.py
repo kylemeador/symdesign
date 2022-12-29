@@ -1,11 +1,13 @@
+from __future__ import annotations
+
 import logging
 
+import numpy as np
 import pandas as pd
 from sqlalchemy import inspect, select, exc
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
-from . import format_residues_df_for_write
 from ..utils.sql import Base, Designs, Poses, Residues
 from ..resources.job import job_resources_factory
 
@@ -133,8 +135,32 @@ def upsert_dataframe(session: Session, _table: Base, df: pd.DataFrame) -> list[i
     return result.scalars().all()
 
 
-def output_metrics(designs: pd.DataFrame = None, residues: pd.DataFrame = None, poses: pd.DataFrame = None,
-                   update: bool = False):
+def format_residues_df_for_write(df: pd.DataFrame) -> pd.DataFrame:
+    """Take a typical per-residue DataFrame and orient the top column level (level=0) containing the residue numbers on
+    the index innermost level
+
+    Args:
+        df: A per-residue DataFrame to transform
+    Returns:
+        The transformed dataframe
+    """
+    # df.sort_index(inplace=True)
+    df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
+    # residue_metric_columns = residues.columns.levels[-1].to_list()
+    # self.log.debug(f'Residues metrics present: {residue_metric_columns}')
+
+    # Add the pose identifier to the dataframe
+    # df = pd.concat([df], keys=[str(self)], axis=0)
+    # Place the residue indices from the column names into the index at position -1
+    df = df.stack(0)
+    # df.index.set_names(['pose', 'design', 'index'], inplace=True)
+    df.index.set_names('index', level=-1, inplace=True)
+
+    return df
+
+
+def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None, poses: pd.DataFrame = None,
+                    update: bool = False):
     """Format each possible DataFrame type for output via csv or SQL database
 
     Args:
@@ -155,6 +181,7 @@ def output_metrics(designs: pd.DataFrame = None, residues: pd.DataFrame = None, 
 
     with job.db.session() as session:
         if poses is not None:
+            poses.replace({np.nan: None}, inplace=True)
             result = dataframe_function(session, _table=Poses, df=poses)
             table = Poses.__tablename__
             # poses.to_sql(table, con=engine, if_exists='append', index=True)
@@ -164,6 +191,7 @@ def output_metrics(designs: pd.DataFrame = None, residues: pd.DataFrame = None, 
             return result
 
         if designs is not None:
+            designs.replace({np.nan: None}, inplace=True)
             result = dataframe_function(session, _table=Designs, df=designs)
             table = Designs.__tablename__
             # designs.to_sql(table, con=engine, if_exists='append', index=True)
@@ -174,6 +202,7 @@ def output_metrics(designs: pd.DataFrame = None, residues: pd.DataFrame = None, 
 
         if residues is not None:
             residues = format_residues_df_for_write(residues)
+            residues.replace({np.nan: None}, inplace=True)
             result = dataframe_function(session, _table=Residues, df=residues)
             table = Residues.__tablename__
             # residues.to_sql(table, con=engine, index=True)  # if_exists='append',

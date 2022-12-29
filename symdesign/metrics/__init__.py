@@ -18,6 +18,7 @@ from symdesign.structure.utils import DesignError
 from ..sequence import protein_letters_literal, alphabet_types, create_translation_tables
 from symdesign import utils, flags
 from symdesign.utils import path as putils
+from . import sql
 
 logger = logging.getLogger(__name__)
 residue_classification = ['core', 'rim', 'support']  # 'hot_spot'
@@ -1859,22 +1860,3 @@ def z_score(sample: float | np.ndarray, mean: float | np.ndarray, stdev: float |
     except ZeroDivisionError:
         logger.error('The passed standard deviation (stdev) was 0! z-score calculation failed')
         return 0.
-
-
-def format_residues_df_for_write(df):
-    df.sort_index(inplace=True)
-    df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-    # residue_metric_columns = residues.columns.levels[-1].to_list()
-    # self.log.debug(f'Residues metrics present: {residue_metric_columns}')
-
-    # Add the pose identifier to the dataframe
-    # df = pd.concat([df], keys=[str(self)], axis=0)
-    # Place the residue indices from the column names into the index at position -1
-    df = df.stack(0)
-    # df.index.set_names(['pose', 'design', 'index'], inplace=True)
-    df.index.set_names('index', level=-1, inplace=True)
-
-    return df
-
-
-from . import sql

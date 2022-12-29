@@ -2559,6 +2559,11 @@ class PoseDirectory(PoseProtocol):
     #     putils.make_path(self.data)
     #     write_per_residue_scores(design_ids, sequences_and_scores)
 
+    def analyze_predict_structure_metrics(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.array]):
+        """"""
+        self.output_metrics(update=True)
+
+
     def analyze_proteinmpnn_metrics(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.array]) \
             -> pd.Series:
         #                      designs: Iterable[Pose] | Iterable[AnyStr] = None
@@ -2789,7 +2794,7 @@ class PoseDirectory(PoseProtocol):
         self.output_metrics(residues=residues_df, designs=designs_df)
 
     # Todo ensure self.data dir is made
-    def output_metrics(self, designs: pd.DataFrame = None, residues: pd.DataFrame = None):
+    def output_metrics(self, designs: pd.DataFrame = None, residues: pd.DataFrame = None, update: bool = False):
         """Format each possible DataFrame type for output via csv or SQL database
 
         Args:
@@ -2797,17 +2802,38 @@ class PoseDirectory(PoseProtocol):
                 design metrics
             residues: The typical per-residue metric DataFrame where each index is the design id and the columns are
                 (residue index, residue metric)
+            update: Whether the output identifiers are already present in the metrics
         """
         if self.job.db:
             # Add the pose identifier to the dataframes
-            pose_identifier = str(self)
-            if residues is not None:
-                residues = pd.concat([residues], keys=[pose_identifier], axis=0)
-                residues.index.set_names(['pose', 'design'], inplace=True)
+            pose_identifier = self.pose_id  # reliant on SymDesign names...
+            # pose_identifier = self._pose_id  # reliant on foreign keys...
             if designs is not None:
+                # design_index_names = ['pose', 'design']
+                # These are reliant on foreign keys...
+                # design_index_names = [Designs.pose_id.name, Designs.name.name]
+                # designs = pd.concat([designs], keys=[pose_identifier], axis=0)
+                design_index_names = [Designs.pose_name.name, Designs.name.name]
                 designs = pd.concat([designs], keys=[pose_identifier], axis=0)
-                designs.index.set_names(['pose', 'design'], inplace=True)
-            metrics.sql.output_metrics(designs=designs, residues=residues)
+                #                     names=design_index_names, axis=0)
+                designs.index.set_names(design_index_names, inplace=True)
+                # _design_ids = metrics.sql.write_dataframe(designs=designs)
+                metrics.sql.write_dataframe(designs=designs, update=update)
+            # else:
+            #     _design_ids = []
+
+            if residues is not None:
+                # residue_index_names = ['pose', 'design']
+                # These are reliant on foreign keys...
+                # residue_index_names = [Residues.pose_id.name, Residues.design_id.name, Residues.design_name.name]
+                # residues = pd.concat([residues], keys=list(zip(repeat(pose_identifier), _design_ids)), axis=0)
+                residue_index_names = [Residues.pose_name.name, Residues.design_name.name]
+                residues = pd.concat([residues], keys=[pose_identifier], axis=0)
+                #                      names=residue_index_names, axis=0)
+                residues.index.set_names(residue_index_names, inplace=True)
+                # _residue_ids = metrics.sql.write_dataframe(residues=residues, update=update)
+                metrics.sql.write_dataframe(residues=residues, update=update)
+            # metrics.sql.write_dataframe(designs=designs, residues=residues)
         else:
             putils.make_path(self.data)
             if residues is not None:
