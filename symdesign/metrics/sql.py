@@ -34,8 +34,8 @@ def insert_dataframe(session: Session, _table: Base, df: pd.DataFrame):  # -> li
     update_dict = {getattr(c, 'name'): c for c in update_columns if not c.primary_key}
     table = _table.__table__
     # Find relevant column indicators to parse the non-primary key non-nullable columns
-    primary_keys = [key.name for key in table.primary_key]
-    non_null_keys = [col.name for col in table.columns if not col.nullable]
+    primary_keys = [key for key in table.primary_key]
+    non_null_keys = [col for col in table.columns if not col.nullable]
     index_keys = [key for key in non_null_keys if key not in primary_keys]
 
     # do_update_stmt = insert_stmt.on_conflict_do_update(
@@ -57,20 +57,30 @@ def insert_dataframe(session: Session, _table: Base, df: pd.DataFrame):  # -> li
     # result = session.execute(insert_stmt, df.reset_index().to_dict('records'))
     session.execute(insert_stmt, df.reset_index().to_dict('records'))
 
+    session.commit()
+    # input('is this deleting?')
     # foreign_key = [key.column.name for key in table.foreign_keys]
     for key in table.foreign_keys:
         foreign_key_name = key.column.name
         table2 = key.column.table
         # Repeat the Find procedure for table2
         # Find relevant column indicators to parse the non-primary key non-nullable columns
-        primary_keys2 = [key.name for key in table2.primary_key]
-        non_null_keys2 = [col.name for col in table2.columns if not col.nullable]
+        primary_keys2 = [key for key in table2.primary_key]
+        non_null_keys2 = [col for col in table2.columns if not col.nullable]
         index_keys2 = [key for key in non_null_keys2 if key not in primary_keys2]
         foreign_key_update_stmt = table.update()\
             .values({key.parent.name: key.column})\
             .where(*tuple(key1 == key2 for key1, key2 in zip(index_keys, index_keys2)))
-        session.execute(foreign_key_update_stmt)
+        logger.info(foreign_key_update_stmt)
 
+        select_stmt = select(key.column).where(*tuple(key1 == key2 for key1, key2 in zip(index_keys, index_keys2))).scalar_subquery()
+        foreign_key_update_stmt2 = table.update()\
+            .values({key.parent.name: select_stmt})
+        logger.info(foreign_key_update_stmt2)
+        # session.execute(foreign_key_update_stmt)
+        session.execute(foreign_key_update_stmt2)
+
+    session.commit()
     # return result
 
     # # ORM based method which updates objects with each row .id (Takes much longer time
