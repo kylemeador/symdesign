@@ -4283,17 +4283,20 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # logger.info(self.get_atom_record()[:120])
         iteration = 1
         all_residue_scores = []
+        number_of_residues = self.number_of_residues
         while iteration < 5:
             p = subprocess.run(errat_cmd, input=self.get_atom_record(), encoding='utf-8', capture_output=True)
             all_residue_scores = p.stdout.strip().split('\n')
             # Subtract one due to the addition of overall score
-            if len(all_residue_scores)-1 == self.number_of_residues:
+            if len(all_residue_scores) - 1 == number_of_residues:
                 break
             iteration += 1
 
         if iteration == 5:
+            error = p.stderr.strip().split("\n")
             self.log.error(f"{self.errat.__name__} couldn't generate the correct output length. "
-                           f'({len(all_residue_scores)-1}) != number_of_residues ({self.number_of_residues})')
+                           f'({len(all_residue_scores) - 1}) != number_of_residues ({number_of_residues}). Got stderr:'
+                           f'\n{error}')
         # errat_output_file = os.path.join(out_path, '%s.ps' % name)
         # errat_output_file = os.path.join(out_path, 'errat.ps')
         # else:
