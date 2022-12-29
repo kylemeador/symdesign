@@ -3045,12 +3045,13 @@ class PoseDirectory(PoseProtocol):
         # Todo make this capability
         #  pose_sequences = dict(zip(pose_ids, pose_alignment.tolist()]))
         pose_alignment = MultipleSequenceAlignment.from_dictionary(design_sequences)
-        # Calculate Jensen Shannon Divergence using design frequencies and different profile occurrence data
-        per_residue_divergence_df = \
-            pd.concat([pd.DataFrame(metrics.position_specific_divergence(pose_alignment.frequencies, background),
-                                    index=design_ids,
-                                    columns=pd.MultiIndex.from_product([residue_indices, [f'divergence_{profile}']]))
-                       for profile, background in profile_background.items()])
+        # Todo this must be calculated on the entire Designs batch
+        # # Calculate Jensen Shannon Divergence using design frequencies and different profile occurrence data
+        # per_residue_divergence_df = \
+        #     pd.concat([pd.DataFrame(metrics.position_specific_divergence(pose_alignment.frequencies, background),
+        #                             index=design_ids,
+        #                             columns=pd.MultiIndex.from_product([residue_indices, [f'divergence_{profile}']]))
+        #                for profile, background in profile_background.items()])
         # Perform a frequency extraction for each background profile
         per_residue_background_frequency_df = \
             pd.concat([pd.DataFrame(pose_alignment.get_probabilities_from_profile(background), index=design_ids,
@@ -3098,10 +3099,11 @@ class PoseDirectory(PoseProtocol):
         mutation_df = pd.DataFrame(mutational_array, index=design_ids,
                                    columns=pd.MultiIndex.from_product([residue_indices, ['mutation']]))
         # Join all results
-        residues_df = sequence_df.join([per_residue_divergence_df,
-                                        per_residue_background_frequency_df,
-                                        per_residue_collapse_df,
-                                        mutation_df])
+        residues_df = sequence_df.join([  # per_residue_divergence_df,
+            # Make background_frequency dataframe according to whether indicated residue was allowed in profile
+            per_residue_background_frequency_df > 0,
+            per_residue_collapse_df,
+            mutation_df])
 
         # entity_alignment = multi_chain_alignment(entity_sequences)
         # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
