@@ -822,7 +822,7 @@ class SymEntry:
         # logger.info('Oligomer 2 ROT Sampling Step: '
         #             f'{rot_step_deg2 if self.is_internal_rot2 else None}\n')
         # Get Degeneracy Matrices
-        logger.info('Searching For Possible Degeneracies')
+        # logger.info('Searching For Possible Degeneracies')
         if self.degeneracy_matrices1 is None:
             logger.info('No Degeneracies Found for Oligomer 1')
         elif len(self.degeneracy_matrices1) == 1:
@@ -836,6 +836,8 @@ class SymEntry:
         else:
             logger.info(f'{len(self.degeneracy_matrices2)} Degeneracies Found for Oligomer 2\n')
 
+
+# Set up the baseline crystaline entry which will allow for flexible adaptation of non-Nanohedra SymEntry instances
 CRYST = SymEntry.from_cryst(symmetry='P1')
 
 

@@ -6218,13 +6218,13 @@ class Pose(SymmetricModel):
         return pose_metrics
 
     def per_residue_interface_surface_area(self) -> dict[str, list[float]]:
-        """Return the per Residue metrics for every Residue in the Pose
+        """Return per-residue metrics for the interface surface area
 
         Metrics include sasa_hydrophobic_complex, sasa_polar_complex, sasa_relative_complex, sasa_hydrophobic_bound,
             sasa_polar_bound, sasa_relative_bound, errat_deviation, hydrophobic_collapse
 
         Returns:
-            The dictionary of metrics mapped to arrays of values (each the length of the Pose)
+            The dictionary of metrics mapped to arrays of values with shape (number_of_residues,)
         """
         per_residue_data = {}
         pose_length = self.number_of_residues

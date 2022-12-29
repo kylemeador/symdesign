@@ -603,8 +603,8 @@ def main():
             # Todo, combine this with collect_designs
             #  this works for file locations as well! should I have a separate mechanism for each?
             design_specification = utils.PoseSpecification(args.specification_file)
-            pose_directories = [PoseDirectory.from_pose_id(pose, root=args.directory, specific_designs=designs,
-                                                           directives=directives)
+            pose_directories = [PoseDirectory.from_pose_name(pose, root=args.directory, specific_designs=designs,
+                                                             directives=directives)
                                 for pose, designs, directives in design_specification.get_directives()]
             job.location = args.specification_file
         else:
@@ -618,7 +618,7 @@ def main():
                                                f'--{flags.directory} was passed. Please resubmit with '
                                                f'--{flags.directory} and use --{flags.pose_file}/'
                                                f'--{flags.specification_file} with pose IDs')
-                    pose_directories = [PoseDirectory.from_pose_id(pose, root=args.directory)
+                    pose_directories = [PoseDirectory.from_pose_name(pose, root=args.directory)
                                         for pose in all_poses[low_range:high_range]]
                 else:
                     pose_directories = [PoseDirectory.from_file(pose, root=root)
@@ -945,7 +945,7 @@ def main():
         if job.distribute_work:
             logger.info('Writing modeling commands out to file, no modeling will occur until commands are executed')
         else:
-            logger.info("Modeling will occur in this process, ensure you don't lose connection to the shell!")
+            logger.info("Modeling will occur in this process, ensure you don't lose connection to the shell")
 
     if job.multi_processing:
         logger.info(f'Starting multiprocessing using {job.cores} cores')
@@ -969,24 +969,24 @@ def main():
     # ---------------------------------------------------
     if args.module == flags.protocol:  # Use args.module as job.module is set as first in protocol
         run_on_pose_directory = (
-            putils.orient,
-            putils.expand_asu,
-            putils.rename_chains,
-            putils.check_clashes,
-            putils.generate_fragments,
-            putils.interface_metrics,
-            putils.optimize_designs,
-            putils.refine,
-            putils.interface_design,
-            putils.design,
-            putils.analysis,
-            putils.nanohedra
+            flags.orient,
+            flags.expand_asu,
+            flags.rename_chains,
+            flags.check_clashes,
+            flags.generate_fragments,
+            flags.interface_metrics,
+            flags.optimize_designs,
+            flags.refine,
+            flags.interface_design,
+            flags.design,
+            flags.analysis,
+            flags.nanohedra
         )
         returns_pose_directories = (
-            putils.nanohedra,
-            putils.select_poses,
-            putils.select_designs,
-            # putils.select_sequences
+            flags.nanohedra,
+            flags.select_poses,
+            flags.select_designs,
+            # flags.select_sequences
         )
         # terminate_options = dict(
         #     # analysis=dict(output_analysis=args.output),  # Replaced with args.output in terminate()
@@ -998,8 +998,8 @@ def main():
             # Update this mechanism with each module
             job.module = protocol_name
 
-            # Fetch the specified protocol
-            protocol = getattr(protocols, protocol_name)
+            # Fetch the specified protocol with python acceptable naming
+            protocol = getattr(protocols, protocol_name.replace('-', '_'))
             # Figure out how the job should be set up
             if protocol_name in run_on_pose_directory:  # Single poses
                 if job.multi_processing:
