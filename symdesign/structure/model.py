@@ -13,6 +13,7 @@ from random import random
 from typing import Iterable, IO, Any, Sequence, AnyStr, Generator, Type
 
 import numpy as np
+import pandas as pd
 # from numba import njit, jit
 import torch
 from sklearn.cluster import KMeans
@@ -5293,6 +5294,7 @@ class Pose(SymmetricModel):
     _active_entities: list[Entity]
     _center_residue_indices: list[int]
     _design_residues: list[Residue]
+    _df: pd.Series
     _interface_neighbor_residues: list[Residue]
     _interface_residues: list[Residue]
     _no_reset: bool
@@ -5355,6 +5357,15 @@ class Pose(SymmetricModel):
         self.create_design_selector()  # **self.design_selector)
         self.log.debug(f'Entities: {", ".join(entity.name for entity in self.entities)}')
         self.log.debug(f'Active Entities: {", ".join(entity.name for entity in self.active_entities)}')
+
+    @property
+    def df(self) -> pd.Series:
+        """The Pose metrics. __init__: Retrieves all metrics, loads pd.Series if none loaded"""
+        try:
+            return self._df
+        except AttributeError:  # Load metrics
+            self._df = pd.Series(self.interface_metrics())
+        return self._df
 
     @property
     def active_entities(self) -> list[Entity]:
