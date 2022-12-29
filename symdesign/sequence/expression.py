@@ -258,7 +258,8 @@ def pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=None):
     if chain:
         # pdb_code = '%s.%s' % (pdb_code, chain)
         # source = 'all'
-        dummy = 'TODO ensure that this works once the database is integrated'
+        # Todo ensure that this works once the database is integrated
+        dummy = ''
 
     for uniprot_id in uniprot_pdb_d:
         if pdb_code in uniprot_pdb_d[uniprot_id][source]:

@@ -847,8 +847,8 @@ class PoseDirectory(PoseProtocol):
         return cls(design_path, root=root, **kwargs)
 
     @classmethod
-    def from_pose_id(cls, design_path: str, root: AnyStr = None, **kwargs):
-        return cls(design_path, pose_id=True, root=root, **kwargs)
+    def from_pose_name(cls, design_path: str, root: AnyStr = None, **kwargs):
+        return cls(design_path, pose_name=True, root=root, **kwargs)
 
     # def pose_string_to_path(self, root: AnyStr, pose_id: str):
     #     """Set self.path to the root/poseID where the poseID is converted from dash "-" separation to path separators"""
@@ -866,14 +866,14 @@ class PoseDirectory(PoseProtocol):
     #         #     self.path = os.path.join(root, putils.projects, pose_id.replace(f'_{putils.pose_directory}-',
     #         #                                                                     f'_{putils.pose_directory}{os.sep}'))
 
-    def __init__(self, design_path: AnyStr, pose_id: bool = False, root: AnyStr = None,
+    def __init__(self, design_path: AnyStr, pose_id: bool = False, pose_name: bool = False, root: AnyStr = None,
                  pose_transformation: Sequence[transformation_mapping] = None, entity_names: Sequence[str] = None,
                  specific_designs: Sequence[str] = None, directives: list[dict[int, str]] = None, **kwargs):
         # self.job = job if job else job_resources_factory.get(program_root=root, **kwargs)
         self.job = resources.job.job_resources_factory.get()
         # PoseDirectory flags
         self.log: Logger | None = None
-        if pose_id and root is not None:
+        if pose_name and root is not None:
             # self.pose_string_to_path(root, design_path)  # sets self.path
             # if self.job.nanohedra_output:
             #     self.path = os.path.join(root, design_path.replace('-', os.sep))
@@ -960,7 +960,8 @@ class PoseDirectory(PoseProtocol):
                 self.path = self.source_path
                 self.project_dir = os.path.dirname(self.path)
                 # self.job.projects = os.path.dirname(self.project_dir)
-            self.pose_id = f'{self.project_dir}/{self.name}'
+            self.project = os.path.basename(self.project_dir)
+            self.pose_id = f'{self.project}/{self.name}'
             self.log_path: str | Path = os.path.join(self.path, f'{self.name}.log')
             self.start_log()
         else:
@@ -975,12 +976,12 @@ class PoseDirectory(PoseProtocol):
                 self.pose_transformation = pose_transformation
 
             path_components = filename.split(os.sep)
-            if pose_id:  # and root or extension == '':  # Set up PoseDirectory initially from new nanohedra like output
+            if pose_name:  # and root or extension == '':  # Set up PoseDirectory initially from new nanohedra like output
                 self.name = path_components[-1]
                 self.source = None
                 self.project_dir = os.path.dirname(self.path)
-                self.pose_id = f'{os.path.basename(self.project_dir)}/{self.name}'
-                # self.job.projects = os.path.dirname(self.project_dir)
+                self.project = os.path.basename(self.project_dir)
+                self.pose_id = f'{self.project}/{self.name}'
             else:
                 # if self.job.nanohedra_output:
                 #     # path/to/design_symmetry/building_blocks/degen/rot/tx
@@ -1018,10 +1019,10 @@ class PoseDirectory(PoseProtocol):
                     self.pose_id = self.name
                 else:
                     # self.job.projects = os.path.join(self.job.program_root, putils.projects)
-                    self.project_dir = os.path.join(self.job.projects, project)  # f'{project}_{putils.pose_directory}')
+                    self.project_dir = os.path.join(self.job.projects, self.project)  # f'{project}_{putils.pose_directory}')
                     self.path = os.path.join(self.project_dir, self.name)
                     # ^ /program_root/projects/project/design<- self.path /design.pdb
-                    self.pose_id = f'{project}/{self.name}'
+                    self.pose_id = f'{self.project}/{self.name}'
 
                     # # copy the source file to the PoseDirectory for record keeping...
                     # # Not using now that pose_format can be disregarded...
@@ -1415,7 +1416,7 @@ class PoseDirectory(PoseProtocol):
         #     entity_names = get_components_from_nanohedra_docking(self.pose_file)
         # else:
         self.start_log()
-        self.initial_model = Model.from_file(self.source_path, log=self.log)
+        self.initial_model = Model.from_file(self.source, log=self.log)
         self.entity_names = [entity.name for entity in self.initial_model.entities]
 
         # self.entity_names = entity_names
@@ -2494,18 +2495,7 @@ class PoseDirectory(PoseProtocol):
         # Write every designed sequence to an individual file...
         for name, sequence in zip(design_names, sequences_and_scores['sequences']):
             write_sequences(sequence, names=name, file_name=os.path.join(self.designs, name))
-        # if self.job.design.structures:
-        #     self._predict_structure()
-        #     # Todo include ???
-        #     # # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-        #     # if not self.job.distribute_work:
-        #     #     pose_s = self._interface_design_analysis()
-        #     #     out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
-        #     #     if os.path.exists(out_path):
-        #     #         header = False
-        #     #     else:
-        #     #         header = True
-        #     #     pose_s.to_csv(out_path, mode='a', header=header)
+
         # analysis_start = time.time()
         self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
         # self.log.debug(f"Took {time.time() - analysis_start:8f}s for analyze_proteinmpnn_metrics. "
@@ -2757,8 +2747,9 @@ class PoseDirectory(PoseProtocol):
         # per_residue_sequence_df.loc[putils.pose_source, :] = list(self.pose.sequence)
         # per_residue_sequence_df.append(pd.DataFrame(list(self.pose.sequence), columns=[putils.pose_source]).T)
         sequences_df = self.analyze_sequence_metrics_per_design(sequences=sequences, design_ids=design_ids)
+        # Since no structure design completed, no residue_metrics is performed, but the pose source can be...
         residues_df = self.analyze_residue_metrics_per_design()  # designs=designs)
-        # Join each residues_df like dataframe
+        # Join each per-residue like dataframe
         # Each of these can have difference index, so we use concat to perform an outer merge
         residues_df = pd.concat([residues_df, sequences_df, proteinmpnn_residue_info_df], axis=1)
 
@@ -4375,7 +4366,6 @@ class PoseDirectory(PoseProtocol):
         #     # per_residue_data[putils.pose_source].update(self.pose.per_residue_interface_errat())
         #     pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
 
-
         # Convert per_residue_data into a dataframe matching residues_df orientation
         residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
@@ -4469,7 +4459,7 @@ class PoseDirectory(PoseProtocol):
 
         # Process dataframes for missing values
         # Remove completely empty columns such as obs_interface
-        residues_df.dropna(how='all', inplace=True, axis=1)
+        residues_df.dropna(how='all', axis=1, inplace=True)
         residues_df = residues_df.fillna(0.).copy()
         # residue_indices_no_frags = residues_df.columns[residues_df.isna().all(axis=0)]
 

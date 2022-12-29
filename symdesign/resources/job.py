@@ -596,7 +596,7 @@ class JobResources:
                             self.total = False
                             # raise InputError('Using selection flag --total as input after nanohedra is not allowed')
                 # Convert the command-line name to python acceptable
-                self.modules[idx] = flags.format_from_cmdline(module)
+                # self.modules[idx] = flags.format_from_cmdline(module)
             elif module in disallowed_modules:
                 problematic_modules.append(module)
             else:
@@ -689,10 +689,10 @@ class JobResources:
         # Run specific checks
         if self.module == flags.interface_design and self.design.evolution_constraint:  # hhblits to run
             if psutil.virtual_memory().available <= required_memory + CommandDistributer.hhblits_memory_threshold:
-                logger.critical(f'The amount of memory for the computer is insufficient to run {putils.hhblits} '
-                                '(required for designing with evolution)! Please allocate the job to a computer with '
-                                f'more memory or the process will fail. '
-                                f'Otherwise, submit job with --no-{flags.evolution_constraint}')
+                logger.critical(f'The available memory (RAM) is insufficient to run {putils.hhblits}, (needs '
+                                f'{round(required_memory + CommandDistributer.hhblits_memory_threshold / 10e9, 2)} Gb)'
+                                ' Please allocate the job to a computer with more memory or the process will fail, '
+                                f'otherwise, submit the job with --no-{flags.evolution_constraint}')
                 exit(1)
             putils.make_path(self.sequences)
             putils.make_path(self.profiles)
