@@ -6217,11 +6217,28 @@ class Pose(SymmetricModel):
                              'entity_number_of_residues_average_deviation': residue_ratio_sum/counter})
         return pose_metrics
 
+    def per_residue_interface_errat(self) -> dict[str, list[float]]:
+        """Return per-residue metrics for the interface surface area
+
+        Returns:
+            The dictionary of errat metrics {errat_deviation, } mapped to arrays of shape (number_of_residues,)
+        """
+        per_residue_data = {}
+        # pose_length = self.number_of_residues
+        assembly_minimally_contacting = self.assembly_minimally_contacting
+        self.log.debug(f'Starting Pose {self.name} Errat')
+        errat_start = time.time()
+        _, per_residue_errat = assembly_minimally_contacting.errat(out_path=os.devnull)
+        self.log.debug(f'Finished Errat, time = {time.time() - errat_start:6f}')
+        per_residue_data['errat_deviation'] = per_residue_errat[:self.number_of_residues]
+
+        return per_residue_data
+
     def per_residue_interface_surface_area(self) -> dict[str, list[float]]:
         """Return per-residue metrics for the interface surface area
 
         Metrics include sasa_hydrophobic_complex, sasa_polar_complex, sasa_relative_complex, sasa_hydrophobic_bound,
-            sasa_polar_bound, sasa_relative_bound, errat_deviation, hydrophobic_collapse
+            sasa_polar_bound, sasa_relative_bound
 
         Returns:
             The dictionary of metrics mapped to arrays of values with shape (number_of_residues,)
@@ -6229,12 +6246,12 @@ class Pose(SymmetricModel):
         per_residue_data = {}
         pose_length = self.number_of_residues
         assembly_minimally_contacting = self.assembly_minimally_contacting
-        self.log.debug(f'Starting Pose {self.name} Errat')
-        errat_start = time.time()
-        _, per_residue_errat = assembly_minimally_contacting.errat(out_path=os.devnull)
-        self.log.debug(f'Finished Errat, time = {time.time() - errat_start:6f}')
-        per_residue_data['errat_deviation'] = per_residue_errat[:pose_length]
-        # perform SASA measurements
+        # self.log.debug(f'Starting Pose {self.name} Errat')
+        # errat_start = time.time()
+        # _, per_residue_errat = assembly_minimally_contacting.errat(out_path=os.devnull)
+        # self.log.debug(f'Finished Errat, time = {time.time() - errat_start:6f}')
+        # per_residue_data['errat_deviation'] = per_residue_errat[:pose_length]
+        # Perform SASA measurements
         assembly_minimally_contacting.get_sasa()
         assembly_asu_residues = assembly_minimally_contacting.residues[:pose_length]
         per_residue_data['sasa_hydrophobic_complex'] = [residue.sasa_apolar for residue in assembly_asu_residues]
