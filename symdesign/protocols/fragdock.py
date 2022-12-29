@@ -32,6 +32,7 @@ from symdesign.sequence import protein_letters_alph1
 from symdesign import utils
 from symdesign.utils import path as putils
 from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
+from symdesign.utils.sql import Designs, Residues, Poses
 from symdesign.utils.symmetry import generate_cryst1_record, identity_matrix
 
 # Globals
@@ -2398,13 +2399,14 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                                                                     np.core._exceptions._ArrayMemoryError))
         def check_dock_for_designability(batch_slice: slice,
                                          S: torch.Tensor = None,
-                                         chain_mask: torch.Tensor = None,
                                          chain_encoding: torch.Tensor = None,
                                          residue_idx: torch.Tensor = None,
                                          mask: torch.Tensor = None,
-                                         randn: torch.Tensor = None,
                                          pose_length: int = None,
-                                         tied_pos: Iterable[Container] = None,
+                                         # Todo reinstate if conditional_log_probs
+                                         # chain_mask: torch.Tensor = None,
+                                         # randn: torch.Tensor = None,
+                                         # tied_pos: Iterable[Container] = None,
                                          **batch_parameters) -> dict[str, np.ndarray]:
             actual_batch_length = batch_slice.stop - batch_slice.start
             # Get the null_idx
@@ -2473,6 +2475,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 else:
                     design_residues = list(range(pose_length))
 
+                # Todo reinstate if conditional_log_probs
                 # Residues to design are 1, others are 0
                 residue_mask_cpu[batch_idx, design_residues] = 1
                 # Set coords
@@ -2494,24 +2497,28 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # 4 is shape of backbone coords (N, Ca, C, O), 3 is x,y,z
                 perturbed_bb_coords = np.concatenate(_perturbed_bb_coords)
 
-                # Symmetrize other arrays
-                number_of_symmetry_mates = pose.number_of_symmetry_mates
-                # (batch, number_of_sym_residues, ...)
-                residue_mask_cpu = np.tile(residue_mask_cpu, (1, number_of_symmetry_mates))
-                # bias_by_res = np.tile(bias_by_res, (1, number_of_symmetry_mates, 1))
+                # Todo reinstate if conditional_log_probs
+                # # Symmetrize other arrays
+                # number_of_symmetry_mates = pose.number_of_symmetry_mates
+                # # (batch, number_of_sym_residues, ...)
+                # residue_mask_cpu = np.tile(residue_mask_cpu, (1, number_of_symmetry_mates))
+                # # bias_by_res = np.tile(bias_by_res, (1, number_of_symmetry_mates, 1))
 
             # Reshape for ProteinMPNN
             logger.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
             X = perturbed_bb_coords.reshape((actual_batch_length, -1, num_model_residues, 3))
             logger.debug(f'X.shape: {X.shape}')
             # Save design_indices
-            _residue_indices_of_interest = residue_mask_cpu[:, :pose_length].astype(bool)
+            _residue_indices_of_interest = residue_mask_cpu.astype(bool)
+            # Todo reinstate if conditional_log_probs
+            # _residue_indices_of_interest = residue_mask_cpu[:, :pose_length].astype(bool)
 
             # Update different parameters to the identified device
-            batch_parameters.update(ml.proteinmpnn_to_device(device, X=X, chain_M_pos=residue_mask_cpu))
+            batch_parameters.update(ml.proteinmpnn_to_device(device, X=X))  # , chain_M_pos=residue_mask_cpu))
             # Different across poses
             X = batch_parameters.pop('X')
-            residue_mask = batch_parameters.get('chain_M_pos', None)
+            # Todo reinstate if conditional_log_probs
+            # residue_mask = batch_parameters.get('chain_M_pos', None)
             # # Potentially different across poses
             # bias_by_res = batch_parameters.get('bias_by_res', None)
             # Todo calculate individually if using some feature to describe order
@@ -2550,20 +2557,22 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             #                             **batch_parameters
             #                             ) -> dict[str, np.ndarray]:
 
-            # Clone the data from the sequence tensor so that it can be set with the null token below
-            S_design_null = S.detach().clone()
+            # Todo reinstate if conditional_log_probs
+            # # Clone the data from the sequence tensor so that it can be set with the null token below
+            # S_design_null = S.detach().clone()
             # Get the provided batch_length from wrapping function. actual_batch_length may be smaller on last batch
             # batch_length = X.shape[0]
             # batch_length = X_unbound.shape[0]
             if actual_batch_length != batch_length:
                 # Slice these for the last iteration
                 # X_unbound = X_unbound[:actual_batch_length]  # , None)
-                chain_mask = chain_mask[:actual_batch_length]  # , None)
                 chain_encoding = chain_encoding[:actual_batch_length]  # , None)
                 residue_idx = residue_idx[:actual_batch_length]  # , None)
                 mask = mask[:actual_batch_length]  # , None)
-                randn = randn[:actual_batch_length]
-                S_design_null = S_design_null[:actual_batch_length]  # , None)
+                # Todo reinstate if conditional_log_probs
+                # chain_mask = chain_mask[:actual_batch_length]  # , None)
+                # randn = randn[:actual_batch_length]
+                # S_design_null = S_design_null[:actual_batch_length]  # , None)
                 # # Unpack, unpacked keyword args
                 # omit_AA_mask = batch_parameters.get('omit_AA_mask')
                 # pssm_coef = batch_parameters.get('pssm_coef')
@@ -2575,19 +2584,19 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # batch_parameters['pssm_bias'] = pssm_bias[:actual_batch_length]
                 # batch_parameters['pssm_log_odds_mask'] = pssm_log_odds_mask[:actual_batch_length]
 
-            # Use the sequence as an unknown token then guess the probabilities given the remaining
-            # information, i.e. the sequence and the backbone
-            S_design_null[residue_mask.type(torch.bool)] = mpnn_null_idx
-            chain_residue_mask = chain_mask * residue_mask * mask
-
-            decoding_order = ml.create_decoding_order(randn, chain_residue_mask, tied_pos=tied_pos, to_device=device)
             # See if the pose is useful to design based on constraints of collapse
-
             # Measure the conditional amino acid probabilities at each residue to see
             # how they compare to various profiles from the Pose multiple sequence alignment
             # If conditional_probs() are measured, then we need a batched_decoding order
             # conditional_start_time = time.time()
+
+            # Use the sequence as an unknown token then guess the probabilities given the remaining
+            # information, i.e. the sequence and the backbone
             # Calculations with this are done using cpu memory and numpy
+            # Todo reinstate if conditional_log_probs
+            # S_design_null[residue_mask.type(torch.bool)] = mpnn_null_idx
+            # chain_residue_mask = chain_mask * residue_mask * mask
+            # decoding_order = ml.create_decoding_order(randn, chain_residue_mask, tied_pos=tied_pos, to_device=device)
             # conditional_log_probs_null_seq = \
             #     mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
             #                None,  # This argument is provided but with below args, is not used
@@ -2655,6 +2664,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
             if pose.profile:
                 # Process the design_profiles into an array for cross entropy
+                # Todo
+                #  need to make scipy.softmax(design_profiles) so scaling matches
                 batch_design_profile = torch.from_numpy(np.array(design_profiles))
                 _per_residue_design_cross_entropy = \
                     metrics.cross_entropy(asu_conditional_softmax_null_seq,
