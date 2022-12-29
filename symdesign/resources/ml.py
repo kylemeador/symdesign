@@ -545,8 +545,8 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
     # # bias_by_res = batch_parameters.get('bias_by_res', None)
 
     actual_batch_length = batch_slice.stop - batch_slice.start
-    # Clone the data from the sequence tensor so that it can be set with the null token below
-    S_design_null = S.detach().clone()
+    # # Clone the data from the sequence tensor so that it can be set with the null token below
+    # S_design = S.detach().clone()
     if pose_length is None:
         batch_length, pose_length, *_ = S.shape
     else:
@@ -562,7 +562,8 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         bias_by_res = bias_by_res[:actual_batch_length]  # , None)
         randn = randn[:actual_batch_length]
         residue_mask = residue_mask[:actual_batch_length]
-        S_design_null = S_design_null[:actual_batch_length]  # , None)
+        S = S[:actual_batch_length]  # , None)
+        # S_design = S_design[:actual_batch_length]  # , None)
         # Unpack, unpacked keyword args
         omit_AA_mask = batch_parameters.get('omit_AA_mask')
         pssm_coef = batch_parameters.get('pssm_coef')
@@ -578,9 +579,9 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         except TypeError:  # Can't slice NoneType
             pass
 
-    # Use the sequence as an unknown token then guess the probabilities given the remaining
-    # information, i.e. the sequence and the backbone
-    S_design_null[residue_mask.type(torch.bool)] = MPNN_NULL_IDX
+    # # Use the sequence as an unknown token then guess the probabilities given the remaining
+    # # information, i.e. the sequence and the backbone
+    # S_design_null[residue_mask.type(torch.bool)] = MPNN_NULL_IDX
     chain_residue_mask = chain_mask * residue_mask
 
     batch_sequences = []
@@ -590,18 +591,53 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
     for temp_idx, temperature in enumerate(temperatures):
         sample_start_time = time.time()
         if tied_pos is None:
-            sample_dict = proteinmpnn.sample(X, randn, S_design_null, chain_mask, chain_encoding, residue_idx, mask,
+            sample_dict = proteinmpnn.sample(X, randn, S, chain_mask, chain_encoding, residue_idx, mask,
                                              chain_M_pos=residue_mask, temperature=temperature, bias_by_res=bias_by_res,
                                              **batch_parameters)
         else:
-            sample_dict = proteinmpnn.tied_sample(X, randn, S_design_null, chain_mask, chain_encoding, residue_idx,
+            sample_dict = proteinmpnn.tied_sample(X, randn, S, chain_mask, chain_encoding, residue_idx,
                                                   mask, chain_M_pos=residue_mask, temperature=temperature,
                                                   bias_by_res=bias_by_res, tied_pos=tied_pos, **batch_parameters)
         proteinmpnn.log.info(f'Sample calculation took {time.time() - sample_start_time:8f}s')
 
-        # Format outputs
+        # Format outputs - All have at lease shape (batch_length, model_length,)
         S_sample = sample_dict['S']
         _batch_sequences = S_sample.cpu()[:, :pose_length]
+        # Check for null sequence output
+        null_seq = _batch_sequences == 20
+        # null_indices = np.argwhere(null_seq == 1)
+        # if null_indices.nelement():  # Not an empty tensor...
+        null_design_indices, null_sequence_indices = torch.nonzero(null_seq == 1, as_tuple=True)
+        if null_design_indices.nelement():  # Not an empty tensor...
+            proteinmpnn.log.warning(f'Found null sequence output... Resampling selected positions')
+            proteinmpnn.log.debug(f'At sequence position(s): {null_sequence_indices}')
+            null_seq = (False,)
+            sampled_probs = sample_dict['probs']
+            while not all(null_seq):  # null_indices.nelement():  # Not an empty tensor...
+                # _decoding_order = decoding_order.cpu().numpy()[:, :pose_length] / 12  # Hard coded symmetry divisor
+                # # (batch_length, pose_length)
+                # print(f'Shape of null_seq: {null_seq.shape}')
+                # print(f'Shape of _decoding_order: {_decoding_order.shape}')
+                # print(f'Shape of _batch_sequences: {_batch_sequences.shape}')
+                # print(f'Found the decoding sites with a null output: {_decoding_order[null_seq]}')
+                # print(f'Found the probabilities with a null output: {_probabilities[null_seq]}')
+                # print(_batch_sequences.numpy()[_decoding_order])
+                # _probabilities = sample_dict['probs']  # .cpu().numpy()[:, :pose_length]
+                # _probabilities with shape (batch_length, model_length, mpnn_alphabet_length)
+                new_amino_acid_types = \
+                    torch.multinomial(sampled_probs[null_design_indices, null_sequence_indices],
+                                      1).squeeze(-1)
+                # _batch_sequences[null_indices] = new_amino_acid_type
+                # new_amino_acid_type = torch.multinomial(sample_dict['probs'][null_seq], 1)
+                # _batch_sequences[null_seq] = new_amino_acid_type
+                null_seq = new_amino_acid_types != 20
+                # null_seq = _batch_sequences == 20
+                # null_indices = np.argwhere(null_seq == 1)
+            else:
+                # Set the
+                _batch_sequences[null_design_indices, null_sequence_indices] = new_amino_acid_types
+            # proteinmpnn.log.debug('Fixed null sequence elements')
+
         batch_sequences.append(_batch_sequences)
         decoding_order = sample_dict['decoding_order']
         # decoding_order_out = decoding_order  # When using the same decoding order for all
