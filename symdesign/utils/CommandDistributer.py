@@ -350,12 +350,14 @@ if __name__ == '__main__':
         with open(args.success_file, 'a') as f:
             for i, result in enumerate(results):
                 if result:
-                    f.write('%s\n' % specific_commands[i] if program else subprocess.list2cmdline(specific_commands[i]))
+                    f.write('%s\n' % (specific_commands[i] if program
+                                      else subprocess.list2cmdline(specific_commands[i])))
 
         with open(args.failure_file, 'a') as f:
             for i, result in enumerate(results):
                 if not result:
-                    f.write('%s\n' % specific_commands[i] if program else subprocess.list2cmdline(specific_commands[i]))
+                    f.write('%s\n' % (specific_commands[i] if program
+                                      else subprocess.list2cmdline(specific_commands[i])))
 
         # # Append SLURM output to log_file(s)
         # job_id = int(os.environ.get('SLURM_JOB_ID'))
