@@ -6374,9 +6374,11 @@ class Pose(SymmetricModel):
 
         return interface_asu_structure
 
-    def _find_interface_residue_pairs(self, entity1: Entity = None, entity2: Entity = None, distance: float = 8.) -> \
-            list[tuple[Residue, Residue]] | None:
+    def _find_interface_residue_pairs(self, entity1: Entity = None, entity2: Entity = None, distance: float = 8.,
+                                      oligomeric_interfaces: bool = False) -> list[tuple[Residue, Residue]] | None:
         """Get pairs of Residues that have CB Atoms within a distance between two Entities
+
+        Splits symmetric interfaces between self queries according to the unique set of asymmetric contacts
 
         Caution: Pose must have Coords representing all atoms! Residue pairs are found using CB indices from all atoms
         Symmetry aware. If symmetry is used, by default all atomic coordinates for entity2 are symmeterized.
@@ -6386,6 +6388,7 @@ class Pose(SymmetricModel):
             entity1: First entity to measure interface between
             entity2: Second entity to measure interface between
             distance: The distance to query the interface in Angstroms
+            oligomeric_interfaces: Whether to query oligomeric interfaces
         Returns:
             A list of interface residue numbers across the interface
         """
@@ -6395,7 +6398,7 @@ class Pose(SymmetricModel):
         entity1_indices = entity1.cb_indices
         entity2_indices = entity2.cb_indices
 
-        if self.design_selector_indices:  # subtract the masked atom indices from the entity indices
+        if self.design_selector_indices:  # Subtract the masked atom indices from the entity indices
             before = len(entity1_indices) + len(entity2_indices)
             entity1_indices = list(set(entity1_indices).intersection(self.design_selector_indices))
             entity2_indices = list(set(entity2_indices).intersection(self.design_selector_indices))
@@ -6409,7 +6412,7 @@ class Pose(SymmetricModel):
             entity2_indices = self.make_indices_symmetric(entity2_indices)
             # Solve for entity2_indices to query
             if entity1 == entity2:  # We don't want symmetry interactions with the asu model or intra-oligomeric models
-                if entity1.is_oligomeric():  # Remove oligomeric protomers (contains asu)
+                if entity1.is_oligomeric() and not oligomeric_interfaces:  # Remove oligomeric protomers (contains asu)
                     remove_indices = self.get_oligomeric_atom_indices(entity1)
                     self.log.debug(f'Removing {len(remove_indices)} indices from symmetric query due to oligomer')
                 else:  # Just remove asu
@@ -6417,7 +6420,10 @@ class Pose(SymmetricModel):
                 # self.log.debug(f'Number of indices before removal of "self" indices: {len(entity2_indices)}')
                 entity2_indices = list(set(entity2_indices).difference(remove_indices))
                 # self.log.debug(f'Final indices remaining after removing "self": {len(entity2_indices)}')
-            entity2_coords = self.symmetric_coords[entity2_indices]  # get the symmetric indices from Entity 2
+            # Todo
+            #  Alternative (quicker) route could use the assembly_minimally_contacting model indices.
+            #  These are all that is needed to query
+            entity2_coords = self.symmetric_coords[entity2_indices]  # Get the symmetric indices from Entity 2
             sym_string = 'symmetric '
         elif entity1 == entity2:
             # Without symmetry, we can't measure this, unless intra-oligomeric contacts are desired
@@ -6435,6 +6441,8 @@ class Pose(SymmetricModel):
         # Construct CB tree for entity1 and query entity2 CBs for a distance less than a threshold
         entity1_coords = self.coords[entity1_indices]  # Only get the coordinates we specified
         entity1_tree = BallTree(entity1_coords)
+        # Todo
+        # entity1_tree = entity1.balltree(atom_type='cb').query_radius(entity2_coords, distance)
         if len(entity2_coords) == 0:  # Ensure the array is not empty
             return None
         entity2_query = entity1_tree.query_radius(entity2_coords, distance)
@@ -6474,6 +6482,7 @@ class Pose(SymmetricModel):
             entity1: First Entity to measure interface between
             entity2: Second Entity to measure interface between
         Keyword Args:
+            oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
             distance: float = 8. - The distance to measure Residues across an interface
         Sets:
             self.interface_residues_by_entity_pair (dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]):
@@ -6594,6 +6603,7 @@ class Pose(SymmetricModel):
             oligomeric_interfaces: Whether to query oligomeric interfaces
         Sets:
             self.fragment_queries (dict[tuple[Entity, Entity], list[fragment_info_type]])
+            self.fragment_pairs (list[tuple[GhostFragment, Fragment, float]])
         """
         if (entity1, entity2) in self.fragment_queries:  # Due to asymmetry in fragment generation, (2, 1) isn't checked
             return
@@ -6641,15 +6651,17 @@ class Pose(SymmetricModel):
 
         if self.is_symmetric():
             # Even if entity1 == entity2, only need to expand the entity2 fragments due to surface/ghost frag mechanics
+            skip_models = []
             if entity1 == entity2:
+                if oligomeric_interfaces:  # We want intra-oligomeric contacts
+                    self.log.info(f'Including oligomeric models: '
+                                  f'{", ".join(map(str, self.oligomeric_model_indices.get(entity1)))}')
                 # If querying nascent interfaces, we don't want interactions with the intra-oligomeric contacts
-                if entity1.is_oligomeric() and not oligomeric_interfaces:  # Remove oligomeric protomers (contains asu)
+                elif entity1.is_oligomeric():  # Remove oligomeric protomers (contains asu)
                     skip_models = self.oligomeric_model_indices.get(entity1)
                     self.log.info(f'Skipping oligomeric models: {", ".join(map(str, skip_models))}')
-                else:  # Probably a C1
-                    skip_models = []
-            else:
-                skip_models = []
+                # else:  # Probably a C1
+
             symmetric_frags2 = [self.return_symmetric_copies(residue) for residue in frag_residues2]
             frag_residues2.clear()
             # frag_residues2: list[ContainsAtomsMixin]
@@ -6719,10 +6731,11 @@ class Pose(SymmetricModel):
         return self.get_fragment_metrics(by_entity=True, entity1=entity1, entity2=entity2)
 
     def find_and_split_interface(self, **kwargs):
-        """Locate the interface residues for the designable entities and split into two interfaces
+        """Locate interfaces regions for the designable entities and split into two contiguous interface residues sets
 
         Keyword Args:
             distance: float = 8. - The distance to measure Residues across an interface
+            oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
         Sets:
             self.split_interface_residues (dict[int, list[tuple[Residue, Entity]]]): Residue/Entity id of each residue
             at the interface identified by interface id as split by topology
@@ -7261,29 +7274,36 @@ class Pose(SymmetricModel):
 
         return parsed_design_residues
 
-    def generate_interface_fragments(self, **kwargs):
+    def generate_interface_fragments(self, oligomeric_interfaces: bool = False, **kwargs):
         """Generate fragments between the Pose interface(s). Finds interface(s) if not already available
 
+        Args:
+            oligomeric_interfaces: Whether to query oligomeric interfaces
         Keyword Args:
             distance: float = 8. - The distance to measure Residues across an interface
-            oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
         """
         if not self.interface_residues_by_entity_pair:
-            self.find_and_split_interface(**kwargs)
+            self.find_and_split_interface(oligomeric_interfaces=oligomeric_interfaces, **kwargs)
 
         entity_pair: Iterable[Entity]
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
             self.log.debug(f'Querying Entity pair: {", ".join(entity.name for entity in entity_pair)} '
                            f'for interface fragments')
-            self.query_interface_for_fragments(*entity_pair, **kwargs)
+            self.query_interface_for_fragments(*entity_pair, oligomeric_interfaces=oligomeric_interfaces, **kwargs)
 
-    def generate_fragments(self, **kwargs):
+        if oligomeric_interfaces:
+            # Query again, only using extra oligomeric Entity interfaces
+            self.find_and_split_interface(**kwargs)
+
+    def generate_fragments(self, oligomeric_interfaces: bool = True, **kwargs):
         """Generate fragments pairs between every possible Residue instance in the Pose
 
+        Args:
+            oligomeric_interfaces: Whether to query oligomeric interfaces
         Keyword Args:
             distance: float = 8. - The distance to measure Residues across an interface
         """
-        self.generate_interface_fragments(oligomeric_interfaces=True, **kwargs)
+        self.generate_interface_fragments(oligomeric_interfaces=oligomeric_interfaces, **kwargs)
 
         for entity in self.active_entities:
             self.log.info(f'Querying Entity: {entity} for internal fragments')
