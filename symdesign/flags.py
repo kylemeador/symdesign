@@ -558,8 +558,9 @@ options_arguments = {
                             help=f'Number of cores to use during --{multi_processing}\nIf run on a cluster, the number'
                                  ' of cores will reflect the cluster allocation,\notherwise, will use #physical_cores-1'
                                  '\nDefault=%(default)s'),
-    (f'--{ca_only}',): dict(action='store_true',
-                            help='Whether a minimal CA variant of the protein should be used for design calculations'),
+    ('--database',): dict(action=argparse.BooleanOptionalAction, default=True,
+                          help=f'Whether to utilize the SQL database for intermediate result processing\n'
+                               f'{boolean_positional_prevent_msg("database")}'),
     (f'--{development}',): dict(action='store_true',
                                 help='Run in development mode. This should only be used for active development'),
     distribute_args: dict(action='store_true',
@@ -605,7 +606,7 @@ options_arguments = {
                                            '\nexp(G/T), where G = energy and T = temperature'
                                            '\nHigher temperatures result in more diversity'),
     ('-U', '--update-database'): dict(action='store_true',
-                                      help='Whether to update resources for each Structure in the database'),
+                                      help='Whether to update resources for each Structure in the database')
 }
 # ---------------------------------------------------
 residue_selector_help = 'Residue selectors control which parts of the Pose are included during protocols'
@@ -689,7 +690,7 @@ refine_arguments = {
                                                      'refinement'),
     ('-met', f'--{_metrics}'): dict(action=argparse.BooleanOptionalAction, default=True,
                                     help='Whether to calculate metrics for contained interfaces after refinement\n'
-                                        f'{boolean_positional_prevent_msg(_metrics)}')
+                                         f'{boolean_positional_prevent_msg(_metrics)}')
 }
 # ---------------------------------------------------
 nanohedra_help = f'Run {nanohedra.title()}.py'
@@ -802,6 +803,9 @@ sequences_args = (f'--{sequences}',)
 sequences_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,  # action='store_true',
                         help='For the protocol, create new sequences for each pose?\n'
                              f'{boolean_positional_prevent_msg(sequences)}'),
+ca_only_args = (f'--{ca_only}',)
+ca_only_kwargs = dict(action='store_true',
+                      help='Whether a minimal CA variant of the protein should be used for design calculations')
 structures_args = (f'--{structures}',)
 structures_kwargs = dict(action='store_true',
                          help='Whether the structure of each new sequence should be calculated'),
@@ -831,9 +835,10 @@ design_help = 'Gather poses of interest and format for sequence design using Ros
               '\nand/or fragment profiles extracted from the PDB or neither'
 parser_design = {design: dict(description=design_help, help=design_help)}
 design_arguments = {
+    ca_only_args: ca_only_kwargs,
+    design_method_args: design_method_kwargs,
     evolution_constraint_args: evolution_constraint_kwargs,
     hbnet_args: hbnet_kwargs,
-    design_method_args: design_method_kwargs,
     design_number_args: design_number_kwargs,
     structure_background_args: structure_background_kwargs,
     scout_args: scout_kwargs,
@@ -844,8 +849,9 @@ interface_design_help = 'Gather poses of interest and format for interface speci
                         '\nsequences and/or fragment profiles extracted from the PDB, or neither'
 parser_interface_design = {interface_design: dict(description=interface_design_help, help=interface_design_help)}
 interface_design_arguments = {
-    evolution_constraint_args: evolution_constraint_kwargs,
+    ca_only_args: ca_only_kwargs,
     design_method_args: design_method_kwargs,
+    evolution_constraint_args: evolution_constraint_kwargs,
     hbnet_args: hbnet_kwargs,
     neighbors_args: neighbors_kwargs,
     design_number_args: design_number_kwargs,

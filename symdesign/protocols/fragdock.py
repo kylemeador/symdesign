@@ -2876,7 +2876,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 pose.find_and_split_interface(distance=cb_distance)
 
                 # Add all interface residues
-                if interface:
+                if job.design.interface:
                     design_residues = []
                     for number, residues_entities in pose.split_interface_residues.items():
                         design_residues.extend([residue.index for residue, _ in residues_entities])
@@ -3010,7 +3010,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 design_profiles.append(pssm_as_array(pose.profile))
 
                 # Add all interface residues
-                if interface:
+                if job.design.interface:
                     design_residues = []
                     for number, residues_entities in pose.split_interface_residues.items():
                         design_residues.extend([residue.index for residue, _ in residues_entities])
