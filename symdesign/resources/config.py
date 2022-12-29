@@ -110,6 +110,9 @@ metrics = {
     'contact_count':
         dict(description='Number of carbon-carbon contacts across interface',
              direction=_max, function=rank, filter=True),
+    'contact_order':
+        dict(description='The distance of contacts to other residues in the structure',
+             direction=_max, function=rank, filter=True),
     'dock_collapse_deviation_magnitude':
         dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
                          ' total deviation in the hydrophobic collapse. Either more or less collapse prone',

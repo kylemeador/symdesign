@@ -331,7 +331,8 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
                 if isinstance(sequences[0], str):
                     formatted_sequence_gen = (f'{start}{name}{sep}{seq}' for name, seq in zip(names, sequences))
                 elif isinstance(sequences[0], Sequence):
-                    formatted_sequence_gen = (f'{start}{name}{sep}{"".join(seq)}' for name, seq in zip(names, sequences))
+                    formatted_sequence_gen = \
+                        (f'{start}{name}{sep}{"".join(seq)}' for name, seq in zip(names, sequences))
                 else:
                     raise TypeError(data_dump())
             # elif isinstance(sequences[0], list):  # Where interior list is alphabet (AA or DNA)
@@ -349,7 +350,7 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
             name, seq, *_ = sequences
             formatted_sequence_gen = (f'{start}{name}{sep}{seq}',)
         elif isinstance(names, str):  # Assume sequences is a str or tuple
-            formatted_sequence_gen = (f'{start}{names}{sep}{"".join(sequences)}\n',)
+            formatted_sequence_gen = (f'{start}{names}{sep}{"".join(sequences)}',)
         else:
             raise TypeError(data_dump())
         outfile.write('%s\n' % '\n'.join(formatted_sequence_gen))
