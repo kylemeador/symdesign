@@ -550,11 +550,15 @@ class Profile(UserList):
                 i.e array([[0.1, 0.01, 0.12, ...], ...])
         """
         if lod:
-            return np.array([[position_info['lod'][aa] for aa in alphabet]
-                             for position_info in self], dtype=np.float32)
+            if self.lods:
+                data_source = self.lods
+            else:
+                raise ValueError(f"There are no values available for {type(self).__name__}.lods")
         else:
-            return np.array([[position_info[aa] for aa in alphabet]
-                             for position_info in self], dtype=np.float32)
+            data_source = self
+
+        return np.array([[position_info[aa] for aa in alphabet]
+                         for position_info in data_source], dtype=np.float32)
 
     def write(self, file_name: AnyStr = None, name: str = None, out_dir: AnyStr = os.getcwd()) -> AnyStr | None:
         """Create a PSI-BLAST format PSSM file from a PSSM dictionary. Assumes residue numbering is 1 to last entry
@@ -1002,11 +1006,12 @@ class SequenceProfile(ABC):
         offset = 0 if zero_index else zero_offset
 
         if nan:
-            profile = {residue: nan_profile_entry.copy()
-                       for residue in range(offset, self.number_of_residues + offset)}
+            _profile_entry = nan_profile_entry
         else:
-            profile = {residue: blank_profile_entry.copy()
-                       for residue in range(offset, self.number_of_residues + offset)}
+            _profile_entry = blank_profile_entry
+
+        profile = {residue: _profile_entry.copy()
+                   for residue in range(offset, self.number_of_residues + offset)}
 
         for residue_data, residue_type in zip(profile.values(), self.sequence):
             residue_data['type'] = residue_type
