@@ -2541,6 +2541,7 @@ class PoseDirectory(PoseProtocol):
         sequences_and_scores[putils.protocol] = list(repeat(self.protocol, number_of_new_designs))
         sequences_and_scores['temperatures'] = [temperature for temperature in self.job.design.temperatures
                                                 for _ in range(self.job.design.number)]
+        # design_names = [f'{seq_idx:04d}'  # f'{self.name}_{self.protocol}{seq_idx:04d}'
         design_names = [f'{self.protocol}{seq_idx:04d}'  # f'{self.name}_{self.protocol}{seq_idx:04d}'
                         for seq_idx in range(first_new_design_idx,
                                              first_new_design_idx + number_of_new_designs)]
