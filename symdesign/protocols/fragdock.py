@@ -268,6 +268,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     Returns:
         The resulting Poses satisfying docking criteria
     """
+    protocol = 'nanohedra'  # Todo change if the docking is described as 'C1'
     frag_dock_time_start = time.time()
     # Get Building Blocks in pose format to remove need for fragments to use chain info
     models = list(models)
@@ -1770,44 +1771,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                               fragment_db=job.fragment_db, ignore_clashes=True, rename_chains=True)
 
     # entity_energies = tuple(0. for _ in pose.entities)
-    # pose_source_residue_info = \
-    #     {residue.number: {'complex': 0.,
-    #                       # 'bound': 0.,  # entity_energies.copy(),
-    #                       'unbound': 0.,  # entity_energies.copy(),
-    #                       # 'solv_complex': 0., 'solv_bound': 0.,  # entity_energies.copy(),
-    #                       # 'solv_unbound': 0.,  # entity_energies.copy(),
-    #                       # 'fsp': 0., 'cst': 0.,
-    #                       'type': protein_letters_3to1.get(residue.type),
-    #                       # 'hbond': 0
-    #                       }
-    #      for residue in pose.residues}
-    # This needs to be calculated before iterating over each pose
-    # residue_info = {pose_source: pose_source_residue_info}
-    # residue_info[pose_source] = pose_source_residue_info
-    # # if job.design.sequences and job.design.structures:
-    # if job.design.structures:
-    #     source_contact_order, source_errat = [], []
-    #     for idx, entity in enumerate(pose.entities):
-    #         # Contact order is the same for every design in the Pose and not dependent on pose
-    #         source_contact_order.append(entity.contact_order)
-    #         # Replace 'errat_deviation' measurement with uncomplexed entities
-    #         # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
-    #         # Todo translate the source pose
-    #         # Todo when Entity.oligomer works
-    #         #  _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
-    #         entity_oligomer = Model.from_chains(entity.chains, log=logger, entities=False)
-    #         _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
-    #         source_errat.append(oligomeric_errat[:entity.number_of_residues])
-    #
-    #     pose_source_contact_order_s = pd.Series(np.concatenate(source_contact_order), index=residue_indices)
-    #     pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
-    #
-    #     per_residue_data = {putils.pose_source: {
-    #         # 'type': list(pose.sequence),
-    #         'contact_order': pose_source_contact_order_s,
-    #         'errat_deviation': pose_source_errat_s}}
-    # else:  # Set up per_residue_data to be empty and populated later. Only populated by proteinmpnn_used = True logic
-    #     per_residue_data = {}
 
     # Define functions for updating the single Pose instance coordinates
     def create_specific_transformation(idx: int) -> tuple[dict[str, np.ndarray], ...]:
@@ -2405,7 +2368,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         # once, twice = False, False
 
         # Set up Pose parameters
-        interface = False
+        measure_interface_during_dock = True
         parameters = pose.get_proteinmpnn_params(ca_only=job.design.ca_only)
         # Todo
         #  Must calculate randn individually if using some feature to describe order
@@ -2503,7 +2466,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 design_profiles.append(pssm_as_array(pose.profile))
 
                 # Add all interface residues
-                if interface:
+                if measure_interface_during_dock:
                     design_residues = []
                     for number, residues_entities in pose.split_interface_residues.items():
                         design_residues.extend([residue.index for residue, _ in residues_entities])

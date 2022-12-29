@@ -37,9 +37,9 @@ from symdesign.structure.sequence import sequence_difference, MultipleSequenceAl
 from symdesign.sequence import read_fasta_file, write_sequences, protein_letters_3to1, protein_letters_1to3
 from symdesign.structure.utils import DesignError, ClashError, SymmetryError
 from symdesign.utils import large_color_array, starttime, start_log, unpickle, pickle_object, write_shell_script, \
-    all_vs_all, sym, condensed_to_square, rosetta, InputError, path as putils
+    all_vs_all, sym, condensed_to_square, rosetta, InputError, sql, path as putils
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory
-from symdesign.utils.nanohedra.general import get_components_from_nanohedra_docking
+# from symdesign.utils.nanohedra.general import get_components_from_nanohedra_docking
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -433,10 +433,10 @@ class PoseProtocol:
 
         # self.pose.combine_sequence_profiles()
         # I could also add the combined profile here instead of at each Entity
-        self.pose.calculate_profile(favor_fragments=favor_fragments)
-        # self.pose.add_profile(evolution=self.job.design.evolution_constraint,
-        #                       fragments=self.job.design.term_constraint, favor_fragments=favor_fragments,
-        #                       out_dir=self.job.api_db.hhblits_profiles.location)
+        # self.pose.calculate_profile(favor_fragments=favor_fragments)
+        self.pose.add_profile(evolution=self.job.design.evolution_constraint,
+                              fragments=self.job.design.term_constraint, favor_fragments=favor_fragments,
+                              out_dir=self.job.api_db.hhblits_profiles.location)
 
         # -------------------------------------------------------------------------
         # Todo self.solve_consensus()
@@ -503,10 +503,11 @@ class PoseProtocol:
 
         # self.pose.combine_sequence_profiles()
         # I could also add the combined profile here instead of at each Entity
-        self.pose.calculate_profile(favor_fragments=favor_fragments)
-        # self.pose.add_profile(evolution=self.job.design.evolution_constraint,
-        #                       fragments=self.job.design.term_constraint, favor_fragments=favor_fragments,
-        #                       out_dir=self.job.api_db.hhblits_profiles.location)
+        # self.pose.calculate_profile(favor_fragments=favor_fragments)
+        # Todo this is required to add evolution. Nee to make above if add it if not or combine below method with _generate_evolutionary_profile()
+        self.pose.add_profile(evolution=self.job.design.evolution_constraint,
+                              fragments=self.job.design.term_constraint, favor_fragments=favor_fragments,
+                              out_dir=self.job.api_db.hhblits_profiles.location)
 
         # -------------------------------------------------------------------------
         # Todo self.solve_consensus()
@@ -998,9 +999,16 @@ class PoseDirectory(PoseProtocol):
                     #     index = path_components.index(os.environ['USER'])
                     # except (KeyError, ValueError):  # Missing USER environmental variable, missing in path_components
                     #     index = None
-                    self.name = '-'.join(path_components[-2:])
-                    project = path_components[-2]  # if root is None else root  # path/to/job/[project_Poses]/design.pdb
+                    # self.name = '-'.join(path_components[-2:])
+                    self.project, self.name = path_components[-2:]
+                    # self.project = path_components[-2]  # if root is None else root  # path/to/job/[project_Poses]/design.pdb
                     self.source = self.source_path
+                elif os.path.isdir(self.source_path):  # This is probably a pose_id?
+                    self.name = path_components[-1]
+                    self.source = None
+                    self.project_dir = os.path.dirname(self.source_path)
+                    self.project = os.path.basename(self.project_dir)
+                    # self.pose_id = f'{self.project}/{self.name}'
                 else:
                     raise InputError(f"{type(self).__name__} couldn't load the specified source file: "
                                      f"'{self.source_path}'")
@@ -1082,19 +1090,6 @@ class PoseDirectory(PoseProtocol):
         # self.designed_sequences_file = os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
         self.designed_sequences_file = os.path.join(self.designs, f'sequences.fasta')
 
-        self.initial_model = None
-        """Used if the pose structure has never been initialized previously"""
-        if not self.initialized and not self.entity_names:
-            # None were provided at start up, find them
-            # Starts self.log  # if not self.job.nanohedra_output
-            self.find_entity_names()  # Sets self.entity_names
-        else:
-            self.start_log()
-        # else:
-        #     # input(f'Stopped here with: self.initialized({self.initialized}) self.entity_names({self.entity_names})'
-        #     #       f'bool? {not self.initialized and not self.entity_names}')
-        #     self.entity_names = self.info.get('entity_names', [])  # Set so that DataBase set up works
-
         # Configure standard pose loading mechanism with self.source
         if self.specific_designs:
             # Introduce flag handling current inability of specific_designs to handle iteration
@@ -1134,6 +1129,21 @@ class PoseDirectory(PoseProtocol):
             # self.source = self.initial_model
             pass
 
+        self.initial_model = None
+        """Used if the pose structure has never been initialized previously"""
+        if not self.initialized and not self.entity_names:
+            # None were provided at start up, find them
+            # Starts self.log  # if not self.job.nanohedra_output
+            self.find_entity_names()  # Sets self.entity_names
+        else:
+            self.start_log()
+        # else:
+        #     # input(f'Stopped here with: self.initialized({self.initialized}) self.entity_names({self.entity_names})'
+        #     #       f'bool? {not self.initialized and not self.entity_names}')
+        #     self.entity_names = self.info.get('entity_names', [])  # Set so that DataBase set up works
+
+        # Todo
+        # self._pose_id = sql.Poses.insert_pose(self.name, self.project)
         # Mark that this has been initialized if it has
         self.pickle_info()
 
@@ -1439,8 +1449,9 @@ class PoseDirectory(PoseProtocol):
         else:  # f'{__name__}.{self}'
             if self.job.force:
                 os.system(f'rm {self.log_path}')
-            self.log = start_log(name=f'pose.{self}', handler=handler, level=level, location=self.log_path,
-                                 no_log_name=no_log_name, propagate=True)  # Pass messages to "pose" logger
+            self.log = start_log(name=f'pose.{self.project}.{self.name}', handler=handler, level=level,
+                                 location=self.log_path, no_log_name=no_log_name, propagate=True)
+            # propagate=True allows self.log to pass messages to 'pose' and 'project' logger
 
     @close_logs
     # @handle_design_errors(errors=(FileNotFoundError,))
@@ -1746,7 +1757,9 @@ class PoseDirectory(PoseProtocol):
             # # rename_chains = True
 
         # Initialize the Pose with the pdb in PDB numbering so that residue_selectors are respected
-        name = f'{self}-asu' if self.sym_entry else str(self)
+        # name = f'{self.pose_id}-asu' if self.sym_entry else self.pose_id
+        # name = self.pose_id
+        name = self.name  # Ensure this name is the tracked across Pose init from fragdock() to _design() methods
         if entities:
             self.pose = Pose.from_entities(entities, name=name, **self.pose_kwargs)
         elif self.initial_model:  # This is a fresh Model, and we already loaded so reuse
@@ -2492,6 +2505,9 @@ class PoseDirectory(PoseProtocol):
         putils.make_path(self.designs)
         # # Write every designed sequence to the sequences file...
         # write_sequences(sequences_and_scores['sequences'], names=design_names, file_name=self.designed_sequences_file)
+        # Convert sequences to a plain string sequence representation
+        sequences_and_scores['sequences'] = \
+            [''.join(sequence) for sequence in sequences_and_scores['sequences'].tolist()]
         # Write every designed sequence to an individual file...
         for name, sequence in zip(design_names, sequences_and_scores['sequences']):
             write_sequences(sequence, names=name, file_name=os.path.join(self.designs, name))
@@ -2744,8 +2760,9 @@ class PoseDirectory(PoseProtocol):
         # designs_df = designs_df.join(metadata_df)
 
         # Incorporate residue, design, and sequence metrics on every designed Pose
-        # per_residue_sequence_df.loc[putils.pose_source, :] = list(self.pose.sequence)
-        # per_residue_sequence_df.append(pd.DataFrame(list(self.pose.sequence), columns=[putils.pose_source]).T)
+        # per_residue_sequence_df.loc[self.pose.name, :] = list(self.pose.sequence)
+        # per_residue_sequence_df.append(pd.DataFrame(list(self.pose.sequence), columns=[self.pose.name]).T)
+        # Todo UPDATE These are now from a different collapse 'hydrophobicity' source, 'expanded'
         sequences_df = self.analyze_sequence_metrics_per_design(sequences=sequences, design_ids=design_ids)
         # Since no structure design completed, no residue_metrics is performed, but the pose source can be...
         residues_df = self.analyze_residue_metrics_per_design()  # designs=designs)
@@ -2757,7 +2774,7 @@ class PoseDirectory(PoseProtocol):
 
         designed_df = residues_df.loc[:, idx_slice[:, 'design_residue']].droplevel(1, axis=1)
 
-        designs_df[putils.protocol] = 'proteinmpnn'
+        # designs_df[putils.protocol] = 'proteinmpnn'
         designs_df['proteinmpnn_score_complex'] = designs_df['proteinmpnn_loss_complex'] / pose_length
         designs_df['proteinmpnn_score_unbound'] = designs_df['proteinmpnn_loss_unbound'] / pose_length
         designs_df['proteinmpnn_score_delta'] = \
@@ -2802,9 +2819,9 @@ class PoseDirectory(PoseProtocol):
             if designs is not None:
                 # design_index_names = ['pose', 'design']
                 # These are reliant on foreign keys...
-                # design_index_names = [Designs.pose_id.name, Designs.name.name]
+                # design_index_names = [sql.Designs.pose_id.name, sql.Designs.name.name]
                 # designs = pd.concat([designs], keys=[pose_identifier], axis=0)
-                design_index_names = [Designs.pose_name.name, Designs.name.name]
+                design_index_names = [sql.Designs.pose_name.name, sql.Designs.name.name]
                 designs = pd.concat([designs], keys=[pose_identifier], axis=0)
                 #                     names=design_index_names, axis=0)
                 designs.index.set_names(design_index_names, inplace=True)
@@ -2816,9 +2833,9 @@ class PoseDirectory(PoseProtocol):
             if residues is not None:
                 # residue_index_names = ['pose', 'design']
                 # These are reliant on foreign keys...
-                # residue_index_names = [Residues.pose_id.name, Residues.design_id.name, Residues.design_name.name]
+                # residue_index_names = [sql.Residues.pose_id.name, sql.Residues.design_id.name, sql.Residues.design_name.name]
                 # residues = pd.concat([residues], keys=list(zip(repeat(pose_identifier), _design_ids)), axis=0)
-                residue_index_names = [Residues.pose_name.name, Residues.design_name.name]
+                residue_index_names = [sql.Residues.pose_name.name, sql.Residues.design_name.name]
                 residues = pd.concat([residues], keys=[pose_identifier], axis=0)
                 #                      names=residue_index_names, axis=0)
                 residues.index.set_names(residue_index_names, inplace=True)
@@ -2879,11 +2896,11 @@ class PoseDirectory(PoseProtocol):
         #     # Todo handle design sequences from a read_fasta_file?
         #     # Todo implement reference sequence from included file(s) or as with self.pose.sequence below
         if isinstance(sequences, dict):
-            design_ids = [putils.pose_source] + list(sequences.keys())
+            design_ids = [self.pose.name] + list(sequences.keys())
             sequences = [self.pose.sequence] + list(sequences.values())
         else:
             if isinstance(design_ids, Sequence):
-                design_ids = [putils.pose_source] + list(design_ids)
+                design_ids = [self.pose.name] + list(design_ids)
             else:
                 raise ValueError(f"Can't perform {self.analyze_sequence_metrics_per_design.__name__} without argument "
                                  "'design_ids' when 'sequences' isn't a dictionary")
@@ -2891,7 +2908,7 @@ class PoseDirectory(PoseProtocol):
             if isinstance(sequences, np.ndarray):
                 sequences = [self.pose.sequence] + [''.join(sequence) for sequence in sequences.tolist()]
             elif isinstance(sequences, Sequence):
-                # design_sequences = {putils.pose_source: self.pose.sequence}
+                # design_sequences = {self.pose.name: self.pose.sequence}
                 sequences = [self.pose.sequence] + [''.join(sequence) for sequence in sequences]
             else:
                 design_sequences = design_ids = sequences = None
@@ -3097,10 +3114,8 @@ class PoseDirectory(PoseProtocol):
         Returns:
             Series containing summary metrics for all designs
         """
-        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
-        self.identify_interface()
-        # else:  # We only need to load pose as we already calculated interface
-        #     self.load_pose()
+        self.load_pose()
+        # self.identify_interface()
 
         # Load fragment_profile into the analysis
         if self.job.design.term_constraint and not self.pose.fragment_queries:
@@ -3378,6 +3393,8 @@ class PoseDirectory(PoseProtocol):
             # Must find interface residues before measure local_density
             pose.find_and_split_interface()
             per_residue_data[pose.name] = pose.per_residue_interface_surface_area()
+            # Get errat measurement
+            per_residue_data[pose.name].update(pose.per_residue_interface_errat())
             # Todo remove Rosetta
             #  This is a measurement of interface_connectivity like from Rosetta
             interface_local_density[pose.name] = pose.local_density_interface()
@@ -3941,7 +3958,7 @@ class PoseDirectory(PoseProtocol):
 
         # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
         if self.job.save:
-            residues_df[(putils.protocol, putils.protocol)] = protocol_s
+            # residues_df[(putils.protocol, putils.protocol)] = protocol_s
             # residues_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
             self.output_metrics(residues=residues_df, designs=designs_df)
 
@@ -4318,6 +4335,9 @@ class PoseDirectory(PoseProtocol):
         #     measure_structure = True  # self.measure_structure
 
         # Compute structural measurements for all designs
+        if not designs:
+            designs = []
+
         for pose in [self.pose] + designs:  # Takes 1-2 seconds for Structure -> assembly -> errat
             try:
                 pose_name = pose.name
@@ -4334,12 +4354,13 @@ class PoseDirectory(PoseProtocol):
         for idx, entity in enumerate(self.pose.entities):
             # Contact order is the same for every design in the Pose and not dependent on pose
             source_contact_order.append(entity.contact_order)
+        # Collect reference Structure metrics
+        pose_source_name = self.pose.name  # putils.pose_source
 
-        per_residue_data: dict[str, dict[str, Any]] = \
-            {putils.pose_source: self.pose.per_residue_interface_surface_area()}
+        # per_residue_data[pose_source_name] = self.pose.per_residue_interface_surface_area()
         pose_source_contact_order_s = \
             pd.Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
-        per_residue_data[putils.pose_source]['contact_order'] = pose_source_contact_order_s
+        per_residue_data[pose_source_name]['contact_order'] = pose_source_contact_order_s
 
         interface_errat = True
         if interface_errat:  # The input structure was not meant to be together, treat as such
@@ -4353,17 +4374,17 @@ class PoseDirectory(PoseProtocol):
                 entity_oligomer = Model.from_chains(entity.chains, log=self.pose.log, entities=False)
                 _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
                 source_errat.append(oligomeric_errat[:entity.number_of_residues])
-            # atomic_deviation[putils.pose_source] = sum(source_errat_accuracy) / float(self.pose.number_of_entities)
+            # atomic_deviation[pose_source_name] = sum(source_errat_accuracy) / float(self.pose.number_of_entities)
             # pose_source_errat = np.concatenate(source_errat)
             per_residue_data[pose_source_name]['errat_deviation'] = np.concatenate(source_errat)
         # else:
         #     # pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
-        #     # # atomic_deviation[putils.pose_source], pose_per_residue_errat = \
+        #     # # atomic_deviation[pose_source_name], pose_per_residue_errat = \
         #     # _, pose_per_residue_errat = \
         #     #     pose_assembly_minimally_contacting.errat(out_path=os.path.devnull)
         #     # pose_source_errat = pose_per_residue_errat[:pose_length]
         #     # Get errat measurement
-        #     # per_residue_data[putils.pose_source].update(self.pose.per_residue_interface_errat())
+        #     # per_residue_data[pose_source_name].update(self.pose.per_residue_interface_errat())
         #     pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
 
         # Convert per_residue_data into a dataframe matching residues_df orientation
@@ -4378,7 +4399,7 @@ class PoseDirectory(PoseProtocol):
         # #                       'solv_unbound': entity_energies.copy(), 'fsp': 0., 'cst': 0.,
         # #                       'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
         # #      for entity in self.pose.entities for residue in entity.residues}
-        # # residue_info = {putils.pose_source: pose_source_residue_info}
+        # # residue_info = {pose_source_name: pose_source_residue_info}
         #
         # if os.path.exists(self.scores_file):  # Rosetta scores file is present  # Todo PoseDirectory(.path)
         #     design_was_performed = True
@@ -4451,8 +4472,8 @@ class PoseDirectory(PoseProtocol):
         #
 
         # Fill in missing pose_source metrics for each design not calculated
-        residues_df.fillna(residues_df.loc[putils.pose_source, idx_slice[:, 'contact_order']], inplace=True)
-        # residues_df.fillna(residues_df.loc[putils.pose_source, :], inplace=True)
+        residues_df.fillna(residues_df.loc[pose_source_name, idx_slice[:, 'contact_order']], inplace=True)
+        # residues_df.fillna(residues_df.loc[pose_source_name, :], inplace=True)
 
         # Make buried surface area (bsa) columns, and residue classification
         residues_df = metrics.calculate_residue_surface_area(residues_df)
@@ -4626,6 +4647,7 @@ class PoseDirectory(PoseProtocol):
         designs_df = pd.concat([designs_df, metrics.sum_per_residue_metrics(residues_df)], axis=1)  # , mean_metrics=mean_columns))
         # designs_df = designs_df.join(metrics.sum_per_residue_metrics(residues_df))  # , mean_metrics=mean_columns))
 
+        pose_df = self.pose.df
         # Calculate mutational content
         # designs_df['number_of_mutations'] = mutation_df.sum(axis=1)
         designs_df['percent_mutations'] = designs_df['number_of_mutations'] / pose_length
@@ -4642,14 +4664,14 @@ class PoseDirectory(PoseProtocol):
             # prior_slice = entity_c_terminal_residue_index
             designs_df[f'entity{idx}_percent_mutations'] = \
                 designs_df[f'entity{idx}_number_of_mutations'] \
-                / designs_df[f'entity{idx}_number_of_residues']
+                / pose_df[f'entity{idx}_number_of_residues']
 
         designs_df['sequence_loss_design_per_residue'] = designs_df['sequence_loss_design'] / pose_length
         # The per residue average loss compared to the design profile
         designs_df['sequence_loss_evolution_per_residue'] = designs_df['sequence_loss_evolution'] / pose_length
         # The per residue average loss compared to the evolution profile
         designs_df['sequence_loss_fragment_per_residue'] = \
-            designs_df['sequence_loss_fragment'] / designs_df['number_fragment_residues_total']
+            designs_df['sequence_loss_fragment'] / pose_df['number_fragment_residues_total']
         # The per residue average loss compared to the fragment profile
 
         # designs_df['collapse_new_positions'] /= pose_length
@@ -4671,16 +4693,11 @@ class PoseDirectory(PoseProtocol):
             designs_df['collapse_sequential_peaks_z'] / total_increased_collapse
         designs_df['collapse_sequential_z_mean'] = designs_df['collapse_sequential_z'] / total_increased_collapse
 
-        # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
-        interface_bsa_df = designs_df['interface_area_total']
-        designs_df['interface_area_to_residue_surface_ratio'] = \
-            (interface_bsa_df / (interface_bsa_df + designs_df['area_total_complex']))
-
         # Make designs_df errat_deviation that takes into account the pose_source sequence errat_deviation
         # Get per-residue errat scores from the residues_df
         errat_df = residues_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
 
-        pose_source_errat = errat_df.loc[putils.pose_source, :]
+        pose_source_errat = errat_df.loc[self.pose.name, :]
         # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
         source_errat_inclusion_boolean = \
             np.logical_and(pose_source_errat < metrics.errat_2_sigma, pose_source_errat != 0.)
@@ -4733,6 +4750,12 @@ class PoseDirectory(PoseProtocol):
         designs_df['interface_local_density'] = pd.Series(interface_local_density)
 
         designs_df['number_interface_residues'] = pose_df['number_interface_residues']
+
+        # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
+        if 'interface_area_total' in designs_df and 'area_total_complex' in designs_df:
+            interface_bsa_df = designs_df['interface_area_total']
+            designs_df['interface_area_to_residue_surface_ratio'] = \
+                (interface_bsa_df / (interface_bsa_df + designs_df['area_total_complex']))
 
         # designs_df['interface_area_total'] = pose_df['interface_area_total']
         designs_df = metrics.columns_to_new_column(designs_df, metrics.division_pairs, mode='truediv')

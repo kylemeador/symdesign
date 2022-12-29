@@ -5805,6 +5805,7 @@ class Pose(SymmetricModel):
                 return ml.proteinmpnn_batch_design(*args, **_kwargs)
 
             # Data has shape (batch_length, number_of_temperatures, pose_length)
+            number_of_temps = len(temperatures)
             # design_start = time.time()
             sequences_and_scores = \
                 _proteinmpnn_batch_design(proteinmpnn_model, temperatures=temperatures, pose_length=pose_length,
@@ -5824,10 +5825,16 @@ class Pose(SymmetricModel):
             # Ex: [temp1/pose1, temp1/pose2, ..., tempN/pose1, ...] This groups the designs by temperature first
             for data_type, data in sequences_and_scores.items():
                 if data_type == 'design_indices':
-                    continue  # These don't vary by temperature
+                    # These must vary by temperature
+                    sequences_and_scores['design_indices'] = np.tile(data, (number_of_temps, 1))
+                    # self.log.debug(f'Found design_indices with shape: {sequences_and_scores["design_indices"].shape}')
+                    continue
+                # print(f"{data_type} has shape {data.shape}")
                 sequences_and_scores[data_type] = np.concatenate(data, axis=1).reshape(-1, pose_length)
 
-            self.log.debug(f'Found sequences with shape {sequences_and_scores["sequences"].shape}')
+            # self.log.debug(f'Found sequences with shape {sequences_and_scores["sequences"].shape}')
+            # self.log.debug(f'Found proteinmpnn_loss_complex with shape {sequences_and_scores["proteinmpnn_loss_complex"].shape}')
+            # self.log.debug(f'Found proteinmpnn_loss_unbound with shape {sequences_and_scores["proteinmpnn_loss_unbound"].shape}')
         else:
             raise ValueError(f"The method '{method}' isn't a viable design protocol")
 
