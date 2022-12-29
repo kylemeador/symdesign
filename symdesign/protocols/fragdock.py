@@ -1894,6 +1894,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         logger.warning(f'Not checking for symmetric clashes per requested flag --{flags.ignore_symmetric_clashes}')
         passing_symmetric_clash_indices_perturb = slice(None)
     else:
+        logger.warning('Checking solutions for symmetric clashes')
         if sym_entry.unit_cell:
             # Calculate the vectorized uc_dimensions
             full_uc_dimensions = sym_entry.get_uc_dimensions(full_optimal_ext_dof_shifts)
@@ -1968,6 +1969,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         # Extract perturbation parameters and set the original transformation parameters to a new variable
         # if sym_entry.is_internal_rot1:
         nonlocal number_of_transforms, full_rotation1, full_rotation2
+        nonlocal total_perturbation_size
         original_rotation1 = full_rotation1
         rotation_perturbations1 = perturbations['rotation1']
         # Compute the length of each perturbation to separate into unique perturbation spaces
@@ -2064,9 +2066,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
         # Concatenate the stacked perturbations
         full_rotation1 = np.concatenate(perturb_rotation1, axis=0)
-        logger.debug(f'After perturbation, found full_rotation1.shape: {full_rotation1.shape}')
         full_rotation2 = np.concatenate(perturb_rotation2, axis=0)
         number_of_transforms = full_rotation1.shape[0]
+        logger.info(f'After perturbation, found {number_of_transforms} viable solutions')
         if sym_entry.is_internal_tx1:
             stacked_internal_tx_vectors1 = np.zeros((number_of_transforms, 3), dtype=float)
             # Add the translation to Z (axis=1)
@@ -2091,6 +2093,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     # Perform perturbations to the allowed degrees of freedom
     number_of_transforms = passing_transforms_indices.shape[0]
     if job.dock.perturb_dof_rot or job.dock.perturb_dof_tx:
+        logger.info('Performing transformation perturbations')
+        total_perturbation_size = 1
         perturb_transformations()
     else:
         # total_number_of_perturbations = number_of_transforms
