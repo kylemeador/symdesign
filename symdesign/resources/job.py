@@ -12,6 +12,7 @@ from typing import Annotated, AnyStr, Any, Iterable
 import psutil
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
+from sqlalchemy.orm import sessionmaker, Session
 
 from symdesign import flags, sequence, structure, utils
 from symdesign.resources import structure_db, wrapapi
@@ -150,6 +151,13 @@ Cluster = make_dataclass('Cluster',
 #                          frozen=True)
 
 
+class DBInfo:
+    def __init__(self, location: AnyStr):
+        self.location = location
+        self.engine: Engine = create_engine(f'sqlite:///{self.location}', echo=True, future=True)
+        self.session: sessionmaker = sessionmaker(self.engine)
+
+
 class JobResources:
     """The intention of JobResources is to serve as a singular source of design info which is common across all
     jobs. This includes common paths, databases, and design flags which should only be set once in program operation,
@@ -157,6 +165,7 @@ class JobResources:
     _input_source: str | list[str] | None
     _location: str | None
     _output_directory: AnyStr | None
+    db: DBInfo
     reduce_memory: bool = False
 
     def __init__(self, program_root: AnyStr = None, arguments: argparse.Namespace = None, **kwargs):
@@ -242,16 +251,21 @@ class JobResources:
 
         self.api_db = wrapapi.api_database_factory.get(source=self.data)
         self.structure_db = structure_db.structure_database_factory.get(source=self.data)
-        self.fragment_db: 'db.FragmentDatabase' | None = None
-        self.db: Engine = create_engine(f'sqlite:///{self.internal_db}', echo=True, future=True)
+        self.fragment_db: structure.fragment.db.FragmentDatabase | None = None
+        if kwargs.get('database'):
+            self.db: DBInfo = DBInfo(self.internal_db)
+            # self.db: Engine = create_engine(f'sqlite:///{self.internal_db}', echo=True, future=True)
+        else:  # When --no-database is provided as a flag
+            self.db = None
+
         if self.development:
             # All tables are deleted
-            utils.sql.Base.metadata.drop_all(self.db)
+            utils.sql.Base.metadata.drop_all(self.db.engine)
             # Emit CREATE TABLE DDL
-            utils.sql.Base.metadata.create_all(self.db)
+            utils.sql.Base.metadata.create_all(self.db.engine)
         if not os.path.exists(self.internal_db):
             # Emit CREATE TABLE DDL
-            utils.sql.Base.metadata.create_all(self.db)
+            utils.sql.Base.metadata.create_all(self.db.engine)
 
         # self.score_db: Engine = create_engine(utils.sql.residues)
 
