@@ -412,6 +412,15 @@ class PoseProtocol:
         putils.make_path(self.data)  # Todo consolidate this check with pickle_info()
         # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
         if self.job.design.method == putils.rosetta_str:
+            raise NotImplementedError('Need to generate number_of_designs matching proteinmpnn_design()...')
+            # Update the Pose with the number of designs
+            number_of_new_designs = len(self.job.design.number * self.job.design.temperatures)
+            # with self.job.db.session() as session:
+            prior_number_of_designs = self.number_of_designs
+            self.number_of_designs += number_of_new_designs
+            #     session.add(self)
+            #     session.commit()
+            # ------------------------------------
             favor_fragments = evo_fill = True
         else:
             favor_fragments = evo_fill = False
@@ -819,6 +828,8 @@ class PoseDirectory(PoseProtocol):
     _designed_sequences: list[Sequence]
     _entity_names: list[str]
     _fragment_observations: list[fragment.db.fragment_info_type]
+    _number_of_designs: int
+    _pose_id_: int
     _pose_transformation: list[transformation_mapping]
     _pre_refine: bool
     _pre_loop_model: bool
@@ -1146,6 +1157,32 @@ class PoseDirectory(PoseProtocol):
         # self._pose_id = sql.Poses.insert_pose(self.name, self.project)
         # Mark that this has been initialized if it has
         self.pickle_info()
+
+    @property
+    def _pose_id(self) -> int:
+        """Return the database id for the PoseDirectory"""
+        try:
+            return self._pose_id_
+        except AttributeError:
+            self._pose_id_ = self.info.get('_pose_id')
+            return self._pose_id_
+
+    @_pose_id.setter
+    def _pose_id(self, _id: int):
+        self._pose_id_ = self.info['_pose_id'] = _id
+
+    @property
+    def number_of_designs(self) -> int:
+        """Return the number of designs created for the PoseDirectory"""
+        try:
+            return self._number_of_designs
+        except AttributeError:
+            self._number_of_designs = self.info.get('number_of_designs', 0)
+            return self._number_of_designs
+
+    @number_of_designs.setter
+    def number_of_designs(self, _id: int):
+        self._number_of_designs = self.info['number_of_designs'] = _id
 
     @property
     def designed_sequences(self) -> list[Sequence]:
@@ -2492,14 +2529,21 @@ class PoseDirectory(PoseProtocol):
                                        interface=interface, neighbors=neighbors,
                                        ca_only=self.job.design.ca_only
                                        )
+        # Update the Pose with the number of designs
+        number_of_new_designs = len(self.job.design.number * self.job.design.temperatures)
+        # with self.job.db.session() as session:
+        first_new_design_idx = self.number_of_designs + 1
+        self.number_of_designs += number_of_new_designs
+        #     session.add(self)
+        #     session.commit()
         # self.log.debug(f"Took {time.time() - design_start:8f}s for design_sequences")
         # Add protocol (job info) and temperature to sequences_and_scores
-        sequences_and_scores[putils.protocol] = \
-            list(repeat(self.protocol, len(self.job.design.number * self.job.design.temperatures)))
+        sequences_and_scores[putils.protocol] = list(repeat(self.protocol, number_of_new_designs))
         sequences_and_scores['temperatures'] = [temperature for temperature in self.job.design.temperatures
                                                 for _ in range(self.job.design.number)]
-        design_names = [f'{self.name}_{self.protocol}{seq_idx:04d}'
-                        for seq_idx in range(1, 1 + len(sequences_and_scores['sequences']))]
+        design_names = [f'{self.protocol}{seq_idx:04d}'  # f'{self.name}_{self.protocol}{seq_idx:04d}'
+                        for seq_idx in range(first_new_design_idx,
+                                             first_new_design_idx + number_of_new_designs)]
 
         # self.output_proteinmpnn_scores(design_names, sequences_and_scores)
         putils.make_path(self.designs)
