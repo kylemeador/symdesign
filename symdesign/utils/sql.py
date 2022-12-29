@@ -3,16 +3,25 @@ from itertools import combinations
 from typing import AnyStr
 
 from mysql.connector import MySQLConnection, Error
-from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, create_engine, select
+from sqlalchemy.orm import declarative_base, relationship, Session
+# from sqlalchemy.orm import Mapped, mapped_column, declarative_base  # Todo sqlalchemy 2.0
 from sqlalchemy.dialects.sqlite import insert
 
 from symdesign.resources import config
 
-# from sqlalchemy.orm import Mapped, mapped_column, Session
+
+# class Base(DeclarativeBase):  # Todo sqlalchemy 2.0
+class _Base:
+
+    # def next_primary_key(self, session: Session):
+    #     stmt = select(self).order_by(tuple(key.desc() for key in self.__table__.primary_key)).limit(1)
+    def next_key(self, session: Session) -> int:
+        stmt = select(self).order_by(self.id.desc()).limit(1)
+        return session.scalars(stmt).first() + 1
 
 
-Base = declarative_base()
+Base = declarative_base(cls=_Base)
 
 
 class Poses(Base):
@@ -21,8 +30,31 @@ class Poses(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)  # String(60)
     project = Column(String)  # , nullable=False)  # String(60)
+    designs = relationship('Designs', back_populates='pose')
+    number_of_designs = Column(Integer)  # , nullable=False)
+    # Dock features
+    proteinmpnn_v_design_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
+    proteinmpnn_v_design_probability_cross_entropy_per_residue = Column(Float)  # , nullable=False)
+    proteinmpnn_v_evolution_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
+    proteinmpnn_v_evolution_probability_cross_entropy_per_residue = Column(Float)  # , nullable=False)
+    proteinmpnn_v_fragment_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
+    proteinmpnn_v_fragment_probability_cross_entropy_per_residue = Column(Float)  # , nullable=False)
+    dock_collapse_significance_by_contact_order_z_mean = Column(Float)  # , nullable=False)
+    dock_collapse_increased_z_mean = Column(Float)  # , nullable=False)
+    dock_collapse_sequential_peaks_z_mean = Column(Float)  # , nullable=False)
+    dock_collapse_sequential_z_mean = Column(Float)  # , nullable=False)
+    dock_collapse_deviation_magnitude = Column(Float)  # , nullable=False)
+    dock_collapse_increase_significance_by_contact_order_z = Column(Float)  # , nullable=False)
+    dock_collapse_increased_z = Column(Float)  # , nullable=False)
+    dock_collapse_new_positions = Column(Integer)  # , nullable=False)
+    dock_collapse_new_position_significance = Column(Float)  # , nullable=False)
+    dock_collapse_sequential_peaks_z = Column(Float)  # , nullable=False)
+    dock_collapse_sequential_z = Column(Float)  # , nullable=False)
+    dock_collapse_significance_by_contact_order_z = Column(Float)  # , nullable=False)
+    dock_collapse_variance = Column(Float)  # , nullable=False)
+    dock_collapse_violation = Column(Boolean)  # , nullable=False)
+    dock_hydrophobicity = Column(Float)  # , nullable=False)
     # Fragment features
-    dock_collapse_violation = Column(Float)  # , nullable=False)
     nanohedra_score_normalized = Column(Float)  # , nullable=False)
     nanohedra_score_center_normalized = Column(Float)  # , nullable=False)
     nanohedra_score = Column(Float)  # , nullable=False)
@@ -68,22 +100,28 @@ class Poses(Base):
     minimum_radius = Column(Float)  # , nullable=False)
     maximum_radius = Column(Float)  # , nullable=False)
     number_interface_residues = Column(Integer)  # , nullable=False)
-    number_design_residues = Column(Integer)  # , nullable=False)
+    # number_design_residues = Column(Integer)  # , nullable=False)
     sequence = Column(String(config.MAXIMUM_SEQUENCE))  # , nullable=False)
     pose_length = Column(Integer)  # , nullable=False)
     pose_thermophilicity = Column(Float)  # , nullable=False)
 
     @classmethod
-    def insert_pose(cls, name: str, project: str) -> int:
+    def insert_pose(cls, session: Session, name: str, project: str) -> int:
         """Insert a new PoseDirectory instance into the database and return the Database id"""
-        Session = sessionmaker(engine)
-        with Session() as session:
-            stmt = insert(cls).returning(cls.id)
-            result = session.scalars(stmt,  # execute(stmt).inserted_primary_key  # fetchone()
-                                     dict(name=name, project=project))
-            session.commit()
+        # with session() as session:
+        stmt = insert(cls).returning(cls.id)
+        result = session.scalars(stmt,  # execute(stmt).inserted_primary_key  # fetchone()
+                                 dict(name=name, project=project))
+        session.commit()
 
         return result.one()
+
+    def get_design_number(self, session: Session, number: int) -> int:
+        return self.number_of_designs
+
+    @staticmethod
+    def increment_design_number(cls, session: Session, number: int):
+        return None
 
 
 entity_transformation_metrics = dict(
@@ -103,8 +141,11 @@ class Designs(Base):
     __tablename__ = 'designs'
 
     id = Column(Integer, primary_key=True)
-    pose = Column(String, nullable=False)  # String(60)
-    design = Column(String, nullable=False)  # String(60)
+    # pose = Column(String, nullable=False)  # String(60)
+    pose_name = Column(String, nullable=False)  # String(60)
+    name = Column(String, nullable=False)  # String(60)
+    pose_id = Column(ForeignKey('poses.id'))  # Integer, nullable=False)  # String(60)
+    pose = relationship('Poses', back_populates='designs')
     # residues_id = relationship('residues', back_populates='')  # LIST
 
     protocol = Column(String)  # , nullable=False)  # String(60)
@@ -130,6 +171,7 @@ class Designs(Base):
     # number_interface_residues_non_fragment = Column(Float)  # , nullable=False)
     # # Pose features
     number_interface_residues = Column(Integer)  # , nullable=False)
+    contact_order = Column(Float)  # , nullable=False)
     # pose_length = Column(Integer)  # , nullable=False)
     # pose_thermophilicity = Column(Float)  # , nullable=False)
     # minimum_radius = Column(Float)  # , nullable=False)
@@ -218,7 +260,6 @@ class Designs(Base):
     coordinate_constraint = Column(Float)  # , nullable=False)
     residue_favored = Column(Float)  # , nullable=False)
     # SymDesign measurements
-    contact_order = Column(Float)  # , nullable=False)
     errat_deviation = Column(Float)  # , nullable=False)
     sasa_hydrophobic_complex = Column(Float)  # , nullable=False)
     sasa_polar_complex = Column(Float)  # , nullable=False)
@@ -242,7 +283,7 @@ class Designs(Base):
     collapse_deviation_magnitude = Column(Float)  # , nullable=False)
     collapse_increase_significance_by_contact_order_z = Column(Float)  # , nullable=False)
     collapse_increased_z = Column(Float)  # , nullable=False)
-    collapse_new_positions = Column(Boolean)  # , nullable=False)
+    collapse_new_positions = Column(Integer)  # , nullable=False)
     collapse_new_position_significance = Column(Float)  # , nullable=False)
     collapse_sequential_peaks_z = Column(Float)  # , nullable=False)
     collapse_sequential_z = Column(Float)  # , nullable=False)
@@ -256,46 +297,26 @@ class Designs(Base):
     # ProteinMPNN score terms
     proteinmpnn_loss_complex = Column(Float)  # , nullable=False)
     proteinmpnn_loss_unbound = Column(Float)  # , nullable=False)
+    proteinmpnn_score_complex = Column(Float)
+    proteinmpnn_score_complex_per_designed_residue = Column(Float)
+    proteinmpnn_score_delta = Column(Float)
+    proteinmpnn_score_delta_per_designed_residue = Column(Float)
+    proteinmpnn_score_unbound = Column(Float)
+    proteinmpnn_score_unbound_per_designed_residue = Column(Float)
+    # Sequence loss terms
     sequence_loss_design = Column(Float)  # , nullable=False)
     sequence_loss_design_per_residue = Column(Float)  # , nullable=False)
     sequence_loss_evolution = Column(Float)  # , nullable=False)
     sequence_loss_evolution_per_residue = Column(Float)  # , nullable=False)
     sequence_loss_fragment = Column(Float)  # , nullable=False)
     sequence_loss_fragment_per_residue = Column(Float)  # , nullable=False)
-    proteinmpnn_v_design_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
-    proteinmpnn_v_design_probability_cross_entropy_per_residue = Column(Float)  # , nullable=False)
-    proteinmpnn_v_evolution_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
-    proteinmpnn_v_evolution_probability_cross_entropy_per_residue = Column(Float)  # , nullable=False)
-    proteinmpnn_v_fragment_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
-    proteinmpnn_v_fragment_probability_cross_entropy_per_residue = Column(Float)  # , nullable=False)
-    proteinmpnn_score_complex_per_designed_residue = Column(Float)
-    proteinmpnn_score_delta = Column(Float)
-    proteinmpnn_score_complex = Column(Float)
-    proteinmpnn_score_unbound = Column(Float)
-    proteinmpnn_score_delta_per_designed_residue = Column(Float)
-    proteinmpnn_score_unbound_per_designed_residue = Column(Float)
-    dock_collapse_significance_by_contact_order_z_mean = Column(Float)  # , nullable=False)
-    dock_collapse_increased_z_mean = Column(Float)  # , nullable=False)
-    dock_collapse_sequential_peaks_z_mean = Column(Float)  # , nullable=False)
-    dock_collapse_sequential_z_mean = Column(Float)  # , nullable=False)
-    dock_collapse_deviation_magnitude = Column(Float)  # , nullable=False)
-    dock_collapse_increase_significance_by_contact_order_z = Column(Float)  # , nullable=False)
-    dock_collapse_increased_z = Column(Float)  # , nullable=False)
-    dock_collapse_new_positions = Column(Boolean)  # , nullable=False)
-    dock_collapse_new_position_significance = Column(Float)  # , nullable=False)
-    dock_collapse_sequential_peaks_z = Column(Float)  # , nullable=False)
-    dock_collapse_sequential_z = Column(Float)  # , nullable=False)
-    dock_collapse_significance_by_contact_order_z = Column(Float)  # , nullable=False)
-    dock_collapse_variance = Column(Float)  # , nullable=False)
-    dock_collapse_violation = Column(Float)  # , nullable=False)
-    dock_hydrophobicity = Column(Float)  # , nullable=False)
     # Observed in profile measurements
-    observed_design = Column(Boolean)  # , nullable=False)
-    observed_evolution = Column(Boolean)  # , nullable=False)
-    observed_fragment = Column(Boolean)  # , nullable=False)
-    observed_interface = Column(Boolean)  # , nullable=False)
+    observed_design = Column(Integer)  # , nullable=False)
+    observed_evolution = Column(Integer)  # , nullable=False)
+    observed_fragment = Column(Integer)  # , nullable=False)
+    observed_interface = Column(Integer)  # , nullable=False)
     # Direct coupling analysis energy
-    dca_energy = Column(Boolean)  # , nullable=False)
+    dca_energy = Column(Float)  # , nullable=False)
     # -----------------------
 
     # def __repr__(self):
@@ -312,8 +333,8 @@ entity_pose_metrics = dict(
     entity_symmetry_group=String(4),
     entity_n_terminal_helix=Boolean,
     entity_c_terminal_helix=Boolean,
-    entity_n_terminal_orientation=Boolean,
-    entity_c_terminal_orientation=Boolean,
+    entity_n_terminal_orientation=Integer,  # Boolean,
+    entity_c_terminal_orientation=Integer,  # Boolean,
     entity_thermophile=Boolean,
     entity_interface_secondary_structure_fragment_topology=String(60),
     entity_interface_secondary_structure_topology=String(60),
@@ -350,13 +371,17 @@ class Residues(Base):
     __tablename__ = 'residues'
 
     id = Column(Integer, primary_key=True)
-    design_id = Column(Integer, ForeignKey('designs.id'))  # , nullable=False)
     # Residue position (surrogate for residue number) and type information
-    pose = Column(String, nullable=False)  # String(60)
-    design = Column(String, nullable=False)  # String(60)
+    # pose = Column(String, nullable=False)  # String(60)
+    # design = Column(String, nullable=False)  # String(60)
+    pose_name = Column(String, nullable=False)  # String(60)
+    design_name = Column(String, nullable=False)
+    pose_id = Column(ForeignKey('poses.id'))  # String, nullable=False)  # String(60)
+    design_id = Column(ForeignKey('designs.id'))  # Integer, nullable=False)
     index = Column(Integer, nullable=False)
     type = Column(String(1))  # , nullable=False)
     design_residue = Column(Boolean)
+    interface_residue = Column(Boolean)
     mutation = Column(Boolean)
     # Rosetta energy values
     complex = Column(Float)  # , nullable=False)
@@ -422,7 +447,7 @@ class Residues(Base):
     observed_fragment = Column(Boolean)  # , nullable=False)
     observed_interface = Column(Boolean)  # , nullable=False)
     # Direct coupling analysis energy
-    dca_energy = Column(Boolean)  # , nullable=False)
+    dca_energy = Column(Float)  # , nullable=False)
 
     # user = relationship("User", back_populates="addresses")
 
