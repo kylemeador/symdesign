@@ -208,6 +208,12 @@ def create_decoding_order(randn: torch.Tensor, chain_mask: torch.Tensor, tied_po
     return decoding_order
 
 
+class _ProteinMPNN(ProteinMPNN):
+    """Implemented to instruct logging outputs"""
+    log = logging.getLogger(f'{__name__}.ProteinMPNN')
+    pass
+
+
 class ProteinMPNNFactory:
     """Return a ProteinMPNN instance by calling the Factory instance with the ProteinMPNN model name
 
@@ -246,27 +252,28 @@ class ProteinMPNNFactory:
                                  f'Result:{os.getenv("PYTORCH_CUDA_ALLOC_CONF")}')
                 else:
                     self.device = torch.device('cpu')
-                logger.debug(f'The ProteinMPNN device is: {self.device}')
+                logger.debug(f'Loading ProteinMPNN model "{model_name_key}" to device: {self.device}')
 
             checkpoint = torch.load(os.path.join(utils.path.protein_mpnn_weights_dir, f'{model_name}.pt'),
                                     map_location=self.device)
-            logger.info(f'Number of edges: {checkpoint["num_edges"]}')
-            logger.info(f'Training noise level: {checkpoint["noise_level"]} Angstroms')
             hidden_dim = 128
             num_layers = 3
             with torch.no_grad():
-                model = ProteinMPNN(num_letters=mpnn_alphabet_length,
-                                    node_features=hidden_dim,
-                                    edge_features=hidden_dim,
-                                    hidden_dim=hidden_dim,
-                                    num_encoder_layers=num_layers,
-                                    num_decoder_layers=num_layers,
-                                    augment_eps=backbone_noise,
-                                    k_neighbors=checkpoint['num_edges'])
+                model = _ProteinMPNN(num_letters=mpnn_alphabet_length,
+                                     node_features=hidden_dim,
+                                     edge_features=hidden_dim,
+                                     hidden_dim=hidden_dim,
+                                     num_encoder_layers=num_layers,
+                                     num_decoder_layers=num_layers,
+                                     augment_eps=backbone_noise,
+                                     k_neighbors=checkpoint['num_edges'])
                 model.to(self.device)
                 model.load_state_dict(checkpoint['model_state_dict'])
                 model.eval()
                 model.device = self.device
+
+            model.log.info(f'Number of edges: {checkpoint["num_edges"]}')
+            model.log.info(f'Training noise level: {checkpoint["noise_level"]} Angstroms')
 
             number_of_mpnn_model_parameters = sum([math.prod(param.size()) for param in model.parameters()])
             logger.debug(f'The number of proteinmpnn model parameters is: {number_of_mpnn_model_parameters}')
@@ -590,7 +597,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
             sample_dict = proteinmpnn.tied_sample(X, randn, S_design_null, chain_mask, chain_encoding, residue_idx,
                                                   mask, chain_M_pos=residue_mask, temperature=temperature,
                                                   bias_by_res=bias_by_res, tied_pos=tied_pos, **batch_parameters)
-        logger.info(f'Sample calculation took {time.time() - sample_start_time:8f}s')
+        proteinmpnn.log.info(f'Sample calculation took {time.time() - sample_start_time:8f}s')
 
         # Format outputs
         S_sample = sample_dict['S']
@@ -636,7 +643,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         # tensor([2.1039, 2.0618, 2.0802, 2.0538, 2.0114, 2.0002], device='cuda:0')
         _per_residue_complex_sequence_loss.append(
             sequence_nllloss(_batch_sequences, complex_log_probs[:, :pose_length]).numpy())
-        logger.info(f'Log probabilities calculation took {time.time() - log_probs_start_time:8f}s')
+        proteinmpnn.log.info(f'Log probabilities calculation took {time.time() - log_probs_start_time:8f}s')
 
     # Reshape data structures to have shape (batch_length, number_of_temperatures, pose_length)
     _residue_indices_of_interest = residue_mask[:, :pose_length].cpu().numpy().astype(bool)

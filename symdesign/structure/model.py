@@ -20,7 +20,7 @@ from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
 from symdesign import flags, metrics, resources, utils
-from symdesign.resources import query
+from symdesign.resources import ml, query
 from . import fragment
 from .base import Structure, Structures, Residue, StructureBase, atom_or_residue
 from .coords import Coords, superposition3d, transform_coordinate_sets
@@ -5541,9 +5541,9 @@ class Pose(SymmetricModel):
         residue_mask[design_indices] = 1
 
         # Todo resolve these data structures as flags
-        omit_AAs_np = np.zeros(resources.ml.mpnn_alphabet_length, dtype=np.int32)  # (alphabet_length,)
+        omit_AAs_np = np.zeros(ml.mpnn_alphabet_length, dtype=np.int32)  # (alphabet_length,)
         bias_AAs_np = np.zeros_like(omit_AAs_np)  # (alphabet_length,)
-        omit_AA_mask = np.zeros((self.number_of_residues, resources.ml.mpnn_alphabet_length),
+        omit_AA_mask = np.zeros((self.number_of_residues, ml.mpnn_alphabet_length),
                                 dtype=np.int32)  # (number_of_residues, alphabet_length)
         # Todo what is enough bias?
         #  This needs to be on a scale with the magnitude of a typical logit for a decoded position
@@ -5731,7 +5731,7 @@ class Pose(SymmetricModel):
             raise NotImplementedError(f"Can't design with Rosetta from this method yet...")
         elif method == putils.proteinmpnn:  # Design with vanilla version of ProteinMPNN
             # Set up the model with the desired weights
-            proteinmpnn_model = resources.ml.proteinmpnn_factory(**kwargs)
+            proteinmpnn_model = ml.proteinmpnn_factory(**kwargs)
             device = proteinmpnn_model.device
 
             pose_length = self.number_of_residues
@@ -5766,8 +5766,8 @@ class Pose(SymmetricModel):
                     entity_unbound_coords[idx] = coord_func(coords + unbound_transform*idx)
 
                 X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
-                # extra_batch_parameters = resources.ml.batch_proteinmpnn_input(size=batch_length, X=X_unbound)
-                # extra_batch_parameters = resources.ml.proteinmpnn_to_device(device, **extra_batch_parameters)
+                # extra_batch_parameters = ml.batch_proteinmpnn_input(size=batch_length, X=X_unbound)
+                # extra_batch_parameters = ml.proteinmpnn_to_device(device, **extra_batch_parameters)
                 # extra_batch_parameters['X_unbound'] = extra_batch_parameters.pop('X')
                 parameters = {'X_unbound': X_unbound}
             else:
@@ -5786,12 +5786,12 @@ class Pose(SymmetricModel):
             per_residue_unbound_sequence_loss = np.empty_like(per_residue_complex_sequence_loss)
             design_indices = np.zeros((size, pose_length), dtype=bool)
 
-            @resources.ml.batch_calculation(size=size, batch_length=batch_length,
-                                            setup=resources.ml.setup_pose_batch_for_proteinmpnn,
-                                            compute_failure_exceptions=(RuntimeError,
-                                                                        np.core._exceptions._ArrayMemoryError))
-            def _proteinmpnn_batch_design(*args, **kwargs):
-                return resources.ml.proteinmpnn_batch_design(*args, **kwargs)
+            @ml.batch_calculation(size=size, batch_length=batch_length,
+                                  setup=ml.setup_pose_batch_for_proteinmpnn,
+                                  compute_failure_exceptions=(RuntimeError,
+                                                              np.core._exceptions._ArrayMemoryError))
+            def _proteinmpnn_batch_design(*args, **_kwargs):
+                return ml.proteinmpnn_batch_design(*args, **_kwargs)
 
             # Data has shape (batch_length, number_of_temperatures, pose_length)
             # design_start = time.time()
