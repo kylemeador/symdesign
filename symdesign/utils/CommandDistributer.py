@@ -11,7 +11,8 @@ from itertools import repeat
 from typing import AnyStr
 
 from symdesign import flags
-from . import calculate_mp_cores, collect_designs, InputError, mp_starmap, pickle_object, unpickle, path as putils
+from symdesign.utils import calculate_mp_cores, collect_designs, InputError, mp_starmap, pickle_object, unpickle, \
+    path as putils
 
 # Globals
 cmd_dist = os.path.abspath(__file__)
