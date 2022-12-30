@@ -102,7 +102,7 @@ def run(cmd: str, log_file_name: str, program: str = None, srun: str = None) -> 
     if log_file_name:
         with open(log_file_name, 'a') as log_f:
             command = cluster_prefix + program + command
-            log_f.write('Command: %s\n' % subprocess.list2cmdline(command))
+            log_f.write(f'Command: {subprocess.list2cmdline(command)}\n')
             p = subprocess.Popen(command, stdout=log_f, stderr=log_f)
             p.communicate()
     else:

@@ -284,22 +284,40 @@ class JobResources:
             process_design_selector_flags(**kwargs)
         # self.design_selector = kwargs.get('design_selector', {})
         self.dock = Dock.from_flags(**kwargs)
-        if self.dock.perturb_dof:
+        if self.dock.perturb_dof or self.dock.perturb_dof_rot or self.dock.perturb_dof_tx:
+            # Check if no other values were set and set them if so
             if not self.dock.perturb_dof_rot and not self.dock.perturb_dof_tx:
                 # Set all perturb_dof on and set to the provided default
                 self.dock.perturb_dof_rot = self.dock.perturb_dof_tx = True
-                self.dock.perturb_dof_steps_rot = self.dock.perturb_dof_steps_tx = self.dock.perturb_dof_steps
-            else:  # Use provided values
-                pass
-        elif self.dock.perturb_dof_rot or self.dock.perturb_dof_tx:
-            self.dock.perturb_dof = True
-        else:  # None provided, set the unavailable dof to 1 step
-            if not self.dock.perturb_dof_rot:
-                self.dock.perturb_dof_steps_rot = 1
-            elif not self.dock.perturb_dof_tx:
-                self.dock.perturb_dof_steps_tx = 1
-            else:
-                self.dock.perturb_dof_steps_rot = self.dock.perturb_dof_steps_tx = 1
+                if self.dock.perturb_dof_steps is None:
+                    self.dock.perturb_dof_steps_rot = self.dock.perturb_dof_steps_tx = flags.default_perturbation_steps
+                else:
+                    self.dock.perturb_dof_steps_rot = self.dock.perturb_dof_steps_tx = self.dock.perturb_dof_steps
+            else:  # Parse the provided values
+                self.dock.perturb_dof = True
+                if self.dock.perturb_dof_rot:
+                    if self.dock.perturb_dof_steps_rot is None:
+                        self.dock.perturb_dof_steps_rot = flags.default_perturbation_steps
+                else:
+                    self.dock.perturb_dof_steps_rot = 1
+
+                if self.dock.perturb_dof_tx:
+                    if self.dock.perturb_dof_steps_tx is None:
+                        self.dock.perturb_dof_steps_tx = flags.default_perturbation_steps
+                else:
+                    self.dock.perturb_dof_steps_tx = 1
+        else:  # None provided, set the unavailable dof to 1 step and warn if one was provided
+            if self.dock.perturb_dof_steps is not None:
+                logger.warning(f"Couldn't use the flag --{flags.perturb_dof_steps} as --{flags.perturb_dof}"
+                               f" wasn't set")
+            if self.dock.perturb_dof_steps_rot is not None:
+                logger.warning(f"Couldn't use the flag --{flags.perturb_dof_steps_rot} as --{flags.perturb_dof_rot}"
+                               f" wasn't set")
+            if self.dock.perturb_dof_steps_tx is not None:
+                logger.warning(f"Couldn't use the flag --{flags.perturb_dof_steps_tx} as --{flags.perturb_dof_tx}"
+                               f" wasn't set")
+            self.dock.perturb_dof_steps = self.dock.perturb_dof_steps_rot = self.dock.perturb_dof_steps_tx = 1
+
         # self.proteinmpnn_score: bool = kwargs.get('proteinmpnn_score', False)
         # self.contiguous_ghosts: bool = kwargs.get('contiguous_ghosts', False)
 
