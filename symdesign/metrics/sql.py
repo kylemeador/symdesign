@@ -73,7 +73,8 @@ def insert_dataframe(session: Session, _table: Base, df: pd.DataFrame):  # -> li
             .where(*tuple(key1 == key2 for key1, key2 in zip(index_keys, index_keys2)))
         logger.info(foreign_key_update_stmt)
 
-        select_stmt = select(key.column).where(*tuple(key1 == key2 for key1, key2 in zip(index_keys, index_keys2))).scalar_subquery()
+        select_stmt = select(key.column).where(key.parent.is_(None))\
+            .where(*tuple(key1 == key2 for key1, key2 in zip(index_keys, index_keys2))).scalar_subquery()
         foreign_key_update_stmt2 = table.update()\
             .values({key.parent.name: select_stmt})
         logger.info(foreign_key_update_stmt2)
