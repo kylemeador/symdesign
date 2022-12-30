@@ -730,14 +730,16 @@ nanohedra_arguments = {
     (f'--{perturb_dof_tx}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                    help='Whether the translational degrees of freedom should be finely sampled in\n'
                                         'subsequent docking iterations'),
-    (f'--{perturb_dof_steps}',): dict(type=int, default=default_perturbation_steps, metavar='INT',
+    (f'--{perturb_dof_steps}',): dict(type=int, metavar='INT',
                                       help='How many dof steps should be used during subsequent docking iterations.\n'
                                            f'For each DOF, a total of --{perturb_dof_steps} will be sampled during '
-                                           f'perturbation'),
-    (f'--{perturb_dof_steps_rot}',): dict(type=int, default=default_perturbation_steps, metavar='INT',
-                                          help='How many rotational dof steps should be used during perturbations\n'),
-    (f'--{perturb_dof_steps_tx}',): dict(type=int, default=default_perturbation_steps, metavar='INT',
-                                         help='How many translational dof steps should be used during perturbations\n'),
+                                           f'perturbation\nDefault={default_perturbation_steps}'),
+    (f'--{perturb_dof_steps_rot}',): dict(type=int, metavar='INT',
+                                          help='How many rotational dof steps should be used during perturbations\n'
+                                               f'Default={default_perturbation_steps}'),
+    (f'--{perturb_dof_steps_tx}',): dict(type=int, metavar='INT',
+                                         help='How many translational dof steps should be used during perturbations\n'
+                                              f'Default={default_perturbation_steps}'),
     (f'--{proteinmpnn_score}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                       help='Whether docking fit should be measured using ProteinMPNN'),
     ('-r1', f'--{rotation_step1}'): dict(type=float, default=3.,

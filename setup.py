@@ -137,8 +137,8 @@ if __name__ == '__main__':
     input("If you don't have these, use a package manager such as pip or conda to install these in your environment.\n"
           'Press Enter once these are located to continue.\nInput:')
 
-    print('Finally, hh-suite needs to be available. This is being created for you in the dependencies directory.')
-    hh_blits_latest_url = 'http://wwwuser.gwdg.de/~compbiol/data/hhsuite/databases/hhsuite_dbs/uniclust-latest'
+    print('Finally, hh-suite needs to be available. This is being created for you in the dependencies directory')
+    hhblits_latest_url = 'https://wwwuser.gwdg.de/~compbiol/uniclust/uniclust-latest'
     hhsuite = subprocess.Popen()
     hhsuite.communicate()
 
