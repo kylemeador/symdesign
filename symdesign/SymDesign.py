@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging.config
 import os
 import sys
+from argparse import Namespace
 from glob import glob
 from itertools import repeat, product, combinations
 from subprocess import list2cmdline
@@ -394,9 +395,24 @@ def main():
             additional_args.extend(['--file', 'dummy'])
             remove_dummy = True
         # Parse all options for every module provided
-        for module in args.modules:
-            additional_args = [module] + additional_args
-            args, additional_args = module_parser.parse_known_args(args=additional_args, namespace=args)
+        # input(f'{args}\n\n{additional_args}')
+        all_args = [args]
+        for idx, module in enumerate(args.modules):
+            # additional_args = [module] + additional_args
+            args, additional_args = \
+                module_parser.parse_known_args(args=[module] + additional_args)
+                                               # , namespace=args)
+            all_args.append(args)
+            # input(f'{args}\n\n{additional_args}')
+
+        # Invert all the arguments to ensure those that were specified first are set and not overwritten by default
+        for _args in reversed(all_args):
+            _args_ = vars(args)
+            _args_.update(**vars(_args))
+            # print(_args_)
+            args = Namespace(**_args_)
+            # args = Namespace(**vars(args), **vars(_args))
+            # input(args)
         # Set the module to flags.protocol again after parsing
         args.module = flags.protocol
 
