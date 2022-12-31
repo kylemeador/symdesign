@@ -131,6 +131,7 @@ pose_directory = 'Poses'
 
 data = 'data'
 designs = 'designs'  # was rosetta_pdbs/ 1/25/21
+job_paths = 'JobPaths'
 all_scores = 'AllScores'
 scores_outdir = 'scores'
 scripts = 'scripts'

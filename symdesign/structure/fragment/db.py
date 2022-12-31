@@ -684,7 +684,7 @@ class EulerLookupFactory:
         if lookup:
             return lookup
         else:
-            logger.info(f'Initializing {EulerLookup.__name__}')
+            logger.info(f'Initializing {EulerLookup.__name__}()')
             self._lookup_tables['euler'] = EulerLookup(**kwargs)
 
         return self._lookup_tables['euler']
