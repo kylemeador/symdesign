@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from time import time
 
 import numpy as np
 import pandas as pd
@@ -55,7 +56,9 @@ def insert_dataframe(session: Session, _table: Base, df: pd.DataFrame):  # -> li
     # This works using insert with conflict, however, doesn't return the auto-incremented ids
     # result = session.execute(do_update_stmt, df.reset_index().to_dict('records'))
     # result = session.execute(insert_stmt, df.reset_index().to_dict('records'))
+    start_time = time()
     session.execute(insert_stmt, df.reset_index().to_dict('records'))
+    logger.info(f'Transaction took {time() - start_time:8f}s')
 
     session.commit()
     # input('is this deleting?')
@@ -83,7 +86,9 @@ def insert_dataframe(session: Session, _table: Base, df: pd.DataFrame):  # -> li
             .values({key.parent.name: select_stmt})
         logger.info(foreign_key_update_stmt2)
         # session.execute(foreign_key_update_stmt)
+        start_time = time()
         session.execute(foreign_key_update_stmt2)
+        logger.info(f'Transaction took {time() - start_time:8f}s')
 
     session.commit()
     # return result
