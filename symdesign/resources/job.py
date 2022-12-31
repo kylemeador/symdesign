@@ -215,9 +215,8 @@ class JobResources:
         # if self.output_to_directory:
         #     self.projects = ''
         self.projects = os.path.join(self.program_root, putils.projects)
-        self.job_paths = os.path.join(self.program_root, 'JobPaths')
-        self.sbatch_scripts = os.path.join(self.program_root, 'Scripts')
-        # TODO ScoreDatabase integration
+        self.job_paths = os.path.join(self.program_root, putils.job_paths)
+        self.sbatch_scripts = os.path.join(self.program_root, putils.scripts.title())
         self.all_scores = os.path.join(self.program_root, putils.all_scores)
 
         # data subdirectories
@@ -822,7 +821,7 @@ class JobResourcesFactory:
     """
     def __init__(self, **kwargs):
         self._resources = {}
-        self._warn = False
+        self._warn = True
 
     def __call__(self, **kwargs) -> JobResources:
         """Return the specified JobResources object singleton
@@ -835,18 +834,18 @@ class JobResourcesFactory:
         source = 'single'
         job = self._resources.get(source)
         if job:
-            if kwargs and not self._warn:
+            if kwargs and self._warn:
                 # try:
                 #     fragment_db.update(kwargs)
                 # except RuntimeError:
-                self._warn = True
+                self._warn = False
                 logger.warning(f"Can't pass the new arguments {', '.join(kwargs.keys())} to JobResources "
                                f'since it was already initialized and is a singleton')
                 # raise RuntimeError(f'Can\'t pass the new arguments {", ".join(kwargs.keys())} to JobResources '
                 #                    f'since it was already initialized')
             return job
         else:
-            logger.info(f'Initializing {JobResources.__name__}')
+            logger.info(f'Initializing {JobResources.__name__}({kwargs.get("program_root", os.getcwd())})')
             self._resources[source] = JobResources(**kwargs)
 
         return self._resources[source]

@@ -669,7 +669,9 @@ class StructureDatabaseFactory:
         # self._databases = {}
         self._database = None
 
-    def __call__(self, source: str = os.path.join(os.getcwd(), f'{putils.program_name}{putils.data.title()}'),
+    def __call__(self, source: str = os.path.join(os.getcwd(),
+                                                  f'{putils.program_name}{putils.data.title()}',
+                                                  putils.structure_info),
                  sql: bool = False, **kwargs) -> StructureDatabase:
         """Return the specified StructureDatabase object singleton
 
@@ -688,10 +690,10 @@ class StructureDatabaseFactory:
         elif sql:
             raise NotImplementedError('SQL set up has not been completed!')
         else:
-            structure_info_dir = os.path.join(source, putils.structure_info)
-            pdbs = os.path.join(structure_info_dir, 'PDBs')  # Used to store downloaded PDB's
+            # source = os.path.join(source, putils.structure_info)
+            pdbs = os.path.join(source, 'PDBs')  # Used to store downloaded PDB's
             # stride directory
-            stride_dir = os.path.join(structure_info_dir, 'stride')
+            stride_dir = os.path.join(source, 'stride')
             # Todo only make paths if they are needed...
             putils.make_path(stride_dir)
             # pdbs subdirectories
@@ -703,7 +705,7 @@ class StructureDatabaseFactory:
             putils.make_path(orient_asu_dir)
             putils.make_path(refine_dir)
             putils.make_path(full_model_dir)
-            logger.info(f'Initializing {source} {StructureDatabase.__name__}')
+            logger.info(f'Initializing {StructureDatabase.__name__}({source})')
 
             # self._databases[source] = \
             #     StructureDatabase(orient_dir, orient_asu_dir, refine_dir, full_model_dir, stride_dir, sql=None)
