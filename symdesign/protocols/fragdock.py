@@ -4191,8 +4191,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
     # return [protocols.PoseDirectory.from_file(file, entity_names=entity_names,
     #                                           pose_transformation=create_specific_transformation(idx))
-    # return [protocols.PoseDirectory.from_pose_id(pose_id, entity_names=entity_names,
-    return [protocols.PoseDirectory.from_pose_name(pose_name, root=program_root, entity_names=entity_names,
-                                                   pose_transformation=create_specific_transformation(idx))
+    # return [protocols.PoseJob.from_pose_id(pose_id, entity_names=entity_names,
+    return [protocols.PoseDirectory.from_pose_directory(pose_name, root=program_root, entity_names=entity_names,
+                                                        pose_transformation=create_specific_transformation(idx))
             for idx, pose_name in enumerate(project_pose_names)]
     # ------------------ TERMINATE DOCKING ------------------------
