@@ -912,8 +912,8 @@ class PoseDirectory(PoseProtocol):
         # If a new sym_entry is provided it wouldn't be saved to the state but could be attempted to be used
         if self.job.sym_entry is not None:
             self.sym_entry = self.job.sym_entry
-        self.sym_def_file: str | None = None  # The symmetry definition file for the entire Pose
-        self.symmetry_protocol: str | None = None
+        # self.sym_def_file: str | None = None  # The symmetry definition file for the entire Pose
+        # self.symmetry_protocol: str | None = None
         self.protocol: str | None = None
         """The name of the currently utilized protocol for file naming and metric results"""
 
