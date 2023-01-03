@@ -1066,7 +1066,7 @@ class PoseSpecification:
                 found_poses[pose] = [idx]
 
         number_pose_ids = len(self.pose_ids)
-        if self.directives:  # specification_file
+        if self.directives:
             if number_pose_ids != len(self.directives):
                 raise ValueError('The inputs to the PoseSpecification have different lengths!')
         else:

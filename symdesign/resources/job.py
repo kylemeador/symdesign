@@ -210,6 +210,7 @@ class JobResources:
 
         # Input parameters
         self.output_file = kwargs.get(putils.output_file)
+        self.project_name = kwargs.get('project_name')
         # program_root subdirectories
         self.data = os.path.join(self.program_root, putils.data.title())
         # if self.output_to_directory:
@@ -407,6 +408,7 @@ class JobResources:
         self.tag_entities = kwargs.get(putils.tag_entities)
         # self.metric = kwargs.get('metric')
         self.specification_file = kwargs.get(putils.specification_file)
+        """Used to specify whether specific designs should be fetched for select_* modules"""
         self.dataframe = kwargs.get('dataframe')
         self.metric = kwargs.get('metric')
 

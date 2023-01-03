@@ -68,6 +68,7 @@ number = 'number'
 nucleotide = 'nucleotide'
 as_objects = 'as_objects'
 allow_multiple_poses = 'allow_multiple_poses'
+project_name = 'project_name'
 
 # Set up JobResources namespaces for different categories of flags
 design_namespace = {
@@ -165,6 +166,7 @@ avoid_tagging_helices = format_for_cmdline(avoid_tagging_helices)
 preferred_tag = format_for_cmdline(preferred_tag)
 multicistronic_intergenic_sequence = format_for_cmdline(multicistronic_intergenic_sequence)
 allow_multiple_poses = format_for_cmdline(allow_multiple_poses)
+project_name = format_for_cmdline(project_name)
 
 
 # def return_default_flags():
@@ -589,6 +591,8 @@ options_arguments = {
     ('--mpi',): dict(type=int, default=0, metavar='INT',
                      help='If commands should be run as MPI parallel processes, how many '
                           'processes\nshould be invoked for each job?\nDefault=%(default)s'),
+    (f'--{project_name}',): dict(type=str, metavar='STR',
+                                 help='If desired, the name of the initialized project\nDefault is inferred from file'),
     ('-M', f'--{multi_processing}'): dict(action='store_true', help='Should job be run with multiple processors?'),
     (f'--{profile}',): dict(action='store_true',
                             help='memory_profiler.profile() a module. Must be run with --development'),
@@ -1119,7 +1123,7 @@ input_arguments = {
                                   'instances should be\nseparated by a space\nEx --fuse-chains A:B C:D'),
     ('-N', f'--{nanohedra}V1-output'): dict(action='store_true', dest=nanohedra_output,
                                             help='Is the input a Nanohedra wersion 1 docking output?'),
-    ('-pf', f'--{pose_file}'): dict(type=str, dest=putils.specification_file,
+    ('-pf', f'--{pose_file}'): dict(type=os.path.abspath, nargs='*', dest=putils.specification_file,
                                     metavar=ex_path('pose_design_specifications.csv'),
                                     help=f'If pose IDs are specified in a file, say as the result of\n{select_poses}'
                                          f' or {select_designs}'),
@@ -1131,7 +1135,8 @@ input_arguments = {
                                  'Specify a %% between 0 and 100, separating the range by "-"\n'
                             # %% is required ^ for format
                                  'Ex: 0-25'),
-    ('-sf', f'--{specification_file}'): dict(type=str, metavar=ex_path('pose_design_specifications.csv'),
+    ('-sf', f'--{specification_file}'): dict(type=os.path.abspath, nargs='*',
+                                             metavar=ex_path('pose_design_specifications.csv'),
                                              help='Name of comma separated file with each line formatted:\nposeID, '
                                                   '[designID], [residue_number:directive residue_number2-'
                                                   'residue_number9:directive ...]')

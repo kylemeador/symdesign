@@ -432,14 +432,15 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Find base symdesign_directory and check for proper set up of program i/o
     # -----------------------------------------------------------------------------------------------------------------
-    symdesign_directory = None
     # Check if output already exists or --overwrite is provided
     if args.output_file and os.path.exists(args.output_file) and args.module not in flags.analysis \
             and not args.overwrite:
         exit(f'The specified output file "{args.output_file}" already exists, this will overwrite your old '
              f'data! Please specify a new name with with -Of/--{flags.output_file}, '
              'or append --overwrite to your command')
-    elif args.output_directory:
+    symdesign_directory = None
+    # If output exists, get the base SymDesign dir -> symdesign_directory
+    if args.output_directory:
         if os.path.exists(args.output_directory) and not args.overwrite:
             exit(f'The specified output directory "{args.output_directory}" already exists, this will overwrite '
                  f'your old data! Please specify a new name with with -Od/--{flags.output_directory}, '
@@ -451,30 +452,42 @@ def main():
         symdesign_directory = utils.get_base_symdesign_dir(
             (args.directory or (args.project or args.single or [None])[0] or os.getcwd()))
 
-    root = None
-    if symdesign_directory is None:  # Check if there is a file and see if we can solve there
+    project_name = None
+    """Used to set a leading string on all new PoseDirectory paths"""
+    if symdesign_directory is None:  # We found no directory from the input
         # By default, assume new input and make in the current directory
         symdesign_directory = os.path.join(os.getcwd(), putils.program_output)
-        if args.file:
-            # See if the file contains SymDesign specified paths
-            # Must index the first file with [0]...
-            with open(args.file[0], 'r') as f:
-                line = f.readline()
-                if os.path.splitext(line)[1] == '':  # No extension. Provided as directory/poseid from SymDesign output
-                    file_directory = utils.get_base_symdesign_dir(line)
-                    if file_directory is not None:
-                        symdesign_directory = file_directory
-                else:
-                    # Set file basename as "root". Designs are being integrated for the first time
-                    # In this case, design names might be the same, so we have to take the full file path as the name
-                    # to discriminate between separate files
-                    root = os.path.splitext(os.path.basename(args.file))[0]
-
+        # Check if there is a file and see if we can solve there
+        file_sources = ['file', 'specification_file']  # 'pose_file'
+        for file_source in file_sources:
+            file = getattr(args, file_source, None)
+            if file:  # See if the file contains SymDesign specified paths
+                # Must index the first file with [0] as it can be a list...
+                file = file[0]
+                with open(file, 'r') as f:
+                    line = f.readline()
+                    basename, extension = os.path.splitext(line)
+                    if extension == '':  # No extension. Provided as directory/poseid from SymDesign output
+                        file_directory = utils.get_base_symdesign_dir(line)
+                        if file_directory is not None:
+                            symdesign_directory = file_directory
+                            new_symdesign_output = False
+                    else:
+                        # Set file basename as "project_name" in case poses are being integrated for the first time
+                        # In this case, pose names might be the same, so we take the basename of the first file path as
+                        # the name to discriminate between separate files
+                        project_name = os.path.splitext(os.path.basename(file))[0]
+                break
+        # Ensure the base directory is made if it is indeed new and in os.getcwd()
         putils.make_path(symdesign_directory)
     # -----------------------------------------------------------------------------------------------------------------
     #  Process JobResources which holds shared program objects and command-line arguments
     # -----------------------------------------------------------------------------------------------------------------
     job = job_resources_factory.get(program_root=symdesign_directory, arguments=args)
+    if job.project_name:
+        project_name = job.project_name
+    # else:
+    #     project_name = fallback_project_name
     if args.module == flags.protocol:
         # Set the first module as the program module to allow initialization
         job.module = args.modules[0]
@@ -604,7 +617,7 @@ def main():
         #             job.nanohedra_root = f'{os.sep}{os.path.join(*first_pose_path.split(os.sep)[:-4])}'
         #         if not job.sym_entry:  # Get from the Nanohedra output
         #             job.sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
-        #         pose_directories = [PoseDirectory.from_file(pose, root=root)
+        #         pose_directories = [PoseDirectory.from_file(pose, project=project_name)
         #                             for pose in all_poses[low_range:high_range]]
         #         # Copy the master nanohedra log
         #         project_designs = \
@@ -613,15 +626,20 @@ def main():
         #             putils.make_path(project_designs)
         #             shutil.copy(os.path.join(job.nanohedra_root, putils.master_log), project_designs)
         if args.specification_file:
+            # These poses are already included in the "program state"
             if not args.directory:
                 raise utils.InputError(f'A --{flags.directory} must be provided when using '
                                        f'--{flags.specification_file}')
             # Todo, combine this with collect_designs
             #  this works for file locations as well! should I have a separate mechanism for each?
-            design_specification = utils.PoseSpecification(args.specification_file)
-            pose_directories = [PoseDirectory.from_pose_name(pose, root=args.directory, specific_designs=designs,
-                                                             directives=directives)
-                                for pose, designs, directives in design_specification.get_directives()]
+            pose_directories = []
+            for specification_file in args.specification_file:
+                # design_specification = utils.PoseSpecification(specification_file)
+                pose_directories.extend(
+                    [PoseDirectory.from_pose_name(pose, root=job.projects,
+                                                  specific_designs=designs,
+                                                  directives=directives)
+                     for pose, designs, directives in utils.PoseSpecification(specification_file).get_directives()])
             job.location = args.specification_file
         else:
             all_poses, job.location = utils.collect_designs(files=args.file, directory=args.directory,
@@ -634,10 +652,10 @@ def main():
                                                f'--{flags.directory} was passed. Please resubmit with '
                                                f'--{flags.directory} and use --{flags.pose_file}/'
                                                f'--{flags.specification_file} with pose IDs')
-                    pose_directories = [PoseDirectory.from_pose_name(pose, root=args.directory)
+                    pose_directories = [PoseDirectory.from_pose_name(pose, root=job.projects)
                                         for pose in all_poses[low_range:high_range]]
                 else:
-                    pose_directories = [PoseDirectory.from_file(pose, root=root)
+                    pose_directories = [PoseDirectory.from_file(pose, project=project_name)
                                         for pose in all_poses[low_range:high_range]]
         if not pose_directories:
             raise utils.InputError(f'No {putils.program_name} directories found at location "{job.location}"')
