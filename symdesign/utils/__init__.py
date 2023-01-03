@@ -953,26 +953,26 @@ def get_base_symdesign_dir(search_path: str = None) -> AnyStr | None:
     Args:
         search_path: The path to search
     Returns:
-        The path of the identified program root
+        The absolute path of the identified program root
     """
     base_dir = None
-    if search_path is None:
-        pass
-    elif putils.program_output in search_path:   # directory1/SymDesignOutput/directory2/directory3
-        for idx, dirname in enumerate(search_path.split(os.sep), 1):
-            if dirname == putils.program_output:
-                base_dir = f'{os.sep}{os.path.join(*search_path.split(os.sep)[:idx])}'
-                break
-    else:
-        try:
-            all_files = os.listdir(search_path)
-        except FileNotFoundError:
-            all_files = []
-        if putils.program_output in all_files:  # directory_provided/SymDesignOutput
-            for sub_directory in all_files:
-                if sub_directory == putils.program_output:
-                    base_dir = os.path.join(search_path, sub_directory)
+    if search_path is not None:
+        search_path = os.path.abspath(search_path)
+        if putils.program_output in search_path:   # directory1/SymDesignOutput/directory2/directory3
+            for idx, dirname in enumerate(search_path.split(os.sep), 1):
+                if dirname == putils.program_output:
+                    base_dir = f'{os.sep}{os.path.join(*search_path.split(os.sep)[:idx])}'
                     break
+        else:
+            try:
+                all_files = os.listdir(search_path)
+            except FileNotFoundError:
+                all_files = []
+            if putils.program_output in all_files:  # directory_provided/SymDesignOutput
+                for sub_directory in all_files:
+                    if sub_directory == putils.program_output:
+                        base_dir = os.path.join(search_path, sub_directory)
+                        break
 
     return base_dir
 
