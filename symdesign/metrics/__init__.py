@@ -12,13 +12,13 @@ import numpy as np
 import pandas as pd
 import torch
 
+from . import sql
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, validate_type, verify_choice, header_string
 from symdesign.structure.utils import DesignError
-from ..sequence import protein_letters_literal, alphabet_types, create_translation_tables
+from symdesign.sequence import protein_letters_literal, alphabet_types, create_translation_tables
 from symdesign import utils, flags
-from symdesign.utils import path as putils
-from . import sql
+putils = utils.path
 
 logger = logging.getLogger(__name__)
 residue_classification = ['core', 'rim', 'support']  # 'hot_spot'

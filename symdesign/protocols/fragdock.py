@@ -31,11 +31,10 @@ from symdesign.structure.model import Pose, Model, get_matching_fragment_pairs_i
 from symdesign.structure.sequence import concatenate_profile, pssm_as_array
 from symdesign.structure.utils import chain_id_generator
 from symdesign.sequence import protein_letters_alph1
-from symdesign import utils
-from symdesign.utils import path as putils
 from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
 from symdesign.utils.sql import Designs, Residues, Poses
 from symdesign.utils.symmetry import generate_cryst1_record, identity_matrix
+putils = utils.path
 
 # Globals
 logger = logging.getLogger(__name__)
