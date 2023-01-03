@@ -1826,7 +1826,7 @@ class PoseDirectory(PoseProtocol):
             self.pose = Pose.from_file(source if source else self.source, name=name, **self.pose_kwargs)
 
         if self.pose.is_symmetric():
-            self.symmetric_assembly_is_clash()
+            self._symmetric_assembly_is_clash()
             if self.job.output_assembly:
                 self.pose.write(assembly=True, out_path=self.assembly_path,
                                 increment_chains=self.job.increment_chains)
@@ -1881,47 +1881,7 @@ class PoseDirectory(PoseProtocol):
         self.pose.write(out_path=self.asu_path)
         self.log.info(f'Cleaned PDB: "{self.asu_path}"')
 
-    def identify_interface(self):  # Todo to PoseProtocols?
-        """Find the interface(s) between each Entity in the Pose. Handles symmetric clash testing, writing the assembly
-        """
-        #         Sets:
-        #             self.interface_residue_ids (dict[str, str]):
-        #                 Map each interface to the corresponding residue/chain pairs
-        #             self.interface_design_residue_numbers (set[int]):
-        #                 The residues in proximity of the interface, including buried residues
-        #             self.interface_residue_numbers (set[int]):
-        #                 The residues in contact across the interface
-
-        self.load_pose()
-        self.pose.find_and_split_interface()
-
-        # self.interface_design_residue_numbers = set()  # Replace set(). Add new residues
-        # for number, residues_entities in self.pose.split_interface_residues.items():
-        #     self.interface_design_residue_numbers.update([residue.number for residue, _ in residues_entities])
-        # self.log.debug(f'Found interface design residues: '
-        #                f'{", ".join(map(str, sorted(self.interface_design_residue_numbers)))}')
-
-        # self.interface_residue_numbers = set()  # Replace set(). Add new residues
-        # for entity in self.pose.entities:
-        #     # Tod0 v clean as it is redundant with analysis and falls out of scope
-        #     entity_oligomer = Model.from_chains(entity.chains, log=entity.log, entities=False)
-        #     # entity.oligomer.get_sasa()
-        #     # Must get_residues by number as the Residue instance will be different in entity_oligomer
-        #     for residue in entity_oligomer.get_residues(self.interface_design_residue_numbers):
-        #         if residue.sasa > 0:
-        #             # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
-        #             self.interface_residue_numbers.add(residue.number)
-        # self.log.debug(f'Found interface residues: {", ".join(map(str, sorted(self.interface_residue_numbers)))}')
-
-        # for number, residues_entities in self.pose.split_interface_residues.items():
-        #     self.interface_residue_ids[f'interface{number}'] = \
-        #         ','.join(f'{residue.number}{entity.chain_id}' for residue, entity in residues_entities)
-
-        # self.info['interface_design_residues'] = self.interface_design_residue_numbers
-        # self.info['interface_residues'] = self.interface_residue_numbers
-        # self.info['interface_residue_ids'] = self.interface_residue_ids
-
-    def symmetric_assembly_is_clash(self):  # Todo to PoseProtocols?
+    def _symmetric_assembly_is_clash(self):
         """Wrapper around the Pose symmetric_assembly_is_clash() to check at the Pose level for clashes and raise
         ClashError if any are found, otherwise, continue with protocol
         """
@@ -2044,7 +2004,70 @@ class PoseDirectory(PoseProtocol):
 
         self.fragment_observations = self.pose.get_fragment_observations()
         self.info['fragment_source'] = self.job.fragment_db.source
-        self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
+        self.pickle_info()  # Todo remove once PoseJob state can be returned to the SymDesign dispatch w/ MP
+
+    def __key(self) -> str:
+        return self.name
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, PoseDirectory):
+            return self.__key() == other.__key()
+        raise NotImplementedError(f"Can't compare {PoseDirectory.__name__} instance to {other.__name__} instance")
+
+    def __hash__(self) -> int:
+        return hash(self.__key())
+
+    def __str__(self) -> str:
+        # if self.job.nanohedra_output:
+        #     return self.source_path.replace(f'{self.job.nanohedra_root}{os.sep}', '').replace(os.sep, '-')
+        # elif self.job.output_to_directory:
+        #     return self.name
+        # else:
+        #     return self.path.replace(f'{self.job.projects}{os.sep}', '').replace(os.sep, '-')
+        return self.pose_id
+
+
+class PoseProtocol(PoseData):
+
+    def identify_interface(self):
+        """Find the interface(s) between each Entity in the Pose. Handles symmetric clash testing, writing the assembly
+        """
+        #         Sets:
+        #             self.interface_residue_ids (dict[str, str]):
+        #                 Map each interface to the corresponding residue/chain pairs
+        #             self.interface_design_residue_numbers (set[int]):
+        #                 The residues in proximity of the interface, including buried residues
+        #             self.interface_residue_numbers (set[int]):
+        #                 The residues in contact across the interface
+
+        self.load_pose()
+        self.pose.find_and_split_interface()
+
+        # self.interface_design_residue_numbers = set()  # Replace set(). Add new residues
+        # for number, residues_entities in self.pose.split_interface_residues.items():
+        #     self.interface_design_residue_numbers.update([residue.number for residue, _ in residues_entities])
+        # self.log.debug(f'Found interface design residues: '
+        #                f'{", ".join(map(str, sorted(self.interface_design_residue_numbers)))}')
+
+        # self.interface_residue_numbers = set()  # Replace set(). Add new residues
+        # for entity in self.pose.entities:
+        #     # Tod0 v clean as it is redundant with analysis and falls out of scope
+        #     entity_oligomer = Model.from_chains(entity.chains, log=entity.log, entities=False)
+        #     # entity.oligomer.get_sasa()
+        #     # Must get_residues by number as the Residue instance will be different in entity_oligomer
+        #     for residue in entity_oligomer.get_residues(self.interface_design_residue_numbers):
+        #         if residue.sasa > 0:
+        #             # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
+        #             self.interface_residue_numbers.add(residue.number)
+        # self.log.debug(f'Found interface residues: {", ".join(map(str, sorted(self.interface_residue_numbers)))}')
+
+        # for number, residues_entities in self.pose.split_interface_residues.items():
+        #     self.interface_residue_ids[f'interface{number}'] = \
+        #         ','.join(f'{residue.number}{entity.chain_id}' for residue, entity in residues_entities)
+
+        # self.info['interface_design_residues'] = self.interface_design_residue_numbers
+        # self.info['interface_residues'] = self.interface_residue_numbers
+        # self.info['interface_residue_ids'] = self.interface_residue_ids
 
     def prepare_rosetta_flags(self, symmetry_protocol: str = None, sym_def_file: str = None, pdb_out_path: str = None,
                               out_dir: AnyStr = os.getcwd()) -> str:
@@ -2085,32 +2108,23 @@ class PoseDirectory(PoseProtocol):
                          if os.path.exists(self.fragment_profile_file) else [])
 
         if self.pose.is_symmetric():
-            def prepare_symmetry_for_rosetta():
-                """For the specified design, locate/make the symmetry files necessary for Rosetta input
+            # For the specified design, locate/make the symmetry files necessary for Rosetta input
+            if self.sym_entry is None:  # asymmetric
+                symmetry_protocol = 'asymmetric'
+                self.log.debug('No symmetry invoked during design')
+                variables.append(('symmetry', symmetry_protocol))
+            else:
+                if symmetry_protocol is None:
+                    symmetry_protocol = symmetry_protocols[self.design_dimension]
+                if sym_def_file is None:
+                    sym_def_file = self.sym_entry.sdf_lookup()
+                variables.extend([('symmetry', symmetry_protocol), ('sdf', sym_def_file)])
 
-                Sets:
-                    self.symmetry_protocol (str)
-                    self.sym_def_file (AnyStr)
-                """
-                if self.sym_entry is None:  # asymmetric
-                    self.symmetry_protocol = 'asymmetric'
-                    # self.sym_def_file = sdf_lookup()
-                    self.log.debug('No symmetry invoked during design')
-                else:  # Symmetric
-                    self.symmetry_protocol = symmetry_protocols[self.design_dimension]
-                    self.sym_def_file = self.sym_entry.sdf_lookup()
-                self.log.info(f'Symmetry Option: {self.symmetry_protocol}')
-
-            prepare_symmetry_for_rosetta()
-            if symmetry_protocol is None:
-                symmetry_protocol = self.symmetry_protocol
-            if not sym_def_file:
-                sym_def_file = self.sym_def_file
-            variables.extend([] if symmetry_protocol is None else [('symmetry', symmetry_protocol),
-                                                                   ('sdf', sym_def_file)])
+            self.log.info(f'Symmetry Option: {symmetry_protocol}')
             out_of_bounds_residue = number_of_residues*self.pose.number_of_symmetry_mates + 1
         else:
-            variables.append(('symmetry', symmetry_protocol))
+            if symmetry_protocol is not None:
+                variables.append(('symmetry', symmetry_protocol))
             out_of_bounds_residue = number_of_residues + 1
 
         interface_residue_ids = {}
@@ -2151,7 +2165,6 @@ class PoseDirectory(PoseProtocol):
 
         return out_file
 
-    # Below methods run Rosetta script set up for various design applications
     def generate_entity_metrics(self, entity_command) -> list[list[str] | None]:
         """Use the Pose state to generate metrics commands for each Entity instance
 
@@ -2185,19 +2198,6 @@ class PoseDirectory(PoseProtocol):
             entity_metric_commands.append(metric_cmd)
 
         return entity_metric_commands
-
-    def _predict_structure(self):
-        match self.job.predict.method:
-            case 'thread':
-                self.thread_sequences_to_backbone()
-            case 'proteinmpnn':
-                self.thread_sequences_to_backbone()
-            # Todo
-            #  case 'alphafold':
-            #      self.run_alphafold()
-            case _:
-                raise NotImplementedError(f"For {self.predict_structure.__name__}, the method {self.job.predict.method}"
-                                          " isn't implemented yet")
 
     def thread_sequences_to_backbone(self, sequences: dict[str, str] = None):
         """From the starting Pose, thread sequences onto the backbone, modifying relevant side chains i.e., mutate the
@@ -2251,15 +2251,1088 @@ class PoseDirectory(PoseProtocol):
         else:
             raise DesignError(f'{self.thread_sequences_to_backbone.__name__}: No designed sequences were located')
 
-        self._refine(in_file_list=design_files_file)
+        self.refine(in_file_list=design_files_file)
 
-    def _refine(self, to_pose_directory: bool = True, metrics: bool = True, in_file_list: AnyStr = None):
+    def predict_structure(self):
+        match self.job.predict.method:
+            case 'thread':
+                self.thread_sequences_to_backbone()
+            case 'proteinmpnn':
+                self.thread_sequences_to_backbone()
+            # Todo
+            #  case 'alphafold':
+            #      self.run_alphafold()
+            case _:
+                raise NotImplementedError(f"For {self.predict_structure.__name__}, the method {self.job.predict.method}"
+                                          " isn't implemented yet")
+
+    def interface_design_analysis(self, designs: Iterable[Pose] | Iterable[AnyStr] = None) -> pd.Series:
+        """Retrieve all score information from a PoseJob and write results to .csv file
+
+        Args:
+            designs: The designs to perform analysis on. By default, fetches all available structures
+        Returns:
+            Series containing summary metrics for all designs
+        """
+        self.load_pose()
+        # self.identify_interface()
+
+        # Load fragment_profile into the analysis
+        if self.job.design.term_constraint and not self.pose.fragment_queries:
+            self._generate_fragments(interface=True)
+            self.pose.calculate_fragment_profile()
+
+        # CAUTION: Assumes each structure is the same length
+        # Todo get residues_df['design_indices']
+        pose_length = self.pose.number_of_residues
+        residue_indices = list(range(pose_length))
+        # residue_numbers = [residue.number for residue in self.pose.residues]
+        # interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
+
+        # Find all designs files
+        # Todo fold these into Model(s) and attack metrics from Pose objects?
+        if designs is None:
+            designs = [Pose.from_file(file, **self.pose_kwargs) for file in self.get_designs()]  # Todo PoseJob(.path)
+
+        pose_sequences = {pose.name: pose.sequence for pose in designs}
+        sequences_df = self.analyze_sequence_metrics_per_design(pose_sequences)
+        # all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences,
+        #                                                   zero_index=True, return_to=True)
+
+        entity_energies = [0. for _ in self.pose.entities]
+        pose_source_residue_info = \
+            {residue.number: {'complex': 0., 'bound': entity_energies.copy(), 'unbound': entity_energies.copy(),
+                              'solv_complex': 0., 'solv_bound': entity_energies.copy(),
+                              'solv_unbound': entity_energies.copy(), 'fsp': 0., 'cst': 0.,
+                              'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
+             for entity in self.pose.entities for residue in entity.residues}
+        residue_info = {self.pose.name: pose_source_residue_info}
+
+        # Gather miscellaneous pose specific metrics
+        # other_pose_metrics = self.pose.interface_metrics()
+        # Create metrics for the pose_source
+        empty_source = dict(
+            # **other_pose_metrics,
+            buns_complex=0,
+            # buns_unbound=0,
+            contact_count=0,
+            favor_residue_energy=0,
+            interaction_energy_complex=0,
+            interaction_energy_per_residue=0,
+            interface_separation=0,
+            number_of_hbonds=0,
+            rmsd_complex=0,  # Todo calculate this here instead of Rosetta using superposition3d
+            rosetta_reference_energy=0,
+            shape_complementarity=0,
+        )
+        job_key = 'no_energy'
+        empty_source[putils.protocol] = job_key
+        for idx, entity in enumerate(self.pose.entities, 1):
+            empty_source[f'buns{idx}_unbound'] = 0
+            empty_source[f'entity{idx}_interface_connectivity'] = 0
+
+        source_df = pd.DataFrame(empty_source, index=[self.pose.name])
+
+        # Get the metrics from the score file for each design
+        if os.path.exists(self.scores_file):  # Rosetta scores file is present  # Todo PoseJob(.path)
+            self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseJob(.path)
+            design_was_performed = True
+            # # Get the scores from the score file on design trajectory metrics
+            # source_df = pd.DataFrame.from_dict({self.pose.name: {putils.protocol: job_key}}, orient='index')
+            # for idx, entity in enumerate(self.pose.entities, 1):
+            #     source_df[f'buns{idx}_unbound'] = 0
+            #     source_df[f'entity{idx}_interface_connectivity'] = 0
+            # source_df['buns_complex'] = 0
+            # # source_df['buns_unbound'] = 0
+            # source_df['contact_count'] = 0
+            # source_df['favor_residue_energy'] = 0
+            # # Used in sum_per_residue_df
+            # # source_df['interface_energy_complex'] = 0
+            # source_df['interaction_energy_complex'] = 0
+            # source_df['interaction_energy_per_residue'] = \
+            #     source_df['interaction_energy_complex'] / len(self.pose.interface_residues)
+            # source_df['interface_separation'] = 0
+            # source_df['number_of_hbonds'] = 0
+            # source_df['rmsd_complex'] = 0
+            # source_df['rosetta_reference_energy'] = 0
+            # source_df['shape_complementarity'] = 0
+            design_scores = metrics.read_scores(self.scores_file)  # Todo PoseJob(.path)
+            self.log.debug(f'All designs with scores: {", ".join(design_scores.keys())}')
+            # Find designs with scores and structures
+            structure_design_scores = {}
+            for pose in designs:
+                try:
+                    structure_design_scores[pose.name] = design_scores.pop(pose.name)
+                except KeyError:  # Structure wasn't scored, we will remove this later
+                    pass
+
+            # Create protocol dataframe
+            scores_df = pd.DataFrame.from_dict(structure_design_scores, orient='index')
+            # # Fill in all the missing values with that of the default pose_source
+            # scores_df = pd.concat([source_df, scores_df]).fillna(method='ffill')
+            # Gather all columns into specific types for processing and formatting
+            per_res_columns = []
+            # hbonds_columns = []
+            for column in scores_df.columns.to_list():
+                if 'res_' in column:  # if column.startswith('per_res_'):
+                    per_res_columns.append(column)
+                # elif column.startswith('hbonds_res_selection'):
+                #     hbonds_columns.append(column)
+
+            # Check proper input
+            metric_set = metrics.necessary_metrics.difference(set(scores_df.columns))
+            # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
+            if metric_set:
+                raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
+
+            # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
+            # Todo learn know how to produce Rosetta score terms in output score file. Not in FastRelax...
+            remove_columns = metrics.rosetta_terms + metrics.unnecessary + per_res_columns
+            # Todo remove dirty when columns are correct (after P432)
+            #  and column tabulation precedes residue/hbond_processing
+            # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
+            residue_info.update(self.pose.rosetta_residue_processing(structure_design_scores))
+            # Can't use residue_processing (clean) ^ in the case there is a design without metrics... columns not found!
+            interface_hbonds = metrics.dirty_hbond_processing(structure_design_scores)
+            # Can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
+            # interface_hbonds = hbond_processing(structure_design_scores, hbonds_columns)
+            # Convert interface_hbonds to indices
+            interface_hbonds = {design: [residue.index for residue in self.pose.get_residues(hbond_residues)]
+                                for design, hbond_residues in interface_hbonds.items()}
+            residue_info = metrics.process_residue_info(residue_info, hbonds=interface_hbonds)
+            # residue_info = metrics.incorporate_sequence_info(residue_info, pose_sequences)
+
+            # Drop designs where required data isn't present
+            # Format protocol columns
+            missing_group_indices = scores_df[putils.protocol].isna()
+            # Todo remove not DEV
+            scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
+            scores_df.loc[scout_indices, putils.protocol] = putils.scout
+            structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
+            scores_df.loc[structure_bkgnd_indices, putils.protocol] = putils.structure_background
+            # Todo Done remove
+            # protocol_s.replace({'combo_profile': putils.design_profile}, inplace=True)  # ensure proper profile name
+
+            scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
+            # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
+
+            viable_designs = scores_df.index.to_list()
+            if not viable_designs:
+                raise DesignError('No viable designs remain after processing!')
+
+            self.log.debug(f'Viable designs with structures remaining after cleaning:\n\t{", ".join(viable_designs)}')
+            pose_sequences = {design: sequence for design, sequence in pose_sequences.items() if
+                              design in viable_designs}
+
+            # Todo implement this protocol if sequence data is taken at multiple points along a trajectory and the
+            #  sequence data along trajectory is a metric on it's own
+            # # Gather mutations for residue specific processing and design sequences
+            # for design, data in list(structure_design_scores.items()):  # make a copy as can be removed
+            #     sequence = data.get('final_sequence')
+            #     if sequence:
+            #         if len(sequence) >= pose_length:
+            #             pose_sequences[design] = sequence[:pose_length]  # Todo won't work if design had insertions
+            #         else:
+            #             pose_sequences[design] = sequence
+            #     else:
+            #         self.log.warning('Design %s is missing sequence data, removing from design pool' % design)
+            #         structure_design_scores.pop(design)
+            # # format {entity: {design_name: sequence, ...}, ...}
+            # entity_sequences = \
+            #     {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
+            #               for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
+        else:
+            self.log.debug(f'Missing design scores file at {self.scores_file}')  # Todo PoseJob(.path)
+            design_was_performed = False
+            # Todo add relevant missing scores such as those specified as 0 below
+            # Todo may need to put source_df in scores file alternative
+            # source_df = pd.DataFrame.from_dict({self.pose.name: {putils.protocol: job_key}}, orient='index')
+            # for idx, entity in enumerate(self.pose.entities, 1):
+            #     source_df[f'buns{idx}_unbound'] = 0
+            #     source_df[f'entity{idx}_interface_connectivity'] = 0
+            #     # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
+            #     # design_info.update({residue.number: {'energy_delta': 0.,
+            #     #                                      'type': protein_letters_3to1.get(residue.type),
+            #     #                                      'hbond': 0} for residue in entity.residues})
+            # source_df['buns_complex'] = 0
+            # # source_df['buns_unbound'] = 0
+            # source_df['contact_count'] = 0
+            # source_df['favor_residue_energy'] = 0
+            # # source_df['interface_energy_complex'] = 0
+            # source_df['interaction_energy_complex'] = 0
+            # source_df['interaction_energy_per_residue'] = \
+            #     source_df['interaction_energy_complex'] / len(self.pose.interface_residues)
+            # source_df['interface_separation'] = 0
+            # source_df['number_of_hbonds'] = 0
+            # source_df['rmsd_complex'] = 0
+            # source_df['rosetta_reference_energy'] = 0
+            # source_df['shape_complementarity'] = 0
+            scores_df = pd.DataFrame.from_dict({pose.name: {putils.protocol: job_key} for pose in designs},
+                                               orient='index')
+            # # Fill in all the missing values with that of the default pose_source
+            # scores_df = pd.concat([source_df, scores_df]).fillna(method='ffill')
+
+            remove_columns = metrics.rosetta_terms + metrics.unnecessary
+            residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.to_list()})
+            # Todo generate energy scores internally which matches output from residue_processing
+            viable_designs = [pose.name for pose in designs]
+
+        scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
+
+        # Find protocols for protocol specific data processing removing from scores_df
+        protocol_s = scores_df.pop(putils.protocol).copy()
+        designs_by_protocol = protocol_s.groupby(protocol_s).groups
+        # unique_protocols = list(designs_by_protocol.keys())
+        # Remove refine and consensus if present as there was no design done over multiple protocols
+        # Todo change if we did multiple rounds of these protocols
+        designs_by_protocol.pop(putils.refine, None)
+        designs_by_protocol.pop(putils.consensus, None)
+        # Get unique protocols
+        unique_design_protocols = set(designs_by_protocol.keys())
+        self.log.info(f'Unique Design Protocols: {", ".join(unique_design_protocols)}')
+
+        # Replace empty strings with np.nan and convert remaining to float
+        scores_df.replace('', np.nan, inplace=True)
+        scores_df.fillna(dict(zip(metrics.protocol_specific_columns, repeat(0))), inplace=True)
+        # scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
+        # Fill in all the missing values with that of the default pose_source
+        scores_df = pd.concat([source_df, scores_df]).fillna(method='ffill')
+
+        # atomic_deviation = {}
+        # pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
+        # perform SASA measurements
+        # pose_assembly_minimally_contacting.get_sasa()
+        # assembly_asu_residues = pose_assembly_minimally_contacting.residues[:pose_length]
+        # per_residue_data['sasa_hydrophobic_complex'][self.pose.name] = \
+        #     [residue.sasa_apolar for residue in assembly_asu_residues]
+        # per_residue_data['sasa_polar_complex'][self.pose.name] = [residue.sasa_polar for residue in assembly_asu_residues]
+        # per_residue_data['sasa_relative_complex'][self.pose.name] = \
+        #     [residue.relative_sasa for residue in assembly_asu_residues]
+
+        # Grab metrics for the pose source. Checks if self.pose was designed
+        # Favor pose source errat/collapse on a per-entity basis if design occurred
+        # As the pose source assumes no legit interface present while designs have an interface
+        # per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = [], [], []
+        # source_errat_accuracy, source_errat, source_contact_order, inverse_residue_contact_order_z = [], [], [], []
+        source_contact_order = []
+        for idx, entity in enumerate(self.pose.entities):
+            # Contact order is the same for every design in the Pose and not dependent on pose
+            source_contact_order.append(entity.contact_order)
+
+        per_residue_data: dict[str, dict[str, Any]] = \
+            {self.pose.name: self.pose.per_residue_interface_surface_area()}
+        pose_source_contact_order_s = \
+            pd.Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
+        per_residue_data[self.pose.name]['contact_order'] = pose_source_contact_order_s
+
+        number_of_entities = self.pose.number_of_entities
+        if design_was_performed:  # The input structure was not meant to be together, treat as such
+            source_errat = []
+            for idx, entity in enumerate(self.pose.entities):
+                # Replace 'errat_deviation' measurement with uncomplexed entities
+                # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
+                # source_errat_accuracy.append(oligomer_errat_accuracy)
+                # Todo when Entity.oligomer works
+                #  _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
+                entity_oligomer = Model.from_chains(entity.chains, log=self.pose.log, entities=False)
+                _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
+                source_errat.append(oligomeric_errat[:entity.number_of_residues])
+            # atomic_deviation[self.pose.name] = sum(source_errat_accuracy) / float(number_of_entities)
+            pose_source_errat = np.concatenate(source_errat)
+        else:
+            # pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
+            # # atomic_deviation[self.pose.name], pose_per_residue_errat = \
+            # _, pose_per_residue_errat = \
+            #     pose_assembly_minimally_contacting.errat(out_path=os.path.devnull)
+            # pose_source_errat = pose_per_residue_errat[:pose_length]
+            # Get errat measurement
+            # per_residue_data[self.pose.name].update(self.pose.per_residue_interface_errat())
+            pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
+
+        per_residue_data[self.pose.name]['errat_deviation'] = pose_source_errat
+
+        # Compute structural measurements for all designs
+        interface_local_density = {self.pose.name: self.pose.local_density_interface()}
+        for pose in designs:  # Takes 1-2 seconds for Structure -> assembly -> errat
+            # Must find interface residues before measure local_density
+            pose.find_and_split_interface()
+            per_residue_data[pose.name] = pose.per_residue_interface_surface_area()
+            # Get errat measurement
+            per_residue_data[pose.name].update(pose.per_residue_interface_errat())
+            # Todo remove Rosetta
+            #  This is a measurement of interface_connectivity like from Rosetta
+            interface_local_density[pose.name] = pose.local_density_interface()
+
+        scores_df['interface_local_density'] = pd.Series(interface_local_density)
+
+        # Load profiles of interest into the analysis
+        if self.job.design.evolution_constraint:
+            self._generate_evolutionary_profile(warn_metrics=True)
+
+        # self._generate_fragments() was already called
+        self.pose.calculate_profile()
+
+        profile_background = {'design': pssm_as_array(self.pose.profile),
+                              'evolution': pssm_as_array(self.pose.evolutionary_profile),
+                              'fragment': self.pose.fragment_profile.as_array()}
+        if self.job.fragment_db is not None:
+            interface_bkgd = np.array(list(self.job.fragment_db.aa_frequencies.values()))
+            profile_background['interface'] = np.tile(interface_bkgd, (self.pose.number_of_residues, 1))
+
+        # Calculate hydrophobic collapse for each design
+        # Include the pose_source in the measured designs
+        # Todo use hydrophobicity = 'expanded'
+        #  if collapse_profile.size:  # is used
+        #      hydrophobicity = 'expanded'
+        #  else:
+        hydrophobicity = 'standard'  # Set for figures as well
+        contact_order_per_res_z, reference_collapse, collapse_profile = \
+            self.pose.get_folding_metrics(hydrophobicity=hydrophobicity)
+        if collapse_profile.size:  # Not equal to zero, use the profile instead
+            reference_collapse = collapse_profile
+        #     reference_mean = np.nanmean(collapse_profile, axis=-2)
+        #     reference_std = np.nanstd(collapse_profile, axis=-2)
+        # else:
+        #     reference_mean = reference_std = None
+        entity_sequences = []
+        for entity in self.pose.entities:
+            entity_slice = slice(entity.n_terminal_residue.index, 1 + entity.c_terminal_residue.index)
+            entity_sequences.append({design: sequence[entity_slice] for design, sequence in pose_sequences.items()})
+
+        all_sequences_split = [list(designed_sequences.values()) for designed_sequences in entity_sequences]
+        all_sequences_by_entity = list(zip(*all_sequences_split))
+
+        folding_and_collapse = \
+            metrics.collapse_per_residue(all_sequences_by_entity, contact_order_per_res_z, reference_collapse)
+        per_residue_collapse_df = pd.concat({design_id: pd.DataFrame(data, index=residue_indices)
+                                             for design_id, data in zip(viable_designs, folding_and_collapse)},
+                                            ).unstack().swaplevel(0, 1, axis=1)
+
+        # Convert per_residue_data into a dataframe matching residues_df orientation
+        residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
+                                for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
+        # Fill in missing pose_source metrics for each design not calculated in rosetta
+        # residues_df.fillna(residues_df.loc[self.pose.name, idx_slice[:, 'contact_order']], inplace=True)
+        residues_df.fillna(residues_df.loc[self.pose.name, :], inplace=True)
+
+        residues_df = residues_df.join(per_residue_collapse_df)
+
+        # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
+        rosetta_info_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
+        # returns multi-index column with residue number as first (top) column index, metric as second index
+        # during residues_df unstack, all residues with missing dicts are copied as nan
+        # Merge interface design specific residue metrics with total per residue metrics
+        # residues_df = pd.merge(residues_df, rosetta_info_df, left_index=True, right_index=True)
+
+        # Join each residues_df like dataframe
+        # Each of these can have difference index, so we use concat to perform an outer merge
+        residues_df = pd.concat([residues_df, sequences_df, rosetta_info_df], axis=1)
+        # # Join rosetta_info_df and sequence metrics
+        # residues_df = residues_df.join([rosetta_info_df, sequences_df])
+
+        if not profile_background:
+            divergence_s = pd.Series(dtype=float)
+        else:  # Calculate sequence statistics
+            # First, for entire pose
+            pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
+            observed, divergence = \
+                metrics.calculate_sequence_observations_and_divergence(pose_alignment, profile_background)
+            observed_dfs = []
+            for profile, observed_values in observed.items():
+                # scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
+                observed_dfs.append(pd.DataFrame(observed_values, index=viable_designs,
+                                                 columns=pd.MultiIndex.from_product([residue_indices,
+                                                                                     [f'observed_{profile}']]))
+                                    )
+            # Add observation information into the residues_df
+            residues_df = residues_df.join(observed_dfs)
+            # Get pose sequence divergence
+            design_residue_indices = [residue.index for residue in self.pose.design_residues]
+            pose_divergence_s = pd.concat([pd.Series({f'{divergence_type}_per_residue':
+                                                      _divergence[design_residue_indices].mean()
+                                                      for divergence_type, _divergence in divergence.items()})],
+                                          keys=[('sequence_design', 'pose')])
+            # pose_divergence_s = pd.Series({f'{divergence_type}_per_residue': per_res_metric(stat)
+            #                                for divergence_type, stat in divergence.items()},
+            #                               name=('sequence_design', 'pose'))
+            if designs_by_protocol:  # were multiple designs generated with each protocol?
+                # find the divergence within each protocol
+                divergence_by_protocol = {protocol: {} for protocol in designs_by_protocol}
+                for protocol, designs in designs_by_protocol.items():
+                    # Todo select from pose_alignment the indices of each design then pass to MultipleSequenceAlignment?
+                    # protocol_alignment = \
+                    #     MultipleSequenceAlignment.from_dictionary({design: pose_sequences[design]
+                    #                                                for design in designs})
+                    protocol_alignment = MultipleSequenceAlignment.from_dictionary({design: pose_sequences[design]
+                                                                                    for design in designs})
+                    # protocol_mutation_freq = filter_dictionary_keys(protocol_alignment.frequencies,
+                    #                                                 self.pose.interface_residues)
+                    # protocol_mutation_freq = protocol_alignment.frequencies
+                    protocol_divergence = {f'divergence_{profile}':
+                                           metrics.position_specific_divergence(protocol_alignment.frequencies, bgd)
+                                           for profile, bgd in profile_background.items()}
+                    # if interface_bkgd is not None:
+                    #     protocol_divergence['divergence_interface'] = \
+                    #         metrics.position_specific_divergence(protocol_alignment.frequencies, tiled_int_background)
+                    # Get per residue divergence metric by protocol
+                    divergence_by_protocol[protocol] = \
+                        {f'{divergence_type}_per_residue': divergence[design_residue_indices].mean()
+                         for divergence_type, divergence in protocol_divergence.items()}
+                # new = dfd.columns.to_frame()
+                # new.insert(0, 'new2_level_name', new_level_values)
+                # dfd.columns = pd.MultiIndex.from_frame(new)
+                protocol_divergence_s = \
+                    pd.concat([pd.DataFrame(divergence_by_protocol).unstack()], keys=['sequence_design'])
+            else:
+                protocol_divergence_s = pd.Series(dtype=float)
+
+            # Get profile mean observed
+            # Perform a frequency extraction for each background profile
+            per_residue_background_frequency_df = \
+                pd.concat([pd.DataFrame(pose_alignment.get_probabilities_from_profile(background), index=viable_designs,
+                                        columns=pd.MultiIndex.from_product([residue_indices, [f'observed_{profile}']]))
+                           for profile, background in profile_background.items()], axis=1)
+            # Todo
+            #  Ensure that only interface residues are selected, not only by those that are 0 as interface can be 0!
+            observed_frequencies_from_fragment_profile = profile_background.pop('fragment', None)
+            if observed_frequencies_from_fragment_profile:
+                observed_frequencies_from_fragment_profile[observed_frequencies_from_fragment_profile == 0] = np.nan
+                # Todo RuntimeWarning: Mean of empty slice
+                scores_df['observed_fragment_mean_probability'] = \
+                    np.nanmean(observed_frequencies_from_fragment_profile, axis=1)
+            for profile, background in profile_background.items():
+                scores_df[f'observed_{profile}_mean_probability'] = scores_df[f'observed_{profile}'] / pose_length
+                # scores_df['observed_evolution_mean_probability'] = scores_df['observed_evolution'] / pose_length
+
+            divergence_s = pd.concat([protocol_divergence_s, pose_divergence_s])
+
+        # entity_alignment = multi_chain_alignment(entity_sequences)
+        # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
+        # entity_alignments = \
+        #     {idx: MultipleSequenceAlignment.from_dictionary(designed_sequences)
+        #      for idx, designed_sequences in entity_sequences.items()}
+        # entity_alignments = \
+        #     {idx: msa_from_dictionary(designed_sequences) for idx, designed_sequences in entity_sequences.items()}
+        # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
+        dca_design_residues_concat = []
+        dca_succeed = True
+        # dca_background_energies, dca_design_energies = [], []
+        dca_background_energies, dca_design_energies = {}, {}
+        for idx, entity in enumerate(self.pose.entities):
+            try:  # Todo add these to the analysis
+                entity.h_fields = self.job.api_db.bmdca_fields.retrieve_data(name=entity.name)
+                entity.j_couplings = self.job.api_db.bmdca_couplings.retrieve_data(name=entity.name)
+                dca_background_residue_energies = entity.direct_coupling_analysis()
+                # Todo INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
+                entity_alignment = MultipleSequenceAlignment.from_dictionary(entity_sequences[idx])
+                # entity_alignment = msa_from_dictionary(entity_sequences[idx])
+                dca_design_residue_energies = entity.direct_coupling_analysis(msa=entity_alignment)
+                dca_design_residues_concat.append(dca_design_residue_energies)
+                # dca_background_energies.append(dca_background_energies.sum(axis=1))
+                # dca_design_energies.append(dca_design_energies.sum(axis=1))
+                dca_background_energies[entity] = dca_background_residue_energies.sum(axis=1)  # turns data to 1D
+                dca_design_energies[entity] = dca_design_residue_energies.sum(axis=1)
+            except AttributeError:
+                self.log.warning(f"For {entity.name}, DCA analysis couldn't be performed. "
+                                 f"Missing required parameter files")
+                dca_succeed = False
+
+        if dca_succeed:
+            # concatenate along columns, adding residue index to column, design name to row
+            dca_concatenated_df = pd.DataFrame(np.concatenate(dca_design_residues_concat, axis=1),
+                                               index=viable_designs, columns=residue_indices)
+            # dca_concatenated_df.columns = pd.MultiIndex.from_product([dca_concatenated_df.columns, ['dca_energy']])
+            dca_concatenated_df = pd.concat([dca_concatenated_df], keys=['dca_energy'], axis=1).swaplevel(0, 1, axis=1)
+            # Merge with residues_df
+            residues_df = pd.merge(residues_df, dca_concatenated_df, left_index=True, right_index=True)
+
+        # Make buried surface area (bsa) columns, and residue classification
+        residues_df = metrics.calculate_residue_surface_area(residues_df)
+
+        # Calculate new metrics from combinations of other metrics
+        # Add design residue information to scores_df such as how many core, rim, and support residues were measured
+        mean_columns = ['hydrophobicity']  # , 'sasa_relative_bound', 'sasa_relative_complex']
+        scores_df = scores_df.join(metrics.sum_per_residue_metrics(residues_df, mean_metrics=mean_columns))
+
+        # scores_df['collapse_new_positions'] /= pose_length
+        # scores_df['collapse_new_position_significance'] /= pose_length
+        scores_df['collapse_significance_by_contact_order_z_mean'] = \
+            scores_df['collapse_significance_by_contact_order_z'] / \
+            (residues_df.loc[:, idx_slice[:, 'collapse_significance_by_contact_order_z']] != 0).sum(axis=1)
+        # if self.measure_alignment:
+        # Todo THESE ARE NOW DIFFERENT SOURCE if not self.measure_alignment
+        collapse_increased_df = residues_df.loc[:, idx_slice[:, 'collapse_increased_z']]
+        total_increased_collapse = (collapse_increased_df != 0).sum(axis=1)
+        # scores_df['collapse_increase_significance_by_contact_order_z_mean'] = \
+        #     scores_df['collapse_increase_significance_by_contact_order_z'] / total_increased_collapse
+        # scores_df['collapse_increased_z'] /= pose_length
+        scores_df['collapse_increased_z_mean'] = \
+            collapse_increased_df.sum(axis=1) / total_increased_collapse
+        scores_df['collapse_variance'] = scores_df['collapse_deviation_magnitude'] / pose_length
+        scores_df['collapse_sequential_peaks_z_mean'] = \
+            scores_df['collapse_sequential_peaks_z'] / total_increased_collapse
+        scores_df['collapse_sequential_z_mean'] = \
+            scores_df['collapse_sequential_z'] / total_increased_collapse
+
+        # scores_df['interface_area_total'] = bsa_assembly_df = \
+        #     scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
+        # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
+        bsa_assembly_df = scores_df['interface_area_total']
+        scores_df['interface_area_to_residue_surface_ratio'] = \
+            (bsa_assembly_df / (bsa_assembly_df + scores_df['area_total_complex']))
+
+        # Make scores_df errat_deviation that takes into account the pose_source sequence errat_deviation
+        # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
+        # Get per-residue errat scores from the residues_df
+        errat_df = residues_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
+
+        pose_source_errat = errat_df.loc[self.pose.name, :]
+        source_errat_inclusion_boolean = \
+            np.logical_and(pose_source_errat < metrics.errat_2_sigma, pose_source_errat != 0.)
+        # Find residues where designs deviate above wild-type errat scores
+        errat_sig_df = errat_df.sub(pose_source_errat, axis=1) > metrics.errat_1_sigma  # axis=1 is per-residue subtract
+        # Then select only those residues which are expressly important by the inclusion boolean
+        # This overwrites the metrics.sum_per_residue_metrics() value
+        scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
+
+        # Calculate mutational content
+        mutation_df = residues_df.loc[:, idx_slice[:, 'mutation']]
+        # scores_df['number_of_mutations'] = mutation_df.sum(axis=1)
+        scores_df['percent_mutations'] = scores_df['number_of_mutations'] / pose_length
+
+        idx = 1
+        # prior_slice = 0
+        for idx, entity in enumerate(self.pose.entities, idx):
+            # entity_n_terminal_residue_index = entity.n_terminal_residue.index
+            # entity_c_terminal_residue_index = entity.c_terminal_residue.index
+            scores_df[f'entity{idx}_number_of_mutations'] = \
+                mutation_df.loc[:, idx_slice[residue_indices[entity.n_terminal_residue.index:  # prior_slice
+                                                             1 + entity.c_terminal_residue.index], :]].sum(axis=1)
+            # prior_slice = entity_c_terminal_residue_index
+            scores_df[f'entity{idx}_percent_mutations'] = \
+                scores_df[f'entity{idx}_number_of_mutations'] \
+                / scores_df[f'entity{idx}_number_of_residues']
+
+        # scores_df['number_of_mutations'] = \
+        #     pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
+        # scores_df['percent_mutations'] = scores_df['number_of_mutations'] / pose_length
+        #
+        # idx = 1
+        # for idx, entity in enumerate(self.pose.entities, idx):
+        #     entity_c_terminal_residue_index = entity.c_terminal_residue.index
+        #     scores_df[f'entity{idx}_number_of_mutations'] = \
+        #         pd.Series(
+        #             {design: len([1 for mutation_idx in mutations if mutation_idx <= entity_c_terminal_residue_index])
+        #              for design, mutations in all_mutations.items()})
+        #     scores_df[f'entity{idx}_percent_mutations'] = \
+        #         scores_df[f'entity{idx}_number_of_mutations'] / scores_df[f'entity{idx}_number_of_residues']
+        #     #     scores_df[f'entity{idx}_number_of_mutations'] / other_pose_metrics[f'entity{idx}_number_of_residues']
+
+        # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
+        # interior_residue_df = residues_df.loc[:, idx_slice[:, 'interior']]
+        # interior_residue_numbers = \
+        #     interior_residues.loc[:, interior_residues.mean(axis=0) > 0.5].columns.remove_unused_levels().levels[0].
+        #     to_list()
+        # if interior_residue_numbers:
+        #     self.log.info(f'Design Residues {",".join(map(str, sorted(interior_residue_numbers)))}
+        #                   'are located in the interior')
+
+        # This shouldn't be much different from the state variable self.interface_residue_numbers
+        # perhaps the use of residue neighbor energy metrics adds residues which contribute, but not directly
+        # interface_residues = set(residues_df.columns.levels[0].unique()).difference(interior_residue_numbers)
+
+        # Add design residue information to scores_df such as how many core, rim, and support residues were measured
+        # for residue_class in metrics.residue_classification:
+        #     scores_df[residue_class] = residues_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
+
+        # Calculate metrics from combinations of metrics with variable integer number metric names
+        scores_columns = scores_df.columns.to_list()
+        self.log.debug(f'Metrics present: {scores_columns}')
+        # sum columns using list[0] + list[1] + list[n]
+        # residues_df = residues_df.drop([column
+        #                                 for columns in [complex_df.columns, bound_df.columns, unbound_df.columns,
+        #                                                 solvation_complex_df.columns, solvation_bound_df.columns,
+        #                                                 solvation_unbound_df.columns]
+        #                                 for column in columns], axis=1)
+        summation_pairs = \
+            {'buns_unbound': list(filter(re.compile('buns[0-9]+_unbound$').match, scores_columns)),  # Rosetta
+             # 'interface_energy_bound':
+             #     list(filter(re.compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+             # 'interface_energy_unbound':
+             #     list(filter(re.compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+             # 'interface_solvation_energy_bound':
+             #     list(filter(re.compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+             # 'interface_solvation_energy_unbound':
+             #     list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+             'interface_connectivity':
+                 list(filter(re.compile('entity[0-9]+_interface_connectivity').match, scores_columns)),  # Rosetta
+             }
+
+        scores_df = metrics.columns_to_new_column(scores_df, summation_pairs)
+        scores_df = metrics.columns_to_new_column(scores_df, metrics.rosetta_delta_pairs, mode='sub')
+        # Add number_interface_residues for div_pairs and int_comp_similarity
+        # scores_df['number_interface_residues'] = other_pose_metrics.pop('number_interface_residues')
+        scores_df = metrics.columns_to_new_column(scores_df, metrics.rosetta_division_pairs, mode='truediv')
+        scores_df['interface_composition_similarity'] = \
+            scores_df.apply(metrics.interface_composition_similarity, axis=1)
+        scores_df.drop(metrics.clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
+        repacking = scores_df.get('repacking')
+        if repacking is not None:
+            # Set interface_bound_activation_energy = np.nan where repacking is 0
+            # Currently is -1 for True (Rosetta Filter quirk...)
+            scores_df.loc[scores_df[repacking == 0].index, 'interface_bound_activation_energy'] = np.nan
+            scores_df.drop('repacking', axis=1, inplace=True)
+
+        # Process dataframes for missing values and drop refine trajectory if present
+        # refine_index = scores_df[scores_df[putils.protocol] == putils.refine].index
+        # scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
+        # residues_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
+        # residue_info.pop(putils.refine, None)  # Remove refine from analysis
+        # residues_no_frags = residues_df.columns[residues_df.isna().all(axis=0)].remove_unused_levels().levels[0]
+        # Remove completely empty columns such as obs_interface
+        residues_df.dropna(how='all', inplace=True, axis=1)
+        residues_df = residues_df.fillna(0.).copy()
+        # residue_indices_no_frags = residues_df.columns[residues_df.isna().all(axis=0)]
+
+        # POSE ANALYSIS
+        # scores_df = pd.concat([scores_df, proteinmpnn_df], axis=1)
+        scores_df.dropna(how='all', inplace=True, axis=1)  # Remove completely empty columns
+        # Refine is not considered sequence design and destroys mean. remove v
+        # designs_df = scores_df.sort_index().drop(putils.refine, axis=0, errors='ignore')
+        # Consensus cst_weights are very large and destroy the mean.
+        # Remove this drop for consensus or refine if they are run multiple times
+        designs_df = \
+            scores_df.drop([self.pose.name, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
+
+        # Get total design statistics for every sequence in the pose and every protocol specifically
+        scores_df[putils.protocol] = protocol_s
+        protocol_groups = scores_df.groupby(putils.protocol)
+        # numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
+        # print(designs_df.select_dtypes(exclude=numerics))
+
+        pose_stats, protocol_stats = [], []
+        for idx, stat in enumerate(stats_metrics):
+            # Todo both groupby calls have this warning
+            #  FutureWarning: The default value of numeric_only in DataFrame.mean is deprecated. In a future version,
+            #  it will default to False. In addition, specifying 'numeric_only=None' is deprecated. Select only valid
+            #  columns or specify the value of numeric_only to silence this warning.
+            pose_stats.append(getattr(designs_df, stat)().rename(stat))
+            protocol_stats.append(getattr(protocol_groups, stat)())
+
+        # Add the number of observations of each protocol
+        protocol_stats[stats_metrics.index(mean)]['observations'] = protocol_groups.size()
+        # Format stats_s for final pose_s Series
+        protocol_stats_s = pd.concat([stat_df.T.unstack() for stat_df in protocol_stats], keys=stats_metrics)
+        pose_stats_s = pd.concat(pose_stats, keys=list(zip(stats_metrics, repeat('pose'))))
+        pose_stats_s[('mean', 'pose', 'observations')] = len(viable_designs)
+        stat_s = pd.concat([protocol_stats_s.dropna(), pose_stats_s.dropna()])  # dropna removes NaN metrics
+
+        # Change statistic names for all df that are not groupby means for the final trajectory dataframe
+        for idx, stat in enumerate(stats_metrics):
+            if stat != mean:
+                protocol_stats[idx] = protocol_stats[idx].rename(index={protocol: f'{protocol}_{stat}'
+                                                                        for protocol in unique_design_protocols})
+        # Remove std rows if there is no stdev
+        # number_of_trajectories = len(designs_df) + len(protocol_groups) + 1  # 1 for the mean
+        # final_trajectory_indices = designs_df.index.to_list() + unique_protocols + [mean]
+        designs_df = pd.concat([designs_df]
+                               + [df.dropna(how='all', axis=0) for df in protocol_stats]  # v don't add if nothing
+                               + [pd.to_numeric(s).to_frame().T for s in pose_stats if not all(s.isna())])
+        # This concat puts back self.pose.name, refine, consensus index as protocol_stats is calculated on scores_df
+        # # Add all pose information to each trajectory
+        # pose_metrics_df = pd.DataFrame.from_dict({idx: other_pose_metrics for idx in final_trajectory_indices},
+        #                                          orient='index')
+        # designs_df = pd.concat([designs_df, pose_metrics_df], axis=1)
+        designs_df = designs_df.fillna({'observations': 1})
+
+        # Calculate protocol significance
+        pvalue_df = pd.DataFrame()
+        scout_protocols = list(filter(re.compile(f'.*{putils.scout}').match,
+                                      protocol_s[~protocol_s.isna()].unique().tolist()))
+        similarity_protocols = unique_design_protocols.difference([putils.refine, job_key] + scout_protocols)
+        sim_series = []
+        if putils.structure_background not in unique_design_protocols:
+            self.log.info(f'Missing background protocol "{putils.structure_background}". No protocol significance '
+                          f'measurements available for this pose')
+        elif len(similarity_protocols) == 1:  # measure significance
+            self.log.info("Can't measure protocol significance, only one protocol of interest")
+        else:  # Test significance between all combinations of protocols by grabbing mean entries per protocol
+            for prot1, prot2 in combinations(sorted(similarity_protocols), 2):
+                select_df = \
+                    designs_df.loc[[design for designs in [designs_by_protocol[prot1], designs_by_protocol[prot2]]
+                                    for design in designs], metrics.significance_columns]
+                # prot1/2 pull out means from designs_df by using the protocol name
+                difference_s = \
+                    designs_df.loc[prot1, metrics.significance_columns].sub(
+                        designs_df.loc[prot2, metrics.significance_columns])
+                pvalue_df[(prot1, prot2)] = metrics.df_permutation_test(select_df, difference_s, compare='mean',
+                                                                        group1_size=len(designs_by_protocol[prot1]))
+            pvalue_df = pvalue_df.T  # transpose significance pairs to indices and significance metrics to columns
+            designs_df = pd.concat([designs_df, pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1)])
+
+            # Compute residue energy/sequence differences between each protocol
+            residue_energy_df = residues_df.loc[:, idx_slice[:, 'energy_delta']]
+
+            scaler = skl.preprocessing.StandardScaler()
+            res_pca = skl.decomposition.PCA(variance)  # P432 designs used 0.8 percent of the variance
+            residue_energy_np = scaler.fit_transform(residue_energy_df.values)
+            residue_energy_pc = res_pca.fit_transform(residue_energy_np)
+
+            seq_pca = skl.decomposition.PCA(variance)
+            designed_sequence_modifications = residues_df.loc[:, idx_slice[:, 'type']].sum(axis=1).to_list()
+            pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_sequence_modifications,
+                                                                        sequence_difference))
+            seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
+            # Make principal components (PC) DataFrame
+            residue_energy_pc_df = pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
+                                                columns=[f'pc{idx}' for idx in range(1, len(res_pca.components_) + 1)])
+            seq_pc_df = pd.DataFrame(seq_pc, index=list(residue_info.keys()),
+                                     columns=[f'pc{idx}' for idx in range(1, len(seq_pca.components_) + 1)])
+            # Compute the euclidean distance
+            # pairwise_pca_distance_np = pdist(seq_pc)
+            # pairwise_pca_distance_np = SDUtils.all_vs_all(seq_pc, euclidean)
+
+            # Merge PC DataFrames with labels
+            # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
+            seq_pc_df[putils.protocol] = protocol_s
+            # residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
+            residue_energy_pc_df[putils.protocol] = protocol_s
+            # Next group the labels
+            sequence_groups = seq_pc_df.groupby(putils.protocol)
+            residue_energy_groups = residue_energy_pc_df.groupby(putils.protocol)
+            # Measure statistics for each group
+            # All protocol means have pairwise distance measured to access similarity
+            # Gather protocol similarity/distance metrics
+            sim_measures = {'sequence_distance': {}, 'energy_distance': {}}
+            # sim_stdev = {}  # 'similarity': None, 'seq_distance': None, 'energy_distance': None}
+            # grouped_pc_seq_df_dict, grouped_pc_energy_df_dict, similarity_stat_dict = {}, {}, {}
+            for stat in stats_metrics:
+                grouped_pc_seq_df = getattr(sequence_groups, stat)()
+                grouped_pc_energy_df = getattr(residue_energy_groups, stat)()
+                similarity_stat = getattr(pvalue_df, stat)(axis=1)  # protocol pair : stat Series
+                if stat == mean:
+                    # for each measurement in residue_energy_pc_df, need to take the distance between it and the
+                    # structure background mean (if structure background, is the mean is useful too?)
+                    background_distance = \
+                        cdist(residue_energy_pc,
+                              grouped_pc_energy_df.loc[putils.structure_background, :].values[np.newaxis, :])
+                    designs_df = \
+                        pd.concat([designs_df,
+                                   pd.Series(background_distance.flatten(), index=residue_energy_pc_df.index,
+                                             name=f'energy_distance_from_{putils.structure_background}_mean')], axis=1)
+
+                    # if renaming is necessary
+                    # protocol_stats_s[stat].index = protocol_stats_s[stat].index.to_series().map(
+                    #     {protocol: protocol + '_' + stat for protocol in sorted(unique_design_protocols)})
+                    # find the pairwise distance from every point to every other point
+                    seq_pca_mean_distance_vector = pdist(grouped_pc_seq_df)
+                    energy_pca_mean_distance_vector = pdist(grouped_pc_energy_df)
+                    # protocol_indices_map = list(tuple(condensed_to_square(k, len(seq_pca_mean_distance_vector)))
+                    #                             for k in seq_pca_mean_distance_vector)
+                    # find similarity between each protocol by taking row average of all p-values for each metric
+                    # mean_pvalue_s = pvalue_df.mean(axis=1)  # protocol pair : mean significance Series
+                    # mean_pvalue_s.index = pd.MultiIndex.from_tuples(mean_pvalue_s.index)
+                    # sim_measures['similarity'] = mean_pvalue_s
+                    similarity_stat.index = pd.MultiIndex.from_tuples(similarity_stat.index)
+                    sim_measures['similarity'] = similarity_stat
+
+                    # for vector_idx, seq_dist in enumerate(seq_pca_mean_distance_vector):
+                    #     i, j = condensed_to_square(vector_idx, len(grouped_pc_seq_df.index))
+                    #     sim_measures['sequence_distance'][(grouped_pc_seq_df.index[i],
+                    #                                        grouped_pc_seq_df.index[j])] = seq_dist
+
+                    for vector_idx, (seq_dist, energy_dist) in enumerate(zip(seq_pca_mean_distance_vector,
+                                                                             energy_pca_mean_distance_vector)):
+                        i, j = condensed_to_square(vector_idx, len(grouped_pc_energy_df.index))
+                        sim_measures['sequence_distance'][(grouped_pc_seq_df.index[i],
+                                                           grouped_pc_seq_df.index[j])] = seq_dist
+                        sim_measures['energy_distance'][(grouped_pc_energy_df.index[i],
+                                                         grouped_pc_energy_df.index[j])] = energy_dist
+                elif stat == std:
+                    # sim_stdev['similarity'] = similarity_stat_dict[stat]
+                    pass
+                    # # Todo need to square each pc, add them up, divide by the group number, then take the sqrt
+                    # sim_stdev['sequence_distance'] = grouped_pc_seq_df
+                    # sim_stdev['energy_distance'] = grouped_pc_energy_df
+
+            # Find the significance between each pair of protocols
+            protocol_sig_s = pd.concat([pvalue_df.loc[[pair], :].squeeze() for pair in pvalue_df.index.to_list()],
+                                       keys=[tuple(pair) for pair in pvalue_df.index.to_list()])
+            # squeeze turns the column headers into series indices. Keys appends to make a multi-index
+
+            # Find total protocol similarity for different metrics
+            # for measure, values in sim_measures.items():
+            #     # measure_s = pd.Series({pair: similarity for pair, similarity in values.items()})
+            #     # measure_s = pd.Series(values)
+            #     similarity_sum['protocol_%s_sum' % measure] = pd.Series(values).sum()
+            similarity_sum = {f'protocol_{measure}_sum': pd.Series(values).sum()
+                              for measure, values in sim_measures.items()}
+            similarity_sum_s = pd.concat([pd.Series(similarity_sum)], keys=[('sequence_design', 'pose')])
+
+            # Process similarity between protocols
+            sim_measures_s = pd.concat([pd.Series(values) for values in sim_measures.values()],
+                                       keys=list(sim_measures.keys()))
+            # # Todo test
+            # sim_stdev_s = pd.concat(list(sim_stdev.values()),
+            #                         keys=list(zip(repeat('std'), sim_stdev.keys()))).swaplevel(1, 2)
+            # sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s, sim_stdev_s]
+            sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s]
+
+            # if self.job.figures:  # Todo ensure output is as expected then move below
+            #     protocols_by_design = {design: protocol for protocol, designs in designs_by_protocol.items()
+            #                            for design in designs}
+            #     _path = os.path.join(self.job.all_scores, str(self))
+            #     # Set up Labels & Plot the PC data
+            #     protocol_map = {protocol: i for i, protocol in enumerate(designs_by_protocol)}
+            #     integer_map = {i: protocol for (protocol, i) in protocol_map.items()}
+            #     pc_labels_group = [protocols_by_design[design] for design in residue_info]
+            #     # pc_labels_group = np.array([protocols_by_design[design] for design in residue_info])
+            #     pc_labels_int = [protocol_map[protocols_by_design[design]] for design in residue_info]
+            #     fig = plt.figure()
+            #     # ax = fig.add_subplot(111, projection='3d')
+            #     ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
+            #     # plt.cla()
+            #
+            #     # for color_int, label in integer_map.items():  # zip(pc_labels_group, pc_labels_int):
+            #     #     ax.scatter(seq_pc[pc_labels_group == label, 0],
+            #     #                seq_pc[pc_labels_group == label, 1],
+            #     #                seq_pc[pc_labels_group == label, 2],
+            #     #                c=color_int, cmap=plt.cm.nipy_spectral, edgecolor='k')
+            #     scatter = ax.scatter(seq_pc[:, 0], seq_pc[:, 1], seq_pc[:, 2], c=pc_labels_int, cmap='Spectral',
+            #                          edgecolor='k')
+            #     # handles, labels = scatter.legend_elements()
+            #     # # print(labels)  # ['$\\mathdefault{0}$', '$\\mathdefault{1}$', '$\\mathdefault{2}$']
+            #     # ax.legend(handles, labels, loc='upper right', title=protocol)
+            #     # # ax.legend(handles, [integer_map[label] for label in labels], loc="upper right", title=protocol)
+            #     # # plt.axis('equal') # not possible with 3D graphs
+            #     # plt.legend()  # No handles with labels found to put in legend.
+            #     colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
+            #     custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20)
+            #                     for c in colors]
+            #     ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
+            #               bbox_to_anchor=(1.0, .5))
+            #     # # Add group mean to the plot
+            #     # for name, label in integer_map.items():
+            #     #     ax.scatter(seq_pc[pc_labels_group == label, 0].mean(),
+            #     #                seq_pc[pc_labels_group == label, 1].mean(),
+            #     #                seq_pc[pc_labels_group == label, 2].mean(), marker='x')
+            #     ax.set_xlabel('PC1')
+            #     ax.set_ylabel('PC2')
+            #     ax.set_zlabel('PC3')
+            #     # plt.legend(pc_labels_group)
+            #     plt.savefig('%s_seq_pca.png' % _path)
+            #     plt.clf()
+            #     # Residue PCA Figure to assay multiple interface states
+            #     fig = plt.figure()
+            #     # ax = fig.add_subplot(111, projection='3d')
+            #     ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
+            #     scatter = ax.scatter(residue_energy_pc[:, 0], residue_energy_pc[:, 1], residue_energy_pc[:, 2],
+            #                          c=pc_labels_int,
+            #                          cmap='Spectral', edgecolor='k')
+            #     colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
+            #     custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20) for c in
+            #                     colors]
+            #     ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
+            #               bbox_to_anchor=(1.0, .5))
+            #     ax.set_xlabel('PC1')
+            #     ax.set_ylabel('PC2')
+            #     ax.set_zlabel('PC3')
+            #     plt.savefig('%s_res_energy_pca.png' % _path)
+
+        # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
+        if self.job.save:
+            # residues_df[(putils.protocol, putils.protocol)] = protocol_s
+            # residues_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
+            self.output_metrics(residues=residues_df, designs=designs_df)
+
+            # pickle_object(pose_sequences, self.designed_sequences_file, out_path='')  # Todo PoseJob(.path)
+            write_sequences(pose_sequences, file_name=self.designed_sequences_file)
+
+        # Create figures
+        if self.job.figures:  # For plotting collapse profile, errat data, contact order
+            interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
+            # Plot: Format the collapse data with residues as index and each design as column
+            # collapse_graph_df = pd.DataFrame(per_residue_data['hydrophobic_collapse'])
+            collapse_graph_df = residues_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
+            reference_collapse = [entity.hydrophobic_collapse() for entity in self.pose.entities]
+            reference_collapse_concatenated_s = \
+                pd.Series(np.concatenate(reference_collapse), name=putils.reference_name)
+            collapse_graph_df[putils.reference_name] = reference_collapse_concatenated_s
+            # collapse_graph_df.columns += 1  # offset index to residue numbering
+            # collapse_graph_df.sort_index(axis=1, inplace=True)
+            # graph_collapse = sns.lineplot(data=collapse_graph_df)
+            # g = sns.FacetGrid(tip_sumstats, col="sex", row="smoker")
+            # graph_collapse = sns.relplot(data=collapse_graph_df, kind='line')  # x='Residue Number'
+
+            # Set the base figure aspect ratio for all sequence designs
+            figure_aspect_ratio = (pose_length / 25., 20)  # 20 is arbitrary size to fit all information in figure
+            color_cycler = cycler(color=large_color_array)
+            plt.rc('axes', prop_cycle=color_cycler)
+            fig = plt.figure(figsize=figure_aspect_ratio)
+            # legend_fill_value = int(15 * pose_length / 100)
+
+            # collapse_ax, contact_ax, errat_ax = fig.subplots(3, 1, sharex=True)
+            collapse_ax, errat_ax = fig.subplots(2, 1, sharex=True)
+            # add the contact order to a new plot
+            contact_ax = collapse_ax.twinx()
+            contact_ax.plot(pose_source_contact_order_s, label='Contact Order',
+                            color='#fbc0cb', lw=1, linestyle='-')  # pink
+            # contact_ax.scatter(residue_indices, pose_source_contact_order_s, color='#fbc0cb', marker='o')  # pink
+            # wt_contact_order_concatenated_min_s = pose_source_contact_order_s.min()
+            # wt_contact_order_concatenated_max_s = pose_source_contact_order_s.max()
+            # wt_contact_order_range = wt_contact_order_concatenated_max_s - wt_contact_order_concatenated_min_s
+            # scaled_contact_order = ((pose_source_contact_order_s - wt_contact_order_concatenated_min_s)
+            #                         / wt_contact_order_range)  # / wt_contact_order_range)
+            # graph_contact_order = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
+            # collapse_ax1.plot(scaled_contact_order)
+            # contact_ax.vlines(self.pose.chain_breaks, 0, 1, transform=contact_ax.get_xaxis_transform(),
+            #                   label='Entity Breaks', colors='#cccccc')  # , grey)
+            # contact_ax.vlines(interface_residue_indices, 0, 0.05, transform=contact_ax.get_xaxis_transform(),
+            #                   label='Design Residues', colors='#f89938', lw=2)  # , orange)
+            contact_ax.set_ylabel('Contact Order')
+            # contact_ax.set_xlim(0, pose_length)
+            contact_ax.set_ylim(0, None)
+            # contact_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
+            # collapse_ax1.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
+
+            # Get the plot of each collapse profile into a matplotlib axes
+            # collapse_ax = collapse_graph_df.plot.line(legend=False, ax=collapse_ax, figsize=figure_aspect_ratio)
+            # collapse_ax = collapse_graph_df.plot.line(legend=False, ax=collapse_ax)
+            collapse_ax.plot(collapse_graph_df.T.values, label=collapse_graph_df.index)
+            # collapse_ax = collapse_graph_df.plot.line(ax=collapse_ax)
+            collapse_ax.xaxis.set_major_locator(MultipleLocator(20))
+            collapse_ax.xaxis.set_major_formatter('{x:.0f}')
+            # For the minor ticks, use no labels; default NullFormatter.
+            collapse_ax.xaxis.set_minor_locator(MultipleLocator(5))
+            collapse_ax.set_xlim(0, pose_length)
+            collapse_ax.set_ylim(0, 1)
+            # # CAN'T SET FacetGrid object for most matplotlib elements...
+            # ax = graph_collapse.axes
+            # ax = plt.gca()  # gca <- get current axis
+            # labels = [fill(index, legend_fill_value) for index in collapse_graph_df.index]
+            # collapse_ax.legend(labels, loc='lower left', bbox_to_anchor=(0., 1))
+            # collapse_ax.legend(loc='lower left', bbox_to_anchor=(0., 1))
+            # Plot the chain break(s) and design residues
+            # linestyles={'solid', 'dashed', 'dashdot', 'dotted'}
+            collapse_ax.vlines(self.pose.chain_breaks, 0, 1, transform=collapse_ax.get_xaxis_transform(),
+                               label='Entity Breaks', colors='#cccccc')  # , grey)
+            collapse_ax.vlines(interface_residue_indices, 0, 0.05, transform=collapse_ax.get_xaxis_transform(),
+                               label='Design Residues', colors='#f89938', lw=2)  # , orange)
+            # Plot horizontal significance
+            collapse_significance_threshold = metrics.collapse_thresholds[hydrophobicity]
+            collapse_ax.hlines([collapse_significance_threshold], 0, 1, transform=collapse_ax.get_yaxis_transform(),
+                               label='Collapse Threshold', colors='#fc554f', linestyle='dotted')  # tomato
+            # collapse_ax.set_xlabel('Residue Number')
+            collapse_ax.set_ylabel('Hydrophobic Collapse Index')
+            # collapse_ax.set_prop_cycle(color_cycler)
+            # ax.autoscale(True)
+            # collapse_ax.figure.tight_layout()  # no standardization
+            # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse.png'))  # no standardization
+
+            # Plot: Collapse description of total profile against each design
+            entity_collapse_mean, entity_collapse_std = [], []
+            for entity in self.pose.entities:
+                if entity.msa:
+                    collapse = entity.collapse_profile()
+                    entity_collapse_mean.append(collapse.mean(axis=-2))
+                    entity_collapse_std.append(collapse.std(axis=-2))
+                else:
+                    break
+            else:  # Only execute if we successfully looped
+                profile_mean_collapse_concatenated_s = \
+                    pd.concat([entity_collapse_mean[idx] for idx in range(number_of_entities)], ignore_index=True)
+                profile_std_collapse_concatenated_s = \
+                    pd.concat([entity_collapse_std[idx] for idx in range(number_of_entities)], ignore_index=True)
+                profile_mean_collapse_concatenated_s.index += 1  # offset index to residue numbering
+                profile_std_collapse_concatenated_s.index += 1  # offset index to residue numbering
+                collapse_graph_describe_df = pd.DataFrame({
+                    'std_min': profile_mean_collapse_concatenated_s - profile_std_collapse_concatenated_s,
+                    'std_max': profile_mean_collapse_concatenated_s + profile_std_collapse_concatenated_s,
+                })
+                collapse_graph_describe_df.index += 1  # offset index to residue numbering
+                collapse_graph_describe_df['Residue Number'] = collapse_graph_describe_df.index
+                collapse_ax.vlines('Residue Number', 'std_min', 'std_max', data=collapse_graph_describe_df,
+                                   color='#e6e6fa', linestyle='-', lw=1, alpha=0.8)  # lavender
+                # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse_versus_profile.png'))
+
+            # Plot: Errat Accuracy
+            # errat_graph_df = pd.DataFrame(per_residue_data['errat_deviation'])
+            # errat_graph_df = residues_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
+            # errat_graph_df = errat_df
+            # wt_errat_concatenated_s = pd.Series(np.concatenate(list(source_errat.values())), name='clean_asu')
+            # errat_graph_df[self.pose.name] = pose_source_errat
+            # errat_graph_df.columns += 1  # offset index to residue numbering
+            errat_df.sort_index(axis=0, inplace=True)
+            # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
+            # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax)
+            # errat_ax = errat_graph_df.plot.line(ax=errat_ax)
+            errat_ax.plot(errat_df.T.values, label=collapse_graph_df.index)
+            errat_ax.xaxis.set_major_locator(MultipleLocator(20))
+            errat_ax.xaxis.set_major_formatter('{x:.0f}')
+            # For the minor ticks, use no labels; default NullFormatter.
+            errat_ax.xaxis.set_minor_locator(MultipleLocator(5))
+            # errat_ax.set_xlim(0, pose_length)
+            errat_ax.set_ylim(0, None)
+            # graph_errat = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
+            # Plot the chain break(s) and design residues
+            # labels = [fill(column, legend_fill_value) for column in errat_graph_df.columns]
+            # errat_ax.legend(labels, loc='lower left', bbox_to_anchor=(0., 1.))
+            # errat_ax.legend(loc='lower center', bbox_to_anchor=(0., 1.))
+            errat_ax.vlines(self.pose.chain_breaks, 0, 1, transform=errat_ax.get_xaxis_transform(),
+                            label='Entity Breaks', colors='#cccccc')  # , grey)
+            errat_ax.vlines(interface_residue_indices, 0, 0.05, transform=errat_ax.get_xaxis_transform(),
+                            label='Design Residues', colors='#f89938', lw=2)  # , orange)
+            # Plot horizontal significance
+            errat_ax.hlines([metrics.errat_2_sigma], 0, 1, transform=errat_ax.get_yaxis_transform(),
+                            label='Significant Error', colors='#fc554f', linestyle='dotted')  # tomato
+            errat_ax.set_xlabel('Residue Number')
+            errat_ax.set_ylabel('Errat Score')
+            # errat_ax.autoscale(True)
+            # errat_ax.figure.tight_layout()
+            # errat_ax.figure.savefig(os.path.join(self.data, 'errat.png'))
+            collapse_handles, collapse_labels = collapse_ax.get_legend_handles_labels()
+            contact_handles, contact_labels = contact_ax.get_legend_handles_labels()
+            # errat_handles, errat_labels = errat_ax.get_legend_handles_labels()
+            # print(handles, labels)
+            handles = collapse_handles + contact_handles
+            labels = collapse_labels + contact_labels
+            # handles = errat_handles + contact_handles
+            # labels = errat_labels + contact_labels
+            labels = [label.replace(f'{self.name}_', '') for label in labels]
+            # plt.legend(loc='upper right', bbox_to_anchor=(1, 1))  #, ncol=3, mode='expand')
+            # print(labels)
+            # plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -1.), ncol=3)  # , mode='expand'
+            # v Why the hell doesn't this work??
+            # fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.), ncol=3,  # , mode='expand')
+            # fig.subplots_adjust(bottom=0.1)
+            plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -1.), ncol=3)  # , mode='expand')
+            #            bbox_transform=plt.gcf().transFigure)  # , bbox_transform=collapse_ax.transAxes)
+            fig.tight_layout()
+            fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))  # Todo PoseJob(.path)
+
+        # After parsing data sources
+        # other_pose_metrics['observations'] = len(viable_designs)
+        # interface_metrics_s = pd.concat([pd.Series(other_pose_metrics)], keys=[('dock', 'pose')])
+
+        # CONSTRUCT: Create pose series and format index names
+        # pose_s = pd.concat([interface_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
+        pose_s = pd.concat([stat_s, divergence_s] + sim_series).swaplevel(0, 1)
+        # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
+        pose_s.drop([putils.protocol], level=2, inplace=True, errors='ignore')
+        pose_s.sort_index(level=2, inplace=True, sort_remaining=False)
+        pose_s.sort_index(level=1, inplace=True, sort_remaining=False)
+        pose_s.sort_index(level=0, inplace=True, sort_remaining=False)
+        pose_s.name = str(self)
+
+        return pose_s
+
+    def refine(self, to_pose_directory: bool = True, metrics: bool = True, in_file_list: AnyStr = None):
         """Refine the source Pose
 
         Will append the suffix "_refine" or that given by f'_{self.protocol}' if in_file_list is passed
 
         Args:
-            to_pose_directory: Whether the refinement should be saved to the PoseDirectory
+            to_pose_directory: Whether the refinement should be saved to the PoseJob
             metrics: Whether metrics should be calculated for the Pose
             in_file_list: A list of files to perform refinement on
         """
@@ -2298,7 +3371,7 @@ class PoseDirectory(PoseProtocol):
             else:
                 switch = putils.refine
                 self.log.warning(f'The requested protocol {self.protocol}, was not recognized by '
-                                 f'{self._refine.__name__} and is being treated as the standard "{switch}" protocol')
+                                 f'{self.refine.__name__} and is being treated as the standard "{switch}" protocol')
 
             infile.extend(['-in:file:l', in_file_list,
                            # -in:file:native is here to block flag file version, not actually useful for refine
@@ -2390,7 +3463,7 @@ class PoseDirectory(PoseProtocol):
         if not self.job.distribute_work:
             # Ensure that mutations to the Pose are wiped. We can reload if continuing to use
             remove_structure_memory()  # self.pose = None
-            pose_s = self._interface_design_analysis()
+            pose_s = self.interface_design_analysis()
             out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
@@ -2398,13 +3471,12 @@ class PoseDirectory(PoseProtocol):
                 header = True
             pose_s.to_csv(out_path, mode='a', header=header)
 
-    # Below are protocols for various design applications
     def rosetta_interface_design(self):
         """For the basic process of sequence design between two halves of an interface, write the necessary files for
         refinement (FastRelax), redesign (FastDesign), and metrics collection (Filters & SimpleMetrics)
 
         Stores job variables in a [stage]_flags file and the command in a [stage].sh file. Sets up dependencies based
-        on the PoseDirectory
+        on the PoseJob
         """
         # Set up the command base (rosetta bin and database paths)
         main_cmd = rosetta.script_cmd.copy()
@@ -2519,121 +3591,13 @@ class PoseDirectory(PoseProtocol):
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
-            pose_s = self._interface_design_analysis()
+            pose_s = self.interface_design_analysis()
             out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
             else:
                 header = True
             pose_s.to_csv(out_path, mode='a', header=header)
-
-    def proteinmpnn_design(self, interface: bool = False, neighbors: bool = False):
-        """Perform design based on the ProteinMPNN graph encoder/decoder network and output sequences and scores to the
-        PoseDirectory scorefile
-
-        Sets:
-            self.protocol = 'proteinmpnn'
-        Args:
-            interface: Whether to only specify the interface as designable, otherwise, use all residues
-            neighbors: Whether to design interface neighbors
-        Returns:
-
-        """
-        self.protocol = 'proteinmpnn'
-        self.log.info(f'Starting {self.protocol} design calculation with {self.job.design.number} '
-                      f'designs over each of the temperatures: {self.job.design.temperatures}')
-        # design_start = time.time()
-        sequences_and_scores: dict[str, np.ndarray | list] = \
-            self.pose.design_sequences(number=self.job.design.number,
-                                       temperatures=self.job.design.temperatures,
-                                       interface=interface, neighbors=neighbors,
-                                       ca_only=self.job.design.ca_only
-                                       )
-        # Update the Pose with the number of designs
-        number_of_new_designs = len(self.job.design.number * self.job.design.temperatures)
-        # with self.job.db.session() as session:
-        first_new_design_idx = self.number_of_designs + 1
-        self.number_of_designs += number_of_new_designs
-        #     session.add(self)
-        #     session.commit()
-        # self.log.debug(f"Took {time.time() - design_start:8f}s for design_sequences")
-        # Add protocol (job info) and temperature to sequences_and_scores
-        sequences_and_scores[putils.protocol] = list(repeat(self.protocol, number_of_new_designs))
-        sequences_and_scores['temperatures'] = [temperature for temperature in self.job.design.temperatures
-                                                for _ in range(self.job.design.number)]
-        # design_names = [f'{seq_idx:04d}'  # f'{self.name}_{self.protocol}{seq_idx:04d}'
-        design_names = [f'{self.protocol}{seq_idx:04d}'  # f'{self.name}_{self.protocol}{seq_idx:04d}'
-                        for seq_idx in range(first_new_design_idx,
-                                             first_new_design_idx + number_of_new_designs)]
-
-        # self.output_proteinmpnn_scores(design_names, sequences_and_scores)
-        putils.make_path(self.designs)
-        # # Write every designed sequence to the sequences file...
-        # write_sequences(sequences_and_scores['sequences'], names=design_names, file_name=self.designed_sequences_file)
-        # Convert sequences to a plain string sequence representation
-        sequences_and_scores['sequences'] = \
-            [''.join(sequence) for sequence in sequences_and_scores['sequences'].tolist()]
-        # Write every designed sequence to an individual file...
-        for name, sequence in zip(design_names, sequences_and_scores['sequences']):
-            write_sequences(sequence, names=name, file_name=os.path.join(self.designs, name))
-
-        # analysis_start = time.time()
-        self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
-        # self.log.debug(f"Took {time.time() - analysis_start:8f}s for analyze_proteinmpnn_metrics. "
-        #                f"{time.time() - design_start:8f}s total")
-
-    # def output_proteinmpnn_scores(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.ndarray | list]):
-    #     """Given the results of a ProteinMPNN design trajectory, format the sequences and scores for the PoseDirectory
-    #
-    #     Args:
-    #         design_ids: The associated design identifier for each corresponding entry in sequences_and_scores
-    #         sequences_and_scores: The mapping of ProteinMPNN score type to it's corresponding data
-    #     """
-    #     # # Convert each numpy array into a list for output
-    #     # for score_type, data in sequences_and_scores.items():
-    #     #     # if isinstance(data, np.ndarray):
-    #     #     sequences_and_scores[score_type] = data.tolist()
-    #
-    #     # # trajectories_temperatures_ids = [f'temp{temperature}' for idx in self.job.design.number
-    #     # #                                  for temperature in self.job.design.temperatures]
-    #     # # trajectories_temperatures_ids = [{'temperatures': temperature} for idx in self.job.design.number
-    #     # #                                  for temperature in self.job.design.temperatures]
-    #     # protocol = 'proteinmpnn'
-    #     # sequences_and_scores[putils.protocol] = \
-    #     #     repeat(protocol, len(self.job.design.number * self.job.design.temperatures))
-    #     # sequences_and_scores['temperatures'] = [temperature for temperature in self.job.design.temperatures
-    #     #                                         for _ in range(self.job.design.number)]
-    #
-    #     def write_per_residue_scores(_design_ids: Sequence[str], scores: dict[str, list]) -> AnyStr:
-    #         """"""
-    #         # Create an initial score dictionary
-    #         design_scores = {design_id: {'decoy': design_id} for design_id in _design_ids}
-    #         # For each score type unpack the data
-    #         for score_type, score in scores.items():
-    #             # For each score's data, update the dictionary of the corresponding design_id
-    #             if isinstance(score, np.ndarray):
-    #                 # Convert each numpy array into a list for output
-    #                 score = score.tolist()
-    #             for design_id, design_score in zip(_design_ids, score):
-    #                 design_scores[design_id].update({score_type: design_score})
-    #
-    #         for design_id, scores in design_scores.items():
-    #             # write_json(_scores, self.scores_file)
-    #             with open(self.scores_file, 'a') as f_save:
-    #                 json.dump(scores, f_save)  # , **kwargs)
-    #                 # Ensure JSON lines are separated by newline
-    #                 f_save.write('\n')
-    #
-    #         # return write_json(design_scores, self.scores_file)
-    #         return self.scores_file
-    #
-    #     putils.make_path(self.data)
-    #     write_per_residue_scores(design_ids, sequences_and_scores)
-
-    def analyze_predict_structure_metrics(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.array]):
-        """"""
-        self.output_metrics(update=True)
-
 
     def analyze_proteinmpnn_metrics(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.array]) \
             -> pd.Series:
@@ -2866,6 +3830,109 @@ class PoseDirectory(PoseProtocol):
 
         self.output_metrics(residues=residues_df, designs=designs_df)
 
+    def proteinmpnn_design(self, interface: bool = False, neighbors: bool = False):
+        """Perform design based on the ProteinMPNN graph encoder/decoder network and output sequences and scores to the
+        PoseJob scorefile
+
+        Sets:
+            self.protocol = 'proteinmpnn'
+        Args:
+            interface: Whether to only specify the interface as designable, otherwise, use all residues
+            neighbors: Whether to design interface neighbors
+        Returns:
+
+        """
+        self.protocol = 'proteinmpnn'
+        self.log.info(f'Starting {self.protocol} design calculation with {self.job.design.number} '
+                      f'designs over each of the temperatures: {self.job.design.temperatures}')
+        # design_start = time.time()
+        sequences_and_scores: dict[str, np.ndarray | list] = \
+            self.pose.design_sequences(number=self.job.design.number,
+                                       temperatures=self.job.design.temperatures,
+                                       interface=interface, neighbors=neighbors,
+                                       ca_only=self.job.design.ca_only
+                                       )
+        # Update the Pose with the number of designs
+        number_of_new_designs = len(self.job.design.number * self.job.design.temperatures)
+        # with self.job.db.session() as session:
+        first_new_design_idx = self.number_of_designs + 1
+        self.number_of_designs += number_of_new_designs
+        #     session.add(self)
+        #     session.commit()
+        # self.log.debug(f"Took {time.time() - design_start:8f}s for design_sequences")
+        # Add protocol (job info) and temperature to sequences_and_scores
+        sequences_and_scores[putils.protocol] = list(repeat(self.protocol, number_of_new_designs))
+        sequences_and_scores['temperatures'] = [temperature for temperature in self.job.design.temperatures
+                                                for _ in range(self.job.design.number)]
+        # design_names = [f'{seq_idx:04d}'  # f'{self.name}_{self.protocol}{seq_idx:04d}'
+        design_names = [f'{self.protocol}{seq_idx:04d}'  # f'{self.name}_{self.protocol}{seq_idx:04d}'
+                        for seq_idx in range(first_new_design_idx,
+                                             first_new_design_idx + number_of_new_designs)]
+
+        # self.output_proteinmpnn_scores(design_names, sequences_and_scores)
+        putils.make_path(self.designs)
+        # # Write every designed sequence to the sequences file...
+        # write_sequences(sequences_and_scores['sequences'], names=design_names, file_name=self.designed_sequences_file)
+        # Convert sequences to a plain string sequence representation
+        sequences_and_scores['sequences'] = \
+            [''.join(sequence) for sequence in sequences_and_scores['sequences'].tolist()]
+        # Write every designed sequence to an individual file...
+        for name, sequence in zip(design_names, sequences_and_scores['sequences']):
+            write_sequences(sequence, names=name, file_name=os.path.join(self.designs, name))
+
+        # analysis_start = time.time()
+        self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
+        # self.log.debug(f"Took {time.time() - analysis_start:8f}s for analyze_proteinmpnn_metrics. "
+        #                f"{time.time() - design_start:8f}s total")
+
+    # def output_proteinmpnn_scores(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.ndarray | list]):
+    #     """Given the results of a ProteinMPNN design trajectory, format the sequences and scores for the PoseJob
+    #
+    #     Args:
+    #         design_ids: The associated design identifier for each corresponding entry in sequences_and_scores
+    #         sequences_and_scores: The mapping of ProteinMPNN score type to it's corresponding data
+    #     """
+    #     # # Convert each numpy array into a list for output
+    #     # for score_type, data in sequences_and_scores.items():
+    #     #     # if isinstance(data, np.ndarray):
+    #     #     sequences_and_scores[score_type] = data.tolist()
+    #
+    #     # # trajectories_temperatures_ids = [f'temp{temperature}' for idx in self.job.design.number
+    #     # #                                  for temperature in self.job.design.temperatures]
+    #     # # trajectories_temperatures_ids = [{'temperatures': temperature} for idx in self.job.design.number
+    #     # #                                  for temperature in self.job.design.temperatures]
+    #     # protocol = 'proteinmpnn'
+    #     # sequences_and_scores[putils.protocol] = \
+    #     #     repeat(protocol, len(self.job.design.number * self.job.design.temperatures))
+    #     # sequences_and_scores['temperatures'] = [temperature for temperature in self.job.design.temperatures
+    #     #                                         for _ in range(self.job.design.number)]
+    #
+    #     def write_per_residue_scores(_design_ids: Sequence[str], scores: dict[str, list]) -> AnyStr:
+    #         """"""
+    #         # Create an initial score dictionary
+    #         design_scores = {design_id: {'decoy': design_id} for design_id in _design_ids}
+    #         # For each score type unpack the data
+    #         for score_type, score in scores.items():
+    #             # For each score's data, update the dictionary of the corresponding design_id
+    #             if isinstance(score, np.ndarray):
+    #                 # Convert each numpy array into a list for output
+    #                 score = score.tolist()
+    #             for design_id, design_score in zip(_design_ids, score):
+    #                 design_scores[design_id].update({score_type: design_score})
+    #
+    #         for design_id, scores in design_scores.items():
+    #             # write_json(_scores, self.scores_file)
+    #             with open(self.scores_file, 'a') as f_save:
+    #                 json.dump(scores, f_save)  # , **kwargs)
+    #                 # Ensure JSON lines are separated by newline
+    #                 f_save.write('\n')
+    #
+    #         # return write_json(design_scores, self.scores_file)
+    #         return self.scores_file
+    #
+    #     putils.make_path(self.data)
+    #     write_per_residue_scores(design_ids, sequences_and_scores)
+
     # Todo ensure self.data dir is made
     def output_metrics(self, designs: pd.DataFrame = None, residues: pd.DataFrame = None, update: bool = False):
         """Format each possible DataFrame type for output via csv or SQL database
@@ -2944,6 +4011,10 @@ class PoseDirectory(PoseProtocol):
         #
         # self.job.dataframe = self.designs_metrics_csv
         # pose_df.to_csv(self.designs_metrics_csv)
+
+    def analyze_predict_structure_metrics(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.array]):
+        """"""
+        self.output_metrics(update=True)
 
     def analyze_sequence_metrics_per_design(self, sequences: dict[str, Sequence[str]] | Sequence[Sequence[str]] = None,
                                             design_ids: Sequence[str] = None) -> pd.DataFrame:
@@ -3173,1046 +4244,9 @@ class PoseDirectory(PoseProtocol):
 
         return residues_df
 
-    def _interface_design_analysis(self, designs: Iterable[Pose] | Iterable[AnyStr] = None) -> pd.Series:
-        """Retrieve all score information from a PoseDirectory and write results to .csv file
-
-        Args:
-            designs: The designs to perform analysis on. By default, fetches all available structures
-        Returns:
-            Series containing summary metrics for all designs
-        """
-        self.load_pose()
-        # self.identify_interface()
-
-        # Load fragment_profile into the analysis
-        if self.job.design.term_constraint and not self.pose.fragment_queries:
-            self._generate_fragments(interface=True)
-            self.pose.calculate_fragment_profile()
-
-        # CAUTION: Assumes each structure is the same length
-        pose_length = self.pose.number_of_residues
-        residue_indices = list(range(pose_length))
-        # residue_numbers = [residue.number for residue in self.pose.residues]
-        # interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
-
-        # Find all designs files
-        # Todo fold these into Model(s) and attack metrics from Pose objects?
-        if designs is None:
-            designs = [Pose.from_file(file, **self.pose_kwargs) for file in self.get_designs()]  # Todo PoseDirectory(.path)
-
-        pose_sequences = {pose.name: pose.sequence for pose in designs}
-        sequences_df = self.analyze_sequence_metrics_per_design(pose_sequences)
-        # all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences,
-        #                                                   zero_index=True, return_to=True)
-
-        entity_energies = [0. for _ in self.pose.entities]
-        pose_source_residue_info = \
-            {residue.number: {'complex': 0., 'bound': entity_energies.copy(), 'unbound': entity_energies.copy(),
-                              'solv_complex': 0., 'solv_bound': entity_energies.copy(),
-                              'solv_unbound': entity_energies.copy(), 'fsp': 0., 'cst': 0.,
-                              'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
-             for entity in self.pose.entities for residue in entity.residues}
-        residue_info = {putils.pose_source: pose_source_residue_info}
-
-        # Gather miscellaneous pose specific metrics
-        # other_pose_metrics = self.pose.interface_metrics()
-        # Create metrics for the pose_source
-        empty_source = dict(
-            # **other_pose_metrics,
-            buns_complex=0,
-            # buns_unbound=0,
-            contact_count=0,
-            favor_residue_energy=0,
-            interaction_energy_complex=0,
-            interaction_energy_per_residue=0,
-            interface_separation=0,
-            number_of_hbonds=0,
-            rmsd_complex=0,  # Todo calculate this here instead of Rosetta using superposition3d
-            rosetta_reference_energy=0,
-            shape_complementarity=0,
-        )
-        job_key = 'no_energy'
-        empty_source[putils.protocol] = job_key
-        for idx, entity in enumerate(self.pose.entities, 1):
-            empty_source[f'buns{idx}_unbound'] = 0
-            empty_source[f'entity{idx}_interface_connectivity'] = 0
-
-        source_df = pd.DataFrame(empty_source, index=[putils.pose_source])
-
-        # Get the metrics from the score file for each design
-        if os.path.exists(self.scores_file):  # Rosetta scores file is present  # Todo PoseDirectory(.path)
-            self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseDirectory(.path)
-            design_was_performed = True
-            # # Get the scores from the score file on design trajectory metrics
-            # source_df = pd.DataFrame.from_dict({putils.pose_source: {putils.protocol: job_key}}, orient='index')
-            # for idx, entity in enumerate(self.pose.entities, 1):
-            #     source_df[f'buns{idx}_unbound'] = 0
-            #     source_df[f'entity{idx}_interface_connectivity'] = 0
-            # source_df['buns_complex'] = 0
-            # # source_df['buns_unbound'] = 0
-            # source_df['contact_count'] = 0
-            # source_df['favor_residue_energy'] = 0
-            # # Used in sum_per_residue_df
-            # # source_df['interface_energy_complex'] = 0
-            # source_df['interaction_energy_complex'] = 0
-            # source_df['interaction_energy_per_residue'] = \
-            #     source_df['interaction_energy_complex'] / len(self.pose.interface_residues)
-            # source_df['interface_separation'] = 0
-            # source_df['number_of_hbonds'] = 0
-            # source_df['rmsd_complex'] = 0
-            # source_df['rosetta_reference_energy'] = 0
-            # source_df['shape_complementarity'] = 0
-            design_scores = metrics.read_scores(self.scores_file)  # Todo PoseDirectory(.path)
-            self.log.debug(f'All designs with scores: {", ".join(design_scores.keys())}')
-            # Find designs with scores and structures
-            structure_design_scores = {}
-            for pose in designs:
-                try:
-                    structure_design_scores[pose.name] = design_scores.pop(pose.name)
-                except KeyError:  # Structure wasn't scored, we will remove this later
-                    pass
-
-            # Create protocol dataframe
-            scores_df = pd.DataFrame.from_dict(structure_design_scores, orient='index')
-            # # Fill in all the missing values with that of the default pose_source
-            # scores_df = pd.concat([source_df, scores_df]).fillna(method='ffill')
-            # Gather all columns into specific types for processing and formatting
-            per_res_columns = []
-            # hbonds_columns = []
-            for column in scores_df.columns.to_list():
-                if 'res_' in column:  # if column.startswith('per_res_'):
-                    per_res_columns.append(column)
-                # elif column.startswith('hbonds_res_selection'):
-                #     hbonds_columns.append(column)
-
-            # Check proper input
-            metric_set = metrics.necessary_metrics.difference(set(scores_df.columns))
-            # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
-            if metric_set:
-                raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
-
-            # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
-            # Todo learn know how to produce Rosetta score terms in output score file. Not in FastRelax...
-            remove_columns = metrics.rosetta_terms + metrics.unnecessary + per_res_columns
-            # Todo remove dirty when columns are correct (after P432)
-            #  and column tabulation precedes residue/hbond_processing
-            # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
-            residue_info.update(self.pose.rosetta_residue_processing(structure_design_scores))
-            # Can't use residue_processing (clean) ^ in the case there is a design without metrics... columns not found!
-            interface_hbonds = metrics.dirty_hbond_processing(structure_design_scores)
-            # Can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
-            # interface_hbonds = hbond_processing(structure_design_scores, hbonds_columns)
-            # Convert interface_hbonds to indices
-            interface_hbonds = {design: [residue.index for residue in self.pose.get_residues(hbond_residues)]
-                                for design, hbond_residues in interface_hbonds.items()}
-            residue_info = metrics.process_residue_info(residue_info, hbonds=interface_hbonds)
-            # residue_info = metrics.incorporate_sequence_info(residue_info, pose_sequences)
-
-            # Drop designs where required data isn't present
-            # Format protocol columns
-            missing_group_indices = scores_df[putils.protocol].isna()
-            # Todo remove not DEV
-            scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
-            scores_df.loc[scout_indices, putils.protocol] = putils.scout
-            structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
-            scores_df.loc[structure_bkgnd_indices, putils.protocol] = putils.structure_background
-            # Todo Done remove
-            # protocol_s.replace({'combo_profile': putils.design_profile}, inplace=True)  # ensure proper profile name
-
-            scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
-            # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
-
-            viable_designs = scores_df.index.to_list()
-            if not viable_designs:
-                raise DesignError('No viable designs remain after processing!')
-
-            self.log.debug(f'Viable designs with structures remaining after cleaning:\n\t{", ".join(viable_designs)}')
-            pose_sequences = {design: sequence for design, sequence in pose_sequences.items() if
-                              design in viable_designs}
-
-            # Todo implement this protocol if sequence data is taken at multiple points along a trajectory and the
-            #  sequence data along trajectory is a metric on it's own
-            # # Gather mutations for residue specific processing and design sequences
-            # for design, data in list(structure_design_scores.items()):  # make a copy as can be removed
-            #     sequence = data.get('final_sequence')
-            #     if sequence:
-            #         if len(sequence) >= pose_length:
-            #             pose_sequences[design] = sequence[:pose_length]  # Todo won't work if design had insertions
-            #         else:
-            #             pose_sequences[design] = sequence
-            #     else:
-            #         self.log.warning('Design %s is missing sequence data, removing from design pool' % design)
-            #         structure_design_scores.pop(design)
-            # # format {entity: {design_name: sequence, ...}, ...}
-            # entity_sequences = \
-            #     {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
-            #               for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
-        else:
-            self.log.debug(f'Missing design scores file at {self.scores_file}')  # Todo PoseDirectory(.path)
-            design_was_performed = False
-            # Todo add relevant missing scores such as those specified as 0 below
-            # Todo may need to put source_df in scores file alternative
-            # source_df = pd.DataFrame.from_dict({putils.pose_source: {putils.protocol: job_key}}, orient='index')
-            # for idx, entity in enumerate(self.pose.entities, 1):
-            #     source_df[f'buns{idx}_unbound'] = 0
-            #     source_df[f'entity{idx}_interface_connectivity'] = 0
-            #     # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
-            #     # design_info.update({residue.number: {'energy_delta': 0.,
-            #     #                                      'type': protein_letters_3to1.get(residue.type),
-            #     #                                      'hbond': 0} for residue in entity.residues})
-            # source_df['buns_complex'] = 0
-            # # source_df['buns_unbound'] = 0
-            # source_df['contact_count'] = 0
-            # source_df['favor_residue_energy'] = 0
-            # # source_df['interface_energy_complex'] = 0
-            # source_df['interaction_energy_complex'] = 0
-            # source_df['interaction_energy_per_residue'] = \
-            #     source_df['interaction_energy_complex'] / len(self.pose.interface_residues)
-            # source_df['interface_separation'] = 0
-            # source_df['number_of_hbonds'] = 0
-            # source_df['rmsd_complex'] = 0
-            # source_df['rosetta_reference_energy'] = 0
-            # source_df['shape_complementarity'] = 0
-            scores_df = pd.DataFrame.from_dict({pose.name: {putils.protocol: job_key} for pose in designs},
-                                               orient='index')
-            # # Fill in all the missing values with that of the default pose_source
-            # scores_df = pd.concat([source_df, scores_df]).fillna(method='ffill')
-
-            remove_columns = metrics.rosetta_terms + metrics.unnecessary
-            residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.to_list()})
-            # Todo generate energy scores internally which matches output from residue_processing
-            viable_designs = [pose.name for pose in designs]
-
-        scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
-
-        # Find protocols for protocol specific data processing removing from scores_df
-        protocol_s = scores_df.pop(putils.protocol).copy()
-        designs_by_protocol = protocol_s.groupby(protocol_s).groups
-        # unique_protocols = list(designs_by_protocol.keys())
-        # Remove refine and consensus if present as there was no design done over multiple protocols
-        # Todo change if we did multiple rounds of these protocols
-        designs_by_protocol.pop(putils.refine, None)
-        designs_by_protocol.pop(putils.consensus, None)
-        # Get unique protocols
-        unique_design_protocols = set(designs_by_protocol.keys())
-        self.log.info(f'Unique Design Protocols: {", ".join(unique_design_protocols)}')
-
-        # Replace empty strings with np.nan and convert remaining to float
-        scores_df.replace('', np.nan, inplace=True)
-        scores_df.fillna(dict(zip(metrics.protocol_specific_columns, repeat(0))), inplace=True)
-        # scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
-        # Fill in all the missing values with that of the default pose_source
-        scores_df = pd.concat([source_df, scores_df]).fillna(method='ffill')
-
-        # atomic_deviation = {}
-        # pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
-        # perform SASA measurements
-        # pose_assembly_minimally_contacting.get_sasa()
-        # assembly_asu_residues = pose_assembly_minimally_contacting.residues[:pose_length]
-        # per_residue_data['sasa_hydrophobic_complex'][putils.pose_source] = \
-        #     [residue.sasa_apolar for residue in assembly_asu_residues]
-        # per_residue_data['sasa_polar_complex'][putils.pose_source] = [residue.sasa_polar for residue in assembly_asu_residues]
-        # per_residue_data['sasa_relative_complex'][putils.pose_source] = \
-        #     [residue.relative_sasa for residue in assembly_asu_residues]
-
-        # Grab metrics for the pose source. Checks if self.pose was designed
-        # Favor pose source errat/collapse on a per-entity basis if design occurred
-        # As the pose source assumes no legit interface present while designs have an interface
-        # per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = [], [], []
-        # source_errat_accuracy, source_errat, source_contact_order, inverse_residue_contact_order_z = [], [], [], []
-        source_contact_order = []
-        for idx, entity in enumerate(self.pose.entities):
-            # Contact order is the same for every design in the Pose and not dependent on pose
-            source_contact_order.append(entity.contact_order)
-
-        per_residue_data: dict[str, dict[str, Any]] = \
-            {putils.pose_source: self.pose.per_residue_interface_surface_area()}
-        pose_source_contact_order_s = \
-            pd.Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
-        per_residue_data[putils.pose_source]['contact_order'] = pose_source_contact_order_s
-
-        number_of_entities = self.pose.number_of_entities
-        if design_was_performed:  # The input structure was not meant to be together, treat as such
-            source_errat = []
-            for idx, entity in enumerate(self.pose.entities):
-                # Replace 'errat_deviation' measurement with uncomplexed entities
-                # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
-                # source_errat_accuracy.append(oligomer_errat_accuracy)
-                # Todo when Entity.oligomer works
-                #  _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
-                entity_oligomer = Model.from_chains(entity.chains, log=self.pose.log, entities=False)
-                _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
-                source_errat.append(oligomeric_errat[:entity.number_of_residues])
-            # atomic_deviation[putils.pose_source] = sum(source_errat_accuracy) / float(number_of_entities)
-            pose_source_errat = np.concatenate(source_errat)
-        else:
-            pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
-            # atomic_deviation[putils.pose_source], pose_per_residue_errat = \
-            _, pose_per_residue_errat = \
-                pose_assembly_minimally_contacting.errat(out_path=os.path.devnull)
-            pose_source_errat = pose_per_residue_errat[:pose_length]
-
-        per_residue_data[putils.pose_source]['errat_deviation'] = pose_source_errat
-
-        # Compute structural measurements for all designs
-        interface_local_density = {putils.pose_source: self.pose.local_density_interface()}
-        for pose in designs:  # Takes 1-2 seconds for Structure -> assembly -> errat
-            # Must find interface residues before measure local_density
-            pose.find_and_split_interface()
-            per_residue_data[pose.name] = pose.per_residue_interface_surface_area()
-            # Get errat measurement
-            per_residue_data[pose.name].update(pose.per_residue_interface_errat())
-            # Todo remove Rosetta
-            #  This is a measurement of interface_connectivity like from Rosetta
-            interface_local_density[pose.name] = pose.local_density_interface()
-
-        scores_df['interface_local_density'] = pd.Series(interface_local_density)
-
-        # Load profiles of interest into the analysis
-        if self.job.design.evolution_constraint:
-            self._generate_evolutionary_profile(warn_metrics=True)
-
-        # self._generate_fragments() was already called
-        self.pose.calculate_profile()
-
-        profile_background = {'design': pssm_as_array(self.pose.profile),
-                              'evolution': pssm_as_array(self.pose.evolutionary_profile),
-                              'fragment': self.pose.fragment_profile.as_array()}
-        if self.job.fragment_db is not None:
-            interface_bkgd = np.array(list(self.job.fragment_db.aa_frequencies.values()))
-            profile_background['interface'] = np.tile(interface_bkgd, (self.pose.number_of_residues, 1))
-
-        # Calculate hydrophobic collapse for each design
-        # Include the pose_source in the measured designs
-        # Todo use hydrophobicity = 'expanded'
-        #  if collapse_profile.size:  # is used
-        #      hydrophobicity = 'expanded'
-        #  else:
-        hydrophobicity = 'standard'  # Set for figures as well
-        contact_order_per_res_z, reference_collapse, collapse_profile = \
-            self.pose.get_folding_metrics(hydrophobicity=hydrophobicity)
-        if collapse_profile.size:  # Not equal to zero, use the profile instead
-            reference_collapse = collapse_profile
-        #     reference_mean = np.nanmean(collapse_profile, axis=-2)
-        #     reference_std = np.nanstd(collapse_profile, axis=-2)
-        # else:
-        #     reference_mean = reference_std = None
-        entity_sequences = []
-        for entity in self.pose.entities:
-            entity_slice = slice(entity.n_terminal_residue.index, 1 + entity.c_terminal_residue.index)
-            entity_sequences.append({design: sequence[entity_slice] for design, sequence in pose_sequences.items()})
-
-        all_sequences_split = [list(designed_sequences.values()) for designed_sequences in entity_sequences]
-        all_sequences_by_entity = list(zip(*all_sequences_split))
-
-        folding_and_collapse = \
-            metrics.collapse_per_residue(all_sequences_by_entity, contact_order_per_res_z, reference_collapse)
-        per_residue_collapse_df = pd.concat({design_id: pd.DataFrame(data, index=residue_indices)
-                                             for design_id, data in zip(viable_designs, folding_and_collapse)},
-                                            ).unstack().swaplevel(0, 1, axis=1)
-
-        # Convert per_residue_data into a dataframe matching residues_df orientation
-        residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
-                                for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
-        # Fill in missing pose_source metrics for each design not calculated in rosetta
-        # residues_df.fillna(residues_df.loc[putils.pose_source, idx_slice[:, 'contact_order']], inplace=True)
-        residues_df.fillna(residues_df.loc[putils.pose_source, :], inplace=True)
-
-        residues_df = residues_df.join(per_residue_collapse_df)
-
-        # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
-        rosetta_info_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
-        # returns multi-index column with residue number as first (top) column index, metric as second index
-        # during residues_df unstack, all residues with missing dicts are copied as nan
-        # Merge interface design specific residue metrics with total per residue metrics
-        # residues_df = pd.merge(residues_df, rosetta_info_df, left_index=True, right_index=True)
-
-        # Join each residues_df like dataframe
-        # Each of these can have difference index, so we use concat to perform an outer merge
-        residues_df = pd.concat([residues_df, sequences_df, rosetta_info_df], axis=1)
-        # # Join rosetta_info_df and sequence metrics
-        # residues_df = residues_df.join([rosetta_info_df, sequences_df])
-
-        if not profile_background:
-            divergence_s = pd.Series(dtype=float)
-        else:  # Calculate sequence statistics
-            # First, for entire pose
-            pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
-            observed, divergence = \
-                metrics.calculate_sequence_observations_and_divergence(pose_alignment, profile_background)
-            observed_dfs = []
-            for profile, observed_values in observed.items():
-                # scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
-                observed_dfs.append(pd.DataFrame(observed_values, index=viable_designs,
-                                                 columns=pd.MultiIndex.from_product([residue_indices,
-                                                                                     [f'observed_{profile}']]))
-                                    )
-            # Add observation information into the residues_df
-            residues_df = residues_df.join(observed_dfs)
-            # Get pose sequence divergence
-            design_residue_indices = [residue.index for residue in self.pose.design_residues]
-            pose_divergence_s = pd.concat([pd.Series({f'{divergence_type}_per_residue':
-                                                      _divergence[design_residue_indices].mean()
-                                                      for divergence_type, _divergence in divergence.items()})],
-                                          keys=[('sequence_design', 'pose')])
-            # pose_divergence_s = pd.Series({f'{divergence_type}_per_residue': per_res_metric(stat)
-            #                                for divergence_type, stat in divergence.items()},
-            #                               name=('sequence_design', 'pose'))
-            if designs_by_protocol:  # were multiple designs generated with each protocol?
-                # find the divergence within each protocol
-                divergence_by_protocol = {protocol: {} for protocol in designs_by_protocol}
-                for protocol, designs in designs_by_protocol.items():
-                    # Todo select from pose_alignment the indices of each design then pass to MultipleSequenceAlignment?
-                    # protocol_alignment = \
-                    #     MultipleSequenceAlignment.from_dictionary({design: pose_sequences[design]
-                    #                                                for design in designs})
-                    protocol_alignment = MultipleSequenceAlignment.from_dictionary({design: pose_sequences[design]
-                                                                                    for design in designs})
-                    # protocol_mutation_freq = filter_dictionary_keys(protocol_alignment.frequencies,
-                    #                                                 self.pose.interface_residues)
-                    # protocol_mutation_freq = protocol_alignment.frequencies
-                    protocol_divergence = {f'divergence_{profile}':
-                                           metrics.position_specific_divergence(protocol_alignment.frequencies, bgd)
-                                           for profile, bgd in profile_background.items()}
-                    # if interface_bkgd is not None:
-                    #     protocol_divergence['divergence_interface'] = \
-                    #         metrics.position_specific_divergence(protocol_alignment.frequencies, tiled_int_background)
-                    # Get per residue divergence metric by protocol
-                    divergence_by_protocol[protocol] = \
-                        {f'{divergence_type}_per_residue': divergence[design_residue_indices].mean()
-                         for divergence_type, divergence in protocol_divergence.items()}
-                # new = dfd.columns.to_frame()
-                # new.insert(0, 'new2_level_name', new_level_values)
-                # dfd.columns = pd.MultiIndex.from_frame(new)
-                protocol_divergence_s = \
-                    pd.concat([pd.DataFrame(divergence_by_protocol).unstack()], keys=['sequence_design'])
-            else:
-                protocol_divergence_s = pd.Series(dtype=float)
-            divergence_s = pd.concat([protocol_divergence_s, pose_divergence_s])
-
-        # entity_alignment = multi_chain_alignment(entity_sequences)
-        # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
-        # entity_alignments = \
-        #     {idx: MultipleSequenceAlignment.from_dictionary(designed_sequences)
-        #      for idx, designed_sequences in entity_sequences.items()}
-        # entity_alignments = \
-        #     {idx: msa_from_dictionary(designed_sequences) for idx, designed_sequences in entity_sequences.items()}
-        # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
-        dca_design_residues_concat = []
-        dca_succeed = True
-        # dca_background_energies, dca_design_energies = [], []
-        dca_background_energies, dca_design_energies = {}, {}
-        for idx, entity in enumerate(self.pose.entities):
-            try:  # Todo add these to the analysis
-                entity.h_fields = self.job.api_db.bmdca_fields.retrieve_data(name=entity.name)
-                entity.j_couplings = self.job.api_db.bmdca_couplings.retrieve_data(name=entity.name)
-                dca_background_residue_energies = entity.direct_coupling_analysis()
-                # Todo INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
-                entity_alignment = MultipleSequenceAlignment.from_dictionary(entity_sequences[idx])
-                # entity_alignment = msa_from_dictionary(entity_sequences[idx])
-                dca_design_residue_energies = entity.direct_coupling_analysis(msa=entity_alignment)
-                dca_design_residues_concat.append(dca_design_residue_energies)
-                # dca_background_energies.append(dca_background_energies.sum(axis=1))
-                # dca_design_energies.append(dca_design_energies.sum(axis=1))
-                dca_background_energies[entity] = dca_background_residue_energies.sum(axis=1)  # turns data to 1D
-                dca_design_energies[entity] = dca_design_residue_energies.sum(axis=1)
-            except AttributeError:
-                self.log.warning(f"For {entity.name}, DCA analysis couldn't be performed. "
-                                 f"Missing required parameter files")
-                dca_succeed = False
-
-        if dca_succeed:
-            # concatenate along columns, adding residue index to column, design name to row
-            dca_concatenated_df = pd.DataFrame(np.concatenate(dca_design_residues_concat, axis=1),
-                                               index=viable_designs, columns=residue_indices)
-            # dca_concatenated_df.columns = pd.MultiIndex.from_product([dca_concatenated_df.columns, ['dca_energy']])
-            dca_concatenated_df = pd.concat([dca_concatenated_df], keys=['dca_energy'], axis=1).swaplevel(0, 1, axis=1)
-            # Merge with residues_df
-            residues_df = pd.merge(residues_df, dca_concatenated_df, left_index=True, right_index=True)
-
-        # Make buried surface area (bsa) columns, and residue classification
-        residues_df = metrics.calculate_residue_surface_area(residues_df)
-
-        # Calculate new metrics from combinations of other metrics
-        # Add design residue information to scores_df such as how many core, rim, and support residues were measured
-        mean_columns = ['hydrophobicity']  # , 'sasa_relative_bound', 'sasa_relative_complex']
-        scores_df = scores_df.join(metrics.sum_per_residue_metrics(residues_df, mean_metrics=mean_columns))
-
-        # scores_df['collapse_new_positions'] /= pose_length
-        # scores_df['collapse_new_position_significance'] /= pose_length
-        scores_df['collapse_significance_by_contact_order_z_mean'] = \
-            scores_df['collapse_significance_by_contact_order_z'] / \
-            (residues_df.loc[:, idx_slice[:, 'collapse_significance_by_contact_order_z']] != 0).sum(axis=1)
-        # if self.measure_alignment:
-        # Todo THESE ARE NOW DIFFERENT SOURCE if not self.measure_alignment
-        collapse_increased_df = residues_df.loc[:, idx_slice[:, 'collapse_increased_z']]
-        total_increased_collapse = (collapse_increased_df != 0).sum(axis=1)
-        # scores_df['collapse_increase_significance_by_contact_order_z_mean'] = \
-        #     scores_df['collapse_increase_significance_by_contact_order_z'] / total_increased_collapse
-        # scores_df['collapse_increased_z'] /= pose_length
-        scores_df['collapse_increased_z_mean'] = \
-            collapse_increased_df.sum(axis=1) / total_increased_collapse
-        scores_df['collapse_variance'] = scores_df['collapse_deviation_magnitude'] / pose_length
-        scores_df['collapse_sequential_peaks_z_mean'] = \
-            scores_df['collapse_sequential_peaks_z'] / total_increased_collapse
-        scores_df['collapse_sequential_z_mean'] = \
-            scores_df['collapse_sequential_z'] / total_increased_collapse
-
-        # scores_df['interface_area_total'] = bsa_assembly_df = \
-        #     scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
-        # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
-        bsa_assembly_df = scores_df['interface_area_total']
-        scores_df['interface_area_to_residue_surface_ratio'] = \
-            (bsa_assembly_df / (bsa_assembly_df + scores_df['area_total_complex']))
-
-        # Make scores_df errat_deviation that takes into account the pose_source sequence errat_deviation
-        # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
-        # Get per-residue errat scores from the residues_df
-        errat_df = residues_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
-
-        pose_source_errat = errat_df.loc[putils.pose_source, :]
-        source_errat_inclusion_boolean = \
-            np.logical_and(pose_source_errat < metrics.errat_2_sigma, pose_source_errat != 0.)
-        # Find residues where designs deviate above wild-type errat scores
-        errat_sig_df = errat_df.sub(pose_source_errat, axis=1) > metrics.errat_1_sigma  # axis=1 is per-residue subtract
-        # Then select only those residues which are expressly important by the inclusion boolean
-        # This overwrites the metrics.sum_per_residue_metrics() value
-        scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
-
-        # Calculate mutational content
-        mutation_df = residues_df.loc[:, idx_slice[:, 'mutation']]
-        # scores_df['number_of_mutations'] = mutation_df.sum(axis=1)
-        scores_df['percent_mutations'] = scores_df['number_of_mutations'] / pose_length
-
-        idx = 1
-        # prior_slice = 0
-        for idx, entity in enumerate(self.pose.entities, idx):
-            # entity_n_terminal_residue_index = entity.n_terminal_residue.index
-            # entity_c_terminal_residue_index = entity.c_terminal_residue.index
-            scores_df[f'entity{idx}_number_of_mutations'] = \
-                mutation_df.loc[:, idx_slice[residue_indices[entity.n_terminal_residue.index:  # prior_slice
-                                                             1 + entity.c_terminal_residue.index], :]].sum(axis=1)
-            # prior_slice = entity_c_terminal_residue_index
-            scores_df[f'entity{idx}_percent_mutations'] = \
-                scores_df[f'entity{idx}_number_of_mutations'] \
-                / scores_df[f'entity{idx}_number_of_residues']
-
-        # scores_df['number_of_mutations'] = \
-        #     pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
-        # scores_df['percent_mutations'] = scores_df['number_of_mutations'] / pose_length
-        #
-        # idx = 1
-        # for idx, entity in enumerate(self.pose.entities, idx):
-        #     entity_c_terminal_residue_index = entity.c_terminal_residue.index
-        #     scores_df[f'entity{idx}_number_of_mutations'] = \
-        #         pd.Series(
-        #             {design: len([1 for mutation_idx in mutations if mutation_idx <= entity_c_terminal_residue_index])
-        #              for design, mutations in all_mutations.items()})
-        #     scores_df[f'entity{idx}_percent_mutations'] = \
-        #         scores_df[f'entity{idx}_number_of_mutations'] / scores_df[f'entity{idx}_number_of_residues']
-        #     #     scores_df[f'entity{idx}_number_of_mutations'] / other_pose_metrics[f'entity{idx}_number_of_residues']
-
-        # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
-        # interior_residue_df = residues_df.loc[:, idx_slice[:, 'interior']]
-        # interior_residue_numbers = \
-        #     interior_residues.loc[:, interior_residues.mean(axis=0) > 0.5].columns.remove_unused_levels().levels[0].
-        #     to_list()
-        # if interior_residue_numbers:
-        #     self.log.info(f'Design Residues {",".join(map(str, sorted(interior_residue_numbers)))}
-        #                   'are located in the interior')
-
-        # This shouldn't be much different from the state variable self.interface_residue_numbers
-        # perhaps the use of residue neighbor energy metrics adds residues which contribute, but not directly
-        # interface_residues = set(residues_df.columns.levels[0].unique()).difference(interior_residue_numbers)
-
-        # Add design residue information to scores_df such as how many core, rim, and support residues were measured
-        # for residue_class in metrics.residue_classification:
-        #     scores_df[residue_class] = residues_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
-
-        # Calculate metrics from combinations of metrics with variable integer number metric names
-        scores_columns = scores_df.columns.to_list()
-        self.log.debug(f'Metrics present: {scores_columns}')
-        # sum columns using list[0] + list[1] + list[n]
-        # residues_df = residues_df.drop([column
-        #                                 for columns in [complex_df.columns, bound_df.columns, unbound_df.columns,
-        #                                                 solvation_complex_df.columns, solvation_bound_df.columns,
-        #                                                 solvation_unbound_df.columns]
-        #                                 for column in columns], axis=1)
-        summation_pairs = \
-            {'buns_unbound': list(filter(re.compile('buns[0-9]+_unbound$').match, scores_columns)),  # Rosetta
-             # 'interface_energy_bound':
-             #     list(filter(re.compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
-             # 'interface_energy_unbound':
-             #     list(filter(re.compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
-             # 'interface_solvation_energy_bound':
-             #     list(filter(re.compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
-             # 'interface_solvation_energy_unbound':
-             #     list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
-             'interface_connectivity':
-                 list(filter(re.compile('entity[0-9]+_interface_connectivity').match, scores_columns)),  # Rosetta
-             }
-
-        scores_df = metrics.columns_to_new_column(scores_df, summation_pairs)
-        scores_df = metrics.columns_to_new_column(scores_df, metrics.rosetta_delta_pairs, mode='sub')
-        # Add number_interface_residues for div_pairs and int_comp_similarity
-        # scores_df['number_interface_residues'] = other_pose_metrics.pop('number_interface_residues')
-        scores_df = metrics.columns_to_new_column(scores_df, metrics.rosetta_division_pairs, mode='truediv')
-        scores_df['interface_composition_similarity'] = \
-            scores_df.apply(metrics.interface_composition_similarity, axis=1)
-        scores_df.drop(metrics.clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
-        repacking = scores_df.get('repacking')
-        if repacking is not None:
-            # Set interface_bound_activation_energy = np.nan where repacking is 0
-            # Currently is -1 for True (Rosetta Filter quirk...)
-            scores_df.loc[scores_df[repacking == 0].index, 'interface_bound_activation_energy'] = np.nan
-            scores_df.drop('repacking', axis=1, inplace=True)
-
-        # Process dataframes for missing values and drop refine trajectory if present
-        # refine_index = scores_df[scores_df[putils.protocol] == putils.refine].index
-        # scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
-        # residues_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
-        # residue_info.pop(putils.refine, None)  # Remove refine from analysis
-        # residues_no_frags = residues_df.columns[residues_df.isna().all(axis=0)].remove_unused_levels().levels[0]
-        # Remove completely empty columns such as obs_interface
-        residues_df.dropna(how='all', inplace=True, axis=1)
-        residues_df = residues_df.fillna(0.).copy()
-        # residue_indices_no_frags = residues_df.columns[residues_df.isna().all(axis=0)]
-
-        # POSE ANALYSIS
-        # scores_df = pd.concat([scores_df, proteinmpnn_df], axis=1)
-        scores_df.dropna(how='all', inplace=True, axis=1)  # Remove completely empty columns
-        # Refine is not considered sequence design and destroys mean. remove v
-        # designs_df = scores_df.sort_index().drop(putils.refine, axis=0, errors='ignore')
-        # Consensus cst_weights are very large and destroy the mean.
-        # Remove this drop for consensus or refine if they are run multiple times
-        designs_df = \
-            scores_df.drop([putils.pose_source, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
-
-        # Get total design statistics for every sequence in the pose and every protocol specifically
-        scores_df[putils.protocol] = protocol_s
-        protocol_groups = scores_df.groupby(putils.protocol)
-        # numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
-        # print(designs_df.select_dtypes(exclude=numerics))
-
-        pose_stats, protocol_stats = [], []
-        for idx, stat in enumerate(stats_metrics):
-            # Todo both groupby calls have this warning
-            #  FutureWarning: The default value of numeric_only in DataFrame.mean is deprecated. In a future version,
-            #  it will default to False. In addition, specifying 'numeric_only=None' is deprecated. Select only valid
-            #  columns or specify the value of numeric_only to silence this warning.
-            pose_stats.append(getattr(designs_df, stat)().rename(stat))
-            protocol_stats.append(getattr(protocol_groups, stat)())
-
-        # Add the number of observations of each protocol
-        protocol_stats[stats_metrics.index(mean)]['observations'] = protocol_groups.size()
-        # Format stats_s for final pose_s Series
-        protocol_stats_s = pd.concat([stat_df.T.unstack() for stat_df in protocol_stats], keys=stats_metrics)
-        pose_stats_s = pd.concat(pose_stats, keys=list(zip(stats_metrics, repeat('pose'))))
-        pose_stats_s[('mean', 'pose', 'observations')] = len(viable_designs)
-        stat_s = pd.concat([protocol_stats_s.dropna(), pose_stats_s.dropna()])  # dropna removes NaN metrics
-
-        # Change statistic names for all df that are not groupby means for the final trajectory dataframe
-        for idx, stat in enumerate(stats_metrics):
-            if stat != mean:
-                protocol_stats[idx] = protocol_stats[idx].rename(index={protocol: f'{protocol}_{stat}'
-                                                                        for protocol in unique_design_protocols})
-        # Remove std rows if there is no stdev
-        # number_of_trajectories = len(designs_df) + len(protocol_groups) + 1  # 1 for the mean
-        # final_trajectory_indices = designs_df.index.to_list() + unique_protocols + [mean]
-        designs_df = pd.concat([designs_df]
-                               + [df.dropna(how='all', axis=0) for df in protocol_stats]  # v don't add if nothing
-                               + [pd.to_numeric(s).to_frame().T for s in pose_stats if not all(s.isna())])
-        # This concat puts back putils.pose_source, refine, consensus index as protocol_stats is calculated on scores_df
-        # # Add all pose information to each trajectory
-        # pose_metrics_df = pd.DataFrame.from_dict({idx: other_pose_metrics for idx in final_trajectory_indices},
-        #                                          orient='index')
-        # designs_df = pd.concat([designs_df, pose_metrics_df], axis=1)
-        designs_df = designs_df.fillna({'observations': 1})
-
-        # Calculate protocol significance
-        pvalue_df = pd.DataFrame()
-        scout_protocols = list(filter(re.compile(f'.*{putils.scout}').match,
-                                      protocol_s[~protocol_s.isna()].unique().tolist()))
-        similarity_protocols = unique_design_protocols.difference([putils.refine, job_key] + scout_protocols)
-        sim_series = []
-        if putils.structure_background not in unique_design_protocols:
-            self.log.info(f'Missing background protocol "{putils.structure_background}". No protocol significance '
-                          f'measurements available for this pose')
-        elif len(similarity_protocols) == 1:  # measure significance
-            self.log.info("Can't measure protocol significance, only one protocol of interest")
-        else:  # Test significance between all combinations of protocols by grabbing mean entries per protocol
-            for prot1, prot2 in combinations(sorted(similarity_protocols), 2):
-                select_df = \
-                    designs_df.loc[[design for designs in [designs_by_protocol[prot1], designs_by_protocol[prot2]]
-                                    for design in designs], metrics.significance_columns]
-                # prot1/2 pull out means from designs_df by using the protocol name
-                difference_s = \
-                    designs_df.loc[prot1, metrics.significance_columns].sub(
-                        designs_df.loc[prot2, metrics.significance_columns])
-                pvalue_df[(prot1, prot2)] = metrics.df_permutation_test(select_df, difference_s, compare='mean',
-                                                                        group1_size=len(designs_by_protocol[prot1]))
-            pvalue_df = pvalue_df.T  # transpose significance pairs to indices and significance metrics to columns
-            designs_df = pd.concat([designs_df, pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1)])
-
-            # Compute residue energy/sequence differences between each protocol
-            residue_energy_df = residues_df.loc[:, idx_slice[:, 'energy_delta']]
-
-            scaler = skl.preprocessing.StandardScaler()
-            res_pca = skl.decomposition.PCA(variance)  # P432 designs used 0.8 percent of the variance
-            residue_energy_np = scaler.fit_transform(residue_energy_df.values)
-            residue_energy_pc = res_pca.fit_transform(residue_energy_np)
-
-            seq_pca = skl.decomposition.PCA(variance)
-            designed_sequence_modifications = residues_df.loc[:, idx_slice[:, 'type']].sum(axis=1).to_list()
-            pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_sequence_modifications,
-                                                                        sequence_difference))
-            seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
-            # Make principal components (PC) DataFrame
-            residue_energy_pc_df = pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
-                                                columns=[f'pc{idx}' for idx in range(1, len(res_pca.components_) + 1)])
-            seq_pc_df = pd.DataFrame(seq_pc, index=list(residue_info.keys()),
-                                     columns=[f'pc{idx}' for idx in range(1, len(seq_pca.components_) + 1)])
-            # Compute the euclidean distance
-            # pairwise_pca_distance_np = pdist(seq_pc)
-            # pairwise_pca_distance_np = SDUtils.all_vs_all(seq_pc, euclidean)
-
-            # Merge PC DataFrames with labels
-            # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
-            seq_pc_df[putils.protocol] = protocol_s
-            # residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
-            residue_energy_pc_df[putils.protocol] = protocol_s
-            # Next group the labels
-            sequence_groups = seq_pc_df.groupby(putils.protocol)
-            residue_energy_groups = residue_energy_pc_df.groupby(putils.protocol)
-            # Measure statistics for each group
-            # All protocol means have pairwise distance measured to access similarity
-            # Gather protocol similarity/distance metrics
-            sim_measures = {'sequence_distance': {}, 'energy_distance': {}}
-            # sim_stdev = {}  # 'similarity': None, 'seq_distance': None, 'energy_distance': None}
-            # grouped_pc_seq_df_dict, grouped_pc_energy_df_dict, similarity_stat_dict = {}, {}, {}
-            for stat in stats_metrics:
-                grouped_pc_seq_df = getattr(sequence_groups, stat)()
-                grouped_pc_energy_df = getattr(residue_energy_groups, stat)()
-                similarity_stat = getattr(pvalue_df, stat)(axis=1)  # protocol pair : stat Series
-                if stat == mean:
-                    # for each measurement in residue_energy_pc_df, need to take the distance between it and the
-                    # structure background mean (if structure background, is the mean is useful too?)
-                    background_distance = \
-                        cdist(residue_energy_pc,
-                              grouped_pc_energy_df.loc[putils.structure_background, :].values[np.newaxis, :])
-                    designs_df = \
-                        pd.concat([designs_df,
-                                   pd.Series(background_distance.flatten(), index=residue_energy_pc_df.index,
-                                             name=f'energy_distance_from_{putils.structure_background}_mean')], axis=1)
-
-                    # if renaming is necessary
-                    # protocol_stats_s[stat].index = protocol_stats_s[stat].index.to_series().map(
-                    #     {protocol: protocol + '_' + stat for protocol in sorted(unique_design_protocols)})
-                    # find the pairwise distance from every point to every other point
-                    seq_pca_mean_distance_vector = pdist(grouped_pc_seq_df)
-                    energy_pca_mean_distance_vector = pdist(grouped_pc_energy_df)
-                    # protocol_indices_map = list(tuple(condensed_to_square(k, len(seq_pca_mean_distance_vector)))
-                    #                             for k in seq_pca_mean_distance_vector)
-                    # find similarity between each protocol by taking row average of all p-values for each metric
-                    # mean_pvalue_s = pvalue_df.mean(axis=1)  # protocol pair : mean significance Series
-                    # mean_pvalue_s.index = pd.MultiIndex.from_tuples(mean_pvalue_s.index)
-                    # sim_measures['similarity'] = mean_pvalue_s
-                    similarity_stat.index = pd.MultiIndex.from_tuples(similarity_stat.index)
-                    sim_measures['similarity'] = similarity_stat
-
-                    # for vector_idx, seq_dist in enumerate(seq_pca_mean_distance_vector):
-                    #     i, j = condensed_to_square(vector_idx, len(grouped_pc_seq_df.index))
-                    #     sim_measures['sequence_distance'][(grouped_pc_seq_df.index[i],
-                    #                                        grouped_pc_seq_df.index[j])] = seq_dist
-
-                    for vector_idx, (seq_dist, energy_dist) in enumerate(zip(seq_pca_mean_distance_vector,
-                                                                             energy_pca_mean_distance_vector)):
-                        i, j = condensed_to_square(vector_idx, len(grouped_pc_energy_df.index))
-                        sim_measures['sequence_distance'][(grouped_pc_seq_df.index[i],
-                                                           grouped_pc_seq_df.index[j])] = seq_dist
-                        sim_measures['energy_distance'][(grouped_pc_energy_df.index[i],
-                                                         grouped_pc_energy_df.index[j])] = energy_dist
-                elif stat == std:
-                    # sim_stdev['similarity'] = similarity_stat_dict[stat]
-                    pass
-                    # # Todo need to square each pc, add them up, divide by the group number, then take the sqrt
-                    # sim_stdev['sequence_distance'] = grouped_pc_seq_df
-                    # sim_stdev['energy_distance'] = grouped_pc_energy_df
-
-            # Find the significance between each pair of protocols
-            protocol_sig_s = pd.concat([pvalue_df.loc[[pair], :].squeeze() for pair in pvalue_df.index.to_list()],
-                                       keys=[tuple(pair) for pair in pvalue_df.index.to_list()])
-            # squeeze turns the column headers into series indices. Keys appends to make a multi-index
-
-            # Find total protocol similarity for different metrics
-            # for measure, values in sim_measures.items():
-            #     # measure_s = pd.Series({pair: similarity for pair, similarity in values.items()})
-            #     # measure_s = pd.Series(values)
-            #     similarity_sum['protocol_%s_sum' % measure] = pd.Series(values).sum()
-            similarity_sum = {f'protocol_{measure}_sum': pd.Series(values).sum()
-                              for measure, values in sim_measures.items()}
-            similarity_sum_s = pd.concat([pd.Series(similarity_sum)], keys=[('sequence_design', 'pose')])
-
-            # Process similarity between protocols
-            sim_measures_s = pd.concat([pd.Series(values) for values in sim_measures.values()],
-                                       keys=list(sim_measures.keys()))
-            # # Todo test
-            # sim_stdev_s = pd.concat(list(sim_stdev.values()),
-            #                         keys=list(zip(repeat('std'), sim_stdev.keys()))).swaplevel(1, 2)
-            # sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s, sim_stdev_s]
-            sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s]
-
-            # if self.job.figures:  # Todo ensure output is as expected then move below
-            #     protocols_by_design = {design: protocol for protocol, designs in designs_by_protocol.items()
-            #                            for design in designs}
-            #     _path = os.path.join(self.job.all_scores, str(self))
-            #     # Set up Labels & Plot the PC data
-            #     protocol_map = {protocol: i for i, protocol in enumerate(designs_by_protocol)}
-            #     integer_map = {i: protocol for (protocol, i) in protocol_map.items()}
-            #     pc_labels_group = [protocols_by_design[design] for design in residue_info]
-            #     # pc_labels_group = np.array([protocols_by_design[design] for design in residue_info])
-            #     pc_labels_int = [protocol_map[protocols_by_design[design]] for design in residue_info]
-            #     fig = plt.figure()
-            #     # ax = fig.add_subplot(111, projection='3d')
-            #     ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
-            #     # plt.cla()
-            #
-            #     # for color_int, label in integer_map.items():  # zip(pc_labels_group, pc_labels_int):
-            #     #     ax.scatter(seq_pc[pc_labels_group == label, 0],
-            #     #                seq_pc[pc_labels_group == label, 1],
-            #     #                seq_pc[pc_labels_group == label, 2],
-            #     #                c=color_int, cmap=plt.cm.nipy_spectral, edgecolor='k')
-            #     scatter = ax.scatter(seq_pc[:, 0], seq_pc[:, 1], seq_pc[:, 2], c=pc_labels_int, cmap='Spectral',
-            #                          edgecolor='k')
-            #     # handles, labels = scatter.legend_elements()
-            #     # # print(labels)  # ['$\\mathdefault{0}$', '$\\mathdefault{1}$', '$\\mathdefault{2}$']
-            #     # ax.legend(handles, labels, loc='upper right', title=protocol)
-            #     # # ax.legend(handles, [integer_map[label] for label in labels], loc="upper right", title=protocol)
-            #     # # plt.axis('equal') # not possible with 3D graphs
-            #     # plt.legend()  # No handles with labels found to put in legend.
-            #     colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
-            #     custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20)
-            #                     for c in colors]
-            #     ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
-            #               bbox_to_anchor=(1.0, .5))
-            #     # # Add group mean to the plot
-            #     # for name, label in integer_map.items():
-            #     #     ax.scatter(seq_pc[pc_labels_group == label, 0].mean(),
-            #     #                seq_pc[pc_labels_group == label, 1].mean(),
-            #     #                seq_pc[pc_labels_group == label, 2].mean(), marker='x')
-            #     ax.set_xlabel('PC1')
-            #     ax.set_ylabel('PC2')
-            #     ax.set_zlabel('PC3')
-            #     # plt.legend(pc_labels_group)
-            #     plt.savefig('%s_seq_pca.png' % _path)
-            #     plt.clf()
-            #     # Residue PCA Figure to assay multiple interface states
-            #     fig = plt.figure()
-            #     # ax = fig.add_subplot(111, projection='3d')
-            #     ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
-            #     scatter = ax.scatter(residue_energy_pc[:, 0], residue_energy_pc[:, 1], residue_energy_pc[:, 2],
-            #                          c=pc_labels_int,
-            #                          cmap='Spectral', edgecolor='k')
-            #     colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
-            #     custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20) for c in
-            #                     colors]
-            #     ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
-            #               bbox_to_anchor=(1.0, .5))
-            #     ax.set_xlabel('PC1')
-            #     ax.set_ylabel('PC2')
-            #     ax.set_zlabel('PC3')
-            #     plt.savefig('%s_res_energy_pca.png' % _path)
-
-        # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
-        if self.job.save:
-            # residues_df[(putils.protocol, putils.protocol)] = protocol_s
-            # residues_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
-            self.output_metrics(residues=residues_df, designs=designs_df)
-
-            # pickle_object(pose_sequences, self.designed_sequences_file, out_path='')  # Todo PoseDirectory(.path)
-            write_sequences(pose_sequences, file_name=self.designed_sequences_file)
-
-        # Create figures
-        if self.job.figures:  # For plotting collapse profile, errat data, contact order
-            interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
-            # Plot: Format the collapse data with residues as index and each design as column
-            # collapse_graph_df = pd.DataFrame(per_residue_data['hydrophobic_collapse'])
-            collapse_graph_df = residues_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
-            reference_collapse = [entity.hydrophobic_collapse() for entity in self.pose.entities]
-            reference_collapse_concatenated_s = \
-                pd.Series(np.concatenate(reference_collapse), name=putils.reference_name)
-            collapse_graph_df[putils.reference_name] = reference_collapse_concatenated_s
-            # collapse_graph_df.columns += 1  # offset index to residue numbering
-            # collapse_graph_df.sort_index(axis=1, inplace=True)
-            # graph_collapse = sns.lineplot(data=collapse_graph_df)
-            # g = sns.FacetGrid(tip_sumstats, col="sex", row="smoker")
-            # graph_collapse = sns.relplot(data=collapse_graph_df, kind='line')  # x='Residue Number'
-
-            # Set the base figure aspect ratio for all sequence designs
-            figure_aspect_ratio = (pose_length / 25., 20)  # 20 is arbitrary size to fit all information in figure
-            color_cycler = cycler(color=large_color_array)
-            plt.rc('axes', prop_cycle=color_cycler)
-            fig = plt.figure(figsize=figure_aspect_ratio)
-            # legend_fill_value = int(15 * pose_length / 100)
-
-            # collapse_ax, contact_ax, errat_ax = fig.subplots(3, 1, sharex=True)
-            collapse_ax, errat_ax = fig.subplots(2, 1, sharex=True)
-            # add the contact order to a new plot
-            contact_ax = collapse_ax.twinx()
-            contact_ax.plot(pose_source_contact_order_s, label='Contact Order',
-                            color='#fbc0cb', lw=1, linestyle='-')  # pink
-            # contact_ax.scatter(residue_indices, pose_source_contact_order_s, color='#fbc0cb', marker='o')  # pink
-            # wt_contact_order_concatenated_min_s = pose_source_contact_order_s.min()
-            # wt_contact_order_concatenated_max_s = pose_source_contact_order_s.max()
-            # wt_contact_order_range = wt_contact_order_concatenated_max_s - wt_contact_order_concatenated_min_s
-            # scaled_contact_order = ((pose_source_contact_order_s - wt_contact_order_concatenated_min_s)
-            #                         / wt_contact_order_range)  # / wt_contact_order_range)
-            # graph_contact_order = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
-            # collapse_ax1.plot(scaled_contact_order)
-            # contact_ax.vlines(self.pose.chain_breaks, 0, 1, transform=contact_ax.get_xaxis_transform(),
-            #                   label='Entity Breaks', colors='#cccccc')  # , grey)
-            # contact_ax.vlines(interface_residue_indices, 0, 0.05, transform=contact_ax.get_xaxis_transform(),
-            #                   label='Design Residues', colors='#f89938', lw=2)  # , orange)
-            contact_ax.set_ylabel('Contact Order')
-            # contact_ax.set_xlim(0, pose_length)
-            contact_ax.set_ylim(0, None)
-            # contact_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
-            # collapse_ax1.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
-
-            # Get the plot of each collapse profile into a matplotlib axes
-            # collapse_ax = collapse_graph_df.plot.line(legend=False, ax=collapse_ax, figsize=figure_aspect_ratio)
-            # collapse_ax = collapse_graph_df.plot.line(legend=False, ax=collapse_ax)
-            collapse_ax.plot(collapse_graph_df.T.values, label=collapse_graph_df.index)
-            # collapse_ax = collapse_graph_df.plot.line(ax=collapse_ax)
-            collapse_ax.xaxis.set_major_locator(MultipleLocator(20))
-            collapse_ax.xaxis.set_major_formatter('{x:.0f}')
-            # For the minor ticks, use no labels; default NullFormatter.
-            collapse_ax.xaxis.set_minor_locator(MultipleLocator(5))
-            collapse_ax.set_xlim(0, pose_length)
-            collapse_ax.set_ylim(0, 1)
-            # # CAN'T SET FacetGrid object for most matplotlib elements...
-            # ax = graph_collapse.axes
-            # ax = plt.gca()  # gca <- get current axis
-            # labels = [fill(index, legend_fill_value) for index in collapse_graph_df.index]
-            # collapse_ax.legend(labels, loc='lower left', bbox_to_anchor=(0., 1))
-            # collapse_ax.legend(loc='lower left', bbox_to_anchor=(0., 1))
-            # Plot the chain break(s) and design residues
-            # linestyles={'solid', 'dashed', 'dashdot', 'dotted'}
-            collapse_ax.vlines(self.pose.chain_breaks, 0, 1, transform=collapse_ax.get_xaxis_transform(),
-                               label='Entity Breaks', colors='#cccccc')  # , grey)
-            collapse_ax.vlines(interface_residue_indices, 0, 0.05, transform=collapse_ax.get_xaxis_transform(),
-                               label='Design Residues', colors='#f89938', lw=2)  # , orange)
-            # Plot horizontal significance
-            collapse_significance_threshold = metrics.collapse_thresholds[hydrophobicity]
-            collapse_ax.hlines([collapse_significance_threshold], 0, 1, transform=collapse_ax.get_yaxis_transform(),
-                               label='Collapse Threshold', colors='#fc554f', linestyle='dotted')  # tomato
-            # collapse_ax.set_xlabel('Residue Number')
-            collapse_ax.set_ylabel('Hydrophobic Collapse Index')
-            # collapse_ax.set_prop_cycle(color_cycler)
-            # ax.autoscale(True)
-            # collapse_ax.figure.tight_layout()  # no standardization
-            # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse.png'))  # no standardization
-
-            # Plot: Collapse description of total profile against each design
-            entity_collapse_mean, entity_collapse_std = [], []
-            for entity in self.pose.entities:
-                if entity.msa:
-                    collapse = entity.collapse_profile()
-                    entity_collapse_mean.append(collapse.mean(axis=-2))
-                    entity_collapse_std.append(collapse.std(axis=-2))
-                else:
-                    break
-            else:  # Only execute if we successfully looped
-                profile_mean_collapse_concatenated_s = \
-                    pd.concat([entity_collapse_mean[idx] for idx in range(number_of_entities)], ignore_index=True)
-                profile_std_collapse_concatenated_s = \
-                    pd.concat([entity_collapse_std[idx] for idx in range(number_of_entities)], ignore_index=True)
-                profile_mean_collapse_concatenated_s.index += 1  # offset index to residue numbering
-                profile_std_collapse_concatenated_s.index += 1  # offset index to residue numbering
-                collapse_graph_describe_df = pd.DataFrame({
-                    'std_min': profile_mean_collapse_concatenated_s - profile_std_collapse_concatenated_s,
-                    'std_max': profile_mean_collapse_concatenated_s + profile_std_collapse_concatenated_s,
-                })
-                collapse_graph_describe_df.index += 1  # offset index to residue numbering
-                collapse_graph_describe_df['Residue Number'] = collapse_graph_describe_df.index
-                collapse_ax.vlines('Residue Number', 'std_min', 'std_max', data=collapse_graph_describe_df,
-                                   color='#e6e6fa', linestyle='-', lw=1, alpha=0.8)  # lavender
-                # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse_versus_profile.png'))
-
-            # Plot: Errat Accuracy
-            # errat_graph_df = pd.DataFrame(per_residue_data['errat_deviation'])
-            # errat_graph_df = residues_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
-            # errat_graph_df = errat_df
-            # wt_errat_concatenated_s = pd.Series(np.concatenate(list(source_errat.values())), name='clean_asu')
-            # errat_graph_df[putils.pose_source] = pose_source_errat
-            # errat_graph_df.columns += 1  # offset index to residue numbering
-            errat_df.sort_index(axis=0, inplace=True)
-            # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
-            # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax)
-            # errat_ax = errat_graph_df.plot.line(ax=errat_ax)
-            errat_ax.plot(errat_df.T.values, label=collapse_graph_df.index)
-            errat_ax.xaxis.set_major_locator(MultipleLocator(20))
-            errat_ax.xaxis.set_major_formatter('{x:.0f}')
-            # For the minor ticks, use no labels; default NullFormatter.
-            errat_ax.xaxis.set_minor_locator(MultipleLocator(5))
-            # errat_ax.set_xlim(0, pose_length)
-            errat_ax.set_ylim(0, None)
-            # graph_errat = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
-            # Plot the chain break(s) and design residues
-            # labels = [fill(column, legend_fill_value) for column in errat_graph_df.columns]
-            # errat_ax.legend(labels, loc='lower left', bbox_to_anchor=(0., 1.))
-            # errat_ax.legend(loc='lower center', bbox_to_anchor=(0., 1.))
-            errat_ax.vlines(self.pose.chain_breaks, 0, 1, transform=errat_ax.get_xaxis_transform(),
-                            label='Entity Breaks', colors='#cccccc')  # , grey)
-            errat_ax.vlines(interface_residue_indices, 0, 0.05, transform=errat_ax.get_xaxis_transform(),
-                            label='Design Residues', colors='#f89938', lw=2)  # , orange)
-            # Plot horizontal significance
-            errat_ax.hlines([metrics.errat_2_sigma], 0, 1, transform=errat_ax.get_yaxis_transform(),
-                            label='Significant Error', colors='#fc554f', linestyle='dotted')  # tomato
-            errat_ax.set_xlabel('Residue Number')
-            errat_ax.set_ylabel('Errat Score')
-            # errat_ax.autoscale(True)
-            # errat_ax.figure.tight_layout()
-            # errat_ax.figure.savefig(os.path.join(self.data, 'errat.png'))
-            collapse_handles, collapse_labels = collapse_ax.get_legend_handles_labels()
-            contact_handles, contact_labels = contact_ax.get_legend_handles_labels()
-            # errat_handles, errat_labels = errat_ax.get_legend_handles_labels()
-            # print(handles, labels)
-            handles = collapse_handles + contact_handles
-            labels = collapse_labels + contact_labels
-            # handles = errat_handles + contact_handles
-            # labels = errat_labels + contact_labels
-            labels = [label.replace(f'{self.name}_', '') for label in labels]
-            # plt.legend(loc='upper right', bbox_to_anchor=(1, 1))  #, ncol=3, mode='expand')
-            # print(labels)
-            # plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -1.), ncol=3)  # , mode='expand'
-            # v Why the hell doesn't this work??
-            # fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.), ncol=3,  # , mode='expand')
-            # fig.subplots_adjust(bottom=0.1)
-            plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -1.), ncol=3)  # , mode='expand')
-            #            bbox_transform=plt.gcf().transFigure)  # , bbox_transform=collapse_ax.transAxes)
-            fig.tight_layout()
-            fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))  # Todo PoseDirectory(.path)
-
-        # After parsing data sources
-        # other_pose_metrics['observations'] = len(viable_designs)
-        # interface_metrics_s = pd.concat([pd.Series(other_pose_metrics)], keys=[('dock', 'pose')])
-
-        # CONSTRUCT: Create pose series and format index names
-        # pose_s = pd.concat([interface_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
-        pose_s = pd.concat([stat_s, divergence_s] + sim_series).swaplevel(0, 1)
-        # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
-        pose_s.drop([putils.protocol], level=2, inplace=True, errors='ignore')
-        pose_s.sort_index(level=2, inplace=True, sort_remaining=False)
-        pose_s.sort_index(level=1, inplace=True, sort_remaining=False)
-        pose_s.sort_index(level=0, inplace=True, sort_remaining=False)
-        pose_s.name = str(self)
-
-        return pose_s
-
-    def _process_rosetta_metrics(self):
+    def process_rosetta_metrics(self):
         """From Rosetta based protocols, tally the resulting metrics and integrate with SymDesign metrics database"""
-        self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseDirectory(.path)
+        self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseJob(.path)
         # Take metrics for the pose_source
         entity_energies = [0. for _ in self.pose.entities]
         pose_source_residue_info = \
@@ -4221,13 +4255,14 @@ class PoseDirectory(PoseProtocol):
                               'solv_unbound': entity_energies.copy(), 'fsp': 0., 'cst': 0.,
                               'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
              for entity in self.pose.entities for residue in entity.residues}
-        residue_info = {putils.pose_source: pose_source_residue_info}
+        residue_info = {self.pose.name: pose_source_residue_info}
 
-        design_scores = metrics.read_scores(self.scores_file)  # Todo PoseDirectory(.path)
+        design_scores = metrics.read_scores(self.scores_file)  # Todo PoseJob(.path)
 
+        # Todo get residues_df['design_indices']
         # Find all designs files
         # if designs is None:
-        designs = [Pose.from_file(file, **self.pose_kwargs) for file in self.get_designs()]  # Todo PoseDirectory(.path)
+        designs = [Pose.from_file(file, **self.pose_kwargs) for file in self.get_designs()]  # Todo PoseJob(.path)
         # Find designs with scores but no structures
         structure_design_scores = {}
         for pose in designs:
@@ -4372,7 +4407,7 @@ class PoseDirectory(PoseProtocol):
         self.output_metrics(residues=residues_df, designs=designs_df)
 
     def analyze_residue_metrics_per_design(self, designs: Iterable[Pose] | Iterable[AnyStr] = None) -> pd.DataFrame:
-        """Perform per-residue analysis on designs and write to the PoseDirectory residues.csv
+        """Perform per-residue analysis on designs and write to the PoseJob residues.csv
 
         Args:
             designs: The designs to perform analysis on. By default, fetches all available structures
@@ -4468,10 +4503,10 @@ class PoseDirectory(PoseProtocol):
         # #      for entity in self.pose.entities for residue in entity.residues}
         # # residue_info = {pose_source_name: pose_source_residue_info}
         #
-        # if os.path.exists(self.scores_file):  # Rosetta scores file is present  # Todo PoseDirectory(.path)
+        # if os.path.exists(self.scores_file):  # Rosetta scores file is present  # Todo PoseJob(.path)
         #     design_was_performed = True
-        #     # self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseDirectory(.path)
-        #     # design_scores = metrics.read_scores(self.scores_file)  # Todo PoseDirectory(.path)
+        #     # self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseJob(.path)
+        #     # design_scores = metrics.read_scores(self.scores_file)  # Todo PoseJob(.path)
         #     # # Find designs with scores but no structures
         #     # structure_design_scores = {}
         #     # for pose in designs:
@@ -4517,13 +4552,13 @@ class PoseDirectory(PoseProtocol):
         #     # #     raise DesignError('No viable designs remain after processing!')
         #     # #
         #     # # self.log.debug(f'Viable designs with structures remaining after cleaning:\n\t{", ".join(viable_designs)}')
-        #     rosetta_info_df = self._process_rosetta_metrics()
+        #     rosetta_info_df = self.process_rosetta_metrics()
         #     # Merge interface design specific residue metrics with total per residue metrics
         #     # residues_df = pd.merge(residues_df, rosetta_info_df, left_index=True, right_index=True)
         #     residues_df = residues_df.join(rosetta_info_df)
         # else:
         #     design_was_performed = False
-        #     # self.log.debug(f'Missing design scores file at {self.scores_file}')  # Todo PoseDirectory(.path)
+        #     # self.log.debug(f'Missing design scores file at {self.scores_file}')  # Todo PoseJob(.path)
         #     # # scores_df = pd.DataFrame.from_dict({pose.name: {putils.protocol: job_key} for pose in designs},
         #     # #                                    orient='index')
         #     # # remove_columns = metrics.rosetta_terms + metrics.unnecessary
@@ -4607,12 +4642,12 @@ class PoseDirectory(PoseProtocol):
         #     empty_source[f'buns{idx}_unbound'] = 0
         #     empty_source[f'entity{idx}_interface_connectivity'] = 0
         #
-        # source_df = pd.DataFrame(empty_source, index=[putils.pose_source])
+        # source_df = pd.DataFrame(empty_source, index=[self.pose.name])
         # # Get the scores from the score file on design trajectory metrics
-        # if os.path.exists(self.scores_file):  # Rosetta scores file is present  # Todo PoseDirectory(.path)
+        # if os.path.exists(self.scores_file):  # Rosetta scores file is present  # Todo PoseJob(.path)
         #     design_was_performed = True
-        #     self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseDirectory(.path)
-        #     design_scores = metrics.read_scores(self.scores_file)  # Todo PoseDirectory(.path)
+        #     self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseJob(.path)
+        #     design_scores = metrics.read_scores(self.scores_file)  # Todo PoseJob(.path)
         #     # Find designs with scores but no structures
         #     structure_design_scores = {}
         #     for pose in designs:
@@ -4681,7 +4716,7 @@ class PoseDirectory(PoseProtocol):
         #     #               for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
         # else:
         #     design_was_performed = False
-        #     self.log.debug(f'Missing design scores file at {self.scores_file}')  # Todo PoseDirectory(.path)
+        #     self.log.debug(f'Missing design scores file at {self.scores_file}')  # Todo PoseJob(.path)
         #     designs_df = pd.DataFrame.from_dict({pose.name: {putils.protocol: job_key} for pose in designs},
         #                                        orient='index')
         #     remove_columns = metrics.rosetta_terms + metrics.unnecessary
@@ -4803,7 +4838,7 @@ class PoseDirectory(PoseProtocol):
             designs = []
 
         # Compute structural measurements for all designs
-        interface_local_density = {}  # putils.pose_source: self.pose.local_density_interface()}
+        interface_local_density = {}  # self.pose.name: self.pose.local_density_interface()}
         for pose in [self.pose] + designs:  # Takes 1-2 seconds for Structure -> assembly -> errat
             try:
                 pose_name = pose.name
@@ -4839,7 +4874,7 @@ class PoseDirectory(PoseProtocol):
         # # Consensus cst_weights are very large and destroy the mean.
         # # Remove this drop for consensus or refine if they are run multiple times
         # designs_df = \
-        #     designs_df.drop([putils.pose_source, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
+        #     designs_df.drop([self.pose.name, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
         #
         # # Get total design statistics for every sequence in the pose and every protocol specifically
         # designs_df[putils.protocol] = protocol_s
@@ -4867,7 +4902,7 @@ class PoseDirectory(PoseProtocol):
         # designs_df = pd.concat([designs_df]
         #                        + [df.dropna(how='all', axis=0) for df in protocol_stats]  # v don't add if nothing
         #                        + [pd.to_numeric(s).to_frame().T for s in pose_stats if not all(s.isna())])
-        # # This concat puts back putils.pose_source, refine, consensus index as protocol_stats is calculated on designs_df
+        # # This concat puts back self.pose.name, refine, consensus index as protocol_stats is calculated on designs_df
         # designs_df = designs_df.fillna({'observations': 1})
 
         # # Calculate protocol significance
@@ -4927,7 +4962,7 @@ class PoseDirectory(PoseProtocol):
         #                                      name=f'energy_distance_from_{putils.structure_background}_mean')], axis=1)
 
         designs_df.sort_index(inplace=True, axis=1)
-        designs_df.to_csv(self.designs_metrics_csv)  # Todo PoseDirectory(.path)
+        designs_df.to_csv(self.designs_metrics_csv)  # Todo PoseJob(.path)
 
         return designs_df
 
@@ -4948,22 +4983,6 @@ class PoseDirectory(PoseProtocol):
 
         return pose_s
 
-    def __key(self) -> str:
-        return self.name
 
-    def __eq__(self, other) -> bool:
-        if isinstance(other, PoseDirectory):
-            return self.__key() == other.__key()
-        raise NotImplementedError(f"Can't compare {PoseDirectory.__name__} instance to {other.__name__} instance")
-
-    def __hash__(self) -> int:
-        return hash(self.__key())
-
-    def __str__(self) -> str:
-        # if self.job.nanohedra_output:
-        #     return self.source_path.replace(f'{self.job.nanohedra_root}{os.sep}', '').replace(os.sep, '-')
-        # elif self.job.output_to_directory:
-        #     return self.name
-        # else:
-        #     return self.path.replace(f'{self.job.projects}{os.sep}', '').replace(os.sep, '-')
-        return self.pose_id
+class PoseJob(PoseProtocol):
+    pass
