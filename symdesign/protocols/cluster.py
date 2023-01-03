@@ -14,8 +14,8 @@ import sklearn
 from .pose import PoseJob
 from symdesign.resources.job import job_resources_factory
 from symdesign.structure.coords import superposition3d, transform_coordinate_sets
-from symdesign.utils import path as putils
 from symdesign import utils, flags
+putils = utils.path
 
 logger = logging.getLogger(__name__)
 
