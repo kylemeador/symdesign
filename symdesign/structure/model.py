@@ -3720,7 +3720,7 @@ class SymmetricModel(Models):
 
         if sym_entry is not None:
             if isinstance(sym_entry, utils.SymEntry.SymEntry):
-                if sym_entry.entry_number == 0:  # Unique key specifying use of the CRYST1 record. Replace with relevant info
+                if sym_entry.entry_number == 0:  # Token specifying use of the CRYST1 record. Replace with relevant info
                     self.sym_entry = utils.SymEntry.SymEntry.from_cryst(symmetry=symmetry)
                 else:
                     self.sym_entry = sym_entry  # Attach as this is set up properly
@@ -3728,14 +3728,15 @@ class SymmetricModel(Models):
                 self.sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(sym_entry=sym_entry, symmetry=symmetry)
         elif symmetry:  # Either provided or solved from cryst_record
             # Existing sym_entry takes precedence since the user specified it
-            try:  # Fails upon non Nanohedra chiral space-group...
-                if not self.sym_entry:  # ensure conversion to Hermann–Mauguin notation. ex: P23 not P 2 3
+            try:  # Try to set from Nanohedra... Fails with non-Nanohedra chiral space-groups
+                if not self.sym_entry:
                     self.sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=symmetry)
             except ValueError as error:  # Let's print the error and move on since this is likely just parsed
                 logger.warning(str(error))
                 self.symmetry = symmetry
-                # not sure if cryst record can differentiate between 2D and 3D. 3D will be wrong if actually 2D
+                # Not sure if cryst record can differentiate between 2D and 3D. 3D will be wrong if actually 2D
                 self.dimension = 2 if symmetry in utils.symmetry.layer_group_cryst1_fmt_dict else 3
+                self.number_of_symmetry_mates = getattr(self.sym_entry, 'number_of_operations', 1)
 
             # if symmetry in utils.symmetry.layer_group_cryst1_fmt_dict:  # not available yet for non-Nanohedra PG's
             #     self.dimension = 2
