@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import sklearn
 
-from symdesign.protocols.protocols import PoseDirectory
+from .pose import PoseJob
 from symdesign.resources.job import job_resources_factory
 from symdesign.structure.coords import superposition3d, transform_coordinate_sets
 from symdesign.utils import path as putils
@@ -20,10 +20,10 @@ from symdesign import utils, flags
 logger = logging.getLogger(__name__)
 
 
-def cluster_poses(pose_directories: list[PoseDirectory]):
-    # -> dict[str | PoseDirectory, list[str | PoseDirectory]] | None
+def cluster_poses(pose_directories: list[PoseJob]):
+    # -> dict[str | PoseJob, list[str | PoseJob]] | None
     job = job_resources_factory.get()
-    pose_cluster_map: dict[str | PoseDirectory, list[str | PoseDirectory]] = {}
+    pose_cluster_map: dict[str | PoseJob, list[str | PoseJob]] = {}
     """Mapping which takes the format:
     {pose_string: [pose_string, ...]} where keys are representatives, values are matching designs
     """
@@ -87,7 +87,7 @@ def cluster_poses(pose_directories: list[PoseDirectory]):
         os.chdir(prior_directory)
     elif job.cluster.mode == 'transform':
         # First, identify the same compositions
-        compositions: dict[tuple[str, ...], list[PoseDirectory]] = \
+        compositions: dict[tuple[str, ...], list[PoseJob]] = \
             group_compositions(pose_directories)
         if job.multi_processing:
             results = utils.mp_map(cluster_pose_by_transformations, compositions.values(), processes=job.cores)
@@ -101,7 +101,7 @@ def cluster_poses(pose_directories: list[PoseDirectory]):
     elif job.cluster.mode == 'rmsd':
         logger.critical(f"The mode {job.mode} hasn't been thoroughly debugged")
         # First, identify the same compositions
-        compositions: dict[tuple[str, ...], list[PoseDirectory]] = \
+        compositions: dict[tuple[str, ...], list[PoseJob]] = \
             group_compositions(pose_directories)
         # pairs_to_process = [grouping for entity_tuple, pose_directories in compositions.items()
         #                     for grouping in combinations(pose_directories, 2)]
@@ -159,11 +159,11 @@ def cluster_poses(pose_directories: list[PoseDirectory]):
 
 
 # Used with single argment for mp_map
-# def pose_pair_rmsd(pair: tuple[PoseDirectory, PoseDirectory]) -> float:
+# def pose_pair_rmsd(pair: tuple[PoseJob, PoseJob]) -> float:
 #     """Calculate the rmsd between pairs of Poses using CB coordinates. Must be the same length pose
 #
 #     Args:
-#         pair: Paired PoseDirectory objects from pose processing directories
+#         pair: Paired PoseJob objects from pose processing directories
 #     Returns:
 #         RMSD value
 #     """
@@ -171,12 +171,12 @@ def cluster_poses(pose_directories: list[PoseDirectory]):
 #     return superposition3d(*[pose.pose.cb_coords for pose in pair])[0]
 
 
-def pose_pair_rmsd(pose1: PoseDirectory, pose2: PoseDirectory) -> float:
+def pose_pair_rmsd(pose1: PoseJob, pose2: PoseJob) -> float:
     """Calculate the rmsd between pairs of Poses using CB coordinates. Must be the same length pose
 
     Args:
-        pose1: First PoseDirectory object
-        pose2: Second PoseDirectory object
+        pose1: First PoseJob object
+        pose2: Second PoseJob object
     Returns:
         RMSD value
     """
@@ -185,8 +185,8 @@ def pose_pair_rmsd(pose1: PoseDirectory, pose2: PoseDirectory) -> float:
     return rmsd
 
 
-def pose_pair_by_rmsd(compositions: Iterable[tuple[PoseDirectory, PoseDirectory]]) \
-        -> dict[str | PoseDirectory, list[str | PoseDirectory]]:
+def pose_pair_by_rmsd(compositions: Iterable[tuple[PoseJob, PoseJob]]) \
+        -> dict[str | PoseJob, list[str | PoseJob]]:
     """Perform rmsd comparison for a set of identified compositions
 
     Args:
@@ -261,7 +261,7 @@ def ialign(*pdb_files: AnyStr, chain1: str = None, chain2: str = None,
 
 
 def cluster_poses_by_value(identifier_pairs: Iterable[tuple[Any, Any]], values: Iterable[float], epsilon: float = 1.) -> \
-        dict[str | PoseDirectory, list[str | PoseDirectory]]:
+        dict[str | PoseJob, list[str | PoseJob]]:
     """Take pairs of identifiers and a precomputed distance metric (such as RMSD) and cluster using DBSCAN algorithm
 
     Args:
@@ -269,7 +269,7 @@ def cluster_poses_by_value(identifier_pairs: Iterable[tuple[Any, Any]], values: 
         values: The corresponding measurement values for each pair of identifiers
         epsilon: The parameter for DBSCAN to influence the spread of clusters, needs to be tuned for measurement values
     Returns:
-        {PoseDirectory representative: [PoseDirectory members], ... }
+        {PoseJob representative: [PoseJob members], ... }
     """
     # BELOW IS THE INPUT FORMAT I WANT FOR cluster_poses_by_value()
     # index = list(combinations(pose_directories, 2)) + list(zip(pose_directories, pose_directories))
@@ -418,13 +418,13 @@ def find_cluster_representatives(transform_tree: sklearn.neighbors._unsupervised
     return representative_transformation_indices, cluster.labels_
 
 
-def cluster_pose_by_transformations(compositions: list[PoseDirectory], **kwargs) \
-        -> dict[str | PoseDirectory, list[str | PoseDirectory]]:
+def cluster_pose_by_transformations(compositions: list[PoseJob], **kwargs) \
+        -> dict[str | PoseJob, list[str | PoseJob]]:
     """From a group of poses with matching protein composition, cluster the designs according to transformational
     parameters to identify the unique poses in each composition
 
     Args:
-        compositions: The group of PoseDirectory objects to pull transformation data from
+        compositions: The group of PoseJob objects to pull transformation data from
     Keyword Args:
         distance: float = 1. - The distance to query neighbors in transformational space
         minimum_members: int = 2 - The minimum number of members in each cluster
@@ -499,13 +499,13 @@ def cluster_by_transformations(*transforms: dict[str, np.ndarray], values: list[
     return cluster_map
 
 
-def group_compositions(pose_directories: list[PoseDirectory]) -> dict[tuple[str, ...], list[PoseDirectory]]:
+def group_compositions(pose_directories: list[PoseJob]) -> dict[tuple[str, ...], list[PoseJob]]:
     """From a set of DesignDirectories, find all the compositions and group together
 
     Args:
-        pose_directories: The PoseDirectory to group according to composition
+        pose_directories: The PoseJob to group according to composition
     Returns:
-        List of similarly named PoseDirectory mapped to their name
+        List of similarly named PoseJob mapped to their name
     """
     compositions = {}
     for pose in pose_directories:

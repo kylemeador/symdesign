@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 import shutil
@@ -7,7 +9,8 @@ from typing import Any, Iterable, Sequence
 
 import pandas as pd
 
-from symdesign import flags, metrics, protocols, resources, utils
+from .pose import PoseJob
+from symdesign import flags, metrics, resources, utils
 from symdesign.resources.job import job_resources_factory
 from symdesign.resources.query.utils import input_string, boolean_choice
 import symdesign.utils.path as putils
@@ -19,13 +22,56 @@ from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolution
 logger = logging.getLogger(__name__)
 
 
-def poses(pose_directories: Iterable[protocols.protocols.PoseDirectory]) -> list[protocols.protocols.PoseDirectory]:
+def load_total_dataframe(pose_directories: Iterable[PoseJob], pose: bool = False) -> pd.DataFrame:
+    """Return a pandas DataFrame with the trajectories of every pose_directory loaded and formatted according to the
+    design directory and design on the index
+
+    Args:
+        pose_directories: The pose_directories for which metrics are desired
+        pose: Whether the total dataframe should contain the mean metrics from the pose or each individual design
+    """
+    all_dfs = []  # None for design in pose_directories]
+    for idx, pose_dir in enumerate(pose_directories):
+        try:
+            all_dfs.append(pd.read_csv(pose_dir.designs_metrics_csv, index_col=0, header=[0]))
+        except FileNotFoundError:  # as error
+            # results[idx] = error
+            logger.warning(f'{pose_dir}: No trajectory analysis file found. Skipping')
+
+    if pose:
+        for idx, df in enumerate(all_dfs):
+            df.fillna(0., inplace=True)  # Shouldn't be necessary if saved files were formatted correctly
+            # try:
+            df.drop([index for index in df.index.to_list() if isinstance(index, float)], inplace=True)
+            # Get rid of all individual trajectories and std, not mean
+            pose_name = pose_directories[idx].name
+            df.drop([index for index in df.index.to_list() if pose_name in index or 'std' in index], inplace=True)
+            # except TypeError:
+            #     for index in df.index.to_list():
+            #         print(index, type(index))
+    else:  # designs
+        for idx, df in enumerate(all_dfs):
+            # Get rid of all statistic entries, mean, std, etc.
+            pose_name = pose_directories[idx].name
+            df.drop([index for index in df.index.to_list() if pose_name not in index], inplace=True)
+
+    # Add pose directory str as MultiIndex
+    try:
+        df = pd.concat(all_dfs, keys=[str(pose_dir) for pose_dir in pose_directories])
+    except ValueError:  # No objects to concatenate
+        raise RuntimeError(f"Didn't find any trajectory information in the provided PoseDirectory instances")
+    df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
+
+    return df
+
+
+def poses(pose_directories: Iterable[PoseJob]) -> list[PoseJob]:
     job = job_resources_factory.get()
 
     if job.specification_file:  # Figure out poses from a specification file, filters, and weights
         loc_result = [(pose_directory, design) for pose_directory in pose_directories
                       for design in pose_directory.specific_designs]
-        total_df = protocols.load_total_dataframe(pose_directories, pose=True)
+        total_df = load_total_dataframe(pose_directories, pose=True)
         selected_poses_df = \
             metrics.prioritize_design_indices(total_df.loc[loc_result, :], filter=job.filter, weight=job.weight,
                                               protocol=job.protocol, function=job.weight_function)
@@ -44,10 +90,10 @@ def poses(pose_directories: Iterable[protocols.protocols.PoseDirectory]) -> list
         # Drop the specific design for the dataframe. If they want the design, they should run select_sequences
         save_poses_df = \
             selected_poses_df.loc[selected_indices, :].droplevel(-1)  # .droplevel(0, axis=1).droplevel(0, axis=1)
-        # # convert selected_poses to PoseDirectory objects
+        # # convert selected_poses to PoseJob objects
         # selected_poses = [pose_directory for pose_directory in pose_directories if pose_dir_name in selected_poses]
     elif job.total:  # Figure out poses from file/directory input, filters, and weights
-        total_df = protocols.load_total_dataframe(pose_directories, pose=True)
+        total_df = load_total_dataframe(pose_directories, pose=True)
         if job.protocol:  # Todo adapt to protocol column not in Trajectories right now...
             group_df = total_df.groupby(putils.protocol)
             df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
@@ -72,7 +118,7 @@ def poses(pose_directories: Iterable[protocols.protocols.PoseDirectory]) -> list
         # Drop the specific design for the dataframe. If they want the design, they should run select_sequences
         save_poses_df = \
             selected_poses_df.loc[selected_indices, :].droplevel(-1)  # .droplevel(0, axis=1).droplevel(0, axis=1)
-        # # convert selected_poses to PoseDirectory objects
+        # # convert selected_poses to PoseJob objects
         # selected_poses = [pose_directory for pose_directory in pose_directories if pose_dir_name in selected_poses]
     elif job.dataframe:  # Figure out poses from a pose dataframe, filters, and weights
         if not pose_directories:  # not job.directory:
@@ -89,7 +135,7 @@ def poses(pose_directories: Iterable[protocols.protocols.PoseDirectory]) -> list
         # Only drop excess columns as there is no MultiIndex, so no design in the index
         save_poses_df = selected_poses_df.droplevel(0, axis=1).droplevel(0, axis=1)
         program_root = job.program_root
-        selected_poses = [protocols.PoseDirectory.from_pose_directory(pose, root=job.projects)
+        selected_poses = [PoseJob.from_pose_directory(pose, root=job.projects)
                           for pose in save_poses_df.index.to_list()]
     else:  # Generate design metrics on the spot
         raise NotImplementedError('This functionality is currently broken')
@@ -158,7 +204,7 @@ def poses(pose_directories: Iterable[protocols.protocols.PoseDirectory]) -> list
         selected_pose_strs = list(map(str, selected_poses))
         # Check if the cluster map is stored as PoseDirectories or strings and convert
         representative_representative = next(iter(cluster_map))
-        if not isinstance(representative_representative, protocols.PoseDirectory):
+        if not isinstance(representative_representative, protocols.PoseJob):
             # Make the cluster map based on strings
             for representative in list(cluster_map.keys()):
                 # Remove old entry and convert all arguments to pose_id strings, saving as pose_id strings
@@ -175,10 +221,10 @@ def poses(pose_directories: Iterable[protocols.protocols.PoseDirectory]) -> list
                     f'--{flags.modules} {flags.cluster_poses} {flags.select_poses}')
         logger.info('Grabbing all selected poses')
         final_poses = selected_poses
-        # cluster_map: dict[str | protocols.PoseDirectory, list[str | protocols.PoseDirectory]] = {}
+        # cluster_map: dict[str | PoseJob, list[str | PoseJob]] = {}
         # # {pose_string: [pose_string, ...]} where key is representative, values are matching designs
         # # OLD -> {composition: {pose_string: cluster_representative}, ...}
-        # compositions: dict[tuple[str, ...], list[protocols.PoseDirectory]] = \
+        # compositions: dict[tuple[str, ...], list[PoseJob]] = \
         #     protocols.cluster.group_compositions(selected_poses)
         # if job.multi_processing:
         #     mp_results = utils.mp_map(protocols.cluster.cluster_pose_by_transformations, compositions.values(),
@@ -246,13 +292,12 @@ def select_from_cluster_map(selected_members: Sequence[Any], cluster_map: dict[A
     return final_member_indices
 
 
-def designs(pose_directories: Iterable[protocols.protocols.PoseDirectory]) \
-        -> dict[protocols.protocols.PoseDirectory, list[str]]:
+def designs(pose_directories: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
     job = job_resources_factory.get()
     if job.specification_file:
         loc_result = [(pose_directory, design) for pose_directory in pose_directories
                       for design in pose_directory.specific_designs]
-        total_df = protocols.load_total_dataframe(pose_directories)
+        total_df = load_total_dataframe(pose_directories)
         selected_poses_df = \
             metrics.prioritize_design_indices(total_df.loc[loc_result, :], filter=job.filter, weight=job.weight,
                                               protocol=job.protocol, function=job.weight_function)
@@ -265,11 +310,11 @@ def designs(pose_directories: Iterable[protocols.protocols.PoseDirectory]) \
                 results[pose_directory] = [design]
 
         save_poses_df = selected_poses_df.droplevel(0)  # .droplevel(0, axis=1).droplevel(0, axis=1)
-        # convert to PoseDirectory objects
+        # convert to PoseJob objects
         # results = {pose_directory: results[str(pose_directory)] for pose_directory in pose_directories
         #            if str(pose_directory) in results}
     elif job.total:
-        total_df = protocols.load_total_dataframe(pose_directories)
+        total_df = load_total_dataframe(pose_directories)
         if job.protocol:
             group_df = total_df.groupby('protocol')
             df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
@@ -308,10 +353,11 @@ def designs(pose_directories: Iterable[protocols.protocols.PoseDirectory]) \
 
         # Include only the found index names to the saved dataframe
         save_poses_df = selected_poses_df.loc[loc_result, :]  # .droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
-        # convert to PoseDirectory objects
+        # convert to PoseJob objects
         # results = {pose_directory: results[str(pose_directory)] for pose_directory in pose_directories
         #            if str(pose_directory) in results}
-    else:  # Select designed sequences from each pose provided (PoseDirectory)
+    else:  # Select designed sequences from each pose provided (PoseJob)
+        from . import select_sequences
         sequence_metrics = []  # Used to get the column headers
         sequence_filters = sequence_weights = None
 
@@ -337,12 +383,12 @@ def designs(pose_directories: Iterable[protocols.protocols.PoseDirectory]) \
                               repeat(job.designs_per_pose), repeat(job.protocol))
             # result_mp = zip(*SDUtils.mp_starmap(Ams.select_sequences, zipped_args, processes=job.cores))
             result_mp = \
-                utils.mp_starmap(protocols.protocols.PoseProtocol.select_sequences, zipped_args, processes=job.cores)
-            # results - contains tuple of (PoseDirectory, design index) for each sequence
+                utils.mp_starmap(select_sequences, zipped_args, processes=job.cores)
+            # results - contains tuple of (PoseJob, design index) for each sequence
             # could simply return the design index then zip with the directory
             results = {pose_dir: designs for pose_dir, designs in zip(pose_directories, result_mp)}
         else:
-            results = {pose_dir: protocols.protocols.PoseProtocol.select_sequences(
+            results = {pose_dir: select_sequences(
                                  pose_dir, filters=sequence_filters, weights=sequence_weights,
                                  number=job.designs_per_pose, protocols=job.protocol)
                        for pose_dir in pose_directories}
@@ -350,7 +396,7 @@ def designs(pose_directories: Iterable[protocols.protocols.PoseDirectory]) \
         # Todo there is no sort here so the number isn't really doing anything
         results = dict(list(results.items())[:job.number])
         loc_result = [(pose_dir, design) for pose_dir, designs in results.items() for design in designs]
-        total_df = protocols.load_total_dataframe(pose_directories)
+        total_df = load_total_dataframe(pose_directories)
         save_poses_df = total_df.loc[loc_result, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
 
     # Format selected sequences for output
@@ -397,8 +443,8 @@ def designs(pose_directories: Iterable[protocols.protocols.PoseDirectory]) \
     return results  # , exceptions
 
 
-# def sequences(results: dict[protocols.protocols.PoseDirectory, ]):
-def sequences(pose_directories: list[protocols.protocols.PoseDirectory]):
+# def sequences(results: dict[PoseJob, ]):
+def sequences(pose_directories: list[PoseJob]):
     """Perform design selection followed by sequence formatting on those designs
 
     Args:
