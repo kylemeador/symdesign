@@ -12,7 +12,7 @@ from symdesign import metrics
 logger = logging.getLogger(__name__)
 
 
-# def pose_rmsd_mp(pose_directories: list[PoseDirectory], cores: int = 1):
+# def pose_rmsd_mp(pose_directories: list[PoseJob], cores: int = 1):
 #     """Map the RMSD for a Nanohedra output based on building block directory (ex 1abc_2xyz)
 #
 #     Args:
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 #         else:
 #             # add all individual poses to a singles pool. pair2 is included in pair1, no need to add additional
 #             singlets[pair1.composition] = pair1
-#     compositions: dict[tuple[str, ...], list[PoseDirectory]] = group_compositions(pose_directories)
+#     compositions: dict[tuple[str, ...], list[PoseJob]] = group_compositions(pose_directories)
 #     pairs_to_process = [grouping for entity_tuple, pose_directories in compositions.items()
 #                         for grouping in combinations(pose_directories, 2)]
 #     # find the rmsd between a pair of poses.  multiprocessing to increase throughput

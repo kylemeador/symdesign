@@ -132,7 +132,7 @@ def get_components_from_nanohedra_docking(pose_file: AnyStr) -> list[str]:
         The names of the models used during Nanohedra
     """
     entity_names = []
-    with open(pose_file, 'r') as f:  # self.pose_file
+    with open(pose_file, 'r') as f:
         for line in f.readlines():
             if line[:15] == 'DOCKED POSE ID:':
                 pose_id = line[15:].strip().replace('_DEGEN_', '-DEGEN_').replace('_ROT_', '-ROT_').replace('_TX_', '-tx_')

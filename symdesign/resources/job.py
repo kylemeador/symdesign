@@ -269,7 +269,7 @@ class JobResources:
 
         # self.score_db: Engine = create_engine(utils.sql.residues)
 
-        # PoseDirectory initialize Flags
+        # PoseJob initialize Flags
         self.initial_refinement = self.initial_loop_model = None
 
         # Program flags
@@ -520,7 +520,7 @@ class JobResources:
 
     @property
     def location(self) -> str | None:
-        """The location where PoseDirectory instances are located"""
+        """The location where PoseJob instances are located"""
         try:
             return self._location
         except AttributeError:
@@ -543,7 +543,7 @@ class JobResources:
 
     @property
     def input_source(self) -> str:
-        """Provide the name of the specified PoseDirectory instances to perform work on"""
+        """Provide the name of the specified PoseJob instances to perform work on"""
         try:
             return self._input_source
         except AttributeError:
@@ -552,7 +552,7 @@ class JobResources:
 
     @property
     def construct_pose(self):
-        """Whether to construct the PoseDirectory"""
+        """Whether to construct the PoseJob"""
         return self._construct_pose
 
     @construct_pose.setter

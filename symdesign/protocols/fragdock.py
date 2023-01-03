@@ -18,7 +18,9 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
-from symdesign import flags, metrics, protocols, resources
+from . import cluster
+from .pose import PoseJob
+from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, job as symjob
 from symdesign.structure.base import Structure, Residue
 from symdesign.structure.coords import transform_coordinate_sets
@@ -260,7 +262,7 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
     return perturbation_mapping
 
 
-def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protocols.PoseDirectory] | list:
+def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJob] | list:
     # model1: Structure | AnyStr, model2: Structure | AnyStr,
     """Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
 
@@ -3641,8 +3643,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             job.cluster.number = math.sqrt(total_perturbation_size)
         else:
             cluster_type_str = 'ByTransformation'
-            cluster_map = protocols.cluster.cluster_by_transformations(*create_transformation_group(),
-                                                                       values=project_pose_names)
+            cluster_map = cluster.cluster_by_transformations(*create_transformation_group(),
+                                                             values=project_pose_names)
 
         # Output clustering results
         job.cluster.map = utils.pickle_object(cluster_map,
@@ -4189,10 +4191,10 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     terminate()
     logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
-    # return [protocols.PoseDirectory.from_file(file, entity_names=entity_names,
+    # return [PoseJob.from_file(file, entity_names=entity_names,
     #                                           pose_transformation=create_specific_transformation(idx))
-    # return [protocols.PoseJob.from_pose_id(pose_id, entity_names=entity_names,
-    return [protocols.PoseDirectory.from_pose_directory(pose_name, root=program_root, entity_names=entity_names,
-                                                        pose_transformation=create_specific_transformation(idx))
+    # return [PoseJob.from_pose_id(pose_id, entity_names=entity_names,
+    return [PoseJob.from_pose_directory(pose_name, root=program_root, entity_names=entity_names,
+                                        pose_transformation=create_specific_transformation(idx))
             for idx, pose_name in enumerate(project_pose_names)]
     # ------------------ TERMINATE DOCKING ------------------------

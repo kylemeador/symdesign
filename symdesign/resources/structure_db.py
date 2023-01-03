@@ -234,7 +234,7 @@ class StructureDatabase(Database):
                                'downloading it from the PDB. Attempting to copy from job data source...')
                 # Todo
                 raise NotImplementedError("This functionality hasn't been written yet. Use the canonical_pdb1/2 "
-                                          'attribute of PoseDirectory to pull the pdb file source.')
+                                          'attribute of PoseJob to pull the pdb file source.')
             # Remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
             file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
             model = structure.model.Model.from_pdb(file_path, name=file_name)
@@ -384,7 +384,7 @@ class StructureDatabase(Database):
                 #                    'downloading it from the PDB. Attempting to copy from job data source...')
                 #     # Todo
                 #     raise NotImplementedError("This functionality hasn't been written yet. Use the canonical_pdb1/2 "
-                #                               'attribute of PoseDirectory to pull the pdb file source.')
+                #                               'attribute of PoseJob to pull the pdb file source.')
                 # # Remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
                 # file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
                 # model = structure.model.Model.from_pdb(file_path, name=file_name)  # , sym_entry=sym_entry

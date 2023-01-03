@@ -74,7 +74,7 @@ if __name__ == '__main__':
     assert all_poses, \
         f'No {putils.nanohedra} directories found at location "{location}". Please ensure correct location'
 
-    all_design_directories = [protocols.protocols.PoseDirectory.from_nanohedra(design_path, symmetry=args.design_string)
+    all_design_directories = [protocols.protocols.PoseJob.from_nanohedra(design_path, symmetry=args.design_string)
                               for design_path in all_poses]
     logger.info(f'{len(all_poses)} Poses found in "{location}"')
     logger.info('All pose specific logs are located in corresponding directories, ex:\n%s' %
