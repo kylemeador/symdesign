@@ -636,9 +636,9 @@ def main():
             for specification_file in args.specification_file:
                 # design_specification = utils.PoseSpecification(specification_file)
                 pose_directories.extend(
-                    [PoseDirectory.from_pose_name(pose, root=job.projects,
-                                                  specific_designs=designs,
-                                                  directives=directives)
+                    [PoseDirectory.from_pose_directory(pose, root=job.projects,
+                                                       specific_designs=designs,
+                                                       directives=directives)
                      for pose, designs, directives in utils.PoseSpecification(specification_file).get_directives()])
             job.location = args.specification_file
         else:
@@ -652,7 +652,7 @@ def main():
                                                f'--{flags.directory} was passed. Please resubmit with '
                                                f'--{flags.directory} and use --{flags.pose_file}/'
                                                f'--{flags.specification_file} with pose IDs')
-                    pose_directories = [PoseDirectory.from_pose_name(pose, root=job.projects)
+                    pose_directories = [PoseDirectory.from_pose_directory(pose, root=job.projects)
                                         for pose in all_poses[low_range:high_range]]
                 else:
                     pose_directories = [PoseDirectory.from_file(pose, project=project_name)

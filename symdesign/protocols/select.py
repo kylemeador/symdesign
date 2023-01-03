@@ -89,7 +89,7 @@ def poses(pose_directories: Iterable[protocols.protocols.PoseDirectory]) -> list
         # Only drop excess columns as there is no MultiIndex, so no design in the index
         save_poses_df = selected_poses_df.droplevel(0, axis=1).droplevel(0, axis=1)
         program_root = job.program_root
-        selected_poses = [protocols.PoseDirectory.from_pose_name(pose, root=job.projects)
+        selected_poses = [protocols.PoseDirectory.from_pose_directory(pose, root=job.projects)
                           for pose in save_poses_df.index.to_list()]
     else:  # Generate design metrics on the spot
         raise NotImplementedError('This functionality is currently broken')

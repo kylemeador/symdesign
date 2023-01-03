@@ -2003,7 +2003,7 @@ class PoseDirectory(PoseProtocol):
                                  'would like to generate the Assembly anyway, re-submit the command with '
                                  f'--{flags.ignore_symmetric_clashes}')
 
-    def _generate_evolutionary_profile(self, warn_metrics: bool = False):
+    def generate_evolutionary_profile(self, warn_metrics: bool = False):
         """Add evolutionary profile information for each Entity to the Pose
 
         Args:
@@ -2080,8 +2080,8 @@ class PoseDirectory(PoseProtocol):
         # else:
         #     self.pose.evolutionary_profile = self.pose.create_null_profile()
 
-    def _generate_fragments(self, interface: bool = False):
-        """For the design info given by a PoseDirectory source, initialize the Pose then generate interfacial fragment
+    def generate_fragments(self, interface: bool = False):
+        """For the design info given by a PoseJob source, initialize the Pose then generate interfacial fragment
         information between Entities. Aware of symmetry and design_selectors in fragment generation file
 
         Args:
@@ -2389,7 +2389,7 @@ class PoseProtocol(PoseData):
 
         # Load fragment_profile into the analysis
         if self.job.design.term_constraint and not self.pose.fragment_queries:
-            self._generate_fragments(interface=True)
+            self.generate_fragments(interface=True)
             self.pose.calculate_fragment_profile()
 
         # CAUTION: Assumes each structure is the same length
@@ -2677,9 +2677,9 @@ class PoseProtocol(PoseData):
 
         # Load profiles of interest into the analysis
         if self.job.design.evolution_constraint:
-            self._generate_evolutionary_profile(warn_metrics=True)
+            self.generate_evolutionary_profile(warn_metrics=True)
 
-        # self._generate_fragments() was already called
+        # self.generate_fragments() was already called
         self.pose.calculate_profile()
 
         profile_background = {'design': pssm_as_array(self.pose.profile),
@@ -3742,12 +3742,12 @@ class PoseProtocol(PoseData):
         # # This is currently called in design() and this function (analyze_proteinmpnn_metrics) is not used elsewhere
         # if self.job.design.term_constraint:
         #     if not self.pose.fragment_queries:
-        #         self._generate_fragments(interface=True)
+        #         self.generate_fragments(interface=True)
         #         self.pose.calculate_fragment_profile()
         #     profile_background['fragment'] = fragment_profile_array = self.pose.fragment_profile.as_array()
 
         # if self.job.design.evolution_constraint:
-        #     self._generate_evolutionary_profile(warn_metrics=True)
+        #     self.generate_evolutionary_profile(warn_metrics=True)
         #     # if self.pose.evolutionary_profile:
         #     profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(self.pose.evolutionary_profile)
         #     torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
@@ -4178,7 +4178,7 @@ class PoseProtocol(PoseData):
         nan_blank_data = np.tile(list(repeat(np.nan, pose_length)), (number_of_sequences, 1))
 
         if self.job.design.evolution_constraint:
-            self._generate_evolutionary_profile(warn_metrics=True)
+            self.generate_evolutionary_profile(warn_metrics=True)
 
         if self.measure_evolution:
             profile_background['evolution'] = evolutionary_profile_array = \
@@ -4195,7 +4195,7 @@ class PoseProtocol(PoseData):
         # if self.job.design.term_constraint and not self.pose.fragment_queries:
         if self.job.design.term_constraint:
             if not self.pose.fragment_queries:
-                self._generate_fragments(interface=True)
+                self.generate_fragments(interface=True)
                 self.pose.calculate_fragment_profile()
             profile_background['fragment'] = fragment_profile_array = self.pose.fragment_profile.as_array()
             batch_fragment_profile = np.tile(fragment_profile_array, (number_of_sequences, 1, 1))
@@ -4717,7 +4717,7 @@ class PoseProtocol(PoseData):
 
         # Load fragment_profile into the analysis
         if self.job.design.term_constraint and not self.pose.fragment_queries:
-            self._generate_fragments(interface=True)
+            self.generate_fragments(interface=True)
             self.pose.calculate_fragment_profile()
 
         # CAUTION: Assumes each structure is the same length
