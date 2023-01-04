@@ -6168,12 +6168,13 @@ class Pose(SymmetricModel):
                 ''.join(self.ss_type_array[element] for element in fragment_elements)
 
         # total_fragment_elements, total_interface_elements = '', ''
-        for number, topology in interface_ss_topology.items():
-            pose_metrics[f'entity{number}_interface_secondary_structure_topology'] = topology
-            # total_interface_elements += topology
-            pose_metrics[f'entity{number}_interface_secondary_structure_fragment_topology'] = \
-                interface_ss_fragment_topology.get(number, '-')
-            # total_fragment_elements += interface_ss_fragment_topology.get(number, '')
+        for number, (topology, fragment_topology) in \
+                enumerate(zip(interface_ss_topology.items(), interface_ss_fragment_topology), 1):
+            pose_metrics[f'interface{number}_secondary_structure_count'] = len(topology)
+            pose_metrics[f'interface{number}_secondary_structure_topology'] = topology
+            pose_metrics[f'interface{number}_secondary_structure_fragment_count'] = len(fragment_topology)
+            pose_metrics[f'interface{number}_secondary_structure_fragment_topology'] = fragment_topology
+            #     interface_ss_fragment_topology.get(number, '-')
 
         pose_metrics['interface_secondary_structure_fragment_topology'] = \
             ''.join(interface_ss_fragment_topology.values())
@@ -6262,10 +6263,11 @@ class Pose(SymmetricModel):
                                  f'entity_min_radius_ratio_{entity_idx1}v{entity_idx2}': min_ratio,
                                  f'entity_max_radius_ratio_{entity_idx1}v{entity_idx2}': max_ratio,
                                  f'entity_number_of_residues_ratio_{entity_idx1}v{entity_idx2}': residue_ratio})
-        pose_metrics.update({'entity_radius_average_deviation': radius_ratio_sum/counter,
-                             'entity_min_radius_average_deviation': min_ratio_sum/counter,
-                             'entity_max_radius_average_deviation': max_ratio_sum/counter,
-                             'entity_number_of_residues_average_deviation': residue_ratio_sum/counter})
+
+        pose_metrics.update({'entity_radius_average_deviation': radius_ratio_sum / counter,
+                             'entity_min_radius_average_deviation': min_ratio_sum / counter,
+                             'entity_max_radius_average_deviation': max_ratio_sum / counter,
+                             'entity_number_of_residues_average_deviation': residue_ratio_sum / counter})
         return pose_metrics
 
     def per_residue_interface_errat(self) -> dict[str, list[float]]:

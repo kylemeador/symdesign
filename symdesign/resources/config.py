@@ -466,14 +466,14 @@ metrics = {
         dict(description='Median distance between all atom points on each side of the interface core fragment '
                          'positions',
              direction=_min, function=normalize, filter=True),
+    # DSSP G:310 helix, H:α helix and I:π helix, B:beta bridge, E:strand/beta bulge, T:turns,
+    #      S:high curvature (where the angle between i-2, i, and i+2 is at least 70°), and " "(space):loop
     'interface_secondary_structure_count':
         dict(description='The number of unique secondary structures in the interface',
              direction=_max, function=normalize, filter=True),
     'interface_secondary_structure_fragment_count':
         dict(description='The number of unique fragment containing secondary structures in the interface',
              direction=_max, function=normalize, filter=True),
-    # DSSP G:310 helix, H:α helix and I:π helix, B:beta bridge, E:strand/beta bulge, T:turns,
-    #      S:high curvature (where the angle between i-2, i, and i+2 is at least 70°), and " "(space):loop
     'interface_secondary_structure_fragment_topology':
         dict(description='The Stride based secondary structure names of each unique element where possible '
                          'values are - H:Alpha helix, G:3-10 helix, I:PI-helix, E:Extended conformation, '
@@ -484,6 +484,7 @@ metrics = {
                          'values are - H:Alpha helix, G:3-10 helix, I:PI-helix, E:Extended conformation, '
                          'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
              direction=None, function=None, filter=None),
+    # The above are also valid for interface1 and interface2
     'interface_local_density':
         dict(description='A measure of the average number of atom neighbors for each atom in the interface',
              direction=_max, function=rank, filter=True),
