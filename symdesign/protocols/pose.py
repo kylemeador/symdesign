@@ -1521,7 +1521,7 @@ class PoseProtocol(PoseData):
             The formatted command for every Entity in the Pose
         """
         # self.entity_names not dependent on Pose load
-        if len(self.entity_names) == 1:  # there is no unbound state to query as only one entity
+        if len(self.entity_names) == 1:  # There is no unbound state to query as only one entity
             return []
         if len(self.symmetry_definition_files) != len(self.entity_names) or self.job.force:
             for entity in self.pose.entities:

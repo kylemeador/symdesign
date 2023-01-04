@@ -944,7 +944,17 @@ class Entity(Chain, ContainsChainsMixin):
         self.dihedral_chain = None
         self.max_symmetry = None
         self.max_symmetry_chain = None
-        self.rotation_d = {}  # maps mate entities to their rotation matrix
+        self.rotation_d = {}  # Maps mate entities to their rotation matrix
+        # if isinstance(metadata, EntityMetadata):
+        #     self.__dict__.update(metadata.__dict__)
+        # else:
+        if reference_sequence is not None:
+            self._reference_sequence = reference_sequence
+        self.thermophilic = thermophilic
+        if dbref is not None:
+            self.uniprot_id = dbref
+
+        # Set up chain information if Chain instances provided for Structure.__init__()
         if chains:  # Instance was initialized with .from_chains()
             # Todo choose most symmetrically average
             #  Move chain symmetry ops below to here?
@@ -1001,10 +1011,6 @@ class Entity(Chain, ContainsChainsMixin):
 
         # if chain_ids:
         #     self.chain_ids = chain_ids
-        if dbref is not None:
-            self.uniprot_id = dbref
-        if reference_sequence is not None:
-            self._reference_sequence = reference_sequence
 
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
@@ -2840,12 +2846,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # self.log.debug('Deleted: %d atoms' % (start - len(self.atoms)))
 
     def retrieve_pdb_info_from_api(self):
-        """Query the PDB API for information on the PDB code found as the PDB object .name attribute
+        """Query the PDB API for information on the PDB code found at the Model.name attribute
 
-        Makes 1 + num_of_entities calls to the PDB API. If file is assembly, makes one more
+        For each new instance, makes one call to the PDB API, plus an additional call for each Entity, and one more
+        if self.biological_assembly. If this has been loaded before, it uses the persistent wrapapi.APIDatabase
 
         Sets:
-            self.api_entry (dict[str, dict[Any] | float]):
+            self.api_entry (dict[str, dict[Any] | float] | dict):
                 {'assembly': [['A', 'B'], ...],
                  'entity': {'EntityID': {'chains': ['A', 'B', ...],
                                          'dbref': {'accession': 'Q96DC8', 'db': 'UNP'}
@@ -2923,7 +2930,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             else:
                 raise RuntimeError("This logic was not expected and shouldn't be allowed to persist:"
                                    f'self.name={self.name}, parse_name={parsed_name}, extra={extra}, idx={idx}')
-
             if self.api_entry:
                 self.log.debug(f'Found PDB API information: '
                                f'{", ".join(f"{k}={v}" for k, v in self.api_entry.items())}')
@@ -2964,11 +2970,11 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             # assembly. If it is a PDB assembly, the only way to know is that the file would have a final numeric suffix
             # after the .pdb extension (.pdb1). If not, it may be an assembly file from another source, in which case we
             # have to solve by using the atomic info
-            self.retrieve_pdb_info_from_api()  # First try to set self.api_entry
-            if self.api_entry:
+            self.retrieve_pdb_info_from_api()  # First, try to set self.api_entry
+            if self.api_entry:  # Not an empty dict
                 if self.biological_assembly:
-                    # As API returns information on the asu, assembly may be different. We got API info for assembly, so
-                    # we try to reconcile
+                    # As API returns information on the asu, assembly may be different.
+                    # We fetch API info for assembly, so we try to reconcile
                     multimodel = self.is_multimodel()
                     for entity_name, data in self.api_entry.get('entity', {}).items():
                         chains = data['chains']
@@ -3029,7 +3035,16 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
                 # Get any info already solved using the old name
                 self.entity_info[new_entity_name] = self.entity_info.pop(entity_name)
-                entity_api_info = retrieve_api_info(entity_id=new_entity_name)
+                entity_api_info: dict = retrieve_api_info(entity_id=new_entity_name)
+                """entity_api_info takes the format:
+                {'EntityID': 
+                    {'chains': ['A', 'B', ...],
+                     'dbref': {'accession': 'Q96DC8', 'db': 'UNP'},
+                     'reference_sequence': 'MSLEHHHHHH...',
+                     'thermophilic': True},
+                 ...}
+                This is the final format of each entry in the self.entity_info dictionary
+                """
                 if entity_api_info and new_entity_name not in self.api_entry.get('entity', {}):
                     # Add the new info. If the new_entity_name is already present, we could expect that
                     # self.entity_info is already solved and new_entity_name probably == entity_name
@@ -3045,9 +3060,45 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         # For each Entity, get matching Chain instances
         for entity_name, data in self.entity_info.items():
+            # Add any missing information to the individual data dictionary
+            # dbref = data.get('dbref', None)
+            # # if dbref is None:
+            # #     dbref = {}
+            # entity_data['dbref'] = data['dbref'] = dbref
+            if 'dbref' not in data:
+                data['dbref'] = None
+            # data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
+            #                                               generated from a PDB API sequence search v
+            # if isinstance(entity_name, int):
+            #     data['name'] = f'{self.name}_{data["name"]}'
+
+            # ref_seq = data.get('reference_sequence')
+            # reference_sequence = data.get('reference_sequence')
+            # if reference_sequence is None:
+            #     sequence = data.get('sequence')
+            #     if sequence is None:  # We should try to set using the entity_name
+            #         # Todo transition to wrap_api
+            #         reference_sequence = query.pdb.get_entity_reference_sequence(entity_id=entity_name)
+            #     else:  # We set from Atom info
+            #         reference_sequence = sequence
+            # # else:
+            # entity_data['reference_sequence'] = data['reference_sequence'] = reference_sequence
+            if 'reference_sequence' not in data:
+                new_reference_sequence = data.get('sequence')
+                if new_reference_sequence is None:
+                    # We should try to set using the entity_name
+                    # Todo transition to wrap_api
+                    new_reference_sequence = query.pdb.get_entity_reference_sequence(entity_id=entity_name)
+                # else:  # We set from Atom info
+                #     reference_sequence = sequence
+                data['reference_sequence'] = new_reference_sequence
+
+            # Set up a new dictionary with the modified keyword 'chains' which refers to Chain instances
             data_chains = data.get('chains', [])
             chains = [self.chain(chain) if isinstance(chain, str) else chain for chain in data_chains]
-            entity_data = {'chains': [chain for chain in chains if chain]}  # remove any missing chains
+            entity_data = {
+                **data,  # Place the original data in the new dictionary
+                'chains': [chain for chain in chains if chain]}  # remove any missing chains
             # # get uniprot ID if the file is from the PDB and has a DBREF remark
             # try:
             #     accession = self.dbref.get(data['chains'][0].chain_id, None)
@@ -3067,26 +3118,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             #                             'api_entry=%s, original_chain_ids=%s'
             #                             % (self.name, self._create_entities.__name__, self.entity_info,
             #                             self.biological_assembly, self.api_entry, self.original_chain_ids))
-            dbref = data.get('dbref', None)
-            # if dbref is None:
-            #     dbref = {}
-            entity_data['dbref'] = data['dbref'] = dbref
-            # data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
-            #                                               generated from a PDB API sequence search v
-            # if isinstance(entity_name, int):
-            #     data['name'] = f'{self.name}_{data["name"]}'
 
-            # ref_seq = data.get('reference_sequence')
-            reference_sequence = data.get('reference_sequence')
-            if reference_sequence is None:
-                sequence = data.get('sequence')
-                if sequence is None:  # We should try to set using the entity_name
-                    # Todo transition to wrap_api
-                    reference_sequence = query.pdb.get_entity_reference_sequence(entity_id=entity_name)
-                else:  # We set from Atom info
-                    reference_sequence = sequence
-            # else:
-            entity_data['reference_sequence'] = data['reference_sequence'] = reference_sequence
             # entity_data has attributes chains, dbref, and reference_sequence
             self.entities.append(Entity.from_chains(**entity_data, name=entity_name, parent=self))
 
@@ -7096,9 +7128,10 @@ class Pose(SymmetricModel):
             for entity, _metrics in metric_d.items():
                 _metrics['number_fragment_residues_total'] = len(_metrics['total_indices'])
                 _metrics['number_fragment_residues_center'] = len(_metrics['center_indices'])
-                _metrics['percent_fragment_helix'] /= _metrics['number_of_fragments']
-                _metrics['percent_fragment_strand'] /= _metrics['number_of_fragments']
-                _metrics['percent_fragment_coil'] /= _metrics['number_of_fragments']
+                number_of_fragments = _metrics['number_of_fragments']
+                _metrics['percent_fragment_helix'] /= number_of_fragments
+                _metrics['percent_fragment_strand'] /= number_of_fragments
+                _metrics['percent_fragment_coil'] /= number_of_fragments
                 try:
                     _metrics['nanohedra_score_normalized'] = \
                         _metrics['nanohedra_score'] / _metrics['number_fragment_residues_total']
