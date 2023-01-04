@@ -210,7 +210,7 @@ class PoseData(PoseDirectory, PoseMetadata):
             self.directives = directives
         else:
             self.directives = []
-        self.entities = []
+        # self.entities = []
         self.initial_model = None
         """Used if the pose structure has never been initialized previously"""
         self.pose = None
@@ -941,7 +941,7 @@ class PoseData(PoseDirectory, PoseMetadata):
         # except ValueError:
         #     print(self.info)
 
-    def transform_entities_to_pose(self, **kwargs):  # Todo to PoseProtocols?
+    def transform_entities_to_pose(self, **kwargs) -> list[Entity]:
         """Take the set of entities involved in a pose composition and transform them from a standard reference frame to
         the Pose reference frame using the pose.entity_transformations parameters
 
@@ -949,16 +949,19 @@ class PoseData(PoseDirectory, PoseMetadata):
             refined: bool = True - Whether to use refined models from the StructureDatabase
             oriented: bool = False - Whether to use oriented models from the StructureDatabase
         """
-        self.get_entities(**kwargs)
-        if self.pose.entity_transformations:
+        entities = self.get_entities(**kwargs)
+        if self.pose_transformation:  # pose.entity_transformations:
             self.log.debug('Entities were transformed to the found docking parameters')
-            self.entities = [entity.get_transformed_copy(**transformation)
-                             for entity, transformation in zip(self.entities, self.pose.entity_transformations)]
+            entities = [entity.get_transformed_copy(**transformation)
+                        for entity, transformation in zip(entities, self.pose_transformation)]
+            #                                                         self.pose.entity_transformations)]
         else:  # Todo change below to handle asymmetric cases...
-            raise SymmetryError('The design could not be transformed as it is missing the required '
-                                'entity_transformations parameter. Were they generated properly?')
+            # raise SymmetryError("The design couldn't be transformed as it is missing the required "
+            self.log.error("The design couldn't be transformed as it is missing the required "
+                           'pose_transformation parameter. Was this generated properly?')
+        return entities
 
-    def transform_structures_to_pose(self, structures: Iterable[Structure], **kwargs) -> list[Structure]:  # Todo to PoseProtocols?
+    def transform_structures_to_pose(self, structures: Iterable[Structure], **kwargs) -> list[Structure]:
         """Take a set of Structure instances and transform them from a standard reference frame to the Pose reference
         frame using the pose.entity_transformations parameters
 
@@ -967,69 +970,84 @@ class PoseData(PoseDirectory, PoseMetadata):
         Returns:
             The transformed Structure objects if a transformation was possible
         """
-        if self.pose.entity_transformations:
+        if self.pose_transformation:  # pose.entity_transformations:
             self.log.debug('Structures were transformed to the found docking parameters')
             # Todo assumes a 1:1 correspondence between structures and transforms (component group numbers) CHANGE
             return [structure.get_transformed_copy(**transformation)
-                    for structure, transformation in zip(structures, self.pose.entity_transformations)]
+                    for structure, transformation in zip(structures, self.pose_transformation)]
+            #                                                         self.pose.entity_transformations)]
         else:
+            # raise SymmetryError("The design couldn't be transformed as it is missing the required "
+            self.log.error("The design couldn't be transformed as it is missing the required "
+                           'pose_transformation parameter. Was this generated properly?')
             return list(structures)
 
-    def get_entities(self, refined: bool = True, oriented: bool = False, **kwargs):  # Todo to PoseProtocols?
+    def get_entities(self, refined: bool = True, oriented: bool = False, **kwargs) -> list[Entity]:
         """Retrieve Entity files from the design Database using either the oriented directory, or the refined directory.
         If these don't exist, use the Pose directory, and load them into job for further processing
 
         Args:
             refined: Whether to use the refined directory
             oriented: Whether to use the oriented directory
-        Sets:
-            self.entities (list[Entity])
+        Returns:
+            The list of Entity instances that belong to this PoseData
         """
-        source_preference = ['refined', 'oriented_asu', 'design']  # Todo once loop_model works 'full_models'
-        if self.job.structure_db:
-            if refined:
-                source_idx = 0
-            elif oriented:
-                source_idx = 1
-            else:
-                source_idx = 2
-                self.log.info(f'Falling back on entities present in the {type(self).__name__} source')
+        # Todo change to rely on EntityMetadata
+        source_preference = ['refined', 'oriented_asu', 'design']
+        # Todo once loop_model works 'full_models'
+        # if self.job.structure_db:
+        if refined:
+            source_idx = 0
+        elif oriented:
+            source_idx = 1
+        else:
+            source_idx = 2
+            self.log.info(f'Falling back on entities present in the {type(self).__name__} source')
 
-            self.entities.clear()
-            for name in self.entity_names:
-                source_preference_iter = iter(source_preference)
-                # Discard however many sources are unwanted (source_idx number)
-                for it in range(source_idx):
-                    _ = next(source_preference_iter)
-                model = None
-                while not model:
-                    try:
-                        source = next(source_preference_iter)
-                    except StopIteration:
-                        raise DesignError(f"{self.get_entities.__name__}: Couldn't locate the required files")
-                    source_datastore = getattr(self.job.structure_db, source, None)
-                    if source_datastore is None:  # if source == 'design':
-                        search_path = os.path.join(self.path, f'{name}*.pdb*')
-                        file = sorted(glob(search_path))
-                        if file:
-                            if len(file) > 1:
-                                self.log.warning(f'The specified entity has multiple files at "{search_path}". '
-                                                 f'Using the first')
-                            model = Model.from_file(file[0], log=self.log)
-                        else:
-                            raise FileNotFoundError(f"Couldn't located the specified entity at '{file}'")
+        # self.entities.clear()
+        entities = []
+        for name in self.entity_names:
+            source_preference_iter = iter(source_preference)
+            # Discard however many sources are unwanted (source_idx number)
+            for it in range(source_idx):
+                _ = next(source_preference_iter)
+            model = None
+            while not model:
+                try:
+                    source = next(source_preference_iter)
+                except StopIteration:
+                    raise DesignError(f"{self.get_entities.__name__}: Couldn't locate the required files")
+                source_datastore = getattr(self.job.structure_db, source, None)
+                if source_datastore is None:  # if source == 'design':
+                    search_path = os.path.join(self.path, f'{name}*.pdb*')
+                    file = sorted(glob(search_path))
+                    if file:
+                        if len(file) > 1:
+                            self.log.warning(f'The specified entity has multiple files at "{search_path}". '
+                                             f'Using the first')
+                        model = Model.from_file(file[0], log=self.log)
                     else:
-                        model = source_datastore.retrieve_data(name=name)
-                        if isinstance(model, Model):
-                            self.log.info(f'Found Model at {source} DataStore and loaded into job')
-                        else:
-                            self.log.error(f"Couldn't locate the Model {name} at the source "
-                                           f'"{source_datastore.location}"')
+                        raise FileNotFoundError(f"Couldn't located the specified entity at '{file}'")
+                else:
+                    model = source_datastore.retrieve_data(name=name)
+                    if isinstance(model, Model):
+                        self.log.info(f'Found Model at {source} DataStore and loaded into job')
+                    else:
+                        self.log.error(f"Couldn't locate the Model {name} at the source "
+                                       f'"{source_datastore.location}"')
 
-                self.entities.extend([entity for entity in model.entities])
-            if source_idx == 0:
-                self.pre_refine = True
-        # else:  # Todo I don't think this code is reachable. Consolidate this with above as far as iterative mechanism
+            entities.extend([entity for entity in model.entities])
+        if source_idx == 0:
+            self.pre_refine = True
+        # if source_idx == 0:  # Todo
+        #     self.pre_loop_model = True
+
+        # self.log.debug(f'{len(entities)} matching entities found')
+        if len(entities) != len(self.entity_names):  # Todo need to make len(self.symmetry_groups) from SymEntry
+            raise RuntimeError(f'Expected {len(entities)} entities, but found {len(self.entity_names)}')
+
+        return entities
+        # else:  # Todo not reachable. Consolidate this with above as far as iterative mechanism
         #     out_dir = ''
         #     if refined:  # prioritize the refined version
         #         out_dir = self.job.refine_dir
@@ -1061,9 +1079,6 @@ class PoseData(PoseDirectory, PoseMetadata):
         #     for file in oligomer_files:
         #         self.entities.append(Model.from_file(file, name=os.path.splitext(os.path.basename(file))[0],
         #                                              log=self.log))
-        self.log.debug(f'{len(self.entities)} matching entities found')
-        if len(self.entities) != len(self.entity_names):  # Todo need to make len(self.symmetry_groups) from SymEntry
-            raise RuntimeError(f'Expected {len(self.entities)} entities, but found {len(self.entity_names)}')
 
     def load_pose(self, source: str = None, entities: list[Structure] = None):
         """For the design info given by a PoseJob source, initialize the Pose with self.source file,
@@ -1085,8 +1100,8 @@ class PoseData(PoseDirectory, PoseMetadata):
             self.log.info(f'No source file found. Fetching source from {type(self.job.structure_db).__name__} and '
                           f'transforming to Pose')
             # Minimize I/O with transform...
-            self.transform_entities_to_pose()
-            entities = self.entities
+            entities = self.transform_entities_to_pose()
+            # entities = self.entities
             # entities = []
             # for entity in self.entities:
             #     entities.extend(entity.entities)
