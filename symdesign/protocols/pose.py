@@ -2829,7 +2829,8 @@ class PoseProtocol(PoseData):
         # Set up the command base (rosetta bin and database paths)
         main_cmd = rosetta.script_cmd.copy()
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
-        # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
+        # Todo - Has this been solved?
+        #  must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         profile_cmd = ['-in:file:pssm', self.evolutionary_profile_file] \
             if os.path.exists(self.evolutionary_profile_file) else []
 
