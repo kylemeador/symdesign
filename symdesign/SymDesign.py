@@ -259,7 +259,7 @@ def main():
                     sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts,
                                                                       scale=job.module, number_of_commands=len(success))
                 else:
-                    command_file = utils.write_commands([os.path.join(des.scripts, f'{stage}.sh') for des in success],
+                    command_file = utils.write_commands([os.path.join(des.scripts_path, f'{stage}.sh') for des in success],
                                                         out_path=job_paths, name='_'.join(default_output_tuple))
                     sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts,
                                                                       scale=job.module)
@@ -268,7 +268,7 @@ def main():
 
                 if job.module in [flags.interface_design, flags.design] and job.initial_refinement:
                     # We should refine before design
-                    refine_file = utils.write_commands([os.path.join(design.scripts, f'{flags.refine}.sh')
+                    refine_file = utils.write_commands([os.path.join(design.scripts_path, f'{flags.refine}.sh')
                                                         for design in success], out_path=job_paths,
                                                        name='_'.join((utils.starttime, flags.refine, design_source)))
                     sbatch_refine_file = utils.CommandDistributer.distribute(file=refine_file, scale=flags.refine,

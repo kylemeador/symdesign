@@ -26,7 +26,7 @@ import sklearn as skl
 from cycler import cycler
 from scipy.spatial.distance import pdist, cdist
 
-from .utils import variance, close_logs, remove_structure_memory
+from .utils import variance, remove_structure_memory
 from symdesign import flags, metrics, resources
 from symdesign.structure import fragment
 from symdesign.structure.base import Structure
@@ -53,7 +53,66 @@ null_cmd = ['echo']
 
 
 class PoseDirectory:
-    pass
+    def __init__(self, directory: AnyStr = None, output_modifier: AnyStr = None, **kwargs):
+        if directory is not None:
+            self.out_directory = directory
+            # PoseDirectory attributes. Set after finding correct path
+            self.log_path: str | Path = os.path.join(self.out_directory, f'{self.name}.log')
+            self.designs_path: str | Path = os.path.join(self.out_directory, putils.designs)
+            # /root/Projects/project_Poses/design/designs
+            self.scripts_path: str | Path = os.path.join(self.out_directory, f'{output_modifier}{putils.scripts}')
+            # /root/Projects/project_Poses/design/scripts
+            self.frags_path: str | Path = os.path.join(self.out_directory, f'{output_modifier}{putils.frag_dir}')
+            # /root/Projects/project_Poses/design/matching_fragments
+            self.flags: str | Path = os.path.join(self.scripts_path, 'flags')
+            # /root/Projects/project_Poses/design/scripts/flags
+            self.data_path: str | Path = os.path.join(self.out_directory, f'{output_modifier}{putils.data}')
+            # /root/Projects/project_Poses/design/data
+            self.scores_file: str | Path = os.path.join(self.data_path, f'{self.name}.sc')
+            # /root/Projects/project_Poses/design/data/name.sc
+            self.serialized_info: str | Path = os.path.join(self.data_path, putils.state_file)
+            # /root/Projects/project_Poses/design/data/info.pkl
+            self.asu_path: str | Path = os.path.join(self.out_directory, putils.asu)
+            # /root/Projects/project_Poses/design/asu.pdb
+            # self.asu_path: str | Path = os.path.join(self.out_directory, f'{self.name}_{putils.asu}')
+            # # /root/Projects/project_Poses/design/design_name_asu.pdb
+            self.assembly_path: str | Path = os.path.join(self.out_directory, f'{self.name}_{putils.assembly}')
+            # /root/Projects/project_Poses/design/design_name_assembly.pdb
+            self.refine_pdb: str | Path = os.path.join(self.data_path, os.path.basename(self.asu_path))
+            # self.refine_pdb: str | Path = f'{os.path.splitext(self.asu_path)[0]}_refine.pdb'
+            # /root/Projects/project_Poses/design/clean_asu_for_refine.pdb
+            self.consensus_pdb: str | Path = f'{os.path.splitext(self.asu_path)[0]}_for_consensus.pdb'
+            # /root/Projects/project_Poses/design/design_name_for_consensus.pdb
+            self.consensus_design_pdb: str | Path = os.path.join(self.designs_path, os.path.basename(self.consensus_pdb))
+            # /root/Projects/project_Poses/design/designs/design_name_for_consensus.pdb
+            self.pdb_list: str | Path = os.path.join(self.scripts_path, 'design_files.txt')
+            # /root/Projects/project_Poses/design/scripts/design_files.txt
+            self.design_profile_file: str | Path = os.path.join(self.data_path, 'design.pssm')
+            # /root/Projects/project_Poses/design/data/design.pssm
+            self.evolutionary_profile_file: str | Path = os.path.join(self.data_path, 'evolutionary.pssm')
+            # /root/Projects/project_Poses/design/data/evolutionary.pssm
+            self.fragment_profile_file: str | Path = os.path.join(self.data_path, 'fragment.pssm')
+            # /root/Projects/project_Poses/design/data/fragment.pssm
+            # self.refined_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/design_name_refined.pdb
+            self.refined_pdb: str | Path = \
+                os.path.join(self.designs_path, f'{os.path.basename(os.path.splitext(self.asu_path)[0])}_refine.pdb')
+            # self.scouted_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/design_name_scouted.pdb
+            self.scouted_pdb: str | Path = f'{os.path.splitext(self.refined_pdb)[0]}_scout.pdb'
+            # These files may be present from Nanohedra outputs
+            # self.pose_file = os.path.join(self.source_path, putils.pose_file)
+            # self.frag_file = os.path.join(self.source_path, putils.frag_dir, putils.frag_text_file)
+            # These files are used as output from analysis protocols
+            # self.designs_metrics_csv = os.path.join(self.job.all_scores, f'{self}_Trajectories.csv')
+            self.designs_metrics_csv = os.path.join(self.data_path, f'designs.csv')
+            self.residues_metrics_csv = os.path.join(self.data_path, f'residues.csv')
+            # self.designed_sequences_file = os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
+            self.designed_sequences_file = os.path.join(self.designs_path, f'sequences.fasta')
+        else:
+            raise NotImplementedError(f"{putils.program_name} hasn't been set up to run without directories yet... "
+                                      f"Please solve the {type(self).__name__}.__init__() method")
+            self.out_directory = os.path.join(os.getcwd(), 'temp')
+
+        super().__init__(**kwargs)
 
 
 # class PoseJob:
@@ -92,11 +151,12 @@ class PoseData(PoseDirectory, PoseMetadata):
     specific_designs_file_paths: list[AnyStr]
 
     @classmethod
-    def from_file(cls, design_path: str,  project: str = None, **kwargs):
-        source_path = design_path = os.path.abspath(design_path)
-        if not os.path.exists(design_path):
-            raise FileNotFoundError(f'The specified Pose source "{design_path}" was not found!')
-        filename, extension = os.path.splitext(design_path)
+    def from_file(cls, source_path: str, project: str = None, **kwargs):
+        """Load the PoseJob from a Structure file including .pdb/.cif file types"""
+        source_path = os.path.abspath(source_path)
+        if not os.path.exists(source_path):
+            raise FileNotFoundError(f'The specified Pose source "{source_path}" was not found!')
+        filename, extension = os.path.splitext(source_path)
         # if 'pdb' in extension or 'cif' in extension:  # Initialize from input file
         if '' == extension:  # Initialize from input file
             project_path, name = os.path.split(filename)
@@ -107,7 +167,7 @@ class PoseData(PoseDirectory, PoseMetadata):
         #     # self.pose_id = f'{self.project}/{self.name}'
         else:
             raise InputError(f"{type(cls).__name__} couldn't load the specified source file: "
-                             f"'{design_path}'")
+                             f"'{source_path}'")
 
         # if self.job.nanohedra_output:
         #     # path/to/design_symmetry/building_blocks/degen/rot/tx
@@ -119,14 +179,14 @@ class PoseData(PoseDirectory, PoseMetadata):
         if project is None:
             # path_components = filename.split(os.sep)
             remainder, project = os.path.split(project_path)
-            if project == '':
             # try:
             #     project = path_components[-2]
             # except IndexError:  # We only have a 2 index list
-                raise InputError(f"Couldn't get the project from the path '{design_path}'. Please provide "
+            if project == '':
+                raise InputError(f"Couldn't get the project from the path '{source_path}'. Please provide "
                                  f"project name with --{flags.project_name}")
 
-        return cls(design_path, initialized=False,  # source_path=source_path,
+        return cls(source_path=source_path, initialized=False,
                    name=name, project=project, **kwargs)
 
     @classmethod
@@ -149,52 +209,42 @@ class PoseData(PoseDirectory, PoseMetadata):
         return cls(os.path.join(root, design_path), name=name, project=project, **kwargs)
 
     # def pose_string_to_path(self, root: AnyStr, pose_id: str):
-    #     """Set self.path to the root/poseID where the poseID is converted from dash "-" separation to path separators"""
+    #     """Set self.out_directory to the root/poseID where the poseID is converted from dash "-" separation to path separators"""
     #     # if root is None:
     #     #     raise ValueError("No 'root' argument was passed. Can't use a pose_id without a root directory")
     #
     #     if self.job.nanohedra_output:
-    #         self.path = os.path.join(root, pose_id.replace('-', os.sep))
+    #         self.out_directory = os.path.join(root, pose_id.replace('-', os.sep))
     #     else:
-    #         self.path = os.path.join(root, putils.projects, pose_id)  # .replace(f'_{putils.pose_directory}-')
+    #         self.out_directory = os.path.join(root, putils.projects, pose_id)  # .replace(f'_{putils.pose_directory}-')
     #         # # Dev only
     #         # if '_Designs-' in pose_id:
-    #         #     self.path = os.path.join(root, putils.projects, pose_id.replace('_Designs-', f'_Designs{os.sep}'))
+    #         #     self.out_directory = os.path.join(root, putils.projects, pose_id.replace('_Designs-', f'_Designs{os.sep}'))
     #         # else:
-    #         #     self.path = os.path.join(root, putils.projects, pose_id.replace(f'_{putils.pose_directory}-',
+    #         #     self.out_directory = os.path.join(root, putils.projects, pose_id.replace(f'_{putils.pose_directory}-',
     #         #                                                                     f'_{putils.pose_directory}{os.sep}'))
 
-    def __init__(self, source_path: AnyStr, name: str = None, project: str = None,  # design_path: AnyStr,
+    def __init__(self, source_path: AnyStr = None, name: str = None, project: str = None,  # design_path: AnyStr,
                  pose_id: bool = False, initialized: bool = True,
                  pose_transformation: Sequence[transformation_mapping] = None, entity_names: Sequence[str] = None,
                  specific_designs: Sequence[str] = None, directives: list[dict[int, str]] = None, **kwargs):
         # if pose_name and root is not None:
-        #     # self.pose_string_to_path(root, design_path)  # sets self.path
+        #     # self.pose_string_to_path(root, design_path)  # sets self.out_directory
         #     # if self.job.nanohedra_output:
-        #     #     self.path = os.path.join(root, design_path.replace('-', os.sep))
+        #     #     self.out_directory = os.path.join(root, design_path.replace('-', os.sep))
         #     # else:
-        #     self.source_path = self.path = os.path.join(self.job.projects, design_path)
+        #     self.source_path = self.out_directory = os.path.join(self.job.projects, design_path)
         # else:
+
         # PoseJob attributes
         self.source_path = source_path
         self.name = name
         self.project = project
         self.pose_id = f'{self.project}/{self.name}'
-        self.log: Logger | None = None
-        self.info: dict = {}
-        """Internal state info"""
-        self._info: dict = {}
-        """Internal state info at load time"""
-        # self.source = self.source_path = os.path.abspath(design_path)
-        # if not os.path.exists(self.source_path):
-        #     raise FileNotFoundError(f'The specified Pose source "{self.source_path}" was not found!')
 
         # Get the main program options
         self.job = resources.job.job_resources_factory.get()
         # Symmetry attributes
-        # self.cryst_record = None
-        # self.expand_matrices = None
-        # self.pose_transformation = None
         # Todo monitor if Rosetta energy mechanisms are modified for crystal set ups and adjust parameter accordingly
         # If a new sym_entry is provided it wouldn't be saved to the state but could be attempted to be used
         if self.job.sym_entry is not None:
@@ -234,11 +284,26 @@ class PoseData(PoseDirectory, PoseMetadata):
         # self.pre_refine = self.info.get('pre_refine', True)
         # self.pre_loop_model = self.info.get('pre_loop_model', True)
 
-        # Todo if I use output_identifier for design, it opens up a can of worms.
-        #  Maybe it is better to include only for specific modules
-        output_identifier = f'{self.name}_' if self.job.output_to_directory else ''
+        if self.job.output_to_directory:
+            # self.job.projects = ''
+            # self.project_path = ''
+            # Todo if I use output_modifier for design, it opens up a can of worms.
+            #  Maybe it is better to include only for specific modules
+            output_modifier = f'{self.name}_'
+            out_directory = self.job.program_root  # /output_directory <- self.out_directory/design.pdb
+        else:
+            output_modifier = None
+            out_directory = os.path.join(self.job.projects, self.project, self.name)
 
-        self.serialized_info = os.path.join(self.source_path, f'{output_identifier}{putils.data}', putils.state_file)
+        # Set self.out_directory and PoseDirectory dependent attributes
+        # Initialize attributes which should be stored in the PoseMetadata database
+        super().__init__(directory=out_directory, output_modifier=output_modifier, **kwargs)
+
+        self.info: dict = {}
+        """Internal state info"""
+        self._info: dict = {}
+        """Internal state info at load time"""
+        self.serialized_info = os.path.join(self.source_path, f'{output_modifier}{putils.data}', putils.state_file)
         self.initialized = True if os.path.exists(self.serialized_info) else False
         if not self.initialized:
             # Save job variables to the state during initialization
@@ -251,7 +316,7 @@ class PoseData(PoseDirectory, PoseMetadata):
                 # if self.job.nanohedra_output:
                 #     entity_names = get_components_from_nanohedra_docking(self.pose_file)
                 # else:
-                self.initial_model = Model.from_file(self.source)  # , log=self.log)
+                self.initial_model = Model.from_file(self.source_path)  # , log=self.log)
                 self.entity_names = [entity.name for entity in self.initial_model.entities]
             else:
                 self.entity_names = entity_names
@@ -265,8 +330,8 @@ class PoseData(PoseDirectory, PoseMetadata):
             # # if pose_name:  # and root or extension == '':  # Set up PoseJob initially from new nanohedra like output
             # #     self.name = path_components[-1]
             # #     self.source = None
-            # #     self.path = self.source_path
-            # #     self.project_path = os.path.dirname(self.path)
+            # #     self.out_directory = self.source_path
+            # #     self.project_path = os.path.dirname(self.out_directory)
             # #     self.project = os.path.basename(self.project_path)
             # #     self.pose_id = f'{self.project}/{self.name}'
             # # else:
@@ -321,15 +386,15 @@ class PoseData(PoseDirectory, PoseMetadata):
             # if self.job.output_to_directory:
             #     # self.job.projects = ''
             #     # self.project_path = ''
-            #     self.path = self.job.program_root  # /output_directory<- self.path /design.pdb
+            #     self.out_directory = self.job.program_root  # /output_directory<- self.out_directory /design.pdb
             #     self.pose_id = self.name
             # else:
             #     # self.job.projects = os.path.join(self.job.program_root, putils.projects)
             #     # self.project_path = os.path.join(self.job.projects, self.project)  # f'{project}_{putils.pose_directory}')
-            self.path = os.path.join(self.job.projects, self.project, self.name)
-            #     # ^ /program_root/projects/project/design<- self.path /design.pdb
+            # self.out_directory = os.path.join(self.job.projects, self.project, self.name)
+            #     # ^ /program_root/projects/project/design<- self.out_directory /design.pdb
 
-            putils.make_path(self.path, condition=self.job.construct_pose)
+            putils.make_path(self.out_directory, condition=self.job.construct_pose)
         else:  # This has been initialized, gather state data
             try:
                 serial_info = unpickle(self.serialized_info)
@@ -344,86 +409,47 @@ class PoseData(PoseDirectory, PoseMetadata):
 
             # Make a copy to check for changes to the current state
             self._info = self.info.copy()
-            self.source = None  # Will be set to self.asu_path later
+            # self.source_path = None  # Will be set to self.asu_path later
             # if self.job.output_to_directory:
             #     # self.job.projects = ''
             #     # self.project_path = ''
-            #     self.path = self.job.program_root  # /output_directory<- self.path /design.pdb
+            #     self.out_directory = self.job.program_root  # /output_directory<- self.out_directory /design.pdb
             # else:
-            #     # self.project_path = os.path.dirname(self.path)
-            self.path = self.source_path
+            #     # self.project_path = os.path.dirname(self.out_directory)
+            # self.out_directory = self.source_path
+            # self.out_directory = os.path.join(self.job.projects, self.project, self.name)
             #     # self.job.projects = os.path.dirname(self.project_path)
             # self.project = os.path.basename(self.project_path)
 
-        if self.job.output_to_directory:
-            # self.job.projects = ''
-            # self.project_path = ''
-            self.path = self.job.program_root  # /output_directory<- self.path /design.pdb
+        # Initialize the logger for the Pose
+        log_path = self.log_path
+        if self.job.debug:
+            handler = level = 1  # Defaults to stdout, debug is level 1
+            no_log_name = False
+        elif self.log_path:
+            if self.job.force:
+                os.system(f'rm {self.log_path}')
+            handler = level = 2  # To a file
+            no_log_name = True
+        else:  # Log to the SymDesign main file logger
+            log_path = None  # Todo figure this out...
+            handler = level = 2  # To a file
+            no_log_name = False
 
-        # self.log_path: str | Path = os.path.join(self.path, f'{self.name}.log')
+        if self.job.skip_logging or not self.job.construct_pose:  # Set up null_logger
+            self.log = logging.getLogger('null')
+        else:  # f'{__name__}.{self}'
+            self.log = start_log(name=f'pose.{self.project}.{self.name}', handler=handler, level=level,
+                                 location=log_path, no_log_name=no_log_name, propagate=True)
+            # propagate=True allows self.log to pass messages to 'pose' and 'project' logger
 
-        # PoseJob path attributes. Set after finding correct path
-        self.log_path: str | Path = os.path.join(self.path, f'{self.name}.log')
-        self.designs: str | Path = os.path.join(self.path, putils.designs)
-        # /root/Projects/project_Poses/design/designs
-        self.scripts: str | Path = os.path.join(self.path, f'{output_identifier}{putils.scripts}')
-        # /root/Projects/project_Poses/design/scripts
-        self.frags: str | Path = os.path.join(self.path, f'{output_identifier}{putils.frag_dir}')
-        # /root/Projects/project_Poses/design/matching_fragments
-        self.flags: str | Path = os.path.join(self.scripts, 'flags')
-        # /root/Projects/project_Poses/design/scripts/flags
-        self.data: str | Path = os.path.join(self.path, f'{output_identifier}{putils.data}')
-        # /root/Projects/project_Poses/design/data
-        self.scores_file: str | Path = os.path.join(self.data, f'{self.name}.sc')
-        # /root/Projects/project_Poses/design/data/name.sc
-        self.serialized_info: str | Path = os.path.join(self.data, putils.state_file)
-        # /root/Projects/project_Poses/design/data/info.pkl
-        self.asu_path: str | Path = os.path.join(self.path, putils.asu)
-        # /root/Projects/project_Poses/design/asu.pdb
-        # self.asu_path: str | Path = os.path.join(self.path, f'{self.name}_{putils.asu}')
-        # # /root/Projects/project_Poses/design/design_name_asu.pdb
-        self.assembly_path: str | Path = os.path.join(self.path, f'{self.name}_{putils.assembly}')
-        # /root/Projects/project_Poses/design/design_name_assembly.pdb
-        self.refine_pdb: str | Path = os.path.join(self.data, os.path.basename(self.asu_path))
-        # self.refine_pdb: str | Path = f'{os.path.splitext(self.asu_path)[0]}_refine.pdb'
-        # /root/Projects/project_Poses/design/clean_asu_for_refine.pdb
-        self.consensus_pdb: str | Path = f'{os.path.splitext(self.asu_path)[0]}_for_consensus.pdb'
-        # /root/Projects/project_Poses/design/design_name_for_consensus.pdb
-        self.consensus_design_pdb: str | Path = os.path.join(self.designs, os.path.basename(self.consensus_pdb))
-        # /root/Projects/project_Poses/design/designs/design_name_for_consensus.pdb
-        self.pdb_list: str | Path = os.path.join(self.scripts, 'design_files.txt')
-        # /root/Projects/project_Poses/design/scripts/design_files.txt
-        self.design_profile_file: str | Path = os.path.join(self.data, 'design.pssm')
-        # /root/Projects/project_Poses/design/data/design.pssm
-        self.evolutionary_profile_file: str | Path = os.path.join(self.data, 'evolutionary.pssm')
-        # /root/Projects/project_Poses/design/data/evolutionary.pssm
-        self.fragment_profile_file: str | Path = os.path.join(self.data, 'fragment.pssm')
-        # /root/Projects/project_Poses/design/data/fragment.pssm
-        # self.refined_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/design_name_refined.pdb
-        self.refined_pdb: str | Path = \
-            os.path.join(self.designs, f'{os.path.basename(os.path.splitext(self.asu_path)[0])}_refine.pdb')
-        # self.scouted_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/design_name_scouted.pdb
-        self.scouted_pdb: str | Path = f'{os.path.splitext(self.refined_pdb)[0]}_scout.pdb'
-        # These files may be present from Nanohedra outputs
-        # self.pose_file = os.path.join(self.source_path, putils.pose_file)
-        # self.frag_file = os.path.join(self.source_path, putils.frag_dir, putils.frag_text_file)
-        # These files are used as output from analysis protocols
-        # self.designs_metrics_csv = os.path.join(self.job.all_scores, f'{self}_Trajectories.csv')
-        self.designs_metrics_csv = os.path.join(self.data, f'designs.csv')
-        self.residues_metrics_csv = os.path.join(self.data, f'residues.csv')
-        # self.designed_sequences_file = os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
-        self.designed_sequences_file = os.path.join(self.designs, f'sequences.fasta')
-
-        # Initialize the log file
-        self.start_log()
-
-        # Configure standard pose loading mechanism with self.source
+        # Configure standard pose loading mechanism with self.source_path
         if self.specific_designs:
             # Introduce flag handling current inability of specific_designs to handle iteration
             self._lock_optimize_designs = True
             # self.specific_designs_file_paths = []
             for design in self.specific_designs:
-                matching_path = os.path.join(self.designs, f'*{design}.pdb')
+                matching_path = os.path.join(self.designs_path, f'*{design}.pdb')
                 matching_designs = sorted(glob(matching_path))
                 if matching_designs:
                     if len(matching_designs) > 1:
@@ -437,23 +463,23 @@ class PoseData(PoseDirectory, PoseMetadata):
                     raise DesignError(f"Couldn't locate a specific_design matching the name '{matching_path}'")
             # Format specific_designs to a pose ID compatible format
             self.specific_designs = [f'{self.name}_{design}' for design in self.specific_designs]
-            # self.source = specific_designs_file_paths  # Todo?
-            # self.source = self.specific_design_path
-        elif self.source is None:
+            # self.source_path = specific_designs_file_paths  # Todo?
+            # self.source_path = self.specific_design_path
+        elif self.source_path is None:
             if os.path.exists(self.asu_path):  # Standard mechanism of loading the pose
-                self.source = self.asu_path
+                self.source_path = self.asu_path
             else:
-                try:
-                    glob_target = os.path.join(self.path, f'{self.name}*.pdb')
-                    source = sorted(glob(glob_target))
-                    if len(source) == 1:
-                        self.source = source[0]
-                    else:
-                        raise ValueError(f'Found {len(source)} files matching the path "{glob_target}". 1 expected')
-                except IndexError:  # glob found no files
-                    self.source = None
+                glob_target = os.path.join(self.out_directory, f'{self.name}*.pdb')
+                source = sorted(glob(glob_target))
+                if len(source) > 1:
+                    raise ValueError(f'Found {len(source)} files matching the path "{glob_target}". '
+                                     'No more than one expected')
+                else:
+                    try:
+                        self.source_path = source[0]
+                    except IndexError:  # glob found no files
+                        self.source_path = None
         else:  # If the PoseJob was loaded as .pdb/mmCIF, the source should be loaded into self.initial_model
-            # self.source = self.initial_model
             pass
 
         # Todo
@@ -728,7 +754,7 @@ class PoseData(PoseDirectory, PoseMetadata):
         if isinstance(pre_refine, bool):
             self._pre_refine = self.info['pre_refine'] = pre_refine
             self.refined_pdb = self.asu_path
-            self.scouted_pdb = os.path.join(self.designs,
+            self.scouted_pdb = os.path.join(self.designs_path,
                                             f'{os.path.basename(os.path.splitext(self.refined_pdb)[0])}_scout.pdb')
         elif pre_refine is None:
             pass
@@ -765,32 +791,32 @@ class PoseData(PoseDirectory, PoseMetadata):
     #     #     entity_names = get_components_from_nanohedra_docking(self.pose_file)
     #     # else:
     #     # self.start_log()
-    #     self.initial_model = Model.from_file(self.source)  # , log=self.log)
+    #     self.initial_model = Model.from_file(self.source_path)  # , log=self.log)
     #     self.entity_names = [entity.name for entity in self.initial_model.entities]
 
-    @close_logs  # Ensure that we don't have too many open at one time
-    def start_log(self, level: int = 2):
-        """Initialize the logger for the Pose"""
-        if self.log:
-            return
+    # @close_logs  # Ensure that we don't have too many open at one time
+    # def start_log(self, level: int = 2):
+    #     """Initialize the logger for the Pose"""
+    #     if self.log:
+    #         return
+    #
+    #     if self.job.debug:
+    #         handler, level = 1, 1  # Defaults to stdout, debug is level 1
+    #         no_log_name = False
+    #     else:
+    #         handler = 2  # To a file
+    #         no_log_name = True
+    #
+    #     if self.job.skip_logging or not self.job.construct_pose:  # Set up null_logger
+    #         self.log = logging.getLogger('null')
+    #     else:  # f'{__name__}.{self}'
+    #         if self.job.force:
+    #             os.system(f'rm {self.log_path}')
+    #         self.log = start_log(name=f'pose.{self.project}.{self.name}', handler=handler, level=level,
+    #                              location=self.log_path, no_log_name=no_log_name, propagate=True)
+    #         # propagate=True allows self.log to pass messages to 'pose' and 'project' logger
 
-        if self.job.debug:
-            handler, level = 1, 1  # Defaults to stdout, debug is level 1
-            no_log_name = False
-        else:
-            handler = 2  # To a file
-            no_log_name = True
-
-        if self.job.skip_logging or not self.job.construct_pose:  # Set up null_logger
-            self.log = logging.getLogger('null')
-        else:  # f'{__name__}.{self}'
-            if self.job.force:
-                os.system(f'rm {self.log_path}')
-            self.log = start_log(name=f'pose.{self.project}.{self.name}', handler=handler, level=level,
-                                 location=self.log_path, no_log_name=no_log_name, propagate=True)
-            # propagate=True allows self.log to pass messages to 'pose' and 'project' logger
-
-    @close_logs
+    # @close_logs
     # @handle_design_errors(errors=(FileNotFoundError,))
     def initialize_structure_attributes(self, pre_refine: bool = None, pre_loop_model: bool = None):
         """Prepare output Directory and File locations. Each PoseJob always includes this format
@@ -879,9 +905,9 @@ class PoseData(PoseDirectory, PoseMetadata):
 
         # if self.job.nanohedra_output and self.job.construct_pose:
         #     raise NotImplementedError('Must extract the oligomer_names and save to entity_names before this is used')
-        #     if not os.path.exists(os.path.join(self.path, putils.pose_file)):
-        #         shutil.copy(self.pose_file, self.path)
-        #         shutil.copy(self.frag_file, self.path)
+        #     if not os.path.exists(os.path.join(self.out_directory, putils.pose_file)):
+        #         shutil.copy(self.pose_file, self.out_directory)
+        #         shutil.copy(self.frag_file, self.out_directory)
         #     # self.info['oligomer_names'] = self.oligomer_names
         #     # self.info['entity_names'] = self.entity_names
         #     self.pickle_info()  # Save this info on the first copy so that we don't have to construct again
@@ -889,10 +915,10 @@ class PoseData(PoseDirectory, PoseMetadata):
         # # Check if the source of the pdb files was refined upon loading
         # if self.pre_refine:
         #     self.refined_pdb = self.asu_path
-        #     self.scouted_pdb = os.path.join(self.designs,
+        #     self.scouted_pdb = os.path.join(self.designs_path,
         #                                     f'{os.path.basename(os.path.splitext(self.refined_pdb)[0])}_scout.pdb')
         # else:
-        #     self.refined_pdb = os.path.join(self.designs,
+        #     self.refined_pdb = os.path.join(self.designs_path,
         #                                     f'{os.path.basename(os.path.splitext(self.asu_path)[0])}_refine.pdb')
         #     self.scouted_pdb = f'{os.path.splitext(self.refined_pdb)[0]}_scout.pdb'
 
@@ -905,7 +931,7 @@ class PoseData(PoseDirectory, PoseMetadata):
         try:
             return self._symmetry_definition_files
         except AttributeError:
-            self._symmetry_definition_files = sorted(glob(os.path.join(self.data, '*.sdf')))
+            self._symmetry_definition_files = sorted(glob(os.path.join(self.data_path, '*.sdf')))
             return self._symmetry_definition_files
 
     def get_wildtype_file(self) -> AnyStr:
@@ -926,7 +952,7 @@ class PoseData(PoseDirectory, PoseMetadata):
         """
         if design_type is None:
             design_type = ''
-        return sorted(glob(os.path.join(self.designs, f'*{design_type}*.pdb*')))
+        return sorted(glob(os.path.join(self.designs_path, f'*{design_type}*.pdb*')))
 
     def pickle_info(self):
         """Write any design attributes that should persist over program run time to serialized file"""
@@ -936,7 +962,7 @@ class PoseData(PoseDirectory, PoseMetadata):
         # try:
         # Todo make better patch for numpy.ndarray compare value of array is ambiguous
         if self.info.keys() != self._info.keys():  # if the state has changed from the original version
-            putils.make_path(self.data)
+            putils.make_path(self.data_path)
             pickle_object(self.info, self.serialized_info, out_path='')
         # except ValueError:
         #     print(self.info)
@@ -1011,6 +1037,7 @@ class PoseData(PoseDirectory, PoseMetadata):
             # Discard however many sources are unwanted (source_idx number)
             for it in range(source_idx):
                 _ = next(source_preference_iter)
+
             model = None
             while not model:
                 try:
@@ -1018,8 +1045,9 @@ class PoseData(PoseDirectory, PoseMetadata):
                 except StopIteration:
                     raise DesignError(f"{self.get_entities.__name__}: Couldn't locate the required files")
                 source_datastore = getattr(self.job.structure_db, source, None)
-                if source_datastore is None:  # if source == 'design':
-                    search_path = os.path.join(self.path, f'{name}*.pdb*')
+                # Todo this course of action isn't set up anymore. It should be depreciated...
+                if source_datastore is None:  # Try to get file from the PoseDirectory
+                    search_path = os.path.join(self.out_directory, f'{name}*.pdb*')
                     file = sorted(glob(search_path))
                     if file:
                         if len(file) > 1:
@@ -1061,11 +1089,11 @@ class PoseData(PoseDirectory, PoseMetadata):
         #         out_dir = self.job.orient_dir
         #         for name in self.entity_names:
         #             if not os.path.exists(glob(os.path.join(self.job.refine_dir, f'{name}*.pdb*'))[0]):
-        #                 out_dir = self.path
+        #                 out_dir = self.out_directory
         #                 self.log.debug('Couldn\'t find entities in the oriented directory')
         #
         #     if not refined and not oriented:
-        #         out_dir = self.path
+        #         out_dir = self.out_directory
         #
         #     idx = 2  # initialize as 2. it doesn't matter if no names are found, but nominally it should be 2 for now
         #     oligomer_files = []
@@ -1081,7 +1109,7 @@ class PoseData(PoseDirectory, PoseMetadata):
         #                                              log=self.log))
 
     def load_pose(self, source: str = None, entities: list[Structure] = None):
-        """For the design info given by a PoseJob source, initialize the Pose with self.source file,
+        """For the design info given by a PoseJob source, initialize the Pose with self.source_path file,
         self.symmetry, self.job, self.fragment_database, and self.log objects
 
         Handles Pose clash testing, writing the Pose, adding state variables to the pose
@@ -1128,7 +1156,7 @@ class PoseData(PoseDirectory, PoseMetadata):
                 self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
             if self.job.write_oligomers:  # Write out new oligomers to the PoseJob
                 for idx, entity in enumerate(self.pose.entities):
-                    entity.write(oligomer=True, out_path=os.path.join(self.path, f'{entity.name}_oligomer.pdb'))
+                    entity.write(oligomer=True, out_path=os.path.join(self.out_directory, f'{entity.name}_oligomer.pdb'))
             if not self.pose_transformation:  # If an empty list, save the value identified
                 self.pose_transformation = self.pose.entity_transformations
         # Then modify numbering to ensure standard and accurate use during protocols
@@ -1278,7 +1306,7 @@ class PoseData(PoseDirectory, PoseMetadata):
             self.pose.generate_fragments()
 
         if self.job.write_fragments:
-            putils.make_path(self.frags)
+            putils.make_path(self.frags_path)
             # Write trajectory if specified
             if self.job.write_trajectory:
                 # Create a Models instance to collect each model
@@ -1287,15 +1315,15 @@ class PoseData(PoseDirectory, PoseMetadata):
                 if self.sym_entry.unit_cell:
                     self.log.warning('No unit cell dimensions applicable to the trajectory file.')
 
-                trajectory_models.write(out_path=os.path.join(self.frags, 'all_frags.pdb'),
+                trajectory_models.write(out_path=os.path.join(self.frags_path, 'all_frags.pdb'),
                                         oligomer=True)
 
                 ghost_frags = [ghost_frag for ghost_frag, _, _ in self.pose.fragment_pairs]
-                fragment.visuals.write_fragments_as_multimodel(ghost_frags, os.path.join(self.frags, 'all_frags.pdb'))
+                fragment.visuals.write_fragments_as_multimodel(ghost_frags, os.path.join(self.frags_path, 'all_frags.pdb'))
                 # for frag_idx, (ghost_frag, frag, match) in enumerate(self.pose.fragment_pairs):
                 #     continue
             else:
-                self.pose.write_fragment_pairs(out_path=self.frags)
+                self.pose.write_fragment_pairs(out_path=self.frags_path)
 
         self.fragment_observations = self.pose.get_fragment_observations()
         self.info['fragment_source'] = self.job.fragment_db.source
@@ -1318,7 +1346,7 @@ class PoseData(PoseDirectory, PoseMetadata):
         # elif self.job.output_to_directory:
         #     return self.name
         # else:
-        #     return self.path.replace(f'{self.job.projects}{os.sep}', '').replace(os.sep, '-')
+        #     return self.out_directory.replace(f'{self.job.projects}{os.sep}', '').replace(os.sep, '-')
         return self.pose_id
 
 
@@ -1449,7 +1477,7 @@ class PoseProtocol(PoseData):
         if pdb_out_path:
             rosetta_flags.extend([f'-out:path:pdb {pdb_out_path}', f'-scorefile {self.scores_file}'])
         else:
-            rosetta_flags.extend([f'-out:path:pdb {self.designs}', f'-scorefile {self.scores_file}'])
+            rosetta_flags.extend([f'-out:path:pdb {self.designs_path}', f'-scorefile {self.scores_file}'])
         rosetta_flags.append(f'-in:file:native {self.refined_pdb}')
         rosetta_flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
 
@@ -1474,16 +1502,16 @@ class PoseProtocol(PoseData):
         if len(self.symmetry_definition_files) != len(self.entity_names) or self.job.force:
             for entity in self.pose.entities:
                 if entity.is_oligomeric():  # make symmetric energy in line with SymDesign energies v
-                    entity.make_sdf(out_path=self.data,
+                    entity.make_sdf(out_path=self.data_path,
                                     modify_sym_energy_for_cryst=True if self.sym_entry.dimension in [2, 3] else False)
                 else:
                     shutil.copy(os.path.join(putils.symmetry_def_files, 'C1.sym'),
-                                os.path.join(self.data, f'{entity.name}.sdf'))
+                                os.path.join(self.data_path, f'{entity.name}.sdf'))
 
         entity_metric_commands = []
         for idx, name in enumerate(self.entity_names, 1):
             if self.is_symmetric():
-                entity_sdf = f'sdf={os.path.join(self.data, f"{name}.sdf")}'
+                entity_sdf = f'sdf={os.path.join(self.data_path, f"{name}.sdf")}'
                 entity_sym = 'symmetry=make_point_group'
             else:
                 entity_sdf, entity_sym = '', 'symmetry=asymmetric'
@@ -1517,15 +1545,15 @@ class PoseProtocol(PoseData):
                                   f'the number of residues in the pose')
             for res_idx, residue_type in enumerate(sequence):
                 self.pose.mutate_residue(index=res_idx, to=residue_type)
-            # pre_threaded_file = os.path.join(self.data, f'{self.name}_{self.protocol}{seq_idx:04d}.pdb')
-            pre_threaded_file = os.path.join(self.data, f'{sequence_id}.pdb')
+            # pre_threaded_file = os.path.join(self.data_path, f'{self.name}_{self.protocol}{seq_idx:04d}.pdb')
+            pre_threaded_file = os.path.join(self.data_path, f'{sequence_id}.pdb')
             design_files.append(self.pose.write(out_path=pre_threaded_file))
 
         # Ensure that mutations to the Pose are wiped. We can reload if continuing to use
         remove_structure_memory()  # self.pose = None
 
-        design_files_file = os.path.join(self.scripts, f'files_{self.protocol}.txt')
-        putils.make_path(self.scripts)
+        design_files_file = os.path.join(self.scripts_path, f'files_{self.protocol}.txt')
+        putils.make_path(self.scripts_path)
 
         # Modify each sequence score to reflect the new "decoy" name
         sequence_ids = sequences.keys()
@@ -2487,8 +2515,8 @@ class PoseProtocol(PoseData):
             contact_ax.set_ylabel('Contact Order')
             # contact_ax.set_xlim(0, pose_length)
             contact_ax.set_ylim(0, None)
-            # contact_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
-            # collapse_ax1.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
+            # contact_ax.figure.savefig(os.path.join(self.data_path, 'hydrophobic_collapse+contact.png'))
+            # collapse_ax1.figure.savefig(os.path.join(self.data_path, 'hydrophobic_collapse+contact.png'))
 
             # Get the plot of each collapse profile into a matplotlib axes
             # collapse_ax = collapse_graph_df.plot.line(legend=False, ax=collapse_ax, figsize=figure_aspect_ratio)
@@ -2522,7 +2550,7 @@ class PoseProtocol(PoseData):
             # collapse_ax.set_prop_cycle(color_cycler)
             # ax.autoscale(True)
             # collapse_ax.figure.tight_layout()  # no standardization
-            # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse.png'))  # no standardization
+            # collapse_ax.figure.savefig(os.path.join(self.data_path, 'hydrophobic_collapse.png'))  # no standardization
 
             # Plot: Collapse description of total profile against each design
             entity_collapse_mean, entity_collapse_std = [], []
@@ -2548,7 +2576,7 @@ class PoseProtocol(PoseData):
                 collapse_graph_describe_df['Residue Number'] = collapse_graph_describe_df.index
                 collapse_ax.vlines('Residue Number', 'std_min', 'std_max', data=collapse_graph_describe_df,
                                    color='#e6e6fa', linestyle='-', lw=1, alpha=0.8)  # lavender
-                # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse_versus_profile.png'))
+                # collapse_ax.figure.savefig(os.path.join(self.data_path, 'hydrophobic_collapse_versus_profile.png'))
 
             # Plot: Errat Accuracy
             # errat_graph_df = pd.DataFrame(per_residue_data['errat_deviation'])
@@ -2584,7 +2612,7 @@ class PoseProtocol(PoseData):
             errat_ax.set_ylabel('Errat Score')
             # errat_ax.autoscale(True)
             # errat_ax.figure.tight_layout()
-            # errat_ax.figure.savefig(os.path.join(self.data, 'errat.png'))
+            # errat_ax.figure.savefig(os.path.join(self.data_path, 'errat.png'))
             collapse_handles, collapse_labels = collapse_ax.get_legend_handles_labels()
             contact_handles, contact_labels = contact_ax.get_legend_handles_labels()
             # errat_handles, errat_labels = errat_ax.get_legend_handles_labels()
@@ -2603,7 +2631,7 @@ class PoseProtocol(PoseData):
             plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -1.), ncol=3)  # , mode='expand')
             #            bbox_transform=plt.gcf().transFigure)  # , bbox_transform=collapse_ax.transAxes)
             fig.tight_layout()
-            fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))  # Todo PoseJob(.path)
+            fig.savefig(os.path.join(self.data_path, 'DesignMetricsPerResidues.png'))  # Todo PoseJob(.path)
 
         # After parsing data sources
         # other_pose_metrics['observations'] = len(viable_designs)
@@ -2635,15 +2663,15 @@ class PoseProtocol(PoseData):
 
         infile = []
         if to_pose_directory:  # Original protocol to refine a pose as provided from Nanohedra
-            flag_dir = self.scripts
-            pdb_out_path = self.designs
+            flag_dir = self.scripts_path
+            pdb_out_path = self.designs_path
             refine_pdb = self.refine_pdb
             refined_pdb = self.refined_pdb
             additional_flags = []
         else:  # Protocol to refine input structure, place in a common location, then transform for many jobs to source
             flag_dir = self.job.refine_dir
             pdb_out_path = self.job.refine_dir
-            refine_pdb = self.source
+            refine_pdb = self.source_path
             refined_pdb = os.path.join(pdb_out_path, refine_pdb)
             additional_flags = ['-no_scorefile', 'true']
             infile.extend(['-in:file:s', refine_pdb,
@@ -2670,11 +2698,11 @@ class PoseProtocol(PoseData):
 
             infile.extend(['-in:file:l', in_file_list,
                            # -in:file:native is here to block flag file version, not actually useful for refine
-                           '-in:file:native', self.source])
-            designed_files = os.path.join(self.scripts, f'design_files_{self.protocol}.txt')
+                           '-in:file:native', self.source_path])
+            designed_files = os.path.join(self.scripts_path, f'design_files_{self.protocol}.txt')
             generate_files_cmd = \
-                ['python', putils.list_pdb_files, '-d', self.designs, '-o', designed_files, '-s', '_' + self.protocol]
-            metrics_pdb = ['-in:file:l', designed_files, '-in:file:native', self.source]
+                ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', designed_files, '-s', '_' + self.protocol]
+            metrics_pdb = ['-in:file:l', designed_files, '-in:file:native', self.source_path]
             # generate_files_cmdline = [list2cmdline(generate_files_cmd)]
         else:
             # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
@@ -2692,7 +2720,7 @@ class PoseProtocol(PoseData):
                                 self.log.debug(f'Mutating {residue.number}{residue.type}')
                                 if residue.type != 'GLY':  # No mutation from GLY to ALA as Rosetta would build a CB
                                     self.pose.mutate_residue(residue=residue, to='A')
-                # Change the name to reflect mutation so we don't overwrite the self.source
+                # Change the name to reflect mutation so we don't overwrite the self.source_path
                 refine_pdb = f'{os.path.splitext(refine_pdb)[0]}_ala_mutant.pdb'
             # else:  # Do dothing and refine the source
             #     pass
@@ -2736,7 +2764,8 @@ class PoseProtocol(PoseData):
 
         # Create executable/Run FastRelax on Clean ASU with RosettaScripts
         if self.job.distribute_work:
-            analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
+            # Todo change self.out_directory to a single based on the project/pose (pose_id)
+            analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.out_directory, '--no-output',
                             f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
                                                                    .format(starttime, self.protocol))]
             write_shell_script(list2cmdline(relax_cmd), name=self.protocol, out_path=flag_dir,
@@ -2788,9 +2817,9 @@ class PoseProtocol(PoseData):
             # metrics_flags = 'repack=no'
             nstruct_instruct = ['-no_nstruct_label', 'true']
         else:
-            design_files = os.path.join(self.scripts, f'design_files_{self.protocol}.txt')
+            design_files = os.path.join(self.scripts_path, f'design_files_{self.protocol}.txt')
             generate_files_cmd = \
-                ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + self.protocol]
+                ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', design_files, '-s', '_' + self.protocol]
             metrics_pdb = ['-in:file:l', design_files]
             # metrics_flags = 'repack=yes'
             if self.job.design.structure_background:
@@ -2801,24 +2830,24 @@ class PoseProtocol(PoseData):
                 nstruct_instruct = ['-no_nstruct_label', 'true']
                 # Set up an additional command to perform interface design on hydrogen bond network from hbnet_scout
                 additional_cmds = \
-                    [[putils.hbnet_sort, os.path.join(self.data, 'hbnet_silent.o'),
+                    [[putils.hbnet_sort, os.path.join(self.data_path, 'hbnet_silent.o'),
                       str(self.job.design.number)]] \
                     + [main_cmd + profile_cmd
-                       + ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), f'@{self.flags}',
+                       + ['-in:file:silent', os.path.join(self.data_path, 'hbnet_selected.o'), f'@{self.flags}',
                           '-in:file:silent_struct_type', 'binary',  # '-out:suffix', f'_{self.protocol}',
                           # adding no_nstruct_label true as only hbnet uses this mechanism
                           # hbnet_design_profile.xml could be just design_profile.xml
                           '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{self.protocol}.xml')] \
                        + nstruct_instruct]
                 # Set up additional out_file
-                out_file = ['-out:file:silent', os.path.join(self.data, 'hbnet_silent.o'),
+                out_file = ['-out:file:silent', os.path.join(self.data_path, 'hbnet_silent.o'),
                             '-out:file:silent_struct_type', 'binary']
-                # silent_file = os.path.join(self.data, 'hbnet_silent.o')
+                # silent_file = os.path.join(self.data_path, 'hbnet_silent.o')
                 # additional_commands = \
                 #     [
-                #      # ['grep', '^SCORE', silent_file, '>', os.path.join(self.data, 'hbnet_scores.sc')],
-                #      main_cmd + [os.path.join(self.data, 'hbnet_selected.o')]
-                #      [os.path.join(self.data, 'hbnet_selected.tags')]
+                #      # ['grep', '^SCORE', silent_file, '>', os.path.join(self.data_path, 'hbnet_scores.sc')],
+                #      main_cmd + [os.path.join(self.data_path, 'hbnet_selected.o')]
+                #      [os.path.join(self.data_path, 'hbnet_selected.tags')]
                 #     ]
             else:  # Run the legacy protocol
                 self.protocol = protocol_xml1 = putils.interface_design
@@ -2826,7 +2855,7 @@ class PoseProtocol(PoseData):
 
         # DESIGN: Prepare command and flags file
         if not os.path.exists(self.flags) or self.job.force:
-            self.prepare_rosetta_flags(out_dir=self.scripts)
+            self.prepare_rosetta_flags(out_dir=self.scripts_path)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
         if self.job.design.method == putils.consensus:
@@ -2839,7 +2868,7 @@ class PoseProtocol(PoseData):
                              '-parser:script_vars', f'switch={putils.consensus}']
             self.log.info(f'Consensus command: {list2cmdline(consensus_cmd)}')
             if self.job.distribute_work:
-                write_shell_script(list2cmdline(consensus_cmd), name=putils.consensus, out_path=self.scripts)
+                write_shell_script(list2cmdline(consensus_cmd), name=putils.consensus, out_path=self.scripts_path)
             else:
                 consensus_process = Popen(consensus_cmd)
                 consensus_process.communicate()
@@ -2866,10 +2895,11 @@ class PoseProtocol(PoseData):
 
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.job.distribute_work:
-            analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
+            # Todo change self.out_directory to a single based on the project/pose (pose_id)
+            analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.out_directory, '--no-output',
                             f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
                                                                    .format(starttime, self.protocol))]
-            write_shell_script(list2cmdline(design_cmd), name=self.protocol, out_path=self.scripts,
+            write_shell_script(list2cmdline(design_cmd), name=self.protocol, out_path=self.scripts_path,
                                additional=[list2cmdline(command) for command in additional_cmds] +
                                           [list2cmdline(generate_files_cmd)] +
                                           [list2cmdline(command) for command in metric_cmds] +
@@ -3165,7 +3195,7 @@ class PoseProtocol(PoseData):
                                              first_new_design_idx + number_of_new_designs)]
 
         # self.output_proteinmpnn_scores(design_names, sequences_and_scores)
-        putils.make_path(self.designs)
+        putils.make_path(self.designs_path)
         # # Write every designed sequence to the sequences file...
         # write_sequences(sequences_and_scores['sequences'], names=design_names, file_name=self.designed_sequences_file)
         # Convert sequences to a plain string sequence representation
@@ -3173,7 +3203,7 @@ class PoseProtocol(PoseData):
             [''.join(sequence) for sequence in sequences_and_scores['sequences'].tolist()]
         # Write every designed sequence to an individual file...
         for name, sequence in zip(design_names, sequences_and_scores['sequences']):
-            write_sequences(sequence, names=name, file_name=os.path.join(self.designs, name))
+            write_sequences(sequence, names=name, file_name=os.path.join(self.designs_path, name))
 
         # analysis_start = time.time()
         self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
@@ -3225,10 +3255,9 @@ class PoseProtocol(PoseData):
     #         # return write_json(design_scores, self.scores_file)
     #         return self.scores_file
     #
-    #     putils.make_path(self.data)
+    #     putils.make_path(self.data_path)
     #     write_per_residue_scores(design_ids, sequences_and_scores)
 
-    # Todo ensure self.data dir is made
     def output_metrics(self, designs: pd.DataFrame = None, residues: pd.DataFrame = None, update: bool = False):
         """Format each possible DataFrame type for output via csv or SQL database
 
@@ -3270,7 +3299,7 @@ class PoseProtocol(PoseData):
                 metrics.sql.write_dataframe(residues=residues, update=update)
             # metrics.sql.write_dataframe(designs=designs, residues=residues)
         else:
-            putils.make_path(self.data)
+            putils.make_path(self.data_path)
             if residues is not None:
                 residues.sort_index(inplace=True)
                 residues.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)

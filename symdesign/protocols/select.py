@@ -422,7 +422,7 @@ def designs(pose_directories: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
     exceptions = []
     for pose_dir, designs in results.items():
         for design in designs:
-            file_path = os.path.join(pose_dir.designs, f'*{design}*')
+            file_path = os.path.join(pose_dir.designs_path, f'*{design}*')
             file = sorted(glob(file_path))
             if not file:  # Add to exceptions
                 exceptions.append((pose_dir, f'No file found for "{file_path}"'))
@@ -505,7 +505,7 @@ def sequences(pose_directories: list[PoseJob]):
         number_of_tags = sum(tag_index)
         des_dir.pose.rename_chains()  # Do I need to modify chains?
         for design in _designs:
-            file_glob = f'{des_dir.designs}{os.sep}*{design}*'
+            file_glob = f'{des_dir.designs_path}{os.sep}*{design}*'
             file = sorted(glob(file_glob))
             if not file:
                 logger.error(f'No file found for {file_glob}')

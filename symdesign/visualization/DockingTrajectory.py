@@ -33,7 +33,7 @@ def merge_pose_pdbs(des_dir, frags=True):
     new_pdb = Model.from_atoms(list(chain.from_iterable(oligomers[oligomer].atoms for oligomer in oligomers)))
 
     if frags:
-        frag_pdbs = glob(os.path.join(des_dir.frags, '*.pdb'))
+        frag_pdbs = glob(os.path.join(des_dir.frags_path, '*.pdb'))
         frags = []
         for frag_file in frag_pdbs:
             frag_pdb = Model.from_file(frag_file)
