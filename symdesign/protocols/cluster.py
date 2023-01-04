@@ -36,7 +36,7 @@ def cluster_poses(pose_directories: list[PoseJob]):
 
         # Need to change directories to prevent issues with the path length being passed to ialign
         prior_directory = os.getcwd()
-        os.chdir(job.data)  # os.path.join(job.data, 'ialign_output'))
+        os.chdir(job.data_path)  # os.path.join(job.data_path, 'ialign_output'))
         temp_file_dir = os.path.join(os.getcwd(), 'temp')
         putils.make_path(temp_file_dir)
 
@@ -57,7 +57,7 @@ def cluster_poses(pose_directories: list[PoseJob]):
             for idx, interface_files in enumerate(combinations(design_interfaces, 2)):
                 # is_score = utils.cluster.ialign(design1.source, design2.source, out_path='ialign')
                 results.append(ialign(*interface_files))
-                #                                     out_path=os.path.join(job.data, 'ialign_output'))
+                #                                     out_path=os.path.join(job.data_path, 'ialign_output'))
 
         if results:
             # Separate interfaces which fall below a threshold

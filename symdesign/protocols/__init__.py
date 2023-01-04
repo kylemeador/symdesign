@@ -62,14 +62,14 @@ def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None
     #     job.load_pose()
 
     if not os.path.exists(job.flags) or job.job.force:
-        job.prepare_rosetta_flags(out_dir=job.scripts)
+        job.prepare_rosetta_flags(out_dir=job.scripts_path)
         job.log.debug(f'Pose flags written to: {job.flags}')
 
     cmd += ['-symmetry_definition', 'CRYST1'] if job.design_dimension > 0 else []
 
     if file_list:
-        pdb_input = os.path.join(job.scripts, 'design_files.txt')
-        generate_files_cmd = ['python', putils.list_pdb_files, '-d', job.designs, '-o', pdb_input]
+        pdb_input = os.path.join(job.scripts_path, 'design_files.txt')
+        generate_files_cmd = ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', pdb_input]
     else:
         pdb_input = job.refined_pdb
         generate_files_cmd = []  # empty command
@@ -111,7 +111,7 @@ def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None
         cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(job.job.mpi)] + cmd
 
     if job.job.distribute_work:
-        write_shell_script(list2cmdline(generate_files_cmd), name=script_name, out_path=job.scripts,
+        write_shell_script(list2cmdline(generate_files_cmd), name=script_name, out_path=job.scripts_path,
                            additional=[list2cmdline(cmd)])
     else:
         raise NotImplementedError('Need to implement this feature')
@@ -151,13 +151,13 @@ def interface_metrics(job: pose.PoseJob):
 
     # interface_secondary_structure
     if not os.path.exists(job.flags) or job.job.force:
-        job.prepare_rosetta_flags(out_dir=job.scripts)
+        job.prepare_rosetta_flags(out_dir=job.scripts_path)
         job.log.debug(f'Pose flags written to: {job.flags}')
 
     design_files = \
-        os.path.join(job.scripts, f'design_files'
-                                   f'{f"_{job.job.specific_protocol}" if job.job.specific_protocol else ""}.txt')
-    generate_files_cmd = ['python', putils.list_pdb_files, '-d', job.designs, '-o', design_files] + \
+        os.path.join(job.scripts_path, f'design_files'
+                     f'{f"_{job.job.specific_protocol}" if job.job.specific_protocol else ""}.txt')
+    generate_files_cmd = ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', design_files] + \
         (['-s', job.job.specific_protocol] if job.job.specific_protocol else [])
     main_cmd += [f'@{job.flags}', '-in:file:l', design_files,
                  # TODO out:file:score_only file is not respected if out:path:score_file given
@@ -179,7 +179,7 @@ def interface_metrics(job: pose.PoseJob):
         analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', job.path, '--no-output',
                         f'--{flags.output_file}', os.path.join(job.job.all_scores, putils.default_analysis_file
                                                                .format(starttime, job.protocol))]
-        write_shell_script(list2cmdline(generate_files_cmd), name=putils.interface_metrics, out_path=job.scripts,
+        write_shell_script(list2cmdline(generate_files_cmd), name=putils.interface_metrics, out_path=job.scripts_path,
                            additional=[list2cmdline(command) for command in metric_cmds] +
                                       [list2cmdline(analysis_cmd)])
     else:
@@ -388,7 +388,7 @@ def interface_design(job: pose.PoseJob):
     # else:  # We only need to load pose as we already calculated interface
     #     job.load_pose()
 
-    putils.make_path(job.data)  # Todo consolidate this check with pickle_info()
+    putils.make_path(job.data_path)  # Todo consolidate this check with pickle_info()
     # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
     if job.job.design.method == putils.rosetta_str:
         raise NotImplementedError('Need to generate number_of_designs matching proteinmpnn_design()...')
@@ -433,8 +433,8 @@ def interface_design(job: pose.PoseJob):
     if not job.pre_refine and not os.path.exists(job.refined_pdb):
         job.refine(metrics=False)
 
-    putils.make_path(job.designs)
-    # putils.make_path(job.data)  # Used above
+    putils.make_path(job.designs_path)
+    # putils.make_path(job.data_path)  # Used above
     match job.job.design.method:
         case putils.rosetta_str:
             # Write generated files
@@ -468,7 +468,7 @@ def design(job: pose.PoseJob):
     # else:  # We only need to load pose as we already calculated interface
     job.load_pose()
 
-    putils.make_path(job.data)  # Todo consolidate this check with pickle_info()
+    putils.make_path(job.data_path)  # Todo consolidate this check with pickle_info()
     # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
     if job.job.design.method == putils.rosetta_str:
         raise NotImplementedError(f"Can't perform design using Rosetta just yet. Try {flags.interface_design}...")
@@ -508,8 +508,8 @@ def design(job: pose.PoseJob):
     if not job.pre_refine and not os.path.exists(job.refined_pdb):
         job.refine(metrics=False)
 
-    putils.make_path(job.designs)
-    # putils.make_path(job.data)  # Used above
+    putils.make_path(job.designs_path)
+    # putils.make_path(job.data_path)  # Used above
     match job.job.design.method:
         case [putils.rosetta_str | putils.consensus]:
             # Write generated files
@@ -580,23 +580,24 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     directives.update({residue: job.directives[residue.number]
                        for residue in job.pose.get_residues(job.directives.keys())})
 
-    res_file = job.pose.make_resfile(directives, out_path=job.data, include=wt, background=background)
+    res_file = job.pose.make_resfile(directives, out_path=job.data_path, include=wt, background=background)
 
     job.protocol = protocol_xml1 = putils.optimize_designs
     # nstruct_instruct = ['-no_nstruct_label', 'true']
     nstruct_instruct = ['-nstruct', str(job.job.design.number)]
-    design_list_file = os.path.join(job.scripts, f'design_files_{job.protocol}.txt')
+    design_list_file = os.path.join(job.scripts_path, f'design_files_{job.protocol}.txt')
     generate_files_cmd = \
-        ['python', putils.list_pdb_files, '-d', job.designs, '-o', design_list_file, '-s', '_' + job.protocol]
+        ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', design_list_file, '-s', '_' + job.protocol]
 
     main_cmd = rosetta.script_cmd.copy()
     main_cmd += ['-symmetry_definition', 'CRYST1'] if job.design_dimension > 0 else []
     if not os.path.exists(job.flags) or job.job.force:
-        job.prepare_rosetta_flags(out_dir=job.scripts)
+        job.prepare_rosetta_flags(out_dir=job.scripts_path)
         job.log.debug(f'Pose flags written to: {job.flags}')
 
     # DESIGN: Prepare command and flags file
-    # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
+    # Todo - Has this been solved?
+    #  must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
     profile_cmd = ['-in:file:pssm', job.evolutionary_profile_file] \
         if os.path.exists(job.evolutionary_profile_file) else []
     design_cmd = main_cmd + profile_cmd \
@@ -625,7 +626,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
         analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', job.path, '--no-output',
                         f'--{flags.output_file}', os.path.join(job.job.all_scores, putils.default_analysis_file
                                                                .format(starttime, job.protocol))]
-        write_shell_script(list2cmdline(design_cmd), name=job.protocol, out_path=job.scripts,
+        write_shell_script(list2cmdline(design_cmd), name=job.protocol, out_path=job.scripts_path,
                            additional=[list2cmdline(generate_files_cmd)] +
                                       [list2cmdline(command) for command in metric_cmds] +
                                       [list2cmdline(analysis_cmd)])
@@ -784,10 +785,10 @@ def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = No
                          for idx, count in enumerate(seq_neighbor_counts) if count == num_neighbors}
         job.log.info('The final sequence(s) and file(s):\nNeighbors\tDesign\n%s'
                      # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.zero_offset,
-                     % '\n'.join(f'\t{neighbors}\t{os.path.join(job.designs, design)}'
+                     % '\n'.join(f'\t{neighbors}\t{os.path.join(job.designs_path, design)}'
                                  for design, neighbors in final_designs.items()))
 
-        # job.log.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(job.designs, seq))
+        # job.log.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(job.designs_path, seq))
         #                                                         for i, seq in enumerate(final_designs, 1)))
 
         # Compute the highest density cluster using DBSCAN algorithm
