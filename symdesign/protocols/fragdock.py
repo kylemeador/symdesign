@@ -38,7 +38,6 @@ putils = utils.path
 
 # Globals
 logger = logging.getLogger(__name__)
-# logger = start_log(name=__name__, format_log=False)
 zero_offset = 1
 
 
@@ -284,7 +283,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     job = symjob.job_resources_factory.get()
     sym_entry: SymEntry = job.sym_entry
     """The SymmetryEntry object describing the material"""
-    program_root = job.program_root
+    # program_root = job.program_root
     entry_string = f'NanohedraEntry{sym_entry.entry_number}'
     building_blocks = '-'.join(model.name for model in models)
     project = f'{entry_string}_{building_blocks}'  # _{putils.pose_directory}'
@@ -1359,7 +1358,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         #  guide coordinate sets of a similar tx and a 3 degree step of rotation.
         # Must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
         transform_neighbor_tree, transform_cluster = \
-            protocols.cluster.cluster_transformation_pairs(*create_transformation_group(), minimum_members=min_matched)
+            cluster.cluster_transformation_pairs(*create_transformation_group(), minimum_members=min_matched)
         # cluster_representative_indices, cluster_labels = \
         #     find_cluster_representatives(transform_neighbor_tree, transform_cluster)
         del transform_neighbor_tree
@@ -3852,16 +3851,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 #     for temp_idx, design_idx in enumerate(range(idx * number_of_temperatures,
                 #                                                 (idx+1) * number_of_temperatures)):
                 #         # pose_name = design_ids[design_idx]
-                #         if job.design.structures:
-                #             # Todo use the template protocol from protocols.py
-                #             #  if job.design.alphafold:
-                #             #      pose.predict_structure()
-                #             #  else:
-                #             #      pose.refine()
-                #             interface_local_density[pose_name] = pose.local_density_interface()
-                #             per_res_interface_metrics = pose.per_residue_interface_surface_area()
-                #         else:
-                #             per_res_interface_metrics = {}
+                #         per_res_interface_metrics = {}
                 #         # For each Pose, save each sequence design data such as energy # probabilites
                 #         # all_probabilities[design_id] = probabilities[idx]
                 #         # Todo process the all_probabilities to a DataFrame?
@@ -4181,19 +4171,24 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
             trajectory_models.write(out_path=os.path.join(project_dir, 'trajectory_oligomeric_models.pdb'),
                                     oligomer=True)
 
-    # Fix missing data
-    pose_names = [create_pose_name(idx) for idx in range(number_of_transforms)]
-    project_pose_names = [f'{project_str}{pose_name}' for pose_name in pose_names]
-    if not collapse_profile.size:
-        collapse_violation = list(repeat(None, number_of_transforms))
-    # Finalize docking run
-    terminate()
     logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
+    pose_names = [create_pose_name(idx) for idx in range(number_of_transforms)]
+    project_pose_names = [f'{project_str}{pose_name}' for pose_name in pose_names]
     # return [PoseJob.from_file(file, entity_names=entity_names,
     #                                           pose_transformation=create_specific_transformation(idx))
     # return [PoseJob.from_pose_id(pose_id, entity_names=entity_names,
-    return [PoseJob.from_pose_directory(pose_name, root=program_root, entity_names=entity_names,
-                                        pose_transformation=create_specific_transformation(idx))
-            for idx, pose_name in enumerate(project_pose_names)]
+    pose_jobs = [PoseJob.from_pose_directory(pose_name, project=project_str, root=job.projects,
+                                             entity_names=entity_names,
+                                             pose_transformation=create_specific_transformation(idx))
+                 for idx, pose_name in enumerate(pose_names)]
+
+    # Finalize docking run
+    # Fix missing data
+    if not collapse_profile.size:
+        collapse_violation = list(repeat(None, number_of_transforms))
+
+    terminate()
+
+    return pose_jobs
     # ------------------ TERMINATE DOCKING ------------------------
