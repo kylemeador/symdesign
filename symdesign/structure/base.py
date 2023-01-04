@@ -393,8 +393,7 @@ def read_pdb_file(file: AnyStr, pdb_lines: list[str] = None, separate_coords: bo
         elif remark == 'COMPND' and 'CHAIN' in line and entity:  # retrieve from standard .pdb file notation
             header.append(line.strip())
             # entity number (starting from 1) = {'chains' : {A, B, C}}
-            # self.entity_info[entity] = \
-            # {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(',')))}
+            # entity_info[entity] = \
             entity_info[f'{name}_{entity}'] = \
                 {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(',')))}
             entity = None

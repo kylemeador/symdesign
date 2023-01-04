@@ -765,7 +765,8 @@ def parse_assembly_json(assembly_json: dict[str, Any]) -> list[list[str]]:
     Args:
         assembly_json: The json type dictionary returned from requests.Response.json()
     Returns:
-        The chain ID's which cluster in the assembly. Ex: [['A', 'A', 'A', ...], ...]
+        The chain ID's which cluster in the assembly -
+        Ex: [['A', 'A', 'A', ...], ...]
     """
     entity_clustered_chains = []
     for symmetry in assembly_json['rcsb_struct_symmetry']:
@@ -844,8 +845,18 @@ def _get_entry_info(entry: str = None, **kwargs) -> dict[str, Any] | None:
     Args:
         entry: The PDB code to search for
     Returns:
-        {'entity': {1: ['A', 'B'], ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
-         'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}}
+        The entry dictionary with format -
+        {'entity':
+            {'EntityID':
+                {'chains': ['A', 'B', ...],
+                 'dbref': {'accession': 'Q96DC8', 'db': 'UNP'},
+                 'reference_sequence': 'MSLEHHHHHH...',
+                 'thermophilic': True},
+             ...}
+         'method': xray,
+         'res': resolution,
+         'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
+         }
     """
     entry_request = query_entry_id(entry)
     if not entry_request:
@@ -864,7 +875,11 @@ def parse_entry_json(entry_json: dict[str, Any]) -> dict[str, dict]:
     Args:
         entry_json: The json type dictionary returned from requests.Response.json()
     Returns:
-        The structural information present in the PDB EntryID
+        The structural information present in the PDB EntryID with format -
+        {'method': xray,
+         'res': resolution,
+         'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
+         }
     """
     # entry_json = entry_request.json()
     # if 'method' in entry_json['exptl'][0]:
@@ -879,6 +894,8 @@ def parse_entry_json(entry_json: dict[str, Any]) -> dict[str, dict]:
             struct_d = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
             resolution = entry_json['rcsb_entry_info']['resolution_combined'][0]
         else:  # Todo NMR and EM
+            logger.warning(f"Didn't add any useful information with the experimental method {experimental_method} as "
+                           "this method hasn't been written yet")
             struct_d = {}
             resolution = None
     else:
@@ -921,11 +938,13 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
     Args:
         entity_jsons: An Iterable of json like objects containing EntityID information as retrieved from the PDB API
     Returns:
-        The formatted information -
-            {'EntityID': {'chains': ['A', 'B', ...],
-                          'dbref': {'accession': 'Q96DC8', 'db': 'UNP'}
-                          'reference_sequence': 'MSLEHHHHHH...'},
-             ...}
+        The entity dictionary with format -
+        {'EntityID':
+            {'chains': ['A', 'B', ...],
+             'dbref': {'accession': 'Q96DC8', 'db': 'UNP'},
+             'reference_sequence': 'MSLEHHHHHH...',
+             'thermophilic': True},
+         ...}
     """
     def extract_dbref(entity_ids_json: dict[str, Any]) -> dict[str, dict]:
         """For a PDB API EntityID, parse the associated chains and database reference identifiers
@@ -1029,7 +1048,13 @@ def _get_entity_info(entry: str = None, entity_integer: int | str = None, entity
         entity_integer: The entity integer from the EntryID of interest
         entity_id: The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
     Returns:
-        {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
+        The entity dictionary with format -
+        {'EntityID':
+            {'chains': ['A', 'B', ...],
+             'dbref': {'accession': 'Q96DC8', 'db': 'UNP'},
+             'reference_sequence': 'MSLEHHHHHH...',
+             'thermophilic': True},
+         ...}
     """
     entity_request = query_entity_id(entry=entry, entity_integer=entity_integer, entity_id=entity_id)
     if not entity_request:
