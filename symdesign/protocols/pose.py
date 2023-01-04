@@ -130,6 +130,7 @@ class PoseData(PoseDirectory, PoseMetadata):
     _pre_refine: bool
     _pre_loop_model: bool
     _symmetry_definition_files: list[AnyStr]
+    _source: AnyStr
     directives: list[dict[int, str]]
     entities: list[Entity]
     fragment_db: fragment.db.FragmentDatabase
@@ -499,6 +500,19 @@ class PoseData(PoseDirectory, PoseMetadata):
     @_pose_id.setter
     def _pose_id(self, _id: int):
         self._pose_id_ = self.info['_pose_id'] = _id
+
+    @property
+    def source(self) -> AnyStr:
+        """Return the source of the Pose structural information for the PoseJob"""
+        try:
+            return self._source
+        except AttributeError:
+            self._source = 'Database'
+            return self._source
+
+    @source.setter
+    def source(self, source: AnyStr):
+        self._source = source
 
     @property
     def number_of_designs(self) -> int:
@@ -1118,13 +1132,19 @@ class PoseData(PoseDirectory, PoseMetadata):
             source: The file path to a source file
             entities: The Entities desired in the Pose
         """
-        if self.pose and not source and not entities:
-            # Pose is already loaded and nothing new provided
+        # Check to see if Pose is already loaded and nothing new provided
+        if self.pose and source is not None or entities is not None:
             return
 
         # rename_chains = True  # Because the result of entities, we should rename
-        if not entities and not self.source or not os.path.exists(self.source):
+        if entities is not None:
+            pass  # Use the entities as provided
+        elif self.source_path is None or not os.path.exists(self.source_path):
             # In case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
+            if not self.job.structure_db:
+                raise RuntimeError(f"Couldn't {self.get_entities.__name__} as there was no "
+                                   f"{resources.structure_db.StructureDatabase.__name__}"
+                                   f" attached to the {type(self).__name__}")
             self.log.info(f'No source file found. Fetching source from {type(self.job.structure_db).__name__} and '
                           f'transforming to Pose')
             # Minimize I/O with transform...
@@ -1139,14 +1159,17 @@ class PoseData(PoseDirectory, PoseMetadata):
         # Initialize the Pose with the pdb in PDB numbering so that residue_selectors are respected
         # name = f'{self.pose_id}-asu' if self.sym_entry else self.pose_id
         # name = self.pose_id
-        name = self.name  # Ensure this name is the tracked across Pose init from fragdock() to _design() methods
+        # name = self.name  # Ensure this name is the tracked across Pose init from fragdock() to _design() methods
         if entities:
-            self.pose = Pose.from_entities(entities, name=name, **self.pose_kwargs)
+            self.source = 'Database'
+            self.pose = Pose.from_entities(entities, name=self.name, **self.pose_kwargs)
         elif self.initial_model:  # This is a fresh Model, and we already loaded so reuse
-            # Careful, if processing has occurred then this may be wrong!
-            self.pose = Pose.from_model(self.initial_model, name=name, **self.pose_kwargs)
+            self.source = self.source_path
+            # Careful, if processing has occurred to the initial_model, then this may be wrong!
+            self.pose = Pose.from_model(self.initial_model, name=self.name, **self.pose_kwargs)
         else:
-            self.pose = Pose.from_file(source if source else self.source, name=name, **self.pose_kwargs)
+            self.source = source if source else self.source_path
+            self.pose = Pose.from_file(self.source, name=self.name, **self.pose_kwargs)
 
         if self.pose.is_symmetric():
             self._symmetric_assembly_is_clash()
@@ -1210,7 +1233,8 @@ class PoseData(PoseDirectory, PoseMetadata):
         """
         if self.pose.symmetric_assembly_is_clash():
             if self.job.design.ignore_symmetric_clashes:
-                self.log.critical(f'The Symmetric Assembly contains clashes! {self.source} is not viable')
+                self.log.critical("The Symmetric Assembly contains clashes. "
+                                  f"The Pose from '{self.source}' isn't viable")
             else:
                 raise ClashError("The Symmetric Assembly contains clashes! Design won't be considered. If you "
                                  'would like to generate the Assembly anyway, re-submit the command with '
