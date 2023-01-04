@@ -10,8 +10,9 @@ from typing import Iterable, Annotated, AnyStr
 
 from .database import Database, DataStore
 from .query.utils import boolean_choice
-from symdesign import utils, structure
-from symdesign.utils import rosetta, path as putils
+from symdesign import flags, structure, utils
+from symdesign.utils import rosetta
+putils = utils.path
 
 # Todo adjust the logging level for this module?
 logger = logging.getLogger(__name__)
@@ -528,15 +529,15 @@ class StructureDatabase(Database):
                 # Generate sbatch refine command
                 flags_file = os.path.join(refine_dir, 'refine_flags')
                 # if not os.path.exists(flags_file):
-                flags = rosetta.rosetta_flags.copy() + rosetta.relax_flags
-                flags.extend([f'-out:path:pdb {refine_dir}', '-no_scorefile true'])
-                flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
+                _flags = rosetta.rosetta_flags.copy() + rosetta.relax_flags
+                _flags.extend([f'-out:path:pdb {refine_dir}', '-no_scorefile true'])
+                _flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
                 variables = rosetta.rosetta_variables.copy()
                 variables.append(('dist', 0))  # Todo modify if not point groups used
-                flags.append('-parser:script_vars %s' % ' '.join(f'{var}={val}' for var, val in variables))
+                _flags.append('-parser:script_vars %s' % ' '.join(f'{var}={val}' for var, val in variables))
 
                 with open(flags_file, 'w') as f:
-                    f.write('%s\n' % '\n'.join(flags))
+                    f.write('%s\n' % '\n'.join(_flags))
 
                 refine_cmd = [f'@{flags_file}', '-parser:protocol',
                               os.path.join(putils.rosetta_scripts_dir, f'{putils.refine}.xml')]
@@ -592,13 +593,13 @@ class StructureDatabase(Database):
                 # if not os.path.exists(flags_file):
                 loop_model_flags = ['-remodel::save_top 0', '-run:chain A', '-remodel:num_trajectory 1']
                 #                   '-remodel:run_confirmation true', '-remodel:quick_and_dirty',
-                flags = rosetta.rosetta_flags.copy() + loop_model_flags
+                _flags = rosetta.rosetta_flags.copy() + loop_model_flags
                 # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
-                flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
+                _flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
                 variables = [('script_nstruct', '100')]  # generate 100 trial loops, 500 is typically sufficient
-                flags.append('-parser:script_vars %s' % ' '.join(f'{var}={val}' for var, val in variables))
+                _flags.append('-parser:script_vars %s' % ' '.join(f'{var}={val}' for var, val in variables))
                 with open(flags_file, 'w') as f:
-                    f.write('%s\n' % '\n'.join(flags))
+                    f.write('%s\n' % '\n'.join(_flags))
                 loop_model_cmd = [f'@{flags_file}', '-parser:protocol',
                                   os.path.join(putils.rosetta_scripts_dir, 'loop_model_ensemble.xml'),
                                   '-parser:script_vars']
