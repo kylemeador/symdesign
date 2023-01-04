@@ -164,7 +164,8 @@ def start_log(name: str = '', handler: int = 1, level: logging_levels = 2, locat
     _handler = log_handler[handler]
     if handler == 2:
         # Check for extension. If one doesn't exist, add ".log"
-        lh = _handler(f'{location}.log' if os.path.splitext(location)[1] == '' else location)
+        lh = _handler(f'{location}.log' if os.path.splitext(location)[1] == '' else location, delay=True)
+        # Set delay=True to prevent the log from opening until the first emit() is called
         # Remove any coloring from the log
         message_fmt = message_fmt.replace('\033[38;5;208m', '').replace('\033[38;5;93m', '').replace('\033[0;0m', '')
     else:
