@@ -277,7 +277,7 @@ class SymEntry:
     _setting_matrices_numbers: list[int]
     cycle_size: int
     dimension: int
-    entry_number: int
+    number: int
     groups: list[str]
     point_group_symmetry: str
     resulting_symmetry: str
@@ -316,7 +316,7 @@ class SymEntry:
             self.unit_cell = 'N/A'
             self.total_dof = self.cycle_size = 0
 
-        self.entry_number = entry
+        self.number = entry
         entry_groups = [group_name for group_name, group_params in group_info if group_name]  # Ensure not None
         # group1, group2, *extra = entry_groups
         if sym_map is None:  # Assume standard SymEntry
@@ -390,7 +390,7 @@ class SymEntry:
 
         # Check construction is valid
         if self.point_group_symmetry not in valid_symmetries:
-            if self.entry_number == 0:
+            if self.number == 0:
                 pass
             else:
                 raise utils.SymmetryInputError(f'Invalid point group symmetry {self.point_group_symmetry}')
@@ -421,11 +421,13 @@ class SymEntry:
             return self._group_subunit_numbers
 
     @property
-    def combination_string(self) -> str:
+    def specification(self) -> str:
+        """Return the specification string for the instance 'RESULT:{SUBSYMMETRY1}{SUBSYMMETRY2}...'"""
         return '%s:{%s}' % (self.resulting_symmetry, '}{'.join(self.groups))
 
     @property
-    def simple_combination_string(self) -> str:
+    def simple_specification(self) -> str:
+        """Return the simple specification string for the instance 'RESULTSUBSYMMETRY1SUBSYMMETRY2...'"""
         return f'{self.resulting_symmetry}{"".join(self.groups)}'
 
     @property
@@ -772,7 +774,7 @@ class SymEntry:
         if self.dimension > 0:
             return os.path.join(putils.symmetry_def_files, 'C1.sym')
 
-        symmetry = self.simple_combination_string
+        symmetry = self.simple_specification
         for file, ext in map(os.path.splitext, os.listdir(putils.symmetry_def_files)):
             if symmetry == file:
                 return os.path.join(putils.symmetry_def_files, file + ext)
@@ -783,7 +785,7 @@ class SymEntry:
                 return os.path.join(putils.symmetry_def_files, file + ext)
 
         raise FileNotFoundError(f"Couldn't locate correct symmetry definition file at '{putils.symmetry_def_files}' "
-                                f'for SymEntry: {self.entry_number}')
+                                f'for SymEntry: {self.number}')
 
     def log_parameters(self):
         """Log the SymEntry Parameters"""
@@ -793,7 +795,7 @@ class SymEntry:
         # log.info(f'Oligomer 2 Input: {pdb2_path}')
         # log.info(f'Master Output Directory: {master_outdir}\n')
         logger.info('SYMMETRY COMBINATION MATERIAL INFORMATION')
-        logger.info(f'Nanohedra Entry Number: {self.entry_number}')
+        logger.info(f'Nanohedra Entry Number: {self.number}')
         logger.info(f'Oligomer 1 Point Group Symmetry: {self.group1}')
         logger.info(f'Oligomer 2 Point Group Symmetry: {self.group2}')
         logger.info(f'SCM Point Group Symmetry: {self.point_group_symmetry}')
@@ -1108,7 +1110,18 @@ def get_uc_dimensions(uc_string, e=1, f=0, g=0):
 highest_point_group_msg = f'If this is a point group. You likely need to modify the current highest cyclic symmetry ' \
                           f'{max_sym} in {putils.path_to_sym_utils}, then run the file using "python ' \
                           f'{putils.path_to_sym_utils}".'
-example_symmetry_specification = 'RESULT:{SUBSYMMETRY}{SUBSYMMETRY}...'
+example_symmetry_specification = 'RESULT:{SUBSYMMETRY1}{SUBSYMMETRY2}...'
+
+
+def parse_symmetry_specification(specification: str) -> list[str]:
+    """Parse the typical symmetry specification string with format RESULT:{SUBSYMMETRY1}{SUBSYMMETRY2}... to a list
+
+    Args:
+        specification: The specification string
+    Returns:
+        The parsed string with each member split into a list - ['RESULT', 'SUBSYMMETRY1', 'SUBSYMMETRY2', ...]
+    """
+    return [split.strip('}:') for split in specification.split('{')]
 
 
 def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym_map: list[str] = None) -> \
@@ -1130,7 +1143,7 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
                 sym_map = [symmetry]
             elif len(symmetry) > 3:
                 if ':{' in symmetry:  # We have a symmetry specification of typical type result:{subsymmetry}{}...
-                    sym_map = [split.strip('}:') for split in symmetry.split('{')]
+                    sym_map = parse_symmetry_specification(symmetry)
                 elif 'cryst' in symmetry.lower():  # this is crystal specification
                     return  # we will have to set this up after parsing cryst records
                 else:  # this is some Rosetta based symmetry?

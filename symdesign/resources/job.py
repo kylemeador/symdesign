@@ -646,7 +646,7 @@ class JobResources:
         if self.module:
             reported_args['module'] = self.module
         if self.sym_entry:
-            reported_args[putils.sym_entry] = self.sym_entry.entry_number
+            reported_args[putils.sym_entry] = self.sym_entry.number
         # if self.design_selector:
         #     reported_args.pop('design_selector', None)
 

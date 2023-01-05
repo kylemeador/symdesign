@@ -284,7 +284,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     sym_entry: SymEntry = job.sym_entry
     """The SymmetryEntry object describing the material"""
     # program_root = job.program_root
-    entry_string = f'NanohedraEntry{sym_entry.entry_number}'
+    entry_string = f'NanohedraEntry{sym_entry.number}'
     building_blocks = '-'.join(model.name for model in models)
     project = f'{entry_string}_{building_blocks}'  # _{putils.pose_directory}'
     project_dir = os.path.join(job.projects, project)

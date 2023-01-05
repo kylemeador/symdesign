@@ -3752,7 +3752,7 @@ class SymmetricModel(Models):
 
         if sym_entry is not None:
             if isinstance(sym_entry, utils.SymEntry.SymEntry):
-                if sym_entry.entry_number == 0:  # Token specifying use of the CRYST1 record. Replace with relevant info
+                if sym_entry.number == 0:  # Token specifying use of the CRYST1 record. Replace with relevant info
                     self.sym_entry = utils.SymEntry.SymEntry.from_cryst(symmetry=symmetry)
                 else:
                     self.sym_entry = sym_entry  # Attach as this is set up properly
@@ -4695,7 +4695,7 @@ class SymmetricModel(Models):
             # group_set_rotation_matrices = {1: np.matmul(degen_rot_mat_1, np.transpose(set_mat1)),
             #                                2: np.matmul(degen_rot_mat_2, np.transpose(set_mat2))}
             raise SymmetryError('Using dihedral symmetry has not been implemented yet! It is required to change the '
-                                f'code before continuing with design of symmetry entry {self.sym_entry.entry_number}!')
+                                f'code before continuing with design of symmetry entry {self.sym_entry.number}!')
         else:
             group1 = self.sym_entry.group1
             group2 = self.sym_entry.group2
@@ -4943,7 +4943,7 @@ class SymmetricModel(Models):
                             self.log.info('There are multiple pose transformation solutions for the symmetry group '
                                           '%s (specified in position {%d} of %s). The solution with a positive '
                                           'translation was chosen by convention. This may result in inaccurate behavior'
-                                          % (sym_group, group_idx + 1, self.sym_entry.combination_string))
+                                          % (sym_group, group_idx + 1, self.sym_entry.specification))
                             if internal_tx[-1] < 0 < centrally_disposed_group_height:
                                 entity_asu_indices = possible_height_groups[centrally_disposed_group_height]
                                 internal_tx = temp_model_coms[entity_asu_indices].mean(axis=-2)
@@ -4963,15 +4963,15 @@ class SymmetricModel(Models):
                                                 translation=internal_tx))
                 asu_indices.append(entity_asu_indices)
             else:
-                raise ValueError('Using the supplied Model (%s) and the specified symmetry (%s), there was no solution '
-                                 'found for Entity #%d. A possible issue could be that the supplied Model has it\'s '
-                                 'Entities out of order for the assumed symmetric entry "%s". If the order of the '
-                                 'Entities in the file is different than the provided symmetry please supply the '
-                                 'correct order with the symmetry combination format "%s" to the flag --%s. Another '
-                                 'possibility is that the symmetry is generated improperly or imprecisely. Please '
-                                 'ensure your inputs are symmetrically viable for the desired symmetry'
-                                 % (self.name, self.symmetry, group_idx + 1, self.sym_entry.combination_string,
-                                    utils.SymEntry.symmetry_combination_format, 'symmetry'))
+                raise ValueError(f'Using the supplied Model ({self.name}) and the specified symmetry ({self.symmetry}),'
+                                 f' there was no solution found for Entity #{group_idx + 1}. A possible issue could be '
+                                 f"that the supplied Model has it's Entities out of order for the assumed symmetric "
+                                 f'entry "{self.sym_entry.specification}". If the order of the Entities in the file is '
+                                 'different than the provided symmetry please supply the correct order with the '
+                                 f'symmetry combination format "{utils.SymEntry.symmetry_combination_format}" to the '
+                                 f'flag --{"symmetry"}. Another possibility is that the symmetry is generated '
+                                 'improperly or imprecisely. Please ensure your inputs are symmetrically viable for '
+                                 'the desired symmetry')
 
         # Todo find the particular rotation to orient the Entity oligomer to a cannonical orientation. This must
         #  accompany standards required for the SymDesign Database for actions like refinement
