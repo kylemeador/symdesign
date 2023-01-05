@@ -3365,9 +3365,10 @@ class PoseProtocol(PoseData):
                 # #                      names=residue_index_names, axis=0)
                 # residues.index.set_names(residue_index_names, inplace=True)
                 if pose_metrics:
-                    index_name = sql.ResidueMetrics.design_id.name
-                else:
                     index_name = sql.ResidueMetrics.pose_id.name
+                else:
+                    index_name = sql.ResidueMetrics.design_id.name
+
                 residues.index.set_names(index_name, inplace=True)
                 # _residue_ids = metrics.sql.write_dataframe(residues=residues, update=update)
                 metrics.sql.write_dataframe(residues=residues, update=update)
