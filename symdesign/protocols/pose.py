@@ -37,7 +37,7 @@ from symdesign.sequence import read_fasta_file, write_sequences, protein_letters
 from symdesign.structure.utils import DesignError, ClashError
 from symdesign.utils import large_color_array, starttime, start_log, unpickle, pickle_object, write_shell_script, \
     all_vs_all, condensed_to_square, rosetta, InputError, sql, path as putils
-from symdesign.utils.SymEntry import SymEntry, symmetry_factory
+from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
 # from symdesign.utils.nanohedra.general import get_components_from_nanohedra_docking
 
 # Globals
@@ -217,7 +217,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     _symmetry_definition_files: list[AnyStr]
     _source: AnyStr
     directives: list[dict[int, str]]
-    entities: list[Entity]
+    # entities: list[Entity]
     fragment_db: fragment.db.FragmentDatabase
     frag_file: str | Path
     initial_model: Model | None
@@ -3477,9 +3477,14 @@ class PoseProtocol(PoseData):
         # self.job.dataframe = self.designs_metrics_csv
         # pose_df.to_csv(self.designs_metrics_csv)
 
-    def analyze_predict_structure_metrics(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.array]):
+    def analyze_predict_structure_metrics(self, design_ids: Sequence[str], designs: Iterable[Pose] | Iterable[AnyStr]):
         """"""
-        self.output_metrics(update=True)
+        raise NotImplementedError('Please copy the method used for structural analysis from '
+                                  f'{self.process_rosetta_metrics.__name__}')
+
+        residues_df = self.analyze_residue_metrics_per_design(designs)
+        designs_df = self.analyze_design_metrics_per_design(residues_df, designs)
+        self.output_metrics(residues=residues_df, designs=designs_df, update=True)
 
     def analyze_sequence_metrics_per_design(self, sequences: dict[str, Sequence[str]] | Sequence[Sequence[str]] = None,
                                             design_ids: Sequence[str] = None) -> pd.DataFrame:
