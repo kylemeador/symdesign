@@ -128,8 +128,8 @@ def main():
         output_analysis = True
         # Save any information found during the command to it's serialized state
         try:
-            for design in pose_jobs:
-                design.pickle_info()
+            for pose_job in pose_jobs:
+                pose_job.pickle_info()
         except AttributeError:  # This isn't a PoseJob. Likely is a nanohedra job
             pass
 
@@ -196,8 +196,8 @@ def main():
                         os.path.join(job_paths, putils.default_path_file.format(*default_output_tuple)).split('_pose')
                     designs_file = f'{scratch_designs[0]}_pose{scratch_designs[-1]}'
 
-                with open(designs_file, 'w') as f:
-                    f.write('%s\n' % '\n'.join(design.path for design in success))
+                with open(designs_file, 'w') as f_out:
+                    f_out.write('%s\n' % '\n'.join(str(pose_job) for pose_job in success))
                 logger.critical(f'The file "{designs_file}" contains the locations of every pose that passed checks/'
                                 f'filters for this job. Utilize this file to input these poses in future '
                                 f'{putils.program_name} commands such as:'
@@ -632,7 +632,6 @@ def main():
                                        f'--{flags.specification_file}')
             # Todo, combine this with collect_designs
             #  this works for file locations as well! should I have a separate mechanism for each?
-            pose_jobs = []
             for specification_file in args.specification_file:
                 # design_specification = utils.PoseSpecification(specification_file)
                 pose_jobs.extend(
@@ -672,35 +671,32 @@ def main():
         if (not initialized and job.module in initialize_modules) or args.update_database:  # or args.nanohedra_output
             all_structures = []
             if not initialized and args.preprocessed:
-                # args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
-                # SDUtils.make_path(job.refine_dir)
+                # args.orient, args.refine = True, True  # Todo make part of argparse?
+                # putils.make_path(job.refine_dir)
                 putils.make_path(job.full_model_dir)
                 putils.make_path(job.stride_dir)
                 all_entities, found_entity_names = [], set()
-                for entity in [entity for pose in pose_jobs for entity in pose.initial_model.entities]:
+                for entity in [entity for pose_job in pose_jobs for entity in pose_job.initial_model.entities]:
                     if entity.name not in found_entity_names:
                         all_entities.append(entity)
                         found_entity_names.add(entity.name)
                 # Todo save all the Entities to the StructureDatabase
                 #  How to know if Entity is needed or a combo? Need sym map to tell if they are the same length?
             elif initialized and args.update_database:
-                # for pose in pose_jobs:
-                #     pose.initialize_structure_attributes()
-
                 all_entities, found_entity_names = [], set()
-                for pose in pose_jobs:
-                    for name in pose.entity_names:
+                for pose_job in pose_jobs:
+                    for name in pose_job.entity_names:
                         if name not in found_entity_names:
                             found_entity_names.add(name)
-                            pose.load_pose()
-                            all_entities.append(pose.pose.entity(name))
+                            pose_job.load_pose()
+                            all_entities.append(pose_job.pose.entity(name))
 
                 all_entities = [entity for entity in all_entities if entity]
             else:
                 logger.critical('The requested poses require structural preprocessing before design modules should be '
                                 'used')
                 # Collect all entities required for processing the given commands
-                required_entities = list(map(set, list(zip(*[pose.entity_names for pose in pose_jobs]))))
+                required_entities = list(map(set, list(zip(*[pose_job.entity_names for pose_job in pose_jobs]))))
                 # Select entities, orient them, then load each entity to all_structures for further database processing
                 symmetry_map = job.sym_entry.groups if job.sym_entry else repeat(None)
                 for symmetry, entities in zip(symmetry_map, required_entities):
@@ -759,11 +755,11 @@ def main():
             job.structure_db.load_all_data()
             job.api_db.load_all_data()
         # Set up in series
-        for pose in pose_jobs:
+        for pose_job in pose_jobs:
             # pose.initialize_structure_attributes(pre_refine=job.initial_refinement,
             #                                      pre_loop_model=job.initial_loop_model)
-            pose.pre_refine = job.initial_refinement
-            pose.pre_loop_model = job.initial_loop_model
+            pose_job.pre_refine = job.initial_refinement
+            pose_job.pre_loop_model = job.initial_loop_model
 
         logger.info(f'Found {len(pose_jobs)} unique poses from provided input location "{job.location}"')
         if not job.debug and not job.skip_logging:
