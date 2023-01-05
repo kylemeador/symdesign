@@ -635,9 +635,9 @@ def main():
             for specification_file in args.specification_file:
                 # design_specification = utils.PoseSpecification(specification_file)
                 pose_jobs.extend(
-                    [PoseJob.from_pose_directory(pose, root=job.projects,
-                                                 specific_designs=designs,
-                                                 directives=directives)
+                    [PoseJob.from_directory(pose, root=job.projects,
+                                            specific_designs=designs,
+                                            directives=directives)
                      for pose, designs, directives in utils.PoseSpecification(specification_file).get_directives()])
             job.location = args.specification_file
         else:
@@ -651,7 +651,7 @@ def main():
                                                f'--{flags.directory} was passed. Please resubmit with '
                                                f'--{flags.directory} and use --{flags.pose_file}/'
                                                f'--{flags.specification_file} with pose IDs')
-                    pose_jobs = [PoseJob.from_pose_directory(pose, root=job.projects)
+                    pose_jobs = [PoseJob.from_directory(pose, root=job.projects)
                                  for pose in all_poses[low_range:high_range]]
                 else:
                     pose_jobs = [PoseJob.from_file(pose, project=project_name)
@@ -1002,7 +1002,7 @@ def main():
     #  Perform the specified protocol
     # -----------------------------------------------------------------------------------------------------------------
         if args.module == flags.protocol:  # Use args.module as job.module is set as first in protocol
-            run_on_pose_directory = (
+            run_on_pose_job = (
                 flags.orient,
                 flags.expand_asu,
                 flags.rename_chains,
@@ -1016,7 +1016,7 @@ def main():
                 flags.analysis,
                 flags.nanohedra
             )
-            returns_pose_directories = (
+            returns_pose_jobs = (
                 flags.nanohedra,
                 flags.select_poses,
                 flags.select_designs,
@@ -1035,7 +1035,7 @@ def main():
                 # Fetch the specified protocol with python acceptable naming
                 protocol = getattr(protocols, protocol_name.replace('-', '_'))
                 # Figure out how the job should be set up
-                if protocol_name in run_on_pose_directory:  # Single poses
+                if protocol_name in run_on_pose_job:  # Single poses
                     if job.multi_processing:
                         _results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
                     else:
@@ -1046,7 +1046,7 @@ def main():
                     _results = protocol(pose_jobs)
 
                 # Handle any returns that require particular treatment
-                if protocol_name in returns_pose_directories:
+                if protocol_name in returns_pose_jobs:
                     results = []
                     if _results:  # Not an empty list
                         if isinstance(_results[0], list):  # In the case of nanohedra

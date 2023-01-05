@@ -53,6 +53,12 @@ null_cmd = ['echo']
 
 
 class PoseDirectory(ABC):
+    _designed_sequences: list[Sequence]
+    _id: int
+    _sym_entry: SymEntry
+    _symmetry_definition_files: list[AnyStr]
+    name: str
+
     def __init__(self, directory: AnyStr = None, output_modifier: AnyStr = None, **kwargs):
         if directory is not None:
             self.out_directory = directory
@@ -118,6 +124,19 @@ class PoseDirectory(ABC):
         """Internal state info at load time"""
 
         super().__init__(**kwargs)
+
+    @property
+    def id(self) -> int:
+        """Return the database id for the PoseJob"""
+        try:
+            return self._id
+        except AttributeError:
+            self._id = self.info.get('id')
+            return self._id
+
+    @id.setter
+    def id(self, _id: int):
+        self._id = self.info['id'] = _id
 
     # SymEntry object attributes
     @property
@@ -224,12 +243,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     initialized: bool
     measure_evolution: bool
     measure_alignment: bool
-    name: str
     pose: Pose | None
     # pose_id: str
     pose_file: str | Path
-    pre_refine: bool
-    pre_loop_model: bool
     source: str | None
     source_path: str
     specific_designs: Sequence[str]
@@ -248,7 +264,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         """
         # source_path = os.path.abspath(source_path)
         if not os.path.exists(source_path):
-            raise FileNotFoundError(f'The specified Pose source "{source_path}" was not found!')
+            raise FileNotFoundError(f'The specified {type(cls).__name__} structure source file "{source_path}" '
+                                    "wasn't found!")
         filename, extension = os.path.splitext(source_path)
         # if 'pdb' in extension or 'cif' in extension:  # Initialize from input file
         if extension != '':  # Initialize from input file
@@ -262,12 +279,12 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             raise InputError(f"{type(cls).__name__} couldn't load the specified source file: "
                              f"'{source_path}'")
 
-        # if self.job.nanohedra_output:
+        # if self.job.nanohedra_outputV1:
         #     # path/to/design_symmetry/building_blocks/degen/rot/tx
         #     # path_components[-4] are the oligomeric (building_blocks) names
-        #     self.name = '-'.join(path_components[-4:])
+        #     name = '-'.join(path_components[-4:])
         #     project = path_components[-5]  # if root is None else root
-        #     self.source = os.path.join(self.source_path, putils.asu)
+        #     source_path = os.path.join(source_path, putils.asu)
 
         if project is None:
             # path_components = filename.split(os.sep)
@@ -282,7 +299,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         return cls(name=name, project=project, source_path=source_path, **kwargs)  # initialized=False
 
     @classmethod
-    def from_pose_directory(cls, design_path: str, root: AnyStr, **kwargs):
+    def from_directory(cls, design_path: str, root: AnyStr, **kwargs):
         """Assumes the PoseJob is constructed from the pose_name (project/pose_name) and job.projects
 
         Args:
@@ -423,76 +440,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
             if pose_transformation:
                 self.pose_transformation = pose_transformation
-            # # Set name initially to the basename. This may change later, but we need to check for serialized info
-            # filename, extension = os.path.splitext(self.source_path)
-            # self.name = os.path.basename(filename)
-            # path_components = filename.split(os.sep)
-            # # if pose_name:  # and root or extension == '':  # Set up PoseJob initially from new nanohedra like output
-            # #     self.name = path_components[-1]
-            # #     self.source = None
-            # #     self.out_directory = self.source_path
-            # #     self.project_path = os.path.dirname(self.out_directory)
-            # #     self.project = os.path.basename(self.project_path)
-            # #     self.pose_id = f'{self.project}/{self.name}'
-            # # else:
-            # # if self.job.nanohedra_output:
-            # #     # path/to/design_symmetry/building_blocks/degen/rot/tx
-            # #     # path_components[-4] are the oligomeric (building_blocks) names
-            # #     self.name = '-'.join(path_components[-4:])
-            # #     project = path_components[-5]  # if root is None else root
-            # #     self.source = os.path.join(self.source_path, putils.asu)
-            # # self.name = path_components[-1]
-            # if project is None:
-            #     try:
-            #         self.project = path_components[-2]
-            #     except IndexError:  # We only have a 2 index list
-            #         raise InputError(f"Couldn't get the project from the path '{self.source_path}'. Please provide "
-            #                          f"project name with --{flags.project_name}")
-            #         self.project = None
-            # else:
-            #     self.project = project
-            #
-            # if 'pdb' in extension or 'cif' in extension:  # Initialize from input file
-            #     # path_components = path.splitext(self.source_path)[0].split(os.sep)
-            #     # This was included to circumvent issues with the exact same name from multiple files,
-            #     # example "--file file1 file2" like inputs giving
-            #     # /place1/path/to/file.pdb and /place2/path/to/file.pdb
-            #     # try:
-            #     #     index = path_components.index(os.environ['USER'])
-            #     # except (KeyError, ValueError):  # Missing USER environmental variable, missing in path_components
-            #     #     index = None
-            #     # self.name = '-'.join(path_components[-2:])
-            #     # self.project, self.name = path_components[-1]
-            #     # self.project = path_components[-2]  # if root is None else root  # path/to/job/[project_Poses]/design.pdb
-            #     # self.source = self.source_path
-            #     pass
-            # elif os.path.isdir(self.source_path):  # This is a pose_name that hasn't been initialized
-            #     # self.name = path_components[-1]
-            #     self.source = None
-            #     self.project_path = os.path.dirname(self.source_path)
-            #     self.project = os.path.basename(self.project_path)
-            #     # self.pose_id = f'{self.project}/{self.name}'
-            # else:
-            #     raise InputError(f"{type(self).__name__} couldn't load the specified source file: "
-            #                      f"'{self.source_path}'")
-            # # # elif pose_id or extension == '':  # Set up PoseJob initially from new nanohedra like output
-            # # else:
-            # #     self.name = '-'.join(path_components[-1])
-            # #     project = path_components[-2]  # path/to/SymDesignOutput/Projects/[project_Poses]/design.pdb
-            # #     self.source = None
-            #
-            # # # Remove a leading '-' character from abspath type results
-            # # self.name = self.name.lstrip('-')
-            # if self.job.output_to_directory:
-            #     # self.job.projects = ''
-            #     # self.project_path = ''
-            #     self.out_directory = self.job.program_root  # /output_directory<- self.out_directory /design.pdb
-            #     self.pose_id = self.name
-            # else:
-            #     # self.job.projects = os.path.join(self.job.program_root, putils.projects)
-            #     # self.project_path = os.path.join(self.job.projects, self.project)  # f'{project}_{putils.pose_directory}')
-            # self.out_directory = os.path.join(self.job.projects, self.project, self.name)
-            #     # ^ /program_root/projects/project/design<- self.out_directory /design.pdb
 
             putils.make_path(self.out_directory, condition=self.job.construct_pose)
         else:  # This has been initialized, gather state data
@@ -579,27 +526,14 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                         self.source_path = source[0]
                     except IndexError:  # glob found no files
                         self.source_path = None
-        else:  # If the PoseJob was loaded as .pdb/mmCIF, the source should be loaded into self.initial_model
+        else:  # If the PoseJob was loaded as .pdb/mmCIF, the structure_source should be the self.initial_model
             pass
 
         # Mark that this has been initialized if it has
         self.pickle_info()
 
     @property
-    def _pose_id(self) -> int:
-        """Return the database id for the PoseJob"""
-        try:
-            return self._pose_id_
-        except AttributeError:
-            self._pose_id_ = self.info.get('_pose_id')
-            return self._pose_id_
-
-    @_pose_id.setter
-    def _pose_id(self, _id: int):
-        self._pose_id_ = self.info['_pose_id'] = _id
-
-    @property
-    def source(self) -> AnyStr:
+    def structure_source(self) -> AnyStr:
         """Return the source of the Pose structural information for the PoseJob"""
         try:
             return self._source
@@ -607,8 +541,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             self._source = 'Database'
             return self._source
 
-    @source.setter
-    def source(self, source: AnyStr):
+    @structure_source.setter
+    def structure_source(self, source: AnyStr):
         self._source = source
 
     @property
@@ -1116,7 +1050,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     if isinstance(model, Model):
                         self.log.info(f'Found Model at {source} DataStore and loaded into job')
                     else:
-                        self.log.error(f"Couldn't locate the Model {name} at the source "
+                        self.log.error(f"Couldn't locate the Model {name} at the Database source "
                                        f'"{source_datastore.location}"')
 
             entities.extend([entity for entity in model.entities])
@@ -1186,8 +1120,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 raise RuntimeError(f"Couldn't {self.get_entities.__name__} as there was no "
                                    f"{resources.structure_db.StructureDatabase.__name__}"
                                    f" attached to the {type(self).__name__}")
-            self.log.info(f'No source file found. Fetching source from {type(self.job.structure_db).__name__} and '
-                          f'transforming to Pose')
+            self.log.info(f'No structure source_path file found. Fetching structure_source from '
+                          f'{type(self.job.structure_db).__name__} and transforming to Pose')
             # Minimize I/O with transform...
             entities = self.transform_entities_to_pose()
             # entities = self.entities
@@ -1202,15 +1136,15 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # name = self.pose_id
         # name = self.name  # Ensure this name is the tracked across Pose init from fragdock() to _design() methods
         if entities:
-            self.source = 'Database'
+            self.structure_source = 'Database'
             self.pose = Pose.from_entities(entities, name=self.name, **self.pose_kwargs)
         elif self.initial_model:  # This is a fresh Model, and we already loaded so reuse
-            self.source = self.source_path
+            self.structure_source = self.source_path
             # Careful, if processing has occurred to the initial_model, then this may be wrong!
             self.pose = Pose.from_model(self.initial_model, name=self.name, **self.pose_kwargs)
         else:
-            self.source = source if source else self.source_path
-            self.pose = Pose.from_file(self.source, name=self.name, **self.pose_kwargs)
+            self.structure_source = file if file else self.source_path
+            self.pose = Pose.from_file(self.structure_source, name=self.name, **self.pose_kwargs)
 
         if self.pose.is_symmetric():
             self._symmetric_assembly_is_clash()
@@ -1274,8 +1208,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         """
         if self.pose.symmetric_assembly_is_clash():
             if self.job.design.ignore_symmetric_clashes:
-                self.log.critical("The Symmetric Assembly contains clashes. "
-                                  f"The Pose from '{self.source}' isn't viable")
+                self.log.critical('The Symmetric Assembly contains clashes. The Pose from '
+                                  f"'{self.structure_source}' isn't viable")
             else:
                 raise ClashError("The Symmetric Assembly contains clashes! Design won't be considered. If you "
                                  'would like to generate the Assembly anyway, re-submit the command with '
@@ -2715,7 +2649,7 @@ class PoseProtocol(PoseData):
         return pose_s
 
     def refine(self, to_pose_directory: bool = True, metrics: bool = True, in_file_list: AnyStr = None):
-        """Refine the source Pose
+        """Refine the PoseJob.pose instance or design Model instances associated with this instance
 
         Will append the suffix "_refine" or that given by f'_{self.protocol}' if in_file_list is passed
 
