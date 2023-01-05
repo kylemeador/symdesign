@@ -5989,7 +5989,7 @@ class Pose(SymmetricModel):
             #  entity = self.structure_db.refined.retrieve_data(name=entity.name))
             # Set the entity.msa which makes a copy and adjusts for any disordered residues
             # This method is more accurate as it uses full sequences from MSA. However,
-            # more time consuming and may not matter much
+            # more time-consuming and may not matter much
             # if chain.msa and msa_metrics:
             #     hydrophobic_collapse_profile.append(chain.collapse_profile(**kwargs))
             #     collapse = chain.collapse_profile()
@@ -5997,7 +5997,7 @@ class Pose(SymmetricModel):
             #     entity_collapse_std.append(collapse.std(axis=-2))
             #     reference_collapse_z_score.append(utils.z_score(reference_collapse, entity_collapse_mean[idx],
             #                                                     entity_collapse_std[idx]))
-            if entity.evolutionary_profile and msa_metrics:
+            if msa_metrics and entity.evolutionary_profile:
                 try:
                     profile = getattr(entity, f'{profile_type}_profile')
                     if profile_type == 'fragment':
