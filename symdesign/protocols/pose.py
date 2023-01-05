@@ -3765,14 +3765,6 @@ class PoseProtocol(PoseData):
         scores_df.fillna(dict(zip(metrics.protocol_specific_columns, repeat(0))), inplace=True)
         # scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
 
-        pose_sequences = {pose.name: pose.sequence for pose in designs}
-        sequences_df = self.analyze_sequence_metrics_per_design(sequences=pose_sequences)
-        residues_df = self.analyze_residue_metrics_per_design(designs=designs)
-        # residues_df = residues_df.join(rosetta_info_df)
-        # Join each residues_df like dataframe
-        # Each of these can have difference index, so we use concat to perform an outer merge
-        residues_df = pd.concat([residues_df, sequences_df, rosetta_info_df], axis=1)
-
         # Calculate metrics from combinations of metrics with variable integer number metric names
         scores_columns = scores_df.columns.to_list()
         self.log.debug(f'Metrics present: {scores_columns}')
@@ -3798,6 +3790,15 @@ class PoseProtocol(PoseData):
             # Currently is -1 for True (Rosetta Filter quirk...)
             scores_df.loc[scores_df[repacking == 0].index, 'interface_bound_activation_energy'] = np.nan
             scores_df.drop('repacking', axis=1, inplace=True)
+
+        pose_sequences = {pose.name: pose.sequence for pose in designs}
+        sequences_df = self.analyze_sequence_metrics_per_design(sequences=pose_sequences)
+        # Todo the residues_df here has the wrong .index. It needs to become the design.id not design.name
+        residues_df = self.analyze_residue_metrics_per_design(designs=designs)
+        # residues_df = residues_df.join(rosetta_info_df)
+        # Join each residues_df like dataframe
+        # Each of these can have difference index, so we use concat to perform an outer merge
+        residues_df = pd.concat([residues_df, sequences_df, rosetta_info_df], axis=1)
 
         designs_df = scores_df.join(self.analyze_design_metrics_per_design(residues_df, designs))
         designs_df = designs_df.join(self.analyze_design_metrics_per_residue(residues_df))
