@@ -7,9 +7,9 @@ import pickle
 import re
 import shutil
 import warnings
+from abc import ABC
 from glob import glob
 from itertools import combinations, repeat
-from logging import Logger
 from pathlib import Path
 from subprocess import Popen, list2cmdline
 from typing import Any, Iterable, AnyStr, Sequence
@@ -34,7 +34,7 @@ from symdesign.structure.model import Pose, Models, Model, Entity, transformatio
 from symdesign.structure.sequence import sequence_difference, MultipleSequenceAlignment, pssm_as_array, \
     concatenate_profile, sequences_to_numeric
 from symdesign.sequence import read_fasta_file, write_sequences, protein_letters_3to1
-from symdesign.structure.utils import DesignError, ClashError, SymmetryError
+from symdesign.structure.utils import DesignError, ClashError
 from symdesign.utils import large_color_array, starttime, start_log, unpickle, pickle_object, write_shell_script, \
     all_vs_all, condensed_to_square, rosetta, InputError, sql, path as putils
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory
@@ -2766,7 +2766,7 @@ class PoseProtocol(PoseData):
                            '-in:file:native', self.source_path])
             designed_files = os.path.join(self.scripts_path, f'design_files_{self.protocol}.txt')
             generate_files_cmd = \
-                ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', designed_files, '-s', '_' + self.protocol]
+                ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', designed_files, '-s', f'_{switch}']
             metrics_pdb = ['-in:file:l', designed_files, '-in:file:native', self.source_path]
             # generate_files_cmdline = [list2cmdline(generate_files_cmd)]
         else:
@@ -2792,7 +2792,7 @@ class PoseProtocol(PoseData):
             #     # raise ValueError(f"For {self.refine.__name__}, must pass interface_to_alanine")
 
             self.pose.write(out_path=refine_pdb)
-            self.log.debug(f'Cleaned PDB for {self.protocol}: "{refine_pdb}"')
+            self.log.debug(f'Cleaned PDB for {switch}: "{refine_pdb}"')
             infile.extend(['-in:file:s', refine_pdb,
                            # -in:file:native is here to block flag file version, not actually useful for refine
                            '-in:file:native', refine_pdb])
@@ -2806,7 +2806,7 @@ class PoseProtocol(PoseData):
             (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + infile + \
             [f'@{flags_file}', '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'refine.xml'),
              '-out:suffix', f'_{switch}', '-parser:script_vars', f'switch={switch}']
-        self.log.info(f'{self.protocol.title()} Command: {list2cmdline(relax_cmd)}')
+        self.log.info(f'{switch.title()} Command: {list2cmdline(relax_cmd)}')
 
         if metrics or self.job.metrics:
             metrics = True
