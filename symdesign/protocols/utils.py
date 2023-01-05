@@ -31,7 +31,7 @@ def remove_structure_memory(func):
         func_return = func(self, *args, **kwargs)
         if self.job.reduce_memory:
             self.pose = None
-            self.entities.clear()
+            # self.entities.clear()
         return func_return
     return wrapped
 
