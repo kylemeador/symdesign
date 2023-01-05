@@ -227,7 +227,7 @@ class MultipleSequenceAlignment:
         """Create a MultipleSequenceAlignment from a dictionary of named sequences
 
         Args:
-            named_sequences: {name: sequence, ...} ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
+            named_sequences: Where name and sequence must be a string, i.e. {'1': 'MNTEELQVAAFEI...', ...}
         Returns:
             The MultipleSequenceAlignment object for the provided sequences
         """

@@ -4,6 +4,7 @@ import logging
 import math
 import os
 import time
+from warnings import catch_warnings, simplefilter
 from collections.abc import Iterable
 from itertools import repeat, count
 from math import prod
@@ -2200,10 +2201,10 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     # dock_hydrophobic_collapse =  pose_length_nan
     # Make an empty collapse_profile
     collapse_profile = np.empty(0)
-
+    evolutionary_profile_array = None
     if job.dock.proteinmpnn_score:  # Initialize proteinmpnn for dock/design
         # Load profiles of interest into the analysis
-        profile_background = {}
+        # profile_background = {}
         if job.design.evolution_constraint:
             # Add Entity information to the Pose
             measure_evolution = measure_alignment = True
@@ -2270,22 +2271,27 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
             #     pose.evolutionary_profile = pose.create_null_profile()
 
             # if pose.evolutionary_profile:
-            profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
+            # profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
+            evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
             batch_evolutionary_profile = \
                 torch.from_numpy(np.tile(evolutionary_profile_array, (batch_length, 1, 1)))
             # torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
             # else:
             #     pose.log.info('No evolution information')
 
-        if job.fragment_db is not None:
-            # Todo ensure the AA order is the same as MultipleSequenceAlignment.from_dictionary(pose_sequences) below
-            interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
-            profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
+        # if job.fragment_db is not None:
+        #     # Todo ensure the AA order is the same as MultipleSequenceAlignment.from_dictionary(pose_sequences) below
+        #     interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
+        #     profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
 
-        # Gather folding metrics for the pose for comparison to the designed sequences
+        # Calculate hydrophobic collapse for each dock
+        if measure_evolution:
+            hydrophobicity = 'expanded'
+        else:
+            hydrophobicity = 'standard'
         contact_order_per_res_z, reference_collapse, collapse_profile = \
-            pose.get_folding_metrics(hydrophobicity='expanded')
-        if collapse_profile.size:  # Not equal to zero, use the profile instead
+            pose.get_folding_metrics(hydrophobicity=hydrophobicity)
+        if measure_evolution:  # collapse_profile.size:  # Not equal to zero, use the profile instead
             reference_collapse = collapse_profile
         #     reference_mean = np.nanmean(collapse_profile, axis=-2)
         #     reference_std = np.nanstd(collapse_profile, axis=-2)
@@ -3746,14 +3752,42 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
             #         check_dock_for_nanohedra()
             # # Todo use this to control the output of this section
             # Get metrics for each Pose
-            # Set up data structures
             idx_slice = pd.IndexSlice
-            # interface_local_density = {}
-            # all_pose_divergence = []
-            # all_probabilities = {}
-            # fragment_profile_frequencies = []
-            # pose_paths = []
+            # Set up data structures
             # nan_blank_data = list(repeat(np.nan, pose_length))
+            pose_contact_order = []
+            unbound_errat = []
+            for idx, entity in enumerate(pose.entities):
+                # Contact order is the same for every design in the Pose and not dependent on pose
+                pose_contact_order.append(entity.contact_order)
+                # Todo when Entity.oligomer works
+                #  _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
+                entity_oligomer = Model.from_chains(entity.chains, entities=False)
+                _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
+                unbound_errat.append(oligomeric_errat[:entity.number_of_residues])
+
+            torch_numeric_sequence = torch.from_numpy(pose.sequence_numeric)
+            if evolutionary_profile_array:
+                # evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
+                # batch_evolutionary_profile = np.tile(evolutionary_profile_array, (number_of_sequences, 1, 1))
+                # torch_log_evolutionary_profile = torch.from_numpy(np.log(batch_evolutionary_profile))
+                torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
+                per_residue_evolutionary_profile_loss = \
+                    resources.ml.sequence_nllloss(torch_numeric_sequence, torch_log_evolutionary_profile)
+                profile_loss = {
+                    # 'sequence_loss_design': per_residue_design_profile_loss,
+                    'sequence_loss_evolution': per_residue_evolutionary_profile_loss,
+                }
+            else:
+                profile_loss = {}
+
+            sequence_params = {
+                'contact_order': np.concatenate(pose_contact_order),
+                'errat_deviation': np.concatenate(unbound_errat),
+                'type': tuple(pose.sequence),
+                **profile_loss
+                # 'sequence_loss_fragment': per_residue_fragment_profile_loss  # Todo each pose...
+            }
             # pose_sequence = pose.sequence
             sequence_params = {'type': tuple(pose.sequence)}
             for idx, pose_name in enumerate(pose_names):
@@ -3779,11 +3813,17 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                     entity.fragment_map = None
                     # entity.alpha.clear()
 
-                # Load fragment_profile into the analysis
+                # Load fragment_profile (and fragment_metrics) into the analysis
                 pose.calculate_fragment_profile()
-                # if job.design.sequences:
-                #     # This could be an empty array if no fragments were found
-                #     fragment_profile_array = pose.fragment_profile.as_array()
+                # This could be an empty array if no fragments were found
+                fragment_profile_array = pose.fragment_profile.as_array()
+                with catch_warnings():
+                    simplefilter('ignore', category=RuntimeWarning)
+                    # np.log causes -inf at 0, thus we correct these to a 'large' number
+                    corrected_frag_array = np.nan_to_num(np.log(fragment_profile_array), copy=False,
+                                                         nan=np.nan, neginf=metrics.zero_probability_frag_value)
+                per_residue_fragment_profile_loss = \
+                    resources.ml.sequence_nllloss(torch_numeric_sequence, torch.from_numpy(corrected_frag_array))
 
                 # Remove saved pose attributes from the prior iteration calculations
                 pose.ss_index_array.clear(), pose.ss_type_array.clear()
@@ -3797,7 +3837,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 # Save pose metrics
                 pose_metrics[pose_name] = {
                     **pose.interface_metrics(),
-                    # 'sequence': pose_sequence,
+                    # 'interface_local_density': pose.local_density_interface(),  # Todo STRUCTURE?
                     'dock_collapse_violation': collapse_violation[idx],
                 }
 
@@ -3838,7 +3878,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                     #     'dock_hydrophobic_collapse': pose_length_nan,
                     # }
 
-                per_residue_data[pose_name] = {**sequence_params, **design_dock_params}
+                per_residue_data[pose_id] = {
+                    **sequence_params,
+                    **design_dock_params,
+                    'sequence_loss_fragment': per_residue_fragment_profile_loss
+                    # **pose.per_residue_interface_surface_area(),  # Todo STRUCTURE?
+                }
 
                 # if job.design.sequences:
                 #     dock_per_residue_design_indices = per_residue_design_indices[idx]
@@ -4046,7 +4091,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 # scores_df['collapse_new_position_significance'] /= scores_df['pose_length']
                 poses_df['dock_collapse_significance_by_contact_order_z_mean'] = \
                     poses_df['dock_collapse_significance_by_contact_order_z'] / \
-                    (residues_df.loc[:, idx_slice[:, 'dock_collapse_significance_by_contact_order_z']] != 0)\
+                    (residues_df.loc[:, idx_slice[:, 'dock_collapse_significance_by_contact_order_z']] != 0) \
                     .sum(axis=1)
                 # if measure_alignment:
                 dock_collapse_increased_df = residues_df.loc[:, idx_slice[:, 'dock_collapse_increased_z']]

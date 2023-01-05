@@ -936,7 +936,6 @@ class Entity(Chain, ContainsChainsMixin):
     def __init__(self, chains: list[Chain] | Structures = None, dbref: dict[str, str] = None,
                  reference_sequence: str = None, thermophilic: bool = None, **kwargs):
         """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated"""
-        self.thermophilic = thermophilic
         self._chain_transforms = []
         self._captain = None
         self._is_captain = True
@@ -6155,6 +6154,7 @@ class Pose(SymmetricModel):
 
         interface_ss_topology = {}  # {1: 'HHLH', 2: 'HSH'}
         interface_ss_fragment_topology = {}  # {1: 'HHH', 2: 'HH'}
+        total_interface_ss_topology = total_interface_ss_fragment_topology = ''
         for number, elements in self.split_interface_ss_elements.items():
             fragment_elements = set()
             # residues, entities = self.pose.split_interface_residues[number]
@@ -6162,27 +6162,22 @@ class Pose(SymmetricModel):
                 if residue.index in self.center_residue_indices:
                     fragment_elements.add(element)
             # Take the set of elements as there are element repeats if SS is continuous over residues
-            interface_ss_topology[number] = \
+            interface_ss_topology = \
                 ''.join(self.ss_type_array[element] for element in set(elements))
-            interface_ss_fragment_topology[number] = \
+            total_interface_ss_topology += interface_ss_topology
+            interface_ss_fragment_topology = \
                 ''.join(self.ss_type_array[element] for element in fragment_elements)
+            total_interface_ss_fragment_topology += interface_ss_fragment_topology
 
-        # total_fragment_elements, total_interface_elements = '', ''
-        for number, (topology, fragment_topology) in \
-                enumerate(zip(interface_ss_topology.items(), interface_ss_fragment_topology), 1):
-            pose_metrics[f'interface{number}_secondary_structure_count'] = len(topology)
-            pose_metrics[f'interface{number}_secondary_structure_topology'] = topology
-            pose_metrics[f'interface{number}_secondary_structure_fragment_count'] = len(fragment_topology)
-            pose_metrics[f'interface{number}_secondary_structure_fragment_topology'] = fragment_topology
-            #     interface_ss_fragment_topology.get(number, '-')
+            pose_metrics[f'interface{number}_secondary_structure_count'] = len(interface_ss_topology)
+            pose_metrics[f'interface{number}_secondary_structure_topology'] = interface_ss_topology
+            pose_metrics[f'interface{number}_secondary_structure_fragment_count'] = len(interface_ss_fragment_topology)
+            pose_metrics[f'interface{number}_secondary_structure_fragment_topology'] = interface_ss_fragment_topology
 
-        pose_metrics['interface_secondary_structure_fragment_topology'] = \
-            ''.join(interface_ss_fragment_topology.values())
-        pose_metrics['interface_secondary_structure_fragment_count'] = \
-            len(pose_metrics['interface_secondary_structure_fragment_topology'])
-        pose_metrics['interface_secondary_structure_topology'] = ''.join(interface_ss_topology.values())
-        pose_metrics['interface_secondary_structure_count'] = \
-            len(pose_metrics['interface_secondary_structure_topology'])
+        pose_metrics['interface_secondary_structure_fragment_topology'] = total_interface_ss_fragment_topology
+        pose_metrics['interface_secondary_structure_fragment_count'] = len(total_interface_ss_fragment_topology)
+        pose_metrics['interface_secondary_structure_topology'] = total_interface_ss_topology
+        pose_metrics['interface_secondary_structure_count'] = len(total_interface_ss_topology)
 
         if self.is_symmetric():
             pose_metrics['design_dimension'] = self.dimension
@@ -6212,9 +6207,7 @@ class Pose(SymmetricModel):
             max_rad = entity.distance_from_reference(measure='max')  # Todo add reference=
             if max_rad > maximum_radius:
                 maximum_radius = max_rad
-            # distances.append(np.array([ent_idx, ent_com, min_rad, max_rad]))
-            # distances[entity] = np.array([ent_idx, ent_com, min_rad, max_rad, entity.number_of_residues])
-            # total_residue_counts.append(entity.number_of_residues)
+
             if entity.thermophilic is not None:
                 thermophile = 1 if entity.thermophilic else 0
             else:
@@ -6230,8 +6223,9 @@ class Pose(SymmetricModel):
                 f'entity{idx}_max_radius': max_rad,
                 f'entity{idx}_n_terminal_helix': entity.is_termini_helical(),
                 f'entity{idx}_c_terminal_helix': entity.is_termini_helical(termini='c'),
-                f'entity{idx}_n_terminal_orientation': entity.termini_proximity_from_reference(),
-                f'entity{idx}_c_terminal_orientation': entity.termini_proximity_from_reference(termini='c'),
+                f'entity{idx}_n_terminal_orientation': entity.termini_proximity_from_reference(),  # Todo add reference=
+                f'entity{idx}_c_terminal_orientation':
+                    entity.termini_proximity_from_reference(termini='c'),  # Todo add reference=
                 f'entity{idx}_thermophile': thermophile})
 
         # Get the average thermophilicity for all entities
@@ -6239,10 +6233,11 @@ class Pose(SymmetricModel):
 
         pose_metrics['minimum_radius'] = minimum_radius
         pose_metrics['maximum_radius'] = maximum_radius
-        pose_metrics['pose_length'] = \
-            sum(pose_metrics[f'entity{idx}_number_of_residues'] for idx in range(1, self.number_of_entities + 1))
+        pose_metrics['pose_length'] = self.number_of_residues
+        # pose_metrics['pose_length'] = \
+        #     sum(pose_metrics[f'entity{idx}_number_of_residues'] for idx in range(1, self.number_of_entities + 1))
 
-        radius_ratio_sum = min_ratio_sum = max_ratio_sum = residue_ratio_sum = 0
+        radius_ratio_sum = min_ratio_sum = max_ratio_sum = residue_ratio_sum = 0.
         counter = 1
         for counter, (entity_idx1, entity_idx2) in enumerate(combinations(range(1, self.number_of_entities + 1),
                                                                           2), counter):
