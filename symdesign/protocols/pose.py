@@ -309,7 +309,8 @@ class PoseData(PoseDirectory, PoseMetadata):
         if not self.initialized:
             # Save job variables to the state during initialization
             if self.sym_entry:
-                self.info['sym_entry_specification'] = self.sym_entry.entry_number, self.sym_entry.sym_map
+                self.sym_entry_number = self.sym_entry.number
+                self.sym_entry_specification = self.sym_entry.specification
             if self.job.design_selector:
                 self.design_selector = self.job.design_selector
             if not entity_names:  # None were provided at start up, find them
@@ -545,16 +546,8 @@ class PoseData(PoseDirectory, PoseMetadata):
         try:
             return self._sym_entry
         except AttributeError:
-            self._sym_entry = symmetry_factory.get(*self.info['sym_entry_specification']) \
-                if 'sym_entry_specification' in self.info else None
-            # temp_sym_entry = SymEntry(self.info['sym_entry_specification'][0])
-            # self._sym_entry = symmetry_factory(self.info['sym_entry_specification'][0],
-            #                                    [temp_sym_entry.resulting_symmetry] +
-            #                                    list(self.info['sym_entry_specification'][1].values())) \
-            #     if 'sym_entry_specification' in self.info else None
-            # self.info['sym_entry_specification'] = \
-            #     (self.info['sym_entry_specification'][0], [temp_sym_entry.resulting_symmetry] +
-            #      list(self.info['sym_entry_specification'][1].values()))
+            self._sym_entry = symmetry_factory.get(self.sym_entry_number,
+                                                   parse_symmetry_specification(self.sym_entry_specification))
             return self._sym_entry
 
     @sym_entry.setter
@@ -565,19 +558,20 @@ class PoseData(PoseDirectory, PoseMetadata):
         """Is the PoseJob symmetric?"""
         return self.sym_entry is not None
 
-    @property
-    def design_symmetry(self) -> str | None:
-        """The result of the SymEntry"""
-        try:
-            return self.sym_entry.resulting_symmetry
-        except AttributeError:
-            return None
+    # Todo database
+    # @property
+    # def symmetry(self) -> str | None:
+    #     """The result of the SymEntry"""
+    #     try:
+    #         return self.sym_entry.resulting_symmetry
+    #     except AttributeError:
+    #         return None
 
     # @property
     # def sym_entry_number(self) -> int | None:
     #     """The entry number of the SymEntry"""
     #     try:
-    #         return self.sym_entry.entry_number
+    #         return self.sym_entry.number
     #     except AttributeError:
     #         return None
 
@@ -594,7 +588,7 @@ class PoseData(PoseDirectory, PoseMetadata):
     # def sym_entry_combination(self) -> str | None:
     #     """The combination string of the SymEntry"""
     #     try:
-    #         return self.sym_entry.combination_string
+    #         return self.sym_entry.specification
     #     except AttributeError:
     #         return None
 
