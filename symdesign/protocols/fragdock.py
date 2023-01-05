@@ -1753,7 +1753,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     # ------------------ TERMINATE DOCKING ------------------------
     logger.info(f'Found {number_viable_pose_interfaces} poses with viable interfaces')
     # Generate the Pose for output handling
-    entity_names = [entity.name for model in models for entity in model.entities]
     # entity_bb_coords = [entity.backbone_coords for model in models for entity in model.entities]
     entity_start_coords = [entity.coords for model in models for entity in model.entities]
     entity_idx = count(0)
@@ -1767,7 +1766,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         data['chains'] = [next(chain_gen)]
 
     pose = Pose.from_entities([entity for model in models for entity in model.entities],
-                              entity_info=entity_info, entity_names=entity_names, name='asu', log=logger,
+                              name='asu', entity_info=entity_info,  # entity_names=entity_names,  # log=logger,
                               sym_entry=sym_entry, surrounding_uc=job.output_surrounding_uc,
                               fragment_db=job.fragment_db, ignore_clashes=True, rename_chains=True)
 
@@ -3540,7 +3539,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     #     pass
     #     # design_ids = pose_names
 
-    project_str = f'{project}/'
     # Create all the pose_names using the transformations
     perturbation_identifier = '-p_'
 
@@ -4181,13 +4179,16 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
     pose_names = [create_pose_name(idx) for idx in range(number_of_transforms)]
+    project_str = f'{project}/'
     project_pose_names = [f'{project_str}{pose_name}' for pose_name in pose_names]
     # return [PoseJob.from_file(file, entity_names=entity_names,
     #                                           pose_transformation=create_specific_transformation(idx))
     # return [PoseJob.from_pose_id(pose_id, entity_names=entity_names,
-    pose_jobs = [PoseJob.from_pose_directory(pose_name, project=project_str, root=job.projects,
-                                             entity_names=entity_names,
-                                             pose_transformation=create_specific_transformation(idx))
+    entity_names = [entity.name for model in models for entity in model.entities]
+    # with job.db.session(expire_on_commit=False) as session:
+    pose_jobs = [PoseJob.from_name(pose_name, project=project,
+                                   entity_names=entity_names,
+                                   pose_transformation=create_specific_transformation(idx))
                  for idx, pose_name in enumerate(pose_names)]
 
     # Finalize docking run

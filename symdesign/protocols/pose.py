@@ -235,15 +235,23 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     specific_designs: Sequence[str]
     specific_designs_file_paths: list[AnyStr]
 
+    # START classmethod where the PoseData isn't initialized
     @classmethod
     def from_file(cls, source_path: str, project: str = None, **kwargs):
-        """Load the PoseJob from a Structure file including .pdb/.cif file types"""
-        source_path = os.path.abspath(source_path)
+        """Load the PoseJob from a Structure file including .pdb/.cif file types
+
+        Args:
+            source_path: The file where the PoseJob instance should load Structure instances
+            project: The project where the file should be included
+        Returns:
+            The PoseJob instance
+        """
+        # source_path = os.path.abspath(source_path)
         if not os.path.exists(source_path):
             raise FileNotFoundError(f'The specified Pose source "{source_path}" was not found!')
         filename, extension = os.path.splitext(source_path)
         # if 'pdb' in extension or 'cif' in extension:  # Initialize from input file
-        if '' == extension:  # Initialize from input file
+        if extension != '':  # Initialize from input file
             project_path, name = os.path.split(filename)
         # elif os.path.isdir(design_path):  # This is a pose_name that hasn't been initialized
         #     source_path = None
@@ -271,8 +279,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 raise InputError(f"Couldn't get the project from the path '{source_path}'. Please provide "
                                  f"project name with --{flags.project_name}")
 
-        return cls(source_path=source_path, initialized=False,
-                   name=name, project=project, **kwargs)
+        return cls(name=name, project=project, source_path=source_path, **kwargs)  # initialized=False
 
     @classmethod
     def from_pose_directory(cls, design_path: str, root: AnyStr, **kwargs):
@@ -291,7 +298,19 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                              f"Must contain the project/pose_name")
         # directory, name = os.path.split(design_path)
         # _, project = os.path.split(directory)
-        return cls(os.path.join(root, design_path), name=name, project=project, **kwargs)
+        return cls(name=name, project=project, source_path=os.path.join(root, design_path), **kwargs)
+
+    @classmethod
+    def from_name(cls, name: str = None, project: str = None, **kwargs):
+        """Load the PoseJob from the name and project
+        Args:
+            name: The name to identify this PoseJob
+            project: The project where the file should be included
+        Returns:
+            The PoseJob instance
+        """
+        return cls(name=name, project=project, **kwargs)
+    # END classmethod where the PoseData isn't initialized
 
     # def pose_string_to_path(self, root: AnyStr, pose_id: str):
     #     """Set self.out_directory to the root/poseID where the poseID is converted from dash "-" separation to path separators"""
@@ -309,7 +328,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     #         #     self.out_directory = os.path.join(root, putils.projects, pose_id.replace(f'_{putils.pose_directory}-',
     #         #                                                                     f'_{putils.pose_directory}{os.sep}'))
 
-    def __init__(self, source_path: AnyStr = None, name: str = None, project: str = None,  # design_path: AnyStr,
+    def __init__(self, name: str = None, project: str = None, source_path: AnyStr = None,
                  pose_id: bool = False, initialized: bool = True,
                  pose_transformation: Sequence[transformation_mapping] = None, entity_names: Sequence[str] = None,
                  specific_designs: Sequence[str] = None, directives: list[dict[int, str]] = None, **kwargs):
@@ -322,9 +341,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # else:
 
         # PoseJob attributes
-        self.source_path = source_path
         self.name = name
         self.project = project
+        self.source_path = source_path
         self.pose_id = f'{self.project}/{self.name}'
 
         # Get the main program options
@@ -563,8 +582,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         else:  # If the PoseJob was loaded as .pdb/mmCIF, the source should be loaded into self.initial_model
             pass
 
-        # Todo
-        # self._pose_id = sql.Poses.insert_pose(self.name, self.project)
         # Mark that this has been initialized if it has
         self.pickle_info()
 
