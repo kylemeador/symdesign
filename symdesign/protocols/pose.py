@@ -204,6 +204,7 @@ class PoseDirectory(ABC):
 # class PoseJob(PoseDirectory, PoseMetadata):
 class PoseData(PoseDirectory, PoseMetadata):
     # _design_indices: list[int]
+    # _fragment_observations: list[fragment.db.fragment_info_type]
     _design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict
     _designed_sequences: list[Sequence]
     _entity_names: list[str]
@@ -218,7 +219,6 @@ class PoseData(PoseDirectory, PoseMetadata):
     directives: list[dict[int, str]]
     entities: list[Entity]
     fragment_db: fragment.db.FragmentDatabase
-    fragment_observations: list[dict] | None
     frag_file: str | Path
     initial_model: Model | None
     initialized: bool
@@ -697,10 +697,6 @@ class PoseData(PoseDirectory, PoseMetadata):
     #
 
     @property
-    def number_of_fragments(self) -> int:
-        return len(self.fragment_observations) if self.fragment_observations else 0
-
-    @property
     def pose_kwargs(self) -> dict[str, Any]:
         """Returns the kwargs necessary to initialize the Pose"""
         return dict(sym_entry=self.sym_entry, log=self.log, design_selector=self.design_selector,
@@ -801,27 +797,31 @@ class PoseData(PoseDirectory, PoseMetadata):
     #         raise ValueError(f'The attribute design_indices must be a Sequence type, not '
     #                          f'{type(design_indices).__name__}')
 
-    @property
-    def fragment_observations(self) -> list | None:
-        """Provide the observed fragments as measured from the Pose
-
-        Returns:
-            The fragment instances observed from the pose
-                Ex: [{'cluster': (1, 2, 24), 'mapped': 78, 'paired': 287, 'match':0.46843}, ...]
-        """
-        try:
-            return self._fragment_observations
-        except AttributeError:  # Get from the pose state
-            self._fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
-            return self._fragment_observations
-
-    @fragment_observations.setter
-    def fragment_observations(self, fragment_observations: list):
-        if isinstance(fragment_observations, list):
-            self._fragment_observations = self.info['fragments'] = fragment_observations
-        else:
-            raise ValueError(f'The attribute fragment_observations must be a list, not '
-                             f'{type(fragment_observations).__name__}')
+    # @property
+    # def fragment_observations(self) -> list | None:
+    #     """Provide the observed fragments as measured from the Pose
+    #
+    #     Returns:
+    #         The fragment instances observed from the pose
+    #             Ex: [{'cluster': (1, 2, 24), 'mapped': 78, 'paired': 287, 'match':0.46843}, ...]
+    #     """
+    #     try:
+    #         return self._fragment_observations
+    #     except AttributeError:  # Get from the pose state
+    #         self._fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
+    #         return self._fragment_observations
+    #
+    # @fragment_observations.setter
+    # def fragment_observations(self, fragment_observations: list):
+    #     if isinstance(fragment_observations, list):
+    #         self._fragment_observations = self.info['fragments'] = fragment_observations
+    #     else:
+    #         raise ValueError(f'The attribute fragment_observations must be a list, not '
+    #                          f'{type(fragment_observations).__name__}')
+    #
+    # @property
+    # def number_of_fragments(self) -> int:
+    #     return len(self.fragment_observations) if self.fragment_observations else 0
 
     @property
     def pre_refine(self) -> bool:
@@ -1380,7 +1380,7 @@ class PoseData(PoseDirectory, PoseMetadata):
             else:
                 self.pose.write_fragment_pairs(out_path=self.frags_path)
 
-        self.fragment_observations = self.pose.get_fragment_observations()
+        # self.fragment_observations = self.pose.get_fragment_observations()
         self.info['fragment_source'] = self.job.fragment_db.source
         self.pickle_info()  # Todo remove once PoseJob state can be returned to the SymDesign dispatch w/ MP
 

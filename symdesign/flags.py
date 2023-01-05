@@ -758,8 +758,8 @@ parser_nanohedra_run_type_mutual_group = dict()  # required=True <- adding below
 nanohedra_run_type_mutual_arguments = {
     sym_entry_args: sym_entry_kwargs,
     ('-query', '--query',): dict(action='store_true', help='Run in query mode'),
-    # Todo alias analysis -metric
-    ('-postprocess', '--postprocess',): dict(action='store_true', help='Run in post processing mode')
+    # # Todo alias analysis -metric
+    # ('-postprocess', '--postprocess',): dict(action='store_true', help='Run in post processing mode')
 }
 # parser_dock_mutual1 = parser_dock.add_mutually_exclusive_group(required=True)
 parser_nanohedra_mutual1_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
