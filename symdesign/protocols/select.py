@@ -141,14 +141,14 @@ def poses(pose_directories: Iterable[PoseJob]) -> list[PoseJob]:
         raise NotImplementedError('This functionality is currently broken')
         selected_poses, selected_poses_df, total_df = [], pd.DataFrame(), pd.DataFrame()
         logger.debug('Collecting designs to sort')
-        if job.metric == 'score':
-            metric_design_dir_pairs = [(des_dir.score, des_dir.path) for des_dir in pose_directories]
-        elif job.metric == 'fragments_matched':
-            metric_design_dir_pairs = [(des_dir.number_of_fragments, des_dir.path)
-                                       for des_dir in pose_directories]
-        else:  # This is impossible with the argparse options
-            raise NotImplementedError(f'The metric "{job.metric}" is not supported!')
-            metric_design_dir_pairs = []
+        # if job.metric == 'score':
+        #     metric_design_dir_pairs = [(des_dir.score, des_dir.path) for des_dir in pose_directories]
+        # elif job.metric == 'fragments_matched':
+        #     metric_design_dir_pairs = [(des_dir.number_of_fragments, des_dir.path)
+        #                                for des_dir in pose_directories]
+        # else:  # This is impossible with the argparse options
+        #     raise NotImplementedError(f'The metric "{job.metric}" is not supported!')
+        #     metric_design_dir_pairs = []
 
         logger.debug(f'Sorting designs according to "{job.metric}"')
         metric_design_dir_pairs = [(score, path) for score, path in metric_design_dir_pairs if score]
