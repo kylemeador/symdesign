@@ -391,15 +391,10 @@ def interface_design(job: pose.PoseJob):
     putils.make_path(job.data_path)  # Todo consolidate this check with pickle_info()
     # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
     if job.job.design.method == putils.rosetta_str:
-        raise NotImplementedError('Need to generate number_of_designs matching proteinmpnn_design()...')
         # Update the Pose with the number of designs
-        number_of_new_designs = len(job.job.design.number * job.job.design.temperatures)
-        # with job.job.db.session() as session:
-        prior_number_of_designs = job.number_of_designs
-        job.number_of_designs += number_of_new_designs
-        #     session.add(job)
-        #     session.commit()
-        # ------------------------------------
+        raise NotImplementedError('Need to generate number_of_designs matching proteinmpnn_design()...')
+        # Todo update upon completion given results of designs list file...
+        job.update_design_metadata(number=job.job.design.number)
         favor_fragments = evo_fill = True
     else:
         favor_fragments = evo_fill = False
