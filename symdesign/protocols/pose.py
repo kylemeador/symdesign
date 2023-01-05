@@ -202,7 +202,7 @@ class PoseDirectory(ABC):
 # class PoseJob:
 # class PoseJob(PoseProtocol):
 # class PoseJob(PoseDirectory, PoseMetadata):
-class PoseData(PoseDirectory, PoseMetadata):
+class PoseData(PoseDirectory, sql.PoseMetadata):
     # _design_indices: list[int]
     # _fragment_observations: list[fragment.db.fragment_info_type]
     _design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict
@@ -3322,21 +3322,24 @@ class PoseProtocol(PoseData):
                 design metrics
             residues: The typical per-residue metric DataFrame where each index is the design id and the columns are
                 (residue index, residue metric)
+            pose_metrics: Whether the metrics being included are based on Pose (self.pose) measurements
             update: Whether the output identifiers are already present in the metrics
         """
         if self.job.db:
             # Add the pose identifier to the dataframes
-            pose_identifier = self.pose_id  # reliant on SymDesign names...
             # pose_identifier = self._pose_id  # reliant on foreign keys...
+            # pose_identifier = self.pose_id  # reliant on SymDesign names...
+            # pose_identifier = self.id
             if designs is not None:
                 # design_index_names = ['pose', 'design']
                 # These are reliant on foreign keys...
-                # design_index_names = [sql.Designs.pose_id.name, sql.Designs.name.name]
+                # design_index_names = [sql.DesignMetrics.pose_id.name, sql.DesignMetrics.name.name]
                 # designs = pd.concat([designs], keys=[pose_identifier], axis=0)
-                design_index_names = [sql.Designs.pose_name.name, sql.Designs.name.name]
-                designs = pd.concat([designs], keys=[pose_identifier], axis=0)
-                #                     names=design_index_names, axis=0)
-                designs.index.set_names(design_index_names, inplace=True)
+                # design_index_names = [sql.DesignMetrics.pose_id.name, sql.DesignMetrics.design_id.name]
+                # designs = pd.concat([designs], keys=[pose_identifier], axis=0)
+                # #                     names=design_index_names, axis=0)
+                # designs.index.set_names(design_index_names, inplace=True)
+                designs.index.set_names(sql.DesignMetrics.design_id.name, inplace=True)
                 # _design_ids = metrics.sql.write_dataframe(designs=designs)
                 metrics.sql.write_dataframe(designs=designs, update=update)
             # else:
@@ -3345,12 +3348,17 @@ class PoseProtocol(PoseData):
             if residues is not None:
                 # residue_index_names = ['pose', 'design']
                 # These are reliant on foreign keys...
-                # residue_index_names = [sql.Residues.pose_id.name, sql.Residues.design_id.name, sql.Residues.design_name.name]
+                # residue_index_names = [sql.ResidueMetrics.pose_id.name, sql.ResidueMetrics.design_id.name, sql.ResidueMetrics.design_name.name]
                 # residues = pd.concat([residues], keys=list(zip(repeat(pose_identifier), _design_ids)), axis=0)
-                residue_index_names = [sql.Residues.pose_name.name, sql.Residues.design_name.name]
-                residues = pd.concat([residues], keys=[pose_identifier], axis=0)
-                #                      names=residue_index_names, axis=0)
-                residues.index.set_names(residue_index_names, inplace=True)
+                # residue_index_names = [sql.ResidueMetrics.pose_id.name, sql.ResidueMetrics.design_id.name]
+                # residues = pd.concat([residues], keys=[pose_identifier], axis=0)
+                # #                      names=residue_index_names, axis=0)
+                # residues.index.set_names(residue_index_names, inplace=True)
+                if pose_metrics:
+                    index_name = sql.ResidueMetrics.design_id.name
+                else:
+                    index_name = sql.ResidueMetrics.pose_id.name
+                residues.index.set_names(index_name, inplace=True)
                 # _residue_ids = metrics.sql.write_dataframe(residues=residues, update=update)
                 metrics.sql.write_dataframe(residues=residues, update=update)
             # metrics.sql.write_dataframe(designs=designs, residues=residues)

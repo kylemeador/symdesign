@@ -1,12 +1,14 @@
+from __future__ import annotations
+
 from collections import OrderedDict
 from itertools import combinations
-from typing import AnyStr
 
 from mysql.connector import MySQLConnection, Error
-from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, create_engine, select
+from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, select, Table
 from sqlalchemy.orm import declarative_base, relationship, Session
 # from sqlalchemy.orm import Mapped, mapped_column, declarative_base  # Todo sqlalchemy 2.0
-from sqlalchemy.dialects.sqlite import insert
+# from sqlalchemy import create_engine
+# from sqlalchemy.dialects.sqlite import insert
 
 from symdesign.resources import config
 
@@ -24,13 +26,123 @@ class _Base:
 Base = declarative_base(cls=_Base)
 
 
-class Poses(Base):
-    __tablename__ = 'poses'
+class SymmetryGroup(Base):
+    __tablename__ = 'symmetry_groups'
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    rotation = Column(Float, nullable=False)
+
+
+class PoseMetadata(Base):
+    __tablename__ = 'pose_metadata'
+    id = Column(Integer, primary_key=True)
+
+    name = Column(String, nullable=False, index=True)  # String(60)
+    project = Column(String, nullable=False)  # String(60)
+    # Set up one-to-many relationship with design_metadata table
+    designs = relationship('DesignMetadata', back_populates='pose')
+    # # Set up one-to-many relationship with entity_metadata table
+    # Set up many-to-many relationship with entity_metadata table
+    entity_metadata = relationship('EntityMetadata', secondary='pose_entity_association',
+                                   back_populates='poses')
+    # Set up one-to-many relationship with residue_metrics table
+    residues = relationship('ResidueMetrics', back_populates='pose')
+
+    # # Set up many-to-one relationship with entity_metadata table
+    # entity_metadata = Column(ForeignKey('entity_metadata.id'))
+
+    # Set up one-to-many relationship with entity_metrics table
+    entity_metrics = relationship('EntityMetrics', back_populates='pose')
+    # Set up one-to-one relationship with pose_metrics table
+    metrics = relationship('PoseMetrics', back_populates='pose', uselist=False)
+
+    # State
+    pre_refine = Column(Boolean)
+    pre_loop_model = Column(Boolean)
+    sym_entry_number = Column(Integer)
+    symmetry = Column(String)  # Result
+    design_dimension = Column(Integer)
+    """The result of the SymEntry"""
+    # symmetry_groups = relationship('SymmetryGroup')
+    sym_entry_specification = Column(String)  # RESULT:{SUBSYMMETRY1}{SUBSYMMETRY2}...
+
+    # @classmethod
+    # def insert_pose(cls, session: Session, name: str, project: str) -> int:
+    #     """Insert a new PoseJob instance into the database and return the Database id"""
+    #     # with session() as session:
+    #     stmt = insert(cls).returning(cls.id)
+    #     result = session.scalars(stmt,  # execute(stmt).inserted_primary_key  # fetchone()
+    #                              dict(name=name, project=project))
+    #     session.commit()
+    #
+    #     return result.one()
+    #
+    # def get_design_number(self, session: Session, number: int) -> int:
+    #     return self.number_of_designs
+    #
+    # @staticmethod
+    # def increment_design_number(cls, session: Session, number: int):
+    #     return None
+    # OLD ^
+    # NEW v
+    # @property
+    # def symmetry_groups(self) -> list[str]:
+    #     return [entity.symmetry for entity in self.entity_metadata]
+    #
+    # @property
+    # def entity_names(self) -> list[str]:
+    #     """Provide the names of all Entity instances mapped to the Pose"""
+    #     return [entity.entity_name for entity in self.entity_metadata]
+    #
+    # @property
+    # def pose_transformation(self) -> list[transformation_mapping]:
+    #     """Provide the names of all Entity instances mapped to the Pose"""
+    #     return [dict(
+    #         rotation=scipy.spatial.transform.Rotation.from_rotvec([0., 0., entity.rotation], degrees=True).as_matrix(),
+    #         translation=np.array([0., 0., entity.internal_translation]),
+    #         rotation2=utils.symmetry.setting_matrices[entity.setting_matrix],
+    #         translation2=np.array([entity.external_translation_x,
+    #                                entity.external_translation_y,
+    #                                entity.external_translation_z]),
+    #     ) for entity in self.entity_metadata]
+    #
+    # @pose_transformation.setter
+    # def pose_transformation(self, transform: Sequence[transformation_mapping]):
+    #     for idx, (entity, operation_set) in enumerate(zip(self.entity_metadata, transform)):
+    #         if not isinstance(operation_set, dict):
+    #             try:
+    #                 raise ValueError(f'The attribute pose_transformation must be a Sequence of '
+    #                                  f'{transformation_mapping.__name__}, not {type(transform[0]).__name__}')
+    #             except TypeError:  # Not a Sequence
+    #                 raise TypeError(f'The attribute pose_transformation must be a Sequence of '
+    #                                 f'{transformation_mapping.__name__}, not {type(transform).__name__}')
+    #         for operation_type, operation in operation_set:
+    #             if operation_type == 'translation':
+    #                 _, _, entity.internal_translation = operation
+    #             elif operation_type == 'rotation':
+    #                 entity.setting_matrix = \
+    #                     scipy.spatial.transform.Rotation.from_matrix(operation).as_rotvec(degrees=True)
+    #             elif operation_type == 'rotation2':
+    #                 entity.setting_matrix = self.sym_entry.setting_matrices_numbers[idx]
+    #             elif operation_type == 'translation2':
+    #                 entity.external_translation_x, \
+    #                     entity.external_translation_y, \
+    #                     entity.external_translation_z = operation
+    #
+    #             # self._pose_transformation = self.info['pose_transformation'] = list(transform)
+
+
+class PoseMetrics(Base):
+    __tablename__ = 'pose_metrics'
 
     id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)  # String(60)
-    project = Column(String)  # , nullable=False)  # String(60)
-    designs = relationship('Designs', back_populates='pose')
+    # name = Column(String, nullable=False, index=True)  # String(60)
+    # project = Column(String)  # , nullable=False)  # String(60)
+    # Set up one-to-one relationship with pose_metadata table
+    pose_id = Column(ForeignKey('pose_metadata.id'), nullable=False)
+    pose = relationship('PoseMetadata', back_populates='metrics')
+
+    # design_ids = relationship('DesignMetrics', back_populates='pose')
     number_of_designs = Column(Integer)  # , nullable=False)
     # Dock features
     proteinmpnn_v_design_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
@@ -70,7 +182,7 @@ class Poses(Base):
     percent_residues_fragment_interface_center = Column(Float)  # , nullable=False)
     number_interface_residues_non_fragment = Column(Float)  # , nullable=False)
     # Pose features
-    design_dimension = Column(Integer)  # , nullable=False)
+    # design_dimension = Column(Integer)  # , nullable=False)
     # entity_max_radius = Column(Float)  # Has a # after entity LIST
     # entity_min_radius = Column(Float)  # Has a # after entity LIST
     # entity_name = Column(String(30))  # Has a # after entity LIST
@@ -82,8 +194,8 @@ class Poses(Base):
     # entity_n_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
     # entity_c_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
     # entity_thermophile = Column(Boolean)  # Has a # after entity LIST
-    # entity_interface_secondary_structure_fragment_topology = Column(String(60))  # Has a # after entity LIST
-    # entity_interface_secondary_structure_topology = Column(String(60))  # Has a # after entity LIST
+    interface1_secondary_structure_fragment_topology = Column(String)
+    interface2_secondary_structure_topology = Column(String)
     # entity_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
     # entity_min_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
     # entity_max_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
@@ -105,106 +217,147 @@ class Poses(Base):
     pose_length = Column(Integer)  # , nullable=False)
     pose_thermophilicity = Column(Float)  # , nullable=False)
 
-    @classmethod
-    def insert_pose(cls, session: Session, name: str, project: str) -> int:
-        """Insert a new PoseDirectory instance into the database and return the Database id"""
-        # with session() as session:
-        stmt = insert(cls).returning(cls.id)
-        result = session.scalars(stmt,  # execute(stmt).inserted_primary_key  # fetchone()
-                                 dict(name=name, project=project))
-        session.commit()
 
-        return result.one()
-
-    def get_design_number(self, session: Session, number: int) -> int:
-        return self.number_of_designs
-
-    @staticmethod
-    def increment_design_number(cls, session: Session, number: int):
-        return None
+# class PoseEntityAssociation(Base):
+pose_entity_association = Table(
+    'pose_entity_association',
+    Base.metadata,
+    Column('pose_id', ForeignKey('pose_metadata.id'), primary_key=True),  # Use the sqlalchemy.Column construct not mapped_column()
+    Column('entity_id', ForeignKey('entity_metadata.id'), primary_key=True)  # Use the sqlalchemy.Column construct
+)
 
 
-entity_transformation_metrics = dict(
-    rotation=Float,
-    setting_matrix=Integer,
-    internal_translation=Float,
-    external_translation_x=Float,
-    external_translation_y=Float,
-    external_translation_z=Float,
+class EntityMetadata(Base):
+    __tablename__ = 'entity_metadata'
+    id = Column(Integer, primary_key=True)
+
+    # Set up many-to-many relationship with pose_metadata table
+    poses = relationship('PoseMetadata', secondary='pose_entity_association',
+                         back_populates='entity_metadata')
+
+    name = Column(String, nullable=False, index=True)  # entity_ is used in config.metrics
+    # number_of_residues = Column(Integer)  # entity_ is used in config.metrics
+    n_terminal_helix = Column(Boolean)  # entity_ is used in config.metrics
+    c_terminal_helix = Column(Boolean)  # entity_ is used in config.metrics
+    thermophile = Column(Boolean)  # entity_ is used in config.metrics
+    # Symmetry parameters
+    symmetry_group = Column(String(4))  # entity_ is used in config.metrics
+    symmetry = Column(ForeignKey('symmetry_groups.id'))
+
+
+class EntityMetrics(Base):
+    __tablename__ = 'entity_metrics'
+    id = Column(Integer, primary_key=True)
+
+    # Set up many-to-one relationship with pose_metadata table
+    pose_id = Column(ForeignKey('pose_metadata.id'))
+    pose = relationship('PoseMetadata', back_populates='entity_metrics')
+
+    # Todo new-style EntityMetrics
+    number_of_residues = Column(Integer)  # entity_ is used in config.metrics
+    max_radius = Column(Float)  # entity_ is used in config.metrics
+    min_radius = Column(Float)  # entity_ is used in config.metrics
+    radius = Column(Float)  # entity_ is used in config.metrics
+    n_terminal_orientation = Column(Integer)  # entity_ is used in config.metrics
+    c_terminal_orientation = Column(Integer)  # entity_ is used in config.metrics
+    interface_secondary_structure_fragment_topology = Column(String(60))  # entity_ is used in config.metrics
+    interface_secondary_structure_topology = Column(String(60))  # entity_ is used in config.metrics
+    # Transformation parameters
+    rotation = Column(Float)
+    setting_matrix = Column(Integer)
+    internal_translation = Column(Float)
+    external_translation_x = Column(Float)
+    external_translation_y = Column(Float)
+    external_translation_z = Column(Float)
+    # Todo new-style EntityMetrics
+
+
+# Add metrics which are dependent on multiples. Initialize Column() when setattr() is called to get correct column name
+# entity_transformation_metrics = dict(
+#     rotation=Float,
+#     setting_matrix=Integer,
+#     internal_translation=Float,
+#     external_translation_x=Float,
+#     external_translation_y=Float,
+#     external_translation_z=Float,
+# )
+# for idx in range(1, 1 + config.MAXIMUM_ENTITIES):
+#     for metric, value in entity_transformation_metrics.items():
+#         setattr(PoseMetrics, f'{metric}{idx}', Column(value))
+ratio_design_metrics = dict(
+    entity_radius_ratio_v=Float,
+    entity_min_radius_ratio_v=Float,
+    entity_max_radius_ratio_v=Float,
+    entity_number_of_residues_ratio_v=Float,
+)
+for idx1, idx2 in combinations(range(1, 1 + config.MAXIMUM_ENTITIES), 2):
+    for metric, value in ratio_design_metrics.items():
+        setattr(PoseMetrics, metric.replace('_v', f'_{idx1}v{idx2}'), Column(value))
+# Todo remove for new-style EntityMetrics
+entity_pose_metrics = dict(
+    entity_max_radius=Float,
+    entity_min_radius=Float,
+    entity_name=String(30),
+    entity_number_of_residues=Integer,
+    entity_radius=Float,
+    entity_symmetry_group=String(4),
+    entity_n_terminal_helix=Boolean,
+    entity_c_terminal_helix=Boolean,
+    entity_n_terminal_orientation=Integer,
+    entity_c_terminal_orientation=Integer,
+    entity_thermophile=Boolean,
+    entity_interface_secondary_structure_fragment_topology=String(60),
+    entity_interface_secondary_structure_topology=String(60),
 )
 for idx in range(1, 1 + config.MAXIMUM_ENTITIES):
     for metric, value in entity_transformation_metrics.items():
         setattr(Poses, f'{metric}{idx}', Column(value))
 
-
-class Designs(Base):
-    __tablename__ = 'designs'
-
+class ProtocolMetadata(Base):
+    __tablename__ = 'protocol_metadata'
     id = Column(Integer, primary_key=True)
-    # pose = Column(String, nullable=False)  # String(60)
-    pose_name = Column(String, nullable=False)  # String(60)
-    name = Column(String, nullable=False)  # String(60)
-    pose_id = Column(ForeignKey('poses.id'))  # Integer, nullable=False)  # String(60)
-    pose = relationship('Poses', back_populates='designs')
-    # residues_id = relationship('residues', back_populates='')  # LIST
 
-    protocol = Column(String)  # , nullable=False)  # String(60)
-    temperature = Column(Float)  # , nullable=False)  # String(60)
-    # protocol = relationship()  # LIST
-    # addresses = relationship(
-    #     "Address", back_populates="user", cascade="all, delete-orphan"
-    # )
-    # # Fragment features
-    # nanohedra_score_normalized = Column(Float)  # , nullable=False)
-    # nanohedra_score_center_normalized = Column(Float)  # , nullable=False)
-    # nanohedra_score = Column(Float)  # , nullable=False)
-    # nanohedra_score_center = Column(Float)  # , nullable=False)
-    # number_fragment_residues_total = Column(Integer)  # , nullable=False)
-    # number_fragment_residues_center = Column(Integer)  # , nullable=False)
-    # multiple_fragment_ratio = Column(Float)  # , nullable=False)
-    # percent_fragment_helix = Column(Float)  # , nullable=False)
-    # percent_fragment_strand = Column(Float)  # , nullable=False)
-    # percent_fragment_coil = Column(Float)  # , nullable=False)
-    # number_of_fragments = Column(Integer)  # , nullable=False)
-    # percent_residues_fragment_interface_total = Column(Float)  # , nullable=False)
-    # percent_residues_fragment_interface_center = Column(Float)  # , nullable=False)
-    # number_interface_residues_non_fragment = Column(Float)  # , nullable=False)
-    # # Pose features
+    protocol = Column(String, nullable=False)
+    # Set up many-to-one relationship with design_metadata table
+    design_id = Column(ForeignKey('design_metadata.id'), nullable=False)
+    design = relationship('DesignMetadata', back_populates='protocols')  # , nullable=False)
+    temperature = Column(Float)
+    file = Column(String)
+
+
+class DesignMetadata(Base):
+    """Account for design metadata created from pose metadata"""
+    __tablename__ = 'design_metadata'
+    id = Column(Integer, primary_key=True)
+
+    name = Column(String, nullable=False)  # String(60)
+    # Set up many-to-one relationship with pose_metadata table
+    pose_id = Column(ForeignKey('pose_metadata.id'), nullable=False)
+    pose = relationship('PoseMetadata', back_populates='designs')
+    # Set up one-to-many relationship with protocol_metadata table
+    protocols = relationship('ProtocolMetadata', back_populates='design')
+    # Set up one-to-one relationship with design_metrics table
+    metrics = relationship('DesignMetrics', back_populates='design', uselist=False)
+    # Set up one-to-many relationship with residue_metrics table
+    residues = relationship('ResidueMetrics', back_populates='design')
+
+
+class DesignMetrics(Base):
+    __tablename__ = 'design_metrics'
+    id = Column(Integer, primary_key=True)
+
+    # name = Column(String, nullable=False)  # String(60)
+    # pose = Column(String, nullable=False)  # String(60)
+    # pose_name = Column(String, nullable=False)  # String(60)
+    # Set up one-to-one relationship with design_metadata table
+    design_id = Column(ForeignKey('design_metadata.id'), nullable=False)
+    design = relationship('DesignMetadata', back_populates='metrics')
+
+    # Pose features
     number_interface_residues = Column(Integer)  # , nullable=False)
     contact_order = Column(Float)  # , nullable=False)
-    # pose_length = Column(Integer)  # , nullable=False)
-    # pose_thermophilicity = Column(Float)  # , nullable=False)
-    # minimum_radius = Column(Float)  # , nullable=False)
-    # maximum_radius = Column(Float)  # , nullable=False)
-    # interface_b_factor_per_residue = Column(Float)  # , nullable=False)
-    # interface_secondary_structure_fragment_topology = Column(String(120))  # , nullable=False)
-    # interface_secondary_structure_fragment_count = Column(Integer)  # , nullable=False)
-    # interface_secondary_structure_topology = Column(String(120))  # , nullable=False)
-    # interface_secondary_structure_count = Column(Integer)  # , nullable=False)
-    # design_dimension = Column(Integer)  # , nullable=False)
-    # # entity_max_radius = Column(Float)  # Has a # after entity LIST
-    # # entity_min_radius = Column(Float)  # Has a # after entity LIST
-    # # entity_name = Column(String(30))  # Has a # after entity LIST
-    # # entity_number_of_residues = Column(Integer)  # Has a # after entity LIST
-    # # entity_radius = Column(Float)  # Has a # after entity LIST
-    # # entity_symmetry_group = Column(String(4))  # Has a # after entity LIST
-    # # entity_n_terminal_helix = Column(Boolean)  # Has a # after entity LIST
-    # # entity_c_terminal_helix = Column(Boolean)  # Has a # after entity LIST
-    # # entity_n_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
-    # # entity_c_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
-    # # entity_thermophile = Column(Boolean)  # Has a # after entity LIST
-    # # entity_interface_secondary_structure_fragment_topology = Column(String(60))  # Has a # after entity LIST
-    # # entity_interface_secondary_structure_topology = Column(String(60))  # Has a # after entity LIST
-    # # entity_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
-    # # entity_min_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
-    # # entity_max_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
-    # # entity_number_of_residues_ratio_v = Column(Float)  # Has a #v# after ratio LIST
-    # entity_radius_average_deviation = Column(Float)  # , nullable=False)
-    # entity_min_radius_average_deviation = Column(Float)  # , nullable=False)
-    # entity_max_radius_average_deviation = Column(Float)  # , nullable=False)
-    # entity_number_of_residues_average_deviation = Column(Float)  # , nullable=False)
     # Design metrics
-    number_design_residues = Column(Integer)  # Residues sum 'design_residue', nullable=False)
+    number_design_residues = Column(Integer)  # ResidueMetrics sum 'design_residue', nullable=False)
     # Rosetta metrics
     buns_complex = Column(Integer)  # , nullable=False)
     # buns_unbound = Column(Integer)  # Has a # after buns LIST
@@ -227,7 +380,7 @@ class Designs(Base):
     # solvation_energy_complex = Column(Float)  # , nullable=False)
     # Sequence metrics
     percent_mutations = Column(Float)  # , nullable=False)
-    number_of_mutations = Column(Integer)  # Residues sum 'mutation', nullable=False)
+    number_of_mutations = Column(Integer)  # ResidueMetrics sum 'mutation', nullable=False)
     # entity_percent_mutations = Column(Float)  # Has a # after entity LIST
     # entity_number_of_mutations = Column(Integer)  # Has a # after entity LIST
     # SymDesign metrics
@@ -235,7 +388,7 @@ class Designs(Base):
     interface_composition_similarity = Column(Float)  # , nullable=False)
     interface_area_to_residue_surface_ratio = Column(Float)  # , nullable=False)
     sequence = Column(String(config.MAXIMUM_SEQUENCE))  # , nullable=False)
-    # Summed Residues metrics
+    # Summed ResidueMetrics metrics
     # -----------------------
     # column name is changed from Rosetta energy values
     interface_energy_complex = Column(Float)  # , nullable=False)
@@ -324,62 +477,42 @@ class Designs(Base):
 
 
 # Add metrics which are dependent on multiples. Initialize Column() when setattr() is called to get correct column name
-entity_pose_metrics = dict(
-    entity_max_radius=Float,
-    entity_min_radius=Float,
-    entity_name=String(30),
-    entity_number_of_residues=Integer,
-    entity_radius=Float,
-    entity_symmetry_group=String(4),
-    entity_n_terminal_helix=Boolean,
-    entity_c_terminal_helix=Boolean,
-    entity_n_terminal_orientation=Integer,  # Boolean,
-    entity_c_terminal_orientation=Integer,  # Boolean,
-    entity_thermophile=Boolean,
-    entity_interface_secondary_structure_fragment_topology=String(60),
-    entity_interface_secondary_structure_topology=String(60),
-)
 entity_design_metrics = dict(
     entity_interface_connectivity=Float,
     entity_percent_mutations=Float,
     entity_number_of_mutations=Integer,
 )
 for idx in range(1, 1 + config.MAXIMUM_ENTITIES):
-    for metric, value in entity_pose_metrics.items():
-        setattr(Poses, metric.replace('entity', f'entity{idx}'), Column(value))
-for idx in range(1, 1 + config.MAXIMUM_ENTITIES):
     for metric, value in entity_design_metrics.items():
-        setattr(Designs, metric.replace('entity', f'entity{idx}'), Column(value))
-ratio_design_metrics = dict(
-    entity_radius_ratio_v=Float,
-    entity_min_radius_ratio_v=Float,
-    entity_max_radius_ratio_v=Float,
-    entity_number_of_residues_ratio_v=Float,
-)
-for idx1, idx2 in combinations(range(1, 1 + config.MAXIMUM_ENTITIES), 2):
-    for metric, value in ratio_design_metrics.items():
-        setattr(Poses, metric.replace('_v', f'_{idx1}v{idx2}'), Column(value))
+        setattr(DesignMetrics, metric.replace('entity', f'entity{idx}'), Column(value))
 interface_design_metrics = dict(
     buns_unbound=Integer
 )
 for idx in range(1, 1 + config.MAXIMUM_INTERFACES):
     for metric, value in interface_design_metrics.items():
-        setattr(Designs, metric.replace('buns', f'buns{idx}'), Column(value))
+        setattr(DesignMetrics, metric.replace('buns', f'buns{idx}'), Column(value))
 
 
-class Residues(Base):
-    __tablename__ = 'residues'
-
+class ResidueMetrics(Base):
+    __tablename__ = 'residue_metrics'
     id = Column(Integer, primary_key=True)
-    # Residue position (surrogate for residue number) and type information
+
+    # Set up many-to-one relationship with design_metadata table
+    pose_id = Column(ForeignKey('pose_metadata.id'))
+    pose = relationship('PoseMetadata', back_populates='residues')
+    # Set up many-to-one relationship with design_metadata table
+    design_id = Column(ForeignKey('design_metadata.id'))
+    design = relationship('DesignMetadata', back_populates='residues')
+
     # pose = Column(String, nullable=False)  # String(60)
     # design = Column(String, nullable=False)  # String(60)
-    pose_name = Column(String, nullable=False)  # String(60)
-    design_name = Column(String, nullable=False)
-    pose_id = Column(ForeignKey('poses.id'))  # String, nullable=False)  # String(60)
-    design_id = Column(ForeignKey('designs.id'))  # Integer, nullable=False)
+    # pose_name = Column(String, nullable=False)  # String(60)
+    # pose_id = Column(ForeignKey('pose_metadata.id'))  # String, nullable=False)  # String(60)
+    # design_name = Column(String, nullable=False)
+
+    # Residue position (surrogate for residue number) and type information
     index = Column(Integer, nullable=False)
-    type = Column(String(1))  # , nullable=False)
+    type = Column(String(1), nullable=False)
     design_residue = Column(Boolean)
     interface_residue = Column(Boolean)
     mutation = Column(Boolean)
@@ -452,16 +585,16 @@ class Residues(Base):
     # user = relationship("User", back_populates="addresses")
 
     # def __repr__(self):
-    #     return f"Residues(id={self.id!r}, index={self.index!r})"
+    #     return f"ResidueMetrics(id={self.id!r}, index={self.index!r})"
 
 
-def start_db(db: AnyStr):
-    """"""
-    # engine = create_engine('sqlite+pysqlite:///:memory:', echo=True, future=True)
-    engine = create_engine(f'sqlite:///{db}', echo=True, future=True)
-    Base.metadata.create_all(engine)
-
-    return engine
+# def start_db(db: AnyStr):
+#     """"""
+#     # engine = create_engine('sqlite+pysqlite:///:memory:', echo=True, future=True)
+#     engine = create_engine(f'sqlite:///{db}', echo=True, future=True)
+#     Base.metadata.create_all(engine)
+#
+#     return engine
 
 
 # db = '/absolute/path/to/foo.db'
@@ -476,7 +609,7 @@ def start_db(db: AnyStr):
 #
 # # Example of starting a Session and changing data in a table
 # session = Session(engine)
-# stmt = select(Residues).where(Residues.index.in_(["spongebob", "sandy"]))
+# stmt = select(ResidueMetrics).where(ResidueMetrics.index.in_(["spongebob", "sandy"]))
 #
 # for residue in session.scalars(stmt):
 #     print(residue)

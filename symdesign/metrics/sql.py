@@ -9,8 +9,8 @@ from sqlalchemy import inspect, select, exc
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
-from ..utils.sql import Base, Designs, Poses, Residues
-from ..resources.job import job_resources_factory
+from symdesign.utils.sql import Base, DesignMetrics, PoseMetrics, ResidueMetrics
+from symdesign.resources.job import job_resources_factory
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -18,12 +18,12 @@ logger = logging.getLogger(__name__)
 
 
 def insert_dataframe(session: Session, _table: Base, df: pd.DataFrame):  # -> list[int]:
-    """Take a MultiIndex(pose, design, index) Residues DataFrame and insert/update values into the Residues SQL DataBase
+    """Take a MultiIndex(pose, design, index) ResidueMetrics DataFrame and insert/update values into the ResidueMetrics SQL DataBase
 
     Returns:
         The id of each of the inserted entries in the Database
     """
-    # table = Residues
+    # table = ResidueMetrics
     # job = job_resources_factory()
     # with job.db.session() as session:
     insert_stmt = insert(_table)
@@ -124,11 +124,11 @@ def insert_dataframe(session: Session, _table: Base, df: pd.DataFrame):  # -> li
 
 
 def upsert_dataframe(session: Session, _table: Base, df: pd.DataFrame) -> list[int]:
-    """Take a MultiIndex(pose, design, index) Residues DataFrame and insert/update values into the Residues SQL DataBase
+    """Take a MultiIndex(pose, design, index) ResidueMetrics DataFrame and insert/update values into the ResidueMetrics SQL DataBase
 
     This dataframe must have a column 'id' in order to upsert. This should be retrieved from the db
     """
-    # table = Residues
+    # table = ResidueMetrics
     # job = job_resources_factory()
     # with job.db.session() as session:
     insert_stmt = insert(_table)
@@ -200,40 +200,48 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
         dataframe_function = insert_dataframe
 
     with job.db.session() as session:
-        if poses is not None:
-            poses.replace({np.nan: None}, inplace=True)
-            result = dataframe_function(session, _table=Poses, df=poses)
-            table = Poses.__tablename__
-            # poses.to_sql(table, con=engine, if_exists='append', index=True)
-            # #              dtype=sql.Base.metadata.table[table])
-            logger.info(f'Wrote {table} metrics to DataBase {job.internal_db}')
 
-            return result
+    warn = warned = False
+    def warn_multiple_update_results():
+        nonlocal warned
+        if warn and not warned:
+            logger.warning(f"Performing multiple metrics SQL transactions will only return only results for the last "
+                           f"transaction")
+            warned = True
+    if poses is not None:
+        warn = True
+        poses.replace({np.nan: None}, inplace=True)
+        result = dataframe_function(session, _table=PoseMetrics, df=poses)
+        table = PoseMetrics.__tablename__
+        # poses.to_sql(table, con=engine, if_exists='append', index=True)
+        # #              dtype=sql.Base.metadata.table[table])
+        logger.info(f'Wrote {table} metrics to DataBase {job.internal_db}')
 
-        if designs is not None:
-            designs.replace({np.nan: None}, inplace=True)
-            result = dataframe_function(session, _table=Designs, df=designs)
-            table = Designs.__tablename__
-            # designs.to_sql(table, con=engine, if_exists='append', index=True)
-            # #                dtype=sql.Base.metadata.table[table])
-            logger.info(f'Wrote {table} metrics to DataBase {job.internal_db}')
+        # return result
 
-            return result
+    if designs is not None:
+        warn_multiple_update_results()
+        warn = True
+        designs.replace({np.nan: None}, inplace=True)
+        result = dataframe_function(session, _table=DesignMetrics, df=designs)
+        table = DesignMetrics.__tablename__
+        # designs.to_sql(table, con=engine, if_exists='append', index=True)
+        # #                dtype=sql.Base.metadata.table[table])
+        logger.info(f'Wrote {table} metrics to DataBase {job.internal_db}')
 
-        if residues is not None:
-            residues = format_residues_df_for_write(residues)
-            residues.replace({np.nan: None}, inplace=True)
-            result = dataframe_function(session, _table=Residues, df=residues)
-            table = Residues.__tablename__
-            # residues.to_sql(table, con=engine, index=True)  # if_exists='append',
-            # # Todo Ensure that the 'id' column is present
-            # stmt = select(Designs).where(Designs.pose.in_(pose_ids))  # text('''SELECT * from residues''')
-            # with job.db.session() as session:
-            #     next_available_id = Designs.next_key(session)
-            #     stmt = select(Designs).order_by(Designs.id.desc()).limit(1)
-            #     session.scalars(stmt).first().id
-            #     results = session.scalars(stmt)  # execute(stmt)
-            #     upsert_dataframe(table, residues)
-            logger.info(f'Wrote {table} metrics to DataBase {job.internal_db}')
+        # return result
 
-            return result
+    if residues is not None:
+        warn_multiple_update_results()
+        warn = True
+        residues = format_residues_df_for_write(residues)
+        residues.replace({np.nan: None}, inplace=True)
+        result = dataframe_function(session, _table=ResidueMetrics, df=residues)
+        table = ResidueMetrics.__tablename__
+        # residues.to_sql(table, con=engine, index=True)  # if_exists='append',
+        # # Todo Ensure that the 'id' column is present
+        # stmt = select(DesignMetrics).where(DesignMetrics.pose.in_(pose_ids))  # text('''SELECT * from residues''')
+        # results = session.scalars(stmt)  # execute(stmt)
+        logger.info(f'Wrote {table} metrics to DataBase {job.internal_db}')
+
+    return result
