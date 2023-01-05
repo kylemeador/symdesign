@@ -9,6 +9,7 @@ from typing import Any, Iterable, Sequence
 
 import pandas as pd
 
+from . import cluster
 from .pose import PoseJob
 from symdesign import flags, metrics, resources, utils
 from symdesign.resources.job import job_resources_factory
@@ -22,42 +23,42 @@ from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolution
 logger = logging.getLogger(__name__)
 
 
-def load_total_dataframe(pose_directories: Iterable[PoseJob], pose: bool = False) -> pd.DataFrame:
-    """Return a pandas DataFrame with the trajectories of every pose_directory loaded and formatted according to the
+def load_total_dataframe(pose_jobs: Iterable[PoseJob], pose: bool = False) -> pd.DataFrame:
+    """Return a pandas DataFrame with the trajectories of every PoseJob loaded and formatted according to the
     design directory and design on the index
 
     Args:
-        pose_directories: The pose_directories for which metrics are desired
+        pose_jobs: The PoseJob instances for which metrics are desired
         pose: Whether the total dataframe should contain the mean metrics from the pose or each individual design
     """
-    all_dfs = []  # None for design in pose_directories]
-    for idx, pose_dir in enumerate(pose_directories):
+    all_dfs = []  # None for design in pose_jobs]
+    for idx, pose_job in enumerate(pose_jobs):
         try:
-            all_dfs.append(pd.read_csv(pose_dir.designs_metrics_csv, index_col=0, header=[0]))
+            all_dfs.append(pd.read_csv(pose_job.designs_metrics_csv, index_col=0, header=[0]))
         except FileNotFoundError:  # as error
             # results[idx] = error
-            logger.warning(f'{pose_dir}: No trajectory analysis file found. Skipping')
+            logger.warning(f'{pose_job}: No trajectory analysis file found. Skipping')
 
     if pose:
-        for idx, df in enumerate(all_dfs):
+        for pose_job, df in zip(pose_jobs, all_dfs):
             df.fillna(0., inplace=True)  # Shouldn't be necessary if saved files were formatted correctly
             # try:
             df.drop([index for index in df.index.to_list() if isinstance(index, float)], inplace=True)
             # Get rid of all individual trajectories and std, not mean
-            pose_name = pose_directories[idx].name
+            pose_name = pose_job.name
             df.drop([index for index in df.index.to_list() if pose_name in index or 'std' in index], inplace=True)
             # except TypeError:
             #     for index in df.index.to_list():
             #         print(index, type(index))
     else:  # designs
-        for idx, df in enumerate(all_dfs):
+        for pose_job, df in zip(pose_jobs, all_dfs):
             # Get rid of all statistic entries, mean, std, etc.
-            pose_name = pose_directories[idx].name
+            pose_name = pose_job.name
             df.drop([index for index in df.index.to_list() if pose_name not in index], inplace=True)
 
     # Add pose directory str as MultiIndex
     try:
-        df = pd.concat(all_dfs, keys=[str(pose_dir) for pose_dir in pose_directories])
+        df = pd.concat(all_dfs, keys=[str(pose_job) for pose_job in pose_jobs])
     except ValueError:  # No objects to concatenate
         raise RuntimeError(f"Didn't find any trajectory information in the provided PoseDirectory instances")
     df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
@@ -65,23 +66,30 @@ def load_total_dataframe(pose_directories: Iterable[PoseJob], pose: bool = False
     return df
 
 
-def poses(pose_directories: Iterable[PoseJob]) -> list[PoseJob]:
+def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
+    """Select PoseJob instances based on filters and weighting of all design summary metrics
+
+    Args:
+        pose_jobs: The PoseJob instances for which selection is desired
+    Returns:
+        The matching PoseJob instances
+    """
     job = job_resources_factory.get()
 
     if job.specification_file:  # Figure out poses from a specification file, filters, and weights
-        loc_result = [(pose_directory, design) for pose_directory in pose_directories
-                      for design in pose_directory.specific_designs]
-        total_df = load_total_dataframe(pose_directories, pose=True)
+        loc_result = [(pose_job, design) for pose_job in pose_jobs
+                      for design in pose_job.specific_designs]
+        total_df = load_total_dataframe(pose_jobs, pose=True)
         selected_poses_df = \
             metrics.prioritize_design_indices(total_df.loc[loc_result, :], filter=job.filter, weight=job.weight,
                                               protocol=job.protocol, function=job.weight_function)
         # Remove excess pose instances
         number_chosen = 0
         selected_indices, selected_poses = [], set()
-        for pose_directory, design in selected_poses_df.index.to_list():
-            if pose_directory not in selected_poses:
-                selected_poses.add(pose_directory)
-                selected_indices.append((pose_directory, design))
+        for pose_job, design in selected_poses_df.index.to_list():
+            if pose_job not in selected_poses:
+                selected_poses.add(pose_job)
+                selected_indices.append((pose_job, design))
                 number_chosen += 1
                 if number_chosen == job.number:
                     break
@@ -91,9 +99,9 @@ def poses(pose_directories: Iterable[PoseJob]) -> list[PoseJob]:
         save_poses_df = \
             selected_poses_df.loc[selected_indices, :].droplevel(-1)  # .droplevel(0, axis=1).droplevel(0, axis=1)
         # # convert selected_poses to PoseJob objects
-        # selected_poses = [pose_directory for pose_directory in pose_directories if pose_dir_name in selected_poses]
+        # selected_poses = [pose_job for pose_job in pose_jobs if pose_job_name in selected_poses]
     elif job.total:  # Figure out poses from file/directory input, filters, and weights
-        total_df = load_total_dataframe(pose_directories, pose=True)
+        total_df = load_total_dataframe(pose_jobs, pose=True)
         if job.protocol:  # Todo adapt to protocol column not in Trajectories right now...
             group_df = total_df.groupby(putils.protocol)
             df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
@@ -106,10 +114,10 @@ def poses(pose_directories: Iterable[PoseJob]) -> list[PoseJob]:
         # Remove excess pose instances
         number_chosen = 0
         selected_indices, selected_poses = [], set()
-        for pose_directory, design in selected_poses_df.index.to_list():
-            if pose_directory not in selected_poses:
-                selected_poses.add(pose_directory)
-                selected_indices.append((pose_directory, design))
+        for pose_job, design in selected_poses_df.index.to_list():
+            if pose_job not in selected_poses:
+                selected_poses.add(pose_job)
+                selected_indices.append((pose_job, design))
                 number_chosen += 1
                 if number_chosen == job.number:
                     break
@@ -119,9 +127,9 @@ def poses(pose_directories: Iterable[PoseJob]) -> list[PoseJob]:
         save_poses_df = \
             selected_poses_df.loc[selected_indices, :].droplevel(-1)  # .droplevel(0, axis=1).droplevel(0, axis=1)
         # # convert selected_poses to PoseJob objects
-        # selected_poses = [pose_directory for pose_directory in pose_directories if pose_dir_name in selected_poses]
+        # selected_poses = [pose_job for pose_job in pose_jobs if pose_job_name in selected_poses]
     elif job.dataframe:  # Figure out poses from a pose dataframe, filters, and weights
-        if not pose_directories:  # not job.directory:
+        if not pose_jobs:  # not job.directory:
             logger.critical(f'If using a --{flags.dataframe} for selection, you must include the directory where '
                             f'the designs are located in order to properly select designs. Please specify '
                             f'-d/--{flags.directory} with your command')
@@ -135,17 +143,17 @@ def poses(pose_directories: Iterable[PoseJob]) -> list[PoseJob]:
         # Only drop excess columns as there is no MultiIndex, so no design in the index
         save_poses_df = selected_poses_df.droplevel(0, axis=1).droplevel(0, axis=1)
         program_root = job.program_root
-        selected_poses = [PoseJob.from_pose_directory(pose, root=job.projects)
+        selected_poses = [PoseJob.from_directory(pose, root=job.projects)
                           for pose in save_poses_df.index.to_list()]
     else:  # Generate design metrics on the spot
         raise NotImplementedError('This functionality is currently broken')
         selected_poses, selected_poses_df, total_df = [], pd.DataFrame(), pd.DataFrame()
         logger.debug('Collecting designs to sort')
         # if job.metric == 'score':
-        #     metric_design_dir_pairs = [(des_dir.score, des_dir.path) for des_dir in pose_directories]
+        #     metric_design_dir_pairs = [(pose_job.score, pose_job.path) for pose_job in pose_jobs]
         # elif job.metric == 'fragments_matched':
-        #     metric_design_dir_pairs = [(des_dir.number_of_fragments, des_dir.path)
-        #                                for des_dir in pose_directories]
+        #     metric_design_dir_pairs = [(pose_job.number_of_fragments, pose_job.path)
+        #                                for pose_job in pose_jobs]
         # else:  # This is impossible with the argparse options
         #     raise NotImplementedError(f'The metric "{job.metric}" is not supported!')
         #     metric_design_dir_pairs = []
@@ -158,7 +166,7 @@ def poses(pose_directories: Iterable[PoseJob]) -> list[PoseJob]:
             f'Top ranked Designs according to {job.metric}:\n\t{job.metric.title()}\tDesign\n\t%s'
         results_strings = ['%.2f\t%s' % tup for tup in sorted_metric_design_dir_pairs]
         logger.info(top_designs_string % '\n\t'.join(results_strings[:500]))
-        if len(pose_directories) > 500:
+        if len(pose_jobs) > 500:
             design_source = f'top_{job.metric}'
             # default_output_tuple = (utils.starttime, job.module, design_source)
             putils.make_path(job.all_scores)
@@ -238,7 +246,7 @@ def poses(pose_directories: Iterable[PoseJob]) -> list[PoseJob]:
         # cluster_map_file = \
         #     os.path.join(job.clustered_poses, putils.default_clustered_pose_file.format(utils.starttime, location))
         # pose_cluster_file = utils.pickle_object(cluster_map, name=cluster_map_file, out_path='')
-        # logger.info(f'Found {len(cluster_map)} unique clusters from {len(pose_directories)} pose inputs. '
+        # logger.info(f'Found {len(cluster_map)} unique clusters from {len(pose_jobs)} pose inputs. '
         #             f'All clusters stored in {pose_cluster_file}')
     # else:
     #     logger.info('Grabbing all selected poses')
@@ -263,7 +271,7 @@ def select_from_cluster_map(selected_members: Sequence[Any], cluster_map: dict[A
     Returns:
         The indices of selected_members, trimmed and retrieved according to cluster_map membership
     """
-    membership_representative_map = protocols.cluster.invert_cluster_map(cluster_map)
+    membership_representative_map = cluster.invert_cluster_map(cluster_map)
     representative_found: dict[Any, list[Any]] = {}
     not_found = []
     for idx, member in enumerate(selected_members):
@@ -291,30 +299,36 @@ def select_from_cluster_map(selected_members: Sequence[Any], cluster_map: dict[A
 
     return final_member_indices
 
+def designs(pose_jobs: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
+    """Select PoseJob instances based on filters and weighting of all design summary metrics
 
-def designs(pose_directories: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
+    Args:
+        pose_jobs: The PoseJob instances for which selection is desired
+    Returns:
+        The matching PoseJob instances mapped to design name
+    """
     job = job_resources_factory.get()
     if job.specification_file:
-        loc_result = [(pose_directory, design) for pose_directory in pose_directories
-                      for design in pose_directory.specific_designs]
-        total_df = load_total_dataframe(pose_directories)
+        loc_result = [(pose_job, design) for pose_job in pose_jobs
+                      for design in pose_job.specific_designs]
+        total_df = load_total_dataframe(pose_jobs)
         selected_poses_df = \
             metrics.prioritize_design_indices(total_df.loc[loc_result, :], filter=job.filter, weight=job.weight,
                                               protocol=job.protocol, function=job.weight_function)
         # Specify the result order according to any filtering, weighting, and number
         results = {}
-        for pose_directory, design in selected_poses_df.index.to_list()[:job.number]:
-            if pose_directory in results:
-                results[pose_directory].append(design)
+        for pose_job, design in selected_poses_df.index.to_list()[:job.number]:
+            if pose_job in results:
+                results[pose_job].append(design)
             else:
-                results[pose_directory] = [design]
+                results[pose_job] = [design]
 
         save_poses_df = selected_poses_df.droplevel(0)  # .droplevel(0, axis=1).droplevel(0, axis=1)
-        # convert to PoseJob objects
-        # results = {pose_directory: results[str(pose_directory)] for pose_directory in pose_directories
-        #            if str(pose_directory) in results}
+        # Convert to PoseJob objects
+        # results = {pose_job: results[str(pose_job)] for pose_job in pose_jobs
+        #            if str(pose_job) in results}
     elif job.total:
-        total_df = load_total_dataframe(pose_directories)
+        total_df = load_total_dataframe(pose_jobs)
         if job.protocol:
             group_df = total_df.groupby('protocol')
             df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
@@ -330,43 +344,43 @@ def designs(pose_directories: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
         if job.allow_multiple_poses:
             logger.info(f'Choosing {job.number} designs, from the top ranked designs regardless of pose')
             loc_result = selected_designs[:job.number]
-            results = {pose_dir: design for pose_dir, design in loc_result}
+            results = {pose_job: design for pose_job, design in loc_result}
         else:  # elif job.designs_per_pose:
             logger.info(f'Choosing up to {job.number} designs, with {job.designs_per_pose} designs per pose')
             number_chosen = count(0)
             selected_poses = {}
-            for pose_directory, design in selected_designs:
-                designs = selected_poses.get(pose_directory, None)
-                if designs:
-                    if len(designs) >= job.designs_per_pose:
+            for pose_job, design in selected_designs:
+                _designs = selected_poses.get(pose_job, None)
+                if _designs:
+                    if len(_designs) >= job.designs_per_pose:
                         # We already have too many, continue with search. No need to check as no addition
                         continue
-                    selected_poses[pose_directory].append(design)
+                    selected_poses[pose_job].append(design)
                 else:
-                    selected_poses[pose_directory] = [design]
+                    selected_poses[pose_job] = [design]
 
                 if next(number_chosen) == job.number:
                     break
 
             results = selected_poses
-            loc_result = [(pose_dir, design) for pose_dir, designs in selected_poses.items() for design in designs]
+            loc_result = [(pose_job, design) for pose_job, _designs in selected_poses.items() for design in _designs]
 
         # Include only the found index names to the saved dataframe
         save_poses_df = selected_poses_df.loc[loc_result, :]  # .droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
-        # convert to PoseJob objects
-        # results = {pose_directory: results[str(pose_directory)] for pose_directory in pose_directories
-        #            if str(pose_directory) in results}
-    else:  # Select designed sequences from each pose provided (PoseJob)
+        # Convert to PoseJob objects
+        # results = {pose_job: results[str(pose_job)] for pose_job in pose_jobs
+        #            if str(pose_job) in results}
+    else:  # Select designed sequences from each PoseJob.pose provided
         from . import select_sequences
         sequence_metrics = []  # Used to get the column headers
         sequence_filters = sequence_weights = None
 
         if job.filter or job.weight:
             try:
-                representative_pose_directory = next(iter(pose_directories))
+                representative_pose_job = next(iter(pose_jobs))
             except StopIteration:
-                raise RuntimeError('Missing the required argument pose_directories. It must be passed to continue')
-            example_trajectory = representative_pose_directory.designs_metrics_csv
+                raise RuntimeError('Missing the required argument pose_jobs. It must be passed to continue')
+            example_trajectory = representative_pose_job.designs_metrics_csv
             trajectory_df = pd.read_csv(example_trajectory, index_col=0, header=[0])
             sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
 
@@ -376,27 +390,25 @@ def designs(pose_directories: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
         if job.weight == list():
             sequence_weights = metrics.query_user_for_metrics(sequence_metrics, mode='weight', level='sequence')
 
+        results: dict[PoseJob, list[str]]
         if job.multi_processing:
             # sequence_weights = {'buns_per_ang': 0.2, 'observed_evolution': 0.3, 'shape_complementarity': 0.25,
             #                     'int_energy_res_summary_delta': 0.25}
-            zipped_args = zip(pose_directories, repeat(sequence_filters), repeat(sequence_weights),
+            zipped_args = zip(pose_jobs, repeat(sequence_filters), repeat(sequence_weights),
                               repeat(job.designs_per_pose), repeat(job.protocol))
-            # result_mp = zip(*SDUtils.mp_starmap(Ams.select_sequences, zipped_args, processes=job.cores))
-            result_mp = \
-                utils.mp_starmap(select_sequences, zipped_args, processes=job.cores)
-            # results - contains tuple of (PoseJob, design index) for each sequence
-            # could simply return the design index then zip with the directory
-            results = {pose_dir: designs for pose_dir, designs in zip(pose_directories, result_mp)}
+            # result_mp = zip(*utils.mp_starmap(select_sequences, zipped_args, processes=job.cores))
+            result_mp = utils.mp_starmap(select_sequences, zipped_args, processes=job.cores)
+            results = {pose_job: _designs for pose_job, _designs in zip(pose_jobs, result_mp)}
         else:
-            results = {pose_dir: select_sequences(
-                                 pose_dir, filters=sequence_filters, weights=sequence_weights,
+            results = {pose_job: select_sequences(
+                                 pose_job, filters=sequence_filters, weights=sequence_weights,
                                  number=job.designs_per_pose, protocols=job.protocol)
-                       for pose_dir in pose_directories}
+                       for pose_job in pose_jobs}
 
         # Todo there is no sort here so the number isn't really doing anything
         results = dict(list(results.items())[:job.number])
-        loc_result = [(pose_dir, design) for pose_dir, designs in results.items() for design in designs]
-        total_df = load_total_dataframe(pose_directories)
+        loc_result = [(pose_job, design) for pose_job, _designs in results.items() for design in _designs]
+        total_df = load_total_dataframe(pose_jobs)
         save_poses_df = total_df.loc[loc_result, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
 
     # Format selected sequences for output
@@ -418,49 +430,52 @@ def designs(pose_directories: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
     save_poses_df.to_csv(new_dataframe)
     logger.info(f'New DataFrame with selected designs was written to: {new_dataframe}')
 
-    # Create new output of designed PDB's  # TODO attach the state to these files somehow for further SymDesign use
+    # Create new output of designed PDB's  # Todo attach the state to these files somehow for further SymDesign use
     exceptions = []
-    for pose_dir, designs in results.items():
-        for design in designs:
-            file_path = os.path.join(pose_dir.designs_path, f'*{design}*')
+    for pose_job, _designs in results.items():
+        for design in _designs:
+            file_path = os.path.join(pose_job.designs_path, f'*{design}*')
             file = sorted(glob(file_path))
             if not file:  # Add to exceptions
-                exceptions.append((pose_dir, f'No file found for "{file_path}"'))
+                exceptions.append((pose_job, f'No file found for "{file_path}"'))
                 continue
-            out_path = os.path.join(job.output_directory, f'{pose_dir}_design_{design}.pdb')
+            out_path = os.path.join(job.output_directory, f'{pose_job}_design_{design}.pdb')
             if not os.path.exists(out_path):
                 shutil.copy(file[0], out_path)  # [i])))
-                # shutil.copy(des_dir.designs_metrics_csv, os.path.join(outdir_traj, os.path.basename(des_dir.designs_metrics_csv)))
-                # shutil.copy(des_dir.residues_metrics_csv, os.path.join(outdir_res, os.path.basename(des_dir.residues_metrics_csv)))
+                # shutil.copy(pose_job.designs_metrics_csv,
+                #     os.path.join(outdir_traj, os.path.basename(pose_job.designs_metrics_csv)))
+                # shutil.copy(pose_job.residues_metrics_csv,
+                #     os.path.join(outdir_res, os.path.basename(pose_job.residues_metrics_csv)))
         # try:
         #     # Create symbolic links to the output PDB's
-        #     os.symlink(file[0], os.path.join(job.output_directory, '%s_design_%s.pdb' % (str(des_dir), design)))  # [i])))
-        #     os.symlink(des_dir.designs_metrics_csv, os.path.join(outdir_traj, os.path.basename(des_dir.designs_metrics_csv)))
-        #     os.symlink(des_dir.residues_metrics_csv, os.path.join(outdir_res, os.path.basename(des_dir.residues_metrics_csv)))
+        #     os.symlink(file[0], os.path.join(job.output_directory,
+        #                                      '%s_design_%s.pdb' % (str(pose_job), design)))  # [i])))
+        #     os.symlink(pose_job.designs_metrics_csv,
+        #                os.path.join(outdir_traj, os.path.basename(pose_job.designs_metrics_csv)))
+        #     os.symlink(pose_job.residues_metrics_csv,
+        #                os.path.join(outdir_res, os.path.basename(pose_job.residues_metrics_csv)))
         # except FileExistsError:
         #     pass
 
     return results  # , exceptions
 
 
-# def sequences(results: dict[PoseJob, ]):
-def sequences(pose_directories: list[PoseJob]):
+def sequences(pose_jobs: list[PoseJob]):
     """Perform design selection followed by sequence formatting on those designs
 
     Args:
-        pose_directories:
-
+        pose_jobs: The PoseJob instances for which selection is desired
     Returns:
-
+        The matching PoseJob instances
     """
     job = job_resources_factory.get()
-    results = designs(pose_directories)
+    results = designs(pose_jobs)
 
     job.output_file = os.path.join(job.output_directory, f'{job.prefix}SelectedDesigns{job.suffix}.paths')
     # Todo move this to be in terminate(results=results.keys()) -> success
     # pose_directories = list(results.keys())
     with open(job.output_file, 'w') as f:
-        f.write('%s\n' % '\n'.join(pose_dir.path for pose_dir in list(results.keys())))
+        f.write('%s\n' % '\n'.join(str(pose_job) for pose_job in list(results.keys())))
 
     # Set up mechanism to solve sequence tagging preferences
     def solve_tags(pose: Pose) -> list[bool]:
@@ -499,38 +514,38 @@ def sequences(pose_directories: list[PoseJob]):
     missing_tags = {}  # result: [True, True] for result in results
     tag_sequences, final_sequences, inserted_sequences, nucleotide_sequences = {}, {}, {}, {}
     codon_optimization_errors = {}
-    for des_dir, _designs in results.items():
-        des_dir.load_pose()  # source=des_dir.asu_path)
-        tag_index = solve_tags(des_dir.pose)
+    for pose_job, _designs in results.items():
+        pose_job.load_pose()
+        tag_index = solve_tags(pose_job.pose)
         number_of_tags = sum(tag_index)
-        des_dir.pose.rename_chains()  # Do I need to modify chains?
+        pose_job.pose.rename_chains()
         for design in _designs:
-            file_glob = f'{des_dir.designs_path}{os.sep}*{design}*'
+            file_glob = f'{pose_job.designs_path}{os.sep}*{design}*'
             file = sorted(glob(file_glob))
             if not file:
                 logger.error(f'No file found for {file_glob}')
                 continue
-            design_pose = Model.from_file(file[0], log=des_dir.log, entity_names=des_dir.entity_names)
+            design_pose = Model.from_file(file[0], log=pose_job.log, entity_names=pose_job.entity_names)
             designed_atom_sequences = [entity.sequence for entity in design_pose.entities]
 
-            missing_tags[(des_dir, design)] = [1 for _ in des_dir.pose.entities]
+            missing_tags[(pose_job, design)] = [1 for _ in pose_job.pose.entities]
             prior_offset = 0
             # all_missing_residues = {}
             # mutations = []
             sequences_and_tags = {}
             entity_termini_availability, entity_helical_termini = {}, {}
-            for idx, (source_entity, design_entity) in enumerate(zip(des_dir.pose.entities, design_pose.entities)):
+            for idx, (source_entity, design_entity) in enumerate(zip(pose_job.pose.entities, design_pose.entities)):
                 # source_entity.retrieve_info_from_api()
                 # source_entity.reference_sequence
-                sequence_id = f'{des_dir}_{source_entity.name}'
-                # design_string = '%s_design_%s_%s' % (des_dir, design, source_entity.name)  # [i])), pdb_code)
+                sequence_id = f'{pose_job}_{source_entity.name}'
+                # design_string = '%s_design_%s_%s' % (pose_job, design, source_entity.name)  # [i])), pdb_code)
                 design_string = f'{design}_{source_entity.name}'
-                termini_availability = des_dir.pose.get_termini_accessibility(source_entity)
+                termini_availability = pose_job.pose.get_termini_accessibility(source_entity)
                 logger.debug(f'Design {sequence_id} has the following termini accessible for tags: '
                              f'{termini_availability}')
                 if job.avoid_tagging_helices:
                     termini_helix_availability = \
-                        des_dir.pose.get_termini_accessibility(source_entity, report_if_helix=True)
+                        pose_job.pose.get_termini_accessibility(source_entity, report_if_helix=True)
                     logger.debug(f'Design {sequence_id} has the following helical termini available: '
                                  f'{termini_helix_availability}')
                     termini_availability = {'n': termini_availability['n'] and not termini_helix_availability['n'],
@@ -625,15 +640,15 @@ def sequences(pose_directories: list[PoseJob]):
                         iteration += 1
 
                 if selected_tag.get('name'):
-                    missing_tags[(des_dir, design)][idx] = 0
+                    missing_tags[(pose_job, design)][idx] = 0
                     logger.debug(f'The pre-existing, identified tag is:\n{selected_tag}')
                 sequences_and_tags[design_string] = {'sequence': formatted_design_sequence, 'tag': selected_tag}
 
             # After selecting all tags, consider tagging the design as a whole
             if number_of_tags > 0:
-                number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
+                number_of_found_tags = len(pose_job.pose.entities) - sum(missing_tags[(pose_job, design)])
                 if number_of_tags > number_of_found_tags:
-                    print(f'There were {number_of_tags} requested tags for design {des_dir} and '
+                    print(f'There were {number_of_tags} requested tags for design {pose_job} and '
                           f'{number_of_found_tags} were found')
                     current_tag_options = \
                         '\n\t'.join([f'{i} - {entity_name}\n'
@@ -652,7 +667,7 @@ def sequences(pose_directories: list[PoseJob]):
 
                     iteration_idx = 0
                     while number_of_tags != number_of_found_tags:
-                        if iteration_idx == len(missing_tags[(des_dir, design)]):
+                        if iteration_idx == len(missing_tags[(pose_job, design)]):
                             print(f'You have seen all options, but the number of requested tags ({number_of_tags}) '
                                   f"doesn't equal the number selected ({number_of_found_tags})")
                             satisfied = input('If you are satisfied with this, enter "continue", otherwise enter '
@@ -662,8 +677,8 @@ def sequences(pose_directories: list[PoseJob]):
                                 break
                             else:
                                 iteration_idx = 0
-                        for idx, entity_missing_tag in enumerate(missing_tags[(des_dir, design)][iteration_idx:]):
-                            sequence_id = f'{des_dir}_{des_dir.pose.entities[idx].name}'
+                        for idx, entity_missing_tag in enumerate(missing_tags[(pose_job, design)][iteration_idx:]):
+                            sequence_id = f'{pose_job}_{pose_job.pose.entities[idx].name}'
                             if entity_missing_tag and tag_index[idx]:  # isn't tagged but could be
                                 print(f'Entity {sequence_id} is missing a tag. Would you like to tag this entity?')
                                 if not boolean_choice():
@@ -710,18 +725,18 @@ def sequences(pose_directories: list[PoseJob]):
                                     sequences_and_tags[selected_entity]['sequence'][-12:] \
                                     + 'GS' + resources.config.expression_tags[tag]
                             sequences_and_tags[selected_entity]['tag'] = {'name': tag, 'sequence': new_tag_sequence}
-                            missing_tags[(des_dir, design)][idx] = 0
+                            missing_tags[(pose_job, design)][idx] = 0
                             break
 
                         iteration_idx += 1
-                        number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
+                        number_of_found_tags = len(pose_job.pose.entities) - sum(missing_tags[(pose_job, design)])
 
                 elif number_of_tags < number_of_found_tags:  # when more than the requested number of tags were id'd
-                    print(f'There were only {number_of_tags} requested tags for design {des_dir} and '
+                    print(f'There were only {number_of_tags} requested tags for design {pose_job} and '
                           f'{number_of_found_tags} were found')
                     while number_of_tags != number_of_found_tags:
                         tag_input = input(f'Which tag would you like to remove? Enter the number of the currently '
-                                          f'configured tag option that you would like to remove. If you would like '
+                                          'configured tag option that you would like to remove. If you would like '
                                           f'to keep all, specify "keep"\n\t%s\n{input_string}'
                                           % '\n\t'.join([f'{i} - {entity_name}\n\t\t{tag_options["tag"]}'
                                                          for i, (entity_name, tag_options)
@@ -731,7 +746,7 @@ def sequences(pose_directories: list[PoseJob]):
                         elif tag_input.isdigit():
                             tag_input = int(tag_input)
                             if tag_input <= len(sequences_and_tags):
-                                missing_tags[(des_dir, design)][tag_input - 1] = 1
+                                missing_tags[(pose_job, design)][tag_input - 1] = 1
                                 selected_entity = list(sequences_and_tags.keys())[tag_input - 1]
                                 sequences_and_tags[selected_entity]['tag'] = \
                                     {'name': None, 'termini': None, 'sequence': None}
@@ -741,7 +756,7 @@ def sequences(pose_directories: list[PoseJob]):
                                 print("Input doesn't match an integer from the available options. Please try again")
                         else:
                             print(f'"{tag_input}" is an invalid input. Try again')
-                        number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
+                        number_of_found_tags = len(pose_job.pose.entities) - sum(missing_tags[(pose_job, design)])
 
             # Apply all tags to the sequences
             # Todo indicate the linkers that will be used!
@@ -817,7 +832,7 @@ def sequences(pose_directories: list[PoseJob]):
                     else:
                         nucleotide_sequences[design_string] = nucleotide_sequence
             if job.multicistronic:
-                nucleotide_sequences[str(des_dir)] = cistronic_sequence
+                nucleotide_sequences[str(pose_job)] = cistronic_sequence
 
     # Report Errors
     if codon_optimization_errors:
