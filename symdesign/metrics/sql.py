@@ -192,22 +192,23 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
             pose metrics
         update: Whether the output identifiers are already present in the metrics
     """
-    job = job_resources_factory()
-    # engine = job.db.engine
     if update:
         dataframe_function = upsert_dataframe
     else:
         dataframe_function = insert_dataframe
 
-    with job.db.session() as session:
-
     warn = warned = False
+
     def warn_multiple_update_results():
         nonlocal warned
         if warn and not warned:
             logger.warning(f"Performing multiple metrics SQL transactions will only return only results for the last "
                            f"transaction")
             warned = True
+
+    job = job_resources_factory()
+    # engine = job.db.engine
+    session = job.current_session
     if poses is not None:
         warn = True
         poses.replace({np.nan: None}, inplace=True)

@@ -777,7 +777,7 @@ def main():
         job.sym_entry.log_parameters()
         # # Make master output directory. sym_entry is required, so this won't fail v
         # if args.output_directory is None:
-        #     # job.output_directory = os.path.join(job.projects, f'NanohedraEntry{sym_entry.entry_number}_BUILDING-BLOCKS_Poses')
+        #     # job.output_directory = os.path.join(job.projects, f'NanohedraEntry{sym_entry.number}_BUILDING-BLOCKS_Poses')
         #     job.output_directory = job.projects
         #     putils.make_path(job.output_directory)
         # Transform input entities to canonical orientation and return their ASU
@@ -924,7 +924,7 @@ def main():
             # structures2 = [entity for entity in all_entities if entity.name in structures2]
             pose_jobs = list(product(structures1, structures2))
 
-        job.location = f'NanohedraEntry{job.sym_entry.entry_number}'  # Used for terminate()
+        job.location = f'NanohedraEntry{job.sym_entry.number}'  # Used for terminate()
         if not pose_jobs:  # No pairs were located
             exit('No docking pairs were located from your input. Please ensure that your input flags are as intended! '
                  f'{putils.issue_submit_warning}')
@@ -996,288 +996,292 @@ def main():
 
     job.calculate_memory_requirements(len(pose_jobs))
     # -----------------------------------------------------------------------------------------------------------------
-    #  Parse SubModule specific commands and performs the protocol specified.
+    #  Initialize the db.session, set into job namespace
     # -----------------------------------------------------------------------------------------------------------------
     results = []
     exceptions = []
-    # ---------------------------------------------------
-    if args.module == flags.protocol:  # Use args.module as job.module is set as first in protocol
-        run_on_pose_directory = (
-            flags.orient,
-            flags.expand_asu,
-            flags.rename_chains,
-            flags.check_clashes,
-            flags.generate_fragments,
-            flags.interface_metrics,
-            flags.optimize_designs,
-            flags.refine,
-            flags.interface_design,
-            flags.design,
-            flags.analysis,
-            flags.nanohedra
-        )
-        returns_pose_directories = (
-            flags.nanohedra,
-            flags.select_poses,
-            flags.select_designs,
-            # flags.select_sequences
-        )
-        # terminate_options = dict(
-        #     # analysis=dict(output_analysis=args.output),  # Replaced with args.output in terminate()
-        # )
-        # terminate_kwargs = {}
-        # Universal protocol runner
-        for idx, protocol_name in enumerate(job.modules, 1):
-            logger.info(f'Starting protocol {idx}: {protocol_name}')
-            # Update this mechanism with each module
-            job.module = protocol_name
+    with job.db.session(expire_on_commit=False) as session:
+        job.current_session = session
+    # -----------------------------------------------------------------------------------------------------------------
+    #  Perform the specified protocol
+    # -----------------------------------------------------------------------------------------------------------------
+        if args.module == flags.protocol:  # Use args.module as job.module is set as first in protocol
+            run_on_pose_directory = (
+                flags.orient,
+                flags.expand_asu,
+                flags.rename_chains,
+                flags.check_clashes,
+                flags.generate_fragments,
+                flags.interface_metrics,
+                flags.optimize_designs,
+                flags.refine,
+                flags.interface_design,
+                flags.design,
+                flags.analysis,
+                flags.nanohedra
+            )
+            returns_pose_directories = (
+                flags.nanohedra,
+                flags.select_poses,
+                flags.select_designs,
+                # flags.select_sequences
+            )
+            # terminate_options = dict(
+            #     # analysis=dict(output_analysis=args.output),  # Replaced with args.output in terminate()
+            # )
+            # terminate_kwargs = {}
+            # Universal protocol runner
+            for idx, protocol_name in enumerate(job.modules, 1):
+                logger.info(f'Starting protocol {idx}: {protocol_name}')
+                # Update this mechanism with each module
+                job.module = protocol_name
 
-            # Fetch the specified protocol with python acceptable naming
-            protocol = getattr(protocols, protocol_name.replace('-', '_'))
-            # Figure out how the job should be set up
-            if protocol_name in run_on_pose_directory:  # Single poses
-                if job.multi_processing:
-                    _results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
+                # Fetch the specified protocol with python acceptable naming
+                protocol = getattr(protocols, protocol_name.replace('-', '_'))
+                # Figure out how the job should be set up
+                if protocol_name in run_on_pose_directory:  # Single poses
+                    if job.multi_processing:
+                        _results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
+                    else:
+                        _results = []
+                        for pose_job in pose_jobs:
+                            _results.append(protocol(pose_job))
+                else:  # Collection of poses
+                    _results = protocol(pose_jobs)
+
+                # Handle any returns that require particular treatment
+                if protocol_name in returns_pose_directories:
+                    results = []
+                    if _results:  # Not an empty list
+                        if isinstance(_results[0], list):  # In the case of nanohedra
+                            for result in _results:
+                                results.extend(result)
+                        else:
+                            results.extend(_results)  # append(result)
+                    pose_jobs = results
                 else:
-                    _results = []
+                    results = _results
+                # elif putils.cluster_poses:  # Returns None
+                #    pass
+
+                # Update the current state of protocols and exceptions
+                pose_jobs, additional_exceptions = parse_protocol_results(pose_jobs, results)
+                exceptions.extend(additional_exceptions)
+            #     # Retrieve any program flags necessary for termination
+            #     terminate_kwargs.update(**terminate_options.get(protocol_name, {}))
+            #
+            # terminate(results=results, **terminate_kwargs, exceptions=exceptions)
+            # terminate(results=results, exceptions=exceptions)
+        # -----------------------------------------------------------------------------------------------------------------
+        #  Run a single submodule
+        # -----------------------------------------------------------------------------------------------------------------
+        else:
+            if job.module == 'find_transforms':
+                # if args.multi_processing:
+                #     results = SDUtils.mp_map(PoseJob.find_transforms, pose_jobs, processes=job.cores)
+                # else:
+                stacked_transforms = [pose_job.pose_transformation for pose_job in pose_jobs]
+                trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[0].values()
+                                                                         for transform in stacked_transforms])
+                trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[1].values()
+                                                                         for transform in stacked_transforms])
+                # Create the full dictionaries
+                transformation1 = dict(rotation=trans1_rot1, translation=trans1_tx1,
+                                       rotation2=trans1_rot2, translation2=trans1_tx2)
+                transformation2 = dict(rotation=trans2_rot1, translation=trans2_tx1,
+                                       rotation2=trans2_rot2, translation2=trans2_tx2)
+                file1 = utils.pickle_object(transformation1, name='transformations1', out_path=os.getcwd())
+                file2 = utils.pickle_object(transformation2, name='transformations2', out_path=os.getcwd())
+                logger.info(f'Wrote transformation1 parameters to {file1}')
+                logger.info(f'Wrote transformation2 parameters to {file2}')
+
+                terminate(results=results)
+            # ---------------------------------------------------
+            # Todo
+            # elif job.module == 'status':  # -n number, -s stage, -u update
+            #     if args.update:
+            #         for pose_job in pose_jobs:
+            #             update_status(pose_job.serialized_info, args.stage, mode=args.update)
+            #     else:
+            #         if job.design.number:
+            #             logger.info('Checking for %d files based on --number_of_designs flag' % args.number_of_designs)
+            #         if args.stage:
+            #             status(pose_jobs, args.stage, number=job.design.number)
+            #         else:
+            #             for stage in putils.stage_f:
+            #                 s = status(pose_jobs, stage, number=job.design.number)
+            #                 if s:
+            #                     logger.info('For "%s" stage, default settings should generate %d files'
+            #                                 % (stage, putils.stage_f[stage]['len']))
+            # # ---------------------------------------------------
+            # Todo
+            # elif job.module == 'find_asu':
+            #     # Fetch the specified protocol
+            #     protocol = getattr(protocols, job.module)
+            #     if args.multi_processing:
+            #         results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
+            #     else:
+            #         for pose_job in pose_jobs:
+            #             results.append(protocol(pose_job))
+            #
+            #     terminate(results=results)
+            # # ---------------------------------------------------
+            # Todo
+            # elif job.module == 'check_unmodelled_clashes':
+            #     # Fetch the specified protocol
+            #     protocol = getattr(protocols, job.module)
+            #     if args.multi_processing:
+            #         results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
+            #     else:
+            #         for pose_job in pose_jobs:
+            #             results.append(protocol(pose_job))
+            #
+            #     terminate(results=results)
+            # # ---------------------------------------------------
+            # Todo
+            # elif job.module == 'custom_script':
+            #     # Start pose processing and preparation for Rosetta
+            #     if args.multi_processing:
+            #         zipped_args = zip(pose_jobs, repeat(args.script), repeat(args.force), repeat(args.file_list),
+            #                           repeat(args.native), repeat(job.suffix), repeat(args.score_only),
+            #                           repeat(args.variables))
+            #         results = utils.mp_starmap(PoseJob.custom_rosetta_script, zipped_args, processes=job.cores)
+            #     else:
+            #         for pose_job in pose_jobs:
+            #             results.append(pose_job.custom_rosetta_script(args.script, force=args.force,
+            #                                                           file_list=args.file_list, native=args.native,
+            #                                                           suffix=job.suffix, score_only=args.score_only,
+            #                                                           variables=args.variables))
+            #
+            #     terminate(results=results)
+            # ---------------------------------------------------
+            elif job.module == flags.cluster_poses:
+                protocols.cluster.cluster_poses(pose_jobs)
+                terminate(output=False)
+            # ---------------------------------------------------
+            elif job.module == flags.select_poses:
+                # Need to initialize pose_jobs to terminate()
+                pose_jobs = results = protocols.select.poses(pose_jobs)
+                # Write out the chosen poses to a pose.paths file
+                terminate(results=results)
+            # ---------------------------------------------------
+            elif job.module == flags.select_designs:
+                # Need to initialize pose_jobs to terminate()
+                pose_jobs = results = protocols.select.designs(pose_jobs)
+                # Write out the chosen poses to a pose.paths file
+                terminate(results=results)
+            # ---------------------------------------------------
+            elif job.module == flags.select_sequences:
+                # Need to initialize pose_jobs to terminate()
+                pose_jobs = results = protocols.select.sequences(pose_jobs)
+                # Write out the chosen poses to a pose.paths file
+                terminate(results=results)
+            # ---------------------------------------------------
+            elif job.module == 'visualize':
+                import visualization.VisualizeUtils as VSUtils
+                from pymol import cmd
+
+                # if 'escher' in sys.argv[1]:
+                if not args.directory:
+                    exit(f'A directory with the desired designs must be specified using -d/--{flags.directory}')
+
+                if ':' in args.directory:  # args.file  Todo job.location
+                    print('Starting the data transfer from remote source now...')
+                    os.system(f'scp -r {args.directory} .')
+                    file_dir = os.path.basename(args.directory)
+                else:  # assume the files are local
+                    file_dir = args.directory
+                # files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=not args.order)
+
+                if args.order == 'alphabetical':
+                    files = VSUtils.get_all_file_paths(file_dir, extension='.pdb')  # sort=True)
+                else:  # if args.order == 'none':
+                    files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=False)
+
+                print(f'FILES:\n {files[:4]}')
+                if args.order == 'paths':  # TODO FIX janky paths handling below
+                    # for pose_job in pose_jobs:
+                    with open(args.file[0], 'r') as f:
+                        paths = \
+                            map(str.replace, map(str.strip, f.readlines()),
+                                repeat('/yeates1/kmeador/Nanohedra_T33/SymDesignOutput/Projects/'
+                                       'NanohedraEntry54DockedPoses_Designs/'), repeat(''))
+                        paths = list(paths)
+                    ordered_files = []
+                    for path in paths:
+                        for file in files:
+                            if path in file:
+                                ordered_files.append(file)
+                                break
+                    files = ordered_files
+                    # raise NotImplementedError('--order choice "paths" hasn\'t been set up quite yet... Use another method')
+                    # ordered_files = []
+                    # for index in df.index:
+                    #     for file in files:
+                    #         if index in file:
+                    #             ordered_files.append(file)
+                    #             break
+                    # files = ordered_files
+                elif args.order == 'dataframe':
+                    if not job.dataframe:
+                        df_glob = sorted(glob(os.path.join(file_dir, 'TrajectoryMetrics.csv')))
+                        try:
+                            job.dataframe = df_glob[0]
+                        except IndexError:
+                            raise IndexError(f"There was no --{flags.dataframe} specified and one couldn't be located at "
+                                             f'the location "{job.location}". Initialize again with the path to the '
+                                             'relevant dataframe')
+
+                    df = pd.read_csv(job.dataframe, index_col=0, header=[0])
+                    print('INDICES:\n %s' % df.index.to_list()[:4])
+                    ordered_files = []
+                    for index in df.index:
+                        for file in files:
+                            # if index in file:
+                            if os.path.splitext(os.path.basename(file))[0] in index:
+                                ordered_files.append(file)
+                                break
+                    # print('ORDERED FILES (%d):\n %s' % (len(ordered_files), ordered_files))
+                    files = ordered_files
+
+                if not files:
+                    exit(f'No .pdb files found at location "{job.location}"')
+
+                # if len(sys.argv) > 2:
+                #     low, high = map(float, sys.argv[2].split('-'))
+                #     low_range, high_range = int((low / 100) * len(files)), int((high / 100) * len(files))
+                #     if low_range < 0 or high_range > len(files):
+                #         raise ValueError('The input range is outside of the acceptable bounds [0-100]')
+                #     print('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
+                # else:
+                print(low_range, high_range)
+                print(all_poses)
+                for idx, file in enumerate(files[low_range:high_range], low_range + 1):
+                    if args.name == 'original':
+                        cmd.load(file)
+                    else:  # if args.name == 'numerical':
+                        cmd.load(file, object=idx)
+
+                print('\nTo expand all designs to the proper symmetry, issue:\nPyMOL> expand name=all, symmetry=T'
+                      '\nYou should replace "T" with whatever symmetry your design is in\n')
+            else:  # Fetch the specified protocol
+                protocol = getattr(protocols, flags.format_from_cmdline(job.module))
+                if job.development:
+                    if job.profile:
+                        if profile:
+
+                            # Run the profile decorator from memory_profiler
+                            # Todo insert into the bottom most decorator slot
+                            profile(protocol)(pose_jobs[0])
+                        else:
+                            logger.critical(f"The module memory_profiler isn't installed {profile_error}")
+                        exit('Done profiling')
+
+                if args.multi_processing:
+                    results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
+                else:
                     for pose_job in pose_jobs:
-                        _results.append(protocol(pose_job))
-            else:  # Collection of poses
-                _results = protocol(pose_jobs)
-
-            # Handle any returns that require particular treatment
-            if protocol_name in returns_pose_directories:
-                results = []
-                if _results:  # Not an empty list
-                    if isinstance(_results[0], list):  # In the case of nanohedra
-                        for result in _results:
-                            results.extend(result)
-                    else:
-                        results.extend(_results)  # append(result)
-                pose_jobs = results
-            else:
-                results = _results
-            # elif putils.cluster_poses:  # Returns None
-            #    pass
-
-            # Update the current state of protocols and exceptions
-            pose_jobs, additional_exceptions = parse_protocol_results(pose_jobs, results)
-            exceptions.extend(additional_exceptions)
-        #     # Retrieve any program flags necessary for termination
-        #     terminate_kwargs.update(**terminate_options.get(protocol_name, {}))
-        #
-        # terminate(results=results, **terminate_kwargs, exceptions=exceptions)
-        # terminate(results=results, exceptions=exceptions)
-    # -----------------------------------------------------------------------------------------------------------------
-    #  Run a single submodule
-    # -----------------------------------------------------------------------------------------------------------------
-    else:
-        if job.module == 'find_transforms':
-            # if args.multi_processing:
-            #     results = SDUtils.mp_map(PoseJob.find_transforms, pose_jobs, processes=job.cores)
-            # else:
-            stacked_transforms = [pose_job.pose.entity_transformations for pose_job in pose_jobs]
-            trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[0].values()
-                                                                     for transform in stacked_transforms])
-            trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[1].values()
-                                                                     for transform in stacked_transforms])
-            # Create the full dictionaries
-            transformation1 = dict(rotation=trans1_rot1, translation=trans1_tx1,
-                                   rotation2=trans1_rot2, translation2=trans1_tx2)
-            transformation2 = dict(rotation=trans2_rot1, translation=trans2_tx1,
-                                   rotation2=trans2_rot2, translation2=trans2_tx2)
-            file1 = utils.pickle_object(transformation1, name='transformations1', out_path=os.getcwd())
-            file2 = utils.pickle_object(transformation2, name='transformations2', out_path=os.getcwd())
-            logger.info(f'Wrote transformation1 parameters to {file1}')
-            logger.info(f'Wrote transformation2 parameters to {file2}')
-
-            terminate(results=results)
-        # ---------------------------------------------------
-        # Todo
-        # elif job.module == 'status':  # -n number, -s stage, -u update
-        #     if args.update:
-        #         for pose_job in pose_jobs:
-        #             update_status(pose_job.serialized_info, args.stage, mode=args.update)
-        #     else:
-        #         if job.design.number:
-        #             logger.info('Checking for %d files based on --number_of_designs flag' % args.number_of_designs)
-        #         if args.stage:
-        #             status(pose_jobs, args.stage, number=job.design.number)
-        #         else:
-        #             for stage in putils.stage_f:
-        #                 s = status(pose_jobs, stage, number=job.design.number)
-        #                 if s:
-        #                     logger.info('For "%s" stage, default settings should generate %d files'
-        #                                 % (stage, putils.stage_f[stage]['len']))
-        # # ---------------------------------------------------
-        # Todo
-        # elif job.module == 'find_asu':
-        #     # Fetch the specified protocol
-        #     protocol = getattr(protocols, job.module)
-        #     if args.multi_processing:
-        #         results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
-        #     else:
-        #         for pose_job in pose_jobs:
-        #             results.append(protocol(pose_job))
-        #
-        #     terminate(results=results)
-        # # ---------------------------------------------------
-        # Todo
-        # elif job.module == 'check_unmodelled_clashes':
-        #     # Fetch the specified protocol
-        #     protocol = getattr(protocols, job.module)
-        #     if args.multi_processing:
-        #         results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
-        #     else:
-        #         for pose_job in pose_jobs:
-        #             results.append(protocol(pose_job))
-        #
-        #     terminate(results=results)
-        # # ---------------------------------------------------
-        # Todo
-        # elif job.module == 'custom_script':
-        #     # Start pose processing and preparation for Rosetta
-        #     if args.multi_processing:
-        #         zipped_args = zip(pose_jobs, repeat(args.script), repeat(args.force), repeat(args.file_list),
-        #                           repeat(args.native), repeat(job.suffix), repeat(args.score_only),
-        #                           repeat(args.variables))
-        #         results = utils.mp_starmap(PoseJob.custom_rosetta_script, zipped_args, processes=job.cores)
-        #     else:
-        #         for pose_job in pose_jobs:
-        #             results.append(pose_job.custom_rosetta_script(args.script, force=args.force,
-        #                                                           file_list=args.file_list, native=args.native,
-        #                                                           suffix=job.suffix, score_only=args.score_only,
-        #                                                           variables=args.variables))
-        #
-        #     terminate(results=results)
-        # ---------------------------------------------------
-        elif job.module == flags.cluster_poses:
-            protocols.cluster.cluster_poses(pose_jobs)
-            terminate(output=False)
-        # ---------------------------------------------------
-        elif job.module == flags.select_poses:
-            # Need to initialize pose_jobs to terminate()
-            pose_jobs = results = protocols.select.poses(pose_jobs)
-            # Write out the chosen poses to a pose.paths file
-            terminate(results=results)
-        # ---------------------------------------------------
-        elif job.module == flags.select_designs:
-            # Need to initialize pose_jobs to terminate()
-            pose_jobs = results = protocols.select.designs(pose_jobs)
-            # Write out the chosen poses to a pose.paths file
-            terminate(results=results)
-        # ---------------------------------------------------
-        elif job.module == flags.select_sequences:
-            # Need to initialize pose_jobs to terminate()
-            pose_jobs = results = protocols.select.sequences(pose_jobs)
-            # Write out the chosen poses to a pose.paths file
-            terminate(results=results)
-        # ---------------------------------------------------
-        elif job.module == 'visualize':
-            import visualization.VisualizeUtils as VSUtils
-            from pymol import cmd
-
-            # if 'escher' in sys.argv[1]:
-            if not args.directory:
-                exit(f'A directory with the desired designs must be specified using -d/--{flags.directory}')
-
-            if ':' in args.directory:  # args.file  Todo job.location
-                print('Starting the data transfer from remote source now...')
-                os.system(f'scp -r {args.directory} .')
-                file_dir = os.path.basename(args.directory)
-            else:  # assume the files are local
-                file_dir = args.directory
-            # files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=not args.order)
-
-            if args.order == 'alphabetical':
-                files = VSUtils.get_all_file_paths(file_dir, extension='.pdb')  # sort=True)
-            else:  # if args.order == 'none':
-                files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=False)
-
-            print(f'FILES:\n {files[:4]}')
-            if args.order == 'paths':  # TODO FIX janky paths handling below
-                # for design in pose_jobs:
-                with open(args.file[0], 'r') as f:
-                    paths = \
-                        map(str.replace, map(str.strip, f.readlines()),
-                            repeat('/yeates1/kmeador/Nanohedra_T33/SymDesignOutput/Projects/'
-                                   'NanohedraEntry54DockedPoses_Designs/'), repeat(''))
-                    paths = list(paths)
-                ordered_files = []
-                for path in paths:
-                    for file in files:
-                        if path in file:
-                            ordered_files.append(file)
-                            break
-                files = ordered_files
-                # raise NotImplementedError('--order choice "paths" hasn\'t been set up quite yet... Use another method')
-                # ordered_files = []
-                # for index in df.index:
-                #     for file in files:
-                #         if index in file:
-                #             ordered_files.append(file)
-                #             break
-                # files = ordered_files
-            elif args.order == 'dataframe':
-                if not job.dataframe:
-                    df_glob = sorted(glob(os.path.join(file_dir, 'TrajectoryMetrics.csv')))
-                    try:
-                        job.dataframe = df_glob[0]
-                    except IndexError:
-                        raise IndexError(f"There was no --{flags.dataframe} specified and one couldn't be located at "
-                                         f'the location "{job.location}". Initialize again with the path to the '
-                                         'relevant dataframe')
-
-                df = pd.read_csv(job.dataframe, index_col=0, header=[0])
-                print('INDICES:\n %s' % df.index.to_list()[:4])
-                ordered_files = []
-                for index in df.index:
-                    for file in files:
-                        # if index in file:
-                        if os.path.splitext(os.path.basename(file))[0] in index:
-                            ordered_files.append(file)
-                            break
-                # print('ORDERED FILES (%d):\n %s' % (len(ordered_files), ordered_files))
-                files = ordered_files
-
-            if not files:
-                exit(f'No .pdb files found at location "{job.location}"')
-
-            # if len(sys.argv) > 2:
-            #     low, high = map(float, sys.argv[2].split('-'))
-            #     low_range, high_range = int((low / 100) * len(files)), int((high / 100) * len(files))
-            #     if low_range < 0 or high_range > len(files):
-            #         raise ValueError('The input range is outside of the acceptable bounds [0-100]')
-            #     print('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
-            # else:
-            print(low_range, high_range)
-            print(all_poses)
-            for idx, file in enumerate(files[low_range:high_range], low_range + 1):
-                if args.name == 'original':
-                    cmd.load(file)
-                else:  # if args.name == 'numerical':
-                    cmd.load(file, object=idx)
-
-            print('\nTo expand all designs to the proper symmetry, issue:\nPyMOL> expand name=all, symmetry=T'
-                  '\nYou should replace "T" with whatever symmetry your design is in\n')
-        else:  # Fetch the specified protocol
-            protocol = getattr(protocols, flags.format_from_cmdline(job.module))
-            if job.development:
-                if job.profile:
-                    if profile:
-
-                        # Run the profile decorator from memory_profiler
-                        # Todo insert into the bottom most decorator slot
-                        profile(protocol)(pose_jobs[0])
-                    else:
-                        logger.critical(f"The module memory_profiler isn't installed {profile_error}")
-                    exit('Done profiling')
-
-            if args.multi_processing:
-                results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
-            else:
-                for pose_job in pose_jobs:
-                    results.append(protocol(pose_job))
+                        results.append(protocol(pose_job))
     # -----------------------------------------------------------------------------------------------------------------
     #  Finally, run terminate(). This formats output parameters and reports on exceptions
     # -----------------------------------------------------------------------------------------------------------------
