@@ -50,6 +50,7 @@ mean, std = 'mean', 'std'
 stats_metrics = [mean, std]
 symmetry_protocols = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 null_cmd = ['echo']
+observed_types = ('evolution', 'fragment', 'design', 'interface')
 
 
 class PoseDirectory(ABC):
@@ -1017,7 +1018,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             source_idx = 1
         else:
             source_idx = 2
-            self.log.info(f'Falling back on entities present in the {type(self).__name__} source')
+            self.log.info(f'Falling back on Entity instances present in the {type(self).__name__} structure_source')
 
         # self.entities.clear()
         entities = []
@@ -1097,18 +1098,18 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #         self.entities.append(Model.from_file(file, name=os.path.splitext(os.path.basename(file))[0],
         #                                              log=self.log))
 
-    def load_pose(self, source: str = None, entities: list[Structure] = None):
+    def load_pose(self, file: str = None, entities: list[Structure] = None):
         """For the design info given by a PoseJob source, initialize the Pose with self.source_path file,
         self.symmetry, self.job, self.fragment_database, and self.log objects
 
         Handles Pose clash testing, writing the Pose, adding state variables to the pose
 
         Args:
-            source: The file path to a source file
+            file: The file path to a structure_source file
             entities: The Entities desired in the Pose
         """
         # Check to see if Pose is already loaded and nothing new provided
-        if self.pose and source is not None or entities is not None:
+        if self.pose and file is not None or entities is not None:
             return
 
         # rename_chains = True  # Because the result of entities, we should rename
@@ -3465,14 +3466,14 @@ class PoseProtocol(PoseData):
 
         pose_length = self.pose.number_of_residues
         residue_indices = list(range(pose_length))
-
-        # Make requisite profiles
-        profile_background = {}
         nan_blank_data = np.tile(list(repeat(np.nan, pose_length)), (number_of_sequences, 1))
 
+        # Make requisite profiles
         if self.job.design.evolution_constraint:
             self.generate_evolutionary_profile(warn_metrics=True)
 
+        # Try to add each of the profile types in observed_types to profile_background
+        profile_background = {}
         if self.measure_evolution:
             profile_background['evolution'] = evolutionary_profile_array = \
                 pssm_as_array(self.pose.evolutionary_profile)
@@ -3636,7 +3637,6 @@ class PoseProtocol(PoseData):
             dca_concatenated_df = pd.concat([dca_concatenated_df], keys=['dca_energy'], axis=1).swaplevel(0, 1, axis=1)
             # Merge with residues_df
             residues_df = pd.merge(residues_df, dca_concatenated_df, left_index=True, right_index=True)
-
 
         return residues_df
 
@@ -4211,6 +4211,12 @@ class PoseProtocol(PoseData):
             designs_df['collapse_sequential_peaks_z'] / total_increased_collapse
         designs_df['collapse_sequential_z_mean'] = designs_df['collapse_sequential_z'] / total_increased_collapse
 
+        # Ensure summed observed_types are taken as the average over the pose_length
+        for _type in observed_types:
+            try:
+                designs_df[f'observed_{_type}'] /= pose_length
+            except KeyError:
+                continue
         # POSE ANALYSIS
         # designs_df = pd.concat([designs_df, proteinmpnn_df], axis=1)
         designs_df.dropna(how='all', inplace=True, axis=1)  # Remove completely empty columns
