@@ -60,35 +60,34 @@ def insert_dataframe(session: Session, _table: Base, df: pd.DataFrame):  # -> li
     session.execute(insert_stmt, df.reset_index().to_dict('records'))
     logger.info(f'Transaction took {time() - start_time:8f}s')
 
-    session.commit()
-    # input('is this deleting?')
-    # foreign_key = [key.column.name for key in table.foreign_keys]
-    for key in table.foreign_keys:
-        foreign_key_name = key.column.name
-        table2 = key.column.table
-        # Repeat the Find procedure for table2
-        # Find relevant column indicators to parse the non-primary key non-nullable columns
-        primary_keys2 = [key for key in table2.primary_key]
-        non_null_keys2 = [col for col in table2.columns if not col.nullable]
-        index_keys2 = [key for key in non_null_keys2 if key not in primary_keys2]
-        # Todo this statement fails due to the error:
-        #  This backend (sqlite) does not support multiple-table criteria within UPDATE
-        #  This doesn't appear to be a multiple-table update, but a multiple-table criteria,
-        #  which is supported by sqlite...
-        # foreign_key_update_stmt = table.update()\
-        #     .values({key.parent.name: key.column})\
-        #     .where(*tuple(key1 == key2 for key1, key2 in zip(index_keys, index_keys2)))
-        # logger.info(foreign_key_update_stmt)
-
-        select_stmt = select(key.column).where(key.parent.is_(None))\
-            .where(*tuple(key1 == key2 for key1, key2 in zip(index_keys, index_keys2))).scalar_subquery()
-        foreign_key_update_stmt2 = table.update()\
-            .values({key.parent.name: select_stmt})
-        logger.info(foreign_key_update_stmt2)
-        # session.execute(foreign_key_update_stmt)
-        start_time = time()
-        session.execute(foreign_key_update_stmt2)
-        logger.info(f'Transaction took {time() - start_time:8f}s')
+    # session.commit()
+    # # foreign_key = [key.column.name for key in table.foreign_keys]
+    # for key in table.foreign_keys:
+    #     foreign_key_name = key.column.name
+    #     table2 = key.column.table
+    #     # Repeat the Find procedure for table2
+    #     # Find relevant column indicators to parse the non-primary key non-nullable columns
+    #     primary_keys2 = [key for key in table2.primary_key]
+    #     non_null_keys2 = [col for col in table2.columns if not col.nullable]
+    #     index_keys2 = [key for key in non_null_keys2 if key not in primary_keys2]
+    #     # Todo this statement fails due to the error:
+    #     #  This backend (sqlite) does not support multiple-table criteria within UPDATE
+    #     #  This doesn't appear to be a multiple-table update, but a multiple-table criteria,
+    #     #  which is supported by sqlite...
+    #     # foreign_key_update_stmt = table.update()\
+    #     #     .values({key.parent.name: key.column})\
+    #     #     .where(*tuple(key1 == key2 for key1, key2 in zip(index_keys, index_keys2)))
+    #     # logger.info(foreign_key_update_stmt)
+    #
+    #     select_stmt = select(key.column).where(key.parent.is_(None))\
+    #         .where(*tuple(key1 == key2 for key1, key2 in zip(index_keys, index_keys2))).scalar_subquery()
+    #     foreign_key_update_stmt2 = table.update()\
+    #         .values({key.parent.name: select_stmt})
+    #     logger.info(foreign_key_update_stmt2)
+    #     # session.execute(foreign_key_update_stmt)
+    #     start_time = time()
+    #     session.execute(foreign_key_update_stmt2)
+    #     logger.info(f'Transaction took {time() - start_time:8f}s')
 
     session.commit()
     # return result

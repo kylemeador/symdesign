@@ -613,27 +613,20 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
     @property
     def number_of_designs(self) -> int:
-        """Return the number of designs created for the PoseJob"""
-        try:
-            return self._number_of_designs
-        except AttributeError:
-            self._number_of_designs = self.info.get('number_of_designs', 0)
-            return self._number_of_designs
+        return len(self.designs)
 
-    @number_of_designs.setter
-    def number_of_designs(self, _id: int):
-        self._number_of_designs = self.info['number_of_designs'] = _id
-
-    @property
-    def designed_sequences(self) -> list[Sequence]:
-        """Return the designed sequences for the entire Pose associated with the PoseJob"""
-        try:
-            return self._designed_sequences
-        except AttributeError:
-            # Todo
-            #  self._designed_sequences = {seq.id: seq.seq for seq in read_fasta_file(self.designed_sequences_file)}
-            self._designed_sequences = [seq_record.seq for seq_record in read_fasta_file(self.designed_sequences_file)]
-            return self._designed_sequences
+    # @property
+    # def number_of_designs(self) -> int:
+    #     """Return the number of designs created for the PoseJob"""
+    #     try:
+    #         return self._number_of_designs
+    #     except AttributeError:
+    #         self._number_of_designs = self.info.get('number_of_designs', 0)
+    #         return self._number_of_designs
+    #
+    # @number_of_designs.setter
+    # def number_of_designs(self, _id: int):
+    #     self._number_of_designs = self.info['number_of_designs'] = _id
 
     # SymEntry object attributes
     @property
@@ -3014,8 +3007,8 @@ class PoseProtocol(PoseData):
         residue_indices = list(range(pose_length))  # [residue.index for residue in self.pose.residues]
         # residue_numbers = [residue.number for residue in self.pose.residues]
 
-        metadata_df = pd.DataFrame(sequences_and_scores['temperatures'], index=design_ids, columns=['temperature'])
-        metadata_df[putils.protocol] = sequences_and_scores[putils.protocol]
+        # metadata_df = pd.DataFrame(sequences_and_scores['temperatures'], index=design_ids, columns=['temperature'])
+        # metadata_df[putils.protocol] = sequences_and_scores[putils.protocol]
         # numeric_sequences = sequences_and_scores['numeric_sequences']
         # torch_numeric_sequences = torch.from_numpy(numeric_sequences)
         # nan_blank_data = list(repeat(np.nan, pose_length))
@@ -3252,36 +3245,48 @@ class PoseProtocol(PoseData):
                                        interface=interface, neighbors=neighbors,
                                        ca_only=self.job.design.ca_only
                                        )
-        # Update the Pose with the number of designs
-        number_of_new_designs = len(self.job.design.number * self.job.design.temperatures)
-        # with self.job.db.session() as session:
-        first_new_design_idx = self.number_of_designs + 1
-        self.number_of_designs += number_of_new_designs
-        #     session.add(self)
-        #     session.commit()
         # self.log.debug(f"Took {time.time() - design_start:8f}s for design_sequences")
-        # Add protocol (job info) and temperature to sequences_and_scores
-        sequences_and_scores[putils.protocol] = list(repeat(self.protocol, number_of_new_designs))
-        sequences_and_scores['temperatures'] = [temperature for temperature in self.job.design.temperatures
-                                                for _ in range(self.job.design.number)]
-        # design_names = [f'{seq_idx:04d}'  # f'{self.name}_{self.protocol}{seq_idx:04d}'
-        design_names = [f'{self.protocol}{seq_idx:04d}'  # f'{self.name}_{self.protocol}{seq_idx:04d}'
-                        for seq_idx in range(first_new_design_idx,
-                                             first_new_design_idx + number_of_new_designs)]
+
+        # Update the Pose with the number of designs
+        designs_metadata = self.update_design_metadata()
 
         # self.output_proteinmpnn_scores(design_names, sequences_and_scores)
-        putils.make_path(self.designs_path)
         # # Write every designed sequence to the sequences file...
         # write_sequences(sequences_and_scores['sequences'], names=design_names, file_name=self.designed_sequences_file)
         # Convert sequences to a plain string sequence representation
         sequences_and_scores['sequences'] = \
             [''.join(sequence) for sequence in sequences_and_scores['sequences'].tolist()]
+
+        # Add protocol (job info) and temperature to sequences_and_scores
+        # number_of_new_designs = len(designs_metadata)
+        # sequences_and_scores[putils.protocol] = list(repeat(self.protocol, len(designs_metadata)))
+        # sequences_and_scores['temperatures'] = [temperature for temperature in self.job.design.temperatures
+        # protocols = list(repeat(self.protocol, len(designs_metadata)))
+        temperatures = [temperature for temperature in self.job.design.temperatures
+                        for _ in range(self.job.design.number)]
+        design_ids = [design_metadata.id for design_metadata in designs_metadata]
+
+        # Todo use the DesignMetrics.sequence field instead...
+        #  use with alphafold requires .fasta... Which we can make when we are self.predict_sequence()
         # Write every designed sequence to an individual file...
-        for name, sequence in zip(design_names, sequences_and_scores['sequences']):
+        putils.make_path(self.designs_path)
+        design_names = [design_metadata.name for design_metadata in designs_metadata]
+        sequence_files = [
             write_sequences(sequence, names=name, file_name=os.path.join(self.designs_path, name))
+            for name, sequence in zip(design_names, sequences_and_scores['sequences'])
+        ]
+        # Update the Pose with the design protocols
+        for idx, design_metadata in enumerate(designs_metadata):
+            design_metadata.protocols.append(
+                sql.ProtocolMetadata(design_id=design_ids[idx],
+                                     protocol=self.protocol,  # protocols[idx],
+                                     temperature=temperatures[idx],
+                                     file=sequence_files[idx]))
+        # protocol_metadata = self.update_protocol_metadata(protocols=protocols, temperatures=temperatures,
+        #                                                   files=sequence_files)
 
         # analysis_start = time.time()
-        self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
+        self.analyze_proteinmpnn_metrics(design_ids, sequences_and_scores)
         # self.log.debug(f"Took {time.time() - analysis_start:8f}s for analyze_proteinmpnn_metrics. "
         #                f"{time.time() - design_start:8f}s total")
 
@@ -3333,7 +3338,52 @@ class PoseProtocol(PoseData):
     #     putils.make_path(self.data_path)
     #     write_per_residue_scores(design_ids, sequences_and_scores)
 
-    def output_metrics(self, designs: pd.DataFrame = None, residues: pd.DataFrame = None, update: bool = False):
+    def update_protocol_metadata(self, design_ids: Sequence[str], protocols: Sequence[str] = None,
+                                 temperatures: Sequence[float] = None, files: Sequence[AnyStr] = None) \
+            -> list[sql.ProtocolMetadata]:
+        """Associate newly created DesignMetadata with ProtocolMetadata
+
+        Args:
+            design_ids: The identifiers for each DesignMetadata
+            protocols: The sequence of protocols to associate with ProtocolMetadata
+            temperatures: The temperatures to associate with ProtocolMetadata
+            files: The sequence of files to associate with ProtocolMetadata
+        Returns:
+            The new instances of the sql.ProtocolMetadata
+        """
+        metadata = [sql.ProtocolMetadata(design_id=design_id, protocol=protocol, temperature=temperature, file=file)
+                    for design_id, protocol, temperature, file in zip(design_ids, protocols, temperatures, files)]
+        return metadata
+
+    def update_design_metadata(self, number: int = None) -> list[sql.DesignMetadata]:  # list[int]:
+        """Update the PoseData with the newly created design identifiers using DesignMetadata
+
+        Args:
+            number: The number of designs. If not provided, set according to job.design.number * job.design.temperature
+        Returns:
+            The new instances of the DesignMetadata
+        """
+        if number is None:
+            number = len(self.job.design.number * self.job.design.temperatures)
+
+        # self.number_of_designs += number_of_new_designs  # Now done with self.number_of_designs in SQL
+        # with self.job.db.session(expire_on_commit=False) as session:
+        first_new_design_idx = self.number_of_designs + 1
+        # design_names = [f'{self.protocol}{seq_idx:04d}'  # f'{self.name}_{self.protocol}{seq_idx:04d}'
+        design_names = [f'{self.name}-{design_idx:04d}'  # f'{self.name}_{self.protocol}{seq_idx:04d}'
+                        for design_idx in range(first_new_design_idx,
+                                                first_new_design_idx + number)]
+        designs = [sql.DesignMetadata(name=name, pose_id=self.id) for name in design_names]
+        session = self.job.current_session
+        session.add_all(designs)
+        session.commit()
+        # design_ids = [design.id for design in designs]
+
+        # return design_ids
+        return designs
+
+    def output_metrics(self, designs: pd.DataFrame = None, residues: pd.DataFrame = None,
+                       pose_metrics: bool = False, update: bool = False):
         """Format each possible DataFrame type for output via csv or SQL database
 
         Args:
