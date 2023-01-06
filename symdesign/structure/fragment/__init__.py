@@ -620,7 +620,7 @@ def find_fragment_overlap(fragments1: Iterable[Fragment], fragments2: Sequence[F
 
 def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: Fragment = None,
                                overlap_error: float = None, match_number: int = None,
-                               out_path: AnyStr = os.getcwd(), pose_id: str = None):
+                               out_path: AnyStr = os.getcwd(), pose_identifier: str = None):
     # central_frequencies=None,
     # ghost_residue: Residue = None, matched_residue: Residue = None,
 
@@ -630,7 +630,7 @@ def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: F
     with open(os.path.join(out_path, utils.path.frag_text_file), 'a+') as out_info_file:
         # if is_initial_match:
         if match_number == 1:
-            out_info_file.write(f'DOCKED POSE ID: {pose_id}\n\n')
+            out_info_file.write(f'DOCKED POSE ID: {pose_identifier}\n\n')
             out_info_file.write('***** ALL FRAGMENT MATCHES *****\n\n')
             # out_info_file.write("***** INITIAL MATCH FROM REPRESENTATIVES OF INITIAL FRAGMENT CLUSTERS *****\n\n")
         cluster_id = 'i{}_j{}_k{}'.format(*ghost_frag.ijk)
