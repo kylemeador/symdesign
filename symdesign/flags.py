@@ -511,7 +511,7 @@ class Formatter(argparse.RawTextHelpFormatter, argparse.RawDescriptionHelpFormat
 # argument default. The available specifiers include the program name, %(prog)s and most keyword arguments to
 # add_argument(), e.g. %(default)s, %(type)s, etc.:
 # Todo Found the following for formatting the prog use case in subparsers
-#  {'refine': ArgumentParser(prog='python SymDesign.py module [module_arguments] [input_arguments]'
+#  {'refine': ArgumentParser(prog='python {program_exe} module [module_arguments] [input_arguments]'
 #                                 '[optional_arguments] refine'
 
 boolean_positional_prevent_msg = 'Use --no-{} to prevent'.format
@@ -1158,10 +1158,10 @@ input_mutual_arguments = {
                                 f'will be created specifying the specific directories to use\nin subsequent commands of'
                                 f' the same designs'),
     ('-p', '--project'): dict(type=os.path.abspath, nargs='*',
-                              metavar=ex_path('SymDesignOutput', 'Projects', 'yourProject'),
+                              metavar=ex_path(program_output, projects, 'yourProject'),
                               help='Operate on designs specified within a project(s)'),
     ('-s', '--single'): dict(type=os.path.abspath, nargs='*',
-                             metavar=ex_path('SymDesignOutput', 'Projects', 'yourProject', 'single_pose[.pdb]'),
+                             metavar=ex_path(program_output, projects, 'yourProject', 'single_pose[.pdb]'),
                              help='Operate on single pose(s) in a project'),
 }
 output_help = 'Specify where output should be written'

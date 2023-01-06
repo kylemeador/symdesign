@@ -466,13 +466,13 @@ def main():
         file_sources = ['file', 'poses', 'specification_file']  # 'poses' 'pose_file'
         for file_source in file_sources:
             file = getattr(args, file_source, None)
-            if file:  # See if the file contains SymDesign specified paths
+            if file:  # See if the specified file source contains compatible paths
                 # Must index the first file with [0] as it can be a list...
                 file = file[0]
                 with open(file, 'r') as f:
                     line = f.readline()
                     basename, extension = os.path.splitext(line)
-                    if extension == '':  # No extension. Provided as directory/poseid from SymDesign output
+                    if extension == '':  # Provided as directory/pose_name (pose_identifier) from SymDesignOutput
                         file_directory = utils.get_base_symdesign_dir(line)
                         if file_directory is not None:
                             symdesign_directory = file_directory
@@ -516,7 +516,7 @@ def main():
         # utils.set_logging_to_level(handler_level=job.log_level)
         # # Root logger logs to a single file with level 'info'
         # utils.start_log(handler=2, location=os.path.join(symdesign_directory, putils.program_name))
-        # SymDesign main logs to stream with level info and propagates to main log
+        # __main__ logs to stream with level info and propagates to main log
         # logger = utils.start_log(name=putils.program_name, propagate=True)
         # All Designs will log to specific file with level info unless skip_logging is passed
     # -----------------------------------------------------------------------------------------------------------------
@@ -630,6 +630,7 @@ def main():
         #         if not os.path.exists(os.path.join(project_designs, putils.master_log)):
         #             putils.make_path(project_designs)
         #             shutil.copy(os.path.join(job.nanohedra_root, putils.master_log), project_designs)
+        initialized = True
         pose_identifiers = []
         if args.specification_file:
             # These poses are already included in the "program state"
@@ -653,8 +654,7 @@ def main():
                 pose_jobs = list(session.scalars(fetch_jobs_stmt))
                 # pose_jobs = list(job.current_session.scalars(fetch_jobs_stmt))
                 for pose_job, _designs, _directives in zip(pose_jobs, designs, directives):
-                    pose_job.specific_designs = _designs
-                    pose_job.directives = _directives
+                    pose_job.use_specific_designs(_designs, _directives)
 
             # for specification_file in args.specification_file:
             #     pose_jobs.extend(
@@ -681,6 +681,9 @@ def main():
         else:
             all_poses, job.location = utils.collect_designs(files=args.file, directory=args.directory,
                                                             projects=args.project, singles=args.single)
+            # Todo this is sloppy logic as the collect_designs could get existing files.
+            #  They just need to be checked against the PoseMetadata
+            initialized = False
             if all_poses:
                 # if all_poses[0].count(os.sep) == 0:  # Check to ensure -f wasn't used when -pf was meant
                 #     # Assume that we have received pose-IDs and process accordingly
@@ -696,12 +699,7 @@ def main():
                              for pose in all_poses[low_range:high_range]]
         if not pose_jobs:
             raise utils.InputError(f'No {putils.program_name} directories found at location "{job.location}"')
-        representative_pose_job = next(iter(pose_jobs))
-
-        # Todo logic error when initialization occurs with module that doesn't call this, subsequent runs are missing
-        #  directories/resources that haven't been made
         # Check to see that proper files have been created including orient, refinement, loop modeling, hhblits, bmdca?
-        initialized = representative_pose_job.initialized
         initialize_modules = [flags.interface_design, flags.design, flags.interface_metrics, flags.optimize_designs]
         #      flags.analysis,  # maybe hhblits, bmDCA. Only refine if Rosetta were used, no loop_modelling
         #      flags.refine]  # pre_refine not necessary. maybe hhblits, bmDCA, loop_modelling
@@ -801,6 +799,7 @@ def main():
 
         logger.info(f'Found {len(pose_jobs)} unique poses from provided input location "{job.location}"')
         if not job.debug and not job.skip_logging:
+            representative_pose_job = next(iter(pose_jobs))
             if representative_pose_job.log_path:
                 logger.info(f'All design specific logs are located in their corresponding directories\n\tEx: '
                             f'{representative_pose_job.log_path}')

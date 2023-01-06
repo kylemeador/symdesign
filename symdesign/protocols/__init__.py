@@ -425,7 +425,7 @@ def expand_asu(job: pose.PoseJob):
         job.load_pose()
     else:
         raise SymmetryError(warn_missing_symmetry % job.expand_asu.__name__)
-    job.pickle_info()  # Todo remove once PoseJob state can be returned to the SymDesign dispatch w/ MP
+    job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
 
 
 @protocol_decorator(errors=(DesignError,))
@@ -511,7 +511,7 @@ def interface_design(job: pose.PoseJob):
             job.proteinmpnn_design(interface=True, neighbors=job.job.design.neighbors)  # Sets job.protocol
         case _:
             raise ValueError(f"The method '{job.job.design.method}' isn't available")
-    job.pickle_info()  # Todo remove once PoseJob state can be returned to the SymDesign dispatch w/ MP
+    job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
 
 
 @protocol_decorator(errors=(DesignError,))
@@ -585,7 +585,7 @@ def design(job: pose.PoseJob):
             job.proteinmpnn_design()  # Sets job.protocol
         case _:
             raise ValueError(f"The method '{job.job.design.method}' isn't available")
-    job.pickle_info()  # Todo remove once PoseJob state can be returned to the SymDesign dispatch w/ MP
+    job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
 
 
 @protocol_decorator(errors=(DesignError,))
@@ -712,7 +712,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
 
 @protocol_decorator(errors=(DesignError,))
 def process_rosetta_metrics(job: pose.PoseJob):
-    """From Rosetta based protocols, tally the resulting metrics and integrate with SymDesign metrics database
+    """From Rosetta based protocols, tally the resulting metrics and integrate with the metrics database
 
     Args:
         job: The PoseJob for which the protocol should be performed on

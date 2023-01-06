@@ -364,7 +364,7 @@ class StructureDatabase(Database):
             # Use entry_entity only if not processed before
             else:  # They are missing, retrieve the proper files using PDB ID's
                 # entry = structure_identifier.split('_')
-                # # In case entry_entity is coming from a new SymDesign Directory the entity name is probably 1ABC_1
+                # # In case entry_entity is from a new program_output directory, the entity name is probably 1ABC_1
                 # if len(entry) == 2:
                 #     entry, entity = entry
                 #     # entry_entity = structure_identifier

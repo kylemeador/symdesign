@@ -1151,9 +1151,9 @@ class SequenceProfile(ABC):
         self.a3m_file = os.path.join(out_dir, f'{self.name}.a3m')
         # self.msa_file = os.path.join(out_path, f'{self.name}.fasta'
         self.msa_file = os.path.join(out_dir, f'{self.name}.sto')  # preferred
-        # this location breaks with SymDesign norm so we should modify it Todo clean
+        # Todo clean this location as it breaks with norm. Modify to?
         fasta_msa = os.path.join(os.path.dirname(out_dir), 'sequences', f'{self.name}.fasta')
-        # todo for higher performance set up https://www.howtoforge.com/storing-files-directories-in-memory-with-tmpfs
+        # Todo for higher performance set up https://www.howtoforge.com/storing-files-directories-in-memory-with-tmpfs
         cmd = [putils.hhblits_exe, '-d', putils.uniclustdb, '-i', self.sequence_file,
                '-ohhm', self.pssm_file, '-oa3m', self.a3m_file,  # '-Ofas', self.msa_file,
                '-hide_cons', '-hide_pred', '-hide_dssp', '-E', '1E-06',
