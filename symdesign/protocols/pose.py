@@ -1975,17 +1975,12 @@ class PoseProtocol(PoseData):
         # Favor pose source errat/collapse on a per-entity basis if design occurred
         # As the pose source assumes no legit interface present while designs have an interface
         # per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = [], [], []
-        # source_errat_accuracy, source_errat, source_contact_order, inverse_residue_contact_order_z = [], [], [], []
-        source_contact_order = []
-        for idx, entity in enumerate(self.pose.entities):
-            # Contact order is the same for every design in the Pose and not dependent on pose
-            source_contact_order.append(entity.contact_order)
+        # source_errat_accuracy, inverse_residue_contact_order_z = [], []
 
         per_residue_data: dict[str, dict[str, Any]] = \
-            {self.pose.name: self.pose.per_residue_interface_surface_area()}
-        pose_source_contact_order_s = \
-            pd.Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
-        per_residue_data[self.pose.name]['contact_order'] = pose_source_contact_order_s
+            {self.pose.name: {**self.pose.per_residue_interface_surface_area(),
+                              **self.pose.per_residue_contact_order()}
+             }
 
         number_of_entities = self.pose.number_of_entities
         if design_was_performed:  # The input structure was not meant to be together, treat as such
@@ -2637,13 +2632,15 @@ class PoseProtocol(PoseData):
             collapse_ax, errat_ax = fig.subplots(2, 1, sharex=True)
             # add the contact order to a new plot
             contact_ax = collapse_ax.twinx()
-            contact_ax.plot(pose_source_contact_order_s, label='Contact Order',
+            contact_order_df = residues_df.loc[self.pose.name, idx_slice[:, 'contact_order']].droplevel(0, axis=1)
+            # source_contact_order_s = pd.Series(source_contact_order, index=residue_indices, name='contact_order')
+            contact_ax.plot(contact_order_df, label='Contact Order',
                             color='#fbc0cb', lw=1, linestyle='-')  # pink
-            # contact_ax.scatter(residue_indices, pose_source_contact_order_s, color='#fbc0cb', marker='o')  # pink
-            # wt_contact_order_concatenated_min_s = pose_source_contact_order_s.min()
-            # wt_contact_order_concatenated_max_s = pose_source_contact_order_s.max()
+            # contact_ax.scatter(residue_indices, source_contact_order_s, color='#fbc0cb', marker='o')  # pink
+            # wt_contact_order_concatenated_min_s = source_contact_order_s.min()
+            # wt_contact_order_concatenated_max_s = source_contact_order_s.max()
             # wt_contact_order_range = wt_contact_order_concatenated_max_s - wt_contact_order_concatenated_min_s
-            # scaled_contact_order = ((pose_source_contact_order_s - wt_contact_order_concatenated_min_s)
+            # scaled_contact_order = ((source_contact_order_s - wt_contact_order_concatenated_min_s)
             #                         / wt_contact_order_range)  # / wt_contact_order_range)
             # graph_contact_order = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
             # collapse_ax1.plot(scaled_contact_order)
@@ -3967,11 +3964,6 @@ class PoseProtocol(PoseData):
         pose_length = self.pose.number_of_residues
         residue_indices = list(range(pose_length))
 
-        source_contact_order = []
-        for idx, entity in enumerate(self.pose.entities):
-            # Contact order is the same for every design in the Pose and not dependent on pose
-            source_contact_order.append(entity.contact_order)
-
         interface_errat = True
         if interface_errat:  # The input structure was not meant to be together, treat as such
             source_errat = []
@@ -3994,12 +3986,11 @@ class PoseProtocol(PoseData):
             pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
 
         # Collect reference Structure metrics
-        # pose_source_name = self.pose.name  # putils.pose_source
-        per_residue_data = {self.pose.name:  # putils.pose_source:
-                            {'contact_order': np.concatenate(source_contact_order),
-                             'errat_deviation': pose_source_errat,  # np.concatenate(source_errat)
-                             **self.pose.per_residue_interface_surface_area(),
-                             }}
+        per_residue_data = {self.pose.name:
+                            {**self.pose.per_residue_interface_surface_area(),
+                             **self.pose.per_residue_contact_order(),
+                             'errat_deviation': pose_source_errat}
+                            }
         # Convert per_residue_data into a dataframe matching residues_df orientation
         residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
