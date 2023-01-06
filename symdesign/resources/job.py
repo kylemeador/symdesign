@@ -166,7 +166,7 @@ class JobResources:
     _location: str | None
     _output_directory: AnyStr | None
     _session: Session | None
-    db: DBInfo
+    db: DBInfo | None
     reduce_memory: bool = False
 
     def __init__(self, program_root: AnyStr = None, arguments: argparse.Namespace = None, **kwargs):
@@ -227,7 +227,7 @@ class JobResources:
         self.pdbs = os.path.join(self.structure_info, 'PDBs')  # Used to store downloaded PDB's
         self.sequence_info = os.path.join(self.data, putils.sequence_info)
         self.external_db = os.path.join(self.data, 'ExternalDatabases')
-        self.internal_db = os.path.join(self.data, 'db')
+        self.internal_db = os.path.join(self.data, f'{putils.program_name}.db')
         # pdbs subdirectories
         self.orient_dir = os.path.join(self.pdbs, 'oriented')
         self.orient_asu_dir = os.path.join(self.pdbs, 'oriented_asu')

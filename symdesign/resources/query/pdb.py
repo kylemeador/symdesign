@@ -515,7 +515,7 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
                     if operator in schema[attribute]['operators']:
                         break
                     else:
-                        print('%s %s is not a valid operator!' % invalid_string, operator)
+                        print(f"{invalid_string} {operator} isn't a valid operator")
 
                 op_in = True
                 while op_in:  # Check if operator is 'in'
@@ -548,26 +548,26 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
                                             if confirmation.lower() in bool_d:
                                                 break
                                             else:
-                                                print('%s %s is not a valid choice!' % (invalid_string, confirmation))
+                                                print(f"{invalid_string} {confirmation} isn't a valid choice")
                                         if bool_d[confirmation.lower()] or confirmation.isspace():  # break the value routine on y or ''
                                             break
 
                                 else:
                                     break
                             except ValueError:  # catch any conversion issue like float('A')
-                                print('%s %s is not a valid %s value!' % (invalid_string,
-                                                                          value, instance_d[schema[attribute]['dtype']]))
+                                print(f"{invalid_string} {value} isn't a valid {instance_d[schema[attribute]['dtype']]}"
+                                      " value!")
 
                     while op_in:
                         # TODO ensure that the in parameters are spit out as a list
-                        additional = input(additional_input_string % ' value to your \'in\' operator')
+                        additional = input(additional_input_string % " value to your 'in' operator")
                         if additional.lower() in bool_d:
                             if bool_d[additional.lower()] or additional.isspace():
                                 break  # Stop the inner 'in' check loop
                             else:
                                 op_in = False  # Stop the inner and outer 'in' while loops
                         else:
-                            print('%s %s is not a valid choice!' % (invalid_string, confirmation))
+                            print(f"{invalid_string} {additional} isn't a valid choice")
 
                 while True:
                     confirmation = input('\n%s\n%s' % (query_display_string %
@@ -577,7 +577,7 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
                     if confirmation.lower() in bool_d:
                         break
                     else:
-                        print('%s %s is not a valid choice!' % (invalid_string, confirmation))
+                        print(f"{invalid_string} {confirmation} isn't a valid choice")
                 if bool_d[confirmation.lower()] or confirmation.isspace():
                     break
 
@@ -590,7 +590,7 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
                 if additional.lower() in bool_d:
                     break
                 else:
-                    print('%s %s is not a valid choice!' % invalid_string, confirmation)
+                    print(f"{invalid_string} {confirmation} isn't a valid choice")
             if not bool_d[additional.lower()]:  # or confirmation.isspace():
                 break
 
@@ -681,15 +681,14 @@ def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: i
                 else:
                     return data
         else:
-            logger.warning(f'EntryID "{entry}" is not of the required format and will not be found with the PDB API')
+            logger.warning(f"EntryID '{entry}' isn't the required format and will not be found with the PDB API")
     elif assembly_id is not None:
         entry, assembly_integer, *extra = assembly_id.split('-')
         if not extra and len(entry) == 4:
             logger.debug(f'Querying PDB API with {entry}-{assembly_integer}')
             return _get_assembly_info(entry=entry, assembly_integer=assembly_integer)
 
-        logger.warning(f'AssemblyID "{entry}-{assembly_integer}" is not of the required format and will not be found '
-                       f'with the PDB API')
+        logger.warning(f"AssemblyID '{assembly_id}' isn't the required format and will not be found with the PDB API")
 
     elif entity_id is not None:
         entry, entity_integer, *extra = entity_id.split('_')
@@ -697,8 +696,7 @@ def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: i
             logger.debug(f'Querying PDB API with {entry}_{entity_integer}')
             return _get_entity_info(entry=entry, entity_integer=entity_integer)
 
-        logger.warning(f'EntityID "{entry}_{entity_integer}" is not of the required format and will not be found with '
-                       f'the PDB API')
+        logger.warning(f"EntityID '{entity_id}' isn't the required format and will not be found with the PDB API")
     else:
         raise RuntimeError(f'No valid arguments passed to {query_pdb_by.__name__}. Valid arguments include: '
                            f'entry, assembly_id, assembly_integer, entity_id, entity_integer, chain')
@@ -1132,8 +1130,8 @@ def get_entity_id(entry: str = None, entity_integer: int | str = None, entity_id
         if not extra and len(entry) == 4:
             return entry, entity_integer
 
-        logger.warning(f'EntityID "{entry}_{entity_integer}" is not of the required format and will not be found with '
-                       f'the PDB API')
+        logger.warning(f"EntityID '{entity_id}' isn't the required format and will not be found with the PDB API")
+
     return None
 
 
