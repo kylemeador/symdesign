@@ -990,10 +990,10 @@ select_arguments = {
     weight_function_args: weight_function_kwargs,
 }
 # ---------------------------------------------------
-select_poses_help = 'Select poses based on specific metrics.\nSelection will be the result of a handful of metrics ' \
-                    f'combined using --filter and/or --weights.\nFor metric options see {analysis} --guide. If a pose '\
-                    "'input option from -d, -f, -p, or -s isn't\nprovided, the flags -sf or -df are possible where -sf"\
-                    " takes priority"
+select_poses_help = 'Select poses based on specific metrics.\n' \
+                    'Selection will be the result of a handful of metrics combined using --filter and/or\n' \
+                    f'--weights. For metric options, see the {analysis} --guide. The pose input flag\n' \
+                    f'--{specification_file} can be provided to restrict selection criteria'
 parser_select_poses = {select_poses: dict(description=select_poses_help, help=select_poses_help)}
 select_poses_arguments = {
     **select_arguments,
@@ -1015,10 +1015,11 @@ intergenic_sequence_args = ('-ms', f'--{multicistronic_intergenic_sequence}')
 intergenic_sequence_kwargs = dict(type=str, default=expression.default_multicistronic_sequence,
                                   help='The sequence to use in the intergenic region of a multicistronic expression '
                                        'output')
-select_sequences_help = 'From the provided poses, generate nucleotide/protein sequences based on specified selection\n'\
-                        'criteria and prioritized metrics. Generation of output sequences can take multiple forms\n' \
-                        'depending on downstream needs. By default, disordered region insertion,\ntagging for ' \
-                        f'expression, and codon optimization (if --{nucleotide}) are performed'
+select_sequences_help = 'From the provided poses, generate sequences (nucleotide/protein) based on specified\n' \
+                        'selection criteria and prioritized metrics. Generation of output sequences can take\n' \
+                        'multiple forms depending on downstream needs. By default, disordered region insertion,\n' \
+                        f'tagging for expression, and codon optimization (--{nucleotide}) are performed. The\n' \
+                        f'pose input flag --{specification_file} can be provided to restrict selection criteria'
 multicistronic_args = {
     csv_args: csv_kwargs,
     intergenic_sequence_args: intergenic_sequence_kwargs,
@@ -1056,8 +1057,9 @@ select_sequences_arguments = {
     **multicistronic_args,
 }
 # ---------------------------------------------------
-select_designs_help = f'From the provided poses, select designs based on specified selection criteria\nusing metrics. '\
-                      f'Alias for {select_sequences} with --skip-sequence-generation'
+select_designs_help = 'From the provided poses, select designs based on specified selection criteria using\n' \
+                      f'metrics. Alias for {select_sequences} with --skip-sequence-generation. The pose\n' \
+                      f'input flag --{specification_file} can be provided to restrict selection criteria'
 parser_select_designs = {select_designs: dict(description=select_designs_help, help=select_designs_help)}
 select_designs_arguments = {
     **select_arguments,
@@ -1065,9 +1067,9 @@ select_designs_arguments = {
     csv_args: csv_kwargs,
 }
 # ---------------------------------------------------
-multicistronic_help = 'Generate nucleotide sequences for selected designs by codon optimizing protein\nsequences, then'\
-                      ' concatenating nucleotide sequences. REQUIRES an input .fasta file\nspecified with the ' \
-                      '-f/--file argument'
+multicistronic_help = 'Generate nucleotide sequences for selected designs by codon optimizing protein\n' \
+                      'sequences, then concatenating nucleotide sequences. REQUIRES an input .fasta file\n' \
+                      'specified with the -f/--file argument'
 parser_multicistronic = {multicistronic: dict(description=multicistronic_help, help=multicistronic_help)}
 multicistronic_arguments = {
     **multicistronic_args,
@@ -1077,8 +1079,8 @@ multicistronic_arguments = {
 # ---------------------------------------------------
 # parser_asu = subparsers.add_parser('find_asu', description='From a symmetric assembly, locate an ASU and save the result.')
 # ---------------------------------------------------
-check_clashes_help = 'Check for any clashes in the input poses.\nThis is performed by ' \
-                     'default at Pose load\nand will raise an error if clashes are found'
+check_clashes_help = 'Check for any clashes in the input poses. This is performed by default at Pose\n' \
+                     f'load and will raise a ClashError (caught and reported) if clashes are found'
 parser_check_clashes = {check_clashes: dict(description=check_clashes_help, help=check_clashes_help)}
 # ---------------------------------------------------
 # parser_check_unmodelled_clashes = subparsers.add_parser('check_unmodelled_clashes', description='Check for clashes between full models. Useful for understanding if loops are missing, whether their modelled density is compatible with the pose')
@@ -1090,8 +1092,8 @@ generate_fragments_help = 'Generate fragment overlap for poses of interest and w
 parser_generate_fragments = \
     {generate_fragments: dict(description=generate_fragments_help, help=generate_fragments_help)}
 # ---------------------------------------------------
-rename_chains_help = 'For given poses, rename the chains in the source PDB to the alphabetic order.\nUseful for ' \
-                     'writing a multi-model as distinct chains or fixing PDB formatting errors'
+rename_chains_help = 'For given poses, rename the chains in the source PDB to the alphabetic order.\n' \
+                     'Useful for writing a multi-model as distinct chains or fixing PDB formatting errors'
 parser_rename_chains = {rename_chains:
                         dict(description=rename_chains_help, help=rename_chains_help)}
 # # ---------------------------------------------------
@@ -1105,8 +1107,10 @@ parser_rename_chains = {rename_chains:
 # # ---------------------------------------------------
 # parser_residue_selector = {'residue_selector': dict(description='Generate a residue selection for %s' % program_name)}
 # ---------------------------------------------------
-directory_needed = f'To locate poses from a file utilizing pose IDs (-df, -pf, and -sf)' \
-                   f'\nprovide your working {program_output} directory with -d/--directory'
+directory_needed = f'To locate poses from a file utilizing pose identifiers (--{poses}, -sf)\n' \
+                   f'provide your working {program_output} directory with -d/--directory.\n' \
+                   f'If you run {program_name} in the context of an existing {program_output}\n' \
+                   f'the directory will automatically be inferred'
 input_help = f'Specify where/which poses should be included in processing\n{directory_needed}'
 parser_input = {input_: dict(description=input_help)}  # , help=input_help
 parser_input_group = dict(title=f'{"_" * len(input_title)}\n{input_title}',
@@ -1115,48 +1119,51 @@ parser_input_group = dict(title=f'{"_" * len(input_title)}\n{input_title}',
 input_arguments = {
     cluster_map_args: cluster_map_kwargs,
     ('-df', f'--{dataframe}'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
-                                    help=f'A DataFrame created b {program_name} analysis containing\npose info. File is'
-                                         ' output in .csv format'),
+                                    help=f'A DataFrame created by {program_name} analysis containing\n'
+                                         f'pose metrics. File is output in .csv format'),
     ('--fuse-chains',): dict(type=str, nargs='*', default=[], metavar='A:B C:D',
-                             help='The name of a pair of chains to fuse during design.\nPaired chains should be '
-                                  'separated by a colon, with the n-terminal\npreceding the c-terminal chain. Fusion '
-                                  'instances should be\nseparated by a space\nEx --fuse-chains A:B C:D'),
+                             help='The name of a pair of chains to fuse during design. Paired\n'
+                                  'chains should be separated by a colon, with the n-terminal\n'
+                                  'preceding the c-terminal chain. Fusion instances should be\n'
+                                  'separated by a space\n'
+                                  'Ex --fuse-chains A:B C:D'),
     ('-N', f'--{nanohedra}V1-output'): dict(action='store_true', dest=nanohedra_output,
                                             help='Is the input a Nanohedra wersion 1 docking output?'),
-    ('-pf', f'--{poses}'): dict(type=os.path.abspath, nargs='*',  # dest=putils.specification_file,
-                                metavar=ex_path(default_path_file.format('TIMESTAMP', 'MODULE', 'LOCATION')),
-                                help='If pose identifiers are specified in a file, say as the result of\n'
-                                     f'{select_poses} or {select_designs}'),
+    (f'--{poses}',): dict(type=os.path.abspath, nargs='*',  # dest=putils.specification_file,
+                          metavar=ex_path(default_path_file.format('TIMESTAMP', 'MODULE', 'LOCATION')),
+                          help=f'For each run of {program_name}, a file will be created that\n'
+                               f'specifies the specific poses used during that module. Use\n'
+                               f'these files to interact with those poses in subsequent commands'),
+    #                            'If pose identifiers are specified in a file, say as the result of\n'
+    #                            f'{select_poses} or {select_designs}'),
     ('-P', '--preprocessed'): dict(action='store_true',
                                    help=f'Whether the designs of interest have been preprocessed for the '
                                         f'{current_energy_function}\nenergy function and/or missing loops\n'),
     ('-r', '--range'): dict(type=float, default=None, metavar='int-int',
                             help='The range of poses to process from a larger specification.\n'
                                  'Specify a %% between 0 and 100, separating the range by "-"\n'
-                            # %% is required ^ for format
+                                 # Required ^ for formatting
                                  'Ex: 0-25'),
     ('-sf', f'--{specification_file}'):
         dict(type=os.path.abspath, nargs='*', metavar=ex_path('pose_design_specifications.csv'),
              help='Name of comma separated file with each line formatted:\n'
                   # 'poseID, [designID], [1:directive 2-9:directive ...]\n'
                   '"pose_identifier, [design_name], [1:directive 2-9:directive ...]"\n'
-                  'where [] indicate optional arguments and both individual residue\n'
+                  'where [] indicate optional arguments. Both individual residue\n'
                   'numbers and ranges (specified with "-") are possible indicators')
 }
 # parser_input_mutual = parser_input.add_mutually_exclusive_group()
 parser_input_mutual_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
 input_mutual_arguments = {
     ('-d', f'--{directory}'): dict(type=os.path.abspath, metavar=ex_path('your_pdb_files'),
-                                   help='Master directory where poses to be designed are located. This may be\nthe'
-                                        f' output directory from {nanohedra}.py, a random directory\nwith poses '
-                                        f'requiring design, or the output from {program_name}.\nIf the directory of '
-                                        f'interest resides in a {program_output} directory,\nit is recommended to use '
-                                        '-f, -p, or -s for finer control'),
+                                   help='Master directory where poses to be designed are located. This may be\n'
+                                        f'the output directory from {nanohedra}.py, a random directory with\n'
+                                        f'poses requiring design, or the output from {program_name}. If the\n'
+                                        f'directory of interest resides in a {program_output} directory, it is\n'
+                                        'recommended to use --file, --project, or --single for finer control'),
     ('-f', '--file'): dict(type=os.path.abspath, default=None, nargs='*',
                            metavar=ex_path('file_with_pose.paths'),
-                           help=f'File(s) with the location of poses listed. For each run of {program_name},\na file '
-                                f'will be created specifying the specific directories to use\nin subsequent commands of'
-                                f' the same designs'),
+                           help='File(s) with structure files to be input listed'),
     ('-p', '--project'): dict(type=os.path.abspath, nargs='*',
                               metavar=ex_path(program_output, projects, 'yourProject'),
                               help='Operate on designs specified within a project(s)'),
