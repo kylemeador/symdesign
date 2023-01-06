@@ -4,11 +4,10 @@ import argparse
 import os
 import operator
 import sys
-from typing import Any, AnyStr, Callable, Container, Literal
+from typing import Any, AnyStr, Callable, Container, Literal, get_args
 
 import pandas as pd
 from psutil import cpu_count
-from typing_extensions import get_args
 
 from symdesign.sequence import expression
 from symdesign.resources import config
@@ -31,7 +30,7 @@ from symdesign.utils.path import submodule_guide, submodule_help, force, sym_ent
     preferred_tag, expand_asu, check_clashes, rename_chains, optimize_designs, perturb_dof, tag_entities, design
 
 design_programs_literal = Literal['consensus', 'proteinmpnn', 'rosetta']
-design_programs: tuple[design_programs_literal] = get_args(design_programs_literal)
+design_programs: tuple[str, ...] = get_args(design_programs_literal)
 nstruct = 20
 query_codes1 = 'query_codes1'
 query_codes2 = 'query_codes2'

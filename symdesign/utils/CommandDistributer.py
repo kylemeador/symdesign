@@ -8,7 +8,7 @@ import os
 import signal
 import subprocess
 from itertools import repeat
-from typing import AnyStr
+from typing import AnyStr, Literal, get_args
 
 from symdesign import flags
 from symdesign.utils import calculate_mp_cores, collect_designs, InputError, mp_starmap, pickle_object, unpickle, \
@@ -30,29 +30,79 @@ sb_flag = '#SBATCH --'
 #                        '-relax:bb_move', 'false']
 # Those jobs having a scale of 2 utilize two threads. Therefore, two commands are selected from a supplied commands list
 # and are launched inside a python environment once the SLURM controller starts a SBATCH array job
-process_scale = {
-    flags.refine: 2, flags.interface_design: 2, 'metrics': 2, flags.consensus: 2, flags.nanohedra: 1,  # 2,
-    'rmsd_calculation': 1, 'all_to_all': 1, 'rmsd_clustering': 1, 'rmsd_to_cluster': 1, 'rmsd': 1, 'all_to_cluster': 1,
-    flags.scout: 2, putils.hbnet_design_profile: 2, flags.optimize_designs: 2, 'metrics_bound': 2, flags.interface_metrics: 2,
-    putils.hhblits: 1, 'bmdca': 2}
+protocols_literal = Literal[
+    'refine',
+    'interface-design',
+    'consensus',
+    'nanohedra',
+    'rmsd_calculation',
+    'all_to_all',
+    'rmsd_clustering',
+    'rmsd_to_cluster',
+    'scout',
+    'hbnet_design_profile',
+    'optimize-designs',
+    'interface-metrics',
+    'hhblits',
+    'bmdca',
+]
+protocols: tuple[str, ...] = get_args(protocols_literal)
 # Cluster Dependencies and Multiprocessing
-sbatch_templates = {flags.refine: os.path.join(putils.sbatch_template_dir, flags.refine),
-                    flags.interface_design: os.path.join(putils.sbatch_template_dir, flags.interface_design),
-                    flags.scout: os.path.join(putils.sbatch_template_dir, flags.interface_design),
-                    'metrics': os.path.join(putils.sbatch_template_dir, flags.interface_design),
-                    flags.analysis: os.path.join(putils.sbatch_template_dir, flags.refine),
-                    flags.consensus: os.path.join(putils.sbatch_template_dir, flags.refine),
-                    flags.nanohedra: os.path.join(putils.sbatch_template_dir, flags.nanohedra),
-                    'rmsd_calculation': os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
-                    'all_to_all': os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
-                    'rmsd_clustering': os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
-                    'rmsd_to_cluster': os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
-                    'metrics_bound': os.path.join(putils.sbatch_template_dir, flags.interface_design),
-                    flags.interface_metrics: os.path.join(putils.sbatch_template_dir, flags.interface_design),
-                    flags.optimize_designs: os.path.join(putils.sbatch_template_dir, putils.hhblits),
-                    putils.hhblits: os.path.join(putils.sbatch_template_dir, putils.hhblits),
-                    'bmdca': os.path.join(putils.sbatch_template_dir, 'bmdca')
-                    }
+processes = (2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 2)
+process_scale = dict(zip(protocols, processes))
+
+# process_scale = {
+#     flags.refine: 2,
+#     flags.interface_design: 2,
+#     flags.consensus: 2,
+#     flags.nanohedra: 1,
+#     'rmsd_calculation': 1,
+#     'all_to_all': 1,
+#     'rmsd_clustering': 1,
+#     'rmsd_to_cluster': 1,
+#     flags.scout: 2,
+#     putils.hbnet_design_profile: 2,
+#     flags.optimize_designs: 2,
+#     flags.interface_metrics: 2,
+#     putils.hhblits: 1,
+#     'bmdca': 2}
+
+sbatch_templates_tuple = (
+    os.path.join(putils.sbatch_template_dir, flags.refine),
+    os.path.join(putils.sbatch_template_dir, flags.interface_design),
+    os.path.join(putils.sbatch_template_dir, flags.refine),
+    os.path.join(putils.sbatch_template_dir, flags.nanohedra),
+    os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
+    os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
+    os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
+    os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
+    os.path.join(putils.sbatch_template_dir, flags.interface_design),
+    os.path.join(putils.sbatch_template_dir, flags.interface_design),
+    os.path.join(putils.sbatch_template_dir, putils.hhblits),
+    os.path.join(putils.sbatch_template_dir, flags.interface_design),
+    os.path.join(putils.sbatch_template_dir, putils.hhblits),
+    os.path.join(putils.sbatch_template_dir, 'bmdca')
+)
+sbatch_templates = dict(zip(protocols, sbatch_templates_tuple))
+# sbatch_templates = {
+#     flags.refine: os.path.join(putils.sbatch_template_dir, flags.refine),
+#     flags.interface_design: os.path.join(putils.sbatch_template_dir, flags.interface_design),
+#     flags.consensus: os.path.join(putils.sbatch_template_dir, flags.refine),
+#     flags.nanohedra: os.path.join(putils.sbatch_template_dir, flags.nanohedra),
+#     'rmsd_calculation': os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
+#     'all_to_all': os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
+#     'rmsd_clustering': os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
+#     'rmsd_to_cluster': os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
+#     flags.scout: os.path.join(putils.sbatch_template_dir, flags.interface_design),
+#     putils.hbnet_design_profile: os.path.join(putils.sbatch_template_dir, flags.interface_design),
+#     flags.optimize_designs: os.path.join(putils.sbatch_template_dir, putils.hhblits),
+#     flags.interface_metrics: os.path.join(putils.sbatch_template_dir, flags.interface_design),
+#     putils.hhblits: os.path.join(putils.sbatch_template_dir, putils.hhblits),
+#     'bmdca': os.path.join(putils.sbatch_template_dir, 'bmdca')
+# }
+# # 'metrics': os.path.join(putils.sbatch_template_dir, flags.interface_design),
+# # 'metrics_bound': os.path.join(putils.sbatch_template_dir, flags.interface_design),
+# # flags.analysis: os.path.join(putils.sbatch_template_dir, flags.refine),
 
 
 # class GracefulKiller:
@@ -112,7 +162,7 @@ def run(cmd: str, log_file_name: str, program: str = None, srun: str = None) -> 
     return p.returncode == 0
 
 
-def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str = None,
+def distribute(file: AnyStr, scale: protocols_literal, out_path: AnyStr = os.getcwd(),
                success_file: AnyStr = None, failure_file: AnyStr = None, max_jobs: int = 80,
                number_of_commands: int = None, mpi: int = None, log_file: AnyStr = None,
                finishing_commands: list[str] = None, **kwargs) -> str:
@@ -120,8 +170,8 @@ def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str =
 
     Args:
         file: The location of the file which contains your commands to distribute through a sbatch array
-        out_path: Where to write out the sbatch script
         scale: The stage of design to distribute. Works with CommandUtils and PathUtils to allocate jobs
+        out_path: Where to write out the sbatch script
         success_file: What file to write the successful jobs to for job organization
         failure_file: What file to write the failed jobs to for job organization
         max_jobs: The size of the job array limiter. This caps the number of commands executed at once
@@ -136,26 +186,24 @@ def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str =
     # If the commands are provided as a list of raw commands and not a command living in a PoseJob, the argument
     #     number_of_commands should be used! It will skip checking for the presence of commands in the corresponding
     #     PoseJob
-    if scale is None:
-        # elif process_scale: Todo in order to make stage unnecessary, would need to provide scale and template
-        #                      Could add a hyperthreading=True parameter to remove process scale
-        #     command_divisor = process_scale
-        # else:
-        raise InputError('Required argument "scale" not specified')
+    # if scale is None:
+    #     # elif process_scale: Todo in order to make stage unnecessary, would need to provide scale and template
+    #     #                      Could add a hyperthreading=True parameter to remove process scale
+    #     #     command_divisor = process_scale
+    #     # else:
+    #     raise InputError('Required argument "scale" not specified')
 
     script_or_command = \
         '{} is malformed at line {}. All commands should match.\n* * *\n{}\n* * *' \
         '\nEither a file extension OR a command requried. Cannot mix'
-    if number_of_commands:
-        directives = [0 for _ in range(number_of_commands)]
-    elif file:  # Automatically detect if the commands file has executable scripts or errors
-        # use collect_designs to get commands from the provided file
-        directives, _ = collect_designs(files=[file])  # , directory=out_path)
-        # Check if the file lines (directives) contain a script or a command
-        scripts = True if directives[0].endswith('.sh') else False
-        # command_present = not scripts
+    if number_of_commands is None:
+        # Automatically detect if the commands file has executable scripts or errors
+        # Use collect_designs to get commands from the provided file
+        commands, _ = collect_designs(files=[file])
+        # Check if the file lines (commands) contain a script or a command
+        scripts = True if commands[0].endswith('.sh') else False
         start_idx = 1
-        for idx, directive in enumerate(directives[start_idx:], start_idx):
+        for idx, directive in enumerate(commands[start_idx:], start_idx):
             # Check if the command string is a shell script type file string. Ex: "refine.sh"
             if directive.endswith('.sh'):  # This is a file
                 if not os.path.exists(directive):  # Check if file is missing
@@ -170,8 +218,13 @@ def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str =
                 else:
                     scripts = False
 
-    else:
-        raise InputError(f'Must pass number_of_commands or file to {distribute.__name__}')
+        number_of_commands = len(commands)
+    # else:
+    #     # commands = [0 for _ in range(number_of_commands)]
+    #     pass
+
+    # else:
+    #     raise InputError(f'Must pass "number_of_commands" or "file" to {distribute.__name__}')
 
     # Create success and failures files
     name = os.path.basename(os.path.splitext(file)[0])
@@ -193,12 +246,16 @@ def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str =
             new_f.write(''.join(template_f.readlines()))
         out = f'output={output}/%A_%a.out'
         new_f.write(f'{sb_flag}{out}\n')
-        array = f'array=1-{int(len(directives) / process_scale[scale] + 0.5)}%{max_jobs}'
+        array = f'array=1-{int(number_of_commands / process_scale[scale] + 0.5)}%{max_jobs}'
         new_f.write(f'{sb_flag}{array}\n\n')
         new_f.write(f'python {cmd_dist} --stage {scale} distribute {f"--log_file {log_file} " if log_file else ""}'
                     f'--success_file {success_file} --failure_file {failure_file} --command_file {file}\n')
         if finishing_commands:
-            new_f.write('# Wait for all to complete\nwait\n\n# Then execute\n%s\n' % '\n'.join(finishing_commands))
+            new_f.write('# Wait for all to complete\n'
+                        'wait\n'
+                        '\n'
+                        '# Then execute\n'
+                        '%s\n' % '\n'.join(finishing_commands))
 
     return filename
 

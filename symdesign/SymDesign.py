@@ -256,14 +256,14 @@ def main():
                 if job.module == flags.nanohedra:
                     command_file = utils.write_commands([list2cmdline(cmd) for cmd in success], out_path=job_paths,
                                                         name='_'.join(default_output_tuple))
-                    sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts,
-                                                                      scale=job.module, number_of_commands=len(success))
+                    sbatch_file = \
+                        utils.CommandDistributer.distribute(command_file, job.module, out_path=job.sbatch_scripts,
+                                                            number_of_commands=len(success))
                 else:
                     command_file = utils.write_commands([os.path.join(des.scripts_path, f'{stage}.sh') for des in success],
                                                         out_path=job_paths, name='_'.join(default_output_tuple))
-                    sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts,
-                                                                      scale=job.module)
-                    #                                                                        ^ for sbatch template
+                    sbatch_file = utils.CommandDistributer.distribute(command_file, job.module,
+                                                                      out_path=job.sbatch_scripts)
                 logger.critical(sbatch_warning)
 
                 if job.module in [flags.interface_design, flags.design] and job.initial_refinement:
@@ -271,7 +271,7 @@ def main():
                     refine_file = utils.write_commands([os.path.join(design.scripts_path, f'{flags.refine}.sh')
                                                         for design in success], out_path=job_paths,
                                                        name='_'.join((utils.starttime, flags.refine, design_source)))
-                    sbatch_refine_file = utils.CommandDistributer.distribute(file=refine_file, scale=flags.refine,
+                    sbatch_refine_file = utils.CommandDistributer.distribute(refine_file, flags.refine,
                                                                              out_path=job.sbatch_scripts)
                     logger.info(f'Once you are satisfied, enter the following to distribute:\n\tsbatch '
                                 f'{sbatch_refine_file}\nTHEN:\n\tsbatch {sbatch_file}')
