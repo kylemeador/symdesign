@@ -212,13 +212,18 @@ class StructureDatabase(Database):
         for structure_identifier in structure_identifiers:
             # Retrieve the proper files using PDB ID's
             entry = structure_identifier.split('_')
+            assembly = entity = None
             if len(entry) == 2:
                 entry, entity = entry
                 logger.debug(f'Fetching entry {entry}, entity {entity} from PDB')
             else:
-                entry = structure_identifier
-                entity = None
-                logger.debug(f'Fetching entry {entry} from PDB')
+                entry = structure_identifier.split('-')
+                if len(entry) == 2:
+                    entry, assembly = entry
+                    logger.debug(f'Fetching entry {entry}, assembly {assembly} from PDB')
+                else:
+                    entry = structure_identifier
+                    logger.debug(f'Fetching entry {entry} from PDB')
 
             asu = False
             # if symmetry == 'C1':
@@ -228,7 +233,8 @@ class StructureDatabase(Database):
             #     # asu = True <- NOT NECESSARILY A MONOMERIC FILE!
             # else:
             #     asu = False
-            assembly = query_qs_bio(entry)
+            if assembly is None:
+                assembly = query_qs_bio(entry)
             # Get the specified file_path for the assembly state of interest
             file_path = fetch_pdb_file(entry, assembly=assembly, asu=asu, out_dir=out_dir)
 
@@ -405,12 +411,14 @@ class StructureDatabase(Database):
                 #                        f'available Entities are {", ".join(entity.name for entity in model.entities)}')
                 #         continue
 
-                model, *_ = self.download_structures([structure_identifier])
-                try:  # Orient the Structure
-                    model.orient(symmetry=symmetry)
-                except AttributeError:  # model is likely empty list
+                models = self.download_structures([structure_identifier], out_dir=models_dir)
+                if models:  # Get the first model and throw away the rest
+                    model, *_ = models
+                else:  # Empty list
                     non_viable_structures.append(structure_identifier)
                     continue
+                try:  # Orient the Structure
+                    model.orient(symmetry=symmetry)
                 except (ValueError, RuntimeError) as error:
                     orient_logger.error(str(error))
                     non_viable_structures.append(structure_identifier)
