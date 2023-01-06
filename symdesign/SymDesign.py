@@ -16,6 +16,8 @@ from subprocess import list2cmdline
 from typing import Any, AnyStr
 
 import pandas as pd
+from sqlalchemy import select
+
 try:
     from memory_profiler import profile
     profile_error = None
@@ -191,17 +193,20 @@ def main():
             if output_analysis:
                 if designs_file is None:  # Make a default file name
                     putils.make_path(job_paths)
-                    # Remove possible multiple instances of _pose from location in default_output_tuple
+                    # # Remove possible multiple instances of _pose from location in default_output_tuple
+                    # scratch_designs = \
+                    #     os.path.join(job_paths, putils.default_path_file.format(*default_output_tuple)).split('_pose')
+                    # designs_file = f'{scratch_designs[0]}_pose{scratch_designs[-1]}'
                     scratch_designs = \
-                        os.path.join(job_paths, putils.default_path_file.format(*default_output_tuple)).split('_pose')
-                    designs_file = f'{scratch_designs[0]}_pose{scratch_designs[-1]}'
+                        os.path.join(job_paths, putils.default_path_file.format(*default_output_tuple))
+                    designs_file = f'{scratch_designs}.poses'
 
                 with open(designs_file, 'w') as f_out:
                     f_out.write('%s\n' % '\n'.join(str(pose_job) for pose_job in success))
                 logger.critical(f'The file "{designs_file}" contains the locations of every pose that passed checks/'
                                 f'filters for this job. Utilize this file to input these poses in future '
                                 f'{putils.program_name} commands such as:'
-                                f'\n\t{putils.program_command} MODULE --file {designs_file} ...')
+                                f'\n\t{putils.program_command} MODULE --{flags.poses} {designs_file} ...')
 
             # Output any additional files for the module
             if job.module == flags.analysis:
@@ -458,7 +463,7 @@ def main():
         # By default, assume new input and make in the current directory
         symdesign_directory = os.path.join(os.getcwd(), putils.program_output)
         # Check if there is a file and see if we can solve there
-        file_sources = ['file', 'specification_file']  # 'pose_file'
+        file_sources = ['file', 'poses', 'specification_file']  # 'poses' 'pose_file'
         for file_source in file_sources:
             file = getattr(args, file_source, None)
             if file:  # See if the file contains SymDesign specified paths
@@ -625,6 +630,7 @@ def main():
         #         if not os.path.exists(os.path.join(project_designs, putils.master_log)):
         #             putils.make_path(project_designs)
         #             shutil.copy(os.path.join(job.nanohedra_root, putils.master_log), project_designs)
+        pose_identifiers = []
         if args.specification_file:
             # These poses are already included in the "program state"
             if not args.directory:
@@ -632,30 +638,62 @@ def main():
                                        f'--{flags.specification_file}')
             # Todo, combine this with collect_designs
             #  this works for file locations as well! should I have a separate mechanism for each?
+            designs = []
+            directives = []
             for specification_file in args.specification_file:
-                # design_specification = utils.PoseSpecification(specification_file)
-                pose_jobs.extend(
-                    [PoseJob.from_directory(pose, root=job.projects,
-                                            specific_designs=designs,
-                                            directives=directives)
-                     for pose, designs, directives in utils.PoseSpecification(specification_file).get_directives()])
+                # Returns list of _designs and _directives
+                _pose_identifiers, _designs, _directives = \
+                    zip(*utils.PoseSpecification(specification_file).get_directives())
+                pose_identifiers.extend(_pose_identifiers)
+                designs.extend(_designs)
+                directives.extend(_directives)
+
+            with job.db.session(expire_on_commit=False) as session:
+                fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
+                pose_jobs = list(session.scalars(fetch_jobs_stmt))
+                # pose_jobs = list(job.current_session.scalars(fetch_jobs_stmt))
+                for pose_job, _designs, _directives in zip(pose_jobs, designs, directives):
+                    pose_job.specific_designs = _designs
+                    pose_job.directives = _directives
+
+            # for specification_file in args.specification_file:
+            #     pose_jobs.extend(
+            #         [PoseJob.from_directory(pose_identifier, root=job.projects,
+            #                                 specific_designs=designs,
+            #                                 directives=directives)
+            #          for pose_identifier, designs, directives in
+            #          utils.PoseSpecification(specification_file).get_directives()])
             job.location = args.specification_file
+        elif args.poses:
+            if not args.directory:  # Todo react .directory to program operation inside or in dir with SymDesignOutput
+                raise utils.InputError(f'A --{flags.directory} must be provided when using '
+                                       f'--{flags.specification_file}')
+
+            for specification_file in args.poses:
+                # Returns list of _designs and _directives
+                pose_identifiers.extend(utils.PoseSpecification(specification_file).pose_identifiers)
+
+            with job.db.session(expire_on_commit=False) as session:
+                fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
+                pose_jobs = list(session.scalars(fetch_jobs_stmt))
+
+            job.location = args.poses
         else:
             all_poses, job.location = utils.collect_designs(files=args.file, directory=args.directory,
                                                             projects=args.project, singles=args.single)
             if all_poses:
-                if all_poses[0].count(os.sep) == 0:  # Check to ensure -f wasn't used when -pf was meant
-                    # Assume that we have received pose-IDs and process accordingly
-                    if not args.directory:
-                        raise utils.InputError('Your input specification appears to be pose IDs, however no '
-                                               f'--{flags.directory} was passed. Please resubmit with '
-                                               f'--{flags.directory} and use --{flags.pose_file}/'
-                                               f'--{flags.specification_file} with pose IDs')
-                    pose_jobs = [PoseJob.from_directory(pose, root=job.projects)
-                                 for pose in all_poses[low_range:high_range]]
-                else:
-                    pose_jobs = [PoseJob.from_file(pose, project=project_name)
-                                 for pose in all_poses[low_range:high_range]]
+                # if all_poses[0].count(os.sep) == 0:  # Check to ensure -f wasn't used when -pf was meant
+                #     # Assume that we have received pose-IDs and process accordingly
+                #     if not args.directory:
+                #         raise utils.InputError('Your input specification appears to be pose IDs, however no '
+                #                                f'--{flags.directory} was passed. Please resubmit with '
+                #                                f'--{flags.directory} and use --{flags.poses}/'
+                #                                f'--{flags.specification_file} with pose IDs')
+                #     pose_jobs = [PoseJob.from_directory(pose, root=job.projects)
+                #                  for pose in all_poses[low_range:high_range]]
+                # else:
+                pose_jobs = [PoseJob.from_file(pose, project=project_name)
+                             for pose in all_poses[low_range:high_range]]
         if not pose_jobs:
             raise utils.InputError(f'No {putils.program_name} directories found at location "{job.location}"')
         representative_pose_job = next(iter(pose_jobs))

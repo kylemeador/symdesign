@@ -409,6 +409,8 @@ class JobResources:
         self.tag_entities = kwargs.get(putils.tag_entities)
         # self.metric = kwargs.get('metric')
         self.specification_file = kwargs.get(putils.specification_file)
+        # Don't need this at the moment...
+        # self.poses = kwargs.get(flags.poses)
         """Used to specify whether specific designs should be fetched for select_* modules"""
         self.dataframe = kwargs.get('dataframe')
         self.metric = kwargs.get('metric')
