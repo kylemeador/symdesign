@@ -336,8 +336,8 @@ class PDBDataStore(DataStore):
                     else:  # Provide the formatted PDB API Entry ID information
                         return data
             else:
-                logger.warning(
-                    f'EntryID "{entry}" is not of the required format and will not be found with the PDB API')
+                logger.warning(f"EntryID '{entry}' isn't the required format and will not be found with the PDB API")
+
         elif assembly_id is not None:
             entry, assembly_integer, *extra = assembly_id.split('-')
             if not extra and len(entry) == 4:
@@ -345,9 +345,8 @@ class PDBDataStore(DataStore):
                 # data = self.assembly_api.retrieve_data(name=f'{entry}-{assembly_integer}')
                 return parse_assembly_json(self.retrieve_assembly_data(name=f'{entry}-{assembly_integer}'))
 
-            logger.warning(
-                f'AssemblyID "{entry}-{assembly_integer}" is not of the required format and will not be found '
-                f'with the PDB API')
+            logger.warning(f"AssemblyID '{assembly_id}' isn't the required format and will not be found with the "
+                           'PDB API')
 
         elif entity_id is not None:
             entry, entity_integer, *extra = entity_id.split('_')
@@ -356,8 +355,7 @@ class PDBDataStore(DataStore):
                 # data = self.entity_api.retrieve_data(name=f'{entry}_{entity_integer}')
                 return parse_entities_json([self.retrieve_entity_data(name=f'{entry}_{entity_integer}')])
 
-            logger.warning(f'EntityID "{entry}_{entity_integer}" is not of the required format and will not be found '
-                           'with the PDB API')
+            logger.warning(f"EntityID '{entity_id}' isn't the required format and will not be found with the PDB API")
 
         else:  # This could've been passed as name=. This case would need to be solved with some parsing of the splitter
             raise RuntimeError(f'No valid arguments passed to {self.retrieve_data.__name__}. Valid arguments include: '

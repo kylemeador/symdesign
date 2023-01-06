@@ -1032,6 +1032,9 @@ class PoseSpecification:
             elif idx == 2:
                 all_design_directives = all_info[idx]
 
+        # logger.debug(f'Found poses {all_poses}')
+        # logger.debug(f'Found designs {design_names}')
+        # logger.debug(f'Found directives {all_design_directives}')
         self.pose_identifiers: list[str] = list(map(str.strip, all_poses))
         self.design_names: list[str] = list(map(str.strip, design_names))
 
@@ -1066,6 +1069,7 @@ class PoseSpecification:
             else:
                 found_poses[pose] = [idx]
 
+        # Ensure correctly sized inputs. Create blank data otherwise
         number_pose_identifiers = len(self.pose_identifiers)
         if self.directives:
             if number_pose_identifiers != len(self.directives):
@@ -1079,6 +1083,7 @@ class PoseSpecification:
         else:
             design_names = list(repeat(None, number_pose_identifiers))
 
+        # Group the pose_identifiers with the specific_designs and directives
         if len(found_poses) == number_pose_identifiers:  # There is one design per pose
             if self.directives:
                 directives = [[directive] for directive in self.directives]

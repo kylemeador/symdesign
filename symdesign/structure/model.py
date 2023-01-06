@@ -2853,10 +2853,12 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         Sets:
             self.api_entry (dict[str, dict[Any] | float] | dict):
                 {'assembly': [['A', 'B'], ...],
-                 'entity': {'EntityID': {'chains': ['A', 'B', ...],
-                                         'dbref': {'accession': 'Q96DC8', 'db': 'UNP'}
-                                         'reference_sequence': 'MSLEHHHHHH...'},
-                                         ...},
+                 'entity': {'EntityID':
+                                {'chains': ['A', 'B', ...],
+                                 'dbref': {'accession': 'Q96DC8', 'db': 'UNP'}
+                                 'reference_sequence': 'MSLEHHHHHH...',
+                                 'thermophilic': True},
+                            ...},
                  'res': resolution,
                  'struct': {'space': space_group, 'a_b_c': (a, b, c),
                             'ang_a_b_c': (ang_a, ang_b, ang_c)}
@@ -3034,6 +3036,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
                 # Get any info already solved using the old name
                 self.entity_info[new_entity_name] = self.entity_info.pop(entity_name)
+                self.log.debug(f'Entity {entity_name} now named "{new_entity_name}", as supplied by entity_names')
                 entity_api_info: dict = retrieve_api_info(entity_id=new_entity_name)
                 """entity_api_info takes the format:
                 {'EntityID': 
@@ -3054,8 +3057,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                         entity_api_info[new_entity_name].pop('chains')
                     # Update the entity_api_info to the entity_info, preserving self.entity_info[new_entity_name] data
                     self.entity_info[new_entity_name].update(entity_api_info[new_entity_name])
-
-                self.log.debug(f'Entity {entity_name} now named "{new_entity_name}", as supplied by entity_names')
 
         # For each Entity, get matching Chain instances
         for entity_name, data in self.entity_info.items():
