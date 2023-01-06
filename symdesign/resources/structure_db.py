@@ -551,11 +551,10 @@ class StructureDatabase(Database):
                         utils.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
                                              name=f'{utils.starttime}-refine_entities')
                     refine_sbatch = \
-                        utils.CommandDistributer.distribute(file=commands_file, out_path=script_out_path,
-                                                            scale=flags.refine,
+                        utils.CommandDistributer.distribute(commands_file, flags.refine, out_path=script_out_path,
                                                             log_file=os.path.join(refine_dir,
                                                                                   f'{putils.refine}.log'),
-                                                            max_jobs=int(len(refine_cmds) / 2 + 0.5),
+                                                            max_jobs=int(len(refine_cmds)/2 + .5),
                                                             number_of_commands=len(refine_cmds))
                     refine_sbatch_message = f'Once you are satisfied, run the following to distribute refine jobs:' \
                                             f'\n\tsbatch {refine_sbatch}'
@@ -640,10 +639,9 @@ class StructureDatabase(Database):
                         utils.write_commands(loop_model_cmds, name=f'{utils.starttime}-loop_model_entities',
                                              out_path=full_model_dir)
                     loop_model_sbatch = \
-                        utils.CommandDistributer.distribute(file=loop_cmds_file, out_path=script_out_path,
-                                                            scale=flags.refine,
+                        utils.CommandDistributer.distribute(loop_cmds_file, flags.refine, out_path=script_out_path,
                                                             log_file=os.path.join(full_model_dir, 'loop_model.log'),
-                                                            max_jobs=int(len(loop_model_cmds) / 2 + 0.5),
+                                                            max_jobs=int(len(loop_model_cmds)/2 + .5),
                                                             number_of_commands=len(loop_model_cmds))
                     multi_script_warning = "\n***Run this script AFTER completion of the refinement script***\n" \
                         if info_messages else ""
