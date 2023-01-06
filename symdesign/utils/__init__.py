@@ -147,7 +147,7 @@ def start_log(name: str = '', handler: int = 1, level: logging_levels = 2, locat
     _logger = getLogger(name)
     _logger.setLevel(log_level[level])
     # Todo make a mechanism to only emit warning or higher if propagate=True
-    #  See SymDesign.py use of adding handler[0].addFilter()
+    #  See below this function for adding handler[0].addFilter()
     _logger.propagate = propagate
     if format_log:
         if no_log_name:
@@ -759,7 +759,7 @@ def mp_starmap(function: Callable, star_args: Iterable[tuple], processes: int = 
 
 
 ##############################
-# SymDesign Directory Handling
+# Directory Handling
 ##############################
 
 
@@ -959,7 +959,7 @@ def get_base_symdesign_dir(search_path: str = None) -> AnyStr | None:
     base_dir = None
     if search_path is not None:
         search_path = os.path.abspath(search_path)
-        if putils.program_output in search_path:   # directory1/SymDesignOutput/directory2/directory3
+        if putils.program_output in search_path:   # directory1/program_output/directory2/directory3
             for idx, dirname in enumerate(search_path.split(os.sep), 1):
                 if dirname == putils.program_output:
                     base_dir = f'{os.sep}{os.path.join(*search_path.split(os.sep)[:idx])}'
@@ -969,7 +969,7 @@ def get_base_symdesign_dir(search_path: str = None) -> AnyStr | None:
                 all_files = os.listdir(search_path)
             except FileNotFoundError:
                 all_files = []
-            if putils.program_output in all_files:  # directory_provided/SymDesignOutput
+            if putils.program_output in all_files:  # directory_provided/program_output
                 for sub_directory in all_files:
                     if sub_directory == putils.program_output:
                         base_dir = os.path.join(search_path, sub_directory)
@@ -980,7 +980,7 @@ def get_base_symdesign_dir(search_path: str = None) -> AnyStr | None:
 
 def get_symdesign_dirs(base: str = None, projects: Iterable = None, singles: Iterable = None) -> Iterator:
     """Return the specific design directories from the specified hierarchy with the format
-    /base(SymDesignOutput)/Projects/project/design
+    /base(program_output)/Projects/project/design
     """
     paths = []
     if base:

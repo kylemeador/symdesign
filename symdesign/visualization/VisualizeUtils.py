@@ -12,8 +12,8 @@ from pymol import finish_launching, cmd, stored
 
 finish_launching(['pymol', '-q'])
 # finish_launching()
-# from Pose import Pose
-# from SymDesignUtils import possible_symmetries
+# from symdesign.model import Pose
+# from symdesign.utils.symmetry import possible_symmetries
 
 # TODO integration of the capabilities of SymDesign with pymol plugins to manipulate and design
 #  https://raw.githubusercontent.com/Pymol-Scripts/Pymol-script-repo/master/plugins/SuperSymPlugin.py

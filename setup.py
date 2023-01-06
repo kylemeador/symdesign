@@ -4,7 +4,7 @@ import os
 import subprocess
 
 from symdesign import utils
-from symdesign.utils import path as putils
+from symdesign.utils import path as putils, input_string
 
 rosetta_url = 'https://www.rosettacommons.org/software/license-and-download'
 rosetta_compile_url = 'https://www.rosettacommons.org/docs/latest/build_documentation/Build-Documentation'
@@ -49,36 +49,36 @@ def search_env_for_variable(search_variable: str) -> str | None:
 
 
 if __name__ == '__main__':
-    print('To properly set up your python environment use the SymDesignEnvironment.yaml to initialize your environment.'
-          ' If you are using anaconda/conda for instance, the command \'conda env create --file '
-          'SymDesignEnvironment.yaml\' will handle this for you.')
-    print('First, follow this url \'%s\' to begin licensing and download of the Rosetta Software suite if you have not '
-          'installed already.' % rosetta_url)
-    choice1 = input('Once downloaded, type \'Y\' to continue with install or \'S\' to skip if Rosetta is already '
-                    'installed. FYI this program is capable of using Rosetta\'s multithreading and MPI builds for '
-                    'faster execution. If you want to learn more, visit %s for details. \nInput:' % rosetta_extras_url)
+    print(f'To properly set up your python environment use the {putils.conda_environment} to initialize your '
+          "environment. If you are using anaconda/conda for instance, the command 'conda env create --file "
+          f"{putils.conda_environment}' will handle this for you")
+    print(f'First, follow this url "{rosetta_url}" to begin licensing and download of the Rosetta Software suite if you'
+          " haven't installed already")
+    choice1 = input('Once downloaded, type "Y" to continue with install or "S" to skip if Rosetta is already '
+                    "installed. FYI this program is capable of using Rosetta's multithreading and MPI builds for "
+                    f'faster execution. If you want to learn more, visit {rosetta_extras_url} for details{input_string}')
     while True:
         if choice1.strip() == 'Y':
             print('Next, you will want to move the downloaded tarball to a directory where all the Rosetta software '
                   'will be stored.\nOnce moved, you will want to unzip/extract all files in the tarball.\n'
                   'This can be done with the command tar -zxvf [put_tarball_name_here] in a new shell')
             input('This command may take some time. Once this is finished press Enter.\nIn the meantime, you may be '
-                  'interested in reading about compilation \'%s\' and different features available with increased '
-                  'computation speed \'%s\'.\nInput:' % (rosetta_compile_url, rosetta_extras_url))
-            input('Finally, lets compile Rosetta. If you aren\'t familiar with this process and haven\'t looked at the '
+                  f'interested in reading about compilation "{rosetta_compile_url}" and different features available '
+                  f'with increased computation speed "{rosetta_extras_url}".{input_string}')
+            input("Finally, lets compile Rosetta. If you aren't familiar with this process and haven't looked at the "
                   'above links, check them out for assistance. To take full advantage of computation time, think '
                   'carefully about how your computing environment can be set up to work with Rosetta. It is recommended'
                   ' for large design batches to simply use default options for compilation. If you want to have '
                   'individual jobs finish quicker, MPI compatibility may be of interest. Navigate to the MPI resources '
                   'in rosettacommons.org for more information on setting this up.\nPress Enter once you have completed '
-                  'compilation.\nInput:')
+                  f'compilation.{input_string}')
             break
         elif choice1.strip() == 'S':
             break
         else:
-            'Invalid input. Try again\nInput:'
+            choice1 = input(f'"{choice1} is invalid input for [Y/S]. Try again{input_string}')
 
-    print('Great! Attempting to find environmental variable for Rosetta \'main\' directory')
+    print('Great! Attempting to find environmental variable for Rosetta "main" directory')
     rosetta_env_variable = ''
     i = 0
     while True:
@@ -132,10 +132,10 @@ if __name__ == '__main__':
             print(f"Rosetta environmental path doesn't exist. Ensure that ${rosetta_env_variable} is correct... "
                   f"Trying again")
 
-    print('Next, the proper python environment needs to be set up. The following modules need to be available to '
-          'python otherwise, %s will not run. These inclue:\n-sklearn\n-numpy\n-biopython')
+    # print('Next, the proper python environment needs to be set up. The following modules need to be available to '
+    #       'python otherwise, %s will not run. These inclue:\n-sklearn\n-numpy\n-biopython')
     input("If you don't have these, use a package manager such as pip or conda to install these in your environment.\n"
-          'Press Enter once these are located to continue.\nInput:')
+          f'Press Enter once these are located to continue{input_string}')
 
     print('Finally, hh-suite needs to be available. This is being created for you in the dependencies directory')
     hhblits_latest_url = 'https://wwwuser.gwdg.de/~compbiol/uniclust/uniclust-latest'

@@ -244,16 +244,16 @@ additional = \
 
 
 def print_guide():
-    """Print the SymDesign guide"""
+    """Print the program readme file"""
     with open(readme, 'r') as f:
         print(f.read(), end='')
 
 
 def setup_instructions():
     instructions = \
-        'I have done this using the SymDesignEnvironment.yaml provided to initialize the SymDesign' \
+        f'I have done this using the {putils.conda_environment} provided to initialize the {program_name}' \
         ' environment in conda. If you are using anaconda/conda (which I recommend), ' \
-        '`conda env create --file SymDesignEnvironment.yaml` will handle this for you. If you are using ' \
+        f'"conda env create --file {putils.conda_environment}" will handle this for you. If you are using ' \
         'something else, there is probably an easy way to ensure your virtual environment is up to speed ' \
         f"with {program_name}'s dependencies. Next, you must add the following variable to your .bashrc " \
         '(or .tschrc) so that the hhblits dependency can be correctly sourced. ' \

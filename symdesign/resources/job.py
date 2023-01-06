@@ -521,7 +521,7 @@ class JobResources:
 
     @property
     def output_to_directory(self) -> bool:
-        """Set so it is known that output is not typical SymDesignOutput directory structure"""
+        """Set so it is known that output is not typical putils.program_output directory structure"""
         # self.output_to_directory: bool = True if self.output_directory else False
         return True if self.output_directory else False
 

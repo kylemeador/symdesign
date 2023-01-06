@@ -429,7 +429,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
     save_poses_df.to_csv(new_dataframe)
     logger.info(f'New DataFrame with selected designs was written to: {new_dataframe}')
 
-    # Create new output of designed PDB's  # Todo attach the state to these files somehow for further SymDesign use
+    # Create new output of designed PDB's  # Todo attach the state to these files somehow for further use
     exceptions = []
     for pose_job, _designs in results.items():
         for design in _designs:

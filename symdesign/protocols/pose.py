@@ -1020,7 +1020,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     #     #     #         getattr(self.info.get('fragment_database'), 'source', putils.biological_interfaces)
     #     #     #     self.pickle_info()  # save immediately so we don't have this issue with reading again!
     #     #     # Todo Remove Above this line to Dev branch only
-    #     #     # # These statements are a temporary patch Todo remove for SymDesign master branch
+    #     #     # # These statements are a temporary patch Todo remove for master branch
     #     #     # # if not self.sym_entry:  # none was provided at initiation or in state
     #     #     # if putils.sym_entry in self.info:
     #     #     #     self.sym_entry = self.info[putils.sym_entry]  # get instance
