@@ -6,7 +6,7 @@ import os
 import subprocess
 import time
 from copy import deepcopy
-from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
+from itertools import chain as iter_chain, combinations_with_replacement, combinations, product, count
 from logging import Logger
 from pathlib import Path
 from random import random
@@ -1070,11 +1070,12 @@ class Entity(Chain, ContainsChainsMixin):
         except AttributeError:
             self.api_entry = query.pdb.query_pdb_by(entity_id=self.name)  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
             # self.api_entry = _get_entity_info(self.name)  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
-            for chain, api_data in self.api_entry.items():  # [next(iter(self.api_entry))]
-                # print('Retrieving UNP ID for %s\nAPI DATA for chain %s:\n%s' % (self.name, chain, api_data))
-                if api_data.get('db') == 'UNP':
-                    # set the first found chain. They are likely all the same anyway
-                    self._uniprot_id = api_data.get('accession')
+            if self.api_entry is not None:
+                for chain, api_data in self.api_entry.items():  # [next(iter(self.api_entry))]
+                    # print('Retrieving UNP ID for %s\nAPI DATA for chain %s:\n%s' % (self.name, chain, api_data))
+                    if api_data.get('db') == 'UNP':
+                        # set the first found chain. They are likely all the same anyway
+                        self._uniprot_id = api_data.get('accession')
             try:
                 return self._uniprot_id
             except AttributeError:
@@ -2875,70 +2876,62 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         # if self.name:  # Try to solve API details from name
         parsed_name = self.name
-        splitter = ['_', '-']  # [entity, assembly]
-        idx = -1
+        splitter_iter = iter(('_', '-'))  # (entity, assembly))
+        idx = count(-1)
         extra = None
         while len(parsed_name) != 4:
             try:  # To parse the name using standard PDB API entry ID's
-                idx += 1
-                parsed_name, *extra = parsed_name.split(splitter[idx])
-            except IndexError:  # idx > len(splitter)
-                # We can't find entry in parsed_name from splitting typical PDB formatted strings.
-                # It may be completely incorrect or something unplanned.
-                bad_format_msg = \
-                    f"PDB entry '{self.name}' isn't of the required format and wasn't queried from the PDB API"
-                self.log.debug(bad_format_msg)
-                break  # The while loop and handle
-
-        if idx < len(splitter):  # len(parsed_name) == 4 at some point
-            # query_args = dict(entry=parsed_name)
-            # # self.api_entry = _get_entry_info(parsed_name)
-            if self.biological_assembly:
-                # query_args.update(assembly_integer=self.assembly)
-                # # self.api_entry.update(_get_assembly_info(self.name))
-                self.api_entry = retrieve_api_info(entry=parsed_name)
-                self.api_entry['assembly'] = \
-                    retrieve_api_info(entry=parsed_name, assembly_integer=self.biological_assembly)
-                # ^ returns [['A', 'A', 'A', ...], ...]
-            elif extra:  # Extra not None or []. Use of elif means we couldn't have 1ABC_1.pdb2
-                # Try to parse any found extra to an integer denoting entity or assembly ID
-                integer, *non_sense = extra
-                if integer.isdigit() and not non_sense:
-                    integer = int(integer)
-                    if idx == 0:  # Entity integer, such as 1ABC_1.pdb
-                        # query_args.update(entity_integer=integer)
-                        self.api_entry = dict(entity=retrieve_api_info(entry=parsed_name, entity_integer=integer))
-                        # retrieve_api_info returns
-                        # {'EntityID': {'chains': ['A', 'B', ...],
-                        #               'dbref': {'accession': 'Q96DC8', 'db': 'UNP'}
-                        #               'reference_sequence': 'MSLEHHHHHH...'},
-                        #  ...}
-                    else:  # Get entry alone. This is an assembly or unknown conjugation. Either way we need entry info
-                        self.api_entry = retrieve_api_info(entry=parsed_name)
-
-                        if idx == 1:  # assembly integer, such as 1ABC-1.pdb
-                            # query_args.update(assembly_integer=integer)
-                            self.api_entry['assembly'] = \
-                                retrieve_api_info(entry=parsed_name, assembly_integer=integer)
-                else:  # This isn't an integer or there are extra characters
-                    # It's likely they are extra characters that won't be of help. Try to collect anyway
-                    # self.log.debug(bad_format_msg)
-                    self.api_entry = {}
-                    self.log.debug("Found extra file name information that can't be coerced to match the PDB API")
-                    # self.api_entry = retrieve_api_info(entry=parsed_name)
-            elif extra is None:  # We didn't get extra as it was correct length to begin with, just query entry
-                self.api_entry = retrieve_api_info(entry=parsed_name)
+                parsed_name, *extra = parsed_name.split(next(splitter_iter))
+            except StopIteration:
+                # We didn't find an EntryID in parsed_name from splitting typical PDB formatted strings
+                self.log.debug(f"The name '{self.name}' can't be coerced to PDB API format")
+                self.api_entry = {}
+                return
             else:
-                raise RuntimeError("This logic was not expected and shouldn't be allowed to persist:"
-                                   f'self.name={self.name}, parse_name={parsed_name}, extra={extra}, idx={idx}')
-            if self.api_entry:
-                self.log.debug(f'Found PDB API information: '
-                               f'{", ".join(f"{k}={v}" for k, v in self.api_entry.items())}')
-                # Set the identified name
-                self.name = self.name.lower()
+                next(idx)
+
+        # len(parsed_name) == 4 at some point
+        if self.biological_assembly:
+            # query_args.update(assembly_integer=self.assembly)
+            # # self.api_entry.update(_get_assembly_info(self.name))
+            self.api_entry = retrieve_api_info(entry=parsed_name)
+            self.api_entry['assembly'] = retrieve_api_info(entry=parsed_name, assembly_integer=self.biological_assembly)
+            # ^ returns [['A', 'A', 'A', ...], ...]
+        elif extra:  # Extra not None or []
+            # Todo, use of elif means we can't have 1ABC_1.pdb2
+            # Try to parse any found extra to an integer denoting entity or assembly ID
+            integer, *non_sense = extra
+            if integer.isdigit() and not non_sense:
+                integer = int(integer)
+                if idx == 0:  # Entity integer, such as 1ABC_1.pdb
+                    self.api_entry = dict(entity=retrieve_api_info(entry=parsed_name, entity_integer=integer))
+                    # retrieve_api_info returns
+                    # {'EntityID': {'chains': ['A', 'B', ...],
+                    #               'dbref': {'accession': 'Q96DC8', 'db': 'UNP'}
+                    #               'reference_sequence': 'MSLEHHHHHH...',
+                    #               'thermophilic': True},
+                    #  ...}
+                    parsed_name = f'{parsed_name}_{integer}'
+                else:  # Get entry alone. This is an assembly or unknown conjugation. Either way we need entry info
+                    self.api_entry = retrieve_api_info(entry=parsed_name)
+
+                    if idx == 1:  # This is an assembly integer, such as 1ABC-1.pdb
+                        self.api_entry['assembly'] = retrieve_api_info(entry=parsed_name, assembly_integer=integer)
+            else:  # This isn't an integer or there are extra characters
+                # It's likely they are extra characters that won't be of help
+                # Tod0, try to collect anyway?
+                self.log.debug(f"The name '{self.name}' contains extra info that can't be coerced to PDB API format")
+                self.api_entry = {}
+        elif extra is None:  # We didn't get extra as it was correct length to begin with, just query entry
+            self.api_entry = retrieve_api_info(entry=parsed_name)
         else:
-            self.api_entry = {}
-        #     self.log.debug('No name was found for this Model. PDB API won\'t be searched')
+            raise RuntimeError("This logic was not expected and shouldn't be allowed to persist:"
+                               f'self.name={self.name}, parse_name={parsed_name}, extra={extra}, idx={idx}')
+        if self.api_entry:
+            self.log.debug(f'Found PDB API information: '
+                           f'{", ".join(f"{k}={v}" for k, v in self.api_entry.items())}')
+            # Set the identified name
+            self.name = parsed_name.lower()  # self.name.lower()
 
     def entity(self, entity_id: str) -> Entity | None:
         """Retrieve an Entity by name from the PDB object
