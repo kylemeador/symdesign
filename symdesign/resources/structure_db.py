@@ -361,6 +361,11 @@ class StructureDatabase(Database):
                 # pose.file_path = pose.write(out_path=self.oriented_asu.path_to(name=structure_identifier))
                 # Save Stride results
                 for entity in pose.entities:
+                    # Ensure we have the files written for the Entity instances as well. This is a bit of a data dump
+                    entity.write(oligomer=True, out_path=os.path.join(self.oriented_asu.location,
+                                                                      f'{entity.name}.pdb{assembly_integer}'))
+                    entity.write(out_path=os.path.join(self.oriented_asu.location,
+                                                       f'{entity.name}.pdb{assembly_integer}'))
                     entity.stride(to_file=self.stride.path_to(name=entity.name))
 
                 # Get the full assembly
