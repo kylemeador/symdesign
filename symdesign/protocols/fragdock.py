@@ -3755,11 +3755,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
             idx_slice = pd.IndexSlice
             # Set up data structures
             # nan_blank_data = list(repeat(np.nan, pose_length))
-            pose_contact_order = []
             unbound_errat = []
             for idx, entity in enumerate(pose.entities):
-                # Contact order is the same for every design in the Pose and not dependent on pose
-                pose_contact_order.append(entity.contact_order)
                 # Todo when Entity.oligomer works
                 #  _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
                 entity_oligomer = Model.from_chains(entity.chains, entities=False)
@@ -3782,7 +3779,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 profile_loss = {}
 
             sequence_params = {
-                'contact_order': np.concatenate(pose_contact_order),
+                **pose.per_residue_contact_order(),
                 'errat_deviation': np.concatenate(unbound_errat),
                 'type': tuple(pose.sequence),
                 **profile_loss

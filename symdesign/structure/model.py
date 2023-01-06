@@ -5939,6 +5939,23 @@ class Pose(SymmetricModel):
 
         return dict(n=n_term, c=c_term)
 
+    def per_residue_contact_order(self, oligomeric_interfaces: bool = False, **kwargs) -> dict[str, np.ndarray]:
+        """Calculate the contact order separating calculation for chain breaks as would be expected for 3 state folding
+
+        Args:
+            oligomeric_interfaces: Whether to query oligomeric interfaces
+        Returns:
+            The dictionary of {'contact_order': array of shape (number_of_residues,)}
+        """
+        if oligomeric_interfaces:
+            raise NotImplementedError('Need to perform this calculation "oligomeric_interfaces" on the Entity.oligomer')
+
+        contact_order = []
+        for idx, entity in enumerate(self.entities):
+            contact_order.append(entity.contact_order)
+
+        return {'contact_order': np.concatenate(contact_order)}
+
     def get_folding_metrics(self, profile_type: profile_types = 'evolutionary', **kwargs) \
             -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Calculate metrics relating to the Pose folding, separating calculation for chain breaks. These include
