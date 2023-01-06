@@ -1180,7 +1180,14 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                         raise FileNotFoundError(f"Couldn't locate the specified entity at '{search_path}'")
                 else:
                     model = source_datastore.retrieve_data(name=name)
-                    if isinstance(model, Model):
+                    # Todo I ran into an error where the EntityID loaded from 2gtr_1.pdb was 2gtr_1_1
+                    #  This might help resolve this issue
+                    # model_file = source_datastore.retrieve_file(name=name)
+                    # if model_file:
+                    #     model = Entity.from_file(model_file)
+                    # else:
+                    #     model = None
+                    if isinstance(model, Structure):  # Model):  # Entity):
                         self.log.info(f'Found Model at {source} DataStore and loaded into job')
                     else:
                         self.log.error(f"Couldn't locate the Model {name} at the Database source "
