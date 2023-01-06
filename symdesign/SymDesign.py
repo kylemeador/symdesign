@@ -1319,6 +1319,8 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Finally, run terminate(). This formats output parameters and reports on exceptions
     # -----------------------------------------------------------------------------------------------------------------
+    # Reset the current_session
+    job.current_session = None
     terminate(results=results, exceptions=exceptions)
 
 

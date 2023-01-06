@@ -152,9 +152,9 @@ Cluster = make_dataclass('Cluster',
 
 
 class DBInfo:
-    def __init__(self, location: AnyStr):
+    def __init__(self, location: AnyStr, echo: bool = False):
         self.location = location
-        self.engine: Engine = create_engine(f'sqlite:///{self.location}', echo=True, future=True)
+        self.engine: Engine = create_engine(f'sqlite:///{self.location}', echo=echo, future=True)
         self.session: sessionmaker = sessionmaker(self.engine)
 
 
@@ -254,7 +254,7 @@ class JobResources:
         self.structure_db = structure_db.structure_database_factory.get(source=self.data)
         self.fragment_db: structure.fragment.db.FragmentDatabase | None = None
         if kwargs.get('database'):
-            self.db: DBInfo = DBInfo(self.internal_db)
+            self.db: DBInfo = DBInfo(self.internal_db, echo=True if self.development else False)
             # self.db: Engine = create_engine(f'sqlite:///{self.internal_db}', echo=True, future=True)
         else:  # When --no-database is provided as a flag
             self.db = None
