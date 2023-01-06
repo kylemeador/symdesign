@@ -7,6 +7,7 @@ from typing import AnyStr
 import numpy as np
 
 from symdesign import utils
+putils = utils.path
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ def write_docked_pose_info(outdir_path, res_lev_sum_score, high_qual_match_count
                            representative_ext_dof_tx_params_1, rot_mat2, representative_int_dof_tx_param_2, set_mat2,
                            representative_ext_dof_tx_params_2, cryst1_record, pdb1_path, pdb2_path, pose_identifier):
 
-    out_info_file_path = os.path.join(outdir_path, utils.path.docked_pose_file)
+    out_info_file_path = os.path.join(outdir_path, putils.pose_file)
     with open(out_info_file_path, 'w') as out_info_file:
         out_info_file.write('DOCKED POSE ID: %s\n\n' % pose_identifier)
         out_info_file.write('Nanohedra Score: %f\n\n' % res_lev_sum_score)

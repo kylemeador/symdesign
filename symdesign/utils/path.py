@@ -116,7 +116,6 @@ dssm = 'design.pssm'
 assembly = 'assembly.pdb'
 surrounding_unit_cells = 'surrounding_unit_cells.pdb'
 # central_uc = 'central_uc.pdb'
-docked_pose_file = 'docked_pose_info_file.txt'
 frag_dir = 'matching_fragments'  # was 'matching_fragments_representatives' in v0
 frag_text_file = 'frag_match_info_file.txt'
 frag_file = os.path.join(frag_dir, frag_text_file)
