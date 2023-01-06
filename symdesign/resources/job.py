@@ -554,7 +554,7 @@ class JobResources:
             self._input_source = self.program_root
         elif isinstance(location, str):
             self._location = location
-            self._input_source = os.path.splitext(os.path.basename(location))[0]
+            self._input_source, extension = os.path.splitext(os.path.basename(location))
         elif isinstance(location, list):
             self._location = ', '.join(location)
             self._input_source = '+'.join(map(os.path.basename, [os.path.splitext(_location)[0]

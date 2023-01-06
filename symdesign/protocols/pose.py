@@ -51,12 +51,17 @@ null_cmd = ['echo']
 observed_types = ('evolution', 'fragment', 'design', 'interface')
 
 
-class PoseDirectory(ABC):
+# class PoseDirectory(ABC):  # Raises error about the subclass types not being the same...
+# metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its
+# bases
+class PoseDirectory:
     _designed_sequences: list[Sequence]
     _id: int
     _sym_entry: SymEntry
     _symmetry_definition_files: list[AnyStr]
+    # frag_file: str | Path
     name: str
+    # pose_file: str | Path
 
     def __init__(self, directory: AnyStr = None, output_modifier: AnyStr = None, **kwargs):
         if directory is not None:
@@ -98,12 +103,13 @@ class PoseDirectory(ABC):
             # /root/Projects/project_Poses/design/data/evolutionary.pssm
             self.fragment_profile_file: str | Path = os.path.join(self.data_path, 'fragment.pssm')
             # /root/Projects/project_Poses/design/data/fragment.pssm
+            # These next two files are used to dynamically update whether preprocessing should occur for designs
             # self.refined_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/design_name_refined.pdb
             self.refined_pdb: str | Path = \
                 os.path.join(self.designs_path, f'{os.path.basename(os.path.splitext(self.asu_path)[0])}_refine.pdb')
             # self.scouted_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/design_name_scouted.pdb
             self.scouted_pdb: str | Path = f'{os.path.splitext(self.refined_pdb)[0]}_scout.pdb'
-            # These files may be present from Nanohedra outputs
+            # These next two files may be present from NanohedraV1 outputs
             # self.pose_file = os.path.join(self.source_path, putils.pose_file)
             # self.frag_file = os.path.join(self.source_path, putils.frag_dir, putils.frag_text_file)
             # These files are used as output from analysis protocols
@@ -202,12 +208,6 @@ class PoseDirectory(ABC):
     #     except AttributeError:
     #         return None
 
-    @sym_entry.setter
-    def sym_entry(self, sym_entry: SymEntry):
-        self.info['sym_entry_specification'] = self.sym_entry.number, self.sym_entry.sym_map
-        self._sym_entry = sym_entry
-
-    # Todo this is the same as in PoseData.__init__
     @property
     def symmetry_definition_files(self) -> list[AnyStr]:
         """Retrieve the symmetry definition files name from PoseJob"""
@@ -263,9 +263,8 @@ class PoseDirectory(ABC):
         #     print(self.info)
 
 
-# class PoseJob:
-# class PoseJob(PoseProtocol):
-# class PoseJob(PoseDirectory, PoseMetadata):
+# This MRO requires __init__ in PoseMetadata to pass PoseDirectory kwargs
+# class PoseData(sql.PoseMetadata, PoseDirectory):
 class PoseData(PoseDirectory, sql.PoseMetadata):
     # _design_indices: list[int]
     # _fragment_observations: list[fragment.db.fragment_info_type]
@@ -284,13 +283,11 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     _specific_designs: Sequence[str]
     # entities: list[Entity]
     fragment_db: fragment.db.FragmentDatabase
-    frag_file: str | Path
     initial_model: Model | None
     initialized: bool
     measure_evolution: bool
     measure_alignment: bool
     pose: Pose | None
-    pose_file: str | Path
     source: str | None
     source_path: str
     specific_designs_file_paths: list[AnyStr]
@@ -340,7 +337,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 raise InputError(f"Couldn't get the project from the path '{source_path}'. Please provide "
                                  f"project name with --{flags.project_name}")
 
-        return cls(name=name, project=project, source_path=source_path, **kwargs)  # initialized=False
+        return cls(name=name, project=project, source_path=source_path, **kwargs)
 
     @classmethod
     def from_directory(cls, design_path: str, root: AnyStr, **kwargs):
@@ -1086,7 +1083,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                                              f'Using the first')
                         model = Model.from_file(file[0], log=self.log)
                     else:
-                        raise FileNotFoundError(f"Couldn't located the specified entity at '{file}'")
+                        raise FileNotFoundError(f"Couldn't locate the specified entity at '{search_path}'")
                 else:
                     model = source_datastore.retrieve_data(name=name)
                     if isinstance(model, Model):
