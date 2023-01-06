@@ -1391,7 +1391,7 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict = None,
                               'better designs!')
         simple_df = simple_df.loc[final_indices, :]
 
-    # {column: {'direction': _min, 'value': 0.3, 'idx_slice': ['0001', '0002', ...]}, ...}
+    # {column: {'direction': min_, 'value': 0.3, 'idx_slice': ['0001', '0002', ...]}, ...}
     if weight is not None:
         if weight and isinstance(weight, dict):
             # These were passed as parsed values

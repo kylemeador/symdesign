@@ -59,9 +59,10 @@ class PoseMetadata(Base):
     # State
     _pre_refine = Column('pre_refine', Boolean, default=True)
     _pre_loop_model = Column('pre_loop_model', Boolean, default=True)
+    # Symmetry
     sym_entry_number = Column(Integer)
     symmetry = Column(String)  # Result
-    design_dimension = Column(Integer)
+    symmetry_dimension = Column(Integer)
     """The result of the SymEntry"""
     # symmetry_groups = relationship('SymmetryGroup')
     sym_entry_specification = Column(String)  # RESULT:{SUBSYMMETRY1}{SUBSYMMETRY2}...
