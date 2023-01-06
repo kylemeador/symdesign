@@ -774,19 +774,21 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Returns:
             Whether refinement has occurred
         """
-        try:
-            return self._pre_refine
-        except AttributeError:  # Get from the pose state
-            self._pre_refine = self.info.get('pre_refine', True)
-            return self._pre_refine
+        return self._pre_refine
+        # try:
+        #     return self._pre_refine
+        # except AttributeError:  # Get from the pose state
+        #     self._pre_refine = self.info.get('pre_refine', True)
+        #     return self._pre_refine
 
     @pre_refine.setter
     def pre_refine(self, pre_refine: bool):
         if isinstance(pre_refine, bool):
             self._pre_refine = self.info['pre_refine'] = pre_refine
-            self.refined_pdb = self.asu_path
-            self.scouted_pdb = os.path.join(self.designs_path,
-                                            f'{os.path.basename(os.path.splitext(self.refined_pdb)[0])}_scout.pdb')
+            if pre_refine:
+                self.refined_pdb = self.asu_path
+                self.scouted_pdb = os.path.join(self.designs_path,
+                                                f'{os.path.basename(os.path.splitext(self.refined_pdb)[0])}_scout.pdb')
         elif pre_refine is None:
             pass
         else:
@@ -799,16 +801,19 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Returns:
             Whether loop modeling has occurred
         """
-        try:
-            return self._pre_loop_model
-        except AttributeError:  # Get from the pose state
-            self._pre_loop_model = self.info.get('pre_loop_model', True)
-            return self._pre_loop_model
+        return self._pre_loop_model
+        # try:
+        #     return self._pre_loop_model
+        # except AttributeError:  # Get from the pose state
+        #     self._pre_loop_model = self.info.get('pre_loop_model', True)
+        #     return self._pre_loop_model
 
     @pre_loop_model.setter
     def pre_loop_model(self, pre_loop_model: bool):
         if isinstance(pre_loop_model, bool):
             self._pre_loop_model = self.info['pre_loop_model'] = pre_loop_model
+            # if pre_loop_model:
+            #     do_something
         elif pre_loop_model is None:
             pass
         else:
