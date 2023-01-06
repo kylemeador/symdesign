@@ -422,7 +422,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # Get the main program options
         self.job = resources.job.job_resources_factory.get()
         # Symmetry attributes
-        # Todo monitor if Rosetta energy mechanisms are modified for crystal set ups and adjust parameter accordingly
         # If a new sym_entry is provided it wouldn't be saved to the state but could be attempted to be used
         if self.job.sym_entry is not None:
             self.sym_entry = self.job.sym_entry
@@ -1540,6 +1539,7 @@ class PoseProtocol(PoseData):
                 if entity.is_oligomeric():  # make symmetric energy in line with SymDesign energies v
                     entity.make_sdf(out_path=self.data_path,
                                     modify_sym_energy_for_cryst=True if self.sym_entry.dimension in [2, 3] else False)
+                # Todo monitor if Rosetta energy modifier changed from 2x for crystal set up and adjust accordingly
                 else:
                     shutil.copy(os.path.join(putils.symmetry_def_files, 'C1.sym'),
                                 os.path.join(self.data_path, f'{entity.name}.sdf'))
@@ -1587,7 +1587,7 @@ class PoseProtocol(PoseData):
             design_files.append(self.pose.write(out_path=pre_threaded_file))
 
         # Ensure that mutations to the Pose are wiped. We can reload if continuing to use
-        remove_structure_memory()  # self.pose = None
+        self.pose = None
 
         design_files_file = os.path.join(self.scripts_path, f'files_{self.protocol}.txt')
         putils.make_path(self.scripts_path)
@@ -2827,7 +2827,7 @@ class PoseProtocol(PoseData):
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
             # Ensure that mutations to the Pose are wiped. We can reload if continuing to use
-            remove_structure_memory()  # self.pose = None
+            self.pose = None
             pose_s = self.interface_design_analysis()
             out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
             if os.path.exists(out_path):
