@@ -25,6 +25,7 @@ import pandas as pd
 import sklearn as skl
 from cycler import cycler
 from scipy.spatial.distance import pdist, cdist
+from sqlalchemy.orm import reconstructor
 
 from symdesign import flags, metrics, resources
 from symdesign.structure import fragment
@@ -110,8 +111,8 @@ class PoseDirectory:
             # self.scouted_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/design_name_scouted.pdb
             self.scouted_pdb: str | Path = f'{os.path.splitext(self.refined_pdb)[0]}_scout.pdb'
             # These next two files may be present from NanohedraV1 outputs
-            # self.pose_file = os.path.join(self.source_path, putils.pose_file)
-            # self.frag_file = os.path.join(self.source_path, putils.frag_dir, putils.frag_text_file)
+            # self.pose_file = os.path.join(self.out_directory, putils.pose_file)
+            # self.frag_file = os.path.join(self.frags_path, putils.frag_text_file)
             # These files are used as output from analysis protocols
             # self.designs_metrics_csv = os.path.join(self.job.all_scores, f'{self}_Trajectories.csv')
             self.designs_metrics_csv = os.path.join(self.data_path, f'designs.csv')
@@ -281,16 +282,17 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     _source: AnyStr
     _directives: list[dict[int, str]]
     _specific_designs: Sequence[str]
-    # entities: list[Entity]
-    fragment_db: fragment.db.FragmentDatabase
-    initial_model: Model | None
-    initialized: bool
-    measure_evolution: bool
-    measure_alignment: bool
-    pose: Pose | None
-    source: str | None
-    source_path: str
-    specific_designs_file_paths: list[AnyStr]
+    initial_model: Model = None
+    """Used if the pose structure has never been initialized previously"""
+    measure_evolution: bool = False
+    measure_alignment: bool = False
+    pose: Pose = None
+    """Contains the Pose object"""
+    protocol: str = None
+    """The name of the currently utilized protocol for file naming and metric results"""
+    source_path: str = None
+    specific_designs_file_paths: list[AnyStr] = []
+    """Contains the various file paths for each design of interest according to self.specific_designs"""
 
     # START classmethod where the PoseData isn't initialized
     @classmethod
@@ -401,6 +403,79 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     #         #     self.out_directory = os.path.join(root, putils.projects, pose_id.replace(f'_{putils.pose_directory}-',
     #         #                                                                     f'_{putils.pose_directory}{os.sep}'))
 
+    @reconstructor
+    def __init_from_db__(self):
+        """Initialize PoseData after the instance is "initialized", i.e. loaded from the database"""
+        # Get the main program options
+        self.job = resources.job.job_resources_factory.get()
+        # Symmetry attributes
+        # If a new sym_entry is provided it wouldn't be saved to the state but could be attempted to be used
+        if self.job.sym_entry is not None:
+            self.sym_entry = self.job.sym_entry
+
+        # Design attributes
+        # self.protocol = None
+        # """The name of the currently utilized protocol for file naming and metric results"""
+        # self.measure_evolution = self.measure_alignment = False
+        # # self.entities = []
+        # self.initial_model = None
+        # """Used if the pose structure has never been initialized previously"""
+        # self.pose = None
+        # """Contains the Pose object"""
+        # self.specific_designs_file_paths = []
+        # """Contains the various file paths for each design of interest according to self.specific_designs"""
+
+        if self.job.output_to_directory:
+            # Todo if I use output_modifier for design, it opens up a can of worms.
+            #  Maybe it is better to include only for specific modules
+            output_modifier = f'{self.name}_'
+            out_directory = self.job.program_root  # /output_directory <- self.out_directory/design.pdb
+        else:
+            output_modifier = None
+            out_directory = os.path.join(self.job.projects, self.project, self.name)
+
+        super().__init__(directory=out_directory, output_modifier=output_modifier)  # **kwargs)
+
+        putils.make_path(self.out_directory, condition=self.job.construct_pose)
+
+        # Initialize the logger for the Pose
+        log_path = self.log_path
+        if self.job.debug:
+            handler = level = 1  # Defaults to stdout, debug is level 1
+            no_log_name = False
+        elif self.log_path:
+            if self.job.force:
+                os.system(f'rm {self.log_path}')
+            handler = level = 2  # To a file
+            no_log_name = True
+        else:  # Log to the __main__ file logger
+            log_path = None  # Todo figure this out...
+            handler = level = 2  # To a file
+            no_log_name = False
+
+        if self.job.skip_logging or not self.job.construct_pose:  # Set up null_logger
+            self.log = logging.getLogger('null')
+        else:  # f'{__name__}.{self}'
+            self.log = start_log(name=f'pose.{self.project}.{self.name}', handler=handler, level=level,
+                                 location=log_path, no_log_name=no_log_name, propagate=True)
+            # propagate=True allows self.log to pass messages to 'pose' and 'project' logger
+
+        # Configure standard pose loading mechanism with self.source_path
+        if self.source_path is None:
+            if os.path.exists(self.asu_path):  # Standard mechanism of loading the pose
+                self.source_path = self.asu_path
+            else:
+                glob_target = os.path.join(self.out_directory, f'{self.name}*.pdb')
+                source = sorted(glob(glob_target))
+                if len(source) > 1:
+                    raise ValueError(f'Found {len(source)} files matching the path "{glob_target}". '
+                                     'No more than one expected')
+                else:
+                    try:
+                        self.source_path = source[0]
+                    except IndexError:  # glob found no files
+                        self.source_path = None
+
     def __init__(self, name: str = None, project: str = None, source_path: AnyStr = None,
                  # pose_identifier: bool = False, initialized: bool = True,
                  pose_transformation: Sequence[transformation_mapping] = None, entity_names: Sequence[str] = None,
@@ -419,6 +494,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         self.source_path = source_path
         self.pose_identifier = f'{self.project}{os.sep}{self.name}'
 
+        self.__init_from_db__()
+        """This comment's code is now called in __init_from_db__() according to DRY principles
+
         # Get the main program options
         self.job = resources.job.job_resources_factory.get()
         # Symmetry attributes
@@ -426,22 +504,24 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if self.job.sym_entry is not None:
             self.sym_entry = self.job.sym_entry
 
-        self.protocol: str | None = None
-        """The name of the currently utilized protocol for file naming and metric results"""
-
         # Design attributes
+        self.protocol = None
+        ""The name of the currently utilized protocol for file naming and metric results""
         self.measure_evolution = self.measure_alignment = False
         # self.entities = []
         self.initial_model = None
-        """Used if the pose structure has never been initialized previously"""
+        ""Used if the pose structure has never been initialized previously""
         self.pose = None
-        """Contains the design's Pose object"""
+        ""Contains the Pose object""
+        self.specific_designs_file_paths = []
+        ""Contains the various file paths for each design of interest according to self.specific_designs""
+        
         # self.pose_identifier = None
         # self.background_profile: str = kwargs.get('background_profile', putils.design_profile)
-        # """The type of position specific profile (per-residue amino acid frequencies) to utilize as the design
+        # ""The type of position specific profile (per-residue amino acid frequencies) to utilize as the design
         # background profile.
         # Choices include putils.design_profile, putils.evolutionary_profile, and putils.fragment_profile
-        # """
+        # ""
         # self.interface_design_residue_numbers: set[int] | bool = False  # The residue numbers in the pose interface
         # self.interface_residue_ids: dict[str, str] = {}
         # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
@@ -451,8 +531,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # self.pre_loop_model = self.info.get('pre_loop_model', True)
 
         if self.job.output_to_directory:
-            # self.job.projects = ''
-            # self.project_path = ''
             # Todo if I use output_modifier for design, it opens up a can of worms.
             #  Maybe it is better to include only for specific modules
             output_modifier = f'{self.name}_'
@@ -465,59 +543,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # Initialize attributes which should be stored in the PoseMetadata database
         super().__init__(directory=out_directory, output_modifier=output_modifier, **kwargs)
 
-        self.initialized = True if os.path.exists(self.serialized_info) else False
-        if not self.initialized:
-            # Save job variables to the state during initialization
-            if self.sym_entry:
-                self.symmetry_dimension = self.sym_entry.dimension
-                """The dimension of the SymEntry"""
-                self.symmetry = self.sym_entry.resulting_symmetry
-                """The resulting symmetry of the SymEntry"""
-                self.sym_entry_specification = self.sym_entry.specification
-                """The specification string of the SymEntry"""
-                self.sym_entry_number = self.sym_entry.number
-                """The SymEntry entry number"""
-            if self.job.design_selector:
-                self.design_selector = self.job.design_selector
-            if not entity_names:  # None were provided at start up, find them
-                # Load the Structure source_path and extract the entity_names from the Structure
-                # if self.job.nanohedra_output:
-                #     entity_names = get_components_from_nanohedra_docking(self.pose_file)
-                # else:
-                self.initial_model = Model.from_file(self.source_path)  # , log=self.log)
-                self.entity_names = [entity.name for entity in self.initial_model.entities]
-            else:
-                self.entity_names = entity_names
-
-            if pose_transformation:
-                self.pose_transformation = pose_transformation
-
-            putils.make_path(self.out_directory, condition=self.job.construct_pose)
-        else:  # This has been initialized, gather state data
-            try:
-                serial_info = unpickle(self.serialized_info)
-                if not self.info:  # Empty dict
-                    self.info = serial_info
-                else:
-                    serial_info.update(self.info)
-                    self.info = serial_info
-            except pickle.UnpicklingError as error:
-                logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
-                raise error
-
-            # Make a copy to check for changes to the current state
-            self._info = self.info.copy()
-            # self.source_path = None  # Will be set to self.asu_path later
-            # if self.job.output_to_directory:
-            #     # self.job.projects = ''
-            #     # self.project_path = ''
-            #     self.out_directory = self.job.program_root  # /output_directory<- self.out_directory /design.pdb
-            # else:
-            #     # self.project_path = os.path.dirname(self.out_directory)
-            # self.out_directory = self.source_path
-            # self.out_directory = os.path.join(self.job.projects, self.project, self.name)
-            #     # self.job.projects = os.path.dirname(self.project_path)
-            # self.project = os.path.basename(self.project_path)
+        # self.initialized = True if os.path.exists(self.serialized_info) else False
+        # if not self.initialized:
+        putils.make_path(self.out_directory, condition=self.job.construct_pose)
 
         # Initialize the logger for the Pose
         log_path = self.log_path
@@ -529,7 +557,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 os.system(f'rm {self.log_path}')
             handler = level = 2  # To a file
             no_log_name = True
-        else:  # Log to the SymDesign main file logger
+        else:  # Log to the __main__ file logger
             log_path = None  # Todo figure this out...
             handler = level = 2  # To a file
             no_log_name = False
@@ -540,64 +568,131 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             self.log = start_log(name=f'pose.{self.project}.{self.name}', handler=handler, level=level,
                                  location=log_path, no_log_name=no_log_name, propagate=True)
             # propagate=True allows self.log to pass messages to 'pose' and 'project' logger
+        """
+        # Save job variables to the state during initialization
+        if self.sym_entry:
+            self.symmetry_dimension = self.sym_entry.dimension
+            """The dimension of the SymEntry"""
+            self.symmetry = self.sym_entry.resulting_symmetry
+            """The resulting symmetry of the SymEntry"""
+            self.sym_entry_specification = self.sym_entry.specification
+            """The specification string of the SymEntry"""
+            self.sym_entry_number = self.sym_entry.number
+            """The SymEntry entry number"""
+        if self.job.design_selector:
+            self.design_selector = self.job.design_selector
+        if not entity_names:  # None were provided at start up, find them
+            # Load the Structure source_path and extract the entity_names from the Structure
+            # if self.job.nanohedra_output:
+            #     entity_names = get_components_from_nanohedra_docking(self.pose_file)
+            # else:
+            self.initial_model = Model.from_file(self.source_path)  # , log=self.log)
+            self.entity_names = [entity.name for entity in self.initial_model.entities]
+        else:
+            self.entity_names = entity_names
 
-        # if self.specific_designs:
-        #     # Introduce flag handling current inability of specific_designs to handle iteration
-        #     self._lock_optimize_designs = True
-        #     # self.specific_designs_file_paths = []
-        #     for design in self.specific_designs:
-        #         matching_path = os.path.join(self.designs_path, f'*{design}.pdb')
-        #         matching_designs = sorted(glob(matching_path))
-        #         if matching_designs:
-        #             if len(matching_designs) > 1:
-        #                 self.log.warning(f'Found {len(matching_designs)} matching designs to your specified design '
-        #                                  f'using {matching_path}. Choosing the first {matching_designs[0]}')
-        #             for matching_design in matching_designs:
-        #                 if os.path.exists(matching_design):  # Shouldn't be necessary from glob
-        #                     self.specific_designs_file_paths.append(matching_design)
-        #                     break
+        if pose_transformation:
+            self.pose_transformation = pose_transformation
+
+        # else:  # This has been initialized, gather state data
+        #     try:
+        #         serial_info = unpickle(self.serialized_info)
+        #         if not self.info:  # Empty dict
+        #             self.info = serial_info
         #         else:
-        #             raise DesignError(f"Couldn't locate a specific_design matching the name '{matching_path}'")
-        #     # Format specific_designs to a pose ID compatible format
-        #     self.specific_designs = [f'{self.name}_{design}' for design in self.specific_designs]
-        #     # self.source_path = specific_designs_file_paths  # Todo?
-        #     # self.source_path = self.specific_design_path
-        # elif self.source_path is None:
-        # Configure standard pose loading mechanism with self.source_path
-        if self.source_path is None:
-            if os.path.exists(self.asu_path):  # Standard mechanism of loading the pose
-                self.source_path = self.asu_path
-            else:
-                glob_target = os.path.join(self.out_directory, f'{self.name}*.pdb')
-                source = sorted(glob(glob_target))
-                if len(source) > 1:
-                    raise ValueError(f'Found {len(source)} files matching the path "{glob_target}". '
-                                     'No more than one expected')
-                else:
-                    try:
-                        self.source_path = source[0]
-                    except IndexError:  # glob found no files
-                        self.source_path = None
-        else:  # If the PoseJob was loaded as .pdb/mmCIF, the structure_source should be the self.initial_model
-            pass
+        #             serial_info.update(self.info)
+        #             self.info = serial_info
+        #     except pickle.UnpicklingError as error:
+        #         logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
+        #         raise error
+        #
+        #     # Make a copy to check for changes to the current state
+        #     self._info = self.info.copy()
+        #     # self.source_path = None  # Will be set to self.asu_path later
+        #     # if self.job.output_to_directory:
+        #     #     # self.job.projects = ''
+        #     #     # self.project_path = ''
+        #     #     self.out_directory = self.job.program_root  # /output_directory<- self.out_directory /design.pdb
+        #     # else:
+        #     #     # self.project_path = os.path.dirname(self.out_directory)
+        #     # self.out_directory = self.source_path
+        #     # self.out_directory = os.path.join(self.job.projects, self.project, self.name)
+        #     #     # self.job.projects = os.path.dirname(self.project_path)
+        #     # self.project = os.path.basename(self.project_path)
 
-        # Set up specific_design mechanisms
+        # # if self.specific_designs:
+        # #     # Introduce flag handling current inability of specific_designs to handle iteration
+        # #     self._lock_optimize_designs = True
+        # #     # self.specific_designs_file_paths = []
+        # #     for design in self.specific_designs:
+        # #         matching_path = os.path.join(self.designs_path, f'*{design}.pdb')
+        # #         matching_designs = sorted(glob(matching_path))
+        # #         if matching_designs:
+        # #             if len(matching_designs) > 1:
+        # #                 self.log.warning(f'Found {len(matching_designs)} matching designs to your specified design '
+        # #                                  f'using {matching_path}. Choosing the first {matching_designs[0]}')
+        # #             for matching_design in matching_designs:
+        # #                 if os.path.exists(matching_design):  # Shouldn't be necessary from glob
+        # #                     self.specific_designs_file_paths.append(matching_design)
+        # #                     break
+        # #         else:
+        # #             raise DesignError(f"Couldn't locate a specific_design matching the name '{matching_path}'")
+        # #     # Format specific_designs to a pose ID compatible format
+        # #     self.specific_designs = [f'{self.name}_{design}' for design in self.specific_designs]
+        # #     # self.source_path = specific_designs_file_paths  # Todo?
+        # #     # self.source_path = self.specific_design_path
+        # # elif self.source_path is None:
+        # # Configure standard pose loading mechanism with self.source_path
+        # if self.source_path is None:
+        #     if os.path.exists(self.asu_path):  # Standard mechanism of loading the pose
+        #         self.source_path = self.asu_path
+        #     else:
+        #         glob_target = os.path.join(self.out_directory, f'{self.name}*.pdb')
+        #         source = sorted(glob(glob_target))
+        #         if len(source) > 1:
+        #             raise ValueError(f'Found {len(source)} files matching the path "{glob_target}". '
+        #                              'No more than one expected')
+        #         else:
+        #             try:
+        #                 self.source_path = source[0]
+        #             except IndexError:  # glob found no files
+        #                 self.source_path = None
+        # # else:  # If the PoseJob was loaded as .pdb/mmCIF, the structure_source should be the self.initial_model
+        # #     pass
+
+        # # Set up specific_design mechanisms
+        # if specific_designs:
+        #     self.specific_designs = specific_designs
+        # # else:
+        # #     self.specific_designs = []
+        # if directives:
+        #     self.directives = directives
+        # # else:
+        # #     self.directives = []
+
+        # # Mark that this has been initialized if it has
+        # self.pickle_info()
+
+    def use_specific_designs(self, specific_designs: Sequence[str] = None, directives: list[dict[int, str]] = None,
+                             **kwargs):
+        """Set up the instance with the names and instructions to perform further sequence design
+
+        Args:
+            specific_designs: The names of designs which to include in modules that support PoseJob designs
+            directives: Instructions to guide further sampling of specific_designs
+        """
         if specific_designs:
             self.specific_designs = specific_designs
         # else:
         #     self.specific_designs = []
-        self.specific_designs_file_paths = []
         if directives:
             self.directives = directives
         # else:
         #     self.directives = []
 
-        # Mark that this has been initialized if it has
-        self.pickle_info()
-
     @property
     def directives(self) -> list[dict[int, str]]:
-        """Return the source of the Pose structural information for the PoseJob"""
+        """The design directives given to each design in specific_designs to guide further sampling"""
         try:
             return self._directives
         except AttributeError:
@@ -612,7 +707,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
     @property
     def specific_designs(self) -> Sequence[str]:
-        """Return the source of the Pose structural information for the PoseJob"""
+        """The names of designs which to include in modules that support PoseJob designs"""
         try:
             return self._specific_designs
         except AttributeError:
