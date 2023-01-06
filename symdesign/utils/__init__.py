@@ -1021,7 +1021,7 @@ class PoseSpecification:
 
         all_poses, design_names, all_design_directives, = [], [], []
         with open(self.file) as f:
-            # pose_ids, design_names, all_design_directives, *_ = zip(*reader(file, dialect=self))
+            # pose_identifiers, design_names, all_design_directives, *_ = zip(*reader(file, dialect=self))
             all_info = list(zip(*csv.reader(f)))  # dialect=self)))
 
         for idx in range(len(all_info)):
@@ -1032,7 +1032,7 @@ class PoseSpecification:
             elif idx == 2:
                 all_design_directives = all_info[idx]
 
-        self.pose_ids: list[str] = list(map(str.strip, all_poses))
+        self.pose_identifiers: list[str] = list(map(str.strip, all_poses))
         self.design_names: list[str] = list(map(str.strip, design_names))
 
         # First, split directives by white space, then by directive_delimiter
@@ -1060,26 +1060,26 @@ class PoseSpecification:
         """
         # Calculate whether there are multiple designs present per pose
         found_poses = {}
-        for idx, pose in enumerate(self.pose_ids):
+        for idx, pose in enumerate(self.pose_identifiers):
             if pose in found_poses:
                 found_poses[pose].append(idx)
             else:
                 found_poses[pose] = [idx]
 
-        number_pose_ids = len(self.pose_ids)
+        number_pose_identifiers = len(self.pose_identifiers)
         if self.directives:
-            if number_pose_ids != len(self.directives):
+            if number_pose_identifiers != len(self.directives):
                 raise ValueError('The inputs to the PoseSpecification have different lengths!')
         else:
-            directives = list(repeat(None, number_pose_ids))
+            directives = list(repeat(None, number_pose_identifiers))
 
         if self.design_names:  # design_file
-            if number_pose_ids != len(self.design_names):
+            if number_pose_identifiers != len(self.design_names):
                 raise ValueError('The inputs to the PoseSpecification have different lengths!')
         else:
-            design_names = list(repeat(None, number_pose_ids))
+            design_names = list(repeat(None, number_pose_identifiers))
 
-        if len(found_poses) == number_pose_ids:  # There is one design per pose
+        if len(found_poses) == number_pose_identifiers:  # There is one design per pose
             if self.directives:
                 directives = [[directive] for directive in self.directives]
             if self.design_names:
@@ -1094,7 +1094,7 @@ class PoseSpecification:
                 for indices in found_poses.values():
                     design_names.append([self.design_names[index] for index in indices])
 
-        return zip(self.pose_ids, design_names, directives)
+        return zip(self.pose_identifiers, design_names, directives)
 
 
 ######################

@@ -40,11 +40,11 @@ def write_docked_pose_info(outdir_path, res_lev_sum_score, high_qual_match_count
                            unique_matched_interface_monofrag_count, unique_total_interface_monofrags_count,
                            percent_of_interface_covered, rot_mat1, representative_int_dof_tx_param_1, set_mat1,
                            representative_ext_dof_tx_params_1, rot_mat2, representative_int_dof_tx_param_2, set_mat2,
-                           representative_ext_dof_tx_params_2, cryst1_record, pdb1_path, pdb2_path, pose_id):
+                           representative_ext_dof_tx_params_2, cryst1_record, pdb1_path, pdb2_path, pose_identifier):
 
     out_info_file_path = os.path.join(outdir_path, utils.path.docked_pose_file)
     with open(out_info_file_path, 'w') as out_info_file:
-        out_info_file.write('DOCKED POSE ID: %s\n\n' % pose_id)
+        out_info_file.write('DOCKED POSE ID: %s\n\n' % pose_identifier)
         out_info_file.write('Nanohedra Score: %f\n\n' % res_lev_sum_score)
         out_info_file.write('Unique Mono Fragments Matched (z<=1): %d\n' % high_qual_match_count)
         out_info_file.write('Unique Mono Fragments Matched: %d\n' % unique_matched_interface_monofrag_count)
@@ -135,14 +135,14 @@ def get_components_from_nanohedra_docking(pose_file: AnyStr) -> list[str]:
     with open(pose_file, 'r') as f:
         for line in f.readlines():
             if line[:15] == 'DOCKED POSE ID:':
-                pose_id = line[15:].strip().replace('_DEGEN_', '-DEGEN_').replace('_ROT_', '-ROT_').replace('_TX_', '-tx_')
+                pose_identifier = line[15:].strip().replace('_DEGEN_', '-DEGEN_').replace('_ROT_', '-ROT_').replace('_TX_', '-tx_')
             elif line[:31] == 'Canonical Orientation PDB1 Path':
                 canonical_pdb1 = line[31:].strip()
             elif line[:31] == 'Canonical Orientation PDB2 Path':
                 canonical_pdb2 = line[31:].strip()
 
-        if pose_id:
-            entity_names = pose_id.split('-DEGEN_')[0].split('-')
+        if pose_identifier:
+            entity_names = pose_identifier.split('-DEGEN_')[0].split('-')
 
         if len(entity_names) != number_of_nanohedra_components:  # probably old format without use of '-'
             entity_names = list(map(os.path.basename, [os.path.splitext(canonical_pdb1)[0],

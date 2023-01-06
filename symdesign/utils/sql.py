@@ -39,6 +39,7 @@ class PoseMetadata(Base):
 
     name = Column(String, nullable=False, index=True)  # String(60)
     project = Column(String, nullable=False)  # String(60)
+    pose_identifier = column_property(f'{project}{os.sep}{name}')
     # Set up one-to-many relationship with design_metadata table
     designs = relationship('DesignMetadata', back_populates='pose')
     # # Set up one-to-many relationship with entity_metadata table

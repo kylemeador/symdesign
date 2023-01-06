@@ -289,7 +289,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     measure_evolution: bool
     measure_alignment: bool
     pose: Pose | None
-    # pose_id: str
     pose_file: str | Path
     source: str | None
     source_path: str
@@ -319,7 +318,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #     source_path = None
         #     # self.project_path = os.path.dirname(design_path)
         #     # self.project = os.path.basename(self.project_path)
-        #     # self.pose_id = f'{self.project}/{self.name}'
+        #     # self.pose_identifier = f'{self.project}{os.sep}{self.name}'
         else:
             raise InputError(f"{type(cls).__name__} couldn't load the specified source file: "
                              f"'{source_path}'")
@@ -356,8 +355,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         try:
             name, project, *_ = reversed(design_path.split(os.sep))
         except ValueError:  # Only got 1 value during unpacking... This isn't a "pose_directory" identifier
-            raise InputError(f"Couldn't coerce design_path to a 'pose_directory' identifier. "
-                             f"Must contain the project/pose_name")
+            raise InputError(f"Couldn't coerce {design_path} to a 'pose_directory'. The directory must contain the "
+                             f"'project{os.sep}pose_name' string")
         # directory, name = os.path.split(design_path)
         # _, project = os.path.split(directory)
         return cls(name=name, project=project, source_path=os.path.join(root, design_path), **kwargs)
@@ -371,6 +370,21 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Returns:
             The PoseJob instance
         """
+        return cls(name=name, project=project, **kwargs)
+
+    @classmethod
+    def from_pose_identifier(cls, pose_identifier: str, **kwargs):
+        """Load the PoseJob from the name and project
+        Args:
+            pose_identifier: The project and the name concatenated that identify this PoseJob
+        Returns:
+            The PoseJob instance
+        """
+        try:
+            project, name = pose_identifier.split(os.sep)
+        except ValueError:  # We don't have a pose_identifier
+            raise InputError(f"Couldn't coerce {pose_identifier} to 'project' {os.sep} 'name'. Please ensure the "
+                             f"pose_identifier is passed with the format 'project{os.sep}name'")
         return cls(name=name, project=project, **kwargs)
     # END classmethod where the PoseData isn't initialized
 
@@ -391,7 +405,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     #         #                                                                     f'_{putils.pose_directory}{os.sep}'))
 
     def __init__(self, name: str = None, project: str = None, source_path: AnyStr = None,
-                 pose_id: bool = False, initialized: bool = True,
+                 # pose_identifier: bool = False, initialized: bool = True,
                  pose_transformation: Sequence[transformation_mapping] = None, entity_names: Sequence[str] = None,
                  specific_designs: Sequence[str] = None, directives: list[dict[int, str]] = None, **kwargs):
         # if pose_name and root is not None:
@@ -406,7 +420,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         self.name = name
         self.project = project
         self.source_path = source_path
-        self.pose_id = f'{self.project}/{self.name}'
+        self.pose_identifier = f'{self.project}{os.sep}{self.name}'
 
         # Get the main program options
         self.job = resources.job.job_resources_factory.get()
@@ -1107,8 +1121,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             # # rename_chains = True
 
         # Initialize the Pose with the pdb in PDB numbering so that residue_selectors are respected
-        # name = f'{self.pose_id}-asu' if self.sym_entry else self.pose_id
-        # name = self.pose_id
+        # name = f'{self.pose_identifier}-asu' if self.sym_entry else self.pose_identifier
+        # name = self.pose_identifier
         # name = self.name  # Ensure this name is the tracked across Pose init from fragdock() to _design() methods
         if entities:
             self.structure_source = 'Database'
@@ -1321,7 +1335,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #     return self.name
         # else:
         #     return self.out_directory.replace(f'{self.job.projects}{os.sep}', '').replace(os.sep, '-')
-        return self.pose_id
+        return self.pose_identifier
 
 
 class PoseProtocol(PoseData):
