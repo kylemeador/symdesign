@@ -47,7 +47,6 @@ idx_slice = pd.IndexSlice
 cst_value = round(0.2 * rosetta.reference_average_residue_weight, 2)
 mean, std = 'mean', 'std'
 stats_metrics = [mean, std]
-symmetry_protocols = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 null_cmd = ['echo']
 observed_types = ('evolution', 'fragment', 'design', 'interface')
 
@@ -138,24 +137,70 @@ class PoseDirectory(ABC):
     def id(self, _id: int):
         self._id = self.info['id'] = _id
 
-    # SymEntry object attributes
-    @property
-    def sym_entry(self) -> SymEntry | None:
-        """The SymEntry"""
-        try:
-            return self._sym_entry
-        except AttributeError:
-            self._sym_entry = symmetry_factory.get(*self.info['sym_entry_specification']) \
-                if 'sym_entry_specification' in self.info else None
-            # temp_sym_entry = SymEntry(self.info['sym_entry_specification'][0])
-            # self._sym_entry = symmetry_factory(self.info['sym_entry_specification'][0],
-            #                                    [temp_sym_entry.resulting_symmetry] +
-            #                                    list(self.info['sym_entry_specification'][1].values())) \
-            #     if 'sym_entry_specification' in self.info else None
-            # self.info['sym_entry_specification'] = \
-            #     (self.info['sym_entry_specification'][0], [temp_sym_entry.resulting_symmetry] +
-            #      list(self.info['sym_entry_specification'][1].values()))
-            return self._sym_entry
+    # # SymEntry object attributes
+    # @property
+    # def sym_entry(self) -> SymEntry | None:
+    #     """The SymEntry"""
+    #     try:
+    #         return self._sym_entry
+    #     except AttributeError:
+    #         self._sym_entry = symmetry_factory.get(*self.info['sym_entry_specification']) \
+    #             if 'sym_entry_specification' in self.info else None
+    #         # temp_sym_entry = SymEntry(self.info['sym_entry_specification'][0])
+    #         # self._sym_entry = symmetry_factory(self.info['sym_entry_specification'][0],
+    #         #                                    [temp_sym_entry.resulting_symmetry] +
+    #         #                                    list(self.info['sym_entry_specification'][1].values())) \
+    #         #     if 'sym_entry_specification' in self.info else None
+    #         # self.info['sym_entry_specification'] = \
+    #         #     (self.info['sym_entry_specification'][0], [temp_sym_entry.resulting_symmetry] +
+    #         #      list(self.info['sym_entry_specification'][1].values()))
+    #         return self._sym_entry
+    #
+    # @sym_entry.setter
+    # def sym_entry(self, sym_entry: SymEntry):
+    #     self.info['sym_entry_specification'] = self.sym_entry.number, self.sym_entry.sym_map
+    #     self._sym_entry = sym_entry
+    #
+    # @property
+    # def symmetry(self) -> str | None:
+    #     """The result of the SymEntry"""
+    #     try:
+    #         return self.sym_entry.resulting_symmetry
+    #     except AttributeError:
+    #         return None
+    #
+    # @property
+    # def sym_entry_number(self) -> int | None:
+    #     """The entry number of the SymEntry"""
+    #     try:
+    #         return self.sym_entry.number
+    #     except AttributeError:
+    #         return None
+    #
+    # @property
+    # def sym_entry_map(self) -> list[str] | None:
+    #     """The symmetry map of the SymEntry"""
+    #     try:
+    #         # return [self.sym_entry.resulting_symmetry] + list(self.sym_entry.sym_map.values())
+    #         return self.sym_entry.sym_map
+    #     except AttributeError:
+    #         return None
+    #
+    # @property
+    # def sym_entry_combination(self) -> str | None:
+    #     """The combination string of the SymEntry"""
+    #     try:
+    #         return self.sym_entry.specification
+    #     except AttributeError:
+    #         return None
+    #
+    # @property
+    # def symmetry_dimension(self) -> int | None:
+    #     """The dimension of the SymEntry"""
+    #     try:
+    #         return self.sym_entry.dimension
+    #     except AttributeError:
+    #         return None
 
     @sym_entry.setter
     def sym_entry(self, sym_entry: SymEntry):
@@ -370,8 +415,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # If a new sym_entry is provided it wouldn't be saved to the state but could be attempted to be used
         if self.job.sym_entry is not None:
             self.sym_entry = self.job.sym_entry
-        # self.sym_def_file: str | None = None  # The symmetry definition file for the entire Pose
-        # self.symmetry_protocol: str | None = None
+
         self.protocol: str | None = None
         """The name of the currently utilized protocol for file naming and metric results"""
 
@@ -424,8 +468,14 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if not self.initialized:
             # Save job variables to the state during initialization
             if self.sym_entry:
-                self.sym_entry_number = self.sym_entry.number
+                self.symmetry_dimension = self.sym_entry.dimension
+                """The dimension of the SymEntry"""
+                self.symmetry = self.sym_entry.resulting_symmetry
+                """The resulting symmetry of the SymEntry"""
                 self.sym_entry_specification = self.sym_entry.specification
+                """The specification string of the SymEntry"""
+                self.sym_entry_number = self.sym_entry.number
+                """The SymEntry entry number"""
             if self.job.design_selector:
                 self.design_selector = self.job.design_selector
             if not entity_names:  # None were provided at start up, find them
@@ -549,19 +599,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     def number_of_designs(self) -> int:
         return len(self.designs)
 
-    # @property
-    # def number_of_designs(self) -> int:
-    #     """Return the number of designs created for the PoseJob"""
-    #     try:
-    #         return self._number_of_designs
-    #     except AttributeError:
-    #         self._number_of_designs = self.info.get('number_of_designs', 0)
-    #         return self._number_of_designs
-    #
-    # @number_of_designs.setter
-    # def number_of_designs(self, _id: int):
-    #     self._number_of_designs = self.info['number_of_designs'] = _id
-
     # SymEntry object attributes
     @property
     def sym_entry(self) -> SymEntry | None:
@@ -581,65 +618,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         """Is the PoseJob symmetric?"""
         return self.sym_entry is not None
 
-    # Todo database
-    # @property
-    # def symmetry(self) -> str | None:
-    #     """The result of the SymEntry"""
-    #     try:
-    #         return self.sym_entry.resulting_symmetry
-    #     except AttributeError:
-    #         return None
-
-    # @property
-    # def sym_entry_number(self) -> int | None:
-    #     """The entry number of the SymEntry"""
-    #     try:
-    #         return self.sym_entry.number
-    #     except AttributeError:
-    #         return None
-
-    # @property
-    # def sym_entry_map(self) -> list[str] | None:
-    #     """The symmetry map of the SymEntry"""
-    #     try:
-    #         # return [self.sym_entry.resulting_symmetry] + list(self.sym_entry.sym_map.values())
-    #         return self.sym_entry.sym_map
-    #     except AttributeError:
-    #         return None
-
-    # @property
-    # def sym_entry_combination(self) -> str | None:
-    #     """The combination string of the SymEntry"""
-    #     try:
-    #         return self.sym_entry.specification
-    #     except AttributeError:
-    #         return None
-
-    @property
-    def design_dimension(self) -> int | None:
-        """The dimension of the SymEntry"""
-        try:
-            return self.sym_entry.dimension
-        except AttributeError:
-            return None
-
-    # @property
-    # def number_of_symmetry_mates(self) -> int | None:
-    #     """The number of symmetric copies in the full symmetric system"""
-    #     try:
-    #         return self.sym_entry.number_of_operations
-    #     except AttributeError:
-    #         return None
-
-    # @property
-    # def trajectory_metrics_file(self) -> AnyStr:
-    #     return os.path.join(self.job.all_scores, f'{self}_Trajectories.csv')
-    #
-    # @property
-    # def residue_metrics_file(self) -> AnyStr:
-    #     return os.path.join(self.job.all_scores, f'{self}_Residues.csv')
-    #
-
     @property
     def pose_kwargs(self) -> dict[str, Any]:
         """Returns the kwargs necessary to initialize the Pose"""
@@ -648,14 +626,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     # pass names ^ if available
                     ignore_clashes=self.job.design.ignore_pose_clashes, fragment_db=self.job.fragment_db)
         #             api_db=self.job.api_db,
-
-    # def clear_pose_transformation(self):
-    #     """Remove any pose transformation data from the Pose"""
-    #     try:
-    #         del self._pose_transformation
-    #         self.info.pop('pose_transformation')
-    #     except AttributeError:
-    #         pass
 
     @property
     def entity_names(self) -> list[str]:
@@ -1413,7 +1383,7 @@ class PoseProtocol(PoseData):
         self.log.info(f'Total number of residues in Pose: {number_of_residues}')
 
         # Get ASU distance parameters
-        if self.design_dimension:  # Check for None and dimension 0 simultaneously
+        if self.symmetry_dimension:  # Check for None and dimension 0 simultaneously
             # The furthest point from the ASU COM + the max individual Entity radius
             distance = self.pose.radius + max([entity.radius for entity in self.pose.entities])  # all the radii
             self.log.info(f'Expanding ASU into symmetry group by {distance:.2f} Angstroms')
@@ -1435,17 +1405,15 @@ class PoseProtocol(PoseData):
                          if os.path.exists(self.fragment_profile_file) else [])
 
         if self.pose.is_symmetric():
-            # For the specified design, locate/make the symmetry files necessary for Rosetta input
-            if self.sym_entry is None:  # asymmetric
-                symmetry_protocol = 'asymmetric'
-                self.log.debug('No symmetry invoked during design')
-                variables.append(('symmetry', symmetry_protocol))
-            else:
-                if symmetry_protocol is None:
-                    symmetry_protocol = symmetry_protocols[self.design_dimension]
-                if sym_def_file is None:
-                    sym_def_file = self.sym_entry.sdf_lookup()
-                variables.extend([('symmetry', symmetry_protocol), ('sdf', sym_def_file)])
+            if symmetry_protocol is None:
+                symmetry_protocols = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice',
+                                      None: 'asymmetric'}  # -1: 'asymmetric'
+                symmetry_protocol = symmetry_protocols[self.symmetry_dimension]
+            variables.append(('symmetry', symmetry_protocol))
+            # The current self.sym_entry can still be None if requested for this particular job
+            if sym_def_file is None and self.sym_entry is not None:
+                sym_def_file = self.sym_entry.sdf_lookup()
+                variables.append(('sdf', sym_def_file))
 
             self.log.info(f'Symmetry Option: {symmetry_protocol}')
             out_of_bounds_residue = number_of_residues*self.pose.number_of_symmetry_mates + 1
@@ -1492,11 +1460,11 @@ class PoseProtocol(PoseData):
 
         return out_file
 
-    def generate_entity_metrics(self, entity_command) -> list[list[str] | None]:
+    def generate_entity_metrics_commands(self, base_command) -> list[list[str] | None]:
         """Use the Pose state to generate metrics commands for each Entity instance
 
         Args:
-            entity_command: The base command to build Entity metric commands off of
+            base_command: The base command to build Entity metric commands off of
         Returns:
             The formatted command for every Entity in the Pose
         """
@@ -1519,8 +1487,9 @@ class PoseProtocol(PoseData):
                 entity_sym = 'symmetry=make_point_group'
             else:
                 entity_sdf, entity_sym = '', 'symmetry=asymmetric'
-            metric_cmd = entity_command + ['-parser:script_vars', 'repack=yes', f'entity={idx}', entity_sym] + \
-                ([entity_sdf] if entity_sdf != '' else [])
+            metric_cmd = base_command \
+                + ['-parser:script_vars', 'repack=yes', f'entity={idx}', entity_sym] \
+                + ([entity_sdf] if entity_sdf != '' else [])
             self.log.info(f'Metrics Command for Entity {name}: {list2cmdline(metric_cmd)}')
             entity_metric_commands.append(metric_cmd)
 
@@ -2653,14 +2622,14 @@ class PoseProtocol(PoseData):
 
         return pose_s
 
-    def refine(self, to_pose_directory: bool = True, metrics: bool = True, in_file_list: AnyStr = None):
+    def refine(self, to_pose_directory: bool = True, gather_metrics: bool = True, in_file_list: AnyStr = None):
         """Refine the PoseJob.pose instance or design Model instances associated with this instance
 
         Will append the suffix "_refine" or that given by f'_{self.protocol}' if in_file_list is passed
 
         Args:
             to_pose_directory: Whether the refinement should be saved to the PoseJob
-            metrics: Whether metrics should be calculated for the Pose
+            gather_metrics: Whether metrics should be calculated for the Pose
             in_file_list: A list of files to perform refinement on
         """
         main_cmd = rosetta.script_cmd.copy()
@@ -2740,29 +2709,33 @@ class PoseProtocol(PoseData):
             metrics_pdb = ['-in:file:s', refined_pdb, '-in:file:native', refine_pdb]
 
         # RELAX: Prepare command
+        if self.symmetry_dimension is not None and self.symmetry_dimension > 0:
+            symmetry_definition = ['-symmetry_definition', 'CRYST1']
+        else:
+            symmetry_definition = []
+
         # '-no_nstruct_label', 'true' comes from v
-        relax_cmd = main_cmd + rosetta.relax_flags_cmdline + additional_flags + \
-            (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + infile + \
-            [f'@{flags_file}', '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'refine.xml'),
-             '-out:suffix', f'_{switch}', '-parser:script_vars', f'switch={switch}']
+        relax_cmd = main_cmd + rosetta.relax_flags_cmdline + additional_flags + symmetry_definition + infile \
+            + [f'@{flags_file}', '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'refine.xml'),
+               '-out:suffix', f'_{switch}', '-parser:script_vars', f'switch={switch}']
         self.log.info(f'{switch.title()} Command: {list2cmdline(relax_cmd)}')
 
-        if metrics or self.job.metrics:
-            metrics = True
+        if gather_metrics or self.job.metrics:
+            gather_metrics = True
             main_cmd += metrics_pdb
             main_cmd += [f'@{flags_file}', '-out:file:score_only', self.scores_file,
                          '-no_nstruct_label', 'true', '-parser:protocol']
             if self.job.mpi > 0:
                 main_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
 
-            metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
-                [os.path.join(putils.rosetta_scripts_dir, f'{putils.interface_metrics}'
-                              f'{"_DEV" if self.job.development else ""}.xml')]
+            metric_cmd_bound = main_cmd + symmetry_definition \
+                + [os.path.join(putils.rosetta_scripts_dir, f'{putils.interface_metrics}'
+                                f'{"_DEV" if self.job.development else ""}.xml')]
             entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
                                                   f'metrics_entity{"_DEV" if self.job.development else ""}.xml')]
             self.log.info(f'Metrics Command: {list2cmdline(metric_cmd_bound)}')
             metric_cmds = [metric_cmd_bound]
-            metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
+            metric_cmds.extend(self.generate_entity_metrics_commands(entity_cmd))
         else:
             metric_cmds = []
 
@@ -2782,7 +2755,7 @@ class PoseProtocol(PoseData):
             relax_process.communicate()  # wait for command to complete
             list_all_files_process = Popen(generate_files_cmd)
             list_all_files_process.communicate()
-            if metrics:
+            if gather_metrics:
                 for metric_cmd in metric_cmds:
                     metrics_process = Popen(metric_cmd)
                     metrics_process.communicate()
@@ -2808,7 +2781,9 @@ class PoseProtocol(PoseData):
         """
         # Set up the command base (rosetta bin and database paths)
         main_cmd = rosetta.script_cmd.copy()
-        main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
+        if self.symmetry_dimension is not None and self.symmetry_dimension > 0:
+            main_cmd += ['-symmetry_definition', 'CRYST1']
+
         # Todo - Has this been solved?
         #  must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         profile_cmd = ['-in:file:pssm', self.evolutionary_profile_file] \
@@ -2896,7 +2871,7 @@ class PoseProtocol(PoseData):
 
         self.log.info(f'{self.rosetta_interface_design.__name__} command: {list2cmdline(design_cmd)}')
         metric_cmds = []
-        metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
+        metric_cmds.extend(self.generate_entity_metrics_commands(entity_cmd))
 
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.job.distribute_work:

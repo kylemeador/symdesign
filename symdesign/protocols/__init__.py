@@ -258,7 +258,7 @@ def interface_metrics(job: pose.PoseJob):
     entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
                                           f'metrics_entity{"_DEV" if job.job.development else ""}.xml')]
     metric_cmds = [metric_cmd_bound]
-    metric_cmds.extend(job.generate_entity_metrics(entity_cmd))
+    metric_cmds.extend(job.generate_entity_metrics_commands(entity_cmd))
 
     # Create executable to gather interface Metrics on all Designs
     if job.job.distribute_work:
@@ -495,7 +495,7 @@ def interface_design(job: pose.PoseJob):
     # -------------------------------------------------------------------------
 
     if not job.pre_refine and not os.path.exists(job.refined_pdb):
-        job.refine(metrics=False)
+        job.refine(gather_metrics=False)
 
     putils.make_path(job.designs_path)
     # putils.make_path(job.data_path)  # Used above
@@ -568,7 +568,7 @@ def design(job: pose.PoseJob):
     # -------------------------------------------------------------------------
 
     if not job.pre_refine and not os.path.exists(job.refined_pdb):
-        job.refine(metrics=False)
+        job.refine(gather_metrics=False)
 
     putils.make_path(job.designs_path)
     # putils.make_path(job.data_path)  # Used above
@@ -679,7 +679,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
 
     job.log.info(f'{optimize_designs.__name__} command: {list2cmdline(design_cmd)}')
     metric_cmds = []
-    metric_cmds.extend(job.generate_entity_metrics(entity_cmd))
+    metric_cmds.extend(job.generate_entity_metrics_commands(entity_cmd))
 
     # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
     if job.job.distribute_work:
@@ -721,8 +721,7 @@ def process_rosetta_metrics(job: pose.PoseJob):
 
 
 @protocol_decorator(errors=(DesignError,))
-def analysis(job: pose.PoseJob, designs: Iterable[Pose] | Iterable[AnyStr] = None) \
-        -> pd.Series:
+def analysis(job: pose.PoseJob, designs: Iterable[Pose] | Iterable[AnyStr] = None) -> pd.Series:
     """Retrieve all score information from a PoseJob and write results to .csv file
 
     Args:
@@ -800,7 +799,7 @@ def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = No
                                     for seq_pair in combinations(pose_sequences, 2)]
         pairwise_sequence_diff_np = np.array(pairwise_sequence_diff_l)
         _min = min(pairwise_sequence_diff_l)
-        # _max = max(pairwise_sequence_diff_l)
+        # max_ = max(pairwise_sequence_diff_l)
         pairwise_sequence_diff_np = np.subtract(pairwise_sequence_diff_np, _min)
         # job.log.info(pairwise_sequence_diff_l)
 
