@@ -161,9 +161,9 @@ class DataStore:
         if data:
             self.log.debug(f'{name}{self.extension} was retrieved from {type(self).__name__}')
         else:
-            data = self._load_data(name, log=None)  # attempt to retrieve the new data
+            data = self._load_data(name, log=None)  # Attempt to retrieve the new data
             if data:
-                setattr(self, name, data)  # attempt to store the new data as an attribute
+                setattr(self, name, data)  # Attempt to store the new data as an attribute
                 self.log.debug(f'The file {name}{self.extension} was loaded into the {type(self).__name__}')
             else:
                 self.log.debug(f'Failed to load file {name}{self.extension} into the {type(self).__name__}')
@@ -185,7 +185,7 @@ class DataStore:
             # return None
         else:
             if data:
-                return self.save_file(data, self.path_to(name=name), **kwargs)  # could also use self.retrieve_data(name)
+                return self.save_file(data, self.path_to(name=name), **kwargs)  # Could also use self.retrieve_data()
         return None
 
     def _load_data(self, name: str, **kwargs) -> Any | None:

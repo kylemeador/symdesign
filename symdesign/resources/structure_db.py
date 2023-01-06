@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 import subprocess
 from glob import glob
 from logging import Logger
@@ -92,31 +93,32 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = putils.pd
         asu: Whether to fetch the ASU
         location: Location of a local PDB mirror if one is linked on disk
     Keyword Args:
-        assembly=None (int): Location of a local PDB mirror if one is linked on disk
-        out_dir=os.getcwd() (AnyStr): The location to save retrieved files if fetched from PDB
+        assembly: int = None - Location of a local PDB mirror if one is linked on disk
+        out_dir: AnyStr = os.getcwd() - The location to save retrieved files if fetched from PDB
     Returns:
         The path to the file if located successfully
     """
     # if location == putils.pdb_db and asu:
     if os.path.exists(location) and asu:
         file_path = os.path.join(location, f'pdb{pdb_code.lower()}.ent')
-        def get_pdb(*args, **kwargs): return sorted(glob(file_path))
+        def get_pdb(*args, **_kwargs): return sorted(glob(file_path))
         # Cassini format is above, KM local pdb and the escher PDB mirror is below
         # file_path = os.path.join(location, subdirectory(pdb_code), f'{pdb_code.lower()}.pdb')
         logger.debug(f'Searching for PDB file at "{file_path}"')
     else:
         get_pdb = _fetch_pdb_from_api
 
-    # return a list where the matching file is the first (should only be one anyway)
-    pdb_file = get_pdb(pdb_code, asu=asu, location=location, **kwargs)
-    if not pdb_file:
+    # The matching file is the first (should only be one)
+    pdb_file: list[str] = get_pdb(pdb_code, asu=asu, location=location, **kwargs)
+    if not pdb_file:  # Empty list
         logger.warning(f'No matching file found for PDB: {pdb_code}')
-    else:  # we should only find one file, therefore, return the first
+        return None
+    else:  # We should only find one file, therefore, return the first
         return pdb_file[0]
 
 
 def orient_structure_files(files: Iterable[AnyStr], log: Logger = logger, symmetry: str = None,
-                           out_dir: AnyStr = None) -> list[str]:
+                           out_dir: AnyStr = None) -> list[str] | list:
     """For a specified file and output directory, orient the file according to the provided symmetry where the
     resulting file will have the chains symmetrized and oriented in the coordinate frame as to have the major axis
     of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the monomer
@@ -133,12 +135,12 @@ def orient_structure_files(files: Iterable[AnyStr], log: Logger = logger, symmet
     file_paths = []
     for file in files:
         model_name, extension = os.path.splitext(os.path.basename(file))
+        # Todo refactor this file_path resolution as not very precise for mmcif files...
         if '.pdb' in extension:  # Use the original extension which may have an assembly provided
             output_extension = extension
         else:  # This could be mmcif
             output_extension = '.pdb'
 
-        # Todo refactor this file_path resolution as not very precise for mmcif files...
         oriented_file_path = os.path.join(out_dir, f'{model_name}{output_extension}')  # .pdb')
         if not os.path.exists(oriented_file_path):
             # Must load entities to solve multi-component orient problem
@@ -155,22 +157,22 @@ def orient_structure_files(files: Iterable[AnyStr], log: Logger = logger, symmet
     return file_paths
 
 
-def query_qs_bio(pdb_entry_id: str) -> int:
-    """Retrieve the first matching High/Very High confidence QSBio assembly from a PDB ID
+def query_qs_bio(pdb_code: str) -> int:
+    """Retrieve the first matching Very High/High confidence QSBio assembly from a PDB EntryID
 
     Args:
-        pdb_entry_id: The 4 letter PDB code to query
+        pdb_code: The 4 letter PDB code to query
     Returns:
         The integer of the corresponding PDB Assembly ID according to the QSBio assembly
     """
-    biological_assemblies = qsbio_confirmed.get(pdb_entry_id.lower())
+    biological_assemblies = qsbio_confirmed.get(pdb_code.lower())
     if biological_assemblies:
         # Get the first assembly in matching oligomers
         assembly = biological_assemblies[0]
     else:
         assembly = 1
-        logger.warning(f'No confirmed biological assembly for entry {pdb_entry_id.lower()},'
-                       f' using PDB default assembly {assembly}')
+        logger.warning(f'No confirmed biological assembly for entry {pdb_code.lower()}, '
+                       f'using PDB default assembly {assembly}')
     return assembly
 
 
@@ -240,7 +242,7 @@ class StructureDatabase(Database):
             file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
             model = structure.model.Model.from_pdb(file_path, name=file_name)
             # entity_out_path = os.path.join(out_dir, f'{structure_identifier}.pdb')
-            if entity:  # Replace Structure from fetched file with the Entity Structure
+            if entity is not None:  # Replace Structure from fetched file with the Entity Structure
                 # structure_identifier will be formatted the exact same as the desired EntityID
                 # if it was provided correctly
                 entity = model.entity(structure_identifier)
@@ -250,9 +252,10 @@ class StructureDatabase(Database):
                     logger.warning(f"For {structure_identifier}, couldn't locate the specified Entity '{entity}'. The"
                                    f' available Entities are {", ".join(entity.name for entity in model.entities)}')
                     continue
-            #
             #     # Write out the entity as parsed. since this is assembly we should get the correct state
             #     entity_file_path = model.write_oligomer(out_path=entity_out_path)
+            # elif assembly is not None:
+            #     # Separate the Entity instances?
             # else:
             #     # Write out file for the orient database
             #     orient_file = model.write(out_path=entity_out_path)
@@ -332,7 +335,8 @@ class StructureDatabase(Database):
         non_viable_structures = []
         pose_kwargs = dict(sym_entry=sym_entry, ignore_clashes=True)
         for structure_identifier in structure_identifiers:
-            # First, check if the structure_identifier ASU has been processed. This happens when files are passed
+            # First, check if the structure_identifier ASU has been processed
+            # This happens when files are passed WITHOUT symmetry
             if structure_identifier in orient_asu_names:  # orient_asu file exists, stride should as well. Just load asu
                 orient_asu_file = self.oriented_asu.retrieve_file(name=structure_identifier)
                 pose = structure.model.Pose.from_file(orient_asu_file, name=structure_identifier, **pose_kwargs)
@@ -340,13 +344,14 @@ class StructureDatabase(Database):
                 model = pose.assembly
                 model.name = structure_identifier
                 model.file_path = orient_asu_file  # pose.file_path
+            # This happens when files are passed WITH symmetry
             elif structure_identifier in orient_names:  # orient file exists, load, save asu, and create stride
                 orient_file = self.oriented.retrieve_file(name=structure_identifier)
                 pose = structure.model.Pose.from_file(orient_file, name=structure_identifier, **pose_kwargs)
                 # Write out the Pose ASU
                 assembly_integer = '' if pose.biological_assembly is None else pose.biological_assembly
                 pose.file_path = pose.write(out_path=os.path.join(self.oriented_asu.location,
-                                                                  f'{structure_identifier}' f'.pdb{assembly_integer}'))
+                                                                  f'{structure_identifier}.pdb{assembly_integer}'))
                 # pose.file_path = pose.write(out_path=self.oriented_asu.path_to(name=structure_identifier))
                 # Save Stride results
                 for entity in pose.entities:
@@ -412,13 +417,12 @@ class StructureDatabase(Database):
                     continue
 
                 if isinstance(model, structure.model.Entity):
-                    entity_out_path = os.path.join(models_dir, f'{structure_identifier}.pdb')
                     # Write out only the entity that was extracted to the full structure_db directory
                     # Todo should we delete the source file?
                     # if symmetry == 'C1':
                     #     entity_file_path = model.write(out_path=entity_out_path)
                     # else:  # Write out the entity as parsed. Since this is an assembly, we should get the correct state
-                    model.write(oligomer=True, out_path=entity_out_path)
+                    # model.write(oligomer=True, out_path=entity_out_path)
 
                     # try:  # Orient the Structure
                     #     model.orient(symmetry=symmetry)
@@ -428,6 +432,9 @@ class StructureDatabase(Database):
                     #     continue
                     # Write out oligomer file for the orient database
                     orient_file = model.write(oligomer=True, out_path=self.oriented.path_to(name=structure_identifier))
+                    # Copy the entity that was extracted to the full structure_db directory
+                    entity_out_path = os.path.join(models_dir, f'{structure_identifier}.pdb')
+                    shutil.copy(orient_file, entity_out_path)
                     # Write out ASU file for the oriented_asu database
                     model.file_path = model.write(out_path=self.oriented_asu.path_to(name=structure_identifier))
                     # Save Stride results
