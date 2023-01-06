@@ -4,7 +4,7 @@ import logging
 import os
 import subprocess
 from itertools import combinations, repeat
-from typing import Iterable, AnyStr, Any
+from typing import Iterable, AnyStr, Any, Sequence
 import warnings
 
 import numpy as np
@@ -20,7 +20,7 @@ putils = utils.path
 logger = logging.getLogger(__name__)
 
 
-def cluster_poses(pose_directories: list[PoseJob]):
+def cluster_poses(pose_jobs: list[PoseJob]):
     # -> dict[str | PoseJob, list[str | PoseJob]] | None
     job = job_resources_factory.get()
     pose_cluster_map: dict[str | PoseJob, list[str | PoseJob]] = {}
@@ -31,8 +31,8 @@ def cluster_poses(pose_directories: list[PoseJob]):
     mode_map_description = 'the representative is the most similar to all members of the cluster'
     if job.cluster.mode == 'ialign':
         mode_map_description = 'the representative is randomly chosen amongst the members'
-        # Measure the alignment of all selected pose_directories
-        # all_files = [design.source_file for design in pose_directories]
+        # Measure the alignment of all selected pose_jobs
+        # all_files = [pose_job.source_file for pose_job in pose_jobs]
 
         # Need to change directories to prevent issues with the path length being passed to ialign
         prior_directory = os.getcwd()
@@ -42,20 +42,19 @@ def cluster_poses(pose_directories: list[PoseJob]):
 
         # Save the interface for each design to the temp directory
         design_interfaces = []
-        for pose_dir in pose_directories:
-            pose_dir.identify_interface()  # calls design.load_pose()
+        for pose_job in pose_jobs:
+            pose_job.identify_interface()  # calls design.load_pose()
             # Todo this doesn't work for asymmetric Poses
-            interface = pose_dir.pose.get_interface()
+            interface = pose_job.pose.get_interface()
             design_interfaces.append(
-                # interface.write(out_path=os.path.join(temp_file_dir, f'{pose_dir.name}_interface.pdb')))  # Todo reinstate
-                interface.write(out_path=os.path.join(temp_file_dir, f'{pose_dir.name}.pdb')))
+                # interface.write(out_path=os.path.join(temp_file_dir, f'{pose_job.name}_interface.pdb')))  # Todo reinstate
+                interface.write(out_path=os.path.join(temp_file_dir, f'{pose_job.name}.pdb')))
 
-        design_directory_pairs = list(combinations(pose_directories, 2))
+        design_directory_pairs = list(combinations(pose_jobs, 2))
         if job.multi_processing:
             results = utils.mp_starmap(ialign, combinations(design_interfaces, 2), processes=job.cores)
         else:
             for idx, interface_files in enumerate(combinations(design_interfaces, 2)):
-                # is_score = utils.cluster.ialign(design1.source, design2.source, out_path='ialign')
                 results.append(ialign(*interface_files))
                 #                                     out_path=os.path.join(job.data_path, 'ialign_output'))
 
@@ -88,7 +87,7 @@ def cluster_poses(pose_directories: list[PoseJob]):
     elif job.cluster.mode == 'transform':
         # First, identify the same compositions
         compositions: dict[tuple[str, ...], list[PoseJob]] = \
-            group_compositions(pose_directories)
+            group_compositions(pose_jobs)
         if job.multi_processing:
             results = utils.mp_map(cluster_pose_by_transformations, compositions.values(), processes=job.cores)
         else:
@@ -102,16 +101,16 @@ def cluster_poses(pose_directories: list[PoseJob]):
         logger.critical(f"The mode {job.mode} hasn't been thoroughly debugged")
         # First, identify the same compositions
         compositions: dict[tuple[str, ...], list[PoseJob]] = \
-            group_compositions(pose_directories)
-        # pairs_to_process = [grouping for entity_tuple, pose_directories in compositions.items()
-        #                     for grouping in combinations(pose_directories, 2)]
-        # composition_pairings = [combinations(pose_directories, 2) for entity_tuple, pose_directories in compositions.items()]
+            group_compositions(pose_jobs)
+        # pairs_to_process = [grouping for entity_tuple, pose_jobs in compositions.items()
+        #                     for grouping in combinations(pose_jobs, 2)]
+        # composition_pairings = [combinations(pose_jobs, 2) for entity_tuple, pose_jobs in compositions.items()]
         # Find the rmsd between a pair of poses
         if job.multi_processing:
             results = utils.mp_map(pose_pair_by_rmsd, compositions.items(), processes=job.cores)
         else:
-            for entity_tuple, _pose_directories in compositions.items():
-                results.append(pose_pair_by_rmsd(_pose_directories))
+            for entity_tuple, pose_jobs in compositions.items():
+                results.append(pose_pair_by_rmsd(pose_jobs))
 
         # Add all clusters to the pose_cluster_map
         for result in results:
@@ -142,7 +141,7 @@ def cluster_poses(pose_directories: list[PoseJob]):
         logger.info('Clustering analysis results in the following similar poses:\nRepresentatives\n\tMembers\n')
         for representative, members, in pose_cluster_map.items():
             print(f'{representative}\n\t%s' % '\n\t'.join(map(str, members)))
-        logger.info(f'Found {len(pose_cluster_map)} unique clusters from {len(pose_directories)} pose inputs. '
+        logger.info(f'Found {len(pose_cluster_map)} unique clusters from {len(pose_jobs)} pose inputs. '
                     f'All clusters wrote to: {job.cluster.map}')
         logger.info('Each cluster above has one representative which identifies with each of the members. For '
                     f'{job.cluster.mode}, {mode_map_description}.')
@@ -185,26 +184,24 @@ def pose_pair_rmsd(pose1: PoseJob, pose2: PoseJob) -> float:
     return rmsd
 
 
-def pose_pair_by_rmsd(compositions: Iterable[tuple[PoseJob, PoseJob]]) \
-        -> dict[str | PoseJob, list[str | PoseJob]]:
-    """Perform rmsd comparison for a set of identified compositions
+def pose_pair_by_rmsd(compositions: Iterable[Sequence[PoseJob]]) -> dict[str | PoseJob, list[str | PoseJob]]:
+    """Perform rmsd comparison for all compositions of PoseJob instances
 
     Args:
-        compositions:
-
+        compositions: Groups of PoseJob instances that should be measured against one another pairwise
     Returns:
-
+        {PoseJob representative: [PoseJob members], ... }
     """
-    for pose_directories in compositions:
-        # Make all pose_directory combinations for this pair
-        pose_dir_pairs = list(combinations(pose_directories, 2))
-        results = [pose_pair_rmsd(*pair) for pair in pose_dir_pairs]
+    for pose_jobs in compositions:
+        # Make all PoseJob combinations for this pair
+        pose_job_pairs = list(combinations(pose_jobs, 2))
+        results = [pose_pair_rmsd(*pair) for pair in pose_job_pairs]
         # Add all identical comparison results (all rmsd are 0 as they are with themselves
-        results.extend(list(repeat(0, len(pose_directories))))
-        # Add all identical pose_directory combinations to pose_dir_pairs
-        pose_dir_pairs.extend(list(zip(pose_directories, pose_directories)))
+        results.extend(list(repeat(0, len(pose_jobs))))
+        # Add all identical PoseJob combinations to pose_job_pairs
+        pose_job_pairs.extend(list(zip(pose_jobs, pose_jobs)))
 
-        return cluster_poses_by_value(pose_dir_pairs, results)
+        return cluster_poses_by_value(pose_job_pairs, results)
 
 
 # def ialign(pdb_file1: AnyStr, pdb_file2: AnyStr, chain1: str = None, chain2: str = None,
@@ -260,8 +257,8 @@ def ialign(*pdb_files: AnyStr, chain1: str = None, chain2: str = None,
     #     os.path.splitext(os.path.basename(pdb_file1))[0], os.path.splitext(os.path.basename(pdb_file2))[0]
 
 
-def cluster_poses_by_value(identifier_pairs: Iterable[tuple[Any, Any]], values: Iterable[float], epsilon: float = 1.) -> \
-        dict[str | PoseJob, list[str | PoseJob]]:
+def cluster_poses_by_value(identifier_pairs: Iterable[tuple[Any, Any]], values: Iterable[float], epsilon: float = 1.) \
+        -> dict[str | PoseJob, list[str | PoseJob]]:
     """Take pairs of identifiers and a precomputed distance metric (such as RMSD) and cluster using DBSCAN algorithm
 
     Args:
@@ -272,8 +269,8 @@ def cluster_poses_by_value(identifier_pairs: Iterable[tuple[Any, Any]], values: 
         {PoseJob representative: [PoseJob members], ... }
     """
     # BELOW IS THE INPUT FORMAT I WANT FOR cluster_poses_by_value()
-    # index = list(combinations(pose_directories, 2)) + list(zip(pose_directories, pose_directories))
-    # values = values + tuple(repeat(0, len(pose_directories)))
+    # index = list(combinations(pose_jobs, 2)) + list(zip(pose_jobs, pose_jobs))
+    # values = values + tuple(repeat(0, len(pose_jobs)))
     # pd.Series(values, index=pd.MultiIndex.from_tuples(index)).unstack()
 
     pair_df = pd.Series(values, index=pd.MultiIndex.from_tuples(identifier_pairs)).fillna(0.).unstack()
@@ -281,7 +278,7 @@ def cluster_poses_by_value(identifier_pairs: Iterable[tuple[Any, Any]], values: 
 
     # PCA analysis of distances
     # building_block_rmsd_matrix = sklearn.preprocessing.StandardScaler().fit_transform(symmetric_pair_values)
-    # pca = PCA(putils.variance)
+    # pca = PCA(putils.default_pca_variance)
     # building_block_rmsd_pc_np = pca.fit_transform(building_block_rmsd_matrix)
     # pca_distance_vector = pdist(building_block_rmsd_pc_np)
     # epsilon = pca_distance_vector.mean() * 0.5
@@ -432,8 +429,8 @@ def cluster_pose_by_transformations(compositions: list[PoseJob], **kwargs) \
         Cluster with representative pose as the key and matching poses as the values
     """
     # Format transforms for the selected compositions
-    stacked_transforms1, stacked_transforms2 = list(zip(pose_directory.pose.entity_transformations
-                                                        for pose_directory in compositions))
+    stacked_transforms1, stacked_transforms2 = list(zip(pose_jobs.pose.entity_transformations
+                                                        for pose_jobs in compositions))
     trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = \
         zip(*[transform.values() for transform in stacked_transforms1])
     trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = \
@@ -499,17 +496,17 @@ def cluster_by_transformations(*transforms: dict[str, np.ndarray], values: list[
     return cluster_map
 
 
-def group_compositions(pose_directories: list[PoseJob]) -> dict[tuple[str, ...], list[PoseJob]]:
+def group_compositions(pose_jobs: list[PoseJob]) -> dict[tuple[str, ...], list[PoseJob]]:
     """From a set of DesignDirectories, find all the compositions and group together
 
     Args:
-        pose_directories: The PoseJob to group according to composition
+        pose_jobs: The PoseJob to group according to composition
     Returns:
         List of similarly named PoseJob mapped to their name
     """
     compositions = {}
-    for pose in pose_directories:
-        entity_names = tuple(pose.entity_names)
+    for pose_job in pose_jobs:
+        entity_names = tuple(pose_job.entity_names)
         found_composition = None
         for permutation in combinations(entity_names, len(entity_names)):
             found_composition = compositions.get(permutation, None)
@@ -517,9 +514,9 @@ def group_compositions(pose_directories: list[PoseJob]) -> dict[tuple[str, ...],
                 break
 
         if found_composition:
-            compositions[entity_names].append(pose)
+            compositions[entity_names].append(pose_job)
         else:
-            compositions[entity_names] = [pose]
+            compositions[entity_names] = [pose_job]
 
     return compositions
 

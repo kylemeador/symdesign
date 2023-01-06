@@ -26,7 +26,6 @@ import sklearn as skl
 from cycler import cycler
 from scipy.spatial.distance import pdist, cdist
 
-from .utils import variance, remove_structure_memory
 from symdesign import flags, metrics, resources
 from symdesign.structure import fragment
 from symdesign.structure.base import Structure
@@ -2297,11 +2296,11 @@ class PoseProtocol(PoseData):
             residue_energy_df = residues_df.loc[:, idx_slice[:, 'energy_delta']]
 
             scaler = skl.preprocessing.StandardScaler()
-            res_pca = skl.decomposition.PCA(variance)  # P432 designs used 0.8 percent of the variance
+            res_pca = skl.decomposition.PCA(resources.config.default_pca_variance)
             residue_energy_np = scaler.fit_transform(residue_energy_df.values)
             residue_energy_pc = res_pca.fit_transform(residue_energy_np)
 
-            seq_pca = skl.decomposition.PCA(variance)
+            seq_pca = skl.decomposition.PCA(resources.config.default_pca_variance)
             designed_sequence_modifications = residues_df.loc[:, idx_slice[:, 'type']].sum(axis=1).to_list()
             pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_sequence_modifications,
                                                                         sequence_difference))
@@ -4286,7 +4285,7 @@ class PoseProtocol(PoseData):
         #     residue_energy_df = residues_df.loc[:, idx_slice[:, 'energy_delta']]
         #
         #     scaler = skl.preprocessing.StandardScaler()
-        #     res_pca = skl.decomposition.PCA(variance)  # P432 designs used 0.8 percent of the variance
+        #     res_pca = skl.decomposition.PCA(resources.config.default_pca_variance)
         #     residue_energy_np = scaler.fit_transform(residue_energy_df.values)
         #     residue_energy_pc = res_pca.fit_transform(residue_energy_np)
         #     # Make principal components (PC) DataFrame

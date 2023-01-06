@@ -12,11 +12,11 @@ from symdesign import metrics
 logger = logging.getLogger(__name__)
 
 
-# def pose_rmsd_mp(pose_directories: list[PoseJob], cores: int = 1):
+# def pose_rmsd_mp(pose_jobs: list[PoseJob], cores: int = 1):
 #     """Map the RMSD for a Nanohedra output based on building block directory (ex 1abc_2xyz)
 #
 #     Args:
-#         pose_directories: List of relevant design directories
+#         pose_jobs: List of relevant design directories
 #         cores: Number of multiprocessing cores to run
 #     Returns:
 #         (dict): {composition: {pair1: {pair2: rmsd, ...}, ...}, ...}
@@ -24,16 +24,16 @@ logger = logging.getLogger(__name__)
 #     pose_map = {}
 #     pairs_to_process = []
 #     singlets = {}
-#     for pair1, pair2 in combinations(pose_directories, 2):
+#     for pair1, pair2 in combinations(pose_jobs, 2):
 #         if pair1.composition == pair2.composition:
 #             singlets.pop(pair1.composition, None)
 #             pairs_to_process.append((pair1, pair2))
 #         else:
 #             # add all individual poses to a singles pool. pair2 is included in pair1, no need to add additional
 #             singlets[pair1.composition] = pair1
-#     compositions: dict[tuple[str, ...], list[PoseJob]] = group_compositions(pose_directories)
-#     pairs_to_process = [grouping for entity_tuple, pose_directories in compositions.items()
-#                         for grouping in combinations(pose_directories, 2)]
+#     compositions: dict[tuple[str, ...], list[PoseJob]] = group_compositions(pose_jobs)
+#     pairs_to_process = [grouping for entity_tuple, pose_jobs in compositions.items()
+#                         for grouping in combinations(pose_jobs, 2)]
 #     # find the rmsd between a pair of poses.  multiprocessing to increase throughput
 #     _results = mp_map(pose_pair_rmsd, pairs_to_process, processes=cores)
 #
@@ -66,12 +66,12 @@ logger = logging.getLogger(__name__)
 #     return pose_map
 #
 #
-# def pose_rmsd_s(all_des_dirs):
+# def pose_rmsd_s(all_pose_job_pairs):
 #     pose_map = {}
-#     for pair in combinations(all_des_dirs, 2):
+#     for pair in combinations(all_pose_job_pairs, 2):
 #         if pair[0].composition == pair[1].composition:
 #             protein_pair_path = pair[0].composition
-#             # Grab designed resides from the pose_directory
+#             # Grab designed resides from the pose_job_pair
 #             pair_rmsd = pose_pair_rmsd(pair)
 #             # des_residue_list = [pose.info['des_residues'] for pose in pair]
 #             # # could use the union as well...

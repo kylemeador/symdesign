@@ -12,6 +12,7 @@ _min, _max = 'min', 'max'
 rank, normalize, boolean = 'rank', 'normalize', 'boolean'
 weight_functions_literal = Literal['rank', 'normalize']
 metric_weight_functions: tuple[weight_functions_literal, ...] = get_args(weight_functions_literal)
+default_pca_variance = 0.8  # P432 designs used 0.8 percent of the variance
 
 metrics = {
     'rotation': dict(description='The rotation transformation parameter',

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import functools
 import logging
 import os
+import traceback
 from itertools import repeat, combinations
 from subprocess import list2cmdline, Popen
-from typing import Iterable, AnyStr
+from typing import Iterable, AnyStr, Callable, Type, Any
 
 import numpy as np
 import pandas as pd
@@ -12,7 +14,7 @@ import sklearn as skl
 from scipy.spatial.distance import pdist
 
 from . import cluster, fragdock, pose, select
-from .utils import variance, warn_missing_symmetry, close_logs, remove_structure_memory, handle_design_errors
+from ..resources.config import default_pca_variance
 from symdesign import flags, metrics
 from symdesign.sequence import protein_letters_1to3, protein_letters_3to1
 from symdesign.structure.model import Models, MultiModel, Model, Pose
@@ -29,11 +31,92 @@ cluster_poses = cluster.cluster_poses
 select_poses = select.poses
 select_designs = select.designs
 select_sequences = select.sequences
+warn_missing_symmetry = \
+    f'Cannot %s without providing symmetry! Provide symmetry with "--symmetry" or "--{putils.sym_entry}"'
 
 
-@close_logs
-@remove_structure_memory
-@handle_design_errors(errors=(DesignError,))
+def close_logs(func: Callable):
+    """Wrap a function/method to close the functions first arguments .log attribute FileHandlers after use"""
+    @functools.wraps(func)
+    def wrapped(job, *args, **kwargs):
+        func_return = func(job, *args, **kwargs)
+        # Adapted from https://stackoverflow.com/questions/15435652/python-does-not-release-filehandles-to-logfile
+        for handler in job.log.handlers:
+            handler.close()
+        return func_return
+    return wrapped
+
+
+def remove_structure_memory(func):
+    """Decorator to remove large memory attributes from the instance after processing is complete"""
+    @functools.wraps(func)
+    def wrapped(job, *args, **kwargs):
+        func_return = func(job, *args, **kwargs)
+        if job.job.reduce_memory:
+            job.pose = None
+            # self.entities.clear()
+        return func_return
+    return wrapped
+
+
+def handle_design_errors(errors: tuple[Type[Exception], ...] = (Exception,)) -> Callable:
+    """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
+
+    This argument is typically self and is in a class with .log attribute
+
+    Args:
+        errors: A tuple of exceptions to monitor. Must be a tuple even if single exception
+    Returns:
+        Function return upon proper execution, else is error if exception raised, else None
+    """
+    def wrapper(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapped(job, *args, **kwargs) -> Any:
+            try:
+                return func(job, *args, **kwargs)
+            except errors as error:
+                job.log.error(error)  # Allows exception reporting using self.log
+                return error
+        return wrapped
+    return wrapper
+
+
+def protocol_decorator(errors: tuple[Type[Exception], ...] = (Exception,)) -> Callable:
+    """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
+
+    This argument is typically self and is in a class with .log attribute
+
+    Args:
+        errors: A tuple of exceptions to monitor. Must be a tuple even if single exception
+    Returns:
+        Function return upon proper execution, else is error if exception raised, else None
+    """
+    def wrapper(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapped(job, *args, **kwargs) -> Any:
+            # handle_design_errors()
+            try:
+                func_return = func(job, *args, **kwargs)
+            except errors as error:
+                job.log.error(error)  # Allows exception reporting using self.log
+                # Todo this may be required to remove program memory piling up in the stack at error time
+                #  func_return = traceback.format_exception(error)
+                func_return = error
+            # remove_structure_memory()
+            if job.job.reduce_memory:
+                job.pose = None
+                # job.entities.clear()
+            # close_logs()
+            # Adapted from https://stackoverflow.com/questions/15435652/python-does-not-release-filehandles-to-logfile
+            for handler in job.log.handlers:
+                handler.close()
+
+            return func_return
+        return wrapped
+    return wrapper
+
+
+@protocol_decorator(errors=(DesignError,))
 def predict_structure(job: pose.PoseJob):
     """From a sequence input, predict the structure using one of various structure prediction pipelines
 
@@ -43,17 +126,22 @@ def predict_structure(job: pose.PoseJob):
     job.predict_structure()
 
 
-@close_logs
-@remove_structure_memory
-@handle_design_errors(errors=(DesignError,))
+@protocol_decorator(errors=(DesignError,))
 def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None, suffix=None,
                           score_only=None, variables=None, **kwargs):
     """Generate a custom script to dispatch to the design using a variety of parameters
 
     Args:
         job: The PoseJob for which the protocol should be performed on
+        script:
+        file_list:
+        native:
+        suffix:
+        score_only:
+        variables:
     """
-    raise DesignError('This module is outdated, please update it to use')  # Todo reflect modern metrics collection
+    # Todo reflect modern metrics collection
+    raise NotImplementedError('This module is outdated, please update it to use')
     cmd = rosetta.script_cmd.copy()
     script_name = os.path.splitext(os.path.basename(script))[0]
     # if job.interface_residue_numbers is False or job.interface_design_residue_numbers is False:
@@ -132,9 +220,7 @@ def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None
         pose_s.to_csv(out_path, mode='a', header=header)
 
 
-@close_logs
-@remove_structure_memory
-@handle_design_errors(errors=(DesignError,))
+@protocol_decorator(errors=(DesignError,))
 def interface_metrics(job: pose.PoseJob):
     """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states
 
@@ -200,14 +286,13 @@ def interface_metrics(job: pose.PoseJob):
         pose_s.to_csv(out_path, mode='a', header=header)
 
 
-@close_logs
-@remove_structure_memory
-@handle_design_errors(errors=(DesignError,))
+@protocol_decorator(errors=(DesignError,))
 def check_unmodelled_clashes(job: pose.PoseJob, clashing_threshold: float = 0.75):
     """Given a multimodel file, measure the number of clashes is less than a percentage threshold
 
     Args:
         job: The PoseJob for which the protocol should be performed on
+        clashing_threshold: The number of Model instances which have observed clashes
     """
     raise DesignError('This module is not working correctly at the moment')
     models = [Models.from_PDB(job.job.structure_db.full_models.retrieve_data(name=entity), log=job.log)
@@ -232,9 +317,7 @@ def check_unmodelled_clashes(job: pose.PoseJob, clashing_threshold: float = 0.75
                           f'threshold ({clashing_threshold})')
 
 
-@close_logs
-@remove_structure_memory
-@handle_design_errors(errors=(DesignError,))
+@protocol_decorator(errors=(DesignError,))
 def check_clashes(job: pose.PoseJob):
     """Check for clashes in the input and in the symmetric assembly if symmetric
 
@@ -244,9 +327,7 @@ def check_clashes(job: pose.PoseJob):
     job.load_pose()
 
 
-@close_logs
-@remove_structure_memory
-@handle_design_errors(errors=(DesignError,))
+@protocol_decorator(errors=(DesignError,))
 def rename_chains(job: pose.PoseJob):
     """Standardize the chain names in incremental order found in the design source file
 
@@ -258,9 +339,7 @@ def rename_chains(job: pose.PoseJob):
     model.write(out_path=job.asu_path)
 
 
-@close_logs
-@remove_structure_memory
-@handle_design_errors(errors=(DesignError, RuntimeError))  # Todo remove RuntimeError from .orient()
+@protocol_decorator(errors=(DesignError, RuntimeError))  # Todo remove RuntimeError from .orient()
 def orient(job: pose.PoseJob, to_pose_directory: bool = True):
     """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
     job.symmetry is used to specify the orientation
@@ -295,9 +374,7 @@ def orient(job: pose.PoseJob, to_pose_directory: bool = True):
         raise SymmetryError(warn_missing_symmetry % job.orient.__name__)
 
 
-@close_logs
-@remove_structure_memory
-@handle_design_errors(errors=(DesignError,))
+@protocol_decorator(errors=(DesignError,))
 def refine(job: pose.PoseJob):
     """Refine the source Pose
 
@@ -307,9 +384,7 @@ def refine(job: pose.PoseJob):
     job.refine()
 
 
-@close_logs
-@remove_structure_memory
-@handle_design_errors(errors=(DesignError,))
+@protocol_decorator(errors=(DesignError,))
 def find_asu(job: pose.PoseJob):
     """From a PDB with multiple Chains from multiple Entities, return the minimal configuration of Entities.
     ASU will only be a true ASU if the starting PDB contains a symmetric system, otherwise all manipulations find
@@ -321,14 +396,14 @@ def find_asu(job: pose.PoseJob):
     # Check if the symmetry is known, otherwise this wouldn't work without the old, "symmetry-less", protocol
     if job.is_symmetric():
         if os.path.exists(job.assembly_path):
-            job.load_pose(source=job.assembly_path)
+            job.load_pose(file=job.assembly_path)
         else:
             job.load_pose()
     else:
         raise NotImplementedError('Not sure if asu format matches pose.get_contacting_asu standard with no symmetry'
                                   '. This might cause issues')
         # Todo ensure asu format matches pose.get_contacting_asu standard
-        # pdb = Model.from_file(job.source, log=job.log)
+        # pdb = Model.from_file(job.structure_source, log=job.log)
         # asu = pdb.return_asu()
         job.load_pose()
         # asu.update_attributes_from_pdb(pdb)
@@ -337,9 +412,7 @@ def find_asu(job: pose.PoseJob):
     job.save_asu()
 
 
-@close_logs
-@remove_structure_memory
-@handle_design_errors(errors=(DesignError,))
+@protocol_decorator(errors=(DesignError,))
 def expand_asu(job: pose.PoseJob):
     """For the design info given by a PoseJob source, initialize the Pose with job.source file,
     job.symmetry, and job.log objects then expand the design given the provided symmetry operators and write to a
@@ -355,9 +428,7 @@ def expand_asu(job: pose.PoseJob):
     job.pickle_info()  # Todo remove once PoseJob state can be returned to the SymDesign dispatch w/ MP
 
 
-@close_logs
-@remove_structure_memory
-@handle_design_errors(errors=(DesignError,))
+@protocol_decorator(errors=(DesignError,))
 def generate_fragments(job: pose.PoseJob):
     """For the design info given by a PoseJob source, initialize the Pose then generate interfacial fragment
     information between Entities. Aware of symmetry and design_selectors in fragment generation file
@@ -369,9 +440,7 @@ def generate_fragments(job: pose.PoseJob):
     job.generate_fragments()
 
 
-@close_logs
-@remove_structure_memory
-@handle_design_errors(errors=(DesignError,))
+@protocol_decorator(errors=(DesignError,))
 def interface_design(job: pose.PoseJob):
     """For the design info given by a PoseJob source, initialize the Pose then prepare all parameters for
     interfacial redesign between Pose Entities. Aware of symmetry, design_selectors, fragments, and
@@ -445,9 +514,7 @@ def interface_design(job: pose.PoseJob):
     job.pickle_info()  # Todo remove once PoseJob state can be returned to the SymDesign dispatch w/ MP
 
 
-@close_logs
-@remove_structure_memory
-@handle_design_errors(errors=(DesignError,))
+@protocol_decorator(errors=(DesignError,))
 def design(job: pose.PoseJob):
     """For the design info given by a PoseJob source, initialize the Pose then prepare all parameters for
     sequence design. Aware of symmetry, design_selectors, fragments, and evolutionary information
@@ -521,9 +588,7 @@ def design(job: pose.PoseJob):
     job.pickle_info()  # Todo remove once PoseJob state can be returned to the SymDesign dispatch w/ MP
 
 
-@close_logs
-@remove_structure_memory
-@handle_design_errors(errors=(DesignError,))
+@protocol_decorator(errors=(DesignError,))
 def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     """To touch up and optimize a design, provide a list of optional directives to view mutational landscape around
     certain residues in the design as well as perform wild-type amino acid reversion to mutated residues
@@ -544,7 +609,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     #  heuristic as the REF2015 scorefunction wasn't used in PROSS publication.
     if job._lock_optimize_designs:
         job.log.critical('Need to resolve the differences between multiple specified_designs and a single '
-                          'specified_design. Only using the first design')
+                         'specified_design. Only using the first design')
         specific_design = job.specific_designs_file_paths[0]
         # raise NotImplemented('Need to resolve the differences between multiple specified_designs and a single '
         #                      'specified_design')
@@ -554,7 +619,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
 
     job.identify_interface()  # job.load_pose()
     # for design_path in job.specific_designs_file_paths
-    #     job.load_pose(source=design_path)
+    #     job.load_pose(structure_source=design_path)
     #     job.identify_interface()
 
     # format all amino acids in job.interface_design_residue_numbers with frequencies above the threshold to a set
@@ -645,9 +710,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
         pose_s.to_csv(out_path, mode='a', header=header)
 
 
-@close_logs
-@remove_structure_memory
-@handle_design_errors(errors=(DesignError,))
+@protocol_decorator(errors=(DesignError,))
 def process_rosetta_metrics(job: pose.PoseJob):
     """From Rosetta based protocols, tally the resulting metrics and integrate with SymDesign metrics database
 
@@ -657,9 +720,7 @@ def process_rosetta_metrics(job: pose.PoseJob):
     return job.process_rosetta_metrics()
 
 
-@close_logs
-@remove_structure_memory
-@handle_design_errors(errors=(DesignError,))
+@protocol_decorator(errors=(DesignError,))
 def analysis(job: pose.PoseJob, designs: Iterable[Pose] | Iterable[AnyStr] = None) \
         -> pd.Series:
     """Retrieve all score information from a PoseJob and write results to .csv file
@@ -673,11 +734,10 @@ def analysis(job: pose.PoseJob, designs: Iterable[Pose] | Iterable[AnyStr] = Non
     return job.interface_design_analysis(designs=designs)
 
 
-@close_logs
-# @remove_structure_memory  # structures not used in this protocol
-@handle_design_errors(errors=(DesignError,))
-def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = None, number: int = 1, protocols: list[str] = None,
-                     **kwargs) -> list[str]:
+# @remove_structure_memory  # NO structures used in this protocol
+@protocol_decorator(errors=(DesignError,))
+def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = None, number: int = 1,
+                     protocols: list[str] = None, **kwargs) -> list[str]:
     """Select sequences for further characterization. If weights, then user can prioritize by metrics, otherwise
     sequence with the most neighbors as calculated by sequence distance will be selected. If there is a tie, the
     sequence with the lowest weight will be selected
@@ -752,7 +812,7 @@ def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = No
         pairwise_sequence_diff_mat = sym(pairwise_sequence_diff_mat)
 
         pairwise_sequence_diff_mat = skl.preprocessing.StandardScaler().fit_transform(pairwise_sequence_diff_mat)
-        seq_pca = skl.decomposition.PCA(variance)
+        seq_pca = skl.decomposition.PCA(default_pca_variance)
         seq_pc_np = seq_pca.fit_transform(pairwise_sequence_diff_mat)
         seq_pca_distance_vector = pdist(seq_pc_np)
         # epsilon = math.sqrt(seq_pca_distance_vector.mean()) * 0.5
@@ -780,8 +840,8 @@ def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = No
                          for idx, count in enumerate(seq_neighbor_counts) if count == num_neighbors}
         job.log.info('The final sequence(s) and file(s):\nNeighbors\tDesign\n%s'
                      # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.zero_offset,
-                     % '\n'.join(f'\t{neighbors}\t{os.path.join(job.designs_path, design)}'
-                                 for design, neighbors in final_designs.items()))
+                     % '\n'.join(f'\t{neighbors}\t{os.path.join(job.designs_path, _design)}'
+                                 for _design, neighbors in final_designs.items()))
 
         # job.log.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(job.designs_path, seq))
         #                                                         for i, seq in enumerate(final_designs, 1)))
@@ -803,5 +863,5 @@ def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = No
             designs = list(final_designs.keys())
 
     designs = designs[:number]
-    job.log.info(f'Final ranking of trajectories:\n{", ".join(design for design in designs)}')
+    job.log.info(f'Final ranking of trajectories:\n{", ".join(_design for _design in designs)}')
     return designs
