@@ -57,8 +57,8 @@ class PoseMetadata(Base):
     metrics = relationship('PoseMetrics', back_populates='pose', uselist=False)
 
     # State
-    pre_refine = Column(Boolean)
-    pre_loop_model = Column(Boolean)
+    _pre_refine = Column('pre_refine', Boolean, default=True)
+    _pre_loop_model = Column('pre_loop_model', Boolean, default=True)
     sym_entry_number = Column(Integer)
     symmetry = Column(String)  # Result
     design_dimension = Column(Integer)
@@ -464,10 +464,10 @@ class DesignMetrics(Base):
     sequence_loss_fragment = Column(Float)  # , nullable=False)
     sequence_loss_fragment_per_residue = Column(Float)  # , nullable=False)
     # Observed in profile measurements
-    observed_design = Column(Integer)  # , nullable=False)
-    observed_evolution = Column(Integer)  # , nullable=False)
-    observed_fragment = Column(Integer)  # , nullable=False)
-    observed_interface = Column(Integer)  # , nullable=False)
+    observed_design = Column(Float)  # , nullable=False)
+    observed_evolution = Column(Float)  # , nullable=False)
+    observed_fragment = Column(Float)  # , nullable=False)
+    observed_interface = Column(Float)  # , nullable=False)
     # Direct coupling analysis energy
     dca_energy = Column(Float)  # , nullable=False)
     # -----------------------
