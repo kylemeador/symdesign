@@ -27,7 +27,8 @@ from symdesign.utils.path import submodule_guide, submodule_help, force, sym_ent
     output_trajectory, development, profile, consensus, ca_only, sequences, structures, temperatures, optimize_species,\
     distribute_work, output_directory, output_surrounding_uc, skip_logging, output_file, avoid_tagging_helices, \
     multicistronic, multicistronic_intergenic_sequence, generate_fragments, input_, output, output_assembly, \
-    preferred_tag, expand_asu, check_clashes, rename_chains, optimize_designs, perturb_dof, tag_entities, design
+    preferred_tag, expand_asu, check_clashes, rename_chains, optimize_designs, perturb_dof, tag_entities, design, \
+    default_path_file
 
 design_programs_literal = Literal['consensus', 'proteinmpnn', 'rosetta']
 design_programs: tuple[str, ...] = get_args(design_programs_literal)
@@ -55,7 +56,7 @@ perturb_dof_tx = 'perturb_dof_tx'
 perturb_dof_steps_rot = 'perturb_dof_steps_rot'
 perturb_dof_steps_tx = 'perturb_dof_steps_tx'
 cluster_map = 'cluster_map'
-pose_file_ = 'pose_file'
+poses = 'poses'
 specific_protocol = 'specific_protocol'
 directory = 'directory'
 dataframe = 'dataframe'
@@ -122,7 +123,7 @@ structure_background = format_for_cmdline(structure_background)
 # fragment_profile = format_for_cmdline(fragment_profile)
 cluster_map = format_for_cmdline(cluster_map)
 specification_file = format_for_cmdline(putils.specification_file)
-pose_file = format_for_cmdline(pose_file_)
+# poses = format_for_cmdline(poses)
 specific_protocol = format_for_cmdline(specific_protocol)
 sym_entry = format_for_cmdline(sym_entry)
 # dock_only = format_for_cmdline(dock_only)
@@ -1122,10 +1123,10 @@ input_arguments = {
                                   'instances should be\nseparated by a space\nEx --fuse-chains A:B C:D'),
     ('-N', f'--{nanohedra}V1-output'): dict(action='store_true', dest=nanohedra_output,
                                             help='Is the input a Nanohedra wersion 1 docking output?'),
-    ('-pf', f'--{pose_file}'): dict(type=os.path.abspath, nargs='*', dest=putils.specification_file,
-                                    metavar=ex_path('pose_design_specifications.csv'),
-                                    help=f'If pose IDs are specified in a file, say as the result of\n{select_poses}'
-                                         f' or {select_designs}'),
+    ('-pf', f'--{poses}'): dict(type=os.path.abspath, nargs='*',  # dest=putils.specification_file,
+                                metavar=ex_path(default_path_file.format('TIMESTAMP', 'MODULE', 'LOCATION')),
+                                help='If pose identifiers are specified in a file, say as the result of\n'
+                                     f'{select_poses} or {select_designs}'),
     ('-P', '--preprocessed'): dict(action='store_true',
                                    help=f'Whether the designs of interest have been preprocessed for the '
                                         f'{current_energy_function}\nenergy function and/or missing loops\n'),
@@ -1134,11 +1135,13 @@ input_arguments = {
                                  'Specify a %% between 0 and 100, separating the range by "-"\n'
                             # %% is required ^ for format
                                  'Ex: 0-25'),
-    ('-sf', f'--{specification_file}'): dict(type=os.path.abspath, nargs='*',
-                                             metavar=ex_path('pose_design_specifications.csv'),
-                                             help='Name of comma separated file with each line formatted:\nposeID, '
-                                                  '[designID], [residue_number:directive residue_number2-'
-                                                  'residue_number9:directive ...]')
+    ('-sf', f'--{specification_file}'):
+        dict(type=os.path.abspath, nargs='*', metavar=ex_path('pose_design_specifications.csv'),
+             help='Name of comma separated file with each line formatted:\n'
+                  # 'poseID, [designID], [1:directive 2-9:directive ...]\n'
+                  '"pose_identifier, [design_name], [1:directive 2-9:directive ...]"\n'
+                  'where [] indicate optional arguments and both individual residue\n'
+                  'numbers and ranges (specified with "-") are possible indicators')
 }
 # parser_input_mutual = parser_input.add_mutually_exclusive_group()
 parser_input_mutual_group = dict()  # required=True <- adding kwarg below to different parsers depending on need

@@ -75,7 +75,6 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         The matching PoseJob instances
     """
     job = job_resources_factory.get()
-
     if job.specification_file:  # Figure out poses from a specification file, filters, and weights
         loc_result = [(pose_job, design) for pose_job in pose_jobs
                       for design in pose_job.specific_designs]
@@ -308,7 +307,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
         The matching PoseJob instances mapped to design name
     """
     job = job_resources_factory.get()
-    if job.specification_file:
+    if job.specification_file:  # Figure out designs from a specification file, filters, and weights
         loc_result = [(pose_job, design) for pose_job in pose_jobs
                       for design in pose_job.specific_designs]
         total_df = load_total_dataframe(pose_jobs)
