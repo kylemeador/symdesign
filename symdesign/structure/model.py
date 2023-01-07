@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import abc
 import logging
 import math
 import os
@@ -30,7 +31,7 @@ from .sequence import SequenceProfile, Profile, pssm_as_array, default_fragment_
 from ..sequence import generate_alignment, generate_mutations, numeric_to_sequence, get_equivalent_indices, \
     protein_letters_alph1, protein_letters_3to1_extended, protein_letters_1to3_extended
 from .utils import DesignError, SymmetryError, ClashError, chain_id_generator
-from symdesign.utils import path as putils
+from symdesign.utils import path as putils, sql
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -213,6 +214,56 @@ def parse_cryst_record(cryst_record) -> tuple[list[float], str]:
         a = b = c = ang_a = ang_b = ang_c = 0
 
     return list(map(float, [a, b, c, ang_a, ang_b, ang_c])), cryst_record[55:66].strip()
+
+
+class Metrics(abc.ABC):
+    """Perform Metric evaluation for derived classes
+
+    Subclasses of Metrics must have implement the method calculate_metrics which can accept any arguments and
+    returns dict[str, Any]]
+    """
+    _df: pd.Series
+    _metrics: _metrics_table
+    # _metrics_table: sql.Base
+    _metrics_: dict[str, Any]
+
+    @property
+    @abc.abstractmethod
+    def _metrics_table(self) -> sql.Base:
+        """The sqlalchemy Mapped class to associate the metrics with"""
+
+    # @property
+    # def metrics_(self) -> dict[str, Any]:
+    #     """Metrics as a dictionary. __init__: Retrieves all metrics with no arguments"""
+    #     try:
+    #         return self._metrics_
+    #     except AttributeError:  # Load metrics
+    #         self._metrics_ = self.calculate_metrics()
+    #     return self._metrics_
+
+    @property
+    def metrics(self) -> _metrics_table:
+        """Metrics as sqlalchemy Mapped class. __init__: Retrieves all metrics, loads sqlalchemy Mapped class"""
+        try:
+            return self._metrics
+        except AttributeError:  # Load
+            self._metrics_ = self.calculate_metrics()
+            self._metrics = self._metrics_table(**self._metrics_)
+        return self._metrics
+
+    @property
+    def df(self) -> pd.Series:
+        """Metrics as a Series. __init__: Retrieves all metrics, loads pd.Series"""
+        try:
+            return self._df
+        except AttributeError:  # Load
+            self._metrics_ = self.calculate_metrics()
+            self._df = pd.Series(self._metrics_)
+        return self._df
+
+    @abc.abstractmethod
+    def calculate_metrics(self, **kwargs) -> dict[str, Any]:
+        """Perform Metric calculation for the Structure in question"""
 
 
 class MultiModel:
@@ -898,7 +949,7 @@ class Chain(SequenceProfile, Structure):
             return self._disorder
 
 
-class Entity(Chain, ContainsChainsMixin):
+class Entity(Chain, ContainsChainsMixin, Metrics):
     """Entity
 
     Args:
@@ -916,6 +967,10 @@ class Entity(Chain, ContainsChainsMixin):
     _is_captain: bool
     _is_oligomeric: bool
     _number_of_symmetry_mates: int
+    # Metrics class attributes
+    # _df: pd.Series  # Metrics
+    # _metrics: sql.EntityMetrics  # Metrics
+    _metrics_table = sql.EntityMetrics
     _uniprot_id: str | None
     api_entry: dict[str, dict[str, str]] | None
     dihedral_chain: str | None
@@ -1579,6 +1634,37 @@ class Entity(Chain, ContainsChainsMixin):
                 entity_write(outfile)
 
             return out_path
+
+    def calculate_metrics(self, **kwargs) -> dict[str, Any]:
+        """Calculate metrics for the instance
+
+        Keyword Args:
+            reference: np.ndarray = utils.symmetry.origin - The reference where the point should be measured from
+            measure: str = 'mean' - The measurement to take with respect to the reference. Could be 'mean', 'min',
+                'max', or any numpy function to describe computed distance scalars
+        Returns:
+            {'number_of_residues'
+             'radius'
+             'min_radius'
+             'max_radius'
+             'n_terminal_orientation'
+             'c_terminal_orientation'
+            }
+        """
+        return {
+            # 'symmetry_group': self.symmetry if self.is_oligomeric() else 'asymmetric',
+            # 'name': self.name,
+            # 'n_terminal_helix': self.is_termini_helical(),
+            # 'c_terminal_helix': self.is_termini_helical(termini='c'),
+            # 'thermophile': thermophile
+            'number_of_residues': self.number_of_residues,
+            'radius': self.distance_from_reference(**kwargs),
+            'min_radius': self.distance_from_reference(measure='min', **kwargs),
+            'max_radius': self.distance_from_reference(measure='max', **kwargs),
+            'n_terminal_orientation': self.termini_proximity_from_reference(**kwargs),
+            'c_terminal_orientation': self.termini_proximity_from_reference(termini='c', **kwargs),
+        }
+        # return self._metrics_
 
     def orient(self, symmetry: str = None):  # similar function in Model
         """Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
@@ -5312,7 +5398,7 @@ class SymmetricModel(Models):
 
 
 # class Pose(SequenceProfile, SymmetricModel):
-class Pose(SymmetricModel):
+class Pose(SymmetricModel, Metrics):
     """A Pose is made of single or multiple Structure objects such as Entities, Chains, or other structures.
     All objects share a common feature such as the same symmetric system or the same general atom configuration in
     separate models across the Structure or sequence.
@@ -5320,7 +5406,10 @@ class Pose(SymmetricModel):
     _active_entities: list[Entity]
     _center_residue_indices: list[int]
     _design_residues: list[Residue]
-    _df: pd.Series
+    # Metrics class attributes
+    # _df: pd.Series  # Metrics
+    # _metrics: sql.PoseMetrics  # Metrics
+    _metrics_table = sql.PoseMetrics
     _interface_neighbor_residues: list[Residue]
     _interface_residues: list[Residue]
     _no_reset: bool
@@ -5384,14 +5473,52 @@ class Pose(SymmetricModel):
         self.log.debug(f'Entities: {", ".join(entity.name for entity in self.entities)}')
         self.log.debug(f'Active Entities: {", ".join(entity.name for entity in self.active_entities)}')
 
-    @property
-    def df(self) -> pd.Series:
-        """The Pose metrics. __init__: Retrieves all metrics, loads pd.Series if none loaded"""
-        try:
-            return self._df
-        except AttributeError:  # Load metrics
-            self._df = pd.Series(self.interface_metrics())
-        return self._df
+    def calculate_metrics(self, **kwargs) -> dict[str, Any]:
+        """Calculate metrics for the instance
+
+        Returns:
+            {'nanohedra_score_normalized',
+             'nanohedra_score_center_normalized',
+             'nanohedra_score',
+             'nanohedra_score_center',
+             'number_fragment_residues_total',
+             'number_fragment_residues_center',
+             'multiple_fragment_ratio',
+             'percent_fragment_helix',
+             'percent_fragment_strand',
+             'percent_fragment_coil',
+             'number_of_fragments',
+             'percent_residues_fragment_interface_total',
+             'percent_residues_fragment_interface_center'
+             'number_interface_residues',
+             'number_interface_residues_non_fragment',
+             'pose_length',
+             'pose_thermophilicity',
+             'minimum_radius',
+             'maximum_radius',
+             'interface_b_factor_per_residue',
+             'interface1_secondary_structure_fragment_topology',
+             'interface1_secondary_structure_fragment_count',
+             'interface1_secondary_structure_topology',
+             'interface1_secondary_structure_count',
+             'interface2_secondary_structure_fragment_topology',
+             'interface2_secondary_structure_fragment_count',
+             'interface2_secondary_structure_topology',
+             'interface2_secondary_structure_count',
+             'design_dimension'}
+        """
+        # Todo add any additional metrics to a dictionary
+        #  return {**self.interface_metrics()}
+        return self.interface_metrics()
+
+    # @property
+    # def df(self) -> pd.Series:
+    #     """The Pose metrics. __init__: Retrieves all metrics, loads pd.Series if none loaded"""
+    #     try:
+    #         return self._df
+    #     except AttributeError:  # Load metrics
+    #         self._df = pd.Series(self.interface_metrics())
+    #     return self._df
 
     @property
     def active_entities(self) -> list[Entity]:
@@ -6094,38 +6221,42 @@ class Pose(SymmetricModel):
              'minimum_radius',
              'maximum_radius',
              'interface_b_factor_per_residue',
-             'interface_secondary_structure_fragment_topology',
-             'interface_secondary_structure_fragment_count',
-             'interface_secondary_structure_topology',
-             'interface_secondary_structure_count',
+             'interface1_secondary_structure_fragment_topology',
+             'interface1_secondary_structure_fragment_count',
+             'interface1_secondary_structure_topology',
+             'interface1_secondary_structure_count',
+             'interface2_secondary_structure_fragment_topology',
+             'interface2_secondary_structure_fragment_count',
+             'interface2_secondary_structure_topology',
+             'interface2_secondary_structure_count',
              'design_dimension',
-             'entity#_max_radius',
-             'entity#_min_radius',
-             'entity#_name',
-             'entity#_number_of_residues',
-             'entity#_radius',
-             'entity#_symmetry_group',
-             'entity#_n_terminal_helix',
-             'entity#_c_terminal_helix',
-             'entity#_n_terminal_orientation',
-             'entity#_c_terminal_orientation',
-             'entity#_thermophile',
-             'entity#_interface_secondary_structure_fragment_topology',
-             'entity#_interface_secondary_structure_topology',
-             'entity_radius_ratio_#v#',
-             'entity_min_radius_ratio_#v#',
-             'entity_max_radius_ratio_#v#',
-             'entity_number_of_residues_ratio_#v#',
-             'entity_radius_average_deviation',
-             'entity_min_radius_average_deviation',
-             'entity_max_radius_average_deviation',
-             'entity_number_of_residues_average_deviation'
+             # 'entity#_max_radius',
+             # 'entity#_min_radius',
+             # 'entity#_name',
+             # 'entity#_number_of_residues',
+             # 'entity#_radius',
+             # 'entity#_symmetry_group',
+             # 'entity#_n_terminal_helix',
+             # 'entity#_c_terminal_helix',
+             # 'entity#_n_terminal_orientation',
+             # 'entity#_c_terminal_orientation',
+             # 'entity#_thermophile',
+             # 'entity#_interface_secondary_structure_fragment_topology',
+             # 'entity#_interface_secondary_structure_topology',
+             # 'entity_radius_ratio_#v#',
+             # 'entity_min_radius_ratio_#v#',
+             # 'entity_max_radius_ratio_#v#',
+             # 'entity_number_of_residues_ratio_#v#',
+             # 'entity_radius_average_deviation',
+             # 'entity_min_radius_average_deviation',
+             # 'entity_max_radius_average_deviation',
+             # 'entity_number_of_residues_average_deviation'
              }
         """
         pose_metrics = self.get_fragment_metrics(total_interface=True)
-        # Remove these two from further analysis
-        pose_metrics.pop('total_indices')
+        # Remove *_indices from further analysis
         self.center_residue_indices = pose_metrics.pop('center_indices', [])
+        pose_metrics.pop('total_indices')
 
         number_interface_residues = len(self.interface_residues)
         number_interface_residues_non_fragment = \
@@ -6144,17 +6275,6 @@ class Pose(SymmetricModel):
 
         pose_metrics.update({
             'interface_b_factor_per_residue': ave_b_factor,
-            # 'nanohedra_score': all_residue_score,
-            # 'nanohedra_score_normalized': nanohedra_score_normalized,
-            # 'nanohedra_score_center': center_residue_score,
-            # 'nanohedra_score_center_normalized': nanohedra_score_center_normalized,
-            # 'number_fragment_residues_total': fragment_residues_total,
-            # 'number_fragment_residues_center': central_residues_with_fragment_overlap,
-            # 'multiple_fragment_ratio': multiple_frag_ratio,
-            # 'percent_fragment_helix': helical_fragment_content,
-            # 'percent_fragment_strand': strand_fragment_content,
-            # 'percent_fragment_coil': coil_fragment_content,
-            # 'number_of_fragments': number_of_fragments,
             'number_interface_residues': number_interface_residues,
             'number_interface_residues_non_fragment': number_interface_residues_non_fragment,
             'percent_residues_fragment_interface_total': percent_residues_fragment_interface_total,
@@ -6163,8 +6283,8 @@ class Pose(SymmetricModel):
         if not self.ss_index_array or not self.ss_type_array:
             self.interface_secondary_structure()  # api_db=self.api_db, source_dir=self.job_resource.stride_dir)
 
-        interface_ss_topology = {}  # {1: 'HHLH', 2: 'HSH'}
-        interface_ss_fragment_topology = {}  # {1: 'HHH', 2: 'HH'}
+        # interface_ss_topology = {}  # {1: 'HHLH', 2: 'HSH'}
+        # interface_ss_fragment_topology = {}  # {1: 'HHH', 2: 'HH'}
         total_interface_ss_topology = total_interface_ss_fragment_topology = ''
         for number, elements in self.split_interface_ss_elements.items():
             fragment_elements = set()
@@ -6175,15 +6295,15 @@ class Pose(SymmetricModel):
             # Take the set of elements as there are element repeats if SS is continuous over residues
             interface_ss_topology = \
                 ''.join(self.ss_type_array[element] for element in set(elements))
-            total_interface_ss_topology += interface_ss_topology
             interface_ss_fragment_topology = \
                 ''.join(self.ss_type_array[element] for element in fragment_elements)
-            total_interface_ss_fragment_topology += interface_ss_fragment_topology
 
-            pose_metrics[f'interface{number}_secondary_structure_count'] = len(interface_ss_topology)
             pose_metrics[f'interface{number}_secondary_structure_topology'] = interface_ss_topology
-            pose_metrics[f'interface{number}_secondary_structure_fragment_count'] = len(interface_ss_fragment_topology)
+            pose_metrics[f'interface{number}_secondary_structure_count'] = len(interface_ss_topology)
+            total_interface_ss_topology += interface_ss_topology
             pose_metrics[f'interface{number}_secondary_structure_fragment_topology'] = interface_ss_fragment_topology
+            pose_metrics[f'interface{number}_secondary_structure_fragment_count'] = len(interface_ss_fragment_topology)
+            total_interface_ss_fragment_topology += interface_ss_fragment_topology
 
         pose_metrics['interface_secondary_structure_fragment_topology'] = total_interface_ss_fragment_topology
         pose_metrics['interface_secondary_structure_fragment_count'] = len(total_interface_ss_fragment_topology)
@@ -6197,51 +6317,67 @@ class Pose(SymmetricModel):
         else:
             pose_metrics['design_dimension'] = 'asymmetric'
 
-        try:
-            api_db = resources.wrapapi.api_database_factory()
-            is_ukb_thermophilic = api_db.uniprot.is_thermophilic
-            is_pdb_thermophile = api_db.pdb.is_thermophilic
-        except AttributeError:
-            is_ukb_thermophilic = query.uniprot.is_uniprot_thermophilic
-            is_pdb_thermophile = query.pdb.is_entity_thermophilic
+        # try:
+        #     api_db = resources.wrapapi.api_database_factory()
+        #     is_ukb_thermophilic = api_db.uniprot.is_thermophilic
+        #     is_pdb_thermophile = api_db.pdb.is_thermophilic
+        # except AttributeError:
+        #     is_ukb_thermophilic = query.uniprot.is_uniprot_thermophilic
+        #     is_pdb_thermophile = query.pdb.is_entity_thermophilic
+
+        # Todo new-style sql.EntityMetrics
+        # # Todo need to get the secondary structure at each entity interface indices
+        # # for number, topology in interface_ss_topology.items():
+        # #     pose_metrics[f'entity{number}_secondary_structure_topology'] = topology
+        # #     pose_metrics[f'entity{number}_secondary_structure_fragment_topology'] = \
+        # #         interface_ss_fragment_topology.get(number, '-')
 
         # total_residue_counts = []
         idx = 1
         is_thermophilic = []
-        minimum_radius, maximum_radius = float('inf'), 0
+        minimum_radius, maximum_radius = float('inf'), 0.
+        entity_metrics = []
         for idx, entity in enumerate(self.entities, idx):
             if self.dimension and self.dimension > 0:
                 raise NotImplementedError('Need to add keyword reference= to Structure.distance_from_reference() call')
-            min_rad = entity.distance_from_reference(measure='min')  # Todo add reference=
-            if min_rad < minimum_radius:
-                minimum_radius = min_rad
-            max_rad = entity.distance_from_reference(measure='max')  # Todo add reference=
-            if max_rad > maximum_radius:
-                maximum_radius = max_rad
+            entity.calculate_metrics()  # Todo add reference=
+            _entity_metrics = entity.metrics
+            if _entity_metrics.min_radius < minimum_radius:
+                minimum_radius = _entity_metrics.min_radius
+            if _entity_metrics.max_radius > maximum_radius:
+                maximum_radius = _entity_metrics.max_radius
+            is_thermophilic.append(1 if entity.thermophilic else 0)
+            entity_metrics.append(_entity_metrics)
 
-            if entity.thermophilic is not None:
-                thermophile = 1 if entity.thermophilic else 0
-            else:
-                thermophile = 1 if is_pdb_thermophile(entity.name) or is_ukb_thermophilic(entity.uniprot_id) else 0
-            is_thermophilic.append(thermophile)
-
-            pose_metrics.update({
-                f'entity{idx}_symmetry_group': entity.symmetry if entity.is_oligomeric() else 'asymmetric',
-                f'entity{idx}_name': entity.name,
-                f'entity{idx}_number_of_residues': entity.number_of_residues,
-                f'entity{idx}_radius': entity.distance_from_reference(),  # Todo add reference=
-                f'entity{idx}_min_radius': min_rad,
-                f'entity{idx}_max_radius': max_rad,
-                f'entity{idx}_n_terminal_helix': entity.is_termini_helical(),
-                f'entity{idx}_c_terminal_helix': entity.is_termini_helical(termini='c'),
-                f'entity{idx}_n_terminal_orientation': entity.termini_proximity_from_reference(),  # Todo add reference=
-                f'entity{idx}_c_terminal_orientation':
-                    entity.termini_proximity_from_reference(termini='c'),  # Todo add reference=
-                f'entity{idx}_thermophile': thermophile})
+            # # Old-style
+            # min_rad = entity.distance_from_reference(measure='min')
+            # if min_rad < minimum_radius:
+            #     minimum_radius = min_rad
+            # max_rad = entity.distance_from_reference(measure='max')
+            # if max_rad > maximum_radius:
+            #     maximum_radius = max_rad
+            #
+            # if entity.thermophilic is not None:
+            #     thermophile = 1 if entity.thermophilic else 0
+            # else:
+            #     thermophile = 1 if is_pdb_thermophile(entity.name) or is_ukb_thermophilic(entity.uniprot_id) else 0
+            # is_thermophilic.append(thermophile)
+            #
+            # pose_metrics.update({
+            #     f'entity{idx}_symmetry_group': entity.symmetry if entity.is_oligomeric() else 'asymmetric',
+            #     f'entity{idx}_name': entity.name,
+            #     f'entity{idx}_number_of_residues': entity.number_of_residues,
+            #     f'entity{idx}_radius': entity.distance_from_reference(),
+            #     f'entity{idx}_min_radius': min_rad,
+            #     f'entity{idx}_max_radius': max_rad,
+            #     f'entity{idx}_n_terminal_helix': entity.is_termini_helical(),
+            #     f'entity{idx}_c_terminal_helix': entity.is_termini_helical(termini='c'),
+            #     f'entity{idx}_n_terminal_orientation': entity.termini_proximity_from_reference(),
+            #     f'entity{idx}_c_terminal_orientation': entity.termini_proximity_from_reference(termini='c'),
+            #     f'entity{idx}_thermophile': thermophile})
 
         # Get the average thermophilicity for all entities
         pose_metrics['pose_thermophilicity'] = sum(is_thermophilic) / idx
-
         pose_metrics['minimum_radius'] = minimum_radius
         pose_metrics['maximum_radius'] = maximum_radius
         pose_metrics['pose_length'] = self.number_of_residues
@@ -6250,25 +6386,42 @@ class Pose(SymmetricModel):
 
         radius_ratio_sum = min_ratio_sum = max_ratio_sum = residue_ratio_sum = 0.
         counter = 1
-        for counter, (entity_idx1, entity_idx2) in enumerate(combinations(range(1, self.number_of_entities + 1),
-                                                                          2), counter):
-            radius_ratio = \
-                pose_metrics[f'entity{entity_idx1}_radius'] / pose_metrics[f'entity{entity_idx2}_radius']
-            min_ratio = \
-                pose_metrics[f'entity{entity_idx1}_min_radius'] / pose_metrics[f'entity{entity_idx2}_min_radius']
-            max_ratio = \
-                pose_metrics[f'entity{entity_idx1}_max_radius'] / pose_metrics[f'entity{entity_idx2}_max_radius']
-            residue_ratio = \
-                pose_metrics[f'entity{entity_idx1}_number_of_residues'] \
-                / pose_metrics[f'entity{entity_idx2}_number_of_residues']
+        index_combinations = combinations(range(1, 1 + len(entity_metrics)), 2)
+        for counter, (metrics1, metrics2) in enumerate(combinations(entity_metrics, 2), counter):
+            radius_ratio = metrics1.radius / metrics2.radius
+            min_ratio = metrics1.min_radius / metrics2.min_radius
+            max_ratio = metrics1.max_radius / metrics2.max_radius
+            residue_ratio = metrics1.number_of_residues / metrics2.number_of_residues
             radius_ratio_sum += abs(1 - radius_ratio)
             min_ratio_sum += abs(1 - min_ratio)
             max_ratio_sum += abs(1 - max_ratio)
             residue_ratio_sum += abs(1 - residue_ratio)
+            entity_idx1, entity_idx2 = next(index_combinations)
             pose_metrics.update({f'entity_radius_ratio_{entity_idx1}v{entity_idx2}': radius_ratio,
                                  f'entity_min_radius_ratio_{entity_idx1}v{entity_idx2}': min_ratio,
                                  f'entity_max_radius_ratio_{entity_idx1}v{entity_idx2}': max_ratio,
                                  f'entity_number_of_residues_ratio_{entity_idx1}v{entity_idx2}': residue_ratio})
+
+        # # Old-style
+        # for counter, (entity_idx1, entity_idx2) in enumerate(combinations(range(1, self.number_of_entities + 1),
+        #                                                                   2), counter):
+        #     radius_ratio = \
+        #         pose_metrics[f'entity{entity_idx1}_radius'] / pose_metrics[f'entity{entity_idx2}_radius']
+        #     min_ratio = \
+        #         pose_metrics[f'entity{entity_idx1}_min_radius'] / pose_metrics[f'entity{entity_idx2}_min_radius']
+        #     max_ratio = \
+        #         pose_metrics[f'entity{entity_idx1}_max_radius'] / pose_metrics[f'entity{entity_idx2}_max_radius']
+        #     residue_ratio = \
+        #         pose_metrics[f'entity{entity_idx1}_number_of_residues'] \
+        #         / pose_metrics[f'entity{entity_idx2}_number_of_residues']
+        #     radius_ratio_sum += abs(1 - radius_ratio)
+        #     min_ratio_sum += abs(1 - min_ratio)
+        #     max_ratio_sum += abs(1 - max_ratio)
+        #     residue_ratio_sum += abs(1 - residue_ratio)
+        #     pose_metrics.update({f'entity_radius_ratio_{entity_idx1}v{entity_idx2}': radius_ratio,
+        #                          f'entity_min_radius_ratio_{entity_idx1}v{entity_idx2}': min_ratio,
+        #                          f'entity_max_radius_ratio_{entity_idx1}v{entity_idx2}': max_ratio,
+        #                          f'entity_number_of_residues_ratio_{entity_idx1}v{entity_idx2}': residue_ratio})
 
         pose_metrics.update({'entity_radius_average_deviation': radius_ratio_sum / counter,
                              'entity_min_radius_average_deviation': min_ratio_sum / counter,
