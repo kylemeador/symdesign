@@ -4023,7 +4023,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         clash_msg = f'{self.name} contains Residue {measure} atom clashes at a {distance}A distance'
         if warn:
-            def any_clashes(_clash_indices: Iterable[int]):
+            def any_clashes(_clash_indices: Iterable[int]) -> bool:
                 new_clashes = any(_clash_indices)
                 if new_clashes:
                     for clashing_idx in _clash_indices:
@@ -4038,7 +4038,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 # Set the global clashes (clashes = return ...) while checking global clashes against new_clashes
                 return clashes or new_clashes
         else:  # Raise a ClashError as we can immediately stop execution if this is the case
-            def any_clashes(_clash_indices: Iterable[int]):
+            def any_clashes(_clash_indices: Iterable[int]) -> bool:
                 for clashing_idx in _clash_indices:
                     if getattr(atoms[clashing_idx], f'is_{measure}', return_true)():
                         raise stutils.ClashError(clash_msg)
@@ -4461,7 +4461,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 self.stride()
 
     def termini_proximity_from_reference(self, termini: termini_literal = 'n',
-                                         reference: np.ndarray = utils.symmetry.origin) -> float:
+                                         reference: np.ndarray = utils.symmetry.origin, **kwargs) -> float:
         """From an Entity, find the orientation of the termini from the origin (default) or from a reference point
 
         Args:
@@ -4486,7 +4486,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         else:
             return -1  # termini closer to the reference
 
-    def distance_from_reference(self, reference: np.ndarray = utils.symmetry.origin, measure: str = 'mean') -> float:
+    def distance_from_reference(self, reference: np.ndarray = utils.symmetry.origin, measure: str = 'mean', **kwargs) \
+            -> float:
         """From a Structure, find the furthest coordinate from the origin (default) or from a reference.
 
         Args:
