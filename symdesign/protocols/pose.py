@@ -3968,11 +3968,15 @@ class PoseProtocol(PoseData):
         else:
             raise NotImplementedError(f"This method, {self.calculate_pose_metrics.__name__} doesn't output anything yet"
                                       f" when {type(self.job).__name__}.db = {self.job.db}")
+            raise NotImplementedError(f"The reference=SymEntry.resulting_symmetry center_of_mass is needed as well")
             pose_df = self.pose.df  # Also performs entity.calculate_metrics()
 
             entity_dfs = []
             for entity in self.pose.entities:
-                entity_dfs.append(entity.df)
+                # entity.calculate_metrics()  # Todo add reference=
+                # entity_dfs.append(entity.df)
+                entity_s = pd.Series(**entity.calculate_metrics())  # Todo add reference=
+                entity_dfs.append(entity_s)
 
             # Stack the Series on the columns to turn into a dataframe where the metrics are rows and entity are columns
             entity_df = pd.concat(entity_dfs, keys=list(range(1, 1 + len(entity_dfs))), axis=1)
