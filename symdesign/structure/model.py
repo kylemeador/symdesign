@@ -770,11 +770,12 @@ class ContainsChainsMixin:
         self.original_chain_ids = self.chain_ids = []
         super().__init__(**kwargs)
 
-    def _create_chains(self, as_mate: bool = False):
+    def _create_chains(self, **kwargs):  # as_mate: bool = False
         """For all the Residues in the Structure, create Chain objects which contain their member Residues
 
-        Args:
-            as_mate: Whether the Chain instances should be controlled by a captain (True), or dependents of their parent
+        Keyword Args:
+            as_mate: bool = False - Whether Chain instances should be controlled by a captain (True), or be dependents
+                of their parent
         Sets:
             self.chain_ids (list[str])
             self.chains (list[Chain] | Structures)
@@ -821,7 +822,7 @@ class ContainsChainsMixin:
             self.chain_ids = new_chain_ids
 
         for residue_indices, chain_id in zip(chain_residues, self.chain_ids):
-            self.chains.append(Chain(residue_indices=residue_indices, chain_id=chain_id, as_mate=as_mate, parent=self))
+            self.chains.append(Chain(residue_indices=residue_indices, chain_id=chain_id, parent=self, **kwargs))
 
     @property
     def number_of_chains(self) -> int:
@@ -888,7 +889,7 @@ class Chain(SequenceProfile, Structure):
     """Create a connected polymer. Usually a subset of the coords and Atom and Residue instances of a larger Structure
 
     Args:
-        as_mate: Whether the Chain instances should be controlled by a captain (True), or dependents of their parent
+        as_mate: Whether Chain instances should be controlled by a captain (True), or be dependents of their parent
     """
     _chain_id: str
     _disorder: dict[int, dict[str, str]]
@@ -956,6 +957,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         chains: A list of Chain instance that match the Entity
         dbref: The unique database reference for the Entity
         reference_sequence: The reference sequence (according to expression sequence or reference database)
+        thermophilic: Whether the Entity is deemed thermophilic
     Keyword Args:
         name: str = None - The EntityID. Typically, EntryID_EntityInteger is used to match PDB API identifier format
     """
