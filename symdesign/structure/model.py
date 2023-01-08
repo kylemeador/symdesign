@@ -3804,7 +3804,7 @@ class SymmetricModel(Models):
             if self.symmetric_coords is None:
                 # We need to generate the symmetric coords
                 self.log.debug('Generating symmetric coords')
-                self.generate_symmetric_coords(surrounding_uc=surrounding_uc)  # default has surrounding_uc=True
+                self.generate_symmetric_coords(surrounding_uc=surrounding_uc)  # Defaults to surrounding_uc=True
 
             # Generate oligomers for each entity in the pose
             self.make_oligomers(transformations=transformations)
@@ -3849,7 +3849,14 @@ class SymmetricModel(Models):
                 self.symmetry = symmetry
                 # Not sure if cryst record can differentiate between 2D and 3D. 3D will be wrong if actually 2D
                 self.dimension = 2 if symmetry in utils.symmetry.layer_group_cryst1_fmt_dict else 3
-                self.number_of_symmetry_mates = getattr(self.sym_entry, 'number_of_operations', 1)
+                try:
+                    self.number_of_symmetry_mates = getattr(self.sym_entry, 'number_of_operations')
+                except AttributeError:  # This is a lazy/incomplete implementation
+                    raise SymmetryError(f'The method taken in {self.set_symmetry.__name__} is naive, especially being '
+                                        "depending on SymEntry and can't be completed with the specified options:\n"
+                                        f'symmetry={symmetry}, uc_dimensions={uc_dimensions}, and '
+                                        f'dimension={self.dimension}\n'
+                                        f'See the warning {error} for more diagnosis...')
 
             # if symmetry in utils.symmetry.layer_group_cryst1_fmt_dict:  # not available yet for non-Nanohedra PG's
             #     self.dimension = 2
@@ -3965,7 +3972,7 @@ class SymmetricModel(Models):
         self.symmetry = getattr(self.sym_entry, 'resulting_symmetry', None)
         self.point_group_symmetry = getattr(self.sym_entry, 'point_group_symmetry', None)
         self.dimension = getattr(self.sym_entry, 'dimension', None)
-        self.number_of_symmetry_mates = getattr(self.sym_entry, 'number_of_operations', 1)
+        # self.number_of_symmetry_mates = getattr(self.sym_entry, 'number_of_operations', 1)
 
     @property
     def symmetry(self) -> str | None:
@@ -4082,15 +4089,16 @@ class SymmetricModel(Models):
         self._cryst_record = cryst_record
 
     @property
-    def number_of_symmetry_mates(self) -> int:
+    def number_of_symmetry_mates(self) -> int:  # Todo present in Entity but set using valid_subunit_number not SymEntry
         """Describes the number of symmetric copies present in the coordinates"""
         try:
             return self._number_of_symmetry_mates
-        except AttributeError:
-            return 1
+        except AttributeError:  # Set based on the symmetry, unless that fails then default to 1
+            self._number_of_symmetry_mates = getattr(self.sym_entry, 'number_of_operations', 1)
+            return self._number_of_symmetry_mates
 
     @number_of_symmetry_mates.setter
-    def number_of_symmetry_mates(self, number_of_symmetry_mates: int):
+    def number_of_symmetry_mates(self, number_of_symmetry_mates: int):  # Todo same as Entity
         self._number_of_symmetry_mates = number_of_symmetry_mates
 
     @property
@@ -4106,6 +4114,10 @@ class SymmetricModel(Models):
     # @number_of_uc_symmetry_mates.setter
     # def number_of_uc_symmetry_mates(self, number_of_uc_symmetry_mates):
     #     self._number_of_uc_symmetry_mates = number_of_uc_symmetry_mates
+
+    def is_surrounding_uc(self) -> bool:
+        """Check if the current coords contains a number_of_symmetry_mates containing the surrounding_uc"""
+        return self.number_of_symmetry_mates == self.number_of_uc_symmetry_mates
 
     @property
     def atom_indices_per_entity_symmetric(self):
@@ -4206,7 +4218,7 @@ class SymmetricModel(Models):
 
     @property
     def center_of_mass_symmetric(self) -> np.ndarray:
-        """The center of mass for the entire symmetric system"""
+        """The center of mass for the full symmetric assembly"""
         # number_of_symmetry_atoms = len(self.symmetric_coords)
         # return np.matmul(np.full(number_of_symmetry_atoms, 1 / number_of_symmetry_atoms), self.symmetric_coords)
         # v since all symmetry by expand_matrix anyway
@@ -4214,7 +4226,7 @@ class SymmetricModel(Models):
 
     @property
     def center_of_mass_symmetric_models(self) -> np.ndarray:
-        """The individual centers of mass for each model in the symmetric system"""
+        """The set of center of mass points for each symmetry mate in the symmetric system"""
         # number_of_atoms = self.number_of_atoms
         # return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms), self.symmetric_coords_split)
         # return np.matmul(self.center_of_mass, self.expand_matrices)
@@ -4226,7 +4238,7 @@ class SymmetricModel(Models):
 
     @property
     def center_of_mass_symmetric_entities(self) -> list[np.ndarray]:
-        """The individual centers of mass for each Entity in the symmetric system"""
+        """The set of center of mass points for each Entity instance in the symmetric system for each symmetry mate"""
         # if self.symmetry:
         # self._center_of_mass_symmetric_entities = []
         # for num_atoms, entity_coords in zip(self.number_of_atoms_per_entity, self.symmetric_coords_split_by_entity):
@@ -4268,8 +4280,8 @@ class SymmetricModel(Models):
             return self._assembly_minimally_contacting
         except AttributeError:
             # if not self.models:
-            self.generate_assembly_symmetry_models()  # defaults to surrounding_uc generation
-            # only return contacting
+            self.generate_assembly_symmetry_models(surrounding_uc=self.is_surrounding_uc())
+            # Only return contacting
             interacting_model_indices = self.get_asu_interaction_model_indices()
             # interacting_model_indices = self.get_asu_interaction_model_indices(calculate_contacts=False)
             self.log.debug(f'Found selected models {interacting_model_indices} for assembly')
@@ -4309,14 +4321,14 @@ class SymmetricModel(Models):
                 else:
                     raise SymmetryError(f'The specified dimension "{self.dimension}" is not crystalline')
 
-                # set the number_of_symmetry_mates to account for the unit cell number
+                # Set the number_of_symmetry_mates to account for the unit cell number
                 self.number_of_symmetry_mates = self.number_of_uc_symmetry_mates * uc_number
                 uc_frac_coords = self.return_unit_cell_coords(self.coords, fractional=True)
                 surrounding_frac_coords = \
                     np.concatenate([uc_frac_coords + [x, y, z] for x in shift_3d for y in shift_3d for z in z_shifts])
                 symmetric_coords = self.frac_to_cart(surrounding_frac_coords)
             else:
-                # must set number_of_symmetry_mates before self.return_unit_cell_coords as it relies on copy number
+                # Must set number_of_symmetry_mates before self.return_unit_cell_coords as it relies on copy number
                 # self.number_of_symmetry_mates = self.number_of_uc_symmetry_mates
                 # uc_number = 1
                 symmetric_coords = self.return_unit_cell_coords(self.coords)
@@ -4404,12 +4416,15 @@ class SymmetricModel(Models):
         #                f'{type(self).__name__} is being taken which is relying on Structure.__copy__. This may '
         #                f'not be adequate and need to be overwritten')
 
-        if len(self.models) != self.number_of_symmetry_mates:
+        # Get this attribute fresh as it may have been set by self.generate_symmetric_coords()
+        number_of_symmetry_mates = self.number_of_symmetry_mates
+        if len(self.models) != number_of_symmetry_mates:
             # self.log.debug(f'Generating symmetry mates')
-            for coord_idx in range(self.number_of_symmetry_mates):
+            for _ in range(number_of_symmetry_mates):
                 symmetry_mate = self.copy()
                 self.models.append(symmetry_mate)
 
+        # Update all models with the symmetric_coords
         number_of_atoms = self.number_of_atoms
         symmetric_coords = self.symmetric_coords
         # self.log.debug(f'Setting symmetry mate coordinates')
@@ -4635,37 +4650,37 @@ class SymmetricModel(Models):
             raise AttributeError(f'The dtype number_of_{dtype} was not found in the {type(self).__name__} object. '
                                  f'Possible values of dtype are "atom" or "residue"')
 
-        return [idx + (jump_size*model_num) for model_num in range(self.number_of_symmetry_mates) for idx in indices]
+        return [idx + jump_size*model_num for model_num in range(self.number_of_symmetry_mates) for idx in indices]
         # symmetric_indice = [] + indices
         # for model_num in range(1, self.number_of_symmetry_mates):
         #     jump_length = jump_size * model_num
         #     symmetric_indice.extend([idx + jump_length for idx in indices])
 
-    def return_symmetric_copies(self, structure: StructureBase, surrounding_uc: bool = True, **kwargs) \
-            -> list[StructureBase]:
-        #  return_side_chains: bool = True,
+    def return_symmetric_copies(self, structure: StructureBase, **kwargs) -> list[StructureBase]:
         """Expand the provided Structure using self.symmetry for the symmetry specification
 
         Args:
-            structure: A ContainsAtomsMixin Structure object with .coords/.backbone_and_cb_coords methods
-            surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
-            # return_side_chains: Whether to make the structural copy with side chains
+            structure: A StructureBase instance containing .coords method/attribute
         Returns:
             The symmetric copies of the input structure
         """
+        # surrounding_uc: bool = True
+        #     surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
+        # return_side_chains: bool = True,
+        #     return_side_chains: Whether to make the structural copy with side chains
         # self.log.critical(f'Ensure the output of symmetry mate creation is correct. The copy of a '
         #                   f'{type(structure).__name__} is being taken which is relying on '
         #                   f'{type(structure).__name__}.__copy__. This may not be adequate and need to be overwritten')
         # Caution, this function will return poor if the number of atoms in the structure is 1!
         # coords = structure.coords if return_side_chains else structure.backbone_and_cb_coords
         uc_number = 1
+        number_of_symmetry_mates = self.number_of_symmetry_mates
         if self.dimension == 0:
-            number_of_symmetry_mates = self.number_of_symmetry_mates
-            # favoring this as it is more explicit
-            sym_coords = (np.matmul(np.tile(structure.coords, (self.number_of_symmetry_mates, 1, 1)),
+            # Favoring this as it is more explicit
+            sym_coords = (np.matmul(np.tile(structure.coords, (number_of_symmetry_mates, 1, 1)),
                                     self.expand_matrices) + self.expand_translations).reshape(-1, 3)
         else:
-            if surrounding_uc:
+            if self.is_surrounding_uc():
                 shift_3d = [0., 1., -1.]
                 if self.dimension == 3:
                     z_shifts, uc_number = shift_3d, 27
@@ -4674,13 +4689,15 @@ class SymmetricModel(Models):
                 else:
                     raise SymmetryError(f'The specified dimension "{self.dimension}" is not crystalline')
 
-                number_of_symmetry_mates = self.number_of_uc_symmetry_mates * uc_number
+                # # The attribute self.number_of_symmetry_mates may not be set
+                # # as surrounding_uc True so perform that operation here
+                # number_of_symmetry_mates = self.number_of_uc_symmetry_mates * uc_number
                 uc_frac_coords = self.return_unit_cell_coords(structure.coords, fractional=True)
                 surrounding_frac_coords = \
                     np.concatenate([uc_frac_coords + [x, y, z] for x in shift_3d for y in shift_3d for z in z_shifts])
                 sym_coords = self.frac_to_cart(surrounding_frac_coords)
             else:
-                number_of_symmetry_mates = self.number_of_uc_symmetry_mates
+                # number_of_symmetry_mates = self.number_of_uc_symmetry_mates
                 sym_coords = self.return_unit_cell_coords(structure.coords)
 
         sym_mates = []
@@ -4689,20 +4706,25 @@ class SymmetricModel(Models):
             symmetry_mate.coords = coord_set
             sym_mates.append(symmetry_mate)
 
-        if len(sym_mates) != uc_number * self.number_of_symmetry_mates:
-            raise SymmetryError(f'Number of models ({len(sym_mates)}) is incorrect! Should be'
-                                f' {uc_number * self.number_of_uc_symmetry_mates}')
+        if len(sym_mates) != uc_number * number_of_symmetry_mates:
+            if self.dimension > 0:
+                raise SymmetryError(f'Number of models ({len(sym_mates)}) is incorrect! Should be'
+                                    f' {uc_number * self.number_of_uc_symmetry_mates}')
+            else:
+                raise SymmetryError(f'Number of models ({len(sym_mates)}) is incorrect! Should be'
+                                    f' {number_of_symmetry_mates}')
         return sym_mates
 
-    def return_symmetric_coords(self, coords: list | np.ndarray, surrounding_uc: bool = True) -> np.ndarray:
+    def return_symmetric_coords(self, coords: list | np.ndarray) -> np.ndarray:
         """Provided an input set of coordinates, return the symmetrized coordinates corresponding to the SymmetricModel
 
         Args:
             coords: The coordinates to symmetrize
-            surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
         Returns:
             The symmetrized coordinates
         """
+        # surrounding_uc: bool = True
+        #   surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
         if self.dimension == 0:
             # coords_len = 1 if not isinstance(coords[0], (list, np.ndarray)) else len(coords)
             # model_coords = np.empty((coords_length * self.number_of_symmetry_mates, 3), dtype=float)
@@ -4712,14 +4734,14 @@ class SymmetricModel(Models):
             return (np.matmul(np.tile(coords, (self.number_of_symmetry_mates, 1, 1)),
                               self.expand_matrices) + self.expand_translations).reshape(-1, 3)
         else:
-            if surrounding_uc:
+            if self.is_surrounding_uc():
                 shift_3d = [0., 1., -1.]
                 if self.dimension == 3:
                     z_shifts = shift_3d
                 elif self.dimension == 2:
                     z_shifts = [0.]
                 else:
-                    raise SymmetryError(f'The specified dimension "{self.dimension}" is not crystalline')
+                    raise SymmetryError(f"The specified dimension '{self.dimension}' isn't crystalline")
 
                 uc_frac_coords = self.return_unit_cell_coords(coords, fractional=True)
                 surrounding_frac_coords = \
