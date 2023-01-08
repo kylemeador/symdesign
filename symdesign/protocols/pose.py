@@ -3955,10 +3955,16 @@ class PoseProtocol(PoseData):
                 # pose_metrics.pose_id = self.id
                 # Add metrics objects to the current session
                 # self.job.current_session.add(pose_metrics)
-                for entity in self.pose.entities:
+                idx = 1
+                is_thermophilic = []
+                for idx, entity in enumerate(self.pose.entities, idx):
+                    # Todo remove entity.thermophilic once sql load more streamlined
+                    is_thermophilic.append(1 if entity.thermophilic else 0)
                     self.entity_metrics.append(entity.metrics)
                     # entity.metrics.pose_id = self.id
                     # self.job.current_session.add(entity.metrics)
+
+                self.metrics.pose_thermophilicity = sum(is_thermophilic) / idx
 
                 self.job.current_session.commit()
             else:
