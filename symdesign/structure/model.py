@@ -5581,7 +5581,7 @@ class Pose(SymmetricModel, Metrics):
     #     try:
     #         return self._df
     #     except AttributeError:  # Load metrics
-    #         self._df = pd.Series(self.interface_metrics())
+    #         self._df = pd.Series(self.calculate_metrics())
     #     return self._df
 
     @property
@@ -6281,6 +6281,7 @@ class Pose(SymmetricModel, Metrics):
              'number_interface_residues_non_fragment',
              'pose_length',
              'pose_thermophilicity',
+             'sequence',
              'minimum_radius',
              'maximum_radius',
              'interface_b_factor_per_residue',
@@ -6397,7 +6398,7 @@ class Pose(SymmetricModel, Metrics):
 
         # total_residue_counts = []
         idx = 1
-        is_thermophilic = []
+        # is_thermophilic = []
         minimum_radius, maximum_radius = float('inf'), 0.
         entity_metrics = []
         for idx, entity in enumerate(self.entities, idx):
@@ -6410,7 +6411,7 @@ class Pose(SymmetricModel, Metrics):
                 minimum_radius = _entity_metrics.min_radius
             if _entity_metrics.max_radius > maximum_radius:
                 maximum_radius = _entity_metrics.max_radius
-            is_thermophilic.append(1 if entity.thermophilic else 0)
+            # is_thermophilic.append(1 if entity.thermophilic else 0)
             entity_metrics.append(_entity_metrics)
 
             # # Old-style
@@ -6441,10 +6442,11 @@ class Pose(SymmetricModel, Metrics):
             #     f'entity{idx}_thermophile': thermophile})
 
         # Get the average thermophilicity for all entities
-        pose_metrics['pose_thermophilicity'] = sum(is_thermophilic) / idx
+        # pose_metrics['pose_thermophilicity'] = sum(is_thermophilic) / idx
         pose_metrics['minimum_radius'] = minimum_radius
         pose_metrics['maximum_radius'] = maximum_radius
         pose_metrics['pose_length'] = self.number_of_residues
+        pose_metrics['sequence'] = self.sequence
         # pose_metrics['pose_length'] = \
         #     sum(pose_metrics[f'entity{idx}_number_of_residues'] for idx in range(1, self.number_of_entities + 1))
 

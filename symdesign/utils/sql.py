@@ -195,8 +195,14 @@ class PoseMetrics(Base):
     # entity_c_terminal_helix = Column(Boolean)  # Has a # after entity LIST
     # entity_n_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
     # entity_c_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
-    # entity_thermophile = Column(Boolean)  # Has a # after entity LIST
+    # entity_thermophilic = Column(Boolean)  # Has a # after entity LIST
+    interface1_secondary_structure_fragment_count = Column(Integer)
     interface1_secondary_structure_fragment_topology = Column(String)
+    interface1_secondary_structure_count = Column(Integer)
+    interface1_secondary_structure_topology = Column(String)
+    interface2_secondary_structure_fragment_count = Column(Integer)
+    interface2_secondary_structure_fragment_topology = Column(String)
+    interface2_secondary_structure_count = Column(Integer)
     interface2_secondary_structure_topology = Column(String)
     # entity_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
     # entity_min_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
@@ -217,7 +223,8 @@ class PoseMetrics(Base):
     # number_design_residues = Column(Integer)  # , nullable=False)
     sequence = Column(String(config.MAXIMUM_SEQUENCE))  # , nullable=False)
     pose_length = Column(Integer)  # , nullable=False)
-    pose_thermophilicity = Column(Float)  # , nullable=False)
+    pose_thermophilicity = Column(Float)  # Todo make thermophilic? in config.metrics
+    """Thermophilicity implies this is a spectrum, while thermophilic implies binary"""
 
 
 ratio_design_metrics = dict(
@@ -251,7 +258,7 @@ class EntityMetadata(Base):
     # number_of_residues = Column(Integer)  # entity_ is used in config.metrics
     n_terminal_helix = Column(Boolean)  # entity_ is used in config.metrics
     c_terminal_helix = Column(Boolean)  # entity_ is used in config.metrics
-    thermophile = Column(Boolean)  # entity_ is used in config.metrics
+    thermophilic = Column(Boolean)  # entity_ is used in config.metrics
     # Symmetry parameters
     symmetry_group = Column(String(4))  # entity_ is used in config.metrics
     symmetry = Column(ForeignKey('symmetry_groups.id'))
@@ -308,7 +315,7 @@ class EntityMetrics(Base):
 #     entity_c_terminal_helix=Boolean,
 #     entity_n_terminal_orientation=Integer,
 #     entity_c_terminal_orientation=Integer,
-#     entity_thermophile=Boolean,
+#     entity_thermophilic=Boolean,
 #     entity_interface_secondary_structure_fragment_topology=String(60),
 #     entity_interface_secondary_structure_topology=String(60),
 # )
