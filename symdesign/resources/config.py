@@ -346,7 +346,7 @@ metrics = {
     'entity_symmetry_group':
         dict(description='The symmetry notation of the entity',
              direction=None, function=None, filter=True),
-    'entity_thermophile':
+    'entity_thermophilic':
         dict(description='Whether the entity is a thermophile',
              direction=max_, function=boolean, filter=None),
     'entity_max_radius_ratio_v':
