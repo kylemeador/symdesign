@@ -59,7 +59,7 @@ def remove_structure_memory(func):
     return wrapped
 
 
-def handle_design_errors(errors: tuple[Type[Exception], ...] = (Exception,)) -> Callable:
+def handle_design_errors(errors: tuple[Type[Exception], ...] = (DesignError,)) -> Callable:
     """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
 
     This argument is typically self and is in a class with .log attribute
@@ -81,7 +81,7 @@ def handle_design_errors(errors: tuple[Type[Exception], ...] = (Exception,)) -> 
     return wrapper
 
 
-def protocol_decorator(errors: tuple[Type[Exception], ...] = (Exception,)) -> Callable:
+def protocol_decorator(errors: tuple[Type[Exception], ...] = (DesignError,)) -> Callable:
     """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
 
     This argument is typically self and is in a class with .log attribute
@@ -116,7 +116,7 @@ def protocol_decorator(errors: tuple[Type[Exception], ...] = (Exception,)) -> Ca
     return wrapper
 
 
-@protocol_decorator(errors=(DesignError,))
+@protocol_decorator()
 def predict_structure(job: pose.PoseJob):
     """From a sequence input, predict the structure using one of various structure prediction pipelines
 
@@ -129,7 +129,7 @@ def predict_structure(job: pose.PoseJob):
     job.predict_structure()
 
 
-@protocol_decorator(errors=(DesignError,))
+@protocol_decorator()
 def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None, suffix=None,
                           score_only=None, variables=None, **kwargs):
     """Generate a custom script to dispatch to the design using a variety of parameters
@@ -223,7 +223,7 @@ def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None
         pose_s.to_csv(out_path, mode='a', header=header)
 
 
-@protocol_decorator(errors=(DesignError,))
+@protocol_decorator()
 def interface_metrics(job: pose.PoseJob):
     """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states
 
@@ -291,7 +291,7 @@ def interface_metrics(job: pose.PoseJob):
         pose_s.to_csv(out_path, mode='a', header=header)
 
 
-@protocol_decorator(errors=(DesignError,))
+@protocol_decorator()
 def check_unmodelled_clashes(job: pose.PoseJob, clashing_threshold: float = 0.75):
     """Given a multimodel file, measure the number of clashes is less than a percentage threshold
 
@@ -322,7 +322,7 @@ def check_unmodelled_clashes(job: pose.PoseJob, clashing_threshold: float = 0.75
                           f'threshold ({clashing_threshold})')
 
 
-@protocol_decorator(errors=(DesignError,))
+@protocol_decorator()
 def check_clashes(job: pose.PoseJob):
     """Check for clashes in the input and in the symmetric assembly if symmetric
 
@@ -332,7 +332,7 @@ def check_clashes(job: pose.PoseJob):
     job.load_pose()
 
 
-@protocol_decorator(errors=(DesignError,))
+@protocol_decorator()
 def rename_chains(job: pose.PoseJob):
     """Standardize the chain names in incremental order found in the design source file
 
@@ -379,17 +379,7 @@ def orient(job: pose.PoseJob, to_pose_directory: bool = True):
         raise SymmetryError(warn_missing_symmetry % job.orient.__name__)
 
 
-@protocol_decorator(errors=(DesignError,))
-def refine(job: pose.PoseJob):
-    """Refine the source Pose
-
-    Args:
-        job: The PoseJob for which the protocol should be performed on
-    """
-    job.refine()
-
-
-@protocol_decorator(errors=(DesignError,))
+@protocol_decorator()
 def find_asu(job: pose.PoseJob):
     """From a PDB with multiple Chains from multiple Entities, return the minimal configuration of Entities.
     ASU will only be a true ASU if the starting PDB contains a symmetric system, otherwise all manipulations find
@@ -417,7 +407,7 @@ def find_asu(job: pose.PoseJob):
     job.save_asu()
 
 
-@protocol_decorator(errors=(DesignError,))
+@protocol_decorator()
 def expand_asu(job: pose.PoseJob):
     """For the design info given by a PoseJob source, initialize the Pose with job.source file,
     job.symmetry, and job.log objects then expand the design given the provided symmetry operators and write to a
@@ -433,7 +423,7 @@ def expand_asu(job: pose.PoseJob):
     job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
 
 
-@protocol_decorator(errors=(DesignError,))
+@protocol_decorator()
 def generate_fragments(job: pose.PoseJob):
     """For the design info given by a PoseJob source, initialize the Pose then generate interfacial fragment
     information between Entities. Aware of symmetry and design_selectors in fragment generation file
@@ -445,7 +435,17 @@ def generate_fragments(job: pose.PoseJob):
     job.generate_fragments()
 
 
-@protocol_decorator(errors=(DesignError,))
+@protocol_decorator()
+def refine(job: pose.PoseJob):
+    """Refine the source Pose
+
+    Args:
+        job: The PoseJob for which the protocol should be performed on
+    """
+    job.refine()  # Inherently utilized... gather_metrics=job.job.metrics)
+
+
+@protocol_decorator()
 def interface_design(job: pose.PoseJob):
     """For the design info given by a PoseJob source, initialize the Pose then prepare all parameters for
     interfacial redesign between Pose Entities. Aware of symmetry, design_selectors, fragments, and
@@ -521,7 +521,7 @@ def interface_design(job: pose.PoseJob):
     job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
 
 
-@protocol_decorator(errors=(DesignError,))
+@protocol_decorator()
 def design(job: pose.PoseJob):
     """For the design info given by a PoseJob source, initialize the Pose then prepare all parameters for
     sequence design. Aware of symmetry, design_selectors, fragments, and evolutionary information
@@ -597,7 +597,7 @@ def design(job: pose.PoseJob):
     job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
 
 
-@protocol_decorator(errors=(DesignError,))
+@protocol_decorator()
 def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     """To touch up and optimize a design, provide a list of optional directives to view mutational landscape around
     certain residues in the design as well as perform wild-type amino acid reversion to mutated residues
@@ -719,7 +719,8 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
         pose_s.to_csv(out_path, mode='a', header=header)
 
 
-@protocol_decorator(errors=(DesignError,))
+# Todo set as module (hidden module?)
+@protocol_decorator()
 def process_rosetta_metrics(job: pose.PoseJob):
     """From Rosetta based protocols, tally the resulting metrics and integrate with the metrics database
 
@@ -732,7 +733,7 @@ def process_rosetta_metrics(job: pose.PoseJob):
     return job.process_rosetta_metrics()
 
 
-@protocol_decorator(errors=(DesignError,))
+@protocol_decorator()
 def analysis(job: pose.PoseJob, designs: Iterable[Pose] | Iterable[AnyStr] = None) -> pd.Series:
     """Retrieve all score information from a PoseJob and write results to .csv file
 
@@ -749,7 +750,7 @@ def analysis(job: pose.PoseJob, designs: Iterable[Pose] | Iterable[AnyStr] = Non
 
 
 # @remove_structure_memory  # NO structures used in this protocol
-@protocol_decorator(errors=(DesignError,))
+@protocol_decorator()
 def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = None, number: int = 1,
                      protocols: list[str] = None, **kwargs) -> list[str]:
     """Select sequences for further characterization. If weights, then user can prioritize by metrics, otherwise
