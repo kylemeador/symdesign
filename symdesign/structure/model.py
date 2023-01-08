@@ -1119,33 +1119,122 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as mechanism could change
             # self._coords.replace(self._atom_indices, coords)
 
+    def _retrieve_info_from_api(self):
+        """Try to set attributes about the Entity from PDB API query information
+
+        Sets:
+            self._api_data: dict[str, Any]
+            {'chains': [],
+             'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'},
+             'reference_sequence': 'MSLEHHHHHH...',
+             'thermophilic': True}
+            self._uniprot_id: str | None
+            self._reference_sequence: str
+            self.thermophilic: bool
+        """
+        # # if self.api_db:
+        try:
+            # retrieve_api_info = self.api_db.pdb.retrieve_data
+            retrieve_api_info = resources.wrapapi.api_database_factory().pdb.retrieve_data
+        except AttributeError:
+            retrieve_api_info = query.pdb.query_pdb_by
+        # self._api_data = get_pdb_info_by_entity(self.name)
+        self._api_data: dict[str, Any] = retrieve_api_info(entity_id=self.name)[self.name]
+        """retrieve_api_info returns
+        {'EntityID':
+           {'chains': ['A', 'B', ...],
+            'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'},
+            'reference_sequence': 'MSLEHHHHHH...',
+            'thermophilic': True},
+        ...}
+        """
+
+        if self._api_data is not None:
+            for data_type, data in self._api_data.items():  # [next(iter(self._api_data))]
+                # print('Retrieving UNP ID for %s\nAPI DATA for chain %s:\n%s' % (self.name, chain, api_data))
+                if data_type == 'reference_sequence':
+                    self._reference_sequence = data
+                if data_type == 'thermophilic':  # Todo remove self.thermophilic once sql load more streamlined
+                    self.thermophilic = data
+                if data_type == 'dbref':
+                    if data.get('db') == query.utils.UKB:
+                        self._uniprot_id = data.get('accession')
+        else:
+            self.log.warning(f'Entity {self.name}: No information found from PDB API')
+            self._uniprot_id = None
+
+    # @hybrid_property Todo sql.UniProtEntity
     @property
     def uniprot_id(self) -> str | None:
         """The UniProt ID for the Entity used for accessing genomic and homology features"""
         try:
             return self._uniprot_id
         except AttributeError:
-            self.api_entry = query.pdb.query_pdb_by(entity_id=self.name)  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
-            # self.api_entry = _get_entity_info(self.name)  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
-            if self.api_entry is not None:
-                for chain, api_data in self.api_entry.items():  # [next(iter(self.api_entry))]
-                    # print('Retrieving UNP ID for %s\nAPI DATA for chain %s:\n%s' % (self.name, chain, api_data))
-                    if api_data.get('db') == 'UNP':
-                        # set the first found chain. They are likely all the same anyway
-                        self._uniprot_id = api_data.get('accession')
-            try:
-                return self._uniprot_id
-            except AttributeError:
-                self._uniprot_id = None
-                self.log.warning(f'Entity {self.name}: No uniprot_id found')
+            self._retrieve_info_from_api()
         return self._uniprot_id
 
     @uniprot_id.setter
-    def uniprot_id(self, dbref: dict[str, str] | str):
-        if isinstance(dbref, dict) and dbref.get('db') == 'UNP':  # Todo make 'UNP' or better 'UKB' a global
-            self._uniprot_id = dbref['accession']
+    def uniprot_id(self, uniprot_id: dict[str, str] | str):
+        # if isinstance(dbref, dict) and dbref.get('db') == 'UNP':
+        #     self._uniprot_id = dbref['accession']
+        # else:
+        self._uniprot_id = uniprot_id
+
+    @property
+    def reference_sequence(self) -> str:
+        """Return the entire Entity sequence, constituting all Residues, not just structurally modelled ones
+
+        Returns:
+            The sequence according to the Entity reference, or the Structure sequence if no reference available
+        """
+        try:
+            return self._reference_sequence
+        except AttributeError:
+            self._retrieve_info_from_api()
+            if not self._reference_sequence:
+                self._reference_sequence = self._retrieve_sequence_from_api()
+                if self._reference_sequence is None:
+                    self.log.warning('The reference sequence could not be found. Using the observed Residue sequence '
+                                     'instead')
+                    self._reference_sequence = self.sequence
+            return self._reference_sequence
+
+    # @reference_sequence.setter
+    # def reference_sequence(self, sequence):
+    #     self._reference_sequence = sequence
+
+    def _retrieve_sequence_from_api(self) -> str | None:
+        """Using the Entity ID, fetch information from the PDB API and set the instance reference_sequence
+
+        Returns:
+            The sequence (if located) from the PDB API
+        """
+        # if entity_id is None:
+        #     # if len(self.name.split('_')) == 2:
+        #     #     entity_id = self.name
+        #     # else:
+        def _query_sequence_for_entity_id():
+            self.log.warning(f"{self._retrieve_sequence_from_api.__name__}: If an entity_id isn't passed and the "
+                             f"Entity name '{self.name}' isn't the correct format (1abc_1), the query will fail. "
+                             f'Retrieving closest entity_id by PDB API structure sequence using the default '
+                             f'sequence similarity parameters: '
+                             f'{", ".join(f"{k}: {v}" for k, v in query.pdb.default_sequence_values)}')
+            return query.pdb.retrieve_entity_id_by_sequence(self.sequence)
+
+        try:
+            entry, entity_integer, *_ = self.name.split('_')
+            if len(entry) == 4 and entity_integer.isdigit():
+                entity_id = f'{entry}_{entity_integer}'
+            else:
+                entity_id = _query_sequence_for_entity_id()
+        except ValueError:  # Couldn't unpack correct number of values
+            entity_id = _query_sequence_for_entity_id()
+
+        if entity_id is None:
+            return None
         else:
-            self._uniprot_id = dbref
+            self.log.debug(f'Querying {entity_id} reference sequence from PDB')
+            return query.pdb.get_entity_reference_sequence(entity_id=entity_id)
 
     # @property
     # def chain_id(self) -> str:
@@ -1295,76 +1384,6 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         #     return self._chains
 
         return self._chains
-
-    @property
-    def reference_sequence(self) -> str:
-        """Return the entire Entity sequence, constituting all Residues, not just structurally modelled ones
-
-        Returns:
-            The sequence according to the Entity reference, or the Structure sequence if no reference available
-        """
-        try:
-            return self._reference_sequence
-        except AttributeError:
-            self._reference_sequence = self._retrieve_sequence_from_api()
-            if not self._reference_sequence:
-                self.log.warning('The reference sequence could not be found. Using the observed Residue sequence '
-                                 'instead')
-                self._reference_sequence = self.sequence
-            return self._reference_sequence
-
-    # @reference_sequence.setter
-    # def reference_sequence(self, sequence):
-    #     self._reference_sequence = sequence
-
-    # def chain(self, chain_name: str) -> Entity | None:
-    #     """Fetch and return an Entity by chain name"""
-    #     for idx, chain_id in enumerate(self.chain_ids):
-    #         if chain_id == chain_name:
-    #             try:
-    #                 return self.chains[idx]
-    #             except IndexError:
-    #                 raise IndexError(f'The number of chains ({len(self.chains)}) in the {type(self).__name__} != '
-    #                                  f'number of chain_ids ({len(self.chain_ids)})')
-
-    def _retrieve_sequence_from_api(self, entity_id: str = None) -> str | None:
-        """Using the Entity ID, fetch information from the PDB API and set the instance reference_sequence
-
-        Args:
-            entity_id: The PDB formatted EntityID i.e. 1ABC_1
-        Returns:
-            The sequence (if located) from the PDB API
-        # Sets:
-        #     self._reference_sequence (str | None) - The sequence (if located) from the PDB API
-        """
-        if entity_id is None:
-            # if len(self.name.split('_')) == 2:
-            #     entity_id = self.name
-            # else:
-            try:
-                entry, entity_integer, *_ = self.name.split('_')
-                if len(entry) == 4 and entity_integer.isdigit():
-                    entity_id = f'{entry}_{entity_integer}'
-            except ValueError:  # Couldn't unpack correct number of values
-                self.log.warning(f"{self._retrieve_sequence_from_api.__name__}: If an entity_id isn't passed and the "
-                                 f'Entity name "{self.name}" is not the correct format (1abc_1), the query will fail. '
-                                 f'Retrieving closest entity_id by PDB API structure sequence')
-                entity_id = query.pdb.retrieve_entity_id_by_sequence(self.sequence)
-                if not entity_id:
-                    # self._reference_sequence = None
-                    return None
-
-        self.log.debug(f'Querying {entity_id} reference sequence from PDB')
-        # self._reference_sequence = query.pdb.get_entity_reference_sequence(entity_id=entity_id)
-        return query.pdb.get_entity_reference_sequence(entity_id=entity_id)
-
-    # def retrieve_info_from_api(self):
-    #     """Retrieve information from the PDB API about the Entity
-    #
-    #     Sets:
-    #         self.api_entry (dict): {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
-    #     """
-    #     self.api_entry = get_pdb_info_by_entity(self.name)
 
     @property
     def oligomer(self) -> list[Entity] | Structures:
@@ -2944,7 +2963,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 {'assembly': [['A', 'B'], ...],
                  'entity': {'EntityID':
                                 {'chains': ['A', 'B', ...],
-                                 'dbref': {'accession': 'Q96DC8', 'db': 'UNP'}
+                                 'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'}
                                  'reference_sequence': 'MSLEHHHHHH...',
                                  'thermophilic': True},
                             ...},
@@ -2995,7 +3014,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     self.api_entry = dict(entity=retrieve_api_info(entry=parsed_name, entity_integer=integer))
                     # retrieve_api_info returns
                     # {'EntityID': {'chains': ['A', 'B', ...],
-                    #               'dbref': {'accession': 'Q96DC8', 'db': 'UNP'}
+                    #               'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'}
                     #               'reference_sequence': 'MSLEHHHHHH...',
                     #               'thermophilic': True},
                     #  ...}
@@ -3122,7 +3141,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 """entity_api_info takes the format:
                 {'EntityID': 
                     {'chains': ['A', 'B', ...],
-                     'dbref': {'accession': 'Q96DC8', 'db': 'UNP'},
+                     'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'},
                      'reference_sequence': 'MSLEHHHHHH...',
                      'thermophilic': True},
                  ...}

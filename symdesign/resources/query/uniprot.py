@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from requests import Response
 
-from symdesign.resources.query.utils import connection_exception_handler
+from .utils import connection_exception_handler
 
 # Globals
 logger = logging.getLogger(__name__)

@@ -11,8 +11,8 @@ from typing import Any, Iterable
 import requests
 
 from symdesign import utils
-from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, validate_input, invalid_string, \
-    header_string, format_string, connection_exception_handler
+from .utils import input_string, confirmation_string, bool_d, validate_input, invalid_string, \
+    header_string, format_string, connection_exception_handler, UKB, GB
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -101,33 +101,38 @@ example_uniprot_return = {"query_id": "057be33f-e4a1-4912-8d30-673dd0326984", "r
                           }
 
 
-def retrieve_entity_id_by_sequence(sequence):
+def retrieve_entity_id_by_sequence(sequence: str) -> str | None:
     """From a given sequence, retrieve the top matching Entity ID from the PDB API
 
+    Args:
+        sequence: The sequence used to query for the EntityID
     Returns:
-        (str): '1ABC_1'
+        '1ABC_1'
     """
-    return find_matching_entities_by_sequence(sequence=sequence, all_matching=False)[0]
+    return find_matching_entities_by_sequence(sequence, all_matching=False)[0]
 
 
-def find_matching_entities_by_sequence(sequence=None, return_id='polymer_entity', **kwargs):
+def find_matching_entities_by_sequence(sequence: str = None, return_id: str = 'polymer_entity', **kwargs) -> list[str] | list[None]:
     """Search the PDB for matching IDs given a sequence and a return_type. Pass all_matching=False to retrieve the top
     10 IDs, otherwise return all IDs
 
-    Keyword Args:
-        return_id='polymer_entity' (str): The type of value to return where the acceptable values are in return_types
+    Args:
+        sequence: The sequence used to query for EntityID's
+        return_id: The type of value to return where the acceptable values are in return_types
     Returns:
-        (list[str]): The entities matching the sequence
+        The EntityID's matching the sequence
     """
     if return_id not in return_types:
-        raise KeyError('The specified return type "%s" is not supported. Viable types include %s'
-                       % (return_id, ', '.join(return_types)))
+        raise KeyError(f"The specified return type '{return_id}' isn't supported. Viable types include "
+                       f"{', '.join(return_types)}")
+    logger.debug(f'Using the default sequence similarity parameters: '
+                 f'{", ".join(f"{k}: {v}" for k, v in default_sequence_values)}')
     sequence_query = generate_terminal_group(service='sequence', sequence=sequence)
     sequence_query_results = query_pdb(generate_query(sequence_query, return_id=return_id, **kwargs))
     if sequence_query_results:
         return parse_pdb_response_for_ids(sequence_query_results)
     else:
-        logger.warning(f'Sequence not found in PDB API!:\n{sequence}')
+        logger.warning(f'Sequence not found in PDB API:\n{sequence}')
         return [None]
 
 
@@ -196,22 +201,25 @@ def query_pdb(_query) -> dict[str, Any] | None:
     return None
 
 
-def generate_parameters(attribute=None, operator=None, negation=None, value=None, sequence=None, **kwargs):  # Todo set up by kwargs
+default_sequence_values = {'evalue_cutoff': 0.0001, 'identity_cutoff': 0.5}
+
+
+# Todo set up by kwargs
+def generate_parameters(attribute=None, operator=None, negation=None, value=None, sequence=None, **kwargs):
     if sequence:  # scaled identity_cutoff to 50% due to scoring function and E-value usage
-        return {'evalue_cutoff': 0.0001, 'identity_cutoff': 0.5, 'target': 'pdb_protein_sequence', 'value': sequence}
+        return {**default_sequence_values, 'target': 'pdb_protein_sequence', 'value': sequence}
     else:
         return {'attribute': attribute, 'operator': operator, 'negation': negation, 'value': value}
 
 
-def pdb_id_matching_uniprot_id(uniprot_id, return_id='polymer_entity'):
+def pdb_id_matching_uniprot_id(uniprot_id, return_id: str = 'polymer_entity') -> list[str]:
     """Find all matching PDB entries from a specified UniProt ID and specific return ID
 
     Args:
-        uniprot_id (str): The UniProt ID of interest
-    Keyword Args:
-        return_id='polymer_entity' (str): The type of value to return where the acceptable values are in return_types
+        uniprot_id: The UniProt ID of interest
+        return_id: The type of value to return where the acceptable values are in return_types
     Returns:
-        (list[str]): The list of matching IDs
+        The list of matching IDs
     """
     if return_id not in return_types:
         raise KeyError('The specified return type "%s" is not supported. Viable types include %s'
@@ -847,7 +855,7 @@ def _get_entry_info(entry: str = None, **kwargs) -> dict[str, Any] | None:
         {'entity':
             {'EntityID':
                 {'chains': ['A', 'B', ...],
-                 'dbref': {'accession': 'Q96DC8', 'db': 'UNP'},
+                 'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'},
                  'reference_sequence': 'MSLEHHHHHH...',
                  'thermophilic': True},
              ...}
@@ -912,7 +920,7 @@ def is_entity_thermophilic(entry: str = None, entity_integer: int | str = None, 
         entity_integer: The entity integer from the EntryID of interest
         entity_id: The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
     Returns:
-        {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
+        {chain: {'accession': 'Q96DC8', 'db': 'UniProt'}, ...}
     """
     entity_request = query_entity_id(entry=entry, entity_integer=entity_integer, entity_id=entity_id)
     if not entity_request:
@@ -939,7 +947,7 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
         The entity dictionary with format -
         {'EntityID':
             {'chains': ['A', 'B', ...],
-             'dbref': {'accession': 'Q96DC8', 'db': 'UNP'},
+             'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'},
              'reference_sequence': 'MSLEHHHHHH...',
              'thermophilic': True},
          ...}
@@ -950,10 +958,9 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
         Args:
             entity_ids_json: The json type dictionary returned from requests.Response.json()
         Returns:
-            Ex: {'db': 'UNP', 'accession': 'Q96DC8'}
+            Ex: {'db': DATABASE, 'accession': 'Q96DC8'} where DATABASE can be one of 'GenBank', 'Norine', 'UniProt'
         """
         database_keys = ['db', 'accession']
-        uniprot = 'UNP'
         try:
             uniprot_ids = entity_ids_json['uniprot_ids']
             # Todo choose the most accurate if more than 2...
@@ -970,7 +977,7 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
             if len(uniprot_ids) > 1:
                 logger.warning(f'For Entity {entity_ids_json["rcsb_id"]}, found multiple UniProt Entries: '
                                f'{", ".join(uniprot_ids)}. Using the first')
-            db_d = dict(zip(database_keys, (uniprot, uniprot_ids[0])))
+            db_d = dict(zip(database_keys, (UKB, uniprot_ids[0])))
         except KeyError:  # if no uniprot_ids
             # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
             # Norine = NOR, which is small peptide structures, sometimes bound to proteins...
@@ -986,12 +993,14 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
                     whatever_else = 0
                     priority_l = [[] for _ in range(len(identifiers))]
                     for idx, (database, accession) in enumerate(identifiers):
-                        if database == 'UniProt':
+                        if database == UKB:
                             priority_l[0].append(idx)
-                            identifiers[idx][0] = uniprot  # rename the database_name
-                        elif database == 'GenBank':
-                            priority_l[1].append(idx)  # two elements are required from above len check, never IndexError
-                            identifiers[idx][0] = 'GB'  # rename the database_name
+                            # identifiers[idx][0] = uniprot  # rename the database_name
+                        # elif database == NOR:
+                        #     priority_l[2].append(idx)
+                        elif database == GB:
+                            priority_l[1].append(idx)  # Two elements are required from above len check, never IndexError
+                            # identifiers[idx][0] = 'GB'  # rename the database_name
                         elif not whatever_else:  # only sets the first time an unknown identifier is seen
                             whatever_else = idx
                     # Loop through the list of prioritized identifiers
@@ -1049,7 +1058,7 @@ def _get_entity_info(entry: str = None, entity_integer: int | str = None, entity
         The entity dictionary with format -
         {'EntityID':
             {'chains': ['A', 'B', ...],
-             'dbref': {'accession': 'Q96DC8', 'db': 'UNP'},
+             'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'},
              'reference_sequence': 'MSLEHHHHHH...',
              'thermophilic': True},
          ...}

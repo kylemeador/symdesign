@@ -273,7 +273,7 @@ class PDBDataStore(DataStore):
             {'entity':
                 {'EntityID':
                     {'chains': ['A', 'B', ...],
-                     'dbref': {'accession': 'Q96DC8', 'db': 'UNP'},
+                     'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'},
                      'reference_sequence': 'MSLEHHHHHH...',
                      'thermophilic': True},
                  ...}
@@ -284,7 +284,7 @@ class PDBDataStore(DataStore):
             If entity_id OR entry AND entity_integer
             {'EntityID':
                 {'chains': ['A', 'B', ...],
-                 'dbref': {'accession': 'Q96DC8', 'db': 'UNP'},
+                 'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'},
                  'reference_sequence': 'MSLEHHHHHH...',
                  'thermophilic': True},
              ...}

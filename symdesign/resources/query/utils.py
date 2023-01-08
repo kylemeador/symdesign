@@ -8,6 +8,12 @@ import requests
 
 # Globals
 logger = logging.getLogger(__name__)
+GB = 'GenBank'
+"""The module level identifer for a GenBankID"""
+NOR = 'Norine'
+"""The module level identifer for a NorineID"""
+UKB = 'UniProt'
+"""The module level identifer for a UniProtID"""
 input_string = '\nInput: '
 confirmation_string = 'If this is correct, indicate "y", if not "n", and you can re-input%s' % input_string
 bool_d = {'y': True, 'n': False, 'yes': True, 'no': False, '': True}
