@@ -1266,7 +1266,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             discard = next(chain_gen)
 
         # Iterate over the generator adding each successive chain_id to self.chain_ids
-        for idx in range(1, self.number_of_symmetry_mates):  # Only get ids for the mate chains
+        for _ in range(self.number_of_symmetry_mates - 1):  # Only get ids for the mate chains
             chain_id = next(chain_gen)
             # while chain_id in self.chain_ids:
             #     chain_id = next(chain_gen)
@@ -1299,16 +1299,16 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     #     self._chain_ids = chain_ids
 
     @property
-    def number_of_symmetry_mates(self) -> int:
-        """The number of copies of the Entity in the Oligomer"""
+    def number_of_symmetry_mates(self) -> int:  # Todo in SymmetricModel as well
+        """The number of copies of the Entity in the Oligomer including the captain Entity"""
         try:
             return self._number_of_symmetry_mates
-        except AttributeError:  # set based on the symmetry, unless that fails then find using chain_ids
+        except AttributeError:  # Set based on the symmetry, unless that fails then find using chain_ids
             self._number_of_symmetry_mates = utils.symmetry.valid_subunit_number.get(self.symmetry, len(self.chain_ids))
             return self._number_of_symmetry_mates
 
     @number_of_symmetry_mates.setter
-    def number_of_symmetry_mates(self, number_of_symmetry_mates: int):
+    def number_of_symmetry_mates(self, number_of_symmetry_mates: int):  # Todo same as SymmetricModel
         self._number_of_symmetry_mates = number_of_symmetry_mates
 
     @property
@@ -1977,8 +1977,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                     trunk.append(jump)
                 last_jump = idx  # index where the VRTs and connect_virtuals end. The "last jump"
 
-        assert set(trunk) - set(virtuals) == set(), 'Symmetry Definition File VRTS are malformed'
-        assert self.number_of_symmetry_mates == len(subunits), 'Symmetry Definition File VRTX_base are malformed'
+        if set(trunk).difference(virtuals) != set():
+            raise SymmetryError('Symmetry Definition File VRTS are malformed')
+        if self.number_of_symmetry_mates != len(subunits):
+            raise SymmetryError('Symmetry Definition File VRTX_base are malformed')
 
         if self.is_dihedral():  # Remove dihedral connecting (trunk) virtuals: VRT, VRT0, VRT1
             virtuals = [virtual for virtual in virtuals if len(virtual) > 1]  # subunit_
