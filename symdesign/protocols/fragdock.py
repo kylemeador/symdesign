@@ -2456,7 +2456,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 # else:
                 #     fragment_profiles.append(pose.fragment_profile.as_array())
 
-                # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.interface_metrics()
+                # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.calculate_metrics()
                 # # Remove saved pose attributes from the prior iteration calculations
                 # pose.ss_index_array.clear(), pose.ss_type_array.clear()
                 # pose.fragment_metrics.clear(), pose.fragment_pairs.clear()
@@ -2467,8 +2467,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 #         pass
                 #
                 # # Calculate pose metrics
-                # interface_metrics[design_id] = pose.interface_metrics()
-                # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.interface_metrics()
+                # interface_metrics[design_id] = pose.calculate_metrics()
+                # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.calculate_metrics()
                 pose.calculate_profile()
                 # # Todo if want to throw away missing fragments
                 # if sum(pose.alpha) == 0:  # No useful fragment observations
@@ -2974,7 +2974,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 # else:
                 #     fragment_profiles.append(pose.fragment_profile.as_array())
 
-                # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.interface_metrics()
+                # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.calculate_metrics()
                 # # Remove saved pose attributes from the prior iteration calculations
                 # pose.ss_index_array.clear(), pose.ss_type_array.clear()
                 # pose.fragment_metrics.clear(), pose.fragment_pairs.clear()
@@ -2985,8 +2985,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 #         pass
                 #
                 # # Calculate pose metrics
-                # interface_metrics[design_id] = pose.interface_metrics()
-                # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.interface_metrics()
+                # interface_metrics[design_id] = pose.calculate_metrics()
+                # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.calculate_metrics()
                 pose.calculate_profile()
                 # # Todo if want to throw away missing fragments
                 # if sum(pose.alpha) == 0:  # No useful fragment observations
@@ -3611,24 +3611,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         #     full_ext_tx2 = full_ext_tx2[:]
         #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
-        pose_transformations = {}
-        for idx, pose_id in enumerate(pose_ids):
-            external_translation_x1, external_translation_y1, external_translation_z1 = _full_ext_tx1[idx]
-            external_translation_x2, external_translation_y2, external_translation_z2 = _full_ext_tx2[idx]
-            pose_transformations[pose_id] = \
-                dict(rotation1=rotation_degrees1[idx],
-                     internal_translation1=z_heights1[idx],
-                     setting_matrix1=set_mat1_number,
-                     external_translation_x1=external_translation_x1,
-                     external_translation_y1=external_translation_y1,
-                     external_translation_z1=external_translation_z1,
-                     rotation2=rotation_degrees2[idx],
-                     internal_translation2=z_heights2[idx],
-                     setting_matrix2=set_mat2_number,
-                     external_translation_x2=external_translation_x2,
-                     external_translation_y2=external_translation_y2,
-                     external_translation_z2=external_translation_z2)
-
         # Cluster by perturbation if perturb_dof:
         if total_perturbation_size > 1:
             cluster_type_str = 'ByPerturbation'
@@ -3741,8 +3723,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
             #         for design_idx in range(1, 1 + number_of_temperatures):
             #             pose_transformations[next(design_id_iterator)] = _pose_transformation
 
-            pose_metrics = {}
-            per_residue_data = {}
+            pose_metrics = []  # {}
+            per_residue_data = []  # {}
             # # Todo use this to control the output of this section
             # match job.dock.score:
             #     case 'proteinmpnn':
@@ -3785,8 +3767,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 **profile_loss
                 # 'sequence_loss_fragment': per_residue_fragment_profile_loss  # Todo each pose...
             }
+            # pose_transformations = []  # {}
             # for idx, pose_name in enumerate(pose_names):
-            for idx, (pose_id, pose_name) in enumerate(zip(pose_ids, pose_names)):
+            for idx, (pose_job, pose_name) in enumerate(zip(pose_jobs, pose_names)):
                 # Add the next set of coordinates
                 update_pose_coords(idx)
 
@@ -3831,8 +3814,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                         pass
 
                 # Save pose metrics
-                pose_metrics[pose_id] = {
-                    **pose.interface_metrics(),
+                # pose_metrics[pose_id] = {
+                pose_metrics.append({
+                    **pose.calculate_metrics(),  # Also calculates entity.metrics
                     # 'interface_local_density': pose.local_density_interface(),  # Todo STRUCTURE?
                     'dock_collapse_violation': collapse_violation[idx],
                 }
@@ -3874,12 +3858,13 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                     #     'dock_hydrophobic_collapse': pose_length_nan,
                     # }
 
-                per_residue_data[pose_id] = {
+                # per_residue_data[pose_id] = {
+                per_residue_data.append({
                     **sequence_params,
                     **design_dock_params,
                     'sequence_loss_fragment': per_residue_fragment_profile_loss
                     # **pose.per_residue_interface_surface_area(),  # Todo STRUCTURE?
-                }
+                })
 
                 # if job.design.sequences:
                 #     dock_per_residue_design_indices = per_residue_design_indices[idx]
@@ -4021,15 +4006,18 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 #         per_residue_data[pose_id] = design_dock_params
 
             # Initialize the main scoring DataFrame
-            poses_df = pd.DataFrame.from_dict(pose_metrics, orient='index')
-            transforms_df = pd.DataFrame.from_dict(pose_transformations, orient='index')
-            poses_df = poses_df.join(transforms_df)
+            poses_df = pd.DataFrame.from_dict(dict(zip(pose_ids, pose_metrics)), orient='index')
+            # transforms_df = pd.DataFrame.from_dict(dict(zip(pose_ids, pose_transformations)), orient='index')
+            # poses_df = poses_df.join(transforms_df)
 
             # Collect sequence metrics on every designed Pose
             # if job.dock.proteinmpnn_score:
             # Construct residues_df
+            # residues_df = pd.concat({pose_id: pd.DataFrame(data, index=residue_indices)
+            #                          for pose_id, data in per_residue_data.items()}) \
+            #     .unstack().swaplevel(0, 1, axis=1)
             residues_df = pd.concat({pose_id: pd.DataFrame(data, index=residue_indices)
-                                     for pose_id, data in per_residue_data.items()}) \
+                                     for pose_id, data in zip(pose_ids, per_residue_data)}) \
                 .unstack().swaplevel(0, 1, axis=1)
 
             # Calculate new metrics from combinations of other metrics
@@ -4231,6 +4219,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                                    entity_names=entity_names,
                                    pose_transformation=create_specific_transformation(idx))
                  for idx, pose_name in enumerate(pose_names)]
+    # Commit all new PoseJobs to the current session to generate ids
     session = job.current_session
     session.add_all(pose_jobs)
     session.commit()
@@ -4245,7 +4234,10 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     if not collapse_profile.size:
         collapse_violation = list(repeat(None, number_of_transforms))
 
+    # Below call is unnecessary as the objects are already associated and expire_on_commit=False globally
+    # session.add_all(pose_jobs)
     terminate()
+    session.commit()
 
     return pose_jobs
     # ------------------ TERMINATE DOCKING ------------------------

@@ -123,6 +123,9 @@ def predict_structure(job: pose.PoseJob):
     Args:
         job: The PoseJob for which the protocol should be performed on
     """
+    # Acquire the pose_metrics if None have been made yet
+    job.calculate_pose_metrics()
+
     job.predict_structure()
 
 
@@ -235,7 +238,9 @@ def interface_metrics(job: pose.PoseJob):
     # else:  # We only need to load pose as we already calculated interface
     #     job.load_pose()
 
-    # interface_secondary_structure
+    # Acquire the pose_metrics if None have been made yet
+    job.calculate_pose_metrics()
+
     if not os.path.exists(job.flags) or job.job.force:
         job.prepare_rosetta_flags(out_dir=job.scripts_path)
         job.log.debug(f'Pose flags written to: {job.flags}')
@@ -498,7 +503,9 @@ def interface_design(job: pose.PoseJob):
         job.refine(gather_metrics=False)
 
     putils.make_path(job.designs_path)
-    # putils.make_path(job.data_path)  # Used above
+    # Acquire the pose_metrics if None have been made yet
+    job.calculate_pose_metrics()
+
     match job.job.design.method:
         case putils.rosetta_str:
             # Write generated files
@@ -571,7 +578,9 @@ def design(job: pose.PoseJob):
         job.refine(gather_metrics=False)
 
     putils.make_path(job.designs_path)
-    # putils.make_path(job.data_path)  # Used above
+    # Acquire the pose_metrics if None have been made yet
+    job.calculate_pose_metrics()
+
     match job.job.design.method:
         case [putils.rosetta_str | putils.consensus]:
             # Write generated files
@@ -717,6 +726,9 @@ def process_rosetta_metrics(job: pose.PoseJob):
     Args:
         job: The PoseJob for which the protocol should be performed on
     """
+    # Acquire the pose_metrics if None have been made yet
+    job.calculate_pose_metrics()
+
     return job.process_rosetta_metrics()
 
 
@@ -730,6 +742,9 @@ def analysis(job: pose.PoseJob, designs: Iterable[Pose] | Iterable[AnyStr] = Non
     Returns:
         Series containing summary metrics for all designs in the design directory
     """
+    # Acquire the pose_metrics if None have been made yet
+    job.calculate_pose_metrics()
+
     return job.interface_design_analysis(designs=designs)
 
 
