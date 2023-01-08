@@ -415,8 +415,7 @@ def find_cluster_representatives(transform_tree: sklearn.neighbors._unsupervised
     return representative_transformation_indices, cluster.labels_
 
 
-def cluster_pose_by_transformations(compositions: list[PoseJob], **kwargs) \
-        -> dict[str | PoseJob, list[str | PoseJob]]:
+def cluster_pose_by_transformations(compositions: list[PoseJob], **kwargs) -> dict[str | PoseJob, list[str | PoseJob]]:
     """From a group of poses with matching protein composition, cluster the designs according to transformational
     parameters to identify the unique poses in each composition
 
@@ -429,7 +428,7 @@ def cluster_pose_by_transformations(compositions: list[PoseJob], **kwargs) \
         Cluster with representative pose as the key and matching poses as the values
     """
     # Format transforms for the selected compositions
-    stacked_transforms1, stacked_transforms2 = list(zip(pose_jobs.pose.entity_transformations
+    stacked_transforms1, stacked_transforms2 = list(zip(pose_jobs.pose_transformation
                                                         for pose_jobs in compositions))
     trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = \
         zip(*[transform.values() for transform in stacked_transforms1])

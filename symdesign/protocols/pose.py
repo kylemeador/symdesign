@@ -50,6 +50,8 @@ mean, std = 'mean', 'std'
 stats_metrics = [mean, std]
 null_cmd = ['echo']
 observed_types = ('evolution', 'fragment', 'design', 'interface')
+missing_pose_transformation = "The design couldn't be transformed as it is missing the required " \
+                              '"pose_transformation" attribute. Was this generated properly?'
 
 
 # class PoseDirectory(ABC):  # Raises error about the subclass types not being the same...
@@ -803,7 +805,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
     @property
     def pose_transformation(self) -> list[transformation_mapping]:
-        """Provide the transformation parameters for the design in question
+        """Provide the transformation parameters for each Entity in the PoseData Pose
 
         Returns:
             [{'rotation': np.ndarray, 'translation': np.ndarray, 'rotation2': np.ndarray,
@@ -1091,43 +1093,39 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
     def transform_entities_to_pose(self, **kwargs) -> list[Entity]:
         """Take the set of entities involved in a pose composition and transform them from a standard reference frame to
-        the Pose reference frame using the pose.entity_transformations parameters
+        the Pose reference frame using the pose_transformation attribute
 
         Keyword Args:
             refined: bool = True - Whether to use refined models from the StructureDatabase
             oriented: bool = False - Whether to use oriented models from the StructureDatabase
         """
         entities = self.get_entities(**kwargs)
-        if self.pose_transformation:  # pose.entity_transformations:
+        if self.pose_transformation:
             self.log.debug('Entities were transformed to the found docking parameters')
             entities = [entity.get_transformed_copy(**transformation)
                         for entity, transformation in zip(entities, self.pose_transformation)]
-            #                                                         self.pose.entity_transformations)]
         else:  # Todo change below to handle asymmetric cases...
             # raise SymmetryError("The design couldn't be transformed as it is missing the required "
-            self.log.error("The design couldn't be transformed as it is missing the required "
-                           'pose_transformation parameter. Was this generated properly?')
+            self.log.error(missing_pose_transformation)
         return entities
 
     def transform_structures_to_pose(self, structures: Iterable[Structure], **kwargs) -> list[Structure]:
         """Take a set of Structure instances and transform them from a standard reference frame to the Pose reference
-        frame using the pose.entity_transformations parameters
+        frame using the pose_transformation attribute
 
         Args:
             structures: The Structure objects you would like to transform
         Returns:
             The transformed Structure objects if a transformation was possible
         """
-        if self.pose_transformation:  # pose.entity_transformations:
+        if self.pose_transformation:
             self.log.debug('Structures were transformed to the found docking parameters')
             # Todo assumes a 1:1 correspondence between structures and transforms (component group numbers) CHANGE
             return [structure.get_transformed_copy(**transformation)
                     for structure, transformation in zip(structures, self.pose_transformation)]
-            #                                                         self.pose.entity_transformations)]
         else:
             # raise SymmetryError("The design couldn't be transformed as it is missing the required "
-            self.log.error("The design couldn't be transformed as it is missing the required "
-                           'pose_transformation parameter. Was this generated properly?')
+            self.log.error(missing_pose_transformation)
             return list(structures)
 
     def get_entities(self, refined: bool = True, oriented: bool = False, **kwargs) -> list[Entity]:
