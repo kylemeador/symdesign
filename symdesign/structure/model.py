@@ -6342,8 +6342,9 @@ class Pose(SymmetricModel, Metrics):
         for idx, entity in enumerate(self.entities, idx):
             if self.dimension and self.dimension > 0:
                 raise NotImplementedError('Need to add keyword reference= to Structure.distance_from_reference() call')
-            entity.calculate_metrics()  # Todo add reference=
-            _entity_metrics = entity.metrics
+            _entity_metrics = sql.EntityMetrics(**entity.calculate_metrics())  # Todo add reference=
+            # entity.calculate_metrics()  # Todo add reference=
+            # _entity_metrics = entity.metrics
             if _entity_metrics.min_radius < minimum_radius:
                 minimum_radius = _entity_metrics.min_radius
             if _entity_metrics.max_radius > maximum_radius:

@@ -356,7 +356,7 @@ def orient(job: pose.PoseJob, to_pose_directory: bool = True):
     if job.initial_model:
         model = job.initial_model
     else:
-        model = Model.from_file(job.source, log=job.log)
+        model = Model.from_file(job.source_path, log=job.log)
 
     if job.symmetry:
         if to_pose_directory:
