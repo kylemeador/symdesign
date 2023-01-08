@@ -1292,8 +1292,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
             if self.job.write_oligomers:  # Write out new oligomers to the PoseJob
                 for idx, entity in enumerate(self.pose.entities):
-                    entity.write(oligomer=True, out_path=os.path.join(self.out_directory, f'{entity.name}_oligomer.pdb'))
-            if not self.pose_transformation:  # If an empty list, save the value identified
+                    entity.write(oligomer=True,
+                                 out_path=os.path.join(self.out_directory, f'{entity.name}_oligomer.pdb'))
+            # If we have an empty list for the pose_transformation, save the identified transformations from the Pose
+            if not self.pose_transformation:
                 self.pose_transformation = self.pose.entity_transformations
         # Then modify numbering to ensure standard and accurate use during protocols
         # self.pose.pose_numbering()
