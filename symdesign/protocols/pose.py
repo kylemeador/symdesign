@@ -1771,7 +1771,7 @@ class PoseProtocol(PoseData):
         residue_info = {self.pose.name: pose_source_residue_info}
 
         # Gather miscellaneous pose specific metrics
-        # other_pose_metrics = self.pose.interface_metrics()
+        # other_pose_metrics = self.pose.calculate_metrics()
         # Create metrics for the pose_source
         empty_source = dict(
             # **other_pose_metrics,
@@ -3248,7 +3248,7 @@ class PoseProtocol(PoseData):
         # Initialize the main scoring DataFrame
 
         # Calculate pose metrics
-        # pose_interface_metrics = self.pose.interface_metrics()
+        # pose_interface_metrics = self.pose.calculate_metrics()
         # interface_metrics = {}
         # for idx, design_id in enumerate(design_ids):
         #     # Add pose metrics
@@ -3947,8 +3947,37 @@ class PoseProtocol(PoseData):
 
         self.output_metrics(residues=residues_df, designs=designs_df)
 
-    def analyze_pose_metrics(self) -> pd.DataFrame:
-        """"""
+    def calculate_pose_metrics(self):
+        """Perform metrics update """
+        # Check if PoseMetrics have been captured
+        if self.job.db:
+            if self.metrics is None:
+                self.metrics = self.pose.metrics  # Also calculates entity.metrics
+                # pose_metrics = self.pose.metrics
+                # pose_metrics.pose_id = self.id
+                # Add metrics objects to the current session
+                # self.job.current_session.add(pose_metrics)
+                for entity in self.pose.entities:
+                    self.entity_metrics.append(entity.metrics)
+                    # entity.metrics.pose_id = self.id
+                    # self.job.current_session.add(entity.metrics)
+
+                self.job.current_session.commit()
+            else:
+                return
+        else:
+            raise NotImplementedError(f"This method, {self.calculate_pose_metrics.__name__} doesn't output anything yet"
+                                      f" when {type(self.job).__name__}.db = {self.job.db}")
+            pose_df = self.pose.df  # Also performs entity.calculate_metrics()
+
+            entity_dfs = []
+            for entity in self.pose.entities:
+                entity_dfs.append(entity.df)
+
+            # Stack the Series on the columns to turn into a dataframe where the metrics are rows and entity are columns
+            entity_df = pd.concat(entity_dfs, keys=list(range(1, 1 + len(entity_dfs))), axis=1)
+
+        # Output
         residues_df = self.analyze_pose_metrics_per_residue()
         self.output_metrics(residues=residues_df, pose_metrics=True)
 
@@ -4172,7 +4201,7 @@ class PoseProtocol(PoseData):
         # sequences_df = self.analyze_sequence_metrics_per_design(pose_sequences)
 
         # # Gather miscellaneous pose specific metrics
-        # # other_pose_metrics = self.pose.df  # interface_metrics()
+        # # other_pose_metrics = self.pose.df  # calculate_metrics()
         # # Create metrics for the pose_source
         # empty_source = dict(
         #     # **other_pose_metrics,

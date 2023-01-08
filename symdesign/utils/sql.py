@@ -220,6 +220,16 @@ class PoseMetrics(Base):
     pose_thermophilicity = Column(Float)  # , nullable=False)
 
 
+ratio_design_metrics = dict(
+    entity_radius_ratio_v=Float,
+    entity_min_radius_ratio_v=Float,
+    entity_max_radius_ratio_v=Float,
+    entity_number_of_residues_ratio_v=Float,
+)
+for idx1, idx2 in combinations(range(1, 1 + config.MAXIMUM_ENTITIES), 2):
+    for metric, value in ratio_design_metrics.items():
+        setattr(PoseMetrics, metric.replace('_v', f'_{idx1}v{idx2}'), Column(value))
+
 # class PoseEntityAssociation(Base):
 pose_entity_association = Table(
     'pose_entity_association',
@@ -286,34 +296,26 @@ class EntityMetrics(Base):
 # for idx in range(1, 1 + config.MAXIMUM_ENTITIES):
 #     for metric, value in entity_transformation_metrics.items():
 #         setattr(PoseMetrics, f'{metric}{idx}', Column(value))
-ratio_design_metrics = dict(
-    entity_radius_ratio_v=Float,
-    entity_min_radius_ratio_v=Float,
-    entity_max_radius_ratio_v=Float,
-    entity_number_of_residues_ratio_v=Float,
-)
-for idx1, idx2 in combinations(range(1, 1 + config.MAXIMUM_ENTITIES), 2):
-    for metric, value in ratio_design_metrics.items():
-        setattr(PoseMetrics, metric.replace('_v', f'_{idx1}v{idx2}'), Column(value))
-# Todo remove for new-style EntityMetrics
-entity_pose_metrics = dict(
-    entity_max_radius=Float,
-    entity_min_radius=Float,
-    entity_name=String(30),
-    entity_number_of_residues=Integer,
-    entity_radius=Float,
-    entity_symmetry_group=String(4),
-    entity_n_terminal_helix=Boolean,
-    entity_c_terminal_helix=Boolean,
-    entity_n_terminal_orientation=Integer,
-    entity_c_terminal_orientation=Integer,
-    entity_thermophile=Boolean,
-    entity_interface_secondary_structure_fragment_topology=String(60),
-    entity_interface_secondary_structure_topology=String(60),
-)
-for idx in range(1, 1 + config.MAXIMUM_ENTITIES):
-    for metric, value in entity_transformation_metrics.items():
-        setattr(Poses, f'{metric}{idx}', Column(value))
+
+# entity_pose_metrics = dict(
+#     entity_max_radius=Float,
+#     entity_min_radius=Float,
+#     entity_name=String(30),
+#     entity_number_of_residues=Integer,
+#     entity_radius=Float,
+#     entity_symmetry_group=String(4),
+#     entity_n_terminal_helix=Boolean,
+#     entity_c_terminal_helix=Boolean,
+#     entity_n_terminal_orientation=Integer,
+#     entity_c_terminal_orientation=Integer,
+#     entity_thermophile=Boolean,
+#     entity_interface_secondary_structure_fragment_topology=String(60),
+#     entity_interface_secondary_structure_topology=String(60),
+# )
+# for idx in range(1, 1 + config.MAXIMUM_ENTITIES):
+#     for metric, value in entity_pose_metrics.items():
+#         setattr(PoseMetrics, metric.replace('entity', f'entity{idx}'), Column(value))
+
 
 class ProtocolMetadata(Base):
     __tablename__ = 'protocol_metadata'
