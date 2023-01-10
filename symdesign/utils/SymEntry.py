@@ -1185,7 +1185,7 @@ def sdf_lookup(symmetry: str = None) -> AnyStr:
     Returns:
         The location of the symmetry definition file on disk
     """
-    if not symmetry:
+    if not symmetry or symmetry.upper() == 'C1':
         return os.path.join(putils.symmetry_def_files, 'C1.sym')
     else:
         symmetry = symmetry.upper()

@@ -527,6 +527,7 @@ class StructureDatabase(Database):
         # Assume pre_refine is True until we find it isn't
         pre_refine = True
         if structures_to_refine:  # if files found unrefined, we should proceed
+            pre_refine = False
             logger.critical('The following structures are not yet refined and are being set up for refinement'
                             ' into the Rosetta ScoreFunction for optimized sequence design:\n'
                             f'{", ".join(sorted(set(_structure.name for _structure in structures_to_refine)))}')
@@ -544,7 +545,6 @@ class StructureDatabase(Database):
                     run_pre_refine = True
 
             if run_pre_refine:
-                pre_refine = False
                 # Generate sbatch refine command
                 flags_file = os.path.join(refine_dir, 'refine_flags')
                 # if not os.path.exists(flags_file):
@@ -581,8 +581,6 @@ class StructureDatabase(Database):
                 else:
                     raise NotImplementedError("Currently, refinement can't be run in the shell. "
                                               'Implement this if you would like this feature')
-            else:
-                pre_refine = True
 
         # Query user and set up commands to perform loop modelling on missing entities
         # Assume pre_loop_model is True until we find it isn't
@@ -606,7 +604,6 @@ class StructureDatabase(Database):
                     run_loop_model = True
 
             if run_loop_model:
-                pre_loop_model = False
                 # Generate sbatch refine command
                 flags_file = os.path.join(full_model_dir, 'loop_model_flags')
                 # if not os.path.exists(flags_file):
@@ -677,8 +674,6 @@ class StructureDatabase(Database):
                 else:
                     raise NotImplementedError("Currently, loop modeling can't be run in the shell. "
                                               'Implement this if you would like this feature')
-            else:
-                pre_loop_model = True
 
         return info_messages, pre_refine, pre_loop_model
 
