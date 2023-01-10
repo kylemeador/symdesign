@@ -259,7 +259,8 @@ hhblits_exe = os.environ.get(config.get('hhblits_env'))
 hhblits_exe = hhblits_exe if hhblits_exe else 'hhblits'  # ensure not None
 uniclustdb = os.path.join(dependency_dir, 'hh-suite', 'databases', 'UniRef30_2020_02')  # TODO make db dynamic at config
 # uniclust_db = os.path.join(database, 'hh-suite', 'databases', 'UniRef30_2020_02')  # TODO
-install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
+install_hhsuite_exe = os.path.join(binaries, 'install_hhsuite.sh')
+hhsuite_git = 'https://github.com/soedinglab/hh-suite'
 # Rosetta
 rosetta_extras = config.get('rosetta_make')
 rosetta_main = os.environ.get(config.get('rosetta_env'))
@@ -279,6 +280,7 @@ scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
 sym_utils_file = 'symmetry.py'
 path_to_sym_utils = os.path.join(os.path.dirname(__file__), sym_utils_file)
 # help and warnings
+git_url = 'https://github.com/kylemeador/symdesign'
 git_issue_url = 'https://github.com/kylemeador/symdesign/issues'
 issue_submit_warning = f'If problems still persist please submit an issue {git_issue_url}'
 

@@ -69,6 +69,8 @@ nucleotide = 'nucleotide'
 as_objects = 'as_objects'
 allow_multiple_poses = 'allow_multiple_poses'
 project_name = 'project_name'
+profile_memory = 'profile_memory'
+preprocessed = 'preprocessed'
 
 # Set up JobResources namespaces for different categories of flags
 design_namespace = {
@@ -167,6 +169,7 @@ preferred_tag = format_for_cmdline(preferred_tag)
 multicistronic_intergenic_sequence = format_for_cmdline(multicistronic_intergenic_sequence)
 allow_multiple_poses = format_for_cmdline(allow_multiple_poses)
 project_name = format_for_cmdline(project_name)
+profile_memory = format_for_cmdline(profile_memory)
 
 
 # def return_default_flags():
@@ -557,9 +560,9 @@ parser_options_group = dict(title=f'{"_" * len(optional_title)}\n{optional_title
                             description=f'\n{options_help}')
 options_arguments = {
     ('-C', '--cores'): dict(type=int, default=cpu_count(logical=False) - 1, metavar='INT',
-                            help=f'Number of cores to use during --{multi_processing}\nIf run on a cluster, the number'
-                                 ' of cores will reflect the cluster allocation,\notherwise, will use #physical_cores-1'
-                                 '\nDefault=%(default)s'),
+                            help=f'Number of cores to use with flag --{multi_processing}\n'
+                                 'If run on a cluster, cores will reflect the cluster allocation,\n'
+                                 'otherwise, will use #physical_cores-1\nDefault=%(default)s'),
     ('--database',): dict(action=argparse.BooleanOptionalAction, default=True,
                           help=f'Whether to utilize the SQL database for intermediate result processing\n'
                                f'{boolean_positional_prevent_msg("database")}'),
@@ -588,14 +591,14 @@ options_arguments = {
     ('--log-level',): dict(type=int, default=default_logging_level, choices=set(range(1, 6)),
                            help='What level of log messages should be displayed to stdout?'
                                 '\n1-debug, 2-info, 3-warning, 4-error, 5-critical\nDefault=%(default)s'),
-    ('--mpi',): dict(type=int, default=0, metavar='INT',
+    ('--mpi',): dict(type=int, metavar='INT',
                      help='If commands should be run as MPI parallel processes, how many '
                           'processes\nshould be invoked for each job?\nDefault=%(default)s'),
     (f'--{project_name}',): dict(type=str, metavar='STR',
                                  help='If desired, the name of the initialized project\nDefault is inferred from file'),
     ('-M', f'--{multi_processing}'): dict(action='store_true', help='Should job be run with multiple processors?'),
-    (f'--{profile}',): dict(action='store_true',
-                            help='memory_profiler.profile() a module. Must be run with --development'),
+    (f'--{profile_memory}',): dict(action='store_true',
+                                   help='memory_profiler.profile() a module. Must be run with --development'),
     setup_args: setup_kwargs,
     (f'--{skip_logging}',): dict(action='store_true',
                                  help='Skip logging output to files and direct all logging to stream?'),
@@ -1136,9 +1139,9 @@ input_arguments = {
                                f'these files to interact with those poses in subsequent commands'),
     #                            'If pose identifiers are specified in a file, say as the result of\n'
     #                            f'{select_poses} or {select_designs}'),
-    ('-P', '--preprocessed'): dict(action='store_true',
-                                   help=f'Whether the designs of interest have been preprocessed for the '
-                                        f'{current_energy_function}\nenergy function and/or missing loops\n'),
+    ('-P', f'--{preprocessed}'): dict(action='store_true',
+                                      help='Whether the designs of interest have been preprocessed for the '
+                                           f'{current_energy_function}\nenergy function and/or missing loops'),
     ('-r', '--range'): dict(type=float, default=None, metavar='int-int',
                             help='The range of poses to process from a larger specification.\n'
                                  'Specify a %% between 0 and 100, separating the range by "-"\n'

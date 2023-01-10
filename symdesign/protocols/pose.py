@@ -60,7 +60,7 @@ missing_pose_transformation = "The design couldn't be transformed as it is missi
 class PoseDirectory:
     _designed_sequences: list[Sequence]
     _id: int
-    _sym_entry: SymEntry
+    # _sym_entry: SymEntry
     _symmetry_definition_files: list[AnyStr]
     # frag_file: str | Path
     name: str
@@ -133,19 +133,19 @@ class PoseDirectory:
 
         super().__init__(**kwargs)
 
-    @property
-    def id(self) -> int:
-        """Return the database id for the PoseJob"""
-        try:
-            return self._id
-        except AttributeError:
-            self._id = self.info.get('id')
-            return self._id
-
-    @id.setter
-    def id(self, _id: int):
-        self._id = self.info['id'] = _id
-
+    # @property
+    # def id(self) -> int:
+    #     """Return the database id for the PoseJob"""
+    #     try:
+    #         return self._id
+    #     except AttributeError:
+    #         self._id = self.info.get('id')
+    #         return self._id
+    #
+    # @id.setter
+    # def id(self, _id: int):
+    #     self._id = self.info['id'] = _id
+    #
     # # SymEntry object attributes
     # @property
     # def sym_entry(self) -> SymEntry | None:

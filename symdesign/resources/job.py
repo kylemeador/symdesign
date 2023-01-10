@@ -191,22 +191,32 @@ class JobResources:
         # Computing environment and development Flags
         # self.command_only: bool = kwargs.get('command_only', False)
         """Whether to reissue commands, only if distribute_work=False"""
-        self.cores: int = kwargs.get('cores', 0)
         self.development: bool = kwargs.get(putils.development)
-        self.profile: bool = kwargs.get(putils.profile)
-        if self.profile and not self.development:
-            logger.warning(f"--profile flag was set but --development wasn't")
-        self.distribute_work: bool = kwargs.get(putils.distribute_work)
-        self.mpi: int = kwargs.get('mpi', 0)
+        self.profile_memory: bool = kwargs.get(putils.profile)
+        if self.profile_memory and not self.development:
+            logger.warning(f"--{flags.profile_memory} was set but --development wasn't")
+
+        self.mpi: int = kwargs.get('mpi')
+        if self.mpi is None:
+            self.mpi = 0
+            self.distribute_work: bool = kwargs.get(putils.distribute_work)
+            # # Todo implement, see symdesign.utils and CommandDistributor
+            # # extras = ' mpi {CommmandDistributer.mpi}'
+            # number_mpi_processes = CommmandDistributer.mpi - 1
+            # logger.info('Setting job up for submission to MPI capable computer. Pose trajectories run in parallel, '
+            #             f'{number_mpi_processes} at a time. This will speed up processing ~
+            #             f'{job.design.number / number_mpi_processes:2f}-fold.')
+        else:  # self.mpi > 0
+            self.distribute_work = True
+            raise NotImplementedError(f"Can't compute the number of resources to allocate using --mpi just yet")
+
         self.multi_processing: int = kwargs.get(putils.multi_processing)
         if self.multi_processing:
             # Calculate the number of cores to use depending on computer resources
-            self.cores = utils.calculate_mp_cores(cores=self.cores)  # mpi=self.mpi, Todo
+            self.cores = utils.calculate_mp_cores(cores=kwargs.get('cores'))  # Todo mpi=self.mpi
         else:
-            self.cores = 1
-
-        if self.mpi > 0:
-            self.distribute_work = True
+            self.cores: int = 1
+        self.threads = self.cores * 2
         # self.reduce_memory = False
 
         # Input parameters
@@ -271,6 +281,7 @@ class JobResources:
         # self.score_db: Engine = create_engine(utils.sql.residues)
 
         # PoseJob initialize Flags
+        self.preprocessed = kwargs.get(flags.preprocessed)
         self.initial_refinement = self.initial_loop_model = None
 
         # Program flags
@@ -774,7 +785,7 @@ class JobResources:
             if not os.access(putils.hhblits_exe, os.X_OK):
                 print(f"Couldn't locate the {putils.hhblits} executable. Ensure the executable file referenced by "
                       f'{putils.hhblits_exe} exists then try your job again. Otherwise, use the argument'
-                      f'--no-{flags.evolution_constraint}')
+                      f'--no-{flags.evolution_constraint} OR set up hhblits to run{guide.hhblits_setup_instructions}')
                 exit()
             putils.make_path(self.profiles)
             putils.make_path(self.sbatch_scripts)

@@ -3,7 +3,10 @@ from __future__ import annotations
 import csv
 import logging
 import os
+import subprocess
 from collections import namedtuple, defaultdict
+from math import log2
+from pathlib import Path
 from typing import Sequence, AnyStr, Iterable, Type, Literal, Any, get_args
 
 import numpy as np
@@ -12,11 +15,12 @@ from Bio.Align import substitution_matrices, MultipleSeqAlignment
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-from symdesign import utils as sdutils
+from symdesign import utils as utils
+from symdesign.structure.sequence import profile_dictionary
 from symdesign.third_party.DnaChisel.dnachisel import reverse_translate, DnaOptimizationProblem, CodonOptimize, \
     EnforceGCContent, AvoidHairpins, AvoidPattern, UniquifyAllKmers, AvoidRareCodons, EnforceTranslation
 # from symdesign.utils import path as putils
-putils = sdutils.path
+putils = utils.path
 
 # Globals
 zero_offset = 1
@@ -208,7 +212,7 @@ def read_sequence_file(file_name: AnyStr, **kwargs) -> Iterable[SeqRecord]:
     return SeqIO.parse(file_name, 'csv')
 
 
-@sdutils.handle_errors(errors=(FileNotFoundError,))
+@utils.handle_errors(errors=(FileNotFoundError,))
 def read_alignment(file_name: AnyStr, alignment_type: str = 'fasta', **kwargs) -> MultipleSeqAlignment:
     """Open an alignment file and parse the alignment to a Biopython MultipleSeqAlignment
 
@@ -356,6 +360,77 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
         outfile.write('%s\n' % '\n'.join(formatted_sequence_gen))
 
     return file_name
+
+
+def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[str] = None,
+            out_dir: AnyStr = os.getcwd(), threads: int = utils.hhblits_threads,
+            return_command: bool = False, **kwargs) -> str | None:
+    """Generate a position specific scoring matrix from HHblits using Hidden Markov Models
+
+    When the command is run, it is possible to create six files in out_dir with the pattern '/outdir/name.*'
+    where the '*' extensions are:
+     hhblits profile - .hmm
+
+     hhblits resulting cluster description - .hrr
+
+     sequence alignment in a3m format - .a3m
+
+     sequence file - .seq (if sequence_file)
+
+     sequence alignment in stockholm format - .sto (if return_command is False)
+
+     sequence alignment in fasta format - .fasta (if return_command is False)
+
+    Args:
+        name: The name associated with the sequence
+        sequence_file: The file containing the sequence to use
+        sequence: The sequence to use. Used in place of sequence_file
+        out_dir: Disk location where generated files should be written
+        threads: Number of cpu's to use for the process
+        return_command: Whether to simply return the hhblits command
+    Raises:
+        RuntimeError if hhblits command is run and returns a non-zero exit code
+    Returns:
+        The command if return_command is True, otherwise None
+    """
+    if sequence_file is None:
+        if sequence is None:
+            raise ValueError(f"Can't perform {hhblits.__name__} without a 'sequence_file' or a 'sequence'")
+        else:
+            sequence_file = write_sequences(sequence, file_name=os.path.join(out_dir, f'{name}.seq'))
+    pssm_file = os.path.join(out_dir, f'{name}.hmm')
+    a3m_file = os.path.join(out_dir, f'{name}.a3m')
+    # Todo for higher performance set up https://www.howtoforge.com/storing-files-directories-in-memory-with-tmpfs
+    cmd = [putils.hhblits_exe, '-d', putils.uniclustdb, '-i', sequence_file,
+           '-ohhm', pssm_file, '-oa3m', a3m_file,  # '-Ofas', self.msa_file,
+           '-hide_cons', '-hide_pred', '-hide_dssp', '-E', '1E-06',
+           '-v', '1', '-cpu', str(threads)]
+
+    if return_command:
+        return subprocess.list2cmdline(cmd)
+
+    logger.debug(f'{name} Profile Command: {subprocess.list2cmdline(cmd)}')
+    p = subprocess.Popen(cmd)
+    p.communicate()
+    if p.returncode != 0:
+        # temp_file = os.path.join(out_path, f'{self.name}.hold')
+        temp_file = Path(out_dir, f'{name}.hold')
+        temp_file.unlink(missing_ok=True)
+        # if os.path.exists(temp_file):  # remove hold file blocking progress
+        #     os.remove(temp_file)
+        raise RuntimeError(f'Profile generation for {name} got stuck')  #
+        # raise DesignError(f'Profile generation for {self.name} got stuck. See the error for details -> {p.stderr} '
+        #                   f'output -> {p.stdout}')  #
+
+    # Preferred alignment type
+    msa_file = os.path.join(out_dir, f'{name}.sto')
+    p = subprocess.Popen([putils.reformat_msa_exe_path, a3m_file, msa_file, '-num', '-uc'])
+    p.communicate()
+    fasta_msa = os.path.join(out_dir, f'{name}.fasta')
+    p = subprocess.Popen([putils.reformat_msa_exe_path, a3m_file, fasta_msa, '-M', 'first', '-r'])
+    p.communicate()
+    # os.system('rm %s' % self.a3m_file)
+    return None
 
 
 def optimize_protein_sequence(sequence: str, species: str = 'e_coli') -> str:
@@ -811,3 +886,165 @@ def get_equivalent_indices(sequence1: Sequence, sequence2: Sequence) -> tuple[li
             from_idx += 1
 
     return sequence1_indices, sequence2_indices
+
+
+latest_uniclust_background_frequencies = \
+    {'A': 0.0835, 'C': 0.0157, 'D': 0.0542, 'E': 0.0611, 'F': 0.0385, 'G': 0.0669, 'H': 0.0228, 'I': 0.0534,
+     'K': 0.0521, 'L': 0.0926, 'M': 0.0219, 'N': 0.0429, 'P': 0.0523, 'Q': 0.0401, 'R': 0.0599, 'S': 0.0791,
+     'T': 0.0584, 'V': 0.0632, 'W': 0.0127, 'Y': 0.0287}
+
+
+def get_lod(frequencies: dict[protein_letters_literal, float],
+            background: dict[protein_letters_literal, float], as_int: bool = True) -> dict[str, int | float]:
+    """Get the log of the odds that an amino acid is in a frequency distribution compared to a background frequency
+
+    Args:
+        frequencies: {'A': 0.11, 'C': 0.01, 'D': 0.034, ...}
+        background: {'A': 0.10, 'C': 0.02, 'D': 0.04, ...}
+        as_int: Whether to round the lod values to an integer
+    Returns:
+         The log of odds for each amino acid type {'A': 2, 'C': -9, 'D': -1, ...}
+    """
+    lods = {}
+    for aa, freq in frequencies.items():
+        try:  # Todo why is this 2. * the log2? I believe this is a heuristic of BLOSUM62. This should be removed...
+            lods[aa] = float(2. * log2(freq / background[aa]))  # + 0.0
+        except ValueError:  # math domain error
+            lods[aa] = -9
+        except KeyError:
+            if aa in protein_letters_alph1:
+                raise KeyError(f'{aa} was not in the background frequencies: {", ".join(background)}')
+            else:  # We shouldn't worry about a missing value if it's not an amino acid
+                continue
+        except ZeroDivisionError:  # background is 0. We may need a pseudocount...
+            raise ZeroDivisionError(f'{aa} has a background frequency of 0. Consider adding a pseudocount')
+        # if lods[aa] < -9:
+        #     lods[aa] = -9
+        # elif round_lod:
+        #     lods[aa] = round(lods[aa])
+
+    if as_int:
+        return {aa: (int(value) if value >= -9 else -9) for aa, value in lods.items()}
+    else:  # ensure that -9 is the lowest value (formatting issues if 2 digits)
+        return {aa: (value if value >= -9 else -9) for aa, value in lods.items()}
+
+
+def parse_pssm(file: AnyStr, **kwargs) -> dict[int, dict[str, str | float | int | dict[str, int]]]:
+    """Take the contents of a pssm file, parse, and input into a pose profile dictionary.
+
+    Resulting dictionary is indexed according to the values in the pssm file
+
+    Args:
+        file: The location of the file on disk
+    Returns:
+        Dictionary containing residue indexed profile information
+            i.e. {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
+                  2: {}, ...}
+    """
+    with open(file, 'r') as f:
+        lines = f.readlines()
+
+    pose_dict = {}
+    for line in lines:
+        line_data = line.strip().split()
+        if len(line_data) == 44:
+            residue_number = int(line_data[0])
+            pose_dict[residue_number] = \
+                dict(zip(protein_letters_alph3,
+                         [x / 100. for x in map(int, line_data[22:len(
+                             protein_letters_alph3) + 22])]))
+            # pose_dict[residue_number] = aa_counts_alph3.copy()
+            # for i, aa in enumerate(utils.protein_letters_alph3, 22):
+            #     # Get normalized counts for pose_dict
+            #     pose_dict[residue_number][aa] = int(line_data[i]) / 100.
+
+            # for i, aa in enumerate(utils.protein_letters_alph3, 2):
+            #     pose_dict[residue_number]['lod'][aa] = line_data[i]
+            pose_dict[residue_number]['lod'] = \
+                dict(zip(protein_letters_alph3, line_data[2:len(
+                    protein_letters_alph3) + 2]))
+            pose_dict[residue_number]['type'] = line_data[1]
+            pose_dict[residue_number]['info'] = float(line_data[42])
+            pose_dict[residue_number]['weight'] = float(line_data[43])
+
+    return pose_dict
+
+
+def parse_hhblits_pssm(file: AnyStr, null_background: bool = True, **kwargs) -> profile_dictionary:
+    """Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
+
+    Args:
+        file: The file to parse, typically with the extension '.hmm'
+        null_background: Whether to use the null background for the specific protein
+    Returns:
+        Dictionary containing residue indexed profile information
+            Ex: {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
+                     'weight': 0.00}, {...}}
+    """
+    null_bg = latest_uniclust_background_frequencies
+
+    def to_freq(value: str) -> float:
+        if value == '*':  # When frequency is zero
+            return 0.0001
+        else:
+            # Equation: value = -1000 * log_2(frequency)
+            return 2 ** (-int(value) / 1000)
+
+    with open(file, 'r') as f:
+        lines = f.readlines()
+
+    evolutionary_profile = {}
+    dummy = 0.
+    read = False
+    for line in lines:
+        if not read:
+            if line[0:1] == '#':
+                read = True
+        else:
+            if line[0:4] == 'NULL':
+                if null_background:  # Use the provided null background from the profile search
+                    null, *background_values = line.strip().split()
+                    # null = 'NULL', background_values = list[str] ['3706', '5728', ...]
+                    null_bg = {aa: to_freq(value) for value, aa in zip(background_values,
+                                                                       protein_letters_alph3)}
+
+            if len(line.split()) == 23:
+                residue_type, residue_number, *position_values = line.strip().split()
+                aa_freqs = {aa: to_freq(value) for value, aa in zip(position_values,
+                                                                    protein_letters_alph1)}
+
+                evolutionary_profile[int(residue_number)] = \
+                    dict(lod=get_lod(aa_freqs, null_bg), type=residue_type, info=dummy, weight=dummy, **aa_freqs)
+
+    return evolutionary_profile
+
+    # with open(file, 'r') as f:
+    #     lines = f.readlines()
+    #
+    # pose_dict = {}
+    # read = False
+    # for line in lines:
+    #     if not read:
+    #         if line[0:1] == '#':
+    #             read = True
+    #     else:
+    #         if line[0:4] == 'NULL':
+    #             if null_background:
+    #                 # use the provided null background from the profile search
+    #                 background = line.strip().split()
+    #                 null_bg = {i: {} for i in utils.protein_letters_alph3}
+    #                 for i, aa in enumerate(utils.protein_letters_alph3, 1):
+    #                     null_bg[aa] = to_freq(background[i])
+    #
+    #         if len(line.split()) == 23:
+    #             items = line.strip().split()
+    #             residue_number = int(items[1])
+    #             pose_dict[residue_number] = {}
+    #             for i, aa in enumerate(utils.protein_letters_alph1, 2):
+    #                 pose_dict[residue_number][aa] = to_freq(items[i])
+    #             pose_dict[residue_number]['lod'] = get_lod(pose_dict[residue_number], null_bg)
+    #             pose_dict[residue_number]['type'] = items[0]
+    #             pose_dict[residue_number]['info'] = dummy
+    #             pose_dict[residue_number]['weight'] = dummy
+    #
+    # return pose_dict

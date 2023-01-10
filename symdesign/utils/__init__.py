@@ -35,7 +35,8 @@ logger = logging.getLogger(__name__)
 
 input_string = '\nInput: '
 zero_offset = 1
-rmsd_threshold = 1.0
+rmsd_threshold = 1.
+hhblits_threads = 2
 # from colorbrewer (https://colorbrewer2.org/)
 color_arrays = [
     # pink to cyan
@@ -682,7 +683,7 @@ def calculate_mp_cores(cores: int = None, mpi: bool = False, jobs: int = None) -
         infinity = float('inf')
         return min((cores or infinity), (jobs or infinity))
 
-    if mpi:  # Todo grab an evironmental variable for mpi cores?
+    if mpi:  # Todo grab an environmental variable for mpi cores?
         return int(max_cpus_to_use / 6)  # CommandDistributer.mpi)
     else:
         return max_cpus_to_use
@@ -941,7 +942,7 @@ def collect_designs(files: Sequence = None, directory: AnyStr = None, projects: 
             all_paths = get_directory_file_paths(directory, extension='.pdb')
             directory = os.path.basename(directory)  # This is for the location variable return
         else:  # function was called with all set to None. This shouldn't happen
-            raise RuntimeError("Can't collect_designs when no arguments were passed!")
+            raise InputError(f"Can't {type(collect_designs.__name__)} with no arguments passed")
 
     location = (files or directory or projects or singles)
 
