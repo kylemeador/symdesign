@@ -314,6 +314,87 @@ def main():
         raise utils.InputError(f'Nanohedra master docking file {log_path} is malformed. Missing required info'
                                ' "Nanohedra Entry Number:"')
 
+    def initialize_entities(structures: Iterable[structure.base.Structure],
+                            possible_uniprot_id_protein_property: dict[str, sql.ProteinMetadata] = None,
+                            existing_uniprot_entities: Iterable[sql.UniProtEntity] = None):
+        """Perform the routine of comparing newly described work to the existing database and handling set up of
+        structural and evolutionary data creation
+
+        Args:
+            structures: The Structure instances that are being imported for the first time
+            possible_uniprot_id_protein_property: A mapping of the required UniProtID to it's associated ProteinProperty
+            existing_uniprot_entities: If any UniProtEntity instances are already available, pass them to expedite setup
+        """
+        # Find existing UniProtEntity table entry instances
+        # Todo move session outside?
+        with job.db.session() as session:  # current_session
+            if existing_uniprot_entities is None:
+                existing_uniprot_entities = \
+                    select(sql.UniProtEntity)\
+                    .where(sql.UniProtEntity.id.in_(possible_uniprot_id_protein_property.keys()))
+
+            # Remove those from the possible that already exist
+            for entity in existing_uniprot_entities:
+                possible_uniprot_ids.pop(entity.id, None)
+
+            # Insert the remaining UniProtIDs as UniProtEntity entries
+            uniprot_entities = []
+            for uniprot_id, protein_properties in possible_uniprot_id_protein_property.items():
+                # Create new entry
+                new_entity = sql.UniProtEntity(id=uniprot_id)
+                # Add ProteinProperty to new entry
+                new_entity.protein_metadata = protein_properties
+                uniprot_entities.append(new_entity)
+
+            session.add_all(uniprot_entities)
+            session.commit()
+
+        uniprot_entities.extend(existing_uniprot_entities)
+
+        # Set up common Structure/Entity resources
+        info_messages = []
+        if job.design.evolution_constraint:
+            evolution_instructions = job.setup_evolution_constraint(uniprot_entities=uniprot_entities)
+            #                                                         entities=all_entities)
+            # load_resources = True if evolution_instructions else False
+            info_messages.extend(evolution_instructions)
+
+        if job.preprocessed:
+            # Don't perform refinement or loop modeling, this has already been done or isn't desired
+            # args.orient, args.refine = True, True  # Todo make part of argparse?
+            # Move the oriented Entity.file_path (should be the ASU) to the respective directory
+            putils.make_path(job.refine_dir)
+            putils.make_path(job.full_model_dir)
+            for entity in structures:  # entities:
+                shutil.copy(entity.file_path, job.refine_dir)
+                shutil.copy(entity.file_path, job.full_model_dir)
+
+            # Report to JobResources the results after skipping set up
+            job.initial_refinement = job.initial_loop_model = True
+        else:
+            preprocess_instructions, job.initial_refinement, job.initial_loop_model = \
+                job.structure_db.preprocess_structures_for_design(structures, script_out_path=job.sbatch_scripts)
+            if info_messages and preprocess_instructions:
+                info_messages += ['The following can be run at any time regardless of evolutionary script progress']
+            info_messages += preprocess_instructions
+
+        if info_messages:
+            # Entity processing commands are needed
+            logger.critical(sbatch_warning)
+            for message in info_messages:
+                logger.info(message)
+            print('\n')
+            logger.info(resubmit_command_message)
+            terminate(output=False)
+            # After completion of sbatch, the next time command is entered program will proceed
+        #     else:
+        #         # We always prepare info_messages when jobs should be run
+        #         raise utils.InputError("This shouldn't have happened. 'info_messages' can't be False here...")
+
+        # # Ensure all_entities are symmetric. As of now, all orient_structures returns are the symmetrized structure
+        # for entity in [entity for structure in all_structures for entity in structure.entities]:
+        #     entity.make_oligomer(symmetry=entity.symmetry)
+
     resubmit_command_message = f'After completion of sbatch script(s), re-submit your {putils.program_name} ' \
                                f'command:\n\tpython {" ".join(sys.argv)}'
     # -----------------------------------------------------------------------------------------------------------------
@@ -697,92 +778,158 @@ def main():
                 pose_jobs = [PoseJob.from_file(file, project=project_name)
                              for file in file_paths[low_range:high_range]]
         if not pose_jobs:
-            raise utils.InputError(f'No {putils.program_name} directories found at location "{job.location}"')
-        # Check to see that proper files have been created including orient, refinement, loop modeling, hhblits, bmdca?
-        initialize_modules = [flags.interface_design, flags.design, flags.interface_metrics, flags.optimize_designs]
-        #      flags.analysis,  # maybe hhblits, bmDCA. Only refine if Rosetta were used, no loop_modelling
-        #      flags.refine]  # pre_refine not necessary. maybe hhblits, bmDCA, loop_modelling
-        # Todo fix below sloppy logic
-        if (not initialized and job.module in initialize_modules) or args.update_database:  # or args.nanohedra_output
-            all_structures = []
-            if not initialized and args.preprocessed:
-                # args.orient, args.refine = True, True  # Todo make part of argparse?
-                # putils.make_path(job.refine_dir)
-                putils.make_path(job.full_model_dir)
-                putils.make_path(job.stride_dir)
-                all_entities, found_entity_names = [], set()
-                for entity in [entity for pose_job in pose_jobs for entity in pose_job.initial_model.entities]:
-                    if entity.name not in found_entity_names:
-                        all_entities.append(entity)
-                        found_entity_names.add(entity.name)
-                # Todo save all the Entities to the StructureDatabase
-                #  How to know if Entity is needed or a combo? Need sym map to tell if they are the same length?
-            elif initialized and args.update_database:
-                all_entities, found_entity_names = [], set()
-                for pose_job in pose_jobs:
-                    for name in pose_job.entity_names:
-                        if name not in found_entity_names:
-                            found_entity_names.add(name)
-                            pose_job.load_pose()
-                            all_entities.append(pose_job.pose.entity(name))
+            raise utils.InputError(f"No {PoseJob.__name__}'s found at location '{job.location}'")
+        """Check to see that proper data/files have been created 
+        Data includes:
+        - UniProtEntity
+        - ProteinMetadata
+        Files include:
+        - Structure in orient, refined, loop modelled
+        - Profile from hhblits, bmdca?
+        """
+        # initialize_modules = \
+        #     [flags.design, flags.interface_design, flags.interface_metrics, flags.optimize_designs]
+        #      # flags.analysis,  # maybe hhblits, bmDCA. Only refine if Rosetta were used, no loop_modelling
+        #      # flags.refine]  # pre_refine not necessary. maybe hhblits, bmDCA, loop_modelling
 
-                all_entities = [entity for entity in all_entities if entity]
-            else:
-                logger.critical('The requested poses require structural preprocessing before design modules should be '
-                                'used')
-                # Collect all entities required for processing the given commands
-                required_entities = list(map(set, list(zip(*[pose_job.entity_names for pose_job in pose_jobs]))))
-                # Select entities, orient them, then load each entity to all_structures for further database processing
-                symmetry_map = job.sym_entry.groups if job.sym_entry else repeat(None)
-                for symmetry, entities in zip(symmetry_map, required_entities):
-                    if not entities:  # useful in a case where symmetry groups are the same or group is None
-                        continue
-                    # elif not symmetry:
-                    #     logger.info(f'Files are being processed without consideration for symmetry: '
-                    #                 f'{", ".join(entities)}')
-                    #     # all_structures.extend(job.structure_db.orient_structures(entities))
-                    #     # continue
-                    # else:
-                    #     logger.info(f'Files are being processed with {symmetry} symmetry: {", ".join(entities)}')
-                    all_structures.extend(job.structure_db.orient_structures(entities, symmetry=symmetry))
-                # Create entities iterator to set up sequence dependent resources
-                all_entities = [entity for structure in all_structures for entity in structure.entities]
+        if job.sym_entry:
+            symmetry_map = job.sym_entry.groups
+            preprocess_entities_by_symmetry: dict[str, list[Entity]] = \
+                {symmetry: [] for symmetry in job.sym_entry.groups}
+        else:
+            symmetry_map = repeat('C1')
+            preprocess_entities_by_symmetry = {'C1': []}
+        possible_uniprot_ids = {}
+        existing_uniprot_ids = set()
+        existing_uniprot_entities = set()
+        for pose_job in pose_jobs:
+            if pose_job.id is None:
+                # Todo expand the definition of SymEntry/Entity to include
+                #  specification of T:{T:{C3}{C3}}{C1}
+                #  where an Entity is composed of multiple Entity (Chain) instances
+                # Need to initialize the local database. Load this model to get required info
+                pose_job.load_initial_model()
+                # for entity in pose_job.initial_model.entities:
+                for entity, symmetry in zip(pose_job.initial_model.entities, symmetry_map):
+                    uniprot_ids = entity.uniprot_ids
+                    if uniprot_ids in possible_uniprot_ids:  # [uniprot_ids]
+                        # This Entity already found for processing
+                        pass
+                    else:  # Process for persistent state
+                        # protein_metadata = sql.ProteinMetadata(
+                        possible_uniprot_ids[uniprot_ids] = \
+                            sql.ProteinMetadata(
+                            entity_id=entity.name,
+                            reference_sequence=entity.reference_sequence,
+                            thermophilic=entity.thermophilic,
+                            symmetry=symmetry
+                            # # Todo there could be no sym_entry, the use the entity.symmetry
+                            # symmetry=entity.symmetry
+                            )
+                    preprocess_entities_by_symmetry[symmetry].append(entity)
 
-            # Set up common Structure/Entity resources
-            info_messages = []
-            if job.design.evolution_constraint:
-                evolution_instructions = job.setup_evolution_constraint(all_entities)
-                load_resources = True if evolution_instructions else False
-                info_messages.extend(evolution_instructions)
+                    # for uniprot_id in entity.uniprot_ids:
+                    #     if uniprot_id in possible_uniprot_ids:
+                    #         # This Entity already found for processing
+                    #         pass
+                    #     else:  # Process for persistent state
+                    #         possible_uniprot_ids[uniprot_id] = protein_metadata
 
-            if args.preprocessed:
-                # Ensure we report to PoseJob the results after skipping set up
-                job.initial_refinement = job.initial_loop_model = True
-            else:
-                preprocess_instructions, initial_refinement, initial_loop_model = \
-                    job.structure_db.preprocess_structures_for_design(all_structures,
-                                                                      script_out_path=job.sbatch_scripts)
-                #                                                       batch_commands=args.distribute_work)
-                if info_messages and preprocess_instructions:
-                    info_messages += ['The following can be run at any time regardless of evolutionary script progress']
-                info_messages += preprocess_instructions
-                job.initial_refinement = initial_refinement
-                job.initial_loop_model = initial_loop_model
+            else:  # PoseJob is initialized
+                # Add each UniProtEntity to existing_uniprot_entities to limit work
+                for data in pose_job.entity_data:
+                    for uniprot_entity in data.uniprot_entities:
+                        if uniprot_entity.id not in existing_uniprot_ids:  # in possible_uniprot_ids:
+                            existing_uniprot_entities.add(uniprot_entity)
+                    # metadata = data.metadata
+                    # if metadata.uniprot_id in possible_uniprot_ids:
+                    #     existing_uniprot_entities.add(metadata.uniprot_entity)
 
-            # Entity processing commands are needed
-            if load_resources or not job.initial_refinement or not job.initial_loop_model:
-                if info_messages:
-                    logger.critical(sbatch_warning)
-                    for message in info_messages:
-                        logger.info(message)
-                    print('\n')
-                    logger.info(resubmit_command_message)
-                    terminate(output=False)
-                    # After completion of sbatch, the next time initialized, there will be no refine files left allowing
-                    # initialization to proceed
-                else:
-                    # We always prepare info_messages when jobs should be run
-                    raise utils.InputError("This shouldn't have happened. info_messages can't be False here...")
+        # all_structures = []
+        # Populate all_entities to set up sequence dependent resources
+        all_entities = []
+        # Orient entities, then load each entity to all_structures for further database processing
+        for symmetry, entities in preprocess_entities_by_symmetry.items():
+            if not entities:  # useful in a case where symmetry groups are the same or group is None
+                continue
+            # all_entities.extend(entities)
+            # job.structure_db.orient_structures(
+            #     [entity.name for entity in entities], symmetry=symmetry)
+            # Can't do this ^ as structure_db.orient_structures sets .name, .symmetry, and .file_path on each Entity
+            all_entities.extend(job.structure_db.orient_structures(
+                [entity.name for entity in entities], symmetry=symmetry))
+            # Todo orient Entity individually, which requires symmetric oligomer be made
+            #  This could be found from Pose._assign_pose_transformation() or new meachanism
+            #  Where oligomer is deduced from available surface fragment overlap with the specified symmetry...
+            #  job.structure_db.orient_entities(entities, symmetry=symmetry)
+
+        initialize_entities(all_entities, possible_uniprot_ids, existing_uniprot_entities=existing_uniprot_entities)
+        # # Commit new changes to the database
+        # # if job.db:
+        # with job.db.session() as session:  # current_session
+        #     # # Parse different UniProtID states
+        #     # existing_uniprot_ids = {entity.id for entity in existing_uniprot_entities}
+        #     # # all_uniprot_ids = existing_uniprot_ids.union(possible_uniprot_ids.keys())
+        #     # missing_uniprot_ids = set(possible_uniprot_ids.keys()).difference(existing_uniprot_ids)
+        #     #
+        #     # Remove those from the possible that already exist
+        #     for entity in existing_uniprot_entities:
+        #         possible_uniprot_ids.pop(entity.id, None)
+        #
+        #     # Insert the remaining UniProtIDs as UniProtEntity entries
+        #     uniprot_entities = []
+        #     for uniprot_id, protein_metadata in possible_uniprot_ids.items():
+        #         # Create new entry
+        #         new_entity = sql.UniProtEntity(id=uniprot_id)
+        #         # Add ProteinProperty to new entry
+        #         new_entity.protein_metadata = protein_metadata
+        #         uniprot_entities.append(new_entity)
+        #
+        #     session.add_all(uniprot_entities)
+        #     session.commit()
+        #     # uniprot_entities = select(sql.UniProtEntity).where(sql.UniProtEntity.id.in_(all_uniprot_ids))
+        #
+        # uniprot_entities.extend(existing_uniprot_entities)
+        #
+        # # Set up common Structure/Entity resources
+        # info_messages = []
+        # if job.design.evolution_constraint:
+        #     evolution_instructions = job.setup_evolution_constraint(uniprot_entities=uniprot_entities)
+        #     #                                                         entities=all_entities)
+        #     # load_resources = True if evolution_instructions else False
+        #     info_messages.extend(evolution_instructions)
+        #
+        # if job.preprocessed:
+        #     # Don't perform refinement or loop modeling, this has already been done or isn't desired
+        #     # args.orient, args.refine = True, True  # Todo make part of argparse?
+        #     # Move the oriented Entity.file_path (should be the ASU) to the respective directory
+        #     putils.make_path(job.refine_dir)
+        #     putils.make_path(job.full_model_dir)
+        #     for entity in all_entities:
+        #         shutil.copy(entity.file_path, job.refine_dir)
+        #         shutil.copy(entity.file_path, job.full_model_dir)
+        #
+        #     # Report to JobResources the results after skipping set up
+        #     job.initial_refinement = job.initial_loop_model = True
+        # else:
+        #     preprocess_instructions, job.initial_refinement, job.initial_loop_model = \
+        #         job.structure_db.preprocess_structures_for_design(all_entities, script_out_path=job.sbatch_scripts)
+        #     if info_messages and preprocess_instructions:
+        #         info_messages += ['The following can be run at any time regardless of evolutionary script progress']
+        #     info_messages += preprocess_instructions
+        #
+        # if info_messages:
+        #     # Entity processing commands are needed
+        #     logger.critical(sbatch_warning)
+        #     for message in info_messages:
+        #         logger.info(message)
+        #     print('\n')
+        #     logger.info(resubmit_command_message)
+        #     terminate(output=False)
+        #     # After completion of sbatch, the next time command is entered program will proceed
+        # #     else:
+        # #         # We always prepare info_messages when jobs should be run
+        # #         raise utils.InputError("This shouldn't have happened. 'info_messages' can't be False here...")
 
         if args.multi_processing:  # and not args.skip_master_db:
             logger.debug('Loading Database for multiprocessing fork')
@@ -813,6 +960,7 @@ def main():
         #     putils.make_path(job.output_directory)
         # Transform input entities to canonical orientation and return their ASU
         all_structures = []
+        grouped_structures = []
         # Set up variables for the correct parsing of provided file paths
         by_file1 = by_file2 = False
         eventual_structure_names1 = eventual_structure_names2 = None
@@ -846,9 +994,10 @@ def main():
         else:
             raise RuntimeError('This should be impossible with mutually exclusive argparser group')
 
-        all_structures.extend(job.structure_db.orient_structures(structure_names1,
-                                                                 symmetry=job.sym_entry.group1,
-                                                                 by_file=by_file1))
+        # Select entities, orient them, then load each Structure for further database processing
+        grouped_structures.append(job.structure_db.orient_structures(structure_names1,
+                                                                     symmetry=job.sym_entry.group1,
+                                                                     by_file=by_file1))
         single_component_design = False
         structure_names2 = []
         idx = 2
@@ -884,12 +1033,36 @@ def main():
             structure_names2 = list(map(str.lower, structure_names2))
         else:
             single_component_design = True
-        # Select entities, orient them, then load each Structure to all_structures for further database processing
-        all_structures.extend(job.structure_db.orient_structures(structure_names2,
-                                                                 symmetry=job.sym_entry.group2,
-                                                                 by_file=by_file2))
-        # Create entities iterator to set up sequence dependent resources
-        all_entities = [entity for structure in all_structures for entity in structure.entities]
+
+        # Select entities, orient them, then load each Structure for further database processing
+        grouped_structures.append(job.structure_db.orient_structures(structure_names2,
+                                                                     symmetry=job.sym_entry.group2,
+                                                                     by_file=by_file2))
+        # Initialize the local database
+        # # Populate all_entities to set up sequence dependent resources
+        # all_entities = []
+        possible_uniprot_ids = {}
+        # Todo expand the definition of SymEntry/Entity to include
+        #  specification of T:{T:{C3}{C3}}{C1}
+        #  where an Entity is composed of multiple Entity (Chain) instances
+        # symmetry_map = job.sym_entry.groups if job.sym_entry else repeat(None)
+        for structures, symmetry in zip(grouped_structures, job.sym_entry.groups):  # symmetry_map):
+            if not structures:  # Useful in a case where symmetry groups are the same or group is None
+                continue
+            for structure in structures:
+                # all_entities.extend(structure.entities)
+                for entity in structure.entities:
+                    protein_metadata = sql.ProteinMetadata(
+                        entity_id=entity.name,
+                        reference_sequence=entity.reference_sequence,
+                        thermophilic=entity.thermophilic,
+                        symmetry=symmetry)
+                    for uniprot_id in entity.uniprot_ids:
+                        if uniprot_id in possible_uniprot_ids:
+                            # This Entity already found for processing
+                            pass
+                        else:  # Process for persistent state
+                            possible_uniprot_ids[uniprot_id] = protein_metadata
 
         # Set up common Structure/Entity resources
         info_messages = []
@@ -898,32 +1071,72 @@ def main():
             load_resources = True if evolution_instructions else False
             info_messages.extend(evolution_instructions)
 
-        if args.preprocessed:
-            # Ensure we report to PoseJob the results after skipping set up
-            job.initial_refinement = job.initial_loop_model = True
-        else:
-            preprocess_instructions, initial_refinement, initial_loop_model = \
-                job.structure_db.preprocess_structures_for_design(all_structures, script_out_path=job.sbatch_scripts)
-            #                                                       batch_commands=args.distribute_work)
-            if info_messages and preprocess_instructions:
-                info_messages += ['The following can be run at any time regardless of evolutionary script progress']
-            info_messages += preprocess_instructions
-            job.initial_refinement = initial_refinement
-            job.initial_loop_model = initial_loop_model
+        initialize_entities(all_structures, possible_uniprot_ids)
 
-        # Entity processing commands are needed
-        if load_resources or not job.initial_refinement or not job.initial_loop_model:
-            if info_messages:
-                logger.critical(sbatch_warning)
-                for message in info_messages:
-                    logger.info(message)
-                print('\n')
-                logger.info(resubmit_command_message)
-                terminate(output=False)
-                # After completion of sbatch, the next time command is entered docking will proceed
-            else:
-                # We always prepare info_messages when jobs should be run
-                raise utils.InputError("This shouldn't have happened. info_messages can't be False here...")
+        # # Find existing UniProtEntity table entry instances
+        # with job.db.session() as session:  # current_session
+        #     existing_uniprot_entities = \
+        #         select(sql.UniProtEntity)\
+        #         .where(sql.UniProtEntity.id.in_(possible_uniprot_ids.keys()))
+        #
+        #     # Remove those from the possible that already exist
+        #     for entity in existing_uniprot_entities:
+        #         possible_uniprot_ids.pop(entity.id, None)
+        #
+        #     # Insert the remaining UniProtIDs as UniProtEntity entries
+        #     uniprot_entities = []
+        #     for uniprot_id, protein_metadata in possible_uniprot_ids.items():
+        #         # Create new entry
+        #         new_entity = sql.UniProtEntity(id=uniprot_id)
+        #         # Add ProteinProperty to new entry
+        #         new_entity.protein_metadata = protein_metadata
+        #         uniprot_entities.append(new_entity)
+        #
+        #     session.add_all(uniprot_entities)
+        #     session.commit()
+        #
+        # uniprot_entities.extend(existing_uniprot_entities)
+        #
+        # # Set up common Structure/Entity resources
+        # info_messages = []
+        # if job.design.evolution_constraint:
+        #     evolution_instructions = job.setup_evolution_constraint(uniprot_entities=uniprot_entities)
+        #     #                                                         entities=all_entities)
+        #     # load_resources = True if evolution_instructions else False
+        #     info_messages.extend(evolution_instructions)
+        #
+        # if job.preprocessed:
+        #     # Don't perform refinement or loop modeling, this has already been done or isn't desired
+        #     # args.orient, args.refine = True, True  # Todo make part of argparse?
+        #     # Move the oriented Entity.file_path (should be the ASU) to the respective directory
+        #     putils.make_path(job.refine_dir)
+        #     putils.make_path(job.full_model_dir)
+        #     # for entity in all_entities:
+        #     for entity in all_structures:
+        #         shutil.copy(entity.file_path, job.refine_dir)
+        #         shutil.copy(entity.file_path, job.full_model_dir)
+        #
+        #     # Report to JobResources the results after skipping set up
+        #     job.initial_refinement = job.initial_loop_model = True
+        # else:
+        #     preprocess_instructions, job.initial_refinement, job.initial_loop_model = \
+        #         job.structure_db.preprocess_structures_for_design(all_structures, script_out_path=job.sbatch_scripts)
+        #     if info_messages and preprocess_instructions:
+        #         info_messages += ['The following can be run at any time regardless of evolutionary script progress']
+        #     info_messages += preprocess_instructions
+        #
+        # if info_messages:
+        #     # Entity processing commands are needed
+        #     logger.critical(sbatch_warning)
+        #     for message in info_messages:
+        #         logger.info(message)
+        #     print('\n')
+        #     logger.info(resubmit_command_message)
+        #     terminate(output=False)
+        #     # After completion of sbatch, the next time command is entered program will proceed
+        # #     else:
+        # #         # We always prepare info_messages when jobs should be run
+        # #         raise utils.InputError("This shouldn't have happened. 'info_messages' can't be False here...")
 
         # # Ensure all_entities are symmetric.
         # FOR NOW, all orient_structures returns are the symmetrized structure
