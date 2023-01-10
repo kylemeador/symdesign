@@ -592,30 +592,29 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Grab all Poses (PoseJob instance) from either database, directory, project, single, or file
     # -----------------------------------------------------------------------------------------------------------------
-    all_poses: list[AnyStr] | None = None
+    file_paths: list[AnyStr] | None = None
     # pose_jobs hold jobs with specific poses
     # list[PoseJob] for an establishes pose
     # list[tuple[Structure, Structure]] for a nanohedra docking job
     pose_jobs: list[PoseJob] | list[tuple[Any, Any]] = []
     low = high = low_range = high_range = None
-    # Start with the assumption that we aren't loading resources
-    load_resources = False
+    logger.info(f'Setting up input for {job.module}')
     if initialize:
         if args.range:
             try:
                 low, high = map(float, args.range.split('-'))
-            except ValueError:  # we didn't unpack correctly
+            except ValueError:  # We didn't unpack correctly
                 raise ValueError('The input flag -r/--range argument must take the form "LOWER-UPPER"')
-            low_range, high_range = int((low / 100) * len(all_poses)), int((high / 100) * len(all_poses))
-            if low_range < 0 or high_range > len(all_poses):
-                raise ValueError('The input flag -r/--range argument is outside of the acceptable bounds [0-100]')
+            n_files = len(file_paths)
+            low_range, high_range = int((low/100) * n_files), int((high/100) * n_files)
+            if low_range < 0 or high_range > n_files:
+                raise ValueError('The input flag --range argument is outside of the acceptable bounds [0-100]')
             logger.info(f'Selecting poses within range: {low_range if low_range else 1}-{high_range}')
 
-        logger.info(f'Setting up input files for {job.module}')
         # if args.nanohedra_output:  # Nanohedra directory
-        #     all_poses, job.location = utils.collect_nanohedra_designs(files=args.file, directory=args.directory)
-        #     if all_poses:
-        #         first_pose_path = all_poses[0]
+        #     file_paths, job.location = utils.collect_nanohedra_designs(files=args.file, directory=args.directory)
+        #     if file_paths:
+        #         first_pose_path = file_paths[0]
         #         if first_pose_path.count(os.sep) == 0:
         #             job.nanohedra_root = args.directory
         #         else:
@@ -623,7 +622,7 @@ def main():
         #         if not job.sym_entry:  # Get from the Nanohedra output
         #             job.sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
         #         pose_jobs = [PoseJob.from_file(pose, project=project_name)
-        #                             for pose in all_poses[low_range:high_range]]
+        #                             for pose in file_paths[low_range:high_range]]
         #         # Copy the master nanohedra log
         #         project_designs = \
         #             os.path.join(job.projects, f'{os.path.basename(job.nanohedra_root)}')  # _{putils.pose_directory}')
@@ -693,10 +692,10 @@ def main():
                 #                                f'--{flags.directory} and use --{flags.poses}/'
                 #                                f'--{flags.specification_file} with pose IDs')
                 #     pose_jobs = [PoseJob.from_directory(pose, root=job.projects)
-                #                  for pose in all_poses[low_range:high_range]]
+                #                  for pose in file_paths[low_range:high_range]]
                 # else:
-                pose_jobs = [PoseJob.from_file(pose, project=project_name)
-                             for pose in all_poses[low_range:high_range]]
+                pose_jobs = [PoseJob.from_file(file, project=project_name)
+                             for file in file_paths[low_range:high_range]]
         if not pose_jobs:
             raise utils.InputError(f'No {putils.program_name} directories found at location "{job.location}"')
         # Check to see that proper files have been created including orient, refinement, loop modeling, hhblits, bmdca?
@@ -805,8 +804,7 @@ def main():
                             f'{representative_pose_job.log_path}')
 
     elif job.module == flags.nanohedra:
-        # Todo make current with sql ambitions
-        logger.info(f'Setting up inputs for {job.module.title()} docking')
+        # logger.info(f'Setting up inputs for {job.module.title()} docking')
         job.sym_entry.log_parameters()
         # # Make master output directory. sym_entry is required, so this won't fail v
         # if args.output_directory is None:
@@ -818,15 +816,17 @@ def main():
         # Set up variables for the correct parsing of provided file paths
         by_file1 = by_file2 = False
         eventual_structure_names1 = eventual_structure_names2 = None
+        idx = 1
         if args.oligomer1:
             by_file1 = True
             logger.critical(f'Ensuring provided file(s) at {args.oligomer1} are oriented for Nanohedra Docking')
             if '.pdb' in args.oligomer1:
                 pdb1_filepaths = [args.oligomer1]
             else:
-                pdb1_filepaths = utils.get_directory_file_paths(args.oligomer1, extension='.pdb*')
+                extension = '.pdb*'
+                pdb1_filepaths = utils.get_directory_file_paths(args.oligomer1, extension=extension)
                 if not pdb1_filepaths:
-                    logger.warning(f'Found no .pdb files at {args.oligomer1}')
+                    logger.warning(f'Found no {extension} files at {args.oligomer1}')
             # Set filepaths to structure_names, reformat the file paths to the file_name for structure_names
             structure_names1 = pdb1_filepaths
             eventual_structure_names1 = \
@@ -837,11 +837,10 @@ def main():
             # Make all names lowercase
             structure_names1 = list(map(str.lower, structure_names1))
         elif args.query_codes1:
-            args.save_query = validate_input_return_response_value(
+            save_query = validate_input_return_response_value(
                 'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
-
-            print('\nStarting PDB query for component 1\n')
-            structure_names1 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
+            print(f'\nStarting PDB query for component {idx}\n')
+            structure_names1 = retrieve_pdb_entries_by_advanced_query(save=save_query, entity=True)
             # Make all names lowercase
             structure_names1 = list(map(str.lower, structure_names1))
         else:
@@ -852,6 +851,7 @@ def main():
                                                                  by_file=by_file1))
         single_component_design = False
         structure_names2 = []
+        idx = 2
         if args.oligomer2:
             if args.oligomer1 != args.oligomer2:  # See if they are the same input
                 by_file2 = True
@@ -859,9 +859,10 @@ def main():
                 if '.pdb' in args.oligomer2:
                     pdb2_filepaths = [args.oligomer2]
                 else:
-                    pdb2_filepaths = utils.get_directory_file_paths(args.oligomer2, extension='.pdb*')
+                    extension = '.pdb*'
+                    pdb2_filepaths = utils.get_directory_file_paths(args.oligomer2, extension=extension)
                     if not pdb2_filepaths:
-                        logger.warning(f'Found no .pdb files at {args.oligomer2}')
+                        logger.warning(f'Found no {extension} files at {args.oligomer2}')
 
                 # Set filepaths to structure_names, reformat the file paths to the file_name for structure_names
                 structure_names2 = pdb2_filepaths
@@ -875,10 +876,10 @@ def main():
             # Make all names lowercase
             structure_names2 = list(map(str.lower, structure_names2))
         elif args.query_codes2:
-            args.save_query = validate_input_return_response_value(
+            save_query = validate_input_return_response_value(
                 'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
-            print('\nStarting PDB query for component 2\n')
-            structure_names2 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
+            print(f'\nStarting PDB query for component {idx}\n')
+            structure_names2 = retrieve_pdb_entries_by_advanced_query(save=save_query, entity=True)
             # Make all names lowercase
             structure_names2 = list(map(str.lower, structure_names2))
         else:
@@ -924,7 +925,8 @@ def main():
                 # We always prepare info_messages when jobs should be run
                 raise utils.InputError("This shouldn't have happened. info_messages can't be False here...")
 
-        # # Ensure all_entities are symmetric. As of now, all orient_structures returns are the symmetrized structure
+        # # Ensure all_entities are symmetric.
+        # FOR NOW, all orient_structures returns are the symmetrized structure
         # for entity in [entity for structure in all_structures for entity in structure.entities]:
         #     entity.make_oligomer(symmetry=entity.symmetry)
 
@@ -932,6 +934,7 @@ def main():
             structure_names1 = eventual_structure_names1
         if by_file2:
             structure_names2 = eventual_structure_names2
+
         # Make all possible structure pairs given input entities by finding entities from entity_names
         structures1 = []
         for structure_name in structure_names1:
@@ -996,6 +999,7 @@ def main():
             # utils.write_shell_script(list2cmdline(commands), name=flags.nanohedra, out_path=job.job_paths)
             terminate(results=commands)
     else:
+        raise RuntimeError(f"This wasn't expected to be possible")
         # This logic is possible with job.module as select_poses with --metric or --dataframe
         # job.location = os.path.basename(representative_pose_job.project)
         pass
@@ -1019,13 +1023,6 @@ def main():
     else:
         logger.info(f'Starting processing. To increase processing speed, '
                     f'use --{flags.multi_processing} during submission')
-    # if args.mpi:  # Todo implement
-    #     # extras = ' mpi %d' % CommmandDistributer.mpi
-    #     logger.info(
-    #         'Setting job up for submission to MPI capable computer. Pose trajectories run in parallel,'
-    #         ' %s at a time. This will speed up pose processing ~%f-fold.' %
-    #         (CommmandDistributer.mpi - 1, flags.nstruct / (CommmandDistributer.mpi - 1)))
-    #     queried_flags.update({'mpi': True, 'script': True})
 
     job.calculate_memory_requirements(len(pose_jobs))
     # -----------------------------------------------------------------------------------------------------------------
@@ -1288,7 +1285,7 @@ def main():
                 #     print('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
                 # else:
                 print(low_range, high_range)
-                print(all_poses)
+                print(file_paths)
                 for idx, file in enumerate(files[low_range:high_range], low_range + 1):
                     if args.name == 'original':
                         cmd.load(file)
@@ -1300,7 +1297,7 @@ def main():
             else:  # Fetch the specified protocol
                 protocol = getattr(protocols, flags.format_from_cmdline(job.module))
                 if job.development:
-                    if job.profile:
+                    if job.profile_memory:
                         if profile:
 
                             # Run the profile decorator from memory_profiler

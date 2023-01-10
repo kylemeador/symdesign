@@ -265,3 +265,7 @@ def setup_instructions():
         'setenv PYTHONPATH /yeates1/kmeador/symdesign:$PYTHONPATH'
 
     print(instructions)
+
+
+hhblits_setup_instructions = f'Follow the install directions by running {putils.install_hhsuite_exe} ' \
+                             f'or on the web at {putils.hhsuite_git}'

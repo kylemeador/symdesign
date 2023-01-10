@@ -23,15 +23,15 @@ from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementatio
 
 from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, query
+from symdesign.sequence import generate_alignment, generate_mutations, numeric_to_sequence, get_equivalent_indices, \
+    protein_letters_alph1, protein_letters_3to1_extended, protein_letters_1to3_extended
+from symdesign.utils import path as putils, sql
 from . import fragment
 from .base import Structure, Structures, Residue, StructureBase, atom_or_residue
 from .coords import Coords, superposition3d, transform_coordinate_sets
 from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type
 from .sequence import SequenceProfile, Profile, pssm_as_array, default_fragment_contribution, profile_types
-from ..sequence import generate_alignment, generate_mutations, numeric_to_sequence, get_equivalent_indices, \
-    protein_letters_alph1, protein_letters_3to1_extended, protein_letters_1to3_extended
 from .utils import DesignError, SymmetryError, ClashError, chain_id_generator
-from symdesign.utils import path as putils, sql
 
 # Globals
 logger = logging.getLogger(__name__)

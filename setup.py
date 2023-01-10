@@ -142,10 +142,8 @@ if __name__ == '__main__':
     hhsuite = subprocess.Popen()
     hhsuite.communicate()
 
-    print('Set up is complete! You can now use %s for design of protein interfaces generated using Nanohedra.'
-          % putils.program_name)
-    print('To design materials, navigate to your desired Nanohedra output directory and run the command %s for details'
-          % putils.program_exe)
+    print(f'Set up is now complete! {putils.program_name} is now operational. Run the command {putils.program_exe} for '
+          f'usage instructions or visit the github for more info "{putils.git_url}')
 
     # TODO Set up SymDesign.py and ProcessRosettaCommands.sh depending on status of PathUtils
     # Todo ensure that FreeSASA is built. May need to investigate this option

@@ -239,8 +239,8 @@ def distribute(file: AnyStr, scale: protocols_literal, out_path: AnyStr = os.get
     filename = os.path.join(out_path, f'{name}_{sbatch}.sh')
     with open(filename, 'w') as new_f:
         # Todo set up sbatch accordingly. Include a multiplier for the number of CPU's. Actually, might be passed
-        # if mpi:
-        #     do_mpi_stuff = True
+        #  if mpi:
+        #      do_mpi_stuff = True
         # grab and write sbatch template
         with open(sbatch_templates[scale]) as template_f:
             new_f.write(''.join(template_f.readlines()))
