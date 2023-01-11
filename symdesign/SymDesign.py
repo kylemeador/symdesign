@@ -752,62 +752,73 @@ def main():
         #         if not os.path.exists(os.path.join(project_designs, putils.master_log)):
         #             putils.make_path(project_designs)
         #             shutil.copy(os.path.join(job.nanohedra_root, putils.master_log), project_designs)
-        initialized = True
-        pose_identifiers = []
-        if args.specification_file:
-            # These poses are already included in the "program state"
-            if not args.directory:
-                raise utils.InputError(f'A --{flags.directory} must be provided when using '
-                                       f'--{flags.specification_file}')
-            # Todo, combine this with collect_designs
-            #  this works for file locations as well! should I have a separate mechanism for each?
-            designs = []
-            directives = []
-            for specification_file in args.specification_file:
-                # Returns list of _designs and _directives
-                _pose_identifiers, _designs, _directives = \
-                    zip(*utils.PoseSpecification(specification_file).get_directives())
-                pose_identifiers.extend(_pose_identifiers)
-                designs.extend(_designs)
-                directives.extend(_directives)
+        if args.poses or args.specification_file or args.project or args.single:
+            # Use sqlalchemy database selection to find the requested work
+            pose_identifiers = []
+            if args.specification_file:
+                # Todo no --file and --specification-file at the same time
+                # These poses are already included in the "program state"
+                if not args.directory:  # Todo react .directory to program operation inside or in dir with SymDesignOutput
+                    raise utils.InputError(f'A --{flags.directory} must be provided when using '
+                                           f'--{flags.specification_file}')
+                # Todo, combine this with collect_designs
+                #  this works for file locations as well! should I have a separate mechanism for each?
+                designs = []
+                directives = []
+                for specification_file in args.specification_file:
+                    # Returns list of _designs and _directives
+                    _pose_identifiers, _designs, _directives = \
+                        zip(*utils.PoseSpecification(specification_file).get_directives())
+                    pose_identifiers.extend(_pose_identifiers)
+                    designs.extend(_designs)
+                    directives.extend(_directives)
 
-            with job.db.session(expire_on_commit=False) as session:
-                fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
-                pose_jobs = list(session.scalars(fetch_jobs_stmt))
-                # pose_jobs = list(job.current_session.scalars(fetch_jobs_stmt))
-                for pose_job, _designs, _directives in zip(pose_jobs, designs, directives):
-                    pose_job.use_specific_designs(_designs, _directives)
+                with job.db.session(expire_on_commit=False) as session:
+                    fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
+                    pose_jobs = list(session.scalars(fetch_jobs_stmt))
+                    # pose_jobs = list(job.current_session.scalars(fetch_jobs_stmt))
+                    for pose_job, _designs, _directives in zip(pose_jobs, designs, directives):
+                        pose_job.use_specific_designs(_designs, _directives)
 
-            # for specification_file in args.specification_file:
-            #     pose_jobs.extend(
-            #         [PoseJob.from_directory(pose_identifier, root=job.projects,
-            #                                 specific_designs=designs,
-            #                                 directives=directives)
-            #          for pose_identifier, designs, directives in
-            #          utils.PoseSpecification(specification_file).get_directives()])
-            job.location = args.specification_file
-        elif args.poses:
-            if not args.directory:  # Todo react .directory to program operation inside or in dir with SymDesignOutput
-                raise utils.InputError(f'A --{flags.directory} must be provided when using '
-                                       f'--{flags.specification_file}')
+                # for specification_file in args.specification_file:
+                #     pose_jobs.extend(
+                #         [PoseJob.from_directory(pose_identifier, root=job.projects,
+                #                                 specific_designs=designs,
+                #                                 directives=directives)
+                #          for pose_identifier, designs, directives in
+                #          utils.PoseSpecification(specification_file).get_directives()])
+                job.location = args.specification_file
+            elif args.poses:  # Todo combine with above?
+                if not args.directory:  # Todo react .directory to program operation inside or in dir with SymDesignOutput
+                    raise utils.InputError(f'A --{flags.directory} must be provided when using '
+                                           f'--{flags.specification_file}')
 
-            for specification_file in args.poses:
-                # Returns list of _designs and _directives
-                pose_identifiers.extend(utils.PoseSpecification(specification_file).pose_identifiers)
+                for specification_file in args.poses:
+                    # Returns list of _designs and _directives
+                    pose_identifiers.extend(utils.PoseSpecification(specification_file).pose_identifiers)
 
-            with job.db.session(expire_on_commit=False) as session:
-                fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
-                pose_jobs = list(session.scalars(fetch_jobs_stmt))
+                with job.db.session(expire_on_commit=False) as session:
+                    fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
+                    pose_jobs = list(session.scalars(fetch_jobs_stmt))
 
-            job.location = args.poses
-        else:
-            all_poses, job.location = utils.collect_designs(files=args.file, directory=args.directory,
-                                                            projects=args.project, singles=args.single)
-            # Todo this is sloppy logic as the collect_designs could get existing files.
-            #  They just need to be checked against the PoseMetadata
-            initialized = False
-            if all_poses:
-                # if all_poses[0].count(os.sep) == 0:  # Check to ensure -f wasn't used when -pf was meant
+                job.location = args.poses
+            elif args.project:
+                with job.db.session(expire_on_commit=False) as session:
+                    fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.in_(args.project))
+                    pose_jobs = list(session.scalars(fetch_jobs_stmt))
+
+                job.location = args.project
+
+            # Check all jobs that were checked out against those that were requested
+            checked_out_identifiers = {pose_job.pose_identifier for pose_job in pose_jobs}
+            missing_input_identifiers = checked_out_identifiers.difference(pose_identifiers)
+            if missing_input_identifiers:
+                logger.warning("Couldn't find the following identifiers:\n%s" % '\n'.join(missing_input_identifiers))
+        else:  # args.file or args.directory
+            file_paths, job.location = utils.collect_designs(files=args.file, directory=args.directory)
+            #                                                 projects=args.project, singles=args.single)
+            if file_paths:
+                # if file_paths[0].count(os.sep) == 0:  # Check to ensure -f wasn't used when -pf was meant
                 #     # Assume that we have received pose-IDs and process accordingly
                 #     if not args.directory:
                 #         raise utils.InputError('Your input specification appears to be pose IDs, however no '
