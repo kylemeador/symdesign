@@ -992,12 +992,23 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         """Initialize an Entity from Chain instances"""
         return cls(chains=chains, **kwargs)
 
+    # @classmethod
+    # def from_metadata(cls, chains: list[Chain] | Structures, metadata: EntityData, **kwargs):
+    #     """Initialize an Entity from a set of Chain objects and EntityData"""
+    #     return cls(chains=chains, metadata=metadata, **kwargs)
+
     # @classmethod  # Todo implemented above, but clean here to mirror Model?
     # def from_file(cls):
     #     return cls()
 
-    def __init__(self, chains: list[Chain] | Structures = None, dbref: dict[str, str] = None,
-                 reference_sequence: str = None, thermophilic: bool = None, **kwargs):
+    def __init__(self, chains: list[Chain] | Structures = None,
+                 metadata: sql.ProteinMetadata = None,
+                 uniprot_ids: tuple[str, ...] = None,
+                 # uniprot_id: str = None,
+                 # dbref: dict[str, str] = None,
+                 # Todo remove self.thermophilic once sql load more streamlined
+                 thermophilic: bool = None,
+                 reference_sequence: str = None, **kwargs):
         """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated"""
         self._captain = None
         self._chain_transforms = []
@@ -1007,14 +1018,21 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         self.max_symmetry = None
         self.max_symmetry_chain = None
         self.rotation_d = {}  # Maps mate entities to their rotation matrix
-        # if isinstance(metadata, EntityMetadata):
-        #     self.__dict__.update(metadata.__dict__)
-        # else:
-        if reference_sequence is not None:
-            self._reference_sequence = reference_sequence
-        self.thermophilic = thermophilic
-        if dbref is not None:
-            self.uniprot_id = dbref
+        if metadata is None:
+            # self.__dict__.update(metadata.__dict__)
+            if reference_sequence is not None:
+                self._reference_sequence = reference_sequence
+            # Todo remove self.thermophilic once sql load more streamlined
+            self.thermophilic = thermophilic
+            if uniprot_ids is not None:
+                self.uniprot_ids = uniprot_ids
+        else:
+            if metadata.reference_sequence is not None:
+                self._reference_sequence = metadata.reference_sequence
+            # Todo remove self.thermophilic once sql load more streamlined
+            self.thermophilic = metadata.thermophilic
+            if metadata.uniprot_entities is not None:
+                self.uniprot_ids = tuple(entity.uniprot_id for entity in metadata.uniprot_entities)
 
         # Set up chain information if Chain instances provided for Structure.__init__()
         if chains:  # Instance was initialized with .from_chains()
