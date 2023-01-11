@@ -762,11 +762,13 @@ class JobResources:
             putils.make_path(self.sequences)
             putils.make_path(self.profiles)
 
-    def setup_evolution_constraint(self, all_entities: Iterable[structure.sequence.SequenceProfile]) -> list[str]:
+    def setup_evolution_constraint(self, uniprot_entities: Iterable[sql.UniProtEntity] = None,
+                                   entities: Iterable[structure.sequence.SequenceProfile] = None) -> list[str]:
         """Format the job with evolutionary constraint options
 
         Args:
-            all_entities: A list of the Entity instances initialized for the Job
+            uniprot_entities: A list of the UniProtIDs for the Job
+            entities: A list of the Entity instances initialized for the Job
         Returns:
             A list evolutionary setup instructions
         """
@@ -774,26 +776,40 @@ class JobResources:
         hhblits_cmds, bmdca_cmds = [], []
         # Set up sequence data using hhblits and profile bmDCA for each input entity
         putils.make_path(self.sequences)
-        for entity in all_entities:
-            entity.sequence_file = self.api_db.sequences.retrieve_file(name=entity.name)
-            if not entity.sequence_file:
-                entity.write_sequence_to_fasta('reference', out_dir=self.sequences)
-            else:
-                entity.evolutionary_profile = self.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-                # entity.h_fields = self.api_db.bmdca_fields.retrieve_data(name=entity.name)
-                # TODO reinstate entity.j_couplings = self.api_db.bmdca_couplings.retrieve_data(name=entity.name)
-            if not entity.evolutionary_profile:
-                # To generate in current runtime
-                # entity.add_evolutionary_profile(out_dir=self.api_db.hhblits_profiles.location)
-                # To generate in a sbatch script
-                # profile_cmds.append(entity.hhblits(out_dir=self.profiles, return_command=True))
-                hhblits_cmds.append(entity.hhblits(out_dir=self.profiles, return_command=True))
-            # TODO reinstate
-            # before this is run, hhblits must be run and the file located at profiles/entity-name.fasta contains
-            # the multiple sequence alignment in .fasta format
-            #  if not entity.j_couplings:
-            #    bmdca_cmds.append([putils.bmdca_exe_path, '-i', os.path.join(self.profiles, f'{entity.name}.fasta'),
-            #                       '-d', os.path.join(self.profiles, f'{entity.name}_bmDCA')])
+        if uniprot_entities:
+            for uniprot_entity in uniprot_entities:
+                hhblits_cmds.append(hhblits(uniprot_entity.id,
+                                            sequence=uniprot_entity.reference_sequence,
+                                            threads=self.threads,
+                                            return_command=True))
+                # TODO reinstate
+                #  Solve .h_fields/.j_couplings
+                # # Before this is run, hhblits must be run and the file located at profiles/entity-name.fasta contains
+                # # the multiple sequence alignment in .fasta format
+                # bmdca_cmds.append([putils.bmdca_exe_path,
+                #                    '-i', os.path.join(self.profiles, f'{uniprot_entity.id}.fasta'),
+                #                    '-d', os.path.join(self.profiles, f'{uniprot_entity.id}_bmDCA')])
+        else:
+            for entity in entities:
+                entity.sequence_file = self.api_db.sequences.retrieve_file(name=entity.name)
+                if not entity.sequence_file:
+                    entity.write_sequence_to_fasta('reference', out_dir=self.sequences)
+                else:
+                    entity.evolutionary_profile = self.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+                    # TODO reinstate
+                    #  entity.h_fields = self.api_db.bmdca_fields.retrieve_data(name=entity.name)
+                    #  entity.j_couplings = self.api_db.bmdca_couplings.retrieve_data(name=entity.name)
+                if not entity.evolutionary_profile:
+                    # To generate in current runtime
+                    # entity.add_evolutionary_profile(out_dir=self.api_db.hhblits_profiles.location)
+                    # To generate in a sbatch script
+                    hhblits_cmds.append(entity.hhblits(out_dir=self.profiles, return_command=True))
+                # TODO reinstate
+                # # Before this is run, hhblits must be run and the file located at profiles/entity-name.fasta contains
+                # # the multiple sequence alignment in .fasta format
+                #  if not entity.j_couplings:
+                #    bmdca_cmds.append([putils.bmdca_exe_path, '-i', os.path.join(self.profiles, f'{entity.name}.fasta'),
+                #                       '-d', os.path.join(self.profiles, f'{entity.name}_bmDCA')])
 
         if hhblits_cmds:
             if not os.access(putils.hhblits_exe, os.X_OK):
@@ -833,7 +849,7 @@ class JobResources:
             # bmdca_cmds = \
             #     [list2cmdline([putils.bmdca_exe_path, '-i', os.path.join(self.profiles, '%s.fasta' % entity.name),
             #                   '-d', os.path.join(self.profiles, '%s_bmDCA' % entity.name)])
-            #      for entity in all_entities.values()]
+            #      for entity in entities.values()]
             bmdca_cmd_file = \
                 utils.write_commands(bmdca_cmds, name=f'{utils.starttime}-bmDCA', out_path=self.profiles)
             bmdca_sbatch = utils.CommandDistributer.distribute(file=bmdca_cmd_file, out_path=self.sbatch_scripts,
