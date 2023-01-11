@@ -318,15 +318,18 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     # _design_indices: list[int]
     # _fragment_observations: list[fragment.db.fragment_info_type]
     _design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict
-    _designed_sequences: list[Sequence]
-    _entity_names: list[str]
-    _fragment_observations: list[fragment.db.fragment_info_type]
-    _number_of_designs: int
-    _pose_id_: int
-    _pose_transformation: list[transformation_mapping]
-    _pre_refine: bool
-    _pre_loop_model: bool
-    _symmetry_definition_files: list[AnyStr]
+    _sym_entry: SymEntry
+    # _entity_names: list[str]
+    # _pose_transformation: list[transformation_mapping]
+    # _pre_loop_model: bool  # DB
+    # _pre_refine: bool  # DB
+    # entity_data: list[EntityData]  # DB
+    # name: str  # DB
+    # project: str  # DB
+    # pose_identifier: str  # DB
+    # """The identifier which is created by a concatenation of the project, os.sep, and name"""
+    # id: int  # DB
+    # """The database row id for the 'pose_metadata' table"""
     _source: AnyStr
     _directives: list[dict[int, str]]
     _specific_designs: Sequence[str]
@@ -741,6 +744,11 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             self.directives = directives
         # else:
         #     self.directives = []
+
+    def load_initial_model(self):
+        """Parse the Structure at the source_path attribute"""
+        if self.initial_model is None:
+            self.initial_model = Model.from_file(self.source_path, log=self.log)
 
     @property
     def directives(self) -> list[dict[int, str]]:
