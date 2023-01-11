@@ -339,6 +339,7 @@ class EntityData(Base):
     # Set up one-to-one relationship with entity_transform table
     _transform = relationship('EntityTransform', back_populates='entity', uselist=False,
                               lazy='selectin')
+    # transformation = association_proxy('_transform', 'transformation')
     # # Set up many-to-many relationship with pose_metadata table
     # poses = relationship('PoseMetadata', secondary='pose_entity_association',
     #                      back_populates='entity_data')
@@ -357,6 +358,10 @@ class EntityData(Base):
     def uniprot_ids(self):
         # return [entity.uniprot_id for entity in self.meta.uniprot_entities]
         return self.meta.uniprot_ids
+
+    @property
+    def transformation(self):
+        return self._transform.transformation
 
     # @property
     # def uniprot_id(self):

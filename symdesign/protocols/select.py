@@ -346,7 +346,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
             results = {pose_job: design for pose_job, design in loc_result}
         else:  # elif job.designs_per_pose:
             logger.info(f'Choosing up to {job.number} designs, with {job.designs_per_pose} designs per pose')
-            number_chosen = count(0)
+            number_chosen = count(1)
             selected_poses = {}
             for pose_job, design in selected_designs:
                 _designs = selected_poses.get(pose_job, None)
