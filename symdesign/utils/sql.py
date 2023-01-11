@@ -81,6 +81,7 @@ class PoseMetadata(Base):
     transformations = association_proxy('entity_data', 'transformation')
 
     # State
+    source_path = Column(String)
     _pre_refine = Column('pre_refine', Boolean, default=True)
     _pre_loop_model = Column('pre_loop_model', Boolean, default=True)
     # Symmetry

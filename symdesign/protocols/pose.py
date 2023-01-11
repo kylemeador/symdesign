@@ -341,7 +341,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     """Contains the Pose object"""
     protocol: str = None
     """The name of the currently utilized protocol for file naming and metric results"""
-    source_path: str = None
+    source_path: str | None
     specific_designs_file_paths: list[AnyStr] = []
     """Contains the various file paths for each design of interest according to self.specific_designs"""
 
