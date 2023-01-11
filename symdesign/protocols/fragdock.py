@@ -33,7 +33,7 @@ from symdesign.structure.sequence import concatenate_profile, pssm_as_array
 from symdesign.structure.utils import chain_id_generator
 from symdesign.sequence import protein_letters_alph1
 from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
-from symdesign.utils.sql import ResidueMetrics, PoseMetrics
+from symdesign.utils.sql import ResidueMetrics, PoseMetrics, EntityTransform, EntityData
 from symdesign.utils.symmetry import generate_cryst1_record, identity_matrix
 putils = utils.path
 
@@ -350,6 +350,10 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                                     for chain in entity.chains], name=model.name, log=logger)
         _model.file_path = model.file_path
         _model.fragment_db = job.fragment_db
+        # Ensure we pass the .metadata attribute to each entity in the full assembly
+        # This is crucial for sql usage
+        for _entity, entity in zip(_model, model):
+            _entity.metadata = entity.metadata
         models[idx] = _model
 
     # Todo figure out for single component
@@ -1770,6 +1774,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                               sym_entry=sym_entry, surrounding_uc=job.output_surrounding_uc,
                               fragment_db=job.fragment_db, ignore_clashes=True, rename_chains=True)
 
+    # Ensure we pass the .metadata attribute to each entity in the full assembly
+    # This is crucial for sql usage
+    entity_idx = count(0)
+    for model in models:
+        for entity in model.entities:
+            pose.entities[next(entity_idx)].metadata = entity.metadata
     # entity_energies = tuple(0. for _ in pose.entities)
 
     # Define functions for updating the single Pose instance coordinates
@@ -3818,7 +3828,53 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                     **pose.calculate_metrics(),  # Also calculates entity.metrics
                     # 'interface_local_density': pose.local_density_interface(),  # Todo STRUCTURE?
                     'dock_collapse_violation': collapse_violation[idx],
-                }
+                })
+
+                # Update the EntityData with transformations
+                external_translation_x1, external_translation_y1, external_translation_z1 = _full_ext_tx1[idx]
+                external_translation_x2, external_translation_y2, external_translation_z2 = _full_ext_tx2[idx]
+                # pose_transformations[pose_id] = [
+                # pose_transformations.append([
+                entity_transformations = [
+                    dict(rotation_z=rotation_degrees1[idx],  # 1
+                         internal_translation_z=z_heights1[idx],  # 1
+                         setting_matrix=set_mat1_number,  # 1
+                         external_translation_x=external_translation_x1,  # 1
+                         external_translation_y=external_translation_y1,  # 1
+                         external_translation_z=external_translation_z1,  # 1
+                         ),
+                    dict(rotation_z=rotation_degrees2[idx],  # 2
+                         internal_translation_z=z_heights2[idx],  # 2
+                         setting_matrix=set_mat2_number,  # 2
+                         external_translation_x=external_translation_x2,  # 2
+                         external_translation_y=external_translation_y2,  # 2
+                         external_translation_z=external_translation_z2)  # 2
+                ]
+                # for entity, entity_transformation in zip(pose.entities, entity_transformations):
+                #     # Todo entity.metrics.add_transformation(entity_transformation)
+                #     for key, value in entity_transformation.items():
+                #         # setattr(entity.metrics, key, value)
+                #         setattr(entity_data.transform, key, value)
+                #
+                # # Update the PoseJob with EntityMetrics
+                # pose_job.entity_metrics.extend([entity.metrics for entity in pose.entities])
+
+                # Update EntityData
+                # pose_id = pose_job.id
+                # entity_data = []
+                # Todo the number of entities and the number of transformations could be different
+                for entity, transform in zip(pose.entities, entity_transformations):
+                    # entity_data.metrics = entity.metrics
+                    # entity_data.transform = EntityTransform(**transform)
+                    # entity_data.append(EntityData(
+                    EntityData(
+                        pose=pose_job,
+                        metadata=entity.metadata,
+                        metrics=entity.metrics,
+                        transform=EntityTransform(**transform))
+
+                # # Update the PoseJob with EntityData
+                # pose_job.entity_data.extend(entity_data)
 
                 # if job.design.sequences:
                 if job.dock.proteinmpnn_score:
@@ -4210,13 +4266,15 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     project_str = f'{project}/'
     project_pose_names = [f'{project_str}{pose_name}' for pose_name in pose_names]
     # return [PoseJob.from_file(file, entity_names=entity_names,
-    #                                           pose_transformation=create_specific_transformation(idx))
+    #                           pose_transformation=create_specific_transformation(idx))
     # return [PoseJob.from_pose_id(pose_id, entity_names=entity_names,
-    entity_names = [entity.name for model in models for entity in model.entities]
+    # entity_names = [entity.name for model in models for entity in model.entities]
     # with job.db.session(expire_on_commit=False) as session:
     pose_jobs = [PoseJob.from_name(pose_name, project=project,
-                                   entity_names=entity_names,
-                                   pose_transformation=create_specific_transformation(idx))
+                                   # entity_metadata=entity_metadata,
+                                   # entity_names=entity_names,
+                                   # pose_transformation=create_specific_transformation(idx)
+                                   )
                  for idx, pose_name in enumerate(pose_names)]
     # Commit all new PoseJobs to the current session to generate ids
     session = job.current_session

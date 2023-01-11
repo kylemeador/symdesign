@@ -230,6 +230,22 @@ class PoseDirectory:
             self._symmetry_definition_files = sorted(glob(os.path.join(self.data_path, '*.sdf')))
             return self._symmetry_definition_files
 
+    # @property
+    # def entity_names(self) -> list[str]:
+    #     """Provide the names of all Entity instances in the PoseJob"""
+    #     try:
+    #         return self._entity_names
+    #     except AttributeError:  # Get from the pose state
+    #         self._entity_names = self.info.get('entity_names', [])
+    #         return self._entity_names
+    #
+    # @entity_names.setter
+    # def entity_names(self, names: list):
+    #     if isinstance(names, Sequence):
+    #         self._entity_names = self.info['entity_names'] = list(names)
+    #     else:
+    #         raise ValueError(f'The attribute entity_names must be a Sequence of str, not {type(names).__name__}')
+
     @property
     def designed_sequences(self) -> list[Sequence]:
         """Return the designed sequences for the entire Pose associated with the PoseJob"""
@@ -488,10 +504,11 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     except IndexError:  # glob found no files
                         self.source_path = None
 
-    def __init__(self, name: str = None, project: str = None, source_path: AnyStr = None,
-                 # pose_identifier: bool = False, initialized: bool = True,
-                 pose_transformation: Sequence[transformation_mapping] = None, entity_names: Sequence[str] = None,
-                 specific_designs: Sequence[str] = None, directives: list[dict[int, str]] = None, **kwargs):
+    def __init__(self, name: str = None, project: str = None, source_path: AnyStr = None, **kwargs):
+                 # pose_transformation: Sequence[transformation_mapping] = None,
+                 # entity_metadata: list[sql.EntityData] = None,
+                 # entity_names: Sequence[str] = None,
+                 # specific_designs: Sequence[str] = None, directives: list[dict[int, str]] = None, **kwargs):
         # pose_identifier: bool = False, initialized: bool = True,
 
         # PoseJob attributes
@@ -587,18 +604,24 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             """The SymEntry entry number"""
         if self.job.design_selector:
             self.design_selector = self.job.design_selector
-        if not entity_names:  # None were provided at start up, find them
-            # Load the Structure source_path and extract the entity_names from the Structure
-            # if self.job.nanohedra_output:
-            #     entity_names = get_components_from_nanohedra_docking(self.pose_file)
-            # else:
-            self.initial_model = Model.from_file(self.source_path)  # , log=self.log)
-            self.entity_names = [entity.name for entity in self.initial_model.entities]
-        else:
-            self.entity_names = entity_names
-
-        if pose_transformation:
-            self.pose_transformation = pose_transformation
+        # # if not entity_names:  # None were provided at start up, find them
+        # if not entity_metadata:  # None provided at start up
+        #     # Load the Structure source_path and extract the entity_names from the Structure
+        #     # if self.job.nanohedra_output:
+        #     #     entity_names = get_components_from_nanohedra_docking(self.pose_file)
+        #     # else:
+        #     self.load_initial_model()
+        #     entity_names = [entity.name for entity in self.initial_model.entities]
+        #     # Todo is this efficient? NO! needs to be ProteinMetadata?!
+        #     entity_stmt = select(sql.EntityData).where(sql.EntityData.name.in_(entity_names))
+        #     rows = self.job.db.current_session.scalars(entity_stmt)
+        #     self.entity_data.extend(rows)
+        # else:
+        #     # self.entity_names = entity_names
+        #     self.entity_data = entity_metadata
+        #
+        # if pose_transformation:
+        #     self.pose_transformation = pose_transformation
 
         # else:  # This has been initialized, gather state data
         #     try:
@@ -786,26 +809,11 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     def pose_kwargs(self) -> dict[str, Any]:
         """Returns the kwargs necessary to initialize the Pose"""
         return dict(sym_entry=self.sym_entry, log=self.log, design_selector=self.design_selector,
-                    entity_names=self.entity_names, transformations=self.pose_transformation,
-                    # pass names ^ if available
+                    # entity_metadata=self.entity_data,
+                    entity_names=[data.meta.entity_id for data in self.entity_data],  #self.entity_names,
+                    transformations=self.pose_transformation,
                     ignore_clashes=self.job.design.ignore_pose_clashes, fragment_db=self.job.fragment_db)
         #             api_db=self.job.api_db,
-
-    @property
-    def entity_names(self) -> list[str]:
-        """Provide the names of all Entity instances in the PoseJob"""
-        try:
-            return self._entity_names
-        except AttributeError:  # Get from the pose state
-            self._entity_names = self.info.get('entity_names', [])
-            return self._entity_names
-
-    @entity_names.setter
-    def entity_names(self, names: list):
-        if isinstance(names, Sequence):
-            self._entity_names = self.info['entity_names'] = list(names)
-        else:
-            raise ValueError(f'The attribute entity_names must be a Sequence of str, not {type(names).__name__}')
 
     @property
     def pose_transformation(self) -> list[transformation_mapping]:
@@ -1156,7 +1164,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         # self.entities.clear()
         entities = []
-        for name in self.entity_names:
+        # for name in self.entity_names:
+        for data in self.entity_data:
+            name = data.name
             source_preference_iter = iter(source_preference)
             # Discard however many sources are unwanted (source_idx number)
             for it in range(source_idx):
@@ -1202,8 +1212,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #     self.pre_loop_model = True
 
         # self.log.debug(f'{len(entities)} matching entities found')
-        if len(entities) != len(self.entity_names):  # Todo need to make len(self.symmetry_groups) from SymEntry
-            raise RuntimeError(f'Expected {len(entities)} entities, but found {len(self.entity_names)}')
+        if len(entities) != len(self.entity_data):
+            raise RuntimeError(f'Expected {len(entities)} entities, but found {len(self.entity_data)}')
 
         return entities
         # else:  # Todo not reachable. Consolidate this with above as far as iterative mechanism
@@ -1301,11 +1311,11 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             # If we have an empty list for the pose_transformation, save the identified transformations from the Pose
             if not self.pose_transformation:
                 self.pose_transformation = self.pose.entity_transformations
-        # Then modify numbering to ensure standard and accurate use during protocols
-        # self.pose.pose_numbering()
-        if not self.entity_names:  # Store the entity names if they were never generated
-            self.entity_names = [entity.name for entity in self.pose.entities]
-            self.log.info(f'Input Entities: {", ".join(self.entity_names)}')
+        # # Then modify numbering to ensure standard and accurate use during protocols
+        # # self.pose.pose_numbering()
+        # if not self.entity_names:  # Store the entity names if they were never generated
+        #     self.entity_names = [entity.name for entity in self.pose.entities]
+        #     self.log.info(f'Input Entities: {", ".join(self.entity_names)}')
 
         # Save renumbered PDB to clean_asu.pdb
         if not self.asu_path or not os.path.exists(self.asu_path) or self.job.force:
@@ -1643,9 +1653,9 @@ class PoseProtocol(PoseData):
             The formatted command for every Entity in the Pose
         """
         # self.entity_names not dependent on Pose load
-        if len(self.entity_names) == 1:  # There is no unbound state to query as only one entity
+        if len(self.entity_data) == 1:  # There is no unbound state to query as only one entity
             return []
-        if len(self.symmetry_definition_files) != len(self.entity_names) or self.job.force:
+        if len(self.symmetry_definition_files) != len(self.entity_data) or self.job.force:
             for entity in self.pose.entities:
                 if entity.is_oligomeric():  # make symmetric energy in line with SymDesign energies v
                     entity.make_sdf(out_path=self.data_path,
@@ -1656,7 +1666,8 @@ class PoseProtocol(PoseData):
                                 os.path.join(self.data_path, f'{entity.name}.sdf'))
 
         entity_metric_commands = []
-        for idx, name in enumerate(self.entity_names, 1):
+        for idx, data in enumerate(self.entity_data, 1):
+            name = data.name
             if self.is_symmetric():
                 entity_sdf = f'sdf={os.path.join(self.data_path, f"{name}.sdf")}'
                 entity_sym = 'symmetry=make_point_group'
