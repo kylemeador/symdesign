@@ -16,11 +16,11 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 from symdesign import utils as utils
-from symdesign.structure.sequence import profile_dictionary
 from symdesign.third_party.DnaChisel.dnachisel import reverse_translate, DnaOptimizationProblem, CodonOptimize, \
     EnforceGCContent, AvoidHairpins, AvoidPattern, UniquifyAllKmers, AvoidRareCodons, EnforceTranslation
 # from symdesign.utils import path as putils
 putils = utils.path
+
 
 # Globals
 zero_offset = 1
@@ -101,6 +101,17 @@ alphabet_to_type = {'ACDEFGHIKLMNPQRSTVWY': protein_letters_alph1,
                     'ARNDCQEGHILKMFPSTWYVX': protein_letters_alph3_unknown,
                     'ACDEFGHIKLMNPQRSTVWYX-': protein_letters_alph1_unknown_gapped,
                     'ARNDCQEGHILKMFPSTWYVX-': protein_letters_alph3_unknown_gapped}
+alignment_programs_literal = Literal['hhblits', 'psiblast']
+alignment_programs: tuple[str, ...] = get_args(alignment_programs_literal)
+profile_types = Literal['evolutionary', 'fragment', '']
+lod_dictionary: dict[protein_letters_literal, int]
+profile_values: float | str | lod_dictionary
+profile_keys = Literal[protein_letters_literal, 'lod', 'type', 'info', 'weight']
+profile_entry: Type[dict[profile_keys, profile_values]]
+profile_dictionary: Type[dict[int, dict[profile_keys, profile_values]]]
+"""{1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
+        'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
+"""
 
 
 def create_translation_tables(alphabet_type: alphabet_types) -> defaultdict:
@@ -351,7 +362,10 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
         elif isinstance(sequences, dict):
             formatted_sequence_gen = (f'{start}{name}{sep}{"".join(seq)}' for name, seq in sequences.items())
         elif isinstance(sequences, tuple):  # Where seq[0] is name, seq[1] is seq
-            name, seq, *_ = sequences
+            try:
+                name, seq, *_ = sequences
+            except ValueError:
+                raise ValueError(f"When using a tuple, expected that the tuple contain (name, sequence) pairs")
             formatted_sequence_gen = (f'{start}{name}{sep}{seq}',)
         elif isinstance(names, str):  # Assume sequences is a str or tuple
             formatted_sequence_gen = (f'{start}{names}{sep}{"".join(sequences)}',)
@@ -397,7 +411,7 @@ def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[s
         if sequence is None:
             raise ValueError(f"Can't perform {hhblits.__name__} without a 'sequence_file' or a 'sequence'")
         else:
-            sequence_file = write_sequences(sequence, file_name=os.path.join(out_dir, f'{name}.seq'))
+            sequence_file = write_sequences((name, sequence), file_name=os.path.join(out_dir, f'{name}.seq'))
     pssm_file = os.path.join(out_dir, f'{name}.hmm')
     a3m_file = os.path.join(out_dir, f'{name}.a3m')
     # Todo for higher performance set up https://www.howtoforge.com/storing-files-directories-in-memory-with-tmpfs

@@ -354,7 +354,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
                     if len(_designs) >= job.designs_per_pose:
                         # We already have too many, continue with search. No need to check as no addition
                         continue
-                    selected_poses[pose_job].append(design)
+                    _designs.append(design)
                 else:
                     selected_poses[pose_job] = [design]
 
@@ -607,7 +607,7 @@ def sequences(pose_jobs: list[PoseJob]):
                     sequences_and_tags[design_string] = {'sequence': formatted_design_sequence, 'tag': {}}
                     continue
 
-                if not selected_tag:  # find compatible tags from matching PDB observations
+                if not selected_tag:  # Find compatible tags from matching PDB observations
                     uniprot_id = source_entity.uniprot_id
                     uniprot_id_matching_tags = tag_sequences.get(uniprot_id, None)
                     if not uniprot_id_matching_tags:

@@ -16,8 +16,9 @@ from sqlalchemy.orm import sessionmaker, Session
 
 from symdesign import flags, sequence, structure, utils
 from symdesign.resources import structure_db, wrapapi
+from symdesign.sequence import hhblits
 from symdesign.structure.fragment import db
-from symdesign.utils import CommandDistributer, SymEntry, InputError, path as putils
+from symdesign.utils import CommandDistributer, guide, SymEntry, InputError, path as putils, sql
 
 logger = logging.getLogger(__name__)
 

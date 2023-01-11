@@ -282,7 +282,8 @@ path_to_sym_utils = os.path.join(os.path.dirname(__file__), sym_utils_file)
 # help and warnings
 git_url = 'https://github.com/kylemeador/symdesign'
 git_issue_url = 'https://github.com/kylemeador/symdesign/issues'
-issue_submit_warning = f'If problems still persist please submit an issue {git_issue_url}'
+issue_submit_warning = f' If problems still persist please submit an issue at {git_issue_url}'
+report_issue = f' Please report this at {git_issue_url}'
 
 # Todo place this is a config file or something similar
 logging_cfg = {

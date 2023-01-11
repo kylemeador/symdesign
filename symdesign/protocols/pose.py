@@ -25,12 +25,14 @@ import pandas as pd
 import sklearn as skl
 from cycler import cycler
 from scipy.spatial.distance import pdist, cdist
+# from sqlalchemy import select
+# from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import reconstructor
 
 from symdesign import flags, metrics, resources
 from symdesign.structure import fragment
 from symdesign.structure.base import Structure
-from symdesign.structure.model import Pose, Models, Model, Entity, transformation_mapping
+from symdesign.structure.model import Pose, Models, Model, Entity
 from symdesign.structure.sequence import sequence_difference, MultipleSequenceAlignment, pssm_as_array, \
     concatenate_profile, sequences_to_numeric
 from symdesign.sequence import read_fasta_file, write_sequences, protein_letters_3to1
@@ -41,6 +43,7 @@ from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_
 # from symdesign.utils.nanohedra.general import get_components_from_nanohedra_docking
 
 # Globals
+transformation_mapping: dict[str, list[float] | list[list[float]] | np.ndarray]
 logger = logging.getLogger(__name__)
 pose_logger = start_log(name='pose', handler_level=3, propagate=True)
 zero_offset = 1
@@ -66,7 +69,14 @@ class PoseDirectory:
     name: str
     # pose_file: str | Path
 
-    def __init__(self, directory: AnyStr = None, output_modifier: AnyStr = None, **kwargs):
+    def __init__(self, directory: AnyStr = None, output_modifier: AnyStr = None, initial: bool = False, **kwargs):
+        """
+
+        Args:
+            directory:
+            output_modifier:
+            initial:
+        """
         if directory is not None:
             self.out_directory = directory
             # PoseDirectory attributes. Set after finding correct path
@@ -482,13 +492,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                  # pose_identifier: bool = False, initialized: bool = True,
                  pose_transformation: Sequence[transformation_mapping] = None, entity_names: Sequence[str] = None,
                  specific_designs: Sequence[str] = None, directives: list[dict[int, str]] = None, **kwargs):
-        # if pose_name and root is not None:
-        #     # self.pose_string_to_path(root, design_path)  # sets self.out_directory
-        #     # if self.job.nanohedra_output:
-        #     #     self.out_directory = os.path.join(root, design_path.replace('-', os.sep))
-        #     # else:
-        #     self.source_path = self.out_directory = os.path.join(self.job.projects, design_path)
-        # else:
+        # pose_identifier: bool = False, initialized: bool = True,
 
         # PoseJob attributes
         self.name = name
@@ -1138,7 +1142,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Returns:
             The list of Entity instances that belong to this PoseData
         """
-        # Todo change to rely on EntityMetadata
+        # Todo change to rely on EntityData
         source_preference = ['refined', 'oriented_asu', 'design']
         # Todo once loop_model works 'full_models'
         # if self.job.structure_db:
@@ -1469,12 +1473,12 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         self.pickle_info()  # Todo remove once PoseJob state can be returned to the SymDesign dispatch w/ MP
 
     def __key(self) -> str:
-        return self.name
+        return self.pose_identifier
 
     def __eq__(self, other) -> bool:
-        if isinstance(other, PoseJob):
+        if isinstance(other, self.__class__):
             return self.__key() == other.__key()
-        raise NotImplementedError(f"Can't compare {PoseJob.__name__} instance to {other.__name__} instance")
+        raise NotImplementedError(f"Can't compare {self.__class__} instance to {other.__class__} instance")
 
     def __hash__(self) -> int:
         return hash(self.__key())
@@ -1501,7 +1505,6 @@ class PoseProtocol(PoseData):
         #                 The residues in proximity of the interface, including buried residues
         #             self.interface_residue_numbers (set[int]):
         #                 The residues in contact across the interface
-
         self.load_pose()
         self.pose.find_and_split_interface()
 
@@ -1544,6 +1547,12 @@ class PoseProtocol(PoseData):
             Disk location of the flags file
         """
         # flag_variables (list(tuple)): The variable value pairs to be filed in the RosettaScripts XML
+        # Relies on PoseDirecotry attributes
+        # .designs_path
+        # .refined_pdb
+        # .scores_file
+        # .design_profile_file
+        # .fragment_profile_file
         number_of_residues = self.pose.number_of_residues
         self.log.info(f'Total number of residues in Pose: {number_of_residues}')
 
@@ -3325,7 +3334,7 @@ class PoseProtocol(PoseData):
         # self.log.debug(f"Took {time.time() - design_start:8f}s for design_sequences")
 
         # Update the Pose with the number of designs
-        designs_metadata = self.update_design_metadata()
+        designs_data = self.update_design_data()
 
         # self.output_proteinmpnn_scores(design_names, sequences_and_scores)
         # # Write every designed sequence to the sequences file...
@@ -3341,20 +3350,20 @@ class PoseProtocol(PoseData):
         # protocols = list(repeat(self.protocol, len(designs_metadata)))
         temperatures = [temperature for temperature in self.job.design.temperatures
                         for _ in range(self.job.design.number)]
-        design_ids = [design_metadata.id for design_metadata in designs_metadata]
+        design_ids = [design_data.id for design_data in designs_data]
 
         # Todo use the DesignMetrics.sequence field instead...
         #  use with alphafold requires .fasta... Which we can make when we are self.predict_sequence()
         # Write every designed sequence to an individual file...
         putils.make_path(self.designs_path)
-        design_names = [design_metadata.name for design_metadata in designs_metadata]
+        design_names = [design_data.name for design_data in designs_data]
         sequence_files = [
             write_sequences(sequence, names=name, file_name=os.path.join(self.designs_path, name))
             for name, sequence in zip(design_names, sequences_and_scores['sequences'])
         ]
         # Update the Pose with the design protocols
-        for idx, design_metadata in enumerate(designs_metadata):
-            design_metadata.protocols.append(
+        for idx, design_data in enumerate(designs_data):
+            design_data.protocols.append(
                 sql.ProtocolMetadata(design_id=design_ids[idx],
                                      protocol=self.protocol,  # protocols[idx],
                                      temperature=temperatures[idx],
@@ -3418,10 +3427,10 @@ class PoseProtocol(PoseData):
     def update_protocol_metadata(self, design_ids: Sequence[str], protocols: Sequence[str] = None,
                                  temperatures: Sequence[float] = None, files: Sequence[AnyStr] = None) \
             -> list[sql.ProtocolMetadata]:
-        """Associate newly created DesignMetadata with ProtocolMetadata
+        """Associate newly created DesignData with ProtocolMetadata
 
         Args:
-            design_ids: The identifiers for each DesignMetadata
+            design_ids: The identifiers for each DesignData
             protocols: The sequence of protocols to associate with ProtocolMetadata
             temperatures: The temperatures to associate with ProtocolMetadata
             files: The sequence of files to associate with ProtocolMetadata
@@ -3432,13 +3441,13 @@ class PoseProtocol(PoseData):
                     for design_id, protocol, temperature, file in zip(design_ids, protocols, temperatures, files)]
         return metadata
 
-    def update_design_metadata(self, number: int = None) -> list[sql.DesignMetadata]:  # list[int]:
-        """Update the PoseData with the newly created design identifiers using DesignMetadata
+    def update_design_data(self, number: int = None) -> list[sql.DesignData]:  # list[int]:
+        """Update the PoseData with the newly created design identifiers using DesignData
 
         Args:
             number: The number of designs. If not provided, set according to job.design.number * job.design.temperature
         Returns:
-            The new instances of the DesignMetadata
+            The new instances of the DesignData
         """
         if number is None:
             number = len(self.job.design.number * self.job.design.temperatures)
@@ -3450,7 +3459,7 @@ class PoseProtocol(PoseData):
         design_names = [f'{self.name}-{design_idx:04d}'  # f'{self.name}_{self.protocol}{seq_idx:04d}'
                         for design_idx in range(first_new_design_idx,
                                                 first_new_design_idx + number)]
-        designs = [sql.DesignMetadata(name=name, pose_id=self.id) for name in design_names]
+        designs = [sql.DesignData(name=name, pose_id=self.id) for name in design_names]
         session = self.job.current_session
         session.add_all(designs)
         session.commit()

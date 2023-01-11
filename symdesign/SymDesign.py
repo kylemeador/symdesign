@@ -8,12 +8,13 @@ from __future__ import annotations
 # import logging
 import logging.config
 import os
+import shutil
 import sys
 from argparse import Namespace
 from glob import glob
 from itertools import repeat, product, combinations
 from subprocess import list2cmdline
-from typing import Any, AnyStr
+from typing import Any, AnyStr, Iterable
 
 import pandas as pd
 from sqlalchemy import select
@@ -315,7 +316,7 @@ def main():
                                ' "Nanohedra Entry Number:"')
 
     def initialize_entities(structures: Iterable[structure.base.Structure],
-                            possible_uniprot_id_protein_property: dict[str, sql.ProteinMetadata] = None,
+                            possible_uniprot_id_protein_property: dict[tuple[str, ...], sql.ProteinMetadata] = None,
                             existing_uniprot_entities: Iterable[sql.UniProtEntity] = None):
         """Perform the routine of comparing newly described work to the existing database and handling set up of
         structural and evolutionary data creation
@@ -354,8 +355,9 @@ def main():
         # Set up common Structure/Entity resources
         info_messages = []
         if job.design.evolution_constraint:
-            evolution_instructions = job.setup_evolution_constraint(uniprot_entities=uniprot_entities)
-            #                                                         entities=all_entities)
+            evolution_instructions = \
+                job.setup_evolution_constraint(uniprot_entities=uniprot_entities)
+            #                                    entities=all_entities)
             # load_resources = True if evolution_instructions else False
             info_messages.extend(evolution_instructions)
 
@@ -650,8 +652,8 @@ def main():
     elif job.module == flags.nanohedra:
         initialize = False
         if not job.sym_entry:
-            raise RuntimeError(f'When running {flags.nanohedra}, the argument -e/--entry/--{flags.sym_entry} is '
-                               'required')
+            raise utils.InputError(f'When running {flags.nanohedra}, the argument -e/--entry/--{flags.sym_entry} is '
+                                   'required')
     else:  # We have no module passed. Print the guide and exit
         guide.print_guide()
         exit()
@@ -841,9 +843,9 @@ def main():
                     for uniprot_entity in data.uniprot_entities:
                         if uniprot_entity.id not in existing_uniprot_ids:  # in possible_uniprot_ids:
                             existing_uniprot_entities.add(uniprot_entity)
-                    # metadata = data.metadata
-                    # if metadata.uniprot_id in possible_uniprot_ids:
-                    #     existing_uniprot_entities.add(metadata.uniprot_entity)
+                    # meta = data.meta
+                    # if meta.uniprot_id in possible_uniprot_ids:
+                    #     existing_uniprot_entities.add(meta.uniprot_entity)
 
         # all_structures = []
         # Populate all_entities to set up sequence dependent resources
@@ -960,7 +962,7 @@ def main():
         #     putils.make_path(job.output_directory)
         # Transform input entities to canonical orientation and return their ASU
         all_structures = []
-        grouped_structures = []
+        grouped_structures: list[list[Model | Entity]] = []
         # Set up variables for the correct parsing of provided file paths
         by_file1 = by_file2 = False
         eventual_structure_names1 = eventual_structure_names2 = None
@@ -1071,7 +1073,9 @@ def main():
             load_resources = True if evolution_instructions else False
             info_messages.extend(evolution_instructions)
 
-        initialize_entities(all_structures, possible_uniprot_ids)
+        # Write new data to the database
+        with job.db.session(expire_on_commit=False) as session:
+            initialize_entities(all_structures, possible_uniprot_ids)
 
         # # Find existing UniProtEntity table entry instances
         # with job.db.session() as session:  # current_session
@@ -1149,33 +1153,37 @@ def main():
             structure_names2 = eventual_structure_names2
 
         # Make all possible structure pairs given input entities by finding entities from entity_names
-        structures1 = []
-        for structure_name in structure_names1:
-            for structure in all_structures:
-                if structure_name in structure.name:
-                    structures1.append(structure)
-
         # Using combinations of directories with .pdb files
         if single_component_design:
             logger.info('No additional entities requested for docking, treating as single component')
             # structures1 = [entity for entity in all_entities if entity.name in structures1]
             # ^ doesn't work as entity_id is set in orient_structures, but structure name is entry_id
-            pose_jobs = list(combinations(structures1, 2))
+            pose_jobs.extend(combinations(all_structures, 2))
         else:
-            structures2 = []
-            for structure_name in structure_names2:
-                for structure in all_structures:
-                    if structure_name in structure.name:
-                        structures2.append(structure)
-                        break
-            # v doesn't work as entity_id is set in orient_structures, but structure name is entry_id
-            # structures1 = [entity for entity in all_entities if entity.name in structures1]
-            # structures2 = [entity for entity in all_entities if entity.name in structures2]
-            pose_jobs = list(product(structures1, structures2))
+            # structures1 = []
+            # for structure_name in structure_names1:
+            #     for structure in all_structures:
+            #         if structure_name in structure.name:
+            #             structures1.append(structure)
+            #
+            # structures2 = []
+            # for structure_name in structure_names2:
+            #     for structure in all_structures:
+            #         if structure_name in structure.name:
+            #             structures2.append(structure)
+            #             break
+            #
+            # # v doesn't work as entity_id is set in orient_structures, but structure name is entry_id
+            # # structures1 = [entity for entity in all_entities if entity.name in structures1]
+            # # structures2 = [entity for entity in all_entities if entity.name in structures2]
+            # pose_jobs = list(product(structures1, structures2))
+            pose_jobs = []
+            for structures1, structures2 in combinations(grouped_structures, 2):
+                pose_jobs.extend(product(structures1, structures2))
 
         job.location = f'NanohedraEntry{job.sym_entry.number}'  # Used for terminate()
         if not pose_jobs:  # No pairs were located
-            exit('No docking pairs were located from your input. Please ensure that your input flags are as intended! '
+            exit('No docking pairs were located from your input. Please ensure that your input flags are as intended.'
                  f'{putils.issue_submit_warning}')
         elif job.distribute_work:
             # Write all commands to a file and use sbatch

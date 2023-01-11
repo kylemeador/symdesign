@@ -24,13 +24,21 @@ from .fragment.db import alignment_types_literal, alignment_types, fragment_info
 from symdesign import metrics, utils as sdutils
 # from symdesign.utils import path as putils
 from symdesign.sequence import read_alignment, write_sequence_to_fasta, write_sequences, mutation_dictionary, \
-    protein_letters_literal, protein_letters_alph1, protein_letters_alph3, protein_letters_3to1, \
+    protein_letters_alph1, protein_letters_alph3, protein_letters_3to1, \
     create_translation_tables, protein_letters_alph1_gapped, numerical_translation_alph1_gapped, \
-    numerical_translation_alph1_bytes, numerical_translation_alph1_gapped_bytes, hhblits, get_lod, parse_hhblits_pssm
+    numerical_translation_alph1_bytes, numerical_translation_alph1_gapped_bytes, hhblits, get_lod, parse_hhblits_pssm, \
+    alignment_programs_literal, alignment_programs, profile_types, protein_letters_literal, profile_keys
 
 # import dependencies.bmdca as bmdca
 putils = sdutils.path
 
+lod_dictionary: dict[protein_letters_literal, int]
+profile_values: float | str | lod_dictionary
+profile_entry: Type[dict[profile_keys, profile_values]]
+profile_dictionary: Type[dict[int, dict[profile_keys, profile_values]]]
+"""{1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
+        'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
+"""
 # Globals
 logger = logging.getLogger(__name__)
 default_fragment_contribution = .5
@@ -487,19 +495,6 @@ def write_pssm_file(pssm: profile_dictionary, file_name: AnyStr = None, name: st
                     f'{round(profile.get("info", 0.), 4):4.2f} {round(profile.get("weight", 0.), 4):4.2f}\n')
 
     return file_name
-
-
-lod_dictionary: dict[protein_letters_literal, int]
-profile_values: float | str | lod_dictionary
-profile_keys = Literal[protein_letters_literal, 'lod', 'type', 'info', 'weight']
-profile_entry: Type[dict[profile_keys, profile_values]]
-profile_dictionary: Type[dict[int, dict[profile_keys, profile_values]]]
-"""{1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
-        'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
-"""
-alignment_programs_literal = Literal['hhblits', 'psiblast']
-alignment_programs: tuple[str, ...] = get_args(alignment_programs_literal)
-profile_types = Literal['evolutionary', 'fragment', '']
 
 
 class Profile(UserList):

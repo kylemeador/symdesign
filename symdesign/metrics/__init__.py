@@ -91,7 +91,6 @@ necessary_metrics = {'buns_complex', 'buns1_unbound', 'contact_count', 'coordina
 #                      'number_of_hbonds', 'number_interface_residues',
 #                      'average_fragment_z_score', 'nanohedra_score', 'number_of_fragments',
 #                      'interface_b_factor_per_res',
-rosetta_required_metrics = []
 # Todo
 # unused, just a placeholder for the metrics in population
 final_metrics = {'buried_unsatisfied_hbonds', 'contact_count', 'core', 'coordinate_constraint',

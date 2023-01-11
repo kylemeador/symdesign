@@ -8,6 +8,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from symdesign import utils
+putils = utils.path
 
 chiral_space_groups = [
     'P1',  # TRICLINIC
@@ -69,11 +70,11 @@ space_group_number_operations = \
      'P4232': 24}
 cubic_point_groups = ['T', 'O', 'I']
 point_group_symmetry_operators: dict[str, np.ndarray] = \
-    utils.unpickle(utils.path.point_group_symmetry_operator_location)
+    utils.unpickle(putils.point_group_symmetry_operator_location)
 # with format {'symmetry': rotations[N, 3, 3], ...}
 # where the rotations are pre-transposed to match requirements of np.matmul(coords, rotation)
 space_group_symmetry_operators: dict[str, np.ndarray] = \
-    utils.unpickle(utils.path.space_group_symmetry_operator_location)
+    utils.unpickle(putils.space_group_symmetry_operator_location)
 # with format {'symmetry': (rotations[N, 3, 3], translations[N, 1, 3]), ...}
 # where the rotations are pre-transposed to match requirements of np.matmul(coords, rotation)
 # Todo modify to use only this or all_sym_entry_dict
@@ -315,7 +316,7 @@ def get_central_asu(pdb, uc_dimensions, design_dimension):  # Todo remove from F
 
 
 def get_ptgrp_sym_op(sym_type: str,
-                     expand_matrix_dir: Union[str, bytes] = os.path.join(utils.path.sym_op_location,
+                     expand_matrix_dir: Union[str, bytes] = os.path.join(putils.sym_op_location,
                                                                          'POINT_GROUP_SYMM_OPERATORS')) -> List[List]:
     """Get the symmetry operations for a specified point group oriented in the canonical orientation
 
@@ -374,7 +375,7 @@ def get_ptgrp_sym_op(sym_type: str,
 #     return asu_symm_mates
 
 
-# def get_sg_sym_op(sym_type, space_group_operator_dir=os.path.join(utils.path.sym_op_location,
+# def get_sg_sym_op(sym_type, space_group_operator_dir=os.path.join(putils.sym_op_location,
 #                                                                   "SPACE_GROUP_SYMM_OPERATORS")):
 #     """Get the symmetry operations for a specified space group oriented in the canonical orientation
 #     Returns:
@@ -589,7 +590,7 @@ def get_all_sg_sym_ops():
 
 def generate_sym_op_txtfiles():
     for group in nanohedra_space_groups:
-        sym_op_outfile_path = os.path.join(utils.path.sym_op_location, 'SPACE_GROUP_SYMM_OPERATORS_TXT',
+        sym_op_outfile_path = os.path.join(putils.sym_op_location, 'SPACE_GROUP_SYMM_OPERATORS_TXT',
                                            f'{symmetry_group}.txt')
         with open(sym_op_outfile_path, 'w') as f:
             symmetry_op = get_sg_sym_op(group)
@@ -599,7 +600,7 @@ def generate_sym_op_txtfiles():
 
 def generate_sym_op_pickles():
     for group in nanohedra_space_groups:
-        # sym_op_outfile_path = os.path.join(utils.path.sym_op_location, f'{symmetry_group}.pkl')
+        # sym_op_outfile_path = os.path.join(putils.sym_op_location, f'{symmetry_group}.pkl')
         symmetry_op = get_sg_sym_op(group)
         utils.pickle_object(symmetry_op, name=symmetry_group, out_path=pickled_dir)
 
@@ -610,16 +611,16 @@ if __name__ == '__main__':
     print('\nRunning this script creates the symmetry operators fresh from text files. '
           'If all is correct, two prompts should appear and their corresponding file names\n')
     # missing identity operators for most part. P1 not
-    sg_op_filepath = os.path.join(utils.path.sym_op_location, 'spacegroups_op.txt')
+    sg_op_filepath = os.path.join(putils.sym_op_location, 'spacegroups_op.txt')
     with open(sg_op_filepath, "r") as f:
         sg_op_lines = f.readlines()
     full_space_group_operator_dict = get_all_sg_sym_ops()
-    pickled_dir = os.path.join(utils.path.sym_op_location, 'pickled')
+    pickled_dir = os.path.join(putils.sym_op_location, 'pickled')
     # os.makedirs(pickled_dir)
     space_group_operators = {}
     # for symmetry_group in nanohedra_space_groups:
     for symmetry_group in chiral_space_groups:
-        # sym_op_in_path = os.path.join(utils.path.sym_op_location, 'SPACE_GROUP_SYMM_OPERATORS',
+        # sym_op_in_path = os.path.join(putils.sym_op_location, 'SPACE_GROUP_SYMM_OPERATORS',
         #                               f'{symmetry_group}.pkl')
         # sym_op = unpickle(sym_op_in_path)
         if 'R' in symmetry_group:
@@ -652,13 +653,13 @@ if __name__ == '__main__':
         # print(translations)
         # exit()
         space_group_operators[symmetry_group] = (rotations, translations[:, None, :])
-        # sym_op_outfile_path = os.path.join(utils.path.sym_op_location, f'{symmetry_group}.pkl')
+        # sym_op_outfile_path = os.path.join(putils.sym_op_location, f'{symmetry_group}.pkl')
         # pickle_object(sym_op, name=symmetry_group, out_path=pickled_dir)
     # print('Last spacegroup found:', space_group_operators[symmetry_group])
     continue1 = input('Save these results? Yes hits "Enter". Ctrl-C is quit: ')
     # pickle_object(space_group_operators, name='space_group_operators', out_path=pickled_dir)
     space_group_file = utils.pickle_object(space_group_operators,
-                                           out_path=utils.path.space_group_symmetry_operator_location)
+                                           out_path=putils.space_group_symmetry_operator_location)
     print(space_group_file)
     # sym_op_outfile = open(sym_op_outfile_path, "w")
     # pickle.dump(sym_op, sym_op_outfile)
@@ -687,7 +688,7 @@ if __name__ == '__main__':
     continue2 = input('Save these results? Yes hits "Enter". Ctrl-C is quit: ')
     # pickle_object(point_group_operators, name='point_group_operators', out_path=pickled_dir)
     point_group_file = utils.pickle_object(point_group_operators,
-                                           out_path=utils.path.point_group_symmetry_operator_location)
+                                           out_path=putils.point_group_symmetry_operator_location)
     print(point_group_file)
     # print({notation: notation.replace(' ', '') for notation in hg_notation})
     # generate_sym_op_pickles(sg_op_filepath)
