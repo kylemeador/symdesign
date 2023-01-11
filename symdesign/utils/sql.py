@@ -57,7 +57,9 @@ class PoseMetadata(Base):
 
     name = Column(String, nullable=False, index=True)  # String(60)
     project = Column(String, nullable=False)  # String(60)
-    pose_identifier = column_property(f'{project}{os.sep}{name}')
+    # This isn't a column in the __table__, but is an attribute of Class and derived instances
+    pose_identifier = column_property(project + os.sep + name)
+    # pose_identifier = column_property(f'{project}{os.sep}{name}')
 
     # # Set up many-to-one relationship with entity_data table
     # entity_data = Column(ForeignKey('entity_data.id'))

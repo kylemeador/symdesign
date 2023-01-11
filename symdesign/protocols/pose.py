@@ -535,7 +535,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         self.name = name
         self.project = project
         self.source_path = source_path
-        self.pose_identifier = f'{self.project}{os.sep}{self.name}'
+        # self.pose_identifier = f'{self.project}{os.sep}{self.name}'
 
         self.__init_from_db__()
         """This comment's code is now called in __init_from_db__() according to DRY principles
