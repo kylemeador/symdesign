@@ -10,7 +10,7 @@ from subprocess import list2cmdline
 from typing import Annotated, AnyStr, Any, Iterable
 
 import psutil
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
 
@@ -157,6 +157,19 @@ class DBInfo:
         self.location = location
         self.engine: Engine = create_engine(f'sqlite:///{self.location}', echo=echo, future=True)
         self.session: sessionmaker = sessionmaker(self.engine)
+
+        # The below functions are recommended to help overcome issues with SQLite transaction scope
+        # See:
+        @event.listens_for(self.engine, "connect")
+        def do_connect(dbapi_connection, connection_record):
+            # Disable pysqlite's emitting of the BEGIN statement entirely
+            # Also stops it from emitting COMMIT before any DDL
+            dbapi_connection.isolation_level = None
+
+        @event.listens_for(self.engine, "begin")
+        def do_begin(conn):
+            # Emit our own BEGIN
+            conn.exec_driver_sql("BEGIN")
 
 
 class JobResources:
