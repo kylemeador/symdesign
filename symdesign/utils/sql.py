@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections import OrderedDict
 from itertools import combinations
 
+import numpy as np
+import scipy
 from mysql.connector import MySQLConnection, Error
 from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, select, Table
 from sqlalchemy.orm import declarative_base, relationship, Session
@@ -40,22 +42,25 @@ class PoseMetadata(Base):
     name = Column(String, nullable=False, index=True)  # String(60)
     project = Column(String, nullable=False)  # String(60)
     pose_identifier = column_property(f'{project}{os.sep}{name}')
-    # Set up one-to-many relationship with design_metadata table
-    designs = relationship('DesignMetadata', back_populates='pose')
-    # # Set up one-to-many relationship with entity_metadata table
-    # Set up many-to-many relationship with entity_metadata table
-    entity_metadata = relationship('EntityMetadata', secondary='pose_entity_association',
-                                   back_populates='poses')
+
+    # # Set up many-to-one relationship with entity_data table
+    # entity_data = Column(ForeignKey('entity_data.id'))
+    # # Set up one-to-many relationship with entity_data table
+    # Set up many-to-many relationship with entity_data table
+    # entity_data = relationship('EntityData', secondary='pose_entity_association',
+    #                                back_populates='poses')
+    # # Set up one-to-many relationship with entity_metrics table
+    # entity_metrics = relationship('EntityMetrics', back_populates='pose')
+    # Set up one-to-many relationship with entity_data table
+    entity_data = relationship('EntityData', back_populates='poses', lazy='selectin')
+    # Set up one-to-one relationship with pose_metrics table
+    metrics = relationship('PoseMetrics', back_populates='pose', uselist=False, lazy='selectin')
+    # Set up one-to-many relationship with design_data table
+    designs = relationship('DesignData', back_populates='pose', lazy='selectin')
     # Set up one-to-many relationship with residue_metrics table
     residues = relationship('ResidueMetrics', back_populates='pose')
 
-    # # Set up many-to-one relationship with entity_metadata table
-    # entity_metadata = Column(ForeignKey('entity_metadata.id'))
-
-    # Set up one-to-many relationship with entity_metrics table
-    entity_metrics = relationship('EntityMetrics', back_populates='pose')
-    # Set up one-to-one relationship with pose_metrics table
-    metrics = relationship('PoseMetrics', back_populates='pose', uselist=False)
+    transformations = association_proxy('entity_data', 'transformation')
 
     # State
     _pre_refine = Column('pre_refine', Boolean, default=True)
@@ -281,14 +286,64 @@ class EntityMetrics(Base):
     c_terminal_orientation = Column(Integer)  # entity_ is used in config.metrics
     interface_secondary_structure_fragment_topology = Column(String(60))  # entity_ is used in config.metrics
     interface_secondary_structure_topology = Column(String(60))  # entity_ is used in config.metrics
-    # Transformation parameters
-    rotation = Column(Float)
+
+
+class EntityTransform(Base):
+    __tablename__ = 'entity_transformation'
+    id = Column(Integer, primary_key=True)
+
+    # Set up one-to-one relationship with entity_data table
+    entity_id = Column(ForeignKey('entity_data.id'))
+    entity = relationship('EntityData', back_populates='_transform')
+    rotation_x = Column(Float, default=0.)
+    rotation_y = Column(Float, default=0.)
+    rotation_z = Column(Float)
     setting_matrix = Column(Integer)
-    internal_translation = Column(Float)
+    internal_translation_x = Column(Float)
+    internal_translation_y = Column(Float)
+    internal_translation_z = Column(Float)
     external_translation_x = Column(Float)
     external_translation_y = Column(Float)
     external_translation_z = Column(Float)
-    # Todo new-style EntityMetrics
+
+    @property
+    def transformation(self):  # Todo -> transformation_mapping:
+        """Provide the names of all Entity instances mapped to the Pose"""
+        return dict(
+            rotation=scipy.spatial.transform.Rotation.from_rotvec([0., 0., self.rotation], degrees=True).as_matrix(),
+            translation=np.array([self.internal_translation_x,
+                                  self.internal_translation_y,
+                                  self.internal_translation_z]),
+            # translation=np.array([0., 0., entity.internal_translation]),
+            rotation2=symmetry.setting_matrices[self.setting_matrix],
+            translation2=np.array([self.external_translation_x,
+                                   self.external_translation_y,
+                                   self.external_translation_z]),
+        )
+
+    @transformation.setter
+    def transformation(self, transform):  # Todo transformation_mapping):
+        if not isinstance(transform, dict):
+            raise ValueError(f'The attribute pose_transformation must be a Sequence of '
+                             f'transformation_mapping, not {type(transform[0]).__name__}')
+                             # f'{transformation_mapping.__name__}, not {type(transform[0]).__name__}')
+
+        for operation_type, operation in transform:
+            if operation_type == 'translation':
+                self.internal_translation_x, \
+                    self.internal_translation_y, \
+                    self.internal_translation_z = operation
+            elif operation_type == 'rotation':
+                self.setting_matrix = \
+                    scipy.spatial.transform.Rotation.from_matrix(operation).as_rotvec(degrees=True)
+            elif operation_type == 'rotation2':
+                self.setting_matrix = self.sym_entry.setting_matrices_numbers[idx]
+            elif operation_type == 'translation2':
+                self.external_translation_x, \
+                    self.external_translation_y, \
+                    self.external_translation_z = operation
+
+            # self._pose_transformation = self.info['pose_transformation'] = list(transform)
 
 
 # Add metrics which are dependent on multiples. Initialize Column() when setattr() is called to get correct column name
