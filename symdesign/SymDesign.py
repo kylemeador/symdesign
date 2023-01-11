@@ -585,7 +585,8 @@ def main():
     """Used to set a leading string on all new PoseJob paths"""
     if symdesign_directory is None:  # We found no directory from the input
         # By default, assume new input and make in the current directory
-        symdesign_directory = os.path.join(os.getcwd(), putils.program_output)
+        new_symdesign_output = True
+        symdesign_directory = os.path.abspath(os.path.join(os.getcwd(), putils.program_output))
         # Check if there is a file and see if we can solve there
         file_sources = ['file', 'poses', 'specification_file']  # 'poses' 'pose_file'
         for file_source in file_sources:
@@ -609,6 +610,8 @@ def main():
                 break
         # Ensure the base directory is made if it is indeed new and in os.getcwd()
         putils.make_path(symdesign_directory)
+    else:
+        new_symdesign_output = False
     # -----------------------------------------------------------------------------------------------------------------
     #  Process JobResources which holds shared program objects and command-line arguments
     # -----------------------------------------------------------------------------------------------------------------

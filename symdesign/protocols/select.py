@@ -298,6 +298,8 @@ def select_from_cluster_map(selected_members: Sequence[Any], cluster_map: dict[A
 
     return final_member_indices
 
+
+# Todo v, change list[str] to list[DesignData]?
 def designs(pose_jobs: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
     """Select PoseJob instances based on filters and weighting of all design summary metrics
 
@@ -471,8 +473,7 @@ def sequences(pose_jobs: list[PoseJob]):
     results = designs(pose_jobs)
 
     job.output_file = os.path.join(job.output_directory, f'{job.prefix}SelectedDesigns{job.suffix}.paths')
-    # Todo move this to be in terminate(results=results.keys()) -> success
-    # pose_directories = list(results.keys())
+    # Todo should move this to be in terminate(results=results.keys()) -> success
     with open(job.output_file, 'w') as f:
         f.write('%s\n' % '\n'.join(str(pose_job) for pose_job in list(results.keys())))
 
@@ -517,6 +518,7 @@ def sequences(pose_jobs: list[PoseJob]):
         pose_job.load_pose()
         tag_index = solve_tags(pose_job.pose)
         number_of_tags = sum(tag_index)
+        # Todo do I need to modify chains?
         pose_job.pose.rename_chains()
         for design in _designs:
             file_glob = f'{pose_job.designs_path}{os.sep}*{design}*'
