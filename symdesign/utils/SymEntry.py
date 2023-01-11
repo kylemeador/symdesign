@@ -12,7 +12,7 @@ from symdesign import utils
 from symdesign.utils import path as putils
 from symdesign.utils.symmetry import valid_subunit_number, space_group_symmetry_operators, \
     point_group_symmetry_operators, all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, \
-    sub_symmetries, flip_y_matrix, max_sym, valid_symmetries
+    sub_symmetries, flip_y_matrix, MAX_SYMMETRY, valid_symmetries
 
 __author__ = "Joshua Laniado and Todd O. Yeates"
 __copyright__ = "Copyright 2020, Nanohedra"
@@ -1108,7 +1108,7 @@ def get_uc_dimensions(uc_string, e=1, f=0, g=0):
 
 
 highest_point_group_msg = f'If this is a point group. You likely need to modify the current highest cyclic symmetry ' \
-                          f'{max_sym} in {putils.path_to_sym_utils}, then run the file using "python ' \
+                          f'{MAX_SYMMETRY} in {putils.path_to_sym_utils}, then run the file using "python ' \
                           f'{putils.path_to_sym_utils}".'
 example_symmetry_specification = 'RESULT:{SUBSYMMETRY1}{SUBSYMMETRY2}...'
 
