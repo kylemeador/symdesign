@@ -1124,12 +1124,7 @@ def main():
                     else:  # Process for persistent state
                         possible_uniprot_ids[entity.uniprot_ids] = protein_metadata
 
-        # Set up common Structure/Entity resources
-        info_messages = []
-        if job.design.evolution_constraint:
-            evolution_instructions = job.setup_evolution_constraint(all_entities)
-            load_resources = True if evolution_instructions else False
-            info_messages.extend(evolution_instructions)
+            all_structures.extend(structures)
 
         # Write new data to the database
         with job.db.session(expire_on_commit=False) as session:
