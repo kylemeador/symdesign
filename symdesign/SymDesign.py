@@ -41,8 +41,9 @@ from symdesign.resources.job import job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from symdesign.resources.query.utils import validate_input_return_response_value
 from symdesign.structure.fragment.db import fragment_factory, euler_factory
+from symdesign.structure.model import Entity, Model
 from symdesign.sequence import create_mulitcistronic_sequences
-from symdesign.utils import guide, nanohedra
+from symdesign.utils import guide, nanohedra, sql
 
 # def format_additional_flags(flags):
 #     """Takes non-argparse specified flags and returns them into a dictionary compatible with argparse style.

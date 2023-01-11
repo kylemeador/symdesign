@@ -482,7 +482,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             output_modifier = None
             out_directory = os.path.join(self.job.projects, self.project, self.name)
 
-        super().__init__(directory=out_directory, output_modifier=output_modifier)  # **kwargs)
+        # These arguments are for PoseDirectory. initial signifies that this is the first load of this PoseJob
+        # which can help in gathering the self.serialized_info file and converting this to the proper utils.sql
+        # table data
+        super().__init__(directory=out_directory, output_modifier=output_modifier, initial=True)  # **kwargs)
 
         putils.make_path(self.out_directory, condition=self.job.construct_pose)
 
@@ -771,7 +774,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             self._lock_optimize_designs = True
             # self.specific_designs_file_paths = []
             for design in specific_designs:
-                # Todo update this to use DesignMetadata, maybe ProtocolMetadata.file ...
+                # Todo update this to use DesignData, maybe ProtocolMetadata.file ...
                 matching_path = os.path.join(self.designs_path, f'*{design}.pdb')
                 matching_designs = sorted(glob(matching_path))
                 if matching_designs:
@@ -807,7 +810,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         return len(self.designs)
 
     # SymEntry object attributes
-    @property
+    @property  # @hybrid_property
     def sym_entry(self) -> SymEntry | None:
         """The SymEntry"""
         try:
@@ -831,36 +834,36 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         return dict(sym_entry=self.sym_entry, log=self.log, design_selector=self.design_selector,
                     # entity_metadata=self.entity_data,
                     entity_names=[data.meta.entity_id for data in self.entity_data],  #self.entity_names,
-                    transformations=self.pose_transformation,
+                    transformations=[data.transformation for data in self.entity_data],  # self.pose_transformation,
                     ignore_clashes=self.job.design.ignore_pose_clashes, fragment_db=self.job.fragment_db)
         #             api_db=self.job.api_db,
 
-    @property
-    def pose_transformation(self) -> list[transformation_mapping]:
-        """Provide the transformation parameters for each Entity in the PoseData Pose
-
-        Returns:
-            [{'rotation': np.ndarray, 'translation': np.ndarray, 'rotation2': np.ndarray,
-              'translation2': np.ndarray}, ...]
-            A list with the transformations of each Entity in the Pose according to the symmetry
-        """
-        try:
-            return self._pose_transformation
-        except AttributeError:  # Get from the pose state
-            self._pose_transformation = self.info.get('pose_transformation', [])
-            return self._pose_transformation
-
-    @pose_transformation.setter
-    def pose_transformation(self, transform: Sequence[transformation_mapping]):
-        if all(isinstance(operation_set, dict) for operation_set in transform):
-            self._pose_transformation = self.info['pose_transformation'] = list(transform)
-        else:
-            try:
-                raise ValueError(f'The attribute pose_transformation must be a Sequence of '
-                                 f'{transformation_mapping.__name__}, not {type(transform[0]).__name__}')
-            except TypeError:  # Not a Sequence
-                raise TypeError(f'The attribute pose_transformation must be a Sequence of '
-                                f'{transformation_mapping.__name__}, not {type(transform).__name__}')
+    # @property
+    # def pose_transformation(self) -> list[transformation_mapping]:
+    #     """Provide the transformation parameters for each Entity in the PoseData Pose
+    #
+    #     Returns:
+    #         [{'rotation': np.ndarray, 'translation': np.ndarray, 'rotation2': np.ndarray,
+    #           'translation2': np.ndarray}, ...]
+    #         A list with the transformations of each Entity in the Pose according to the symmetry
+    #     """
+    #     try:
+    #         return self._pose_transformation
+    #     except AttributeError:  # Get from the pose state
+    #         self._pose_transformation = self.info.get('pose_transformation', [])
+    #         return self._pose_transformation
+    #
+    # @pose_transformation.setter
+    # def pose_transformation(self, transform: Sequence[transformation_mapping]):
+    #     if all(isinstance(operation_set, dict) for operation_set in transform):
+    #         self._pose_transformation = self.info['pose_transformation'] = list(transform)
+    #     else:
+    #         try:
+    #             raise ValueError(f'The attribute pose_transformation must be a Sequence of '
+    #                              f'{transformation_mapping.__name__}, not {type(transform[0]).__name__}')
+    #         except TypeError:  # Not a Sequence
+    #             raise TypeError(f'The attribute pose_transformation must be a Sequence of '
+    #                             f'{transformation_mapping.__name__}, not {type(transform).__name__}')
 
     @property
     def design_selector(self) -> dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict:
@@ -929,6 +932,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     # def number_of_fragments(self) -> int:
     #     return len(self.fragment_observations) if self.fragment_observations else 0
 
+    # Both pre_* properties are really implemented to take advantage of .setter
     @property
     def pre_refine(self) -> bool:
         """Provide the state attribute regarding the source files status as "previously refined"
@@ -1330,7 +1334,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                                  out_path=os.path.join(self.out_directory, f'{entity.name}_oligomer.pdb'))
             # If we have an empty list for the pose_transformation, save the identified transformations from the Pose
             if not self.pose_transformation:
-                self.pose_transformation = self.pose.entity_transformations
+                # self.pose_transformation = self.pose.entity_transformations
+                for data, transformation in zip(self.entity_data, self.pose.entity_transformations):
+                    data._transform.transformation = transformation
         # # Then modify numbering to ensure standard and accurate use during protocols
         # # self.pose.pose_numbering()
         # if not self.entity_names:  # Store the entity names if they were never generated
