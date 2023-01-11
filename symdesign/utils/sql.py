@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from collections import OrderedDict
 from itertools import combinations
 
@@ -7,12 +8,16 @@ import numpy as np
 import scipy
 from mysql.connector import MySQLConnection, Error
 from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, select, Table
-from sqlalchemy.orm import declarative_base, relationship, Session
-# from sqlalchemy.orm import Mapped, mapped_column, declarative_base  # Todo sqlalchemy 2.0
+from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.ext.orderinglist import ordering_list
+from sqlalchemy.orm import declarative_base, relationship, Session, column_property, synonym
+# from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, declarative_base  # Todo sqlalchemy 2.0
 # from sqlalchemy import create_engine
 # from sqlalchemy.dialects.sqlite import insert
 
-from symdesign.resources import config
+from symdesign.resources import config, wrapapi
+from . import symmetry
+# from symdesign import resources
 
 
 # class Base(DeclarativeBase):  # Todo sqlalchemy 2.0
@@ -23,6 +28,17 @@ class _Base:
     def next_key(self, session: Session) -> int:
         stmt = select(self).order_by(self.id.desc()).limit(1)
         return session.scalars(stmt).first() + 1
+
+    def __key(self) -> str:
+        return self.id
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, self.__class__):
+            return self.__key() == other.__key()
+        raise NotImplementedError(f"Can't compare {self.__class__} instance to {other.__class__} instance")
+
+    def __hash__(self) -> int:
+        return hash(self.__key())
 
 
 Base = declarative_base(cls=_Base)
@@ -52,7 +68,7 @@ class PoseMetadata(Base):
     # # Set up one-to-many relationship with entity_metrics table
     # entity_metrics = relationship('EntityMetrics', back_populates='pose')
     # Set up one-to-many relationship with entity_data table
-    entity_data = relationship('EntityData', back_populates='poses', lazy='selectin')
+    entity_data = relationship('EntityData', back_populates='pose', lazy='selectin')
     # Set up one-to-one relationship with pose_metrics table
     metrics = relationship('PoseMetrics', back_populates='pose', uselist=False, lazy='selectin')
     # Set up one-to-many relationship with design_data table
@@ -94,49 +110,12 @@ class PoseMetadata(Base):
     # NEW v
     # @property
     # def symmetry_groups(self) -> list[str]:
-    #     return [entity.symmetry for entity in self.entity_metadata]
+    #     return [entity.symmetry for entity in self.entity_data]
     #
     # @property
     # def entity_names(self) -> list[str]:
     #     """Provide the names of all Entity instances mapped to the Pose"""
-    #     return [entity.entity_name for entity in self.entity_metadata]
-    #
-    # @property
-    # def pose_transformation(self) -> list[transformation_mapping]:
-    #     """Provide the names of all Entity instances mapped to the Pose"""
-    #     return [dict(
-    #         rotation=scipy.spatial.transform.Rotation.from_rotvec([0., 0., entity.rotation], degrees=True).as_matrix(),
-    #         translation=np.array([0., 0., entity.internal_translation]),
-    #         rotation2=utils.symmetry.setting_matrices[entity.setting_matrix],
-    #         translation2=np.array([entity.external_translation_x,
-    #                                entity.external_translation_y,
-    #                                entity.external_translation_z]),
-    #     ) for entity in self.entity_metadata]
-    #
-    # @pose_transformation.setter
-    # def pose_transformation(self, transform: Sequence[transformation_mapping]):
-    #     for idx, (entity, operation_set) in enumerate(zip(self.entity_metadata, transform)):
-    #         if not isinstance(operation_set, dict):
-    #             try:
-    #                 raise ValueError(f'The attribute pose_transformation must be a Sequence of '
-    #                                  f'{transformation_mapping.__name__}, not {type(transform[0]).__name__}')
-    #             except TypeError:  # Not a Sequence
-    #                 raise TypeError(f'The attribute pose_transformation must be a Sequence of '
-    #                                 f'{transformation_mapping.__name__}, not {type(transform).__name__}')
-    #         for operation_type, operation in operation_set:
-    #             if operation_type == 'translation':
-    #                 _, _, entity.internal_translation = operation
-    #             elif operation_type == 'rotation':
-    #                 entity.setting_matrix = \
-    #                     scipy.spatial.transform.Rotation.from_matrix(operation).as_rotvec(degrees=True)
-    #             elif operation_type == 'rotation2':
-    #                 entity.setting_matrix = self.sym_entry.setting_matrices_numbers[idx]
-    #             elif operation_type == 'translation2':
-    #                 entity.external_translation_x, \
-    #                     entity.external_translation_y, \
-    #                     entity.external_translation_z = operation
-    #
-    #             # self._pose_transformation = self.info['pose_transformation'] = list(transform)
+    #     return [entity.entity_name for entity in self.entity_data]
 
 
 class PoseMetrics(Base):
@@ -242,24 +221,83 @@ for idx1, idx2 in combinations(range(1, 1 + config.MAXIMUM_ENTITIES), 2):
     for metric, value in ratio_design_metrics.items():
         setattr(PoseMetrics, metric.replace('_v', f'_{idx1}v{idx2}'), Column(value))
 
-# class PoseEntityAssociation(Base):
-pose_entity_association = Table(
-    'pose_entity_association',
-    Base.metadata,
-    Column('pose_id', ForeignKey('pose_metadata.id'), primary_key=True),  # Use the sqlalchemy.Column construct not mapped_column()
-    Column('entity_id', ForeignKey('entity_metadata.id'), primary_key=True)  # Use the sqlalchemy.Column construct
-)
+# # class PoseEntityAssociation(Base):
+# pose_entity_association = Table(
+#     'pose_entity_association',
+#     Base.metadata,
+#     # Todo upon sqlalchemy 2.0, use the sqlalchemy.Column construct not mapped_column()
+#     Column('pose_id', ForeignKey('pose_metadata.id'), primary_key=True),
+#     Column('entity_id', ForeignKey('entity_data.id'), primary_key=True)
+# )
 
 
-class EntityMetadata(Base):
-    __tablename__ = 'entity_metadata'
+class UniProtEntity(Base):
+    __tablename__ = 'uniprot_entity'
+    id = Column(String, primary_key=True, autoincrement=False)
+    """The UniProtID"""
+    uniprot_id = synonym('id')
+    # _uniprot_id = Column('uniprot_id', String)
+    # entity_id = Column(String, nullable=False, index=True)  # entity_name is used in config.metrics
+    # """This is a stand in for the Structure.name attribute"""
+
+    # # Set up one-to-many relationship with entity_data table
+    # entities = relationship('EntityData', back_populates='entity')
+    # Set up many-to-many relationship with protein_metadata table
+    # protein_metadata = relationship('ProteinMetadata', secondary='uniprot_protein_association',
+    #                                 back_populates='uniprot_entities')
+    protein_metadata = association_proxy('_protein_metadata', 'protein')
+    _protein_metadata = relationship('UniProtProteinAssociation',
+                                     back_populates='uniprot')
+
+    @property
+    def reference_sequence(self) -> str:
+        """Get the sequence from the UniProtID"""
+        try:
+            return self._reference_sequence
+        except AttributeError:
+            api_db = wrapapi.api_database_factory()
+            response_json = api_db.uniprot.retrieve_data(name=self.uniprot_id)
+            self._reference_sequence = response_json['sequence']['value']
+            return self._reference_sequence
+
+
+# uniprot_protein_association = Table(
+class UniProtProteinAssociation(Base):
+    __tablename__ = 'uniprot_protein_association'
+    # Todo upon sqlalchemy 2.0, use the sqlalchemy.Column construct not mapped_column()
+    uniprot_id = Column(ForeignKey('uniprot_entity.id'), primary_key=True)
+    entity_id = Column(ForeignKey('protein_metadata.id'), primary_key=True)
+    uniprot = relationship('UniProtEntity', back_populates='_protein_metadata')
+    protein = relationship('ProteinMetadata', back_populates='_uniprot_entities')
+    position = Column(Integer)
+
+
+class ProteinMetadata(Base):
+    """Used for hold fixed metadata of protein structures, typically pulled from PDB API"""
+    __tablename__ = 'protein_metadata'
     id = Column(Integer, primary_key=True)
 
-    # Set up many-to-many relationship with pose_metadata table
-    poses = relationship('PoseMetadata', secondary='pose_entity_association',
-                         back_populates='entity_metadata')
+    entity_id = Column(String, nullable=False, index=True)  # entity_name is used in config.metrics
+    """This could be described as the PDB API EntityID"""
+    # # Set up many-to-one relationship with uniprot_entity table. Using "many" because there can be chimera's
+    # uniprot_id = Column(ForeignKey('uniprot_entity.id'))
+    # Set up many-to-many relationship with uniprot_entity table. Using "many" on both sides because there can be
+    # ProteinMetadata chimera's and different domains of a UniProtID could be individual ProteinMetadata
+    # uniprot_entities = relationship('UniProtEntity', secondary='uniprot_protein_association',
+    #                                 back_populates='protein_metadata')
+    # # Create a Collection[str] association between this ProteinMetadata and linked uniprot_ids
+    # uniprot_ids = association_proxy('uniprot_entities', 'id')
+    _uniprot_entities = relationship('UniProtProteinAssociation',
+                                     back_populates='protein',
+                                     collection_class=ordering_list('position'),
+                                     order_by=UniProtProteinAssociation.position
+                                     )
+    uniprot_entities = association_proxy('_uniprot_entities', 'uniprot',
+                                         creator=lambda _unp_ent: UniProtProteinAssociation(uniprot=_unp_ent))
+    # Set up one-to-many relationship with entity_data table
+    entity_data = relationship('EntityData', back_populates='meta')
 
-    name = Column(String, nullable=False, index=True)  # entity_ is used in config.metrics
+    reference_sequence = Column(String)
     # number_of_residues = Column(Integer)  # entity_ is used in config.metrics
     n_terminal_helix = Column(Boolean)  # entity_ is used in config.metrics
     c_terminal_helix = Column(Boolean)  # entity_ is used in config.metrics
@@ -269,13 +307,70 @@ class EntityMetadata(Base):
     symmetry = Column(ForeignKey('symmetry_groups.id'))
 
 
-class EntityMetrics(Base):
-    __tablename__ = 'entity_metrics'
+class EntityData(Base):
+    """Used for unique design instances to connect multiple sources of information"""
+    __tablename__ = 'entity_data'
     id = Column(Integer, primary_key=True)
 
     # Set up many-to-one relationship with pose_metadata table
     pose_id = Column(ForeignKey('pose_metadata.id'))
-    pose = relationship('PoseMetadata', back_populates='entity_metrics')
+    pose = relationship('PoseMetadata', back_populates='entity_data')
+    # Todo
+    # We shouldn't use EntityData unless a pose is provided... perhaps I should make an inti
+    # pose = ..., nullable=False)
+    # # Set up many-to-one relationship with uniprot_entity table
+    # uniprot_id = Column(ForeignKey('uniprot_entity.id'))
+    # uniprot_entity = relationship('UniProtEntity', back_populates='entities', nullable=False)
+    # # OR
+    # # Todo
+    # #  this class may be a case where an Association Proxy should be used given only use of relationships
+    # #  As this references an Association Object (the ProteinMetadata class) this would return the uniprot_entity
+    # #  If I want the uniprot_id, I need to make a plain association table it seems...
+    # #  uniprot_entity = association_proxy('meta', 'uniprot_entity')
+    # Set up many-to-one relationship with protein_metadata table
+    properties_id = Column(ForeignKey('protein_metadata.id'))
+    meta = relationship('ProteinMetadata', back_populates='entity_data',
+                        lazy='joined', innerjoin=True)
+    # Set up one-to-one relationship with entity_metrics table
+    metrics = relationship('EntityMetrics', back_populates='entity', uselist=False)
+    # Todo setup 'selectin' load for select-* modules
+    # Set up one-to-one relationship with entity_transform table
+    _transform = relationship('EntityTransform', back_populates='entity', uselist=False,
+                              lazy='selectin')
+    # # Set up many-to-many relationship with pose_metadata table
+    # poses = relationship('PoseMetadata', secondary='pose_entity_association',
+    #                      back_populates='entity_data')
+
+    # Todo set up the loading from database on these relationships
+    # Use these accessors to ensure that passing EntityData to Entity.from_chains() can access these variables
+    @property
+    def reference_sequence(self):
+        return self.meta.reference_sequence
+
+    @property
+    def thermophilic(self):
+        return self.meta.thermophilic
+
+    @property
+    def uniprot_ids(self):
+        # return [entity.uniprot_id for entity in self.meta.uniprot_entities]
+        return self.meta.uniprot_ids
+
+    # @property
+    # def uniprot_id(self):
+    #     return self.meta.uniprot_id
+
+
+class EntityMetrics(Base):
+    __tablename__ = 'entity_metrics'
+    id = Column(Integer, primary_key=True)
+
+    # # Set up many-to-one relationship with pose_metadata table
+    # pose_id = Column(ForeignKey('pose_metadata.id'))
+    # pose = relationship('PoseMetadata', back_populates='entity_metrics')
+    # Set up one-to-one relationship with entity_data table
+    entity_id = Column(ForeignKey('entity_data.id'))
+    entity = relationship('EntityData', back_populates='metrics')
 
     # Todo new-style EntityMetrics
     number_of_residues = Column(Integer)  # entity_ is used in config.metrics
@@ -289,7 +384,7 @@ class EntityMetrics(Base):
 
 
 class EntityTransform(Base):
-    __tablename__ = 'entity_transformation'
+    __tablename__ = 'entity_transform'
     id = Column(Integer, primary_key=True)
 
     # Set up one-to-one relationship with entity_data table
@@ -384,16 +479,16 @@ class ProtocolMetadata(Base):
     id = Column(Integer, primary_key=True)
 
     protocol = Column(String, nullable=False)
-    # Set up many-to-one relationship with design_metadata table
-    design_id = Column(ForeignKey('design_metadata.id'), nullable=False)
-    design = relationship('DesignMetadata', back_populates='protocols')  # , nullable=False)
+    # Set up many-to-one relationship with design_data table
+    design_id = Column(ForeignKey('design_data.id'), nullable=False)
+    design = relationship('DesignData', back_populates='protocols')  # , nullable=False)
     temperature = Column(Float)
     file = Column(String)
 
 
-class DesignMetadata(Base):
+class DesignData(Base):
     """Account for design metadata created from pose metadata"""
-    __tablename__ = 'design_metadata'
+    __tablename__ = 'design_data'
     id = Column(Integer, primary_key=True)
 
     name = Column(String, nullable=False)  # String(60)
@@ -415,9 +510,9 @@ class DesignMetrics(Base):
     # name = Column(String, nullable=False)  # String(60)
     # pose = Column(String, nullable=False)  # String(60)
     # pose_name = Column(String, nullable=False)  # String(60)
-    # Set up one-to-one relationship with design_metadata table
-    design_id = Column(ForeignKey('design_metadata.id'), nullable=False)
-    design = relationship('DesignMetadata', back_populates='metrics')
+    # Set up one-to-one relationship with design_data table
+    design_id = Column(ForeignKey('design_data.id'), nullable=False)
+    design = relationship('DesignData', back_populates='metrics')
 
     # Pose features
     number_interface_residues = Column(Integer)  # , nullable=False)
@@ -563,12 +658,12 @@ class ResidueMetrics(Base):
     __tablename__ = 'residue_metrics'
     id = Column(Integer, primary_key=True)
 
-    # Set up many-to-one relationship with design_metadata table
+    # Set up many-to-one relationship with design_data table
     pose_id = Column(ForeignKey('pose_metadata.id'))
     pose = relationship('PoseMetadata', back_populates='residues')
-    # Set up many-to-one relationship with design_metadata table
-    design_id = Column(ForeignKey('design_metadata.id'))
-    design = relationship('DesignMetadata', back_populates='residues')
+    # Set up many-to-one relationship with design_data table
+    design_id = Column(ForeignKey('design_data.id'))
+    design = relationship('DesignData', back_populates='residues')
 
     # pose = Column(String, nullable=False)  # String(60)
     # design = Column(String, nullable=False)  # String(60)

@@ -272,28 +272,24 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     """
     protocol = 'nanohedra'  # Todo change if the docking is described as 'C1'
     frag_dock_time_start = time.time()
-    # Get Building Blocks in pose format to remove need for fragments to use chain info
-    models = list(models)
-    """The Structure instances to be used in docking"""
-    for idx, model in enumerate(models):
-        if not isinstance(model, Structure):
-            models[idx] = Model.from_file(model)
 
-    # Set up output mechanism
+    # Todo reimplement this feature to write a log to the Project directory?
+    # # Setup logger
+    # if logger is None:
+    #     log_file_path = os.path.join(project_dir, f'{building_blocks}_log.txt')
+    # else:
+    #     try:
+    #         log_file_path = getattr(logger.handlers[0], 'baseFilename', None)
+    #     except IndexError:  # No handler attached to this logger. Probably passing to a parent logger
+    #         log_file_path = None
+    #
+    # if log_file_path:  # Start logging to a file in addition
+    #     logger = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False, propagate=True)
+
     # Retrieve symjob.JobResources for all flags
     job = symjob.job_resources_factory.get()
     sym_entry: SymEntry = job.sym_entry
     """The SymmetryEntry object describing the material"""
-    # program_root = job.program_root
-    entry_string = f'NanohedraEntry{sym_entry.number}'
-    building_blocks = '-'.join(model.name for model in models)
-    project = f'{entry_string}_{building_blocks}'  # _{putils.pose_directory}'
-    project_dir = os.path.join(job.projects, project)
-    putils.make_path(project_dir)
-    # Create a Models instance to collect each model
-    if job.write_trajectory:
-        raise NotImplementedError('Make iterative saving more reliable. See output_pose()')
-        trajectory_models = Models()
 
     euler_lookup = job.fragment_db.euler_lookup
     # This is used in clustering algorithms to define an observation outside the found clusters
@@ -328,41 +324,33 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         if sym_entry.unit_cell:
             logger.critical(f"{create_perturbation_transformations.__name__} hasn't been tested for lattice symmetries")
 
+    # Initialize incoming Structures
+    models = list(models)
+    """The Structure instances to be used in docking"""
     # Ensure models are oligomeric with make_oligomer()
+    # Assumes model is oriented with major axis of symmetry along z
     entity_count = count(1)
     for idx, (model, symmetry) in enumerate(zip(models, sym_entry.groups)):
+        if not isinstance(model, Structure):
+            # Todo remove this feature from Nanohedra
+            model = Model.from_file(model)
+
         for entity in model.entities:
-            # Precompute reference sequences if available
-            # dummy = entity.reference_sequence  # use the incomming SEQRES REMARK for now
             if entity.is_oligomeric():
-                continue
+                pass
             else:
                 entity.make_oligomer(symmetry=symmetry)
 
             if next(entity_count) > 2:
                 # Todo remove able to take more than 2 Entity
-                raise NotImplementedError(f"Can't dock 2 Models with > 2 total Entity instances")
+                raise NotImplementedError(f"Can't dock 2 Model instances with > 2 total Entity instances")
+
         # Make, then save a new model based on the symmetric version of each Entity in the Model
-        _model = Model.from_chains([chain for entity in model.entities for chain in entity.chains], name=model.name)
+        _model = Model.from_chains([chain for entity in model.entities
+                                    for chain in entity.chains], name=model.name, log=logger)
         _model.file_path = model.file_path
         _model.fragment_db = job.fragment_db
         models[idx] = _model
-
-    # Todo reimplement this feature to write a log to the Project directory
-    # # Setup logger
-    # if logger is None:
-    #     log_file_path = os.path.join(project_dir, f'{building_blocks}_log.txt')
-    # else:
-    #     try:
-    #         log_file_path = getattr(logger.handlers[0], 'baseFilename', None)
-    #     except IndexError:  # No handler attached to this logger. Probably passing to a parent logger
-    #         log_file_path = None
-    #
-    # if log_file_path:  # Start logging to a file in addition
-    #     logger = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False, propagate=True)
-
-    for model in models:
-        model.log = logger
 
     # Todo figure out for single component
     model1: Model
@@ -370,6 +358,17 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     model1, model2 = models
     logger.info(f'DOCKING {model1.name} TO {model2.name}\n'
                 f'Oligomer 1 Path: {model1.file_path}\nOligomer 2 Path: {model2.file_path}')
+
+    # Set up output mechanism
+    entry_string = f'NanohedraEntry{sym_entry.number}'
+    building_blocks = '-'.join(model.name for model in models)
+    project = f'{entry_string}_{building_blocks}'  # _{putils.pose_directory}'
+    project_dir = os.path.join(job.projects, project)
+    putils.make_path(project_dir)
+    if job.write_trajectory:
+        # Create a Models instance to collect each model
+        raise NotImplementedError('Make iterative saving more reliable. See output_pose()')
+        trajectory_models = Models()
 
     # Set up Building Block2
     # Get Surface Fragments With Guide Coordinates Using COMPLETE Fragment Database
@@ -4147,11 +4146,11 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 #     list(repeat(protocol, number_of_transforms)),
                 #     index=designs_index, columns=[putils.protocol])
                 # metrics.sql.write_dataframe(designs=designs_df)
-                # # Add an entry for the pose to DesignMetadata. This is strictly to help ResidueMetadata
+                # # Add an entry for the pose to DesignData. This is strictly to help ResidueMetadata
                 # designs = []
                 # for pose_job in pose_jobs:
-                #     pose_job.designs.append(DesignMetadata(name=pose_job.name))
-                #     designs.append(DesignMetadata(name=pose_job.name))
+                #     pose_job.designs.append(DesignData(name=pose_job.name))
+                #     designs.append(DesignData(name=pose_job.name))
 
                 residues_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
                 # Add the design name to the dataframe. All output are the 'pose_source'

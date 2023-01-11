@@ -1,5 +1,4 @@
-# import structure.base  # FragmentDatabase circular import
-from ..structure import coords
-# import structure.model  # FragmentDatabase circular import
-# import structure.sequence
-from ..structure import utils
+# import .base  # FragmentDatabase circular import
+from . import coords, utils
+# import .model  # FragmentDatabase circular import
+# import .sequence

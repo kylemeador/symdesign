@@ -20,17 +20,18 @@ import torch
 from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
+# from sqlalchemy.ext.hybrid import hybrid_property
 
 from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, query
 from symdesign.sequence import generate_alignment, generate_mutations, numeric_to_sequence, get_equivalent_indices, \
-    protein_letters_alph1, protein_letters_3to1_extended, protein_letters_1to3_extended
+    protein_letters_alph1, protein_letters_3to1_extended, protein_letters_1to3_extended, profile_types
 from symdesign.utils import path as putils, sql
 from . import fragment
 from .base import Structure, Structures, Residue, StructureBase, atom_or_residue
 from .coords import Coords, superposition3d, transform_coordinate_sets
 from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type
-from .sequence import SequenceProfile, Profile, pssm_as_array, default_fragment_contribution, profile_types
+from .sequence import SequenceProfile, Profile, pssm_as_array, default_fragment_contribution
 from .utils import DesignError, SymmetryError, ClashError, chain_id_generator
 
 # Globals
@@ -961,9 +962,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     Keyword Args:
         name: str = None - The EntityID. Typically, EntryID_EntityInteger is used to match PDB API identifier format
     """
-    _chain_transforms: list[transformation_mapping]
-    """The specific transformation operators to generate all mate chains of the Oligomer"""
     _captain: Entity | None
+    _chain_transforms: list[transformation_mapping] | list
+    """The specific transformation operators to generate all mate chains of the Oligomer"""
     _chains: list | list[Entity]
     _oligomer: Structures  # list[Entity]
     _is_captain: bool
@@ -973,17 +974,22 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     # _df: pd.Series  # Metrics
     # _metrics: sql.EntityMetrics  # Metrics
     _metrics_table = sql.EntityMetrics
-    _uniprot_id: str | None
-    api_entry: dict[str, dict[str, str]] | None
+    # _uniprot_id: str | None  # Todo DB sql.UniProtEntity
+    # _search_uniprot_id = False  # Todo sql.UniProtEntity
+    # """Whether the uniprot_id has been queried"""
+    _api_data: dict[str, dict[str, str]] | None
     dihedral_chain: str | None
     max_symmetry: int | None
     max_symmetry_chain: str | None
-    rotation_d: dict[str, dict[str, int | np.ndarray]] | None
+    rotation_d: dict[str, dict[str, int | np.ndarray]] | dict
+    """Maps mate entities to their rotation matrix"""
     symmetry: str | None
+    uniprot_ids: tuple[str, ...] | None
+    # Todo _uniprot_ids: tuple[str, ...] | None
 
     @classmethod
     def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
-        """Initialize an Entity from a set of Chain objects"""
+        """Initialize an Entity from Chain instances"""
         return cls(chains=chains, **kwargs)
 
     # @classmethod  # Todo implemented above, but clean here to mirror Model?
@@ -993,10 +999,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     def __init__(self, chains: list[Chain] | Structures = None, dbref: dict[str, str] = None,
                  reference_sequence: str = None, thermophilic: bool = None, **kwargs):
         """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated"""
-        self._chain_transforms = []
         self._captain = None
+        self._chain_transforms = []
         self._is_captain = True
-        self.api_entry = None  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
+        self._api_data = None  # {chain: {'accession': 'Q96DC8', 'db': 'UniProt'}, ...}
         self.dihedral_chain = None
         self.max_symmetry = None
         self.max_symmetry_chain = None
@@ -1014,15 +1020,18 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         if chains:  # Instance was initialized with .from_chains()
             # Todo choose most symmetrically average
             #  Move chain symmetry ops below to here?
-            representative = chains[0]
+            representative = chains[0]  # Todo? next(iter(chains))
             residue_indices = representative.residue_indices
         else:  # Initialized with Structure constructor methods, handle using .is_parent() below
             residue_indices = None
 
         super().__init__(residue_indices=residue_indices, **kwargs)
-        if self.is_parent():  # Todo this logic is not correct. Could be .from_chains() without passing parent!
-            self._chains = []
+        if self.is_parent():  # Todo this logic is not correct. Could be .from_chains() without parent passed!
+            # This is used when Entity.from_file() is called
+            # We must create all chains after parsing so that we can set up correctly
+            # self._chains = []
             self._create_chains(as_mate=True)
+            # Set chains now that we parsed chains so we can use self.chains for mate chain functionality
             chains = self.chains
             # Todo choose most symmetrically average chain
             representative = chains[0]
@@ -1035,9 +1044,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # By using extend, we set self.original_chain_ids too
             self.chain_ids.extend([chain.chain_id for chain in chains])
 
+        # Indicate that the first self.chain should be this instance
         self._chains = [self]
+        self.structure_containers.extend(['_chains'])  # Use _chains as chains is okay to equal []
         # _copy_structure_containers and _update_structure_container_attributes are Entity specific
-        self.structure_containers.extend(['_chains'])  # use _chains as chains is okay to equal []
         if len(chains) > 1:
             # Todo handle chains with imperfect symmetry by using the actual chain and forgoing the transform
             #  Need to make a copy of the chain and make it an "Entity mate"
@@ -1125,7 +1135,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         Sets:
             self._api_data: dict[str, Any]
             {'chains': [],
-             'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'},
+             'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
              'reference_sequence': 'MSLEHHHHHH...',
              'thermophilic': True}
             self._uniprot_id: str | None
@@ -1143,7 +1153,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         """retrieve_api_info returns
         {'EntityID':
            {'chains': ['A', 'B', ...],
-            'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'},
+            'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
             'reference_sequence': 'MSLEHHHHHH...',
             'thermophilic': True},
         ...}
@@ -1158,27 +1168,35 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                     self.thermophilic = data
                 if data_type == 'dbref':
                     if data.get('db') == query.utils.UKB:
-                        self._uniprot_id = data.get('accession')
+                        self.uniprot_ids = data.get('accession')
         else:
             self.log.warning(f'Entity {self.name}: No information found from PDB API')
-            self._uniprot_id = None
+            self.uniprot_ids = None
 
-    # @hybrid_property Todo sql.UniProtEntity
-    @property
-    def uniprot_id(self) -> str | None:
-        """The UniProt ID for the Entity used for accessing genomic and homology features"""
-        try:
-            return self._uniprot_id
-        except AttributeError:
-            self._retrieve_info_from_api()
-        return self._uniprot_id
-
-    @uniprot_id.setter
-    def uniprot_id(self, uniprot_id: dict[str, str] | str):
-        # if isinstance(dbref, dict) and dbref.get('db') == 'UNP':
-        #     self._uniprot_id = dbref['accession']
-        # else:
-        self._uniprot_id = uniprot_id
+    # # @hybrid_property Todo sql.UniProtEntity
+    # @property  # Todo make this a property again
+    # def uniprot_id(self) -> str | None:
+    #     """The UniProt ID for the Entity used for accessing genomic and homology features"""
+    #     # Todo sql.UniProtEntity
+    #     # try:
+    #     #     return self._uniprot_id.upper()
+    #     # except AttributeError:
+    #     #     if not self._search_uniprot_id:
+    #     #         self._search_uniprot_id = True
+    #     #         # sql.UniProtEntity set as None, and we haven't tried to find, so lets try
+    #     # return self._uniprot_id
+    #     try:
+    #         return self._uniprot_id
+    #     except AttributeError:
+    #         self._retrieve_info_from_api()
+    #     return self._uniprot_id
+    #
+    # @uniprot_id.setter
+    # def uniprot_id(self, uniprot_id: dict[str, str] | str):
+    #     # if isinstance(dbref, dict) and dbref.get('db') == 'UNP':
+    #     #     self._uniprot_id = dbref['accession']
+    #     # else:
+    #     self._uniprot_id = uniprot_id
 
     @property
     def reference_sequence(self) -> str:
@@ -2965,7 +2983,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 {'assembly': [['A', 'B'], ...],
                  'entity': {'EntityID':
                                 {'chains': ['A', 'B', ...],
-                                 'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'}
+                                 'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'}
                                  'reference_sequence': 'MSLEHHHHHH...',
                                  'thermophilic': True},
                             ...},
@@ -2998,6 +3016,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 return
             else:
                 next(idx)
+        # Set the index to th index that was stopped at
+        idx = next(idx)
 
         # len(parsed_name) == 4 at some point
         if self.biological_assembly:
@@ -3016,7 +3036,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     self.api_entry = dict(entity=retrieve_api_info(entry=parsed_name, entity_integer=integer))
                     # retrieve_api_info returns
                     # {'EntityID': {'chains': ['A', 'B', ...],
-                    #               'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'}
+                    #               'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'}
                     #               'reference_sequence': 'MSLEHHHHHH...',
                     #               'thermophilic': True},
                     #  ...}
@@ -3143,7 +3163,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 """entity_api_info takes the format:
                 {'EntityID': 
                     {'chains': ['A', 'B', ...],
-                     'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'},
+                     'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
                      'reference_sequence': 'MSLEHHHHHH...',
                      'thermophilic': True},
                  ...}
@@ -3167,8 +3187,22 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             # # if dbref is None:
             # #     dbref = {}
             # entity_data['dbref'] = data['dbref'] = dbref
-            if 'dbref' not in data:
+            uniprot_ids = None
+            dbref = data.get('dbref', None)
+            if dbref is not None:
+                db_source = dbref.get('db')
+                if db_source == query.utils.UKB:  # This is a protein
+                    uniprot_ids = dbref['accession']
+                    # Todo put all Entity.from_chains() in this flow control segment
+                elif db_source == query.utils.GB:  # Nucleotide
+                    self.log.critical(f'Found a PDB API database source of {db_source} for the Entity {entity_name}'
+                                      f'This is currently not parsable')
+                elif db_source == query.utils.NOR:  # Nucleotide
+                    self.log.critical(f'Found a PDB API database source of {db_source} for the Entity {entity_name}'
+                                      f'This is currently not parsable')
+            else:
                 data['dbref'] = None
+
             # data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
             #                                               generated from a PDB API sequence search v
             # if isinstance(entity_name, int):
@@ -3200,6 +3234,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             chains = [self.chain(chain) if isinstance(chain, str) else chain for chain in data_chains]
             entity_data = {
                 **data,  # Place the original data in the new dictionary
+                'uniprot_ids': uniprot_ids,
                 'chains': [chain for chain in chains if chain]}  # remove any missing chains
             # # get uniprot ID if the file is from the PDB and has a DBREF remark
             # try:
@@ -3207,9 +3242,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             # except IndexError:  # we didn't find any chains. It may be a nucleotide structure
             #     continue
             # try:  # Todo clean here and the above entity vs chain len checks with nucleotide parsing
-                # chain_check_to_account_for_inability_to_parse_nucleotides = entity_data['chains'][0]
+            #     chain_check_to_account_for_inability_to_parse_nucleotides = entity_data['chains'][0]
             if len(entity_data['chains']) == 0:
-                # We missed a chain from the entity_info. We probably have a nucleotide at the moment
+            #     # We missed a chain from the entity_info. We probably have a nucleotide at the moment
             # except IndexError:  # we didn't find any chains. It may be a nucleotide structure
                 self.log.warning(f'Missing associated chains for the Entity {entity_name} with data: '
                                  f"self.chain_ids={self.chain_ids}, entity_data['chains']={entity_data['chains']}, "
@@ -3222,6 +3257,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             #                             self.biological_assembly, self.api_entry, self.original_chain_ids))
 
             # entity_data has attributes chains, dbref, and reference_sequence
+            entity_data.pop('dbref')  # This isn't used anymore
             self.entities.append(Entity.from_chains(**entity_data, name=entity_name, parent=self))
 
     def _get_entity_info_from_atoms(self, method: str = 'sequence', tolerance: float = 0.9, **kwargs):  # Todo define inside _create_entities?

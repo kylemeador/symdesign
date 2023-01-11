@@ -26,8 +26,7 @@ import psutil
 
 # from Query.utils import validate_input
 # from . import CommandDistributer, ProteinExpression  # Doesn't work due to circular imports
-from . import path as putils, sql
-# from ..utils import cluster, CommandDistributer, ProteinExpression, SymEntry, symmetry, path as putils
+from . import path as putils
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -699,7 +698,7 @@ def set_worker_affinity():
         -p is a mask for the logical cpu processors to use, the pid allows the affinity for an existing process to be
         specified instead of a new process being spawned
     """
-    _cmd = ['taskset', '-p', '0x%s' % 'f' * int((os.cpu_count() / 4)), str(os.getpid())]
+    _cmd = ['taskset', '-p', f'0x{"f" * int((psutil.cpu_count() / 4))}', str(os.getpid())]
     logger.debug(subprocess.list2cmdline(_cmd))
     p = subprocess.Popen(_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
     p.communicate()
@@ -1200,3 +1199,7 @@ def condensed_to_square(k, n):
     j = calc_col_idx(k, i, n)
 
     return i, j
+
+# from . import cluster
+# from . import CommandDistributer
+from . import sql, SymEntry, symmetry

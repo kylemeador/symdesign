@@ -855,7 +855,7 @@ def _get_entry_info(entry: str = None, **kwargs) -> dict[str, Any] | None:
         {'entity':
             {'EntityID':
                 {'chains': ['A', 'B', ...],
-                 'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'},
+                 'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
                  'reference_sequence': 'MSLEHHHHHH...',
                  'thermophilic': True},
              ...}
@@ -947,7 +947,7 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
         The entity dictionary with format -
         {'EntityID':
             {'chains': ['A', 'B', ...],
-             'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'},
+             'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
              'reference_sequence': 'MSLEHHHHHH...',
              'thermophilic': True},
          ...}
@@ -977,18 +977,19 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
             if len(uniprot_ids) > 1:
                 logger.warning(f'For Entity {entity_ids_json["rcsb_id"]}, found multiple UniProt Entries: '
                                f'{", ".join(uniprot_ids)}. Using the first')
-            db_d = dict(zip(database_keys, (UKB, uniprot_ids[0])))
-        except KeyError:  # if no uniprot_ids
+            db_d = dict(zip(database_keys, (UKB, tuple(uniprot_ids))))  # uniprot_ids[0])))
+        except KeyError:  # No 'uniprot_ids'
             # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
             # Norine = NOR, which is small peptide structures, sometimes bound to proteins...
             try:
-                identifiers = [dict(db=ident['database_name'], accession=ident['database_accession'])
+                identifiers = [dict(db=ident['database_name'], accession=(ident['database_accession'],))
                                for ident in entity_ids_json.get('reference_sequence_identifiers', [])]
-            except KeyError:  # there are really no identifiers of use
+            except KeyError:  # There are really no identifiers of use
                 return {}
             if identifiers:
-                if len(identifiers) == 1:  # only one solution
-                    db_d = dict(zip(database_keys, identifiers[0]))
+                if len(identifiers) == 1:  # Only one solution
+                    # db_d = dict(zip(database_keys, identifiers[0]))
+                    db_d = identifiers[0]
                 else:  # find the most ideal accession_database UniProt > GenBank > Norine > ???
                     whatever_else = 0
                     priority_l = [[] for _ in range(len(identifiers))]
@@ -1012,7 +1013,8 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
                                                                                     for idx in identifier_idx])))
                             break
                     else:  # if no solution from priority but something else, choose the other
-                        db_d = dict(zip(database_keys, identifiers[whatever_else]))
+                        # db_d = dict(zip(database_keys, identifiers[whatever_else]))
+                        db_d = identifiers[whatever_else]
             else:
                 db_d = {}
 
@@ -1058,7 +1060,7 @@ def _get_entity_info(entry: str = None, entity_integer: int | str = None, entity
         The entity dictionary with format -
         {'EntityID':
             {'chains': ['A', 'B', ...],
-             'dbref': {'accession': 'Q96DC8', 'db': 'UniProt'},
+             'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
              'reference_sequence': 'MSLEHHHHHH...',
              'thermophilic': True},
          ...}
@@ -1091,7 +1093,7 @@ def query_entity_id(entry: str = None, entity_integer: str | int = None, entity_
         The entity information according to the PDB
     """
     if entity_id:
-        entry, entity_integer, *_ = entity_id.split('_')  # assume that this was passed correctly
+        entry, entity_integer, *_ = entity_id.split('_')  # Assume that this was passed correctly
 
     if entry and entity_integer:
         return connection_exception_handler(
@@ -1254,16 +1256,17 @@ def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), 
         gen_schema = recurse_metadata(metadata_properties_d)
         schema_header_tuples = [yield_schema for yield_schema in gen_schema]
 
-        schema_dictionary_strings_d = {'a': '[\'items\']', 'o': '[\'properties\']'}  # 'a': '[\'items\'][\'properties\']'
+        schema_dictionary_strings_d = {'a': "['items']", 'o': "['properties']"}  # 'a': "['items']['properties']"
         schema_d = {}
         for i, attribute_tuple in enumerate(schema_header_tuples):
-            attribute_full = '.'.join(attribute for attribute in attribute_tuple if attribute not in schema_dictionary_strings_d)
+            attribute_full = '.'.join(attribute for attribute in attribute_tuple
+                                      if attribute not in schema_dictionary_strings_d)
             if i < 5:
                 logger.debug(attribute_full)
             schema_d[attribute_full] = {}
-            d_search_string = ''.join('[\'%s\']' % attribute if attribute not in schema_dictionary_strings_d
+            d_search_string = ''.join(f"['{attribute}']" if attribute not in schema_dictionary_strings_d
                                       else schema_dictionary_strings_d[attribute] for attribute in attribute_tuple)
-            evaluation_d = eval('%s%s' % (metadata_properties_d, d_search_string))
+            evaluation_d = eval(f'{metadata_properties_d}{d_search_string}')
             for key, value in schema_pairs.items():
                 if value in evaluation_d:
                     schema_d[attribute_full][key] = evaluation_d[value]
