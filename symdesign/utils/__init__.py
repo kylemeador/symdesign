@@ -464,8 +464,16 @@ def write_file(data: Iterable, file_name: AnyStr = None) -> AnyStr:
     return file_name
 
 
-def validate_input(prompt, response=None):  # exact copy as in Query.utils
-    _input = input(prompt)
+def validate_input(prompt: str, response: Iterable[str]) -> str:  # Exact copy as in Query.utils
+    """Following a provided prompt, validate that the user input is a valid response then return the response outcome
+
+    Args:
+        prompt: The desired prompt
+        response: The response values to accept as keys and the resulting data to return as values
+    Returns:
+        The data matching the chosen response key
+    """
+    _input = input(f'{prompt}\nChoose from [{", ".join(response)}]{input_string}')
     while _input not in response:
         _input = input(f'Invalid input... "{_input}" not a valid response. Try again{input_string}')
 

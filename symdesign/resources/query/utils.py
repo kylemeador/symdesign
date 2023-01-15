@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Container
+from typing import Any, Iterable
 
 import requests
 
@@ -24,7 +24,7 @@ format_string = '\t{}\t\t{}'
 numbered_format_string = format_string.format('%d - %s', '%s')
 
 
-def validate_input(prompt: str, response: Container[str]) -> str:
+def validate_input(prompt: str, response: Iterable[str]) -> str:
     """Following a provided prompt, validate that the user input is a valid response then return the response outcome
 
     Args:
