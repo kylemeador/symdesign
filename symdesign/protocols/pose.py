@@ -33,9 +33,8 @@ from symdesign import flags, metrics, resources
 from symdesign.structure import fragment
 from symdesign.structure.base import Structure
 from symdesign.structure.model import Pose, Models, Model, Entity
-from symdesign.structure.sequence import sequence_difference, MultipleSequenceAlignment, pssm_as_array, \
-    concatenate_profile, sequences_to_numeric
-from symdesign.sequence import read_fasta_file, write_sequences, protein_letters_3to1
+from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
+from symdesign.sequence import MultipleSequenceAlignment, protein_letters_3to1, read_fasta_file, write_sequences
 from symdesign.structure.utils import DesignError, ClashError
 from symdesign.utils import large_color_array, starttime, start_log, unpickle, pickle_object, write_shell_script, \
     all_vs_all, condensed_to_square, rosetta, InputError, sql, path as putils
