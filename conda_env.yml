@@ -4,26 +4,28 @@ channels:
   - defaults
   - pytorch
   - nvidia
+  - bioconda
 dependencies:
   - biopython
   - flametree
   - ipykernel
-  - jupyterlab
   - matplotlib
-  - mysql-connector-python
-  - numba
   - numpy
   - pandas
-  - proglog
+  - scikit-learn
+  - scipy
+  - sqlalchemy
   - psutil
   - python=3.10
   - pytorch
   - torchvision
   - torchaudio
   - cudatoolkit=10.2
+  - hhsuite
   - requests
-  - scikit-learn
-  - scipy
-  - seaborn
-  - sqlalchemy
   - tqdm
+  - proglog
+# Personally useful though not required
+#  - seaborn
+#  - numba
+#  - jupyterlab
