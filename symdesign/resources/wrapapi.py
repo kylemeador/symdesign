@@ -5,10 +5,9 @@ import os
 from pathlib import Path
 from typing import Annotated, AnyStr
 
-from symdesign.sequence import read_fasta_file, write_sequence_to_fasta, parse_hhblits_pssm
+from symdesign.sequence import MultipleSequenceAlignment, parse_hhblits_pssm, read_fasta_file, write_sequence_to_fasta
 from symdesign.structure.base import parse_stride
-from symdesign.structure.sequence import MultipleSequenceAlignment
-from symdesign.resources.database import Database, DataStore
+from .database import Database, DataStore
 from .query.pdb import query_entity_id, query_assembly_id, parse_entities_json, parse_assembly_json, query_entry_id, \
     parse_entry_json, _is_entity_thermophilic
 from .query.uniprot import query_uniprot

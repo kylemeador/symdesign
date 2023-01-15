@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
 from typing import AnyStr
 
+logger = logging.getLogger(__name__)
 # Project strings and file names
 utils_dir = os.path.dirname(os.path.realpath(__file__))  # reveals utils subdirectory
 python_source = os.path.dirname(utils_dir)  # reveals the root symdesign directory with python code
@@ -247,16 +249,30 @@ stride_exe_path = os.path.join(dependency_dir, 'stride', 'stride')
 bmdca_exe_path = os.path.join(dependency_dir, 'bmDCA', 'src', 'bmdca')
 ialign_exe_path = os.path.join(dependency_dir, 'ialign', 'bin', 'ialign.pl')
 # Set up for alignment programs
-reformat_msa_exe_path = os.path.join(dependency_dir, 'hh-suite', 'scripts', 'reformat.pl')
+hhsuite_dir = os.path.join(dependency_dir, 'hhsuite')
+reformat_msa_exe_path = os.path.join(hhsuite_dir, 'scripts', 'reformat.pl')
 alignmentdb = os.path.join(dependency_dir, 'ncbi_databases', 'uniref90')
 # alignment_db = os.path.join(dependency_dir, 'databases/uniref90')  # TODO
 
 # Below matches internals of utils.read_json()
-with open(config_file, 'r') as f_save:
-    config = json.load(f_save)
+try:
+    with open(config_file, 'r') as f_save:
+        config = json.load(f_save)
+except FileNotFoundError:  # We may be running setup.py or this wasn't installed made properly
+    config = {'hhblits_env': '', 'rosetta_env': '', 'rosetta_make': 'default'}
+    logger.debug(f"Couldn't find the config file '{config_file}'. Setting default config:\n"
+                 f"{', '.join(f'{k}={v}' for k, v in config.items())}")
+    # pass
 
-hhblits_exe = os.environ.get(config.get('hhblits_env'))
-hhblits_exe = hhblits_exe if hhblits_exe else 'hhblits'  # ensure not None
+
+def get_hhblits_exe():
+    p = subprocess.Popen(['which', 'hhblits'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    hhblits_exe_out, err = p.communicate()
+    return hhblits_exe_out.decode('utf-8').strip()
+
+
+hhblits_exe = os.environ.get(config.get('hhblits_env'), get_hhblits_exe())
+# hhblits_exe = hhblits_exe if hhblits_exe else 'hhblits'  # ensure not None
 uniclustdb = os.path.join(dependency_dir, 'hh-suite', 'databases', 'UniRef30_2020_02')  # TODO make db dynamic at config
 # uniclust_db = os.path.join(database, 'hh-suite', 'databases', 'UniRef30_2020_02')  # TODO
 install_hhsuite_exe = os.path.join(binaries, 'install_hhsuite.sh')
@@ -264,7 +280,8 @@ hhsuite_git = 'https://github.com/soedinglab/hh-suite'
 # Rosetta
 rosetta_extras = config.get('rosetta_make')
 rosetta_main = os.environ.get(config.get('rosetta_env'))
-rosetta_main = rosetta_main if rosetta_main else 'main'  # ensure not None
+rosetta_main = rosetta_main if rosetta_main else 'main'  # Ensure not None
+rosetta_default_bin = os.path.join(rosetta_main, 'source/bin')
 make_symmdef = os.path.join(rosetta_main, 'source', 'src', 'apps', 'public', 'symmetry', 'make_symmdef_file.pl')
 # Todo v dependent on external compile. cd to the directory, then type "make" to compile the executable
 dalphaball = os.path.join(rosetta_main, 'source', 'external', 'DAlpahBall', 'DAlphaBall.gcc')
