@@ -27,7 +27,8 @@ from symdesign.sequence import read_alignment, write_sequence_to_fasta, write_se
     protein_letters_alph1, protein_letters_alph3, protein_letters_3to1, \
     create_translation_tables, protein_letters_alph1_gapped, numerical_translation_alph1_gapped, \
     numerical_translation_alph1_bytes, numerical_translation_alph1_gapped_bytes, hhblits, get_lod, parse_hhblits_pssm, \
-    alignment_programs_literal, alignment_programs, profile_types, protein_letters_literal, profile_keys
+    alignment_programs_literal, alignment_programs, profile_types, protein_letters_literal, profile_keys, \
+    numerical_profile, MultipleSequenceAlignment
 
 # import dependencies.bmdca as bmdca
 putils = sdutils.path
@@ -62,313 +63,12 @@ aa_weighted_counts['weight'] = 1
 # aa_weighted_counts.update({'count': 0, 'weight': 1})
 # """{protein_letters_alph1, repeat(0) | 'stats'=(0, 1)}"""
 # aa_weighted_counts.update({'stats': (0, 1)})
-numerical_profile = np.ndarray  # Type[np.ndarray]
 """The shape should be (number of residues, number of characters in the alphabet"""
 # 'uniclust30_2018_08'
 
 # protein_letters_literal: tuple[str, ...] = get_args(utils.protein_letters_alph1_literal)
 # numerical_translation = dict(zip(utils.protein_letters_alph1, range(len(utils.protein_letters_alph1))))
 # protein_letters_alph1_extended: tuple[str, ...] = get_args(utils.protein_letters_alph1_extended_literal)
-
-
-class MultipleSequenceAlignment:
-    _alphabet_type: str
-    _array: np.ndarray
-    _frequencies: np.ndarray
-    _gaps_per_position: np.ndarray
-    _numerical_alignment: np.ndarray
-    _sequence_indices: np.ndarray
-    _numeric_translation_type: dict[str, int]
-    """Given an amino acid alphabet type, return the corresponding numerical translation table"""
-    alignment: MultipleSeqAlignment
-    # counts: list[dict[extended_protein_letters_and_gap, int]]
-    counts: list[list[int]] | np.ndarray
-    frequencies: np.ndarray
-    number_of_characters: int
-    """The number of sequence characters in the character alphabet"""
-    number_of_sequences: int
-    """The number of sequences in the alignment"""
-    length: int
-    """The number of individual characters found in each sequence in the alignment"""
-    observations: np.ndarray
-    """The number of observations for each sequence index in the alignment"""
-    query: str
-    """The sequence used to perform the MultipleSequenceAlignment search"""
-    query_length: int
-    """The length of the query sequence. No gaps"""
-    query_with_gaps: str
-    """The sequence used to perform the MultipleSequenceAlignment search. May contain gaps from alignment"""
-
-    def __init__(self, alignment: MultipleSeqAlignment = None, aligned_sequence: str = None,
-                 alphabet: str = protein_letters_alph1_gapped,
-                 weight_alignment_by_sequence: bool = False, sequence_weights: list[float] = None,
-                 count_gaps: bool = False, **kwargs):
-        """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
-
-        gaps=True treats all column weights the same. This is fairly inaccurate for scoring, so False reflects the
-        probability of residue i in the specific column more accurately.
-
-        Args:
-            alignment: "Array" of SeqRecords
-            aligned_sequence: Provide the sequence on which the alignment is based, otherwise the first
-                sequence will be used
-            alphabet: 'ACDEFGHIKLMNPQRSTVWY-'
-            weight_alignment_by_sequence: If weighting should be performed. Use in cases of
-                unrepresentative sequence population in the MSA
-            sequence_weights: If the alignment should be weighted, and weights are already available, the
-                weights for each sequence
-            count_gaps: Whether gaps (-) should be counted in column weights
-        Sets:
-            alignment - (Bio.Align.MultipleSeqAlignment)
-            number_of_sequences - 214
-            query - 'MGSTHLVLK...' from aligned_sequence argument OR alignment argument, index 0
-            query_with_gaps - 'MGS--THLVLK...'
-            counts - {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
-            frequencies - {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
-            observations - {1: 210, 2:211, ...}}
-        """
-        if alignment is not None:
-            self.alignment = alignment
-            self.number_of_sequences = len(alignment)
-            self.length = alignment.get_alignment_length()
-            self.alphabet = alphabet
-            self.number_of_characters = len(alphabet)
-            if aligned_sequence is None:
-                aligned_sequence = str(alignment[0].seq)
-            # Add Info to 'meta' record as needed and populate an amino acid count dict (one-indexed)
-            self.query = aligned_sequence.replace('-', '')
-            self.query_length = len(self.query)
-            self.query_with_gaps = aligned_sequence
-
-            numerical_alignment = self.numerical_alignment
-            self.counts = np.zeros((self.length, self.number_of_characters))
-            # invert the "typical" format to length of the alignment in axis 0, and the numerical letters in axis 1
-            for residue_idx in range(self.length):
-                self.counts[residue_idx, :] = \
-                    np.bincount(numerical_alignment[:, residue_idx], minlength=self.number_of_characters)
-
-            # self.observations = find_column_observations(self.counts, **kwargs)
-            self._gap_index = 0
-            if count_gaps:
-                self.observations = [self.number_of_sequences for _ in range(self.length)]
-            else:
-                # gap_observations = [_aa_counts['-'] for _aa_counts in self.counts]  # list[dict]
-                # gap_observations = [_aa_counts[0] for _aa_counts in self.counts]  # list[list]
-                # self.observations = [counts - gap for counts, gap in zip(self.observations, gap_observations)]
-                # Find where gaps and unknown start. They are always at the end
-                if 'gapped' in self.alphabet_type:
-                    self._gap_index -= 1
-                if 'unknown' in self.alphabet_type:
-                    self._gap_index -= 1
-
-                self.observations = self.counts[:, :self._gap_index].sum(axis=1)
-                if not np.any(self.observations):  # Check if an observation is 0
-                    raise ValueError("Can't have a MSA column (sequence index) with 0 observations. Found at ("
-                                     f'{",".join(map(str, np.flatnonzero(self.observations)))}')
-                    #                f'{",".join(str(idx) for idx, pos in enumerate(self.observations) if not pos)}')
-
-            if weight_alignment_by_sequence:
-                # create a 1/ obs * counts = positional_weights
-                #               alignment.length - 0   1   2  ...
-                #      / obs 0 [[32]   count seq 0 '-' -  2   0   0  ...   [[ 64   0   0 ...]  \
-                # 1 / |  obs 1  [33] * count seq 1 'A' - 10  10   0  ... =  [330 330   0 ...]   |
-                #      \ obs 2  [33]   count seq 2 'C' -  8   8   1  ...    [270 270  33 ...]] /
-                #   ...   ...]               ...  ... ... ...
-                position_weights = 1 / (self.observations[None, :] * self.counts)
-                # take_along_axis from this with the transposed numerical_alignment (na) where each successive na idx
-                # is the sequence position at the na and therefore is grabbing the position_weights by that index
-                # finally sum along each sequence
-                # The position_weights count seq idx must be taken by a sequence index. This happens to be on NA axis 1
-                # at the moment so specified with .T and take using axis=0. Keeping both as axis=0 doen't index
-                # correctly. Maybe this is a case where 'F' array ordering is needed?
-                sequence_weights = np.take_along_axis(position_weights, numerical_alignment.T, axis=0).sum(axis=0)
-                print('sequence_weights', sequence_weights)
-                self._counts = [[0 for letter in alphabet] for _ in range(self.length)]  # list[list]
-                for record in self.alignment:
-                    for i, aa in enumerate(record.seq):
-                        self._counts[i][numerical_translation_alph1_gapped[aa]] += 1
-                        # self.counts[i][aa] += 1
-                print('OLD self._counts', self._counts)
-                self._observations = [sum(_aa_counts[:self._gap_index]) for _aa_counts in self._counts]  # list[list]
-
-                sequence_weights_ = weight_sequences(self._counts, self.alignment, self._observations)
-                print('OLD sequence_weights_', sequence_weights_)
-
-            if sequence_weights is not None:  # overwrite the current counts with weighted counts
-                self.sequence_weights = sequence_weights
-                # Todo update this as well
-                self._counts = [[0 for letter in alphabet] for _ in range(self.length)]  # list[list]
-                for record in self.alignment:
-                    for i, aa in enumerate(record.seq):
-                        self._counts[i][numerical_translation_alph1_gapped[aa]] += sequence_weights_[i]
-                        # self.counts[i][aa] += sequence_weights[i]
-                print('OLD sequence_weight self._counts', self._counts)
-
-                # add each sequence weight to the indices indicated by the numerical_alignment
-                self.counts = np.zeros((self.length, len(protein_letters_alph1_gapped)))
-                for idx in range(self.number_of_sequences):
-                    self.counts[:, numerical_alignment[idx]] += sequence_weights[idx]
-                print('sequence_weight self.counts', self.counts)
-            else:
-                self.sequence_weights = []
-
-    @classmethod
-    def from_stockholm(cls, file, **kwargs):
-        try:
-            return cls(alignment=read_alignment(file, alignment_type='stockholm'), **kwargs)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"The multiple sequence alignment file '{file}' doesn't exist")
-
-    @classmethod
-    def from_fasta(cls, file):
-        try:
-            return cls(alignment=read_alignment(file))
-        except FileNotFoundError:
-            raise FileNotFoundError(f"The multiple sequence alignment file '{file}' doesn't exist")
-
-    @classmethod
-    def from_dictionary(cls, named_sequences: dict[str, str], **kwargs):
-        """Create a MultipleSequenceAlignment from a dictionary of named sequences
-
-        Args:
-            named_sequences: Where name and sequence must be a string, i.e. {'1': 'MNTEELQVAAFEI...', ...}
-        Returns:
-            The MultipleSequenceAlignment object for the provided sequences
-        """
-        return cls(alignment=MultipleSeqAlignment([SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'},
-                                                             id=name)
-                                                   for name, sequence in named_sequences.items()]), **kwargs)
-
-    @classmethod
-    def from_seq_records(cls, seq_records: Iterable[SeqRecord], **kwargs):
-        """Create a MultipleSequenceAlignment from a SeqRecord Iterable
-
-        Args:
-            seq_records: {name: sequence, ...} ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
-        """
-        return cls(alignment=MultipleSeqAlignment(seq_records), **kwargs)
-
-    # def msa_to_prob_distribution(self):
-    #     """Find the Alignment probability distribution from the self.counts dictionary
-    #
-    #     Sets:
-    #         self.frequencies (dict[mapping[int, dict[mapping[alphabet,float]]]]):
-    #             {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...}
-    #     """
-    #     for residue, amino_acid_counts in self.counts.items():
-    #         total_column_weight = self.observations[residue]
-    #         if total_column_weight == 0:
-    #             raise ValueError(f'{self.msa_to_prob_distribution.__name__}: Can\'t have a column with 0 observations. Position = {residue}')
-    #         self.frequencies[residue] = {aa: count / total_column_weight for aa, count in amino_acid_counts.items()}
-
-    @property
-    def alphabet_type(self) -> str:
-        """The type of alphabet that the alignment is mapped to numerically"""
-        try:
-            return self._alphabet_type
-        except AttributeError:
-            if self.alphabet.startswith('ACD'):  # 1 letter order
-                self._alphabet_type = 'protein_letters_alph1'
-            else:  # 3 letter order
-                self._alphabet_type = 'protein_letters_alph3'
-
-            if 'X' in self.alphabet:  # Unknown
-                self._alphabet_type += '_unknown'
-            if '-' in self.alphabet:  # Gapped
-                self._alphabet_type += '_gapped'
-
-            return self._alphabet_type
-
-    @property
-    def query_indices(self) -> np.ndarray:
-        """Returns the query as a boolean array (1, length) where gaps ("-") are False"""
-        try:
-            return self._sequence_indices[0]
-        except AttributeError:
-            self._sequence_indices = self.array != b'-'
-            # self._sequence_indices = np.isin(self.array, b'-', invert=True)
-            return self._sequence_indices[0]
-
-    @property
-    def sequence_indices(self) -> np.ndarray:
-        """Returns the alignment as a boolean array (number_of_sequences, length) where gaps ("-") are False"""
-        try:
-            return self._sequence_indices
-        except AttributeError:
-            self._sequence_indices = self.array != b'-'
-            # self._sequence_indices = np.isin(self.array, b'-', invert=True)
-            return self._sequence_indices
-
-    @sequence_indices.setter
-    def sequence_indices(self, sequence_indices: np.ndarray):
-        self._sequence_indices = sequence_indices
-
-    @property
-    def numerical_alignment(self) -> np.ndarray:
-        """Return the alignment as an integer array (number_of_sequences, length) of the amino acid characters
-
-        Maps the instance .alphabet characters to their resulting sequence index
-        """
-        try:
-            return self._numerical_alignment
-        except AttributeError:
-            try:
-                translation_type = self._numeric_translation_type  # Todo clean setting of this with self.alphabet_type
-            except AttributeError:
-                self._numeric_translation_type = create_translation_tables(self.alphabet_type)
-                translation_type = self._numeric_translation_type
-
-            self._numerical_alignment = np.vectorize(translation_type.__getitem__)(self.array)
-            return self._numerical_alignment
-
-    @property
-    def array(self) -> np.ndarray:
-        """Return the alignment as a character array (number_of_sequences, length) with numpy.string_ dtype"""
-        try:
-            return self._array
-        except AttributeError:
-            self._array = np.array([list(record) for record in self.alignment], np.string_)
-            return self._array
-
-    @property
-    def frequencies(self) -> np.ndarray:
-        """Access the per residue (axis=0) amino acid frequencies (axis=1) bounded between 0 and 1"""
-        # self._frequencies = [[count/observation for count in amino_acid_counts[:self._gap_index]]  # don't use the gap
-        #                      for amino_acid_counts, observation in zip(self._counts, self._observations)]
-        # print('OLD self._frequencies', self._frequencies)
-
-        # self.frequencies = np.zeros((self.length, len(utils.protein_letters_alph1)))  # self.counts.shape)
-        # for residue_idx in range(self.length):
-        #     self.frequencies[residue_idx, :] = self.counts[:, :self._gap_index] / self.observations
-        try:
-            return self._frequencies
-        except AttributeError:  # Don't use gapped indices
-            self._frequencies = self.counts[:, :self._gap_index] / self.observations[:, None]
-        return self._frequencies
-
-    @property
-    def gaps_per_postion(self) -> np.ndarray:
-        try:
-            return self._gaps_per_position
-        except AttributeError:
-            self._gaps_per_position = self.number_of_sequences - self.observations
-        return self._gaps_per_position
-
-    def get_probabilities_from_profile(self, profile: numerical_profile) -> np.ndarry:
-        """For each sequence in the alignment, extract the values from a profile corresponding to the amino acid type
-        of each residue in each sequence
-
-        Args:
-            profile: A profile of values with shape (length, alphabet_length) where length is the number_of_residues
-        Returns:
-            The array with shape (number_of_sequences, length) with the value for each amino acid index in profile
-        """
-        # transposed_alignment = self.numerical_alignment.T
-        return np.take_along_axis(profile, self.numerical_alignment.T, axis=1).T
-        # observed = {profile: np.take_along_axis(background, transposed_alignment, axis=1).T
-        #             for profile, background in backgrounds.items()}
-        # observed = {profile: np.where(np.take_along_axis(background, transposed_alignment, axis=1) > 0, 1, 0).T
-        #             for profile, background in backgrounds.items()}
 
 
 def sequence_to_numeric(sequence: Sequence[str]) -> np.ndarray:
@@ -2403,27 +2103,6 @@ def clean_gapped_columns(alignment_dict, correct_index):  # UNUSED
     return {i: alignment_dict[index] for i, index in enumerate(correct_index)}
 
 
-def weight_sequences(alignment_counts: Sequence[Sequence[int]], bio_alignment: MultipleSeqAlignment,
-                     column_counts: Sequence[int]) -> list[float]:  # UNUSED
-    """Measure diversity/surprise when comparing a single alignment entry to the rest of the alignment
-
-    Operation is: SUM(1 / (column_j_aa_representation * aa_ij_count)) as was described by Heinkoff and Heinkoff, 1994
-    Args:
-        alignment_counts: The counts of each AA in each column [{'A': 31, 'C': 0, ...}, 2: {}, ...]
-        bio_alignment:
-        column_counts: The indexed counts for each column in the msa that are not gaped
-    Returns:
-        Weight of each sequence in the MSA - [2.390, 2.90, 5.33, 1.123, ...]
-    """
-    sequence_weights = []
-    for record in bio_alignment:
-        s = 0  # "diversity/surprise"
-        for j, aa in enumerate(record.seq):
-            s += (1 / (column_counts[j] * alignment_counts[j][aa]))
-        sequence_weights.append(s)
-
-    return sequence_weights
-
 
 msa_supported_types = {'fasta': '.fasta', 'stockholm': '.sto'}
 msa_generation_function = SequenceProfile.hhblits.__name__
@@ -2464,7 +2143,7 @@ def weight_gaps(divergence, representation, alignment_length):  # UNUSED
     return divergence
 
 
-def window_score(score_dict, window_len, score_lambda=0.5):  # UNUSED  incorporate into MultipleSequenceAlignment
+def window_score(score_dict, window_len: int, score_lambda: float = 0.5):  # UNUSED  incorporate into MultipleSequenceAlignment
     """Takes a MSA score dict and transforms so that each position is a weighted average of the surrounding positions.
     Positions with scores less than zero are not changed and are ignored calculation
 
