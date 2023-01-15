@@ -11,14 +11,15 @@ from typing import Sequence, AnyStr, Iterable, Type, Literal, Any, get_args
 
 import numpy as np
 from Bio import pairwise2, SeqIO, AlignIO
+# Todo
+# BiopythonDeprecationWarning: Bio.pairwise2 has been deprecated, and we intend to remove it in a future release of
+# Biopython. As an alternative, please consider using Bio.Align.PairwiseAligner as a replacement, and contact the
+# Biopython developers if you still need the Bio.pairwise2 module.
 from Bio.Align import substitution_matrices, MultipleSeqAlignment
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 from symdesign import utils as utils
-from symdesign.third_party.DnaChisel.dnachisel import reverse_translate, DnaOptimizationProblem, CodonOptimize, \
-    EnforceGCContent, AvoidHairpins, AvoidPattern, UniquifyAllKmers, AvoidRareCodons, EnforceTranslation
-# from symdesign.utils import path as putils
 putils = utils.path
 
 
@@ -458,6 +459,13 @@ def optimize_protein_sequence(sequence: str, species: str = 'e_coli') -> str:
     """
     seq_length = len(sequence)
     species = species.lower()
+    try:
+        from symdesign.third_party.DnaChisel.dnachisel import reverse_translate, DnaOptimizationProblem, \
+            CodonOptimize,EnforceGCContent, AvoidHairpins, AvoidPattern, UniquifyAllKmers, AvoidRareCodons, \
+            EnforceTranslation
+    except ModuleNotFoundError:
+        raise RuntimeError(f"Can't {optimize_protein_sequence.__name__} as the dependency DnaChisel is not available")
+
     try:
         dna_sequence = reverse_translate(sequence)
     except KeyError as error:
