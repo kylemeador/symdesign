@@ -45,3 +45,15 @@ try:
 except (_pickle.UnpicklingError, ImportError):
     logger.error(f'The reference_residues ran into an error upon load. You need to regenerate the serialized version!')
     reference_residues = None
+
+
+def parse_stride(stride_file, **kwargs):
+    """From a Stride file, parse information for residue level secondary structure assignment
+
+    Sets:
+        self.secondary_structure
+    """
+    with open(stride_file, 'r') as f:
+        stride_output = f.readlines()
+
+    return ''.join(line[24:25] for line in stride_output if line[0:3] == 'ASG')

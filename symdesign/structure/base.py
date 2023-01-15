@@ -4400,20 +4400,26 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         Sets:
             self.secondary_structure
         """
-        with open(stride_file, 'r') as f:
-            stride_output = f.readlines()
+        self.secondary_structure = stutils.parse_stride(stride_file)
 
-        # residue_idx = 0
-        # residues = self.residues
-        for line in stride_output:
-            # residue_idx = int(line[10:15])
-            if line[0:3] == 'ASG':
-                # residue_idx = int(line[15:20])  # one-indexed, use in Structure version...
-                # line[10:15].strip().isdigit():  # residue number -> line[10:15].strip().isdigit():
-                self.residue(int(line[10:15].strip()), pdb=True).secondary_structure = line[24:25]
-                # residues[residue_idx].secondary_structure = line[24:25]
-                # residue_idx += 1
-        self.secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
+        # Set each Residue secondard_structure
+        for residue, ss_type in zip(self.residues, self.secondary_structure):
+            residue.secondary_structure = ss_type
+
+        # with open(stride_file, 'r') as f:
+        #     stride_output = f.readlines()
+        #
+        # # residue_idx = 0
+        # # residues = self.residues
+        # for line in stride_output:
+        #     # residue_idx = int(line[10:15])
+        #     if line[0:3] == 'ASG':
+        #         # residue_idx = int(line[15:20])  # one-indexed, use in Structure version...
+        #         # line[10:15].strip().isdigit():  # residue number -> line[10:15].strip().isdigit():
+        #         self.residue(int(line[10:15].strip()), pdb=True).secondary_structure = line[24:25]
+        #         # residues[residue_idx].secondary_structure = line[24:25]
+        #         # residue_idx += 1
+        # self.secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
 
     def is_termini_helical(self, termini: termini_literal = 'n', window: int = 5) -> int:
         """Using assigned secondary structure, probe for a helical C-termini using a segment of 'window' residues
@@ -5360,15 +5366,3 @@ class Structures(Structure, UserList):
 
     def __getitem__(self, idx: int) -> Structure:
         return self.data[idx]
-
-
-def parse_stride(stride_file, **kwargs):
-    """From a Stride file, parse information for residue level secondary structure assignment
-
-    Sets:
-        self.secondary_structure
-    """
-    with open(stride_file, 'r') as f:
-        stride_output = f.readlines()
-
-    return ''.join(line[24:25] for line in stride_output if line[0:3] == 'ASG')

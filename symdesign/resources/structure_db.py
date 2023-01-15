@@ -193,7 +193,7 @@ class StructureDatabase(Database):
         self.refined = DataStore(location=refined, extension='.pdb', sql=self.sql, log=self.log,
                                  load_file=structure.model.Model.from_pdb)
         self.stride = DataStore(location=stride, extension='.stride', sql=self.sql, log=self.log,
-                                load_file=structure.base.parse_stride)
+                                load_file=structure.utils.parse_stride)
 
         # Todo only load the necessary structural template
         self.sources = [self.oriented_asu, self.refined, self.stride]  # self.full_models
