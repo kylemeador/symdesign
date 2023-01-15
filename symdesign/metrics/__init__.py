@@ -16,7 +16,8 @@ from . import sql
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, validate_type, verify_choice, header_string
 from symdesign.structure.utils import DesignError
-from symdesign.sequence import protein_letters_literal, alphabet_types, create_translation_tables
+from symdesign.sequence import alphabet_types, create_translation_tables, MultipleSequenceAlignment, \
+    protein_letters_literal
 from symdesign import utils, flags
 putils = utils.path
 
@@ -922,7 +923,7 @@ def sum_per_residue_metrics(df: pd.DataFrame, rename_columns: Mapping[str, str] 
     return summed_df
 
 
-def calculate_sequence_observations_and_divergence(alignment: 'structure.sequence.MultipleSequenceAlignment',
+def calculate_sequence_observations_and_divergence(alignment: MultipleSequenceAlignment,
                                                    backgrounds: dict[str, np.ndarray]) \
         -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
     #                                                select_indices: list[int] = None) \
