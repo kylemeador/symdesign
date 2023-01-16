@@ -17,27 +17,26 @@ logger = logging.getLogger(__name__)
 # Session = sessionmaker()
 
 
-def insert_dataframe(session: Session, _table: Base, df: pd.DataFrame):  # -> list[int]:
-    """Take a MultiIndex(pose, design, index) ResidueMetrics DataFrame and insert/update values into the ResidueMetrics SQL DataBase
+def insert_dataframe(session: Session, table: Base, df: pd.DataFrame):  # -> list[int]:
+    """Take a formatted pandas DataFrame and insert values into a sqlalchemy session, then commit the transaction
 
-    Returns:
-        The id of each of the inserted entries in the Database
+    Args:
+        session: A currently open transaction within sqlalchemy
+        table: A Class mapped to SQL table with sqlalchemy
+        df: The DataFrame with records to insert
     """
-    # table = ResidueMetrics
-    # job = job_resources_factory()
-    # with job.db.session() as session:
-    insert_stmt = insert(_table)
-    # Get the columns that should be updated
-    new_columns = df.index.names + df.columns.to_list()
-    # logger.debug(f'Provided columns: {new_columns}')
-    excluded_columns = insert_stmt.excluded
-    update_columns = [c for c in excluded_columns if c.name in new_columns]
-    update_dict = {getattr(c, 'name'): c for c in update_columns if not c.primary_key}
-    table = _table.__table__
-    # Find relevant column indicators to parse the non-primary key non-nullable columns
-    primary_keys = [key for key in table.primary_key]
-    non_null_keys = [col for col in table.columns if not col.nullable]
-    index_keys = [key for key in non_null_keys if key not in primary_keys]
+    insert_stmt = insert(table)
+    # # Get the columns that should be updated
+    # new_columns = df.index.names + df.columns.to_list()
+    # # logger.debug(f'Provided columns: {new_columns}')
+    # excluded_columns = insert_stmt.excluded
+    # update_columns = [c for c in excluded_columns if c.name in new_columns]
+    # update_dict = {getattr(c, 'name'): c for c in update_columns if not c.primary_key}
+    # table_ = table.__table__
+    # # Find relevant column indicators to parse the non-primary key non-nullable columns
+    # primary_keys = [key for key in table_.primary_key]
+    # non_null_keys = [col for col in table_.columns if not col.nullable]
+    # index_keys = [key for key in non_null_keys if key not in primary_keys]
 
     # do_update_stmt = insert_stmt.on_conflict_do_update(
     #     index_elements=index_keys,  # primary_keys,
@@ -45,11 +44,11 @@ def insert_dataframe(session: Session, _table: Base, df: pd.DataFrame):  # -> li
     # )
     # # Can't insert with .returning() until version 2.0...
     # # try:
-    # #     result = session.execute(do_update_stmt.returning(table.id), df.reset_index().to_dict('records'))
+    # #     result = session.execute(do_update_stmt.returning(table_.id), df.reset_index().to_dict('records'))
     # # except exc.CompileError as error:
     # #     logger.error(error)
     # #     try:
-    # #         result = session.execute(insert_stmt.returning(table.id), df.reset_index().to_dict('records'))
+    # #         result = session.execute(insert_stmt.returning(table_.id), df.reset_index().to_dict('records'))
     # #     except exc.CompileError as _error:
     # #         logger.error(_error)
     # # try:
@@ -58,17 +57,17 @@ def insert_dataframe(session: Session, _table: Base, df: pd.DataFrame):  # -> li
     # result = session.execute(insert_stmt, df.reset_index().to_dict('records'))
     start_time = time()
     session.execute(insert_stmt, df.reset_index().to_dict('records'))
-    logger.info(f'Transaction took {time() - start_time:8f}s')
+    logger.info(f'Transaction with table "{table.__tablename__}" took {time() - start_time:8f}s')
 
     # session.commit()
-    # # foreign_key = [key.column.name for key in table.foreign_keys]
-    # for key in table.foreign_keys:
+    # # foreign_key = [key.column.name for key in table_.foreign_keys]
+    # for key in table_.foreign_keys:
     #     foreign_key_name = key.column.name
-    #     table2 = key.column.table
-    #     # Repeat the Find procedure for table2
+    #     table2_ = key.column.table
+    #     # Repeat the Find procedure for table2_
     #     # Find relevant column indicators to parse the non-primary key non-nullable columns
-    #     primary_keys2 = [key for key in table2.primary_key]
-    #     non_null_keys2 = [col for col in table2.columns if not col.nullable]
+    #     primary_keys2 = [key for key in table2_.primary_key]
+    #     non_null_keys2 = [col for col in table2_.columns if not col.nullable]
     #     index_keys2 = [key for key in non_null_keys2 if key not in primary_keys2]
     #     # Todo this statement fails due to the error:
     #     #  This backend (sqlite) does not support multiple-table criteria within UPDATE
@@ -122,36 +121,38 @@ def insert_dataframe(session: Session, _table: Base, df: pd.DataFrame):  # -> li
 #      .where(*tuple(key1 == key2 for key1, key2 in zip(index_keys1, index_keys2)))
 
 
-def upsert_dataframe(session: Session, _table: Base, df: pd.DataFrame) -> list[int]:
-    """Take a MultiIndex(pose, design, index) ResidueMetrics DataFrame and insert/update values into the ResidueMetrics SQL DataBase
+def upsert_dataframe(session: Session, table: Base, df: pd.DataFrame):  # -> list[int]:
+    """Take a formatted pandas DataFrame and insert/update values into a sqlalchemy session, then commit the transaction
 
-    This dataframe must have a column 'id' in order to upsert. This should be retrieved from the db
+    Args:
+        session: A currently open transaction within sqlalchemy
+        table: A Class mapped to SQL table with sqlalchemy
+        df: The DataFrame with records to insert
     """
-    # table = ResidueMetrics
-    # job = job_resources_factory()
-    # with job.db.session() as session:
-    insert_stmt = insert(_table)
+    insert_stmt = insert(table)
     # Get the columns that should be updated
     new_columns = df.index.names + df.columns.to_list()
     # logger.debug(f'Provided columns: {new_columns}')
     excluded_columns = insert_stmt.excluded
     update_columns = [c for c in excluded_columns if c.name in new_columns]
     update_dict = {getattr(c, 'name'): c for c in update_columns if not c.primary_key}
-    table = _table.__table__
+    table_ = table.__table__
     # Find relevant column indicators to parse the non-primary key non-nullable columns
-    primary_keys = [key.name for key in table.primary_key]
-    non_null_keys = [col.name for col in table.columns if not col.nullable]
+    primary_keys = [key for key in table_.primary_key]
+    non_null_keys = [col for col in table_.columns if not col.nullable]
     index_keys = [key for key in non_null_keys if key not in primary_keys]
 
     do_update_stmt = insert_stmt.on_conflict_do_update(
         index_elements=index_keys,  # primary_keys,
         set_=update_dict
     )
-
-    result = session.execute(do_update_stmt, df.reset_index().set_index('id').to_dict('records'))
+    start_time = time()
+    # result = session.execute(do_update_stmt, df.reset_index().set_index('id').to_dict('records'))
+    session.execute(do_update_stmt, df.reset_index().set_index('id').to_dict('records'))
+    logger.info(f'Transaction with table "{table_.__tablename__}" took {time() - start_time:8f}s')
     session.commit()
 
-    return result.scalars().all()
+    # return result.scalars().all()
 
 
 def format_residues_df_for_write(df: pd.DataFrame) -> pd.DataFrame:
@@ -179,7 +180,7 @@ def format_residues_df_for_write(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None, poses: pd.DataFrame = None,
-                    update: bool = False):
+                    update: bool = True):
     """Format each possible DataFrame type for output via csv or SQL database
 
     Args:
@@ -196,22 +197,22 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
     else:
         dataframe_function = insert_dataframe
 
-    warn = warned = False
-
-    def warn_multiple_update_results():
-        nonlocal warned
-        if warn and not warned:
-            logger.warning(f"Performing multiple metrics SQL transactions will only return only results for the last "
-                           f"transaction")
-            warned = True
+    # warn = warned = False
+    #
+    # def warn_multiple_update_results():
+    #     nonlocal warned
+    #     if warn and not warned:
+    #         logger.warning("Performing multiple metrics SQL transactions will only return only results for the last "
+    #                        "transaction")
+    #         warned = True
 
     job = job_resources_factory()
     # engine = job.db.engine
     session = job.current_session
     if poses is not None:
-        warn = True
+        # warn = True
         poses.replace({np.nan: None}, inplace=True)
-        result = dataframe_function(session, _table=PoseMetrics, df=poses)
+        dataframe_function(session, _table=PoseMetrics, df=poses)
         table = PoseMetrics.__tablename__
         # poses.to_sql(table, con=engine, if_exists='append', index=True)
         # #              dtype=sql.Base.metadata.table[table])
@@ -220,10 +221,10 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
         # return result
 
     if designs is not None:
-        warn_multiple_update_results()
-        warn = True
+        # warn_multiple_update_results()
+        # warn = True
         designs.replace({np.nan: None}, inplace=True)
-        result = dataframe_function(session, _table=DesignMetrics, df=designs)
+        dataframe_function(session, _table=DesignMetrics, df=designs)
         table = DesignMetrics.__tablename__
         # designs.to_sql(table, con=engine, if_exists='append', index=True)
         # #                dtype=sql.Base.metadata.table[table])
@@ -232,11 +233,11 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
         # return result
 
     if residues is not None:
-        warn_multiple_update_results()
-        warn = True
+        # warn_multiple_update_results()
+        # warn = True
         residues = format_residues_df_for_write(residues)
         residues.replace({np.nan: None}, inplace=True)
-        result = dataframe_function(session, _table=ResidueMetrics, df=residues)
+        dataframe_function(session, _table=ResidueMetrics, df=residues)
         table = ResidueMetrics.__tablename__
         # residues.to_sql(table, con=engine, index=True)  # if_exists='append',
         # # Todo Ensure that the 'id' column is present
@@ -244,4 +245,4 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
         # results = session.scalars(stmt)  # execute(stmt)
         logger.info(f'Wrote {table} metrics to DataBase {job.internal_db}')
 
-    return result
+    # return result

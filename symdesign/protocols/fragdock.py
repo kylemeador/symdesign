@@ -4187,7 +4187,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 # poses_df = pd.concat([poses_df], keys=[project], axis=0)
                 # poses_df.index.set_names([PoseMetrics.project.name, PoseMetrics.name.name], inplace=True)
                 poses_df.index.set_names(PoseMetrics.pose_id.name, inplace=True)
-                metrics.sql.write_dataframe(poses=poses_df)
+                metrics.sql.write_dataframe(poses=poses_df)  # , update=False)
 
                 # poses_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
                 # # designs_df = pd.concat([poses_df], keys=[putils.pose_source], axis=0)
@@ -4225,7 +4225,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 residues_df.index = pd.Index(pose_ids, name=ResidueMetrics.pose_id.name)
                 # residues_df.index.set_names(residue_index_names, inplace=True)
                 # _residues_ids = metrics.sql.write_dataframe(residues=residues_df)
-                metrics.sql.write_dataframe(residues=residues_df)
+                metrics.sql.write_dataframe(residues=residues_df)  # , update=False)
             else:  # Write to disk
                 putils.make_path(job.all_scores)
                 residue_metrics_csv = os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Residues.csv')
