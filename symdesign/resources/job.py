@@ -205,6 +205,9 @@ class JobResources:
         # Computing environment and development Flags
         # self.command_only: bool = kwargs.get('command_only', False)
         """Whether to reissue commands, only if distribute_work=False"""
+        self.log_level: bool = kwargs.get('log_level')
+        self.debug: bool = True if self.log_level == 1 else False
+        self.force: bool = kwargs.get(putils.force)
         self.development: bool = kwargs.get(putils.development)
         self.profile_memory: bool = kwargs.get(putils.profile)
         if self.profile_memory and not self.development:
@@ -278,7 +281,11 @@ class JobResources:
         self.structure_db = structure_db.structure_database_factory.get(source=self.structure_info)
         self.fragment_db: structure.fragment.db.FragmentDatabase | None = None
         if kwargs.get('database'):
-            self.db: DBInfo = DBInfo(self.internal_db, echo=True if self.development else False)
+            if self.development or self.debug:
+                echo_db = True
+            else:
+                echo_db = False
+            self.db: DBInfo = DBInfo(self.internal_db, echo=echo_db)
             # self.db: Engine = create_engine(f'sqlite:///{self.internal_db}', echo=True, future=True)
         else:  # When --no-database is provided as a flag
             self.db = None
@@ -352,9 +359,7 @@ class JobResources:
         # self.min_matched: bool = kwargs.get('min_matched', False)
         # self.match_value: bool = kwargs.get('match_value', False)
         # self.initial_z_value: bool = kwargs.get('initial_z_value', False)
-        self.log_level: bool = kwargs.get('log_level')
-        self.debug: bool = True if self.log_level == 1 else False
-        self.force: bool = kwargs.get(putils.force)
+
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
         self.design = Design.from_flags(**kwargs)
         # Alias number_of_designs
@@ -826,10 +831,14 @@ class JobResources:
             info_messages.append(instructions)
             # hhblits_cmds, reformat_msa_cmds = zip(*profile_cmds)
             # hhblits_cmds, _ = zip(*hhblits_cmds)
-            reformat_msa_cmd1 = [putils.reformat_msa_exe_path, 'a3m', 'sto',
-                                 f"'{os.path.join(self.profiles, '*.a3m')}'", '.sto', '-num', '-uc']
-            reformat_msa_cmd2 = [putils.reformat_msa_exe_path, 'a3m', 'fas',
-                                 f"'{os.path.join(self.profiles, '*.a3m')}'", '.fasta', '-M', 'first', '-r']
+            if not os.access(putils.reformat_msa_exe_path, os.X_OK):
+                logger.error(f"Couldn't execute multiple sequence alignment reformatting script")
+                reformat_msa_cmd1 = reformat_msa_cmd2 = []
+            else:
+                reformat_msa_cmd1 = [putils.reformat_msa_exe_path, 'a3m', 'sto',
+                                     f"'{os.path.join(self.profiles, '*.a3m')}'", '.sto', '-num', '-uc']
+                reformat_msa_cmd2 = [putils.reformat_msa_exe_path, 'a3m', 'fas',
+                                     f"'{os.path.join(self.profiles, '*.a3m')}'", '.fasta', '-M', 'first', '-r']
             hhblits_cmd_file = utils.write_commands(hhblits_cmds, name=f'{utils.starttime}-{putils.hhblits}',
                                                     out_path=self.profiles)
             sbatch = CommandDistributer.is_sbatch_available()

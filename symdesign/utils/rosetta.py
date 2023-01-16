@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from collections import defaultdict
 from itertools import chain
 
 from symdesign.utils.path import rosetta_main, rosetta_extras, dalphaball, rosetta_scripts_dir, sym_weights, \
@@ -9,18 +10,20 @@ from symdesign.utils.path import rosetta_main, rosetta_extras, dalphaball, roset
 min_cores_per_job = 1  # currently one for the MPI node, and 5 workers
 num_thread_per_process = 2
 reference_average_residue_weight = 3  # for REF2015
-run_cmds = {'default': '',
-            'python': '',
-            'cxx11thread': '',
-            'mpi': ['mpiexec', '--oversubscribe', '-np'],
-            'cxx11threadmpi': ['mpiexec', '--oversubscribe', '-np',
-                               str(int(min_cores_per_job / num_thread_per_process))]}  # TODO Optimize
-extras_flags = {'default': [],
-                'python': [],
-                'cxx11thread': [f'-multithreading:total_threads {num_thread_per_process}',
-                                f'-multithreading:interaction_graph_threads {num_thread_per_process}'],
-                'mpi': [],
-                'cxx11threadmpi': [f'-multithreading:total_threads {num_thread_per_process}']}
+run_cmds = defaultdict(lambda: [],
+                       {'default': '',
+                        'python': '',
+                        'cxx11thread': '',
+                        'mpi': ['mpiexec', '--oversubscribe', '-np'],
+                        'cxx11threadmpi': ['mpiexec', '--oversubscribe', '-np',
+                                           str(int(min_cores_per_job / num_thread_per_process))]})
+extras_flags = defaultdict(lambda: [],
+                           {'default': [],
+                            'python': [],
+                            'cxx11thread': [f'-multithreading:total_threads {num_thread_per_process}',
+                                            f'-multithreading:interaction_graph_threads {num_thread_per_process}'],
+                            'mpi': [],
+                            'cxx11threadmpi': [f'-multithreading:total_threads {num_thread_per_process}']})
 script_cmd = [os.path.join(rosetta_main, 'source', 'bin', f'rosetta_scripts.{rosetta_extras}.linuxgccrelease'),
               '-database', os.path.join(rosetta_main, 'database')]
 rosetta_flags = extras_flags[rosetta_extras] + \
