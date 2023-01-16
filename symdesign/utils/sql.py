@@ -52,7 +52,7 @@ class SymmetryGroup(Base):
 
 
 class PoseMetadata(Base):
-    __tablename__ = 'pose_metadata'
+    __tablename__ = 'pose_data'
     id = Column(Integer, primary_key=True)
 
     name = Column(String, nullable=False, index=True)  # String(60)
@@ -127,9 +127,9 @@ class PoseMetrics(Base):
     id = Column(Integer, primary_key=True)
     # name = Column(String, nullable=False, index=True)  # String(60)
     # project = Column(String)  # , nullable=False)  # String(60)
-    # Set up one-to-one relationship with pose_metadata table
-    pose_id = Column(ForeignKey('pose_metadata.id'), nullable=False)
-    pose = relationship('PoseMetadata', back_populates='metrics')
+    # Set up one-to-one relationship with pose_data table
+    pose_id = Column(ForeignKey('pose_data.id'), nullable=False)
+    pose = relationship('PoseJob', back_populates='metrics')
 
     # design_ids = relationship('DesignMetrics', back_populates='pose')
     number_of_designs = Column(Integer)  # , nullable=False)
@@ -229,7 +229,7 @@ for idx1, idx2 in combinations(range(1, 1 + config.MAXIMUM_ENTITIES), 2):
 #     'pose_entity_association',
 #     Base.metadata,
 #     # Todo upon sqlalchemy 2.0, use the sqlalchemy.Column construct not mapped_column()
-#     Column('pose_id', ForeignKey('pose_metadata.id'), primary_key=True),
+#     Column('pose_id', ForeignKey('pose_data.id'), primary_key=True),
 #     Column('entity_id', ForeignKey('entity_data.id'), primary_key=True)
 # )
 
@@ -315,9 +315,9 @@ class EntityData(Base):
     __tablename__ = 'entity_data'
     id = Column(Integer, primary_key=True)
 
-    # Set up many-to-one relationship with pose_metadata table
-    pose_id = Column(ForeignKey('pose_metadata.id'))
-    pose = relationship('PoseMetadata', back_populates='entity_data')
+    # Set up many-to-one relationship with pose_data table
+    pose_id = Column(ForeignKey('pose_data.id'))
+    pose = relationship('PoseJob', back_populates='entity_data')
     # Todo
     # We shouldn't use EntityData unless a pose is provided... perhaps I should make an inti
     # pose = ..., nullable=False)
@@ -338,10 +338,10 @@ class EntityData(Base):
     metrics = relationship('EntityMetrics', back_populates='entity', uselist=False)
     # Todo setup 'selectin' load for select-* modules
     # Set up one-to-one relationship with entity_transform table
-    _transform = relationship('EntityTransform', back_populates='entity', uselist=False,
-                              lazy='selectin')
+    transform = relationship('EntityTransform', back_populates='entity', uselist=False,
+                             lazy='selectin')
     # transformation = association_proxy('_transform', 'transformation')
-    # # Set up many-to-many relationship with pose_metadata table
+    # # Set up many-to-many relationship with pose_data table
     # poses = relationship('PoseMetadata', secondary='pose_entity_association',
     #                      back_populates='entity_data')
 
@@ -362,7 +362,7 @@ class EntityData(Base):
 
     @property
     def transformation(self):
-        return self._transform.transformation
+        return self.transform.transformation
 
     # @property
     # def uniprot_id(self):
@@ -373,8 +373,8 @@ class EntityMetrics(Base):
     __tablename__ = 'entity_metrics'
     id = Column(Integer, primary_key=True)
 
-    # # Set up many-to-one relationship with pose_metadata table
-    # pose_id = Column(ForeignKey('pose_metadata.id'))
+    # # Set up many-to-one relationship with pose_data table
+    # pose_id = Column(ForeignKey('pose_data.id'))
     # pose = relationship('PoseMetadata', back_populates='entity_metrics')
     # Set up one-to-one relationship with entity_data table
     entity_id = Column(ForeignKey('entity_data.id'))
@@ -397,23 +397,24 @@ class EntityTransform(Base):
 
     # Set up one-to-one relationship with entity_data table
     entity_id = Column(ForeignKey('entity_data.id'))
-    entity = relationship('EntityData', back_populates='_transform')
+    entity = relationship('EntityData', back_populates='transform')
     rotation_x = Column(Float, default=0.)
     rotation_y = Column(Float, default=0.)
     rotation_z = Column(Float)
     setting_matrix = Column(Integer)
-    internal_translation_x = Column(Float)
-    internal_translation_y = Column(Float)
-    internal_translation_z = Column(Float)
-    external_translation_x = Column(Float)
-    external_translation_y = Column(Float)
-    external_translation_z = Column(Float)
+    internal_translation_x = Column(Float, default=0.)
+    internal_translation_y = Column(Float, default=0.)
+    internal_translation_z = Column(Float, default=0.)
+    external_translation_x = Column(Float, default=0.)
+    external_translation_y = Column(Float, default=0.)
+    external_translation_z = Column(Float, default=0.)
 
     @property
     def transformation(self):  # Todo -> transformation_mapping:
         """Provide the names of all Entity instances mapped to the Pose"""
+        # Todo hook in self.rotation_x, self.rotation_y
         return dict(
-            rotation=scipy.spatial.transform.Rotation.from_rotvec([0., 0., self.rotation], degrees=True).as_matrix(),
+            rotation=scipy.spatial.transform.Rotation.from_rotvec([0., 0., self.rotation_z], degrees=True).as_matrix(),
             translation=np.array([self.internal_translation_x,
                                   self.internal_translation_y,
                                   self.internal_translation_z]),
@@ -426,19 +427,26 @@ class EntityTransform(Base):
 
     @transformation.setter
     def transformation(self, transform):  # Todo transformation_mapping):
+        if any((self.rotation_x, self.rotation_y, self.rotation_z,
+                self.internal_translation_x, self.internal_translation_y, self.internal_translation_z,
+                self.setting_matrix,
+                self.external_translation_x, self.external_translation_y, self.external_translation_z)):
+            raise RuntimeError("Can't set the transformation as this would disrupt the persistence of the table"
+                               f"{EntityTransform.__tablename__}")
+
         if not isinstance(transform, dict):
-            raise ValueError(f'The attribute pose_transformation must be a Sequence of '
+            raise ValueError(f'The attribute transformation must be a Sequence of '
                              f'transformation_mapping, not {type(transform[0]).__name__}')
                              # f'{transformation_mapping.__name__}, not {type(transform[0]).__name__}')
 
-        for operation_type, operation in transform:
-            if operation_type == 'translation':
+        for operation_type, operation in transform.items():
+            if operation_type == 'rotation':
+                self.rotation_x, self.rotation_y, self.rotation_z = \
+                    scipy.spatial.transform.Rotation.from_matrix(operation).as_rotvec(degrees=True)
+            elif operation_type == 'translation':
                 self.internal_translation_x, \
                     self.internal_translation_y, \
                     self.internal_translation_z = operation
-            elif operation_type == 'rotation':
-                self.setting_matrix = \
-                    scipy.spatial.transform.Rotation.from_matrix(operation).as_rotvec(degrees=True)
             elif operation_type == 'rotation2':
                 self.setting_matrix = self.sym_entry.setting_matrices_numbers[idx]
             elif operation_type == 'translation2':
@@ -500,9 +508,9 @@ class DesignData(Base):
     id = Column(Integer, primary_key=True)
 
     name = Column(String, nullable=False)  # String(60)
-    # Set up many-to-one relationship with pose_metadata table
-    pose_id = Column(ForeignKey('pose_metadata.id'), nullable=False)
-    pose = relationship('PoseMetadata', back_populates='designs')
+    # Set up many-to-one relationship with pose_data table
+    pose_id = Column(ForeignKey('pose_data.id'), nullable=False)
+    pose = relationship('PoseJob', back_populates='designs')
     # Set up one-to-many relationship with protocol_metadata table
     protocols = relationship('ProtocolMetadata', back_populates='design')
     # Set up one-to-one relationship with design_metrics table
@@ -667,8 +675,8 @@ class ResidueMetrics(Base):
     id = Column(Integer, primary_key=True)
 
     # Set up many-to-one relationship with design_data table
-    pose_id = Column(ForeignKey('pose_metadata.id'))
-    pose = relationship('PoseMetadata', back_populates='residues')
+    pose_id = Column(ForeignKey('pose_data.id'))
+    pose = relationship('PoseJob', back_populates='residues')
     # Set up many-to-one relationship with design_data table
     design_id = Column(ForeignKey('design_data.id'))
     design = relationship('DesignData', back_populates='residues')
@@ -676,7 +684,7 @@ class ResidueMetrics(Base):
     # pose = Column(String, nullable=False)  # String(60)
     # design = Column(String, nullable=False)  # String(60)
     # pose_name = Column(String, nullable=False)  # String(60)
-    # pose_id = Column(ForeignKey('pose_metadata.id'))  # String, nullable=False)  # String(60)
+    # pose_id = Column(ForeignKey('pose_data.id'))  # String, nullable=False)  # String(60)
     # design_name = Column(String, nullable=False)
 
     # Residue position (surrogate for residue number) and type information

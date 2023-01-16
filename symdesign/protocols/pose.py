@@ -68,7 +68,7 @@ class PoseDirectory:
     name: str
     # pose_file: str | Path
 
-    def __init__(self, directory: AnyStr = None, output_modifier: AnyStr = None, initial: bool = False, **kwargs):
+    def __init__(self, directory: AnyStr = None, output_modifier: AnyStr = None, **kwargs):
         """
 
         Args:
@@ -76,6 +76,11 @@ class PoseDirectory:
             output_modifier:
             initial:
         """
+        self.info: dict = {}
+        """Internal state info"""
+        self._info: dict = {}
+        """Internal state info at load time"""
+
         if directory is not None:
             self.out_directory = directory
             # PoseDirectory attributes. Set after finding correct path
@@ -131,7 +136,7 @@ class PoseDirectory:
             # self.designed_sequences_file = os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
             self.designed_sequences_file = os.path.join(self.designs_path, f'sequences.fasta')
 
-            if initial:  # This is the first creation
+            if self.initial:  # This is the first creation
                 if os.path.exists(self.serialized_info):
                     # This has been initialized without a database, gather existing state data
                     try:
@@ -154,11 +159,6 @@ class PoseDirectory:
             raise NotImplementedError(f"{putils.program_name} hasn't been set up to run without directories yet... "
                                       f"Please solve the {type(self).__name__}.__init__() method")
             self.out_directory = os.path.join(os.getcwd(), 'temp')
-
-        self.info: dict = {}
-        """Internal state info"""
-        self._info: dict = {}
-        """Internal state info at load time"""
 
         super().__init__(**kwargs)
 
@@ -328,7 +328,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     # pose_identifier: str  # DB
     # """The identifier which is created by a concatenation of the project, os.sep, and name"""
     # id: int  # DB
-    # """The database row id for the 'pose_metadata' table"""
+    # """The database row id for the 'pose_data' table"""
     _source: AnyStr
     _directives: list[dict[int, str]]
     _specific_designs: Sequence[str]
@@ -389,7 +389,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 raise InputError(f"Couldn't get the project from the path '{source_path}'. Please provide "
                                  f"project name with --{flags.project_name}")
 
-        return cls(name=name, project=project, source_path=source_path, **kwargs)
+        return cls(name=name, project=project, source_path=source_path, initial=True, **kwargs)
 
     @classmethod
     def from_directory(cls, design_path: str, root: AnyStr, **kwargs):
@@ -408,7 +408,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                              f"'project{os.sep}pose_name' string")
         # directory, name = os.path.split(design_path)
         # _, project = os.path.split(directory)
-        return cls(name=name, project=project, source_path=os.path.join(root, design_path), **kwargs)
+        return cls(name=name, project=project, source_path=os.path.join(root, design_path), initial=True, **kwargs)
 
     @classmethod
     def from_name(cls, name: str = None, project: str = None, **kwargs):
@@ -419,7 +419,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Returns:
             The PoseJob instance
         """
-        return cls(name=name, project=project, **kwargs)
+        return cls(name=name, project=project, initial=True, **kwargs)
 
     @classmethod
     def from_pose_identifier(cls, pose_identifier: str, **kwargs):
@@ -434,8 +434,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         except ValueError:  # We don't have a pose_identifier
             raise InputError(f"Couldn't coerce {pose_identifier} to 'project' {os.sep} 'name'. Please ensure the "
                              f"pose_identifier is passed with the format 'project{os.sep}name'")
-        return cls(name=name, project=project, **kwargs)
-    # END classmethod where the PoseData isn't initialized
+        return cls(name=name, project=project, initial=True, **kwargs)
+    # END classmethod where the PoseData hasn't been initialized before
 
     # def pose_string_to_path(self, root: AnyStr, pose_id: str):
     #     """Set self.out_directory to the root/poseID where the poseID is converted from dash "-" separation to path separators"""
@@ -487,7 +487,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # These arguments are for PoseDirectory. initial signifies that this is the first load of this PoseJob
         # which can help in gathering the self.serialized_info file and converting this to the proper utils.sql
         # table data
-        super().__init__(directory=out_directory, output_modifier=output_modifier, initial=True)  # **kwargs)
+        super().__init__(directory=out_directory, output_modifier=output_modifier)  # **kwargs)
 
         putils.make_path(self.out_directory, condition=self.job.construct_pose)
 
@@ -529,7 +529,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     except IndexError:  # glob found no files
                         self.source_path = None
 
-    def __init__(self, name: str = None, project: str = None, source_path: AnyStr = None, **kwargs):
+    def __init__(self, name: str = None, project: str = None, source_path: AnyStr = None, initial: bool = False,
+                 **kwargs):
                  # pose_transformation: Sequence[transformation_mapping] = None,
                  # entity_metadata: list[sql.EntityData] = None,
                  # entity_names: Sequence[str] = None,
@@ -540,6 +541,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         self.name = name
         self.project = project
         self.source_path = source_path
+        self.initial = initial
         # self.pose_identifier = f'{self.project}{os.sep}{self.name}'
 
         self.__init_from_db__()
@@ -840,7 +842,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         """Returns the kwargs necessary to initialize the Pose"""
         return dict(sym_entry=self.sym_entry, log=self.log, design_selector=self.design_selector,
                     # entity_metadata=self.entity_data,
-                    entity_names=[data.meta.entity_id for data in self.entity_data],  #self.entity_names,
+                    entity_names=[data.meta.entity_id for data in self.entity_data],  # self.entity_names,
                     transformations=[data.transformation for data in self.entity_data],  # self.pose_transformation,
                     ignore_clashes=self.job.design.ignore_pose_clashes, fragment_db=self.job.fragment_db)
         #             api_db=self.job.api_db,
@@ -1143,10 +1145,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             oriented: bool = False - Whether to use oriented models from the StructureDatabase
         """
         entities = self.get_entities(**kwargs)
-        if self.pose_transformation:
+        if self.transformations:  # pose_transformation:
             self.log.debug('Entities were transformed to the found docking parameters')
             entities = [entity.get_transformed_copy(**transformation)
-                        for entity, transformation in zip(entities, self.pose_transformation)]
+                        for entity, transformation in zip(entities, self.transformations)]
         else:  # Todo change below to handle asymmetric cases...
             # raise SymmetryError("The design couldn't be transformed as it is missing the required "
             self.log.error(missing_pose_transformation)
@@ -1161,11 +1163,11 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Returns:
             The transformed Structure objects if a transformation was possible
         """
-        if self.pose_transformation:
+        if self.transformations:  # pose_transformation:
             self.log.debug('Structures were transformed to the found docking parameters')
             # Todo assumes a 1:1 correspondence between structures and transforms (component group numbers) CHANGE
             return [structure.get_transformed_copy(**transformation)
-                    for structure, transformation in zip(structures, self.pose_transformation)]
+                    for structure, transformation in zip(structures, self.transformations)]
         else:
             # raise SymmetryError("The design couldn't be transformed as it is missing the required "
             self.log.error(missing_pose_transformation)
@@ -1340,10 +1342,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     entity.write(oligomer=True,
                                  out_path=os.path.join(self.out_directory, f'{entity.name}_oligomer.pdb'))
             # If we have an empty list for the pose_transformation, save the identified transformations from the Pose
-            if not self.pose_transformation:
+            if not self.transformations:
                 # self.pose_transformation = self.pose.entity_transformations
                 for data, transformation in zip(self.entity_data, self.pose.entity_transformations):
-                    data._transform.transformation = transformation
+                    data.transform.transformation = transformation
         # # Then modify numbering to ensure standard and accurate use during protocols
         # # self.pose.pose_numbering()
         # if not self.entity_names:  # Store the entity names if they were never generated
@@ -2320,8 +2322,7 @@ class PoseProtocol(PoseData):
                                                              1 + entity.c_terminal_residue.index], :]].sum(axis=1)
             # prior_slice = entity_c_terminal_residue_index
             scores_df[f'entity{idx}_percent_mutations'] = \
-                scores_df[f'entity{idx}_number_of_mutations'] \
-                / scores_df[f'entity{idx}_number_of_residues']
+                scores_df[f'entity{idx}_number_of_mutations'] / entity.number_of_residues
 
         # scores_df['number_of_mutations'] = \
         #     pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
@@ -4411,8 +4412,7 @@ class PoseProtocol(PoseData):
                                                              1 + entity.c_terminal_residue.index], :]].sum(axis=1)
             # prior_slice = entity_c_terminal_residue_index
             designs_df[f'entity{idx}_percent_mutations'] = \
-                designs_df[f'entity{idx}_number_of_mutations'] \
-                / pose_df[f'entity{idx}_number_of_residues']
+                designs_df[f'entity{idx}_number_of_mutations'] / entity.number_of_residues
 
         designs_df['sequence_loss_design_per_residue'] = designs_df['sequence_loss_design'] / pose_length
         # The per residue average loss compared to the design profile

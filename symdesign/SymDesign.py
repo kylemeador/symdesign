@@ -371,7 +371,7 @@ def main():
 
         # Attach UniProtEntity to ProteinMetadata by UniProtID
         for uniprot_ids, protein_metadata in possible_uniprot_id_protein_property.items():
-            # Create the ordered_list of UniProtIDs (UniProtEntity)
+            # Create the ordered_list of UniProtIDs (UniProtEntity) on ProteinMetadata entry
             protein_metadata.uniprot_entities.extend(all_uniprot_id_to_entity[uniprot_id]
                                                      for uniprot_id in uniprot_ids)
 
@@ -836,11 +836,15 @@ def main():
                     # Set the Entity with .metadata attribute to fetch in fragdock()
                     entity.metadata = protein_metadata
                     # for uniprot_id in entity.uniprot_ids:
-                    if entity.uniprot_ids in possible_uniprot_ids:
+                    try:
+                        uniprot_ids = entity.uniprot_ids
+                    except AttributeError:  # Unable to retrieve
+                        uniprot_ids = (entity.name,)
+                    if uniprot_ids in possible_uniprot_ids:
                         # This Entity already found for processing and we shouldn't have duplicates
                         raise RuntimeError(f"This error wasn't expected to occur.{putils.report_issue}")
                     else:  # Process for persistent state
-                        possible_uniprot_ids[entity.uniprot_ids] = protein_metadata
+                        possible_uniprot_ids[uniprot_ids] = protein_metadata
 
             all_structures.extend(structures)
 

@@ -22,6 +22,7 @@ invalid_string = 'Invalid choice, please try again.'
 header_string = '%s %s %s\n' % ('-' * 20, '%s', '-' * 20)
 format_string = '\t{}\t\t{}'
 numbered_format_string = format_string.format('%d - %s', '%s')
+MAX_RESOURCE_ATTEMPTS = 0
 
 
 def validate_input(prompt: str, response: Iterable[str]) -> str:
@@ -106,7 +107,7 @@ def verify_choice() -> bool:
     return bool_d[confirm]
 
 
-def connection_exception_handler(url: str, max_attempts: int = 5) -> requests.Response | None:
+def connection_exception_handler(url: str, max_attempts: int = 2) -> requests.Response | None:
     """Wrap requests GET commands in an exception handler which attempts to aqcuire the data multiple times if the
     connection is refused due to a high volume of requests
 
@@ -116,32 +117,39 @@ def connection_exception_handler(url: str, max_attempts: int = 5) -> requests.Re
     Returns:
         The json formatted response to the url GET or None
     """
+    global MAX_RESOURCE_ATTEMPTS
     iteration = 1
     while True:
         try:  # Todo change data retrieval to POST
             query_response = requests.get(url)
-            if query_response.status_code == 200:
-                return query_response
-            elif query_response.status_code == 204:
-                logger.warning('No response was returned. Your query likely found no matches!')
-            elif query_response.status_code == 429:
-                logger.debug('Too many requests, pausing momentarily')
-                time.sleep(2)
-            else:
-                logger.debug(f'Your query returned an unrecognized status code ({query_response.status_code})')
-                time.sleep(1)
-                iteration += 1
         except requests.exceptions.ConnectionError:
             logger.debug('Requests ran into a connection error. Sleeping, then retrying')
             time.sleep(1)
             iteration += 1
-        except ValueError as error:  # the json response was bad...
-            logger.error(f'A json response was missing or corrupted from "{url}" Error: {error}')
-            break
+        else:
+            try:
+                if query_response.status_code == 200:
+                    return query_response
+                elif query_response.status_code == 204:
+                    logger.warning('No response was returned. Your query likely found no matches!')
+                elif query_response.status_code == 429:
+                    logger.debug('Too many requests, pausing momentarily')
+                    time.sleep(2)
+                else:
+                    logger.debug(f'Your query returned an unrecognized status code ({query_response.status_code})')
+                    time.sleep(1)
+                    iteration += 1
+            except ValueError as error:  # The json response was bad...
+                logger.error(f'A json response was missing or corrupted from "{url}" Error: {error}')
+                break
 
-        if iteration == max_attempts:
-            time.sleep(10)  # try one really long sleep then go once more
+        if MAX_RESOURCE_ATTEMPTS > 2:
+            # Quit this loop. We probably have no internet connection
+            break
+        elif iteration == max_attempts:
+            time.sleep(5)  # Try one long sleep then go once more
         elif iteration > max_attempts:
+            MAX_RESOURCE_ATTEMPTS += 1
             logger.error('The maximum number of resource fetch attempts was made with no resolution. '
                          f'Offending request "{url}"')
             break

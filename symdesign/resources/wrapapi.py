@@ -310,6 +310,7 @@ class PDBDataStore(DataStore):
                         entry_request = query_entry_id(entry)
                         if not entry_request:
                             logger.warning(f'PDB API found no matching results for {entry}')
+                            return None
                         else:
                             data = entry_request.json()
                             # setattr(self, entry, data)

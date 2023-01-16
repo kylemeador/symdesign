@@ -275,7 +275,7 @@ class JobResources:
         putils.make_path(self.uniprot_api)
 
         self.api_db = wrapapi.api_database_factory.get(source=self.data)
-        self.structure_db = structure_db.structure_database_factory.get(source=self.data)
+        self.structure_db = structure_db.structure_database_factory.get(source=self.structure_info)
         self.fragment_db: structure.fragment.db.FragmentDatabase | None = None
         if kwargs.get('database'):
             self.db: DBInfo = DBInfo(self.internal_db, echo=True if self.development else False)
@@ -778,10 +778,12 @@ class JobResources:
         putils.make_path(self.sequences)
         if uniprot_entities:
             for uniprot_entity in uniprot_entities:
-                hhblits_cmds.append(hhblits(uniprot_entity.id,
-                                            sequence=uniprot_entity.reference_sequence,
-                                            threads=self.threads,
-                                            return_command=True))
+                evolutionary_profile = self.api_db.hhblits_profiles.retrieve_data(name=uniprot_entity.id)
+                if not evolutionary_profile:
+                    hhblits_cmds.append(hhblits(uniprot_entity.id,
+                                                sequence=uniprot_entity.reference_sequence,
+                                                out_dir=self.profiles, threads=self.threads,
+                                                return_command=True))
                 # TODO reinstate
                 #  Solve .h_fields/.j_couplings
                 # # Before this is run, hhblits must be run and the file located at profiles/entity-name.fasta contains
@@ -830,18 +832,23 @@ class JobResources:
                                  f"'{os.path.join(self.profiles, '*.a3m')}'", '.fasta', '-M', 'first', '-r']
             hhblits_cmd_file = utils.write_commands(hhblits_cmds, name=f'{utils.starttime}-{putils.hhblits}',
                                                     out_path=self.profiles)
-            hhblits_sbatch = \
+            sbatch = CommandDistributer.is_sbatch_available()
+            hhblits_script = \
                 CommandDistributer.distribute(file=hhblits_cmd_file, out_path=self.sbatch_scripts,
                                               scale=putils.hhblits, max_jobs=len(hhblits_cmds),
-                                              number_of_commands=len(hhblits_cmds),
+                                              number_of_commands=len(hhblits_cmds), sbatch=sbatch,
                                               log_file=os.path.join(self.profiles, 'generate_profiles.log'),
                                               finishing_commands=[list2cmdline(reformat_msa_cmd1),
                                                                   list2cmdline(reformat_msa_cmd2)])
-            hhblits_sbatch_message = \
-                f'Enter the following to distribute {putils.hhblits} jobs:\n\tsbatch {hhblits_sbatch}'
-            info_messages.append(hhblits_sbatch_message)
+            hhblits_job_info_message = \
+                f'Enter the following to distribute {putils.hhblits} jobs:\n\t'
+            if sbatch:
+                hhblits_job_info_message += f'{CommandDistributer.sbatch} {hhblits_script}'
+            else:
+                hhblits_job_info_message += f'{CommandDistributer.default_shell} {hhblits_script}'
+            info_messages.append(hhblits_job_info_message)
         # else:
-        #     hhblits_sbatch = None
+        #     hhblits_script = None
 
         if bmdca_cmds:
             putils.make_path(self.profiles)
