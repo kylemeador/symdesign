@@ -974,8 +974,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     # _df: pd.Series  # Metrics
     # _metrics: sql.EntityMetrics  # Metrics
     _metrics_table = sql.EntityMetrics
-    # _uniprot_id: str | None  # Todo DB sql.UniProtEntity
-    # _search_uniprot_id = False  # Todo sql.UniProtEntity
+    # _uniprot_id: str | None  # Todo DB wrapapi.UniProtEntity
+    # _search_uniprot_id = False  # Todo wrapapi.UniProtEntity
     # """Whether the uniprot_id has been queried"""
     _api_data: dict[str, dict[str, str]] | None
     dihedral_chain: str | None
@@ -1191,17 +1191,17 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             self.log.warning(f'Entity {self.name}: No information found from PDB API')
             self.uniprot_ids = None
 
-    # # @hybrid_property Todo sql.UniProtEntity
+    # # @hybrid_property Todo wrapapi.UniProtEntity
     # @property  # Todo make this a property again
     # def uniprot_id(self) -> str | None:
     #     """The UniProt ID for the Entity used for accessing genomic and homology features"""
-    #     # Todo sql.UniProtEntity
+    #     # Todo wrapapi.UniProtEntity
     #     # try:
     #     #     return self._uniprot_id.upper()
     #     # except AttributeError:
     #     #     if not self._search_uniprot_id:
     #     #         self._search_uniprot_id = True
-    #     #         # sql.UniProtEntity set as None, and we haven't tried to find, so lets try
+    #     #         # wrapapi.UniProtEntity set as None, and we haven't tried to find, so lets try
     #     # return self._uniprot_id
     #     try:
     #         return self._uniprot_id

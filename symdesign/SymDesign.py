@@ -40,6 +40,7 @@ from symdesign.protocols.pose import PoseJob
 from symdesign.resources.job import job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from symdesign.resources.query.utils import validate_input_return_response_value
+from symdesign.resources import wrapapi
 from symdesign.structure.fragment.db import fragment_factory, euler_factory
 from symdesign.structure.model import Entity, Model
 from symdesign.sequence import create_mulitcistronic_sequences
@@ -318,7 +319,7 @@ def main():
 
     def initialize_entities(structures: Iterable[structure.base.Structure],
                             possible_uniprot_id_protein_property: dict[tuple[str, ...], sql.ProteinMetadata] = None,
-                            existing_uniprot_entities: Iterable[sql.UniProtEntity] = None):
+                            existing_uniprot_entities: Iterable[wrapapi.UniProtEntity] = None):
         """Perform the routine of comparing newly described work to the existing database and handling set up of
         structural and evolutionary data creation
 
@@ -337,8 +338,8 @@ def main():
         if existing_uniprot_entities is None:
             # itertools.chain.from_iterable(possible_uniprot_id_protein_property.keys())
             existing_uniprot_entities_stmt = \
-                select(sql.UniProtEntity)\
-                .where(sql.UniProtEntity.id.in_(all_uniprot_ids))
+                select(wrapapi.UniProtEntity)\
+                .where(wrapapi.UniProtEntity.id.in_(all_uniprot_ids))
             existing_uniprot_entities = session.scalars(existing_uniprot_entities_stmt).all()
             # Todo emit this select when there is a stronger association between the multiple
             #  UniProtEntity.uniprot_ids and referencing a unique ProteinMetadata
@@ -349,8 +350,8 @@ def main():
             #     # NEED TO GROUP THESE BY ProteinMetadata.uniprot_entities
             # OR
             # existing_uniprot_entities_stmt = \
-            #     select(sql.UniProtEntity).join(sql.ProteinMetadata)\
-            #     .where(sql.UniProtEntity.uniprot_id.in_(all_uniprot_ids))
+            #     select(wrapapi.UniProtEntity).join(sql.ProteinMetadata)\
+            #     .where(wrapapi.UniProtEntity.uniprot_id.in_(all_uniprot_ids))
             #     # NEED TO GROUP THESE BY ProteinMetadata.uniprot_entities
 
         # Remove those from the possible that already exist
@@ -361,7 +362,7 @@ def main():
         insert_uniprot_ids = all_uniprot_ids.difference(existing_uniprot_id_to_unp_entity.keys())
 
         # Insert the remaining UniProtIDs as UniProtEntity entries
-        new_uniprot_id_to_unp_entity = {uniprot_id: sql.UniProtEntity(id=uniprot_id)
+        new_uniprot_id_to_unp_entity = {uniprot_id: wrapapi.UniProtEntity(id=uniprot_id)
                                         for uniprot_id in insert_uniprot_ids}
 
         all_uniprot_id_to_entity = {
@@ -382,7 +383,7 @@ def main():
         # uniprot_entities = []
         # for uniprot_id, protein_metadata in possible_uniprot_id_protein_property.items():
         #     # Create new entry
-        #     new_entity = sql.UniProtEntity(id=uniprot_id)
+        #     new_entity = wrapapi.UniProtEntity(id=uniprot_id)
         #     # Add ProteinProperty to new entry
         #     new_entity.protein_metadata = protein_metadata
         #     uniprot_entities.append(new_entity)

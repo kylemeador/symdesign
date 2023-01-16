@@ -5,13 +5,17 @@ import os
 from pathlib import Path
 from typing import Annotated, AnyStr
 
+from sqlalchemy import Column, String
+from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.orm import synonym, relationship
+
 from symdesign.sequence import MultipleSequenceAlignment, parse_hhblits_pssm, read_fasta_file, write_sequence_to_fasta
 from symdesign.structure.utils import parse_stride
 from .database import Database, DataStore
 from .query.pdb import query_entity_id, query_assembly_id, parse_entities_json, parse_assembly_json, query_entry_id, \
     parse_entry_json, _is_entity_thermophilic
 from .query.uniprot import query_uniprot
-from symdesign.utils import path as putils
+from symdesign.utils import path as putils, sql
 # import dependencies.bmdca as bmdca
 
 # Globals
@@ -413,3 +417,45 @@ class UniProtDataStore(DataStore):
                 return 1  # True
 
         return 0  # False
+
+
+class UniProtEntity(sql.Base):
+    __tablename__ = 'uniprot_entity'
+    id = Column(String, primary_key=True, autoincrement=False)
+    """The UniProtID"""
+    uniprot_id = synonym('id')
+    # _uniprot_id = Column('uniprot_id', String)
+    # entity_id = Column(String, nullable=False, index=True)  # entity_name is used in config.metrics
+    # """This is a stand in for the Structure.name attribute"""
+
+    # # Set up one-to-many relationship with entity_data table
+    # entities = relationship('EntityData', back_populates='entity')
+    # Set up many-to-many relationship with protein_metadata table
+    # protein_metadata = relationship('ProteinMetadata', secondary='uniprot_protein_association',
+    #                                 back_populates='uniprot_entities')
+    protein_metadata = association_proxy('_protein_metadata', 'protein')
+    _protein_metadata = relationship('UniProtProteinAssociation',
+                                     back_populates='uniprot')
+
+    @property
+    def reference_sequence(self) -> str:
+        """Get the sequence from the UniProtID"""
+        try:
+            return self._reference_sequence
+        except AttributeError:
+            api_db = api_database_factory()
+            response_json = api_db.uniprot.retrieve_data(name=self.uniprot_id)
+            if response_json is not None:
+                sequence = response_json.get('sequence')
+                if sequence:
+                    self._reference_sequence = sequence['value']
+            else:  # uniprot_id found no data from UniProt API
+                # Todo this isn't correct due to many-to-many association
+                max_seq_len = 0
+                for data in self.protein_metadata:
+                    seq_len = len(data.reference_sequence)
+                    if seq_len > max_seq_len:
+                        max_seq_len = seq_len
+                        _reference_sequence = data.reference_sequence
+                self._reference_sequence = _reference_sequence
+            return self._reference_sequence
