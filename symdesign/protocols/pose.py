@@ -3894,13 +3894,13 @@ class PoseProtocol(PoseData):
 
         # Drop designs where required data isn't present
         # Format protocol columns
-        # Todo remove not DEV
-        missing_group_indices = scores_df[putils.protocol].isna()
-        scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
-        scores_df.loc[scout_indices, putils.protocol] = putils.scout
-        structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
-        scores_df.loc[structure_bkgnd_indices, putils.protocol] = putils.structure_background
-        # Todo Done remove
+        # # Todo remove not DEV
+        # missing_group_indices = scores_df[putils.protocol].isna()
+        # scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
+        # scores_df.loc[scout_indices, putils.protocol] = putils.scout
+        # structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
+        # scores_df.loc[structure_bkgnd_indices, putils.protocol] = putils.structure_background
+        # # Todo Done remove
         missing_group_indices = scores_df[putils.protocol].isna()
         # protocol_s.replace({'combo_profile': putils.design_profile}, inplace=True)  # ensure proper profile name
 
