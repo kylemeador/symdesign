@@ -126,7 +126,7 @@ def find_matching_entities_by_sequence(sequence: str = None, return_id: str = 'p
         raise KeyError(f"The specified return type '{return_id}' isn't supported. Viable types include "
                        f"{', '.join(return_types)}")
     logger.debug(f'Using the default sequence similarity parameters: '
-                 f'{", ".join(f"{k}: {v}" for k, v in default_sequence_values)}')
+                 f'{", ".join(f"{k}: {v}" for k, v in default_sequence_values.items())}')
     sequence_query = generate_terminal_group(service='sequence', sequence=sequence)
     sequence_query_results = query_pdb(generate_query(sequence_query, return_id=return_id, **kwargs))
     if sequence_query_results:
@@ -775,6 +775,9 @@ def parse_assembly_json(assembly_json: dict[str, Any]) -> list[list[str]]:
         Ex: [['A', 'A', 'A', ...], ...]
     """
     entity_clustered_chains = []
+    if not assembly_json:
+        return entity_clustered_chains
+
     for symmetry in assembly_json['rcsb_struct_symmetry']:
         # for symmetry in symmetries:  # [{}, ...]
         # symmetry contains:

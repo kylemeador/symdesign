@@ -352,7 +352,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         _model.fragment_db = job.fragment_db
         # Ensure we pass the .metadata attribute to each entity in the full assembly
         # This is crucial for sql usage
-        for _entity, entity in zip(_model, model):
+        for _entity, entity in zip(_model.entities, model.entities):
             _entity.metadata = entity.metadata
         models[idx] = _model
 
@@ -960,6 +960,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         pass
 
     if job.multi_processing:
+        raise NotImplementedError(f"Can't perform {fragment_dock.__name__} using --{flags.multi_processing} just yet")
         rotation_pairs = None
         results = utils.mp_map(initial_euler_search, rotation_pairs, processes=job.cores)
     else:
@@ -1636,16 +1637,16 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         #              f'{model1_cb_balltree_time:8f}s to query distances, '
         #              f'{is_in_index_time:8f}s to index residue numbers)')
 
-        int_surf_shape = surf_indices_in_interface2.shape[0]
-        int_ghost_shape = ghost_indices_in_interface1.shape[0]
-        # maximum_number_of_pairs = int_ghost_shape*int_surf_shape
+        number_int_surf = surf_indices_in_interface2.shape[0]
+        number_int_ghost = ghost_indices_in_interface1.shape[0]
+        # maximum_number_of_pairs = number_int_ghost*number_int_surf
         # if maximum_number_of_pairs < euler_lookup_size_threshold:
         # Todo there may be memory leak by Pose objects sharing memory with persistent objects
         #  that prevent garbage collection and stay attached to the run
         # Skipping EulerLookup as it has issues with precision
         index_ij_pairs_start_time = time.time()
-        ghost_indices_repeated = np.repeat(ghost_indices_in_interface1, int_surf_shape)
-        surf_indices_tiled = np.tile(surf_indices_in_interface2, int_ghost_shape)
+        ghost_indices_repeated = np.repeat(ghost_indices_in_interface1, number_int_surf)
+        surf_indices_tiled = np.tile(surf_indices_in_interface2, number_int_ghost)
         ij_type_match = ij_type_match_lookup_table[ghost_indices_repeated, surf_indices_tiled]
         # DEBUG: If ij_type_match needs to be removed for testing
         # ij_type_match = np.array([True for _ in range(len(ij_type_match))])
@@ -3869,7 +3870,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                     # entity_data.append(EntityData(
                     EntityData(
                         pose=pose_job,
-                        metadata=entity.metadata,
+                        meta=entity.metadata,
                         metrics=entity.metrics,
                         transform=EntityTransform(**transform))
 
@@ -4110,7 +4111,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
 
             summed_poses_df = metrics.sum_per_residue_metrics(
                 residues_df, rename_columns=_rename, mean_metrics=mean_columns)
-            poses_df = poses_df.join(summed_poses_df)
+            # Need to remove sequence as it is in pose.calculate_metrics()
+            poses_df = poses_df.join(summed_poses_df.drop('sequence', axis=1))
             if job.dock.proteinmpnn_score:
                 poses_df = poses_df.drop(['interface_residue'], axis=1)
 

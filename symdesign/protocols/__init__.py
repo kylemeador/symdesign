@@ -362,6 +362,7 @@ def orient(job: pose.PoseJob, to_pose_directory: bool = True):
         if to_pose_directory:
             out_path = job.assembly_path
         else:
+            putils.make_path(job.job.orient_dir)
             out_path = os.path.join(job.job.orient_dir, f'{model.name}.pdb')
 
         model.orient(symmetry=job.symmetry)
