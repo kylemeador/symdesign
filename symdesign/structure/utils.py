@@ -5,7 +5,7 @@ import logging
 from collections.abc import Generator
 
 from symdesign import utils
-
+putils = utils.path
 logger = logging.getLogger(__name__)
 available_letters: str = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # '0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
@@ -41,9 +41,10 @@ class SymmetryError(DesignError):
 
 # 0 indexed, 1 letter aa, alphabetically sorted at the origin
 try:
-    reference_residues = utils.unpickle(utils.path.reference_residues_pkl)
-except (_pickle.UnpicklingError, ImportError):
+    reference_residues = utils.unpickle(putils.reference_residues_pkl)
+except (_pickle.UnpicklingError, ImportError) as error:
     logger.error(f'The reference_residues ran into an error upon load. You need to regenerate the serialized version!')
+    logger.error(str(error))
     reference_residues = None
 
 

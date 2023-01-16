@@ -5,7 +5,7 @@ from typing import AnyStr
 from symdesign.structure import base, model
 from symdesign.structure.fragment.db import FragmentDatabase, Representative, RELOAD_DB
 from symdesign import utils
-
+putils = utils.path
 logger = utils.start_log(name=__name__, no_log_name=True)
 
 
@@ -96,22 +96,22 @@ def load_paired_fragment_representatives(cluster_representatives_path) \
 # except Exception as error:  # If something goes wrong, we should remake this too
 #     # Create and save the new reference_residues_pkl from scratch
 #     # Todo if this never catches then these aren't updated
-#     ref_aa = base.Structure.from_file(utils.path.reference_aa_file)
-#     move(utils.path.reference_residues_pkl, f'{utils.path.reference_residues_pkl}.bak')
-#     utils.pickle_object(ref_aa.residues, name=utils.path.reference_residues_pkl, out_path='')
+#     ref_aa = base.Structure.from_file(putils.reference_aa_file)
+#     move(putils.reference_residues_pkl, f'{putils.reference_residues_pkl}.bak')
+#     utils.pickle_object(ref_aa.residues, name=putils.reference_residues_pkl, out_path='')
 
-ref_aa = base.Structure.from_file(utils.path.reference_aa_file)
-move(utils.path.reference_residues_pkl, f'{utils.path.reference_residues_pkl}.bak')
-utils.pickle_object(ref_aa.residues, name=utils.path.reference_residues_pkl, out_path='')
+ref_aa = base.Structure.from_file(putils.reference_aa_file)
+move(putils.reference_residues_pkl, f'{putils.reference_residues_pkl}.bak')
+utils.pickle_object(ref_aa.residues, name=putils.reference_residues_pkl, out_path='')
 
 # Create fragment database for all ijk cluster representatives
 # This should work now
 # from symdesign.structure import base
 base.protein_backbone_atom_types = {'N', 'CA', 'O'}  # 'C', Removing 'C' for fragment library guide atoms...
-ijk_frag_db = create_fragment_db_from_raw_files(source=utils.path.biological_interfaces)
+ijk_frag_db = create_fragment_db_from_raw_files(source=putils.biological_interfaces)
 
-logger.info(f'Making a backup of the old fragment_db: {utils.path.biological_fragment_db_pickle} '
-            f'-> {utils.path.biological_fragment_db_pickle}.bak-{utils.timestamp()}')
-copy(utils.path.biological_fragment_db_pickle, f'{utils.path.biological_fragment_db_pickle}.bak-{utils.timestamp()}')
-logger.info(f'Saving the new fragment_db: {utils.path.biological_fragment_db_pickle}')
-utils.pickle_object(ijk_frag_db, name=utils.path.biological_fragment_db_pickle, out_path='')
+logger.info(f'Making a backup of the old fragment_db: {putils.biological_fragment_db_pickle} '
+            f'-> {putils.biological_fragment_db_pickle}.bak-{utils.timestamp()}')
+copy(putils.biological_fragment_db_pickle, f'{putils.biological_fragment_db_pickle}.bak-{utils.timestamp()}')
+logger.info(f'Saving the new fragment_db: {putils.biological_fragment_db_pickle}')
+utils.pickle_object(ijk_frag_db, name=putils.biological_fragment_db_pickle, out_path='')
