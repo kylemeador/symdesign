@@ -622,6 +622,7 @@ class DesignMetrics(Base):
     #     return f"Trajectory(id={self.id!r}, pose={self.pose!r}, name={self.name!r})"
 
 
+# Todo make into EntityMetrics like attribute. Currently only deals with with PoseData level Metrics
 # Add metrics which are dependent on multiples. Initialize Column() when setattr() is called to get correct column name
 entity_design_metrics = dict(
     entity_interface_connectivity=Float,
