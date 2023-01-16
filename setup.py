@@ -54,7 +54,15 @@ def search_env_for_variable(search_variable: str) -> str | None:
     return string  # env_variable
 
 
-def download_hhblits_latest_database(version: str = None, dry_run: bool = False):
+def download_hhblits_latest_database(version: str = None, dry_run: bool = False) -> str:
+    """Return the name of the database version that was downloaded
+
+    Args:
+        version: Whether a particular version should be used. The default is the latest
+        dry_run: Whether to perform a "dry install" without any substantial commands
+    Returns:
+        The name of the database version fetched
+    """
     # hhblits_latest_url = 'https://wwwuser.gwdg.de/~compbiol/uniclust/uniclust-latest' NOT RIGHT
     # fetch_uniclust_latest = ['wget', 'http://wwwuser.gwdg.de/~compbiol/uniclust/current_release/',
     #                          '`wget', '-O', '- http://wwwuser.gwdg.de/~compbiol/uniclust/current_release/', '|', 'grep',
@@ -92,7 +100,7 @@ def download_hhblits_latest_database(version: str = None, dry_run: bool = False)
     wget_file.unlink(missing_ok=True)
 
     try:
-        uniclust_latest_tar_file = re.search('[A-z0-9]*_hhsuite.tar.gz', wget_out)[0]
+        uniclust_latest_tar_file = re.search(f'[A-z0-9]*{putils.uniclust_hhsuite_file_identifier}', wget_out)[0]
     except IndexError:  # Found no matches
         raise RuntimeError(f"Couldn't retrieve the latest UniClust database from the url:\n{uniclust_url}")
     logger.info(f'UniClust latest file name: {uniclust_latest_tar_file}')
@@ -104,10 +112,13 @@ def download_hhblits_latest_database(version: str = None, dry_run: bool = False)
     # logger.debug(f'unzip grep stdout (uniclust_latest_tar_file):\n\n'
     #              f'{uniclust_latest_tar_file}\ngrep stderr:\n{grep_err}')
 
-    # Use the name of the latest file to wget the file
-    putils.make_path(putils.hhsuite_dir)
-    uniclust_download_cmd = ['wget', uniclust_url.format(uniclust_latest_tar_file),
-                             '--directory-prefix', putils.hhsuite_dir, '--continue']  # '--no-verbose'
+    # Use the name of the latest file to wget the file to the dependencies/hhsuite directory
+    putils.make_path(putils.hhsuite_db_dir)  # Make all dirs - dependencies/hhsuite/databases
+    uniclust_download_cmd = ['wget', '--directory-prefix', putils.hhsuite_dir, '--continue',
+                             '-U', '\'Mozilla/5.0', '(X11;', 'U;', 'Linux', 'i686', '(x86_64);', 'en-GB;',
+                             'rv:1.9.0.1)', 'Gecko/2008070206', 'Firefox/3.0.1\'', '--inet4-only',
+                             '--no-check-certificate', uniclust_url.format(uniclust_latest_tar_file)
+                             ]  # '--no-verbose'
     logger.debug(f'UniClust download command:\n\t{subprocess.list2cmdline(uniclust_download_cmd)}')
     if dry_run:
         pass
@@ -119,8 +130,10 @@ def download_hhblits_latest_database(version: str = None, dry_run: bool = False)
         download_out, download_err = download_p.communicate()
         # logger.debug(f'download stdout:\n{download_out}\n\ndownload stderr:\n{download_err}')
 
-    # Unzip the file to the dependencies directory
-    unzip_uniclust_cmd = ['tar', 'xzf', uniclust_latest_tar_file, '-C', putils.dependency_dir]
+    # Unzip the file to the dependencies/hhsuite/databases directory
+    os.chdir(putils.hhsuite_db_dir)
+    downloaded_file = os.path.join(putils.hhsuite_dir, uniclust_latest_tar_file)
+    unzip_uniclust_cmd = ['tar', 'xzf', downloaded_file]  # , '-C', putils.hhsuite_dir]
     logger.debug(f'untar database command:\n\t{subprocess.list2cmdline(unzip_uniclust_cmd)}')
     if dry_run:
         pass
@@ -128,6 +141,8 @@ def download_hhblits_latest_database(version: str = None, dry_run: bool = False)
         unzip_p = subprocess.Popen(unzip_uniclust_cmd)
         unzip_out, unzip_err = unzip_p.communicate()
         logger.debug(f'unzip stdout:\n{unzip_out}\n\nunzip stderr:\n{unzip_err}')
+
+    return uniclust_latest_tar_file.replace(putils.uniclust_hhsuite_file_identifier, '')
 
 
 if __name__ == '__main__':
@@ -252,15 +267,6 @@ if __name__ == '__main__':
             # Todo issue command to set this feature up at a later date... Rerun with --rosetta-only for help
             break
 
-    # Set up the program config file
-    config = {
-        'rosetta_env': rosetta_env_variable,
-        'rosetta_main': rosetta_main,
-        'rosetta_make': rosetta_make,
-        'hhblits_env': search_env_for_variable(putils.hhblits)
-    }
-
-    utils.write_json(config, putils.config_file)
     # Set up git submodule
     git_submodule_cmd = ['git', 'submodule', 'update', '--init', '--recursive']
     # Set up freesasa dependency
@@ -308,25 +314,26 @@ if __name__ == '__main__':
             p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
             out, err = p.communicate()
 
-    config = {'rosetta_env': search_env_for_variable(putils.rosetta_str),
+    # Set up the program config file
+    config = {'rosetta_env': rosetta_env_variable,
+              'rosetta_main': rosetta_main,
+              'rosetta_make': rosetta_make,
               'hhblits_env': search_env_for_variable(putils.hhblits),
-              # TODO
-              'rosetta_make': 'mpi'  # 'default', 'python', 'mpi' 'cxx11thread', 'cxx11threadmpi'
               }
 
-    utils.write_json(config, putils.config_file)
-
     # Get hhblits database
-    _input = utils.validate_input('Finally, an hhblits database needs to be available. The file will take >50 GB of '
-                                  'hard drive space. Ensure that you have the capacity for this operation. This will '
-                                  f'automatically be downloaded for you in the directory "{putils.dependency_dir}" '
-                                  'if you consent.',
-                                  ['Y', 'n'])
+    _input = utils.validate_input('Finally, a UniClust database needs to be available for hhblits. The file will take '
+                                  '>50 GB of hard drive space. Ensure that you have the capacity for this operation. '
+                                  'This will automatically be downloaded for you in the directory '
+                                  f'"{putils.dependency_dir}" if you consent.', ['Y', 'n'])
     if _input == 'n':
         # Todo issue command to set this feature up at a later date... Rerun with --hhsuite-databases for help
         pass
     else:  # _input = 'y'
-        download_hhblits_latest_database(dry_run=dry_run)
+        config['uniclust_db'] = download_hhblits_latest_database(dry_run=dry_run)
+
+    # Write the config file
+    utils.write_json(config, putils.config_file)
 
     # Todo Set up the module symdesign to be found in the PYTHONPATH variable
     print(f'Set up is now complete! {putils.program_name} is now operational. Run the command {putils.program_exe} for '

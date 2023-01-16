@@ -767,7 +767,7 @@ class JobResources:
             putils.make_path(self.sequences)
             putils.make_path(self.profiles)
 
-    def setup_evolution_constraint(self, uniprot_entities: Iterable[sql.UniProtEntity] = None,
+    def setup_evolution_constraint(self, uniprot_entities: Iterable[wrapapi.UniProtEntity] = None,
                                    entities: Iterable[structure.sequence.SequenceProfile] = None) -> list[str]:
         """Format the job with evolutionary constraint options
 
@@ -820,10 +820,10 @@ class JobResources:
 
         if hhblits_cmds:
             if not os.access(putils.hhblits_exe, os.X_OK):
-                print(f"Couldn't locate the {putils.hhblits} executable. Ensure the executable file referenced by "
-                      f'{putils.hhblits_exe} exists then try your job again. Otherwise, use the argument'
-                      f'--no-{flags.evolution_constraint} OR set up hhblits to run{guide.hhblits_setup_instructions}')
-                exit()
+                raise RuntimeError(f"Couldn't locate the {putils.hhblits} executable. Ensure the executable file "
+                                   f"referenced by '{putils.hhblits_exe} exists then try your job again. Otherwise, use"
+                                   f" the argument --no-{flags.evolution_constraint} OR set up hhblits to run."
+                                   f'{guide.hhblits_setup_instructions}')
             putils.make_path(self.profiles)
             putils.make_path(self.sbatch_scripts)
             # Prepare files for running hhblits commands
