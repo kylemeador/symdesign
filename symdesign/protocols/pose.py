@@ -291,7 +291,7 @@ class PoseDirectory:
 
         return wt_file[0]
 
-    def get_designs(self, design_type: str = None) -> list[AnyStr]:
+    def get_designs(self, design_type: str = '') -> list[AnyStr]:
         """Return the paths of all design files in a PoseJob
 
         Args:
@@ -299,8 +299,8 @@ class PoseDirectory:
         Returns:
             The sorted design files found in the designs directory
         """
-        if design_type is None:
-            design_type = ''
+        # if design_type is None:
+        #     design_type = ''
         return sorted(glob(os.path.join(self.designs_path, f'*{design_type}*.pdb*')))
 
     def pickle_info(self):
@@ -3618,7 +3618,7 @@ class PoseProtocol(PoseData):
     def analyze_predict_structure_metrics(self, design_ids: Sequence[str], designs: Iterable[Pose] | Iterable[AnyStr]):
         """"""
         raise NotImplementedError('Please copy the method used for structural analysis from '
-                                  f'{self.process_rosetta_metrics.__name__}')
+                                  f'{self.process_rosetta_metrics.__name__} except removing the .scores_file attr')
 
         residues_df = self.analyze_residue_metrics_per_design(designs)
         designs_df = self.analyze_design_metrics_per_design(residues_df, designs)
@@ -3920,7 +3920,8 @@ class PoseProtocol(PoseData):
 
         viable_designs = scores_df.index.to_list()
         if not viable_designs:
-            raise DesignError('No viable designs remain after processing!')
+            raise DesignError(f'No viable designs remain after {self.process_rosetta_metrics.__name__} data processing '
+                              f'steps')
 
         self.log.debug(f'Viable designs with structures remaining after cleaning:\n\t{", ".join(viable_designs)}')
 

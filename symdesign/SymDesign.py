@@ -200,9 +200,8 @@ def main():
                     # scratch_designs = \
                     #     os.path.join(job_paths, putils.default_path_file.format(*default_output_tuple)).split('_pose')
                     # designs_file = f'{scratch_designs[0]}_pose{scratch_designs[-1]}'
-                    scratch_designs = \
+                    designs_file = \
                         os.path.join(job_paths, putils.default_path_file.format(*default_output_tuple))
-                    designs_file = f'{scratch_designs}.poses'
 
                 with open(designs_file, 'w') as f_out:
                     f_out.write('%s\n' % '\n'.join(str(pose_job) for pose_job in success))
@@ -214,7 +213,7 @@ def main():
             # Output any additional files for the module
             if job.module == flags.analysis:
                 # Save Design DataFrame
-                design_df = pd.DataFrame([result for result in results if not isinstance(result, BaseException)])
+                design_df = pd.DataFrame([result_ for result_ in results if not isinstance(result_, BaseException)])
                 if args.output:  # Create a new file
                     design_df.to_csv(args.output_file)
                 else:
@@ -972,7 +971,7 @@ def main():
 
             job.location = f'NanohedraEntry{job.sym_entry.number}'  # Used for terminate()
             if not pose_jobs:  # No pairs were located
-                exit('No docking pairs were located from your input. Please ensure that your input flags are as intended.'
+                exit('No docking pairs were located from your input. Please ensure that your flags are as intended.'
                      f'{putils.issue_submit_warning}')
             elif job.distribute_work:
                 # Write all commands to a file and use sbatch
