@@ -178,8 +178,8 @@ if __name__ == '__main__':
     print('Attempting to find environmental variable for Rosetta "main" directory')
     rosetta_env_variable = ''
     number_rosetta_variables = len(rosetta_variable_dictionary)
-    go_kw = 'GO'
-    go = None
+    retry_kw = 'retry'
+    retry = None
     rosetta_make = None
     # Todo reconfigure with above environmental variable search
     i = 0
@@ -226,8 +226,8 @@ if __name__ == '__main__':
                                 break
 
                     if rosetta_env_variable == '':
-                        go = input(f'Rosetta dependency set up failed. To continue without Rosetta, enter "{go_kw}"'
-                                   f'{input_string}')
+                        retry = input(f'Rosetta dependency set up failed. To retry Rosetta connection, enter '
+                                      f'"{retry_kw}"{input_string}')
                         break
 
             else:
@@ -244,12 +244,13 @@ if __name__ == '__main__':
             if rosetta_env_variable == '':
                 rosetta_env_variable = search_env_for_variable(putils.rosetta_str)
             break
-        elif go == go_kw:
-            # Todo issue command to set this feature up at a later date... Rerun with --rosetta-only for help
+        elif retry == retry_kw:
+            # print(f"Rosetta environmental path doesn't exist. Ensure that ${rosetta_env_variable} is correct... "
+            print("Trying again...")
             break
         else:
-            # print(f"Rosetta environmental path doesn't exist. Ensure that ${rosetta_env_variable} is correct... "
-            print("Trying again")
+            # Todo issue command to set this feature up at a later date... Rerun with --rosetta-only for help
+            break
 
     # Set up the program config file
     config = {
@@ -327,6 +328,7 @@ if __name__ == '__main__':
     else:  # _input = 'y'
         download_hhblits_latest_database(dry_run=dry_run)
 
+    # Todo Set up the module symdesign to be found in the PYTHONPATH variable
     print(f'Set up is now complete! {putils.program_name} is now operational. Run the command {putils.program_exe} for '
           f'usage instructions or visit the github for more info "{putils.git_url}')
     print(f'All {putils.program_name} files are located in {putils.git_source}')

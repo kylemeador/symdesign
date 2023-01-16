@@ -235,10 +235,10 @@ freesasa_dir = os.path.join(third_party_dir, 'freesasa')
 freesasa_exe_path = os.path.join(third_party_dir, 'freesasa', 'src', 'freesasa')
 freesasa_config_path = os.path.join(dependency_dir, 'freesasa-2.0.config')
 
-orient_dir = os.path.join(dependency_dir, 'orient')
+orient_exe_dir = os.path.join(dependency_dir, 'orient')
 # orient_exe = 'orient_oligomer.f'  # Non_compiled
 orient_exe = 'orient_oligomer'
-orient_exe_path = os.path.join(orient_dir, orient_exe)
+orient_exe_path = os.path.join(orient_exe_dir, orient_exe)
 orient_log_file = 'orient_oligomer_log.txt'
 errat_exe_path = os.path.join(dependency_dir, 'errat', 'errat')
 errat_residue_source = os.path.join(dependency_dir, 'errat', 'errat_every_residue.cpp')

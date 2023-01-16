@@ -1768,8 +1768,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         else:
             raise SymmetryError(f'{self.name}: Cannot orient a Structure with only a single chain. No symmetry present')
 
-        orient_input = Path(putils.orient_dir, 'input.pdb')
-        orient_output = Path(putils.orient_dir, 'output.pdb')
+        orient_input = Path(putils.orient_exe_dir, 'input.pdb')
+        orient_output = Path(putils.orient_exe_dir, 'output.pdb')
 
         def clean_orient_input_output():
             orient_input.unlink(missing_ok=True)
@@ -1781,8 +1781,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         # Todo superposition3d -> quaternion
         p = subprocess.Popen([putils.orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE, cwd=putils.orient_dir)
-        in_symm_file = os.path.join(putils.orient_dir, 'symm_files', symmetry)
+                             stderr=subprocess.PIPE, cwd=putils.orient_exe_dir)
+        in_symm_file = os.path.join(putils.orient_exe_dir, 'symm_files', symmetry)
         stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
         self.log.info(file_name + stdout.decode()[28:])
         self.log.info(stderr.decode()) if stderr else None
@@ -2823,8 +2823,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         else:
             raise SymmetryError(f'{self.name}: Cannot orient a Structure with only a single chain. No symmetry present')
 
-        orient_input = Path(putils.orient_dir, 'input.pdb')
-        orient_output = Path(putils.orient_dir, 'output.pdb')
+        orient_input = Path(putils.orient_exe_dir, 'input.pdb')
+        orient_output = Path(putils.orient_exe_dir, 'output.pdb')
 
         def clean_orient_input_output():
             orient_input.unlink(missing_ok=True)
@@ -2839,8 +2839,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         # Todo superposition3d -> quaternion
         p = subprocess.Popen([putils.orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE, cwd=putils.orient_dir)
-        in_symm_file = os.path.join(putils.orient_dir, 'symm_files', symmetry)
+                             stderr=subprocess.PIPE, cwd=putils.orient_exe_dir)
+        in_symm_file = os.path.join(putils.orient_exe_dir, 'symm_files', symmetry)
         stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
         self.log.info(file_name + stdout.decode()[28:])
         self.log.info(stderr.decode()) if stderr else None
@@ -3041,7 +3041,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         if self.biological_assembly:
             # query_args.update(assembly_integer=self.assembly)
             # # self.api_entry.update(_get_assembly_info(self.name))
-            self.api_entry = retrieve_api_info(entry=parsed_name)
+            self.api_entry = retrieve_api_info(entry=parsed_name) or {}
             self.api_entry['assembly'] = retrieve_api_info(entry=parsed_name, assembly_integer=self.biological_assembly)
             # ^ returns [['A', 'A', 'A', ...], ...]
         elif extra:  # Extra not None or []
@@ -3060,7 +3060,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     #  ...}
                     parsed_name = f'{parsed_name}_{integer}'
                 else:  # Get entry alone. This is an assembly or unknown conjugation. Either way we need entry info
-                    self.api_entry = retrieve_api_info(entry=parsed_name)
+                    self.api_entry = retrieve_api_info(entry=parsed_name) or {}
 
                     if idx == 1:  # This is an assembly integer, such as 1ABC-1.pdb
                         self.api_entry['assembly'] = retrieve_api_info(entry=parsed_name, assembly_integer=integer)
