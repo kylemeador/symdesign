@@ -1181,13 +1181,13 @@ def all_vs_all(iterable: Iterable, func: Callable, symmetrize: bool = True) -> n
         return pairwise
 
 
-def sym(a):
-    """Symmetrize a NumPy array. i.e. if a_ij = 0, then the returned array is such that _ij = a_ji
+def sym(a: np.ndarray) -> np.ndarray:
+    """Symmetrize a numpy array. i.e. if a_ij = 0, then the returned array is such that a_ji = a_ij
 
     Args:
-        a (numpy array): square NumPy array
+        a: A 2D square array
     Returns:
-        (numpy array): Symmetrized NumPy array
+        Symmetrized array
     """
     return a + a.T - np.diag(a.diagonal())
 
