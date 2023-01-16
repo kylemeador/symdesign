@@ -341,6 +341,9 @@ def main():
                 select(wrapapi.UniProtEntity)\
                 .where(wrapapi.UniProtEntity.id.in_(all_uniprot_ids))
             existing_uniprot_entities = session.scalars(existing_uniprot_entities_stmt).all()
+            uniprot_entities = set(existing_uniprot_entities)
+        else:
+            uniprot_entities = set(existing_uniprot_entities)
             # Todo emit this select when there is a stronger association between the multiple
             #  UniProtEntity.uniprot_ids and referencing a unique ProteinMetadata
             #  The below were never tested
@@ -376,8 +379,9 @@ def main():
             protein_metadata.uniprot_entities.extend(all_uniprot_id_to_entity[uniprot_id]
                                                      for uniprot_id in uniprot_ids)
 
-        uniprot_entities = new_uniprot_id_to_unp_entity.values()
-        session.add_all(uniprot_entities)
+        new_uniprot_entities = new_uniprot_id_to_unp_entity.values()
+        session.add_all(new_uniprot_entities)
+        uniprot_entities = uniprot_entities.union(new_uniprot_entities)
 
         # # Attach ProteinMetadata to UniProtEntity entries by UniProtID
         # uniprot_entities = []
