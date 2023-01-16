@@ -352,6 +352,39 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
     # START classmethod where the PoseData isn't initialized
     @classmethod
+    def from_path(cls, source_path: str, project: str = None, **kwargs):
+        # source_path = os.path.abspath(source_path)
+        if not os.path.exists(source_path):
+            raise FileNotFoundError(f'The specified {cls.__name__} structure source file "{source_path}" '
+                                    "wasn't found!")
+        filename, extension = os.path.splitext(source_path)
+        # if 'pdb' in extension or 'cif' in extension:  # Initialize from input file
+        if extension != '':  # Initialize from input file
+            project_path, name = os.path.split(filename)
+            if project is None:
+                # path_components = filename.split(os.sep)
+                remainder, project = os.path.split(project_path)
+                # try:
+                #     project = path_components[-2]
+                # except IndexError:  # We only have a 2 index list
+                if project == '':
+                    raise InputError(f"Couldn't get the project from the path '{source_path}'. Please provide "
+                                     f"project name with --{flags.project_name}")
+
+            return cls(name=name, project=project, source_path=source_path, initial=True, **kwargs)
+        elif os.path.isdir(source_path):
+            # This is an existing pose_identifier that hasn't been initialized
+            try:
+                name, project, *_ = reversed(source_path.split(os.sep))
+            except ValueError:  # Only got 1 value during unpacking... This isn't a "pose_directory" identifier
+                raise InputError(f"Couldn't coerce {source_path} to a {cls.__name__}. The directory must contain the "
+                                 f"'project{os.sep}pose_name' string")
+            return cls(name=name, project=project, source_path=source_path, initial=True, **kwargs)
+        else:
+            raise InputError(f"{cls.__name__} couldn't load the specified source file: "
+                             f"'{source_path}'")
+
+    @classmethod
     def from_file(cls, source_path: str, project: str = None, **kwargs):
         """Load the PoseJob from a Structure file including .pdb/.cif file types
 
@@ -363,7 +396,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         """
         # source_path = os.path.abspath(source_path)
         if not os.path.exists(source_path):
-            raise FileNotFoundError(f'The specified {type(cls).__name__} structure source file "{source_path}" '
+            raise FileNotFoundError(f'The specified {cls.__name__} structure source file "{source_path}" '
                                     "wasn't found!")
         filename, extension = os.path.splitext(source_path)
         # if 'pdb' in extension or 'cif' in extension:  # Initialize from input file
@@ -375,7 +408,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #     # self.project = os.path.basename(self.project_path)
         #     # self.pose_identifier = f'{self.project}{os.sep}{self.name}'
         else:
-            raise InputError(f"{type(cls).__name__} couldn't load the specified source file: "
+            raise InputError(f"{cls.__name__} couldn't load the specified source file: "
                              f"'{source_path}'")
 
         # if self.job.nanohedra_outputV1:
@@ -398,23 +431,23 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         return cls(name=name, project=project, source_path=source_path, initial=True, **kwargs)
 
     @classmethod
-    def from_directory(cls, design_path: str, root: AnyStr, **kwargs):
+    def from_directory(cls, source_path: str, root: AnyStr, **kwargs):
         """Assumes the PoseJob is constructed from the pose_name (project/pose_name) and job.projects
 
         Args:
-            design_path:
+            source_path:
             root:
         Returns:
             The PoseJob instance
         """
         try:
-            name, project, *_ = reversed(design_path.split(os.sep))
+            name, project, *_ = reversed(source_path.split(os.sep))
         except ValueError:  # Only got 1 value during unpacking... This isn't a "pose_directory" identifier
-            raise InputError(f"Couldn't coerce {design_path} to a 'pose_directory'. The directory must contain the "
+            raise InputError(f"Couldn't coerce {source_path} to a {cls.__name__}. The directory must contain the "
                              f"'project{os.sep}pose_name' string")
         # directory, name = os.path.split(design_path)
         # _, project = os.path.split(directory)
-        return cls(name=name, project=project, source_path=os.path.join(root, design_path), initial=True, **kwargs)
+        return cls(name=name, project=project, source_path=os.path.join(root, source_path), initial=True, **kwargs)
 
     @classmethod
     def from_name(cls, name: str = None, project: str = None, **kwargs):
