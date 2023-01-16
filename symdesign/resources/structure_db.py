@@ -184,14 +184,14 @@ class StructureDatabase(Database):
         # sql: sqlite = None, log: Logger = logger
         super().__init__(**kwargs)  # Database
 
-        self.full_models = DataStore(location=full_models, extension='_ensemble.pdb', sql=self.sql, log=self.log,
-                                     load_file=structure.model.Model.from_pdb)
-        self.oriented = DataStore(location=oriented, extension='.pdb', sql=self.sql, log=self.log,
-                                  load_file=structure.model.Model.from_pdb)
-        self.oriented_asu = DataStore(location=oriented_asu, extension='.pdb', sql=self.sql, log=self.log,
-                                      load_file=structure.model.Model.from_pdb)
-        self.refined = DataStore(location=refined, extension='.pdb', sql=self.sql, log=self.log,
-                                 load_file=structure.model.Model.from_pdb)
+        self.full_models = DataStore(location=full_models, extension='_ensemble.pdb', glob_extension='_ensemble.pdb*',
+                                     sql=self.sql, log=self.log, load_file=structure.model.Model.from_pdb)
+        self.oriented = DataStore(location=oriented, extension='.pdb', glob_extension='.pdb*',
+                                  sql=self.sql, log=self.log, load_file=structure.model.Model.from_pdb)
+        self.oriented_asu = DataStore(location=oriented_asu, extension='.pdb', glob_extension='.pdb*',
+                                      sql=self.sql, log=self.log, load_file=structure.model.Model.from_pdb)
+        self.refined = DataStore(location=refined, extension='.pdb', glob_extension='.pdb*',
+                                 sql=self.sql, log=self.log, load_file=structure.model.Model.from_pdb)
         self.stride = DataStore(location=stride, extension='.stride', sql=self.sql, log=self.log,
                                 load_file=structure.utils.parse_stride)
 
