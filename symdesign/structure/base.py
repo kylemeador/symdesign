@@ -2156,9 +2156,13 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         try:
             return self._secondary_structure
         except AttributeError:
-            raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.secondary_structure.__name__}" '
-                                 f'attribute! Ensure you call {Structure.get_secondary_structure.__name__} before you '
-                                 f'request Residue secondary structure information')
+            self.parent.calculate_secondary_structure()  # Sets this ._secondary_structure
+            try:
+                return self._secondary_structure
+            except AttributeError:
+                raise AttributeError(f'Residue {self.number}{self.chain} has no ".secondary_structure" attribute. '
+                                     'Ensure you set the parent .secondary_structure before you '
+                                     'request Residue.secondary_structure information')
 
     @secondary_structure.setter
     def secondary_structure(self, ss_code: str):
@@ -2642,6 +2646,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     _coords_indexed_residue_atoms: np.ndarray  # list[int]  # Todo ContainsResiduesMixin
     _residues: Residues | None  # Todo ContainsResiduesMixin
     _residue_indices: list[int] | None  # Todo ContainsResiduesMixin
+    _secondary_structure: str  # Todo ContainsResiduesMixin
     _sequence: str  # Todo ContainsResiduesMixin
     biomt: list
     biomt_header: str
@@ -4428,43 +4433,43 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             termini: Either 'n' or 'c' should be specified
             window: The segment size to search
         Returns:
-            Whether the termini has a stretch of helical residues with length of the window (1) or not (0)
+            Whether the specified termini has a stretch of helical residues the length of the window (1) or not (0)
         """
         residues = list(reversed(self.residues)) if termini.lower() == 'c' else self.residues
-        # if not residues[0].secondary_structure:
-        #     raise utils.DesignError(f'You must call {self.get_secondary_structure.__name__} on {self.name} before
-        #                             'querying for helical termini')
-        term_window = ''.join(residue.secondary_structure for residue in residues[:window*2])
-        if 'H'*window in term_window:
+        term_window = ''.join(residue.secondary_structure for residue in residues[:window * 2])
+        if 'H' * window in term_window:
             return 1  # True
         else:
             return 0  # False
 
-    def get_secondary_structure(self):
-        if self.secondary_structure:
-            return self.secondary_structure
-        else:
-            self.fill_secondary_structure()
-            if self.secondary_structure:  # check if there is at least 1 secondary struc assignment
-                return self.secondary_structure
-            else:
-                return
+    @property
+    def secondary_structure(self) -> str:
+        """The Structure secondary structure assignment as provided by the program Stride"""
+        try:
+            return self._secondary_structure
+        except AttributeError:
+            # if self.residues[0].secondary_structure:
+            try:
+                self.secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
+            except AttributeError:
+                self.stride()
+            # self._secondary_structure = self.fill_secondary_structure()
+            return self._secondary_structure
 
-    def fill_secondary_structure(self, secondary_structure=None):
+    def calculate_secondary_structure(self):
+        self.stride()
+
+    @secondary_structure.setter
+    def secondary_structure(self, secondary_structure: Sequence[str] = None):
         if secondary_structure:
-            self.secondary_structure = secondary_structure
-            if len(self.secondary_structure) == self.number_of_residues:
-                for idx, residue in enumerate(self.residues):
-                    residue.secondary_structure = secondary_structure[idx]
+            if len(secondary_structure) == self.number_of_residues:
+                self._secondary_structure = ''.join(secondary_structure)
+                for residue, ss in zip(self.residues, secondary_structure):
+                    residue.secondary_structure = ss
             else:
                 self.log.warning(f'The passed secondary_structure length ({len(self.secondary_structure)}) is not equal'
-                                 f' to the number of residues ({self.number_of_residues}). Recalculating...')
-                self.stride()  # we tried for efficiency, but its inaccurate, recalculate
-        else:
-            if self.residues[0].secondary_structure:
-                self.secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
-            else:
-                self.stride()
+                                 f' to the number of residues ({self.number_of_residues})')  # . Recalculating...')
+                # self.stride()  # We tried for efficiency, but its inaccurate, recalculate
 
     def termini_proximity_from_reference(self, termini: termini_literal = 'n',
                                          reference: np.ndarray = utils.symmetry.origin, **kwargs) -> float:
@@ -4989,9 +4994,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         return self.name, *self._residue_indices
 
     def __eq__(self, other: Structure) -> bool:
-        if isinstance(other, Structure):
+        if isinstance(other, Structure):  # Use Structure as subclasses could be the same? with same name and indices
             return self.__key() == other.__key()
-        raise NotImplementedError(f'Can\' compare {type(self).__name__} instance to {type(other).__name__} instance')
+        raise NotImplementedError(f"Can't compare {type(self).__name__} instance to {type(other).__name__} instance")
 
     # Must define __hash__ in all subclasses that define an __eq__
     def __hash__(self) -> int:

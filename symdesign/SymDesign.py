@@ -831,6 +831,8 @@ def main():
                     protein_metadata = sql.ProteinMetadata(
                         entity_id=entity.name,
                         reference_sequence=entity.reference_sequence,
+                        n_terminal_helix=entity.is_termini_helical(),
+                        c_terminal_helix=entity.is_termini_helical('c'),
                         thermophilic=entity.thermophilic,
                         symmetry=symmetry)
                     # Set the Entity with .metadata attribute to fetch in fragdock()

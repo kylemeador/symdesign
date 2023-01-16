@@ -6192,13 +6192,13 @@ class Pose(SymmetricModel, Metrics):
                 # retrieve_api_info = self.api_db.pdb.retrieve_data
                 retrieve_stride_info = resources.wrapapi.api_database_factory().stride.retrieve_data
             except AttributeError:
-                retrieve_stride_info = Structure.stride
+                retrieve_stride_info = Structure.utils.parse_stride
 
             parsed_secondary_structure = retrieve_stride_info(name=entity.name)
             if parsed_secondary_structure:
-                entity.fill_secondary_structure(secondary_structure=parsed_secondary_structure)
+                entity.secondary_structure = parsed_secondary_structure
             else:
-                entity.stride()  # to_file=self.api_db.stride.path_to(entity.name))
+                entity.secondary_structure  # stride()  # to_file=self.api_db.stride.path_to(entity.name))
             n_term = True if n_term and entity.is_termini_helical() else False
             c_term = True if c_term and entity.is_termini_helical(termini='c') else False
 
@@ -7249,16 +7249,16 @@ class Pose(SymmetricModel, Metrics):
             # retrieve_api_info = self.api_db.pdb.retrieve_data
             retrieve_stride_info = resources.wrapapi.api_database_factory().stride.retrieve_data
         except AttributeError:
-            retrieve_stride_info = Structure.stride
+            retrieve_stride_info = Structure.utils.parse_stride
 
         pose_secondary_structure = ''
         for entity in self.active_entities:
             if not entity.secondary_structure:
                 parsed_secondary_structure = retrieve_stride_info(name=entity.name)
                 if parsed_secondary_structure:
-                    entity.fill_secondary_structure(secondary_structure=parsed_secondary_structure)
-                else:
-                    entity.stride()  # to_file=self.api_db.stride.path_to(entity.name))
+                    entity.secondary_structure = parsed_secondary_structure
+                # else:
+                #     entity.stride()  # to_file=self.api_db.stride.path_to(entity.name))
 
             pose_secondary_structure += entity.secondary_structure
 
