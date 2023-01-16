@@ -35,7 +35,6 @@ logger = logging.getLogger(__name__)
 input_string = '\nInput: '
 zero_offset = 1
 rmsd_threshold = 1.
-hhblits_threads = 2
 # from colorbrewer (https://colorbrewer2.org/)
 color_arrays = [
     # pink to cyan

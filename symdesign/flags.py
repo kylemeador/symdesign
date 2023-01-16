@@ -9,7 +9,7 @@ from typing import Any, AnyStr, Callable, Container, Literal, get_args
 import pandas as pd
 from psutil import cpu_count
 
-from symdesign.sequence import expression
+from symdesign.sequence import constants
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
@@ -1015,7 +1015,7 @@ select_poses_arguments = {
 }
 # ---------------------------------------------------
 intergenic_sequence_args = ('-ms', f'--{multicistronic_intergenic_sequence}')
-intergenic_sequence_kwargs = dict(type=str, default=expression.default_multicistronic_sequence,
+intergenic_sequence_kwargs = dict(type=str, default=constants.ncoI_multicistronic_sequence,
                                   help='The sequence to use in the intergenic region of a multicistronic expression '
                                        'output')
 select_sequences_help = 'From the provided poses, generate sequences (nucleotide/protein) based on specified\n' \

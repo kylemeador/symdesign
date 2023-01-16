@@ -19,7 +19,7 @@ from Bio.Align import substitution_matrices, MultipleSeqAlignment
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-from symdesign import utils as utils
+from symdesign import utils
 putils = utils.path
 
 
@@ -377,8 +377,11 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
     return file_name
 
 
+hhblits_threads = 2
+
+
 def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[str] = None,
-            out_dir: AnyStr = os.getcwd(), threads: int = utils.hhblits_threads,
+            out_dir: AnyStr = os.getcwd(), threads: int = hhblits_threads,
             return_command: bool = False, **kwargs) -> str | None:
     """Generate a position specific scoring matrix from HHblits using Hidden Markov Models
 
@@ -416,7 +419,7 @@ def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[s
     pssm_file = os.path.join(out_dir, f'{name}.hmm')
     a3m_file = os.path.join(out_dir, f'{name}.a3m')
     # Todo for higher performance set up https://www.howtoforge.com/storing-files-directories-in-memory-with-tmpfs
-    cmd = [putils.hhblits_exe, '-d', putils.uniclustdb, '-i', sequence_file,
+    cmd = [putils.hhblits_exe, '-d', putils.uniclust_db, '-i', sequence_file,
            '-ohhm', pssm_file, '-oa3m', a3m_file,  # '-Ofas', self.msa_file,
            '-hide_cons', '-hide_pred', '-hide_dssp', '-E', '1E-06',
            '-v', '1', '-cpu', str(threads)]
@@ -507,7 +510,7 @@ def optimize_protein_sequence(sequence: str, species: str = 'e_coli') -> str:
 
 def create_mulitcistronic_sequences(args):
     # if not args.multicistronic_intergenic_sequence:
-    #     args.multicistronic_intergenic_sequence = expression.default_multicistronic_sequence
+    #     args.multicistronic_intergenic_sequence = expression.ncoI_multicistronic_sequence
 
     file = args.file[0]  # since args.file is collected with nargs='*', select the first
     if file.endswith('.csv'):
@@ -976,11 +979,11 @@ def parse_pssm(file: AnyStr, **kwargs) -> dict[int, dict[str, str | float | int 
                          [x / 100. for x in map(int, line_data[22:len(
                              protein_letters_alph3) + 22])]))
             # pose_dict[residue_number] = aa_counts_alph3.copy()
-            # for i, aa in enumerate(utils.protein_letters_alph3, 22):
+            # for i, aa in enumerate(protein_letters_alph3, 22):
             #     # Get normalized counts for pose_dict
             #     pose_dict[residue_number][aa] = int(line_data[i]) / 100.
 
-            # for i, aa in enumerate(utils.protein_letters_alph3, 2):
+            # for i, aa in enumerate(protein_letters_alph3, 2):
             #     pose_dict[residue_number]['lod'][aa] = line_data[i]
             pose_dict[residue_number]['lod'] = \
                 dict(zip(protein_letters_alph3, line_data[2:len(
@@ -1054,15 +1057,15 @@ def parse_hhblits_pssm(file: AnyStr, null_background: bool = True, **kwargs) -> 
     #             if null_background:
     #                 # use the provided null background from the profile search
     #                 background = line.strip().split()
-    #                 null_bg = {i: {} for i in utils.protein_letters_alph3}
-    #                 for i, aa in enumerate(utils.protein_letters_alph3, 1):
+    #                 null_bg = {i: {} for i in protein_letters_alph3}
+    #                 for i, aa in enumerate(protein_letters_alph3, 1):
     #                     null_bg[aa] = to_freq(background[i])
     #
     #         if len(line.split()) == 23:
     #             items = line.strip().split()
     #             residue_number = int(items[1])
     #             pose_dict[residue_number] = {}
-    #             for i, aa in enumerate(utils.protein_letters_alph1, 2):
+    #             for i, aa in enumerate(protein_letters_alph1, 2):
     #                 pose_dict[residue_number][aa] = to_freq(items[i])
     #             pose_dict[residue_number]['lod'] = get_lod(pose_dict[residue_number], null_bg)
     #             pose_dict[residue_number]['type'] = items[0]
@@ -1363,7 +1366,7 @@ class MultipleSequenceAlignment:
         #                      for amino_acid_counts, observation in zip(self._counts, self._observations)]
         # print('OLD self._frequencies', self._frequencies)
 
-        # self.frequencies = np.zeros((self.length, len(utils.protein_letters_alph1)))  # self.counts.shape)
+        # self.frequencies = np.zeros((self.length, len(protein_letters_alph1)))  # self.counts.shape)
         # for residue_idx in range(self.length):
         #     self.frequencies[residue_idx, :] = self.counts[:, :self._gap_index] / self.observations
         try:
