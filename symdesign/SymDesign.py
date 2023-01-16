@@ -620,7 +620,7 @@ def main():
     #  Process JobResources which holds shared program objects and command-line arguments
     # -----------------------------------------------------------------------------------------------------------------
     job = job_resources_factory.get(program_root=symdesign_directory, arguments=args)
-    if job.project_name:
+    if job.project_name:  # One was provided using flags (arguments=args) ^
         project_name = job.project_name
     # else:
     #     project_name = fallback_project_name
@@ -1114,8 +1114,8 @@ def main():
                         #     pose_jobs = [PoseJob.from_directory(pose, root=job.projects)
                         #                  for pose in file_paths[low_range:high_range]]
                         # else:
-                        pose_jobs = [PoseJob.from_file(file, project=project_name)
-                                     for file in file_paths[low_range:high_range]]
+                        pose_jobs = [PoseJob.from_path(path, project=project_name)
+                                     for path in file_paths[low_range:high_range]]
                 if not pose_jobs:
                     raise utils.InputError(f"No {PoseJob.__name__}'s found at location '{job.location}'")
                 """Check to see that proper data/files have been created 
