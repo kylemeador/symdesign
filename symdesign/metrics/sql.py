@@ -137,10 +137,25 @@ def upsert_dataframe(session: Session, table: Base, df: pd.DataFrame):  # -> lis
     update_columns = [c for c in excluded_columns if c.name in new_columns]
     update_dict = {getattr(c, 'name'): c for c in update_columns if not c.primary_key}
     table_ = table.__table__
+    tablename = table.__tablename__
     # Find relevant column indicators to parse the non-primary key non-nullable columns
-    primary_keys = [key for key in table_.primary_key]
-    non_null_keys = [col for col in table_.columns if not col.nullable]
-    index_keys = [key for key in non_null_keys if key not in primary_keys]
+    # insp = inspect(ResidueMetrics.__tablename__)
+    # input(insp)
+    # persist = inspect(ResidueMetrics).persist_selectable
+    # input(f'persist: {persist}')
+    unique_constraints = inspect(session.connection()).get_unique_constraints(tablename)
+    # Prints
+    # unique_constraints: [{'name': '_pose_design_uc', 'column_names': ['pose_id', 'design_id']}]
+    # input(f'unique_constraints: {unique_constraints}')
+    table_unique_constraint_keys = set()
+    for constraint in unique_constraints:
+        table_unique_constraint_keys.update(constraint['column_names'])
+    unique_constraint_keys = {col.name for col in table_.columns if col.unique}
+    index_keys = unique_constraint_keys.union(table_unique_constraint_keys)
+    # primary_keys = [key for key in table_.primary_key]
+    # non_null_keys = [col for col in table_.columns if not col.nullable]
+    # index_keys = [key for key in non_null_keys if key not in primary_keys] \
+    #     + unique_constraint_keys
 
     do_update_stmt = insert_stmt.on_conflict_do_update(
         index_elements=index_keys,  # primary_keys,
@@ -148,8 +163,8 @@ def upsert_dataframe(session: Session, table: Base, df: pd.DataFrame):  # -> lis
     )
     start_time = time()
     # result = session.execute(do_update_stmt, df.reset_index().set_index('id').to_dict('records'))
-    session.execute(do_update_stmt, df.reset_index().set_index('id').to_dict('records'))
-    logger.info(f'Transaction with table "{table_.__tablename__}" took {time() - start_time:8f}s')
+    session.execute(do_update_stmt, df.reset_index().to_dict('records'))
+    logger.info(f'Transaction with table "{tablename}" took {time() - start_time:8f}s')
     session.commit()
 
     # return result.scalars().all()
@@ -212,7 +227,7 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
     if poses is not None:
         # warn = True
         poses.replace({np.nan: None}, inplace=True)
-        dataframe_function(session, _table=PoseMetrics, df=poses)
+        dataframe_function(session, table=PoseMetrics, df=poses)
         table = PoseMetrics.__tablename__
         # poses.to_sql(table, con=engine, if_exists='append', index=True)
         # #              dtype=sql.Base.metadata.table[table])
@@ -224,7 +239,7 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
         # warn_multiple_update_results()
         # warn = True
         designs.replace({np.nan: None}, inplace=True)
-        dataframe_function(session, _table=DesignMetrics, df=designs)
+        dataframe_function(session, table=DesignMetrics, df=designs)
         table = DesignMetrics.__tablename__
         # designs.to_sql(table, con=engine, if_exists='append', index=True)
         # #                dtype=sql.Base.metadata.table[table])
@@ -237,7 +252,7 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
         # warn = True
         residues = format_residues_df_for_write(residues)
         residues.replace({np.nan: None}, inplace=True)
-        dataframe_function(session, _table=ResidueMetrics, df=residues)
+        dataframe_function(session, table=ResidueMetrics, df=residues)
         table = ResidueMetrics.__tablename__
         # residues.to_sql(table, con=engine, index=True)  # if_exists='append',
         # # Todo Ensure that the 'id' column is present
