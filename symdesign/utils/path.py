@@ -285,7 +285,10 @@ hhsuite_source_root_directory = os.path.dirname(os.path.dirname(hhblits_exe))
 reformat_msa_exe_path = os.path.join(hhsuite_source_root_directory, 'scripts', 'reformat.pl')
 # hhblits_exe = hhblits_exe if hhblits_exe else 'hhblits'  # ensure not None
 # uniclustdb = os.path.join(dependency_dir, 'hh-suite', 'databases', 'UniRef30_2020_02')
-uniclust_db = os.path.join(hhsuite_db_dir, config.get('uniclust_db', get_uniclust_db()))
+if os.path.exists(hhsuite_db_dir):
+    uniclust_db = os.path.join(hhsuite_db_dir, config.get('uniclust_db', get_uniclust_db()))
+else:
+    uniclust_db = ''
 install_hhsuite_exe = os.path.join(binaries, 'install_hhsuite.sh')
 hhsuite_git = 'https://github.com/soedinglab/hh-suite'
 # Rosetta
