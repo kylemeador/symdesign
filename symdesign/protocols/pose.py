@@ -68,7 +68,7 @@ class PoseDirectory:
     name: str
     # pose_file: str | Path
 
-    def __init__(self, directory: AnyStr = None, output_modifier: AnyStr = None, **kwargs):
+    def __init__(self, directory: AnyStr = None, output_modifier: AnyStr = '', **kwargs):
         """
 
         Args:
@@ -76,6 +76,8 @@ class PoseDirectory:
             output_modifier:
             initial:
         """
+        if output_modifier is None:
+            output_modifier = ''
         self.info: dict = {}
         """Internal state info"""
         self._info: dict = {}
@@ -136,25 +138,29 @@ class PoseDirectory:
             # self.designed_sequences_file = os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
             self.designed_sequences_file = os.path.join(self.designs_path, f'sequences.fasta')
 
-            if self.initial:  # This is the first creation
-                if os.path.exists(self.serialized_info):
-                    # This has been initialized without a database, gather existing state data
-                    try:
-                        serial_info = unpickle(self.serialized_info)
-                        if not self.info:  # Empty dict
-                            self.info = serial_info
-                        else:
-                            serial_info.update(self.info)
-                            self.info = serial_info
-                    except pickle.UnpicklingError as error:
-                        logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
-                        raise error
+            try:
+                if self.initial:  # This is the first creation
+                    if os.path.exists(self.serialized_info):
+                        # This has been initialized without a database, gather existing state data
+                        try:
+                            serial_info = unpickle(self.serialized_info)
+                            if not self.info:  # Empty dict
+                                self.info = serial_info
+                            else:
+                                serial_info.update(self.info)
+                                self.info = serial_info
+                        except pickle.UnpicklingError as error:
+                            logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
+                            raise error
 
-                    # # Make a copy to check for changes to the current state
-                    # self._info = self.info.copy()
-                    # Todo
-                    #  if self.job.db:
-                    #      self.put_info_in_db()
+                        # # Make a copy to check for changes to the current state
+                        # self._info = self.info.copy()
+                        raise NotImplementedError("Still working this out")
+                        # Todo
+                        #  if self.job.db:
+                        #      self.put_info_in_db()
+            except AttributeError:
+                pass
         else:
             raise NotImplementedError(f"{putils.program_name} hasn't been set up to run without directories yet... "
                                       f"Please solve the {type(self).__name__}.__init__() method")
@@ -481,12 +487,13 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             output_modifier = f'{self.name}_'
             out_directory = self.job.program_root  # /output_directory <- self.out_directory/design.pdb
         else:
-            output_modifier = None
+            output_modifier = ''  # None
             out_directory = os.path.join(self.job.projects, self.project, self.name)
 
         # These arguments are for PoseDirectory. initial signifies that this is the first load of this PoseJob
         # which can help in gathering the self.serialized_info file and converting this to the proper utils.sql
         # table data
+        # self.initial = False
         super().__init__(directory=out_directory, output_modifier=output_modifier)  # **kwargs)
 
         putils.make_path(self.out_directory, condition=self.job.construct_pose)
