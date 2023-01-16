@@ -387,7 +387,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             except ValueError:  # Only got 1 value during unpacking... This isn't a "pose_directory" identifier
                 raise InputError(f"Couldn't coerce {source_path} to a {cls.__name__}. The directory must contain the "
                                  f"'project{os.sep}pose_name' string")
-            return cls(name=name, project=project, source_path=source_path, initial=True, **kwargs)
+            return cls(name=name, project=project, source_path=None, initial=True, **kwargs)
         else:
             raise InputError(f"{cls.__name__} couldn't load the specified source file: "
                              f"'{source_path}'")
@@ -593,80 +593,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # self.pose_identifier = f'{self.project}{os.sep}{self.name}'
 
         self.__init_from_db__()
-        """This comment's code is now called in __init_from_db__() according to DRY principles
+        # Most __init__ code is called in __init_from_db__() according to sqlalchemy needs and DRY principles
 
-        # Get the main program options
-        self.job = resources.job.job_resources_factory.get()
-        # Symmetry attributes
-        # If a new sym_entry is provided it wouldn't be saved to the state but could be attempted to be used
-        if self.job.sym_entry is not None:
-            self.sym_entry = self.job.sym_entry
-
-        # Design attributes
-        self.protocol = None
-        ""The name of the currently utilized protocol for file naming and metric results""
-        self.measure_evolution = self.measure_alignment = False
-        # self.entities = []
-        self.initial_model = None
-        ""Used if the pose structure has never been initialized previously""
-        self.pose = None
-        ""Contains the Pose object""
-        self.specific_designs_file_paths = []
-        ""Contains the various file paths for each design of interest according to self.specific_designs""
-        
-        # self.pose_identifier = None
-        # self.background_profile: str = kwargs.get('background_profile', putils.design_profile)
-        # ""The type of position specific profile (per-residue amino acid frequencies) to utilize as the design
-        # background profile.
-        # Choices include putils.design_profile, putils.evolutionary_profile, and putils.fragment_profile
-        # ""
-        # self.interface_design_residue_numbers: set[int] | bool = False  # The residue numbers in the pose interface
-        # self.interface_residue_ids: dict[str, str] = {}
-        # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
-        # self.interface_residue_numbers: set[int] | bool = False  # The interface residues which are surface accessable
-        # self.oligomer_names: list[str] = self.info.get('oligomer_names', [])
-        # self.pre_refine = self.info.get('pre_refine', True)
-        # self.pre_loop_model = self.info.get('pre_loop_model', True)
-
-        if self.job.output_to_directory:
-            # Todo if I use output_modifier for design, it opens up a can of worms.
-            #  Maybe it is better to include only for specific modules
-            output_modifier = f'{self.name}_'
-            out_directory = self.job.program_root  # /output_directory <- self.out_directory/design.pdb
-        else:
-            output_modifier = None
-            out_directory = os.path.join(self.job.projects, self.project, self.name)
-
-        # Set self.out_directory and PoseDirectory dependent attributes
-        # Initialize attributes which should be stored in the PoseMetadata database
-        super().__init__(directory=out_directory, output_modifier=output_modifier, **kwargs)
-
-        # self.initialized = True if os.path.exists(self.serialized_info) else False
-        # if not self.initialized:
-        putils.make_path(self.out_directory, condition=self.job.construct_pose)
-
-        # Initialize the logger for the Pose
-        log_path = self.log_path
-        if self.job.debug:
-            handler = level = 1  # Defaults to stdout, debug is level 1
-            no_log_name = False
-        elif self.log_path:
-            if self.job.force:
-                os.system(f'rm {self.log_path}')
-            handler = level = 2  # To a file
-            no_log_name = True
-        else:  # Log to the __main__ file logger
-            log_path = None  # Todo figure this out...
-            handler = level = 2  # To a file
-            no_log_name = False
-
-        if self.job.skip_logging or not self.job.construct_pose:  # Set up null_logger
-            self.log = logging.getLogger('null')
-        else:  # f'{__name__}.{self}'
-            self.log = start_log(name=f'pose.{self.project}.{self.name}', handler=handler, level=level,
-                                 location=log_path, no_log_name=no_log_name, propagate=True)
-            # propagate=True allows self.log to pass messages to 'pose' and 'project' logger
-        """
         # Save job variables to the state during initialization
         if self.sym_entry:
             self.symmetry_dimension = self.sym_entry.dimension
