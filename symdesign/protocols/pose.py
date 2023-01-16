@@ -3128,8 +3128,7 @@ class PoseProtocol(PoseData):
                 header = True
             pose_s.to_csv(out_path, mode='a', header=header)
 
-    def analyze_proteinmpnn_metrics(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.array]) \
-            -> pd.Series:
+    def analyze_proteinmpnn_metrics(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.array]):
         #                      designs: Iterable[Pose] | Iterable[AnyStr] = None
         """
 
@@ -3554,7 +3553,7 @@ class PoseProtocol(PoseData):
                 # designs.index.set_names(design_index_names, inplace=True)
                 designs.index.set_names(sql.DesignMetrics.design_id.name, inplace=True)
                 # _design_ids = metrics.sql.write_dataframe(designs=designs)
-                metrics.sql.write_dataframe(designs=designs, update=update)
+                metrics.sql.write_dataframe(designs=designs)  # , update=False)
             # else:
             #     _design_ids = []
 
@@ -3574,7 +3573,7 @@ class PoseProtocol(PoseData):
 
                 residues.index.set_names(index_name, inplace=True)
                 # _residue_ids = metrics.sql.write_dataframe(residues=residues, update=update)
-                metrics.sql.write_dataframe(residues=residues, update=update)
+                metrics.sql.write_dataframe(residues=residues)  # , update=False)
             # metrics.sql.write_dataframe(designs=designs, residues=residues)
         else:
             putils.make_path(self.data_path)
