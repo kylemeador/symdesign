@@ -353,28 +353,25 @@ def orient(job: pose.PoseJob, to_pose_directory: bool = True):
         job: The PoseJob for which the protocol should be performed on
         to_pose_directory: Whether to write the file to the pose_directory or to another source
     """
-    if job.initial_model:
-        model = job.initial_model
-    else:
-        model = Model.from_file(job.source_path, log=job.log)
+    if not job.initial_model:
+        job.load_initial_model()
 
     if job.symmetry:
         if to_pose_directory:
             out_path = job.assembly_path
         else:
             putils.make_path(job.job.orient_dir)
-            out_path = os.path.join(job.job.orient_dir, f'{model.name}.pdb')
+            out_path = os.path.join(job.job.orient_dir, f'{job.initial_model.name}.pdb')
 
-        model.orient(symmetry=job.symmetry)
+        job.initial_model.orient(symmetry=job.symmetry)
 
-        orient_file = model.write(out_path=out_path)
+        orient_file = job.initial_model.write(out_path=out_path)
         job.log.info(f'The oriented file was saved to {orient_file}')
-        for entity in model.entities:
+        for entity in job.initial_model.entities:
             entity.remove_mate_chains()
             job.entity_names.append(entity.name)
 
         # Load the pose and save the asu
-        job.initial_model = model
         job.load_pose()  # entities=model.entities)
     else:
         raise SymmetryError(warn_missing_symmetry % job.orient.__name__)
