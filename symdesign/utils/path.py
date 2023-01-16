@@ -279,10 +279,11 @@ hhsuite_git = 'https://github.com/soedinglab/hh-suite'
 rosetta_extras = config.get('rosetta_make')
 rosetta_main = os.environ.get(config.get('rosetta_env'))
 rosetta_main = rosetta_main if rosetta_main else 'main'  # Ensure not None
-rosetta_default_bin = os.path.join(rosetta_main, 'source/bin')
-make_symmdef = os.path.join(rosetta_main, 'source', 'src', 'apps', 'public', 'symmetry', 'make_symmdef_file.pl')
+rosetta_source = os.path.join(rosetta_main, 'source')
+rosetta_default_bin = os.path.join(rosetta_source, 'bin')
+make_symmdef = os.path.join(rosetta_source, 'src', 'apps', 'public', 'symmetry', 'make_symmdef_file.pl')
 # Todo v dependent on external compile. cd to the directory, then type "make" to compile the executable
-dalphaball = os.path.join(rosetta_main, 'source', 'external', 'DAlpahBall', 'DAlphaBall.gcc')
+dalphaball = os.path.join(rosetta_source, 'external', 'DAlpahBall', 'DAlphaBall.gcc')
 # Rosetta Scripts and Misc Files'
 rosetta_scripts_dir = os.path.join(dependency_dir, 'rosetta')
 symmetry_def_file_dir = 'rosetta_symmetry_definition_files'

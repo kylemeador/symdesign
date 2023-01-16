@@ -358,7 +358,7 @@ if __name__ == '__main__':
                 exit()
             cmd_end_slice = cmd_start_slice + number_of_processes
         else:  # Not in SLURM, use multiprocessing
-            cmd_start_slice = cmd_end_slice = slice(None)
+            cmd_start_slice = cmd_end_slice = None
         # Set the type for below if the specific command can be split further
         specific_commands: list[str] | list[list[str]] = \
             list(map(str.strip, all_commands[cmd_start_slice:cmd_end_slice]))
@@ -394,6 +394,7 @@ if __name__ == '__main__':
 
         # Ensure all log and reporting files exist
         for log_file in log_files:
+            print(f'Writing job log to "{log_file}"')
             create_file(log_file)
         create_file(args.success_file)
         create_file(args.failure_file)
