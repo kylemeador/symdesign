@@ -138,29 +138,37 @@ class PoseDirectory:
             # self.designed_sequences_file = os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
             self.designed_sequences_file = os.path.join(self.designs_path, f'sequences.fasta')
 
-            try:
-                if self.initial:  # This is the first creation
-                    if os.path.exists(self.serialized_info):
-                        # This has been initialized without a database, gather existing state data
-                        try:
-                            serial_info = unpickle(self.serialized_info)
-                            if not self.info:  # Empty dict
-                                self.info = serial_info
-                            else:
-                                serial_info.update(self.info)
-                                self.info = serial_info
-                        except pickle.UnpicklingError as error:
-                            logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
-                            raise error
-
-                        # # Make a copy to check for changes to the current state
-                        # self._info = self.info.copy()
-                        raise NotImplementedError("Still working this out")
-                        # Todo
-                        #  if self.job.db:
-                        #      self.put_info_in_db()
-            except AttributeError:
-                pass
+            # try:
+            #     if self.initial:  # This is the first creation
+            #         if os.path.exists(self.serialized_info):
+            #             # This has been initialized without a database, gather existing state data
+            #             try:
+            #                 serial_info = unpickle(self.serialized_info)
+            #                 if not self.info:  # Empty dict
+            #                     self.info = serial_info
+            #                 else:
+            #                     serial_info.update(self.info)
+            #                     self.info = serial_info
+            #             except pickle.UnpicklingError as error:
+            #                 logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
+            #                 raise error
+            #
+            #             # # Make a copy to check for changes to the current state
+            #             # self._info = self.info.copy()
+            #             raise NotImplementedError("Still working this out")
+            #             self.load_initial_model()
+            #             for entity in self.initial_model:
+            #                 self.entity_data.append(sql.EntityData(
+            #                     pose=self,
+            #                     meta=entity.metadata,
+            #                     metrics=entity.metrics,
+            #                     transform=EntityTransform(**transform)
+            #                 ))
+            #             # Todo
+            #             #  if self.job.db:
+            #             #      self.put_info_in_db()
+            # except AttributeError:  # Missing self.initial as this was loaded from SQL database
+            #     pass
         else:
             raise NotImplementedError(f"{putils.program_name} hasn't been set up to run without directories yet... "
                                       f"Please solve the {type(self).__name__}.__init__() method")
