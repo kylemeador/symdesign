@@ -20,8 +20,27 @@ logger = logging.getLogger(__name__)
 index_offset = 1
 mpi = 4
 hhblits_memory_threshold = 30000000000  # 30GB
+default_shell = 'bash'
 sbatch = 'sbatch'
 sb_flag = '#SBATCH --'
+sbatch_template_dir = os.path.join(putils.dependency_dir, sbatch)
+sbatch_exe = ''
+
+
+def get_sbatch_exe():
+    """Locate where in the $PATH the executable 'sbatch' can be found"""
+    p = subprocess.Popen(['which', sbatch], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    sbatch_exe_out, err = p.communicate()
+    return sbatch_exe_out.decode('utf-8').strip()
+
+
+def is_sbatch_available():
+    """Ensure the sbatch executable is available and executable"""
+    global sbatch_exe
+    sbatch_exe = get_sbatch_exe()
+    return os.path.exists(sbatch_exe) and os.access(sbatch_exe, os.X_OK)
+
+
 # Todo modify .linuxgccrelease depending on os
 
 # relax_flags_cmdline = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp_constraints', 'false',
@@ -68,41 +87,41 @@ process_scale = dict(zip(protocols, processes))
 #     'bmdca': 2}
 
 sbatch_templates_tuple = (
-    os.path.join(putils.sbatch_template_dir, flags.refine),
-    os.path.join(putils.sbatch_template_dir, flags.interface_design),
-    os.path.join(putils.sbatch_template_dir, flags.refine),
-    os.path.join(putils.sbatch_template_dir, flags.nanohedra),
-    os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
-    os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
-    os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
-    os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
-    os.path.join(putils.sbatch_template_dir, flags.interface_design),
-    os.path.join(putils.sbatch_template_dir, flags.interface_design),
-    os.path.join(putils.sbatch_template_dir, putils.hhblits),
-    os.path.join(putils.sbatch_template_dir, flags.interface_design),
-    os.path.join(putils.sbatch_template_dir, putils.hhblits),
-    os.path.join(putils.sbatch_template_dir, 'bmdca')
+    os.path.join(sbatch_template_dir, flags.refine),
+    os.path.join(sbatch_template_dir, flags.interface_design),
+    os.path.join(sbatch_template_dir, flags.refine),
+    os.path.join(sbatch_template_dir, flags.nanohedra),
+    os.path.join(sbatch_template_dir, 'rmsd_calculation'),
+    os.path.join(sbatch_template_dir, 'rmsd_calculation'),
+    os.path.join(sbatch_template_dir, 'rmsd_calculation'),
+    os.path.join(sbatch_template_dir, 'rmsd_calculation'),
+    os.path.join(sbatch_template_dir, flags.interface_design),
+    os.path.join(sbatch_template_dir, flags.interface_design),
+    os.path.join(sbatch_template_dir, putils.hhblits),
+    os.path.join(sbatch_template_dir, flags.interface_design),
+    os.path.join(sbatch_template_dir, putils.hhblits),
+    os.path.join(sbatch_template_dir, 'bmdca')
 )
 sbatch_templates = dict(zip(protocols, sbatch_templates_tuple))
 # sbatch_templates = {
-#     flags.refine: os.path.join(putils.sbatch_template_dir, flags.refine),
-#     flags.interface_design: os.path.join(putils.sbatch_template_dir, flags.interface_design),
-#     flags.consensus: os.path.join(putils.sbatch_template_dir, flags.refine),
-#     flags.nanohedra: os.path.join(putils.sbatch_template_dir, flags.nanohedra),
-#     'rmsd_calculation': os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
-#     'all_to_all': os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
-#     'rmsd_clustering': os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
-#     'rmsd_to_cluster': os.path.join(putils.sbatch_template_dir, 'rmsd_calculation'),
-#     flags.scout: os.path.join(putils.sbatch_template_dir, flags.interface_design),
-#     putils.hbnet_design_profile: os.path.join(putils.sbatch_template_dir, flags.interface_design),
-#     flags.optimize_designs: os.path.join(putils.sbatch_template_dir, putils.hhblits),
-#     flags.interface_metrics: os.path.join(putils.sbatch_template_dir, flags.interface_design),
-#     putils.hhblits: os.path.join(putils.sbatch_template_dir, putils.hhblits),
-#     'bmdca': os.path.join(putils.sbatch_template_dir, 'bmdca')
+#     flags.refine: os.path.join(sbatch_template_dir, flags.refine),
+#     flags.interface_design: os.path.join(sbatch_template_dir, flags.interface_design),
+#     flags.consensus: os.path.join(sbatch_template_dir, flags.refine),
+#     flags.nanohedra: os.path.join(sbatch_template_dir, flags.nanohedra),
+#     'rmsd_calculation': os.path.join(sbatch_template_dir, 'rmsd_calculation'),
+#     'all_to_all': os.path.join(sbatch_template_dir, 'rmsd_calculation'),
+#     'rmsd_clustering': os.path.join(sbatch_template_dir, 'rmsd_calculation'),
+#     'rmsd_to_cluster': os.path.join(sbatch_template_dir, 'rmsd_calculation'),
+#     flags.scout: os.path.join(sbatch_template_dir, flags.interface_design),
+#     putils.hbnet_design_profile: os.path.join(sbatch_template_dir, flags.interface_design),
+#     flags.optimize_designs: os.path.join(sbatch_template_dir, putils.hhblits),
+#     flags.interface_metrics: os.path.join(sbatch_template_dir, flags.interface_design),
+#     putils.hhblits: os.path.join(sbatch_template_dir, putils.hhblits),
+#     'bmdca': os.path.join(sbatch_template_dir, 'bmdca')
 # }
-# # 'metrics': os.path.join(putils.sbatch_template_dir, flags.interface_design),
-# # 'metrics_bound': os.path.join(putils.sbatch_template_dir, flags.interface_design),
-# # flags.analysis: os.path.join(putils.sbatch_template_dir, flags.refine),
+# # 'metrics': os.path.join(sbatch_template_dir, flags.interface_design),
+# # 'metrics_bound': os.path.join(sbatch_template_dir, flags.interface_design),
+# # flags.analysis: os.path.join(sbatch_template_dir, flags.refine),
 
 
 # class GracefulKiller:
@@ -165,7 +184,7 @@ def run(cmd: str, log_file_name: str, program: str = None, srun: str = None) -> 
 def distribute(file: AnyStr, scale: protocols_literal, out_path: AnyStr = os.getcwd(),
                success_file: AnyStr = None, failure_file: AnyStr = None, max_jobs: int = 80,
                number_of_commands: int = None, mpi: int = None, log_file: AnyStr = None,
-               finishing_commands: list[str] = None, **kwargs) -> str:
+               finishing_commands: list[str] = None, slurm: bool = True, **kwargs) -> str:
     """Take a file of commands formatted for execution in the SLURM environment and process into a sbatch script
 
     Args:
@@ -179,8 +198,9 @@ def distribute(file: AnyStr, scale: protocols_literal, out_path: AnyStr = os.get
         mpi: The number of processes to run concurrently with MPI
         log_file: The name of a log file to write command results to
         finishing_commands: Commands to run once all sbatch processes are completed
+        slurm: Whether the distribution file should take the form of a slurm sbatch script
     Returns:
-        The name of the sbatch script that was written
+        The name of the script that was written
     """
     # Should this be included in docstring?
     # If the commands are provided as a list of raw commands and not a command living in a PoseJob, the argument
@@ -236,27 +256,31 @@ def distribute(file: AnyStr, scale: protocols_literal, out_path: AnyStr = os.get
     putils.make_path(output)
 
     # Make sbatch file from template, array details, and command distribution script
-    filename = os.path.join(out_path, f'{name}_{sbatch}.sh')
+    if slurm:
+        filename = os.path.join(out_path, f'{name}_{sbatch}.sh')
+    else:
+        filename = os.path.join(out_path, f'{name}.sh')
+
     with open(filename, 'w') as new_f:
         # Todo set up sbatch accordingly. Include a multiplier for the number of CPU's. Actually, might be passed
         #  if mpi:
         #      do_mpi_stuff = True
-        # grab and write sbatch template
-        with open(sbatch_templates[scale]) as template_f:
-            new_f.write(''.join(template_f.readlines()))
-        out = f'output={output}/%A_%a.out'
-        new_f.write(f'{sb_flag}{out}\n')
-        array = f'array=1-{int(number_of_commands / process_scale[scale] + 0.5)}%{max_jobs}'
-        new_f.write(f'{sb_flag}{array}\n\n')
+        if slurm:
+            # grab and write sbatch template
+            with open(sbatch_templates[scale]) as template_f:
+                new_f.write(''.join(template_f.readlines()))
+            out = f'output={output}/%A_%a.out'
+            new_f.write(f'{sb_flag}{out}\n')
+            array = f'array=1-{int(number_of_commands / process_scale[scale] + 0.5)}%{max_jobs}'
+            new_f.write(f'{sb_flag}{array}\n\n')
         new_f.write(f'python {cmd_dist} --stage {scale} distribute {f"--log_file {log_file} " if log_file else ""}'
                     f'--success_file {success_file} --failure_file {failure_file} --command_file {file}\n')
-        if finishing_commands:
+        if slurm and finishing_commands:
             new_f.write('# Wait for all to complete\n'
                         'wait\n'
                         '\n'
                         '# Then execute\n'
                         '%s\n' % '\n'.join(finishing_commands))
-
     return filename
 
 
@@ -328,22 +352,24 @@ if __name__ == '__main__':
         array_number = os.environ.get('SLURM_ARRAY_TASK_ID')
         if array_number:
             array_task_number = int(array_number)
-            # adjust from SLURM one index and figure out how many commands to grab from command pool
+            # Adjust from SLURM one index and figure out how many commands to grab from command pool
             cmd_start_slice = (array_task_number - index_offset) * number_of_processes
             if cmd_start_slice > len(all_commands):
                 exit()
             cmd_end_slice = cmd_start_slice + number_of_processes
         else:  # Not in SLURM, use multiprocessing
-            cmd_start_slice, cmd_end_slice = None, None
+            cmd_start_slice = cmd_end_slice = slice(None)
         # Set the type for below if the specific command can be split further
-        specific_commands: list[str] | list[list[str]] = list(map(str.strip, all_commands[cmd_start_slice:cmd_end_slice]))
+        specific_commands: list[str] | list[list[str]] = \
+            list(map(str.strip, all_commands[cmd_start_slice:cmd_end_slice]))
 
         # Prepare Commands
-        if len(specific_commands[0].split()) > 1:  # the commands probably have a program preceding the command
+        # Check if the commands have a program followed by a space
+        if len(specific_commands[0].split()) > 1:
             program = None
             specific_commands = [cmd.split() for cmd in specific_commands]
-        else:
-            program = 'bash'
+        else:  # A single file is present which is probably a shell script. Use bash
+            program = default_shell
 
         if args.log_file:
             log_files = [args.log_file for _ in specific_commands]
@@ -351,7 +377,7 @@ if __name__ == '__main__':
             # v this overlaps with len(specific_commands[0].split()) > 1 as only shell scripts really satisfy this
             log_files = [f'{os.path.splitext(shell_path)[0]}.log' for shell_path in specific_commands]
         else:
-            log_files = [None for shell_path in specific_commands]
+            log_files = [None for _ in specific_commands]
 
         # iteration = 0
         # complete = False
@@ -374,17 +400,21 @@ if __name__ == '__main__':
 
         def exit_gracefully(signum, frame):
             with open(args.failure_file, 'a') as f:
+                # Todo only report those that are still running
                 f.write('%s\n' % '\n'.join(specific_commands))
 
             # Handle SLURM output
             job_id = os.environ.get('SLURM_JOB_ID')
-            file = f'output{os.sep}{job_id}_{array_task_number}.out'
-            # for idx, task_id in enumerate(range(cmd_start_slice, cmd_end_slice)):
-            for log_file in log_files:
-                # Append SLURM output to log_file(s)
-                run(file, log_file, program='cat')
-                # # Remove SLURM output
-                # run(file, '/dev/null', program='rm')
+            if job_id:
+                file = f'output{os.sep}{job_id}_{array_task_number}.out'
+                # for idx, task_id in enumerate(range(cmd_start_slice, cmd_end_slice)):
+                for log_file in log_files:
+                    # Append SLURM output to log_file(s)
+                    run(file, log_file, program='cat')
+                    # # Remove SLURM output
+                    # run(file, '/dev/null', program='rm')
+            else:
+                return
 
         # Run commands in parallel
         # monitor = GracefulKiller()  # TODO solution to SIGTERM. TEST shows this doesn't appear to be possible...
