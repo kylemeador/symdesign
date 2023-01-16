@@ -7,7 +7,7 @@ from itertools import combinations
 import numpy as np
 import scipy
 from mysql.connector import MySQLConnection, Error
-from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, select
+from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, select, UniqueConstraint
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.orderinglist import ordering_list
 from sqlalchemy.orm import declarative_base, relationship, Session, column_property
@@ -128,7 +128,7 @@ class PoseMetrics(Base):
     # name = Column(String, nullable=False, index=True)  # String(60)
     # project = Column(String)  # , nullable=False)  # String(60)
     # Set up one-to-one relationship with pose_data table
-    pose_id = Column(ForeignKey('pose_data.id'), nullable=False)
+    pose_id = Column(ForeignKey('pose_data.id'), nullable=False, unique=True)
     pose = relationship('PoseJob', back_populates='metrics')
 
     # design_ids = relationship('DesignMetrics', back_populates='pose')
@@ -475,8 +475,9 @@ class DesignData(Base):
     """Account for design metadata created from pose metadata"""
     __tablename__ = 'design_data'
     id = Column(Integer, primary_key=True)
-
-    name = Column(String, nullable=False)  # String(60)
+    # __table_args__ = (UniqueConstraint('pose_id', 'name', name='_pose_design_uc'),
+    #                   )
+    name = Column(String, nullable=False, unique=True)  # String(60)
     # Set up many-to-one relationship with pose_data table
     pose_id = Column(ForeignKey('pose_data.id'), nullable=False)
     pose = relationship('PoseJob', back_populates='designs')
@@ -496,7 +497,7 @@ class DesignMetrics(Base):
     # pose = Column(String, nullable=False)  # String(60)
     # pose_name = Column(String, nullable=False)  # String(60)
     # Set up one-to-one relationship with design_data table
-    design_id = Column(ForeignKey('design_data.id'), nullable=False)
+    design_id = Column(ForeignKey('design_data.id'), nullable=False, unique=True)
     design = relationship('DesignData', back_populates='metrics')
 
     # Pose features
@@ -644,6 +645,8 @@ class ResidueMetrics(Base):
     __tablename__ = 'residue_metrics'
     id = Column(Integer, primary_key=True)
 
+    __table_args__ = (UniqueConstraint('pose_id', 'design_id', name='_pose_design_uc'),
+                      )
     # Set up many-to-one relationship with design_data table
     pose_id = Column(ForeignKey('pose_data.id'))
     pose = relationship('PoseJob', back_populates='residues')
