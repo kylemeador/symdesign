@@ -3148,7 +3148,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self._get_entity_info_from_atoms(**kwargs)
                 if query_by_sequence and entity_names is None:
                     for entity_name, data in list(self.entity_info.items()):  # Make a new list to prevent pop issues
-                        # Todo incorporate wrapapi call here to fetch from local sequence db
+                        # Todo incorporate wrapapi call to fetch from local sequence db
                         pdb_api_name = query.pdb.retrieve_entity_id_by_sequence(data['sequence'])
                         if pdb_api_name:
                             pdb_api_name = pdb_api_name.lower()
@@ -3156,17 +3156,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                                           f'sequence search')
                             self.entity_info[pdb_api_name] = self.entity_info.pop(entity_name)
         if entity_names is not None:
-            # if self.api_db:
-            try:
-                # retrieve_api_info = self.api_db.pdb.retrieve_data
-                retrieve_api_info = resources.wrapapi.api_database_factory().pdb.retrieve_data
-            except AttributeError:
-                retrieve_api_info = query.pdb.query_pdb_by
-
-            api_entry_entity = self.api_entry.get('entity', {})
-            if not api_entry_entity:
-                self.api_entry['entity'] = {}
-
             for idx, entity_name in enumerate(list(self.entity_info.keys())):  # Make a new list to prevent pop issues
                 try:
                     new_entity_name = entity_names[idx]
@@ -3177,29 +3166,44 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 # Get any info already solved using the old name
                 self.entity_info[new_entity_name] = self.entity_info.pop(entity_name)
                 self.log.debug(f'Entity {entity_name} now named "{new_entity_name}", as supplied by entity_names')
-                entity_api_info: dict = retrieve_api_info(entity_id=new_entity_name)
-                """entity_api_info takes the format:
-                {'EntityID': 
-                    {'chains': ['A', 'B', ...],
-                     'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
-                     'reference_sequence': 'MSLEHHHHHH...',
-                     'thermophilic': True},
-                 ...}
-                This is the final format of each entry in the self.entity_info dictionary
-                """
-                if entity_api_info and new_entity_name not in self.api_entry.get('entity', {}):
-                    # Add the new info. If the new_entity_name is already present, we could expect that
-                    # self.entity_info is already solved and new_entity_name probably == entity_name
-                    self.api_entry['entity'].update(entity_api_info)
-                    # Respect any found info in self.entity_info
-                    if self.entity_info[new_entity_name].get('chains', {}):
-                        # Remove the entity_api_info 'chains' indication and use the entity_info chains
-                        entity_api_info[new_entity_name].pop('chains')
-                    # Update the entity_api_info to the entity_info, preserving self.entity_info[new_entity_name] data
-                    self.entity_info[new_entity_name].update(entity_api_info[new_entity_name])
 
-        # For each Entity, get matching Chain instances
+        # if self.api_db:
+        try:
+            # retrieve_api_info = self.api_db.pdb.retrieve_data
+            retrieve_api_info = resources.wrapapi.api_database_factory().pdb.retrieve_data
+        except AttributeError:
+            retrieve_api_info = query.pdb.query_pdb_by
+
+        api_entry_entity = self.api_entry.get('entity', {})
+        if not api_entry_entity:
+            self.api_entry['entity'] = api_entry_entity
+
         for entity_name, data in self.entity_info.items():
+            # update_entity_info_from_api(new_entity_name)
+            # def update_entity_info_from_api(entity_name: str):
+            entity_api_data: dict = retrieve_api_info(entity_id=entity_name)
+            """entity_api_data takes the format:
+            {'EntityID': 
+                {'chains': ['A', 'B', ...],
+                 'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
+                 'reference_sequence': 'MSLEHHHHHH...',
+                 'thermophilic': True},
+             ...}
+            This is the final format of each entry in the self.entity_info dictionary
+            """
+            # Set the parent self.api_entry['entity']
+            # If the entity_name is already present, we expect that self.entity_info is already solved
+            if entity_api_data and entity_name not in api_entry_entity:
+                api_entry_entity.update(entity_api_data)
+                # Respect already solved 'chains' info in self.entity_info
+                if data.get('chains', {}):
+                    # Remove entity_api_data 'chains'
+                    entity_api_data[entity_name].pop('chains')
+                # Update the entity_info with the entity_api_data
+                data.update(entity_api_data[entity_name])
+
+        # for entity_name, data in self.entity_info.items():
+            # For each Entity, get matching Chain instances
             # Add any missing information to the individual data dictionary
             # dbref = data.get('dbref', None)
             # # if dbref is None:
@@ -3836,7 +3840,7 @@ class SymmetricModel(Models):
                       symmetry: str = None, **kwargs):
         """Initialize from a symmetric assembly"""
         if symmetry is None and sym_entry is None:
-            raise ValueError(f"Can't initialize {type(cls).__name__} without symmetry! Pass symmetry or "
+            raise ValueError(f"Can't initialize {cls.__name__} without symmetry! Pass symmetry or "
                              f'sym_entry to constructor {cls.from_assembly.__name__}')
         return cls(models=assembly, sym_entry=sym_entry, symmetry=symmetry, **kwargs)
 
