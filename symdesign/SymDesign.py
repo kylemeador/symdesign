@@ -131,12 +131,12 @@ def main():
             output: Whether the module used requires a file to be output
         """
         output_analysis = True
-        # Save any information found during the command to it's serialized state
-        try:
-            for pose_job in pose_jobs:
-                pose_job.pickle_info()
-        except AttributeError:  # This isn't a PoseJob. Likely is a nanohedra job
-            pass
+        # # Save any information found during the command to it's serialized state
+        # try:
+        #     for pose_job in pose_jobs:
+        #         pose_job.pickle_info()
+        # except AttributeError:  # This isn't a PoseJob. Likely is a nanohedra job
+        #     pass
 
         exceptions = kwargs.get('exceptions', [])
         if results:

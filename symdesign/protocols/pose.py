@@ -1522,7 +1522,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         # self.fragment_observations = self.pose.get_fragment_observations()
         self.info['fragment_source'] = self.job.fragment_db.source
-        self.pickle_info()  # Todo remove once PoseJob state can be returned to the SymDesign dispatch w/ MP
+        # self.pickle_info()  # Todo remove once PoseJob state can be returned to the SymDesign dispatch w/ MP
 
     def __key(self) -> str:
         return self.pose_identifier

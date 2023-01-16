@@ -421,7 +421,7 @@ def expand_asu(job: pose.PoseJob):
         job.load_pose()
     else:
         raise SymmetryError(warn_missing_symmetry % job.expand_asu.__name__)
-    job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
+    # job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
 
 
 @protocol_decorator()
@@ -519,7 +519,7 @@ def interface_design(job: pose.PoseJob):
             job.proteinmpnn_design(interface=True, neighbors=job.job.design.neighbors)  # Sets job.protocol
         case _:
             raise ValueError(f"The method '{job.job.design.method}' isn't available")
-    job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
+    # job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
 
 
 @protocol_decorator()
@@ -595,7 +595,7 @@ def design(job: pose.PoseJob):
             job.proteinmpnn_design()  # Sets job.protocol
         case _:
             raise ValueError(f"The method '{job.job.design.method}' isn't available")
-    job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
+    # job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
 
 
 @protocol_decorator()
