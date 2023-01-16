@@ -75,8 +75,8 @@ class DataStore:
     load_file: Callable
     save_file: Callable
 
-    def __init__(self, location: str = None, extension: str = '.txt', load_file: Callable = None,
-                 save_file: Callable = None, sql=None, log: Logger = logger):
+    def __init__(self, location: str = None, extension: str = '.txt', glob_extension: str = None,
+                 load_file: Callable = None, save_file: Callable = None, sql=None, log: Logger = logger):
         self.log = log
         if sql is not None:
             self.sql = sql
@@ -84,6 +84,10 @@ class DataStore:
             self.sql = sql
             self.location = location
             self.extension = extension
+            if glob_extension:
+                self.glob_extension = glob_extension
+            else:
+                self.glob_extension = extension
 
             if '.txt' in extension:  # '.txt' read the file and return the lines
                 self.load_file = read_file
@@ -105,12 +109,16 @@ class DataStore:
             os.makedirs(self.location, exist_ok=True)
 
     def path_to(self, name: str = '*') -> AnyStr:
-        """Return the path_to of the storage location given an entity name"""
+        """Return the path_to the storage location given an entity name"""
         return os.path.join(self.location, f'{name}{self.extension}')
+
+    def glob_path(self, name: str = '*') -> AnyStr:
+        """Return the glob_path of the storage location given an entity name"""
+        return os.path.join(self.location, f'{name}{self.glob_extension}')
 
     def retrieve_file(self, name: str) -> AnyStr | None:
         """Returns the actual location by combining the requested name with the stored .location"""
-        path = self.path_to(name)
+        path = self.glob_path(name)
         files = sorted(glob(path))
         if files:
             file = files[0]
@@ -123,7 +131,7 @@ class DataStore:
 
     def retrieve_files(self) -> list:
         """Returns the actual location of all files in the stored .location"""
-        path = self.path_to()
+        path = self.glob_path()
         files = sorted(glob(path))
         if not files:
             self.log.info(f'No files found in "{path}"')
@@ -131,7 +139,7 @@ class DataStore:
 
     def retrieve_names(self) -> list[str]:
         """Returns the names of all objects in the stored .location"""
-        path = self.path_to()
+        path = self.glob_path()
         names = list(map(os.path.basename, [os.path.splitext(file)[0] for file in sorted(glob(path))]))
         if not names:
             self.log.warning(f'No data found with names at "{path}"')
@@ -209,7 +217,7 @@ class DataStore:
         if self.sql:
             dummy = True
         else:
-            for file in sorted(glob(os.path.join(self.location, f'*{self.extension}'))):
+            for file in sorted(glob(self.glob_path())):
                 # self.log.debug('Fetching %s' % file)
                 setattr(self, os.path.splitext(os.path.basename(file))[0], self.load_file(file))
 
