@@ -575,7 +575,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     try:
                         self.source_path = source[0]
                     except IndexError:  # glob found no files
-                        self.log.error(f"Couldn't find any Structure files matching the path '{glob_target}'")
+                        self.log.debug(f"Couldn't find any Structure files matching the path '{glob_target}'")
                         self.source_path = None
 
     def __init__(self, name: str = None, project: str = None, source_path: AnyStr = None, initial: bool = False,
@@ -726,6 +726,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     def load_initial_model(self):
         """Parse the Structure at the source_path attribute"""
         if self.initial_model is None:
+            if self.source_path is None:
+                raise InputError(f"Couldn't {self.load_initial_model.__name__} for {self.name} as there isn't a "
+                                 "specified file")
             self.initial_model = Model.from_file(self.source_path, log=self.log)
 
     @property

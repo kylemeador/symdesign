@@ -1143,13 +1143,19 @@ def main():
                 existing_uniprot_entities = set()
                 existing_protein_metadata = set()
                 pose_jobs_to_commit = []
-                for pose_job in pose_jobs:
+                for idx, pose_job in enumerate(list(pose_jobs)):  # New list since we can remove
                     if pose_job.id is None:
                         # Todo expand the definition of SymEntry/Entity to include
                         #  specification of T:{T:{C3}{C3}}{C1}
                         #  where an Entity is composed of multiple Entity (Chain) instances
                         # Need to initialize the local database. Load this model to get required info
-                        pose_job.load_initial_model()
+                        try:
+                            pose_job.load_initial_model()
+                        except utils.InputError as error:
+                            logger.error(error)
+                            pose_jobs.pop(idx)
+                            continue
+
                         # for entity in pose_job.initial_model.entities:
                         # entity_data = []
                         for entity, symmetry in zip(pose_job.initial_model.entities, symmetry_map):
