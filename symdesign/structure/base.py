@@ -2734,10 +2734,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         elif '.cif' in file:
             return cls.from_mmcif(file, **kwargs)
         else:
-            raise NotImplementedError(f'{type(cls).__name__}: The file type {os.path.splitext(file)[-1]} is not '
-                                      f'supported for parsing. Please use the supported types ".pdb" or ".cif". '
-                                      f'Alternatively use those constructors instead (ex: from_pdb(), from_mmcif()) if '
-                                      f'the file extension is nonsense, but the file format is respected')
+            raise NotImplementedError(f"{cls.__name__}: The file type {os.path.splitext(file)[-1]} isn't "
+                                      'supported for parsing. Please use the supported types ".pdb" or ".cif". '
+                                      'Alternatively use those constructors instead (ex: from_pdb(), from_mmcif()) if '
+                                      'the file extension is nonsense, but the file format is respected')
 
     @classmethod
     def from_pdb(cls, file: AnyStr, **kwargs):
