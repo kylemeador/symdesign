@@ -575,6 +575,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     try:
                         self.source_path = source[0]
                     except IndexError:  # glob found no files
+                        self.log.error(f"Couldn't find any Structure files matching the path '{glob_target}'")
                         self.source_path = None
 
     def __init__(self, name: str = None, project: str = None, source_path: AnyStr = None, initial: bool = False,
