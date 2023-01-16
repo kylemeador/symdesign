@@ -7,15 +7,15 @@ from itertools import combinations
 import numpy as np
 import scipy
 from mysql.connector import MySQLConnection, Error
-from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, select, Table
+from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, select
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.orderinglist import ordering_list
-from sqlalchemy.orm import declarative_base, relationship, Session, column_property, synonym
+from sqlalchemy.orm import declarative_base, relationship, Session, column_property
 # from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, declarative_base  # Todo sqlalchemy 2.0
 # from sqlalchemy import create_engine
 # from sqlalchemy.dialects.sqlite import insert
 
-from symdesign.resources import config, wrapapi
+from symdesign.resources import config
 from . import symmetry
 # from symdesign import resources
 
@@ -232,48 +232,6 @@ for idx1, idx2 in combinations(range(1, 1 + config.MAXIMUM_ENTITIES), 2):
 #     Column('pose_id', ForeignKey('pose_data.id'), primary_key=True),
 #     Column('entity_id', ForeignKey('entity_data.id'), primary_key=True)
 # )
-
-
-class UniProtEntity(Base):
-    __tablename__ = 'uniprot_entity'
-    id = Column(String, primary_key=True, autoincrement=False)
-    """The UniProtID"""
-    uniprot_id = synonym('id')
-    # _uniprot_id = Column('uniprot_id', String)
-    # entity_id = Column(String, nullable=False, index=True)  # entity_name is used in config.metrics
-    # """This is a stand in for the Structure.name attribute"""
-
-    # # Set up one-to-many relationship with entity_data table
-    # entities = relationship('EntityData', back_populates='entity')
-    # Set up many-to-many relationship with protein_metadata table
-    # protein_metadata = relationship('ProteinMetadata', secondary='uniprot_protein_association',
-    #                                 back_populates='uniprot_entities')
-    protein_metadata = association_proxy('_protein_metadata', 'protein')
-    _protein_metadata = relationship('UniProtProteinAssociation',
-                                     back_populates='uniprot')
-
-    @property
-    def reference_sequence(self) -> str:
-        """Get the sequence from the UniProtID"""
-        try:
-            return self._reference_sequence
-        except AttributeError:
-            api_db = wrapapi.api_database_factory()
-            response_json = api_db.uniprot.retrieve_data(name=self.uniprot_id)
-            if response_json is not None:
-                sequence = response_json.get('sequence')
-                if sequence:
-                    self._reference_sequence = sequence['value']
-            else:  # uniprot_id found no data from UniProt API
-                # Todo this isn't correct due to many-to-many association
-                max_seq_len = 0
-                for data in self.protein_metadata:
-                    seq_len = len(data.reference_sequence)
-                    if seq_len > max_seq_len:
-                        max_seq_len = seq_len
-                        _reference_sequence = data.reference_sequence
-                self._reference_sequence = _reference_sequence
-            return self._reference_sequence
 
 
 # uniprot_protein_association = Table(
