@@ -247,8 +247,9 @@ stride_exe_path = os.path.join(dependency_dir, 'stride', 'stride')
 bmdca_exe_path = os.path.join(dependency_dir, 'bmDCA', 'src', 'bmdca')
 ialign_exe_path = os.path.join(dependency_dir, 'ialign', 'bin', 'ialign.pl')
 # Set up for alignment programs
+uniclust_hhsuite_file_identifier = '_hhsuite.tar.gz'
 hhsuite_dir = os.path.join(dependency_dir, 'hhsuite')
-reformat_msa_exe_path = os.path.join(hhsuite_dir, 'scripts', 'reformat.pl')
+hhsuite_db_dir = os.path.join(hhsuite_dir, 'databases')
 alignmentdb = os.path.join(dependency_dir, 'ncbi_databases', 'uniref90')
 # alignment_db = os.path.join(dependency_dir, 'databases/uniref90')  # TODO
 
@@ -257,7 +258,7 @@ try:
     with open(config_file, 'r') as f_save:
         config = json.load(f_save)
 except FileNotFoundError:  # We may be running setup.py or this wasn't installed made properly
-    config = {'hhblits_env': '', 'rosetta_env': '', 'rosetta_make': 'default'}
+    config = {'hhblits_env': '', 'hhblits_db': '', 'rosetta_env': '', 'rosetta_make': 'default'}
     logger.debug(f"Couldn't find the config file '{config_file}'. Setting default config:\n"
                  f"{', '.join(f'{k}={v}' for k, v in config.items())}")
     # pass
@@ -269,10 +270,22 @@ def get_hhblits_exe():
     return hhblits_exe_out.decode('utf-8').strip()
 
 
+def get_uniclust_db() -> str:
+    """Get the newest UniClust file by sorting alphanumerically"""
+    try:  # To get database files and remove any extra characters from filename
+        return sorted(os.listdir(hhsuite_db_dir), reverse=True)[0].replace(uniclust_hhsuite_file_identifier, '')
+    except IndexError:
+        return ''
+
+
 hhblits_exe = os.environ.get(config.get('hhblits_env'), get_hhblits_exe())
+# Find the reformat script by backing out two directories. This is fine for conda and from source
+hhsuite_source_root_directory = os.path.dirname(os.path.dirname(hhblits_exe))
+# reformat_msa_exe_path = os.path.join(hhsuite_dir, 'scripts', 'reformat.pl')
+reformat_msa_exe_path = os.path.join(hhsuite_source_root_directory, 'scripts', 'reformat.pl')
 # hhblits_exe = hhblits_exe if hhblits_exe else 'hhblits'  # ensure not None
-uniclustdb = os.path.join(dependency_dir, 'hh-suite', 'databases', 'UniRef30_2020_02')  # TODO make db dynamic at config
-# uniclust_db = os.path.join(database, 'hh-suite', 'databases', 'UniRef30_2020_02')  # TODO
+# uniclustdb = os.path.join(dependency_dir, 'hh-suite', 'databases', 'UniRef30_2020_02')
+uniclust_db = os.path.join(hhsuite_db_dir, config.get('uniclust_db', get_uniclust_db()))
 install_hhsuite_exe = os.path.join(binaries, 'install_hhsuite.sh')
 hhsuite_git = 'https://github.com/soedinglab/hh-suite'
 # Rosetta
