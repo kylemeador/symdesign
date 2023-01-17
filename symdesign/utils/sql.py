@@ -82,8 +82,6 @@ class PoseMetadata(Base):
 
     # State
     source_path = Column(String)
-    _pre_refine = Column('pre_refine', Boolean, default=True)
-    _pre_loop_model = Column('pre_loop_model', Boolean, default=True)
     # Symmetry
     sym_entry_number = Column(Integer)
     symmetry = Column(String)  # Result
@@ -270,6 +268,8 @@ class ProteinMetadata(Base):
     # Set up one-to-many relationship with entity_data table
     entity_data = relationship('EntityData', back_populates='meta')
 
+    pre_refine = Column('pre_refine', Boolean, default=True)
+    pre_loop_model = Column('pre_loop_model', Boolean, default=True)
     reference_sequence = Column(String)
     # number_of_residues = Column(Integer)  # entity_ is used in config.metrics
     n_terminal_helix = Column(Boolean)  # entity_ is used in config.metrics
@@ -277,7 +277,6 @@ class ProteinMetadata(Base):
     thermophilic = Column(Boolean)  # entity_ is used in config.metrics
     # Symmetry parameters
     symmetry_group = Column(String)  # entity_ is used in config.metrics
-    # # Todo ^ v simplify to only one of these
     # symmetry = Column(ForeignKey('symmetry_groups.id'))
 
 

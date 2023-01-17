@@ -1768,7 +1768,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         number_of_subunits = self.number_of_chains
         if symmetry == 'C1':
-            self.log.debug("C1 symmetry doesn't have a canonical orientation")
+            self.log.debug("C1 symmetry doesn't have a canonical orientation. Translating to the origin")
             self.translate(-self.center_of_mass)
             return
         elif number_of_subunits > 1:
@@ -1797,7 +1797,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         self.log.info(file_name + stdout.decode()[28:])
         self.log.info(stderr.decode()) if stderr else None
         if not orient_output.exists() or orient_output.stat().st_size == 0:
-            log_file = getattr(self.log.handlers[0], 'baseFilename', None)
+            try:
+                log_file = getattr(self.log.handlers[0], 'baseFilename', None)
+            except IndexError:  # No handlers attached
+                log_file = None
             log_message = f'. Check {log_file} for more information' if log_file else ''
             raise RuntimeError(f'{putils.orient_exe_path} could not orient {file_name}{log_message}')
 
@@ -1848,7 +1851,13 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # python pseudo
             w = abs(quat[3])
             omega = math.acos(w)
-            symmetry_order = int(math.pi/omega + .5)  # round to the nearest integer
+            try:
+                symmetry_order = int(math.pi/omega + .5)  # Round to the nearest integer
+            except ZeroDivisionError:  # w is 1, omega is 0
+                # We have no axis of symmetry here
+                self.log.warning(f"Couldn't find any symmetry order for {self.name} mate Chain {chain.chain_id}. "
+                                 f"Setting symmetry_order=1")
+                symmetry_order = 1
             self.log.debug(f'{chain.chain_id}:{symmetry_order}-fold axis {quat[0]:8f} {quat[1]:8f} {quat[2]:8f}')
             self.rotation_d[chain.chain_id] = {'sym': symmetry_order, 'axis': quat[:3]}
 
@@ -2820,7 +2829,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         number_of_subunits = self.number_of_chains
         multicomponent = False
         if symmetry == 'C1':
-            self.log.debug("C1 symmetry doesn't have a canonical orientation")
+            self.log.debug("C1 symmetry doesn't have a canonical orientation. Translating to the origin")
             self.translate(-self.center_of_mass)
             return
         elif number_of_subunits > 1:
@@ -2855,7 +2864,10 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         self.log.info(file_name + stdout.decode()[28:])
         self.log.info(stderr.decode()) if stderr else None
         if not orient_output.exists() or orient_output.stat().st_size == 0:
-            log_file = getattr(self.log.handlers[0], 'baseFilename', None)
+            try:
+                log_file = getattr(self.log.handlers[0], 'baseFilename', None)
+            except IndexError:  # No handlers attached
+                log_file = None
             log_message = f'. Check {log_file} for more information' if log_file else ''
             raise RuntimeError(f'{putils.orient_exe_path} could not orient {file_name}{log_message}')
 
@@ -4238,7 +4250,10 @@ class SymmetricModel(Models):
 
     def is_surrounding_uc(self) -> bool:
         """Check if the current coords contains a number_of_symmetry_mates containing the surrounding_uc"""
-        return self.number_of_symmetry_mates == self.number_of_uc_symmetry_mates
+        if self.dimension > 0:
+            return self.number_of_symmetry_mates == self.number_of_uc_symmetry_mates
+        else:
+            return False
 
     @property
     def atom_indices_per_entity_symmetric(self):
@@ -5689,8 +5704,7 @@ class Pose(SymmetricModel, Metrics):
              'interface2_secondary_structure_fragment_topology',
              'interface2_secondary_structure_fragment_count',
              'interface2_secondary_structure_topology',
-             'interface2_secondary_structure_count',
-             'design_dimension'}
+             'interface2_secondary_structure_count'}
         """
         # Todo add any additional metrics to a dictionary
         #  return {**self.interface_metrics()}
@@ -6414,28 +6428,14 @@ class Pose(SymmetricModel, Metrics):
              'interface2_secondary_structure_fragment_count',
              'interface2_secondary_structure_topology',
              'interface2_secondary_structure_count',
-             'design_dimension',
-             # 'entity#_max_radius',
-             # 'entity#_min_radius',
-             # 'entity#_name',
-             # 'entity#_number_of_residues',
-             # 'entity#_radius',
-             # 'entity#_symmetry_group',
-             # 'entity#_n_terminal_helix',
-             # 'entity#_c_terminal_helix',
-             # 'entity#_n_terminal_orientation',
-             # 'entity#_c_terminal_orientation',
-             # 'entity#_thermophile',
-             # 'entity#_interface_secondary_structure_fragment_topology',
-             # 'entity#_interface_secondary_structure_topology',
-             # 'entity_radius_ratio_#v#',
-             # 'entity_min_radius_ratio_#v#',
-             # 'entity_max_radius_ratio_#v#',
-             # 'entity_number_of_residues_ratio_#v#',
-             # 'entity_radius_average_deviation',
-             # 'entity_min_radius_average_deviation',
-             # 'entity_max_radius_average_deviation',
-             # 'entity_number_of_residues_average_deviation'
+             'entity_radius_ratio_#v#',
+             'entity_min_radius_ratio_#v#',
+             'entity_max_radius_ratio_#v#',
+             'entity_number_of_residues_ratio_#v#',
+             'entity_radius_average_deviation',
+             'entity_min_radius_average_deviation',
+             'entity_max_radius_average_deviation',
+             'entity_number_of_residues_average_deviation'
              }
         """
         pose_metrics = self.get_fragment_metrics(total_interface=True)
@@ -6495,12 +6495,12 @@ class Pose(SymmetricModel, Metrics):
         pose_metrics['interface_secondary_structure_topology'] = total_interface_ss_topology
         pose_metrics['interface_secondary_structure_count'] = len(total_interface_ss_topology)
 
-        if self.is_symmetric():
-            pose_metrics['design_dimension'] = self.dimension
-            # for idx, group in enumerate(self.sym_entry.groups, 1):
-            #     pose_metrics[f'entity{idx}_symmetry_group'] = group
-        else:
-            pose_metrics['design_dimension'] = 'asymmetric'
+        # if self.is_symmetric():
+        #     pose_metrics['design_dimension'] = self.dimension
+        #     # for idx, group in enumerate(self.sym_entry.groups, 1):
+        #     #     pose_metrics[f'entity{idx}_symmetry_group'] = group
+        # else:
+        #     pose_metrics['design_dimension'] = 'asymmetric'
 
         # try:
         #     api_db = resources.wrapapi.api_database_factory()
