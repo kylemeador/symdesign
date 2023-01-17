@@ -10,12 +10,12 @@ from pathlib import Path
 from typing import Sequence, AnyStr, Iterable, Type, Literal, Any, get_args
 
 import numpy as np
-from Bio import pairwise2, SeqIO, AlignIO
+from Bio import AlignIO, SeqIO
 # Todo
 # BiopythonDeprecationWarning: Bio.pairwise2 has been deprecated, and we intend to remove it in a future release of
 # Biopython. As an alternative, please consider using Bio.Align.PairwiseAligner as a replacement, and contact the
 # Biopython developers if you still need the Bio.pairwise2 module.
-from Bio.Align import substitution_matrices, MultipleSeqAlignment
+from Bio.Align import MultipleSeqAlignment, PairwiseAligner, substitution_matrices
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
@@ -172,6 +172,35 @@ def create_translation_tables(alphabet_type: alphabet_types) -> defaultdict:
     return numeric_translation_type
 
 
+# def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = 'BLOSUM62', local: bool = False,
+#                        top_alignment: bool = True) -> Alignment | list[Alignment]:
+#     """Use Biopython's pairwise2 to generate a sequence alignment
+#
+#     Args:
+#         seq1: The first sequence to align
+#         seq2: The second sequence to align
+#         matrix: The matrix used to compare character similarities
+#         local: Whether to run a local alignment. Only use for generally similar sequences!
+#         top_alignment: Only include the highest scoring alignment
+#     Returns:
+#         The resulting alignment
+#     """
+#     if local:
+#         _type = 'local'
+#     else:
+#         _type = 'global'
+#     _matrix = subs_matrices.get(matrix, substitution_matrices.load(matrix))
+#     gap_penalty = -10
+#     gap_ext_penalty = -1
+#     # logger.debug(f'Generating sequence alignment between:\n{seq1}\n\tAND:\n{seq2}')
+#     # Create sequence alignment
+#     align = getattr(pairwise2.align, f'{_type}ds')(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty,
+#                                                    one_alignment_only=top_alignment)
+#     logger.debug(f'Generated alignment:\n{pairwise2.format_alignment(*align[0])}')
+#
+#     return align[0] if top_alignment else align
+
+
 def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = 'BLOSUM62', local: bool = False,
                        top_alignment: bool = True) -> Alignment | list[Alignment]:
     """Use Biopython's pairwise2 to generate a sequence alignment
@@ -186,19 +215,38 @@ def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = '
         The resulting alignment
     """
     if local:
-        _type = 'local'
+        mode = 'local'
     else:
-        _type = 'global'
-    _matrix = subs_matrices.get(matrix, substitution_matrices.load(matrix))
-    gap_penalty = -10
-    gap_ext_penalty = -1
+        mode = 'global'
+    matrix_ = subs_matrices.get(matrix, substitution_matrices.load(matrix))
+
     # logger.debug(f'Generating sequence alignment between:\n{seq1}\n\tAND:\n{seq2}')
     # Create sequence alignment
-    align = getattr(pairwise2.align, f'{_type}ds')(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty,
-                                                   one_alignment_only=top_alignment)
-    logger.debug(f'Generated alignment:\n{pairwise2.format_alignment(*align[0])}')
+    aligner = PairwiseAligner(mode=mode, substitution_matrix=matrix_)
+    alignments = aligner.align(seq1, seq2)
+    logger.info(f'Found alignment with score: {alignments.score}')
+    for idx, alignment in enumerate(alignments):
+        logger.info('Alignment{idx}:\n{alignment}')
+    # print("Number of alignments: %d" % len(alignments))
+    #   Number of alignments: 1
+    # alignment = alignments[0]
+    # print("Score = %.1f" % alignment.score)
+    #   Score = 13.0
+    # print(alignment)
+    #   target            0 KEVLA 5
+    #                     0 -|||- 5
+    #   query             0 -EVL- 3
+    # print(alignment.target)
+    # print(alignment.query)
+    # print(alignment.indices)  # returns array([[ 0,  1,  2,  3,  4], [ -1,  0,  1,  2, -1]]) where -1 are gaps
+    # This would be useful in checking for gaps during generate_mutations()
+    # print(alignment.inverse_indices)  # returns [array([ 0,  1,  2,  3,  4], [ 1,  2,  3]])
+    # where -1 are outside array and each index is the position in the alignment. This would be useful for instance with
+    # get_equivalent_indices() which is precalculated and now does this routine twice during Entity.__init__()
+    # logger.debug(f'Generated alignment:\n{pairwise2.format_alignment(*align[0])}')
 
-    return align[0] if top_alignment else align
+    # return align[0] if top_alignment else align
+    return alignments[0] if top_alignment else alignments
 
 
 def read_fasta_file(file_name: AnyStr, **kwargs) -> Iterable[SeqRecord]:
@@ -678,7 +726,9 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
             unless return_to or return_from is True, then {1: 'K', ...}
     """
     if offset:
-        align_seq_1, align_seq_2, *_ = generate_alignment(reference, query)
+        alignment = generate_alignment(reference, query)
+        align_seq_1, align_seq_2 = alignment.sequences
+        # align_seq_1, align_seq_2, *_ = generate_alignment(reference, query)
     else:
         align_seq_1, align_seq_2 = reference, query
 
@@ -883,18 +933,27 @@ def numeric_to_sequence(numeric_sequence: np.ndarray, alphabet_order: int = 1) -
         raise ValueError(f"The alphabet_order {alphabet_order} isn't valid. Choose from either 1 or 3")
 
 
-def get_equivalent_indices(sequence1: Sequence, sequence2: Sequence) -> tuple[list[int], list[int]]:
+def get_equivalent_indices(target: Sequence = None, query: Sequence = None, alignment: Sequence = None) \
+        -> tuple[list[int], list[int]]:
     """From two sequences, find the indices where both sequences are equal
 
     Args:
-        sequence1: The first sequence to compare
-        sequence2: The second sequence to compare
+        target: The first sequence to compare
+        query: The second sequence to compare
+        alignment: An existing Bio.Align.Alignment object
     Returns:
         The pair of sequence indices were the sequences align.
             Ex: sequence1 = 'ABCDEF', sequence2 = 'ABDEF', returns [0, 1, 3, 4, 5], [0, 1, 2, 3, 4]
     """
-    # Get all mutations from the alignment of sequence1 and sequence2
-    mutations = generate_mutations(sequence1, sequence2, blanks=True, return_all=True)
+    if alignment is None:
+        if target is not None and query is not None:
+            # Get all mutations from the alignment of sequence1 and sequence2
+            mutations = generate_mutations(target, query, blanks=True, return_all=True)
+        else:
+            raise ValueError(f"Can't {get_equivalent_indices.__name__} without passing either 'alignment' or "
+                             f"'target' and 'query'")
+    else:
+        raise NotImplementedError(f"Set {get_equivalent_indices.__name__} up with an Alignment object from Bio.Align")
     # Get only those indices where there is an aligned aa on the opposite chain
     sequence1_indices, sequence2_indices = [], []
     to_idx, from_idx = 0, 0
