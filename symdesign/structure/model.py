@@ -5423,7 +5423,7 @@ class SymmetricModel(Models):
         Args:
             transformations: The entity_transformations operations that reproduce the individual oligomers
         """
-        if not transformations:  # Can't use is None:, could be an empty list
+        if transformations is None or not all(transformations):  # Can't use is None:, could be an empty list
             transformations = self.entity_transformations
 
         for entity, subunit_number, symmetry, transformation in zip(self.entities, self.sym_entry.group_subunit_numbers,
