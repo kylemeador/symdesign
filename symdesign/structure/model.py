@@ -1079,7 +1079,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                     # length alone is inaccurate if chain is missing first residue and self is missing it's last...
                     _, rot, tx = superposition3d(chain.ca_coords, ca_coords)
                 else:  # Do an alignment, get selective indices, then follow with superposition
-                    self.log.warning(f'Chain {chain.name} and Entity {self.name} require alignment to symmetrize')
+                    self.log.info(f'Chain {chain.name} and Entity {self.name} require alignment to symmetrize')
                     fixed_indices, moving_indices = get_equivalent_indices(chain_seq, self_seq)
                     _, rot, tx = superposition3d(chain.ca_coords[fixed_indices], ca_coords[moving_indices])
                 self._chain_transforms.append(dict(rotation=rot, translation=tx))
@@ -1542,8 +1542,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             degeneracy_rotation_matrices = utils.SymEntry.make_rotations_degenerate(rotation_matrices,
                                                                                     degeneracy_matrices)
         except KeyError:
-            raise ValueError(f'The symmetry {symmetry} is not viable! You should try to add compatibility '
-                             f'for it if you believe this is a mistake')
+            raise ValueError(f"The symmetry {symmetry} isn't viable! You add compatibility "
+                             f'for it if you believe this is a mistake. Try increasing the global MAXIMUM_SYMMETRY '
+                             f'which is currently = {utils.symmetry.MAX_SYMMETRY}')
 
         self.symmetry = symmetry
         # self._is_captain = True
@@ -2453,8 +2454,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             if isinstance(model, Structure):
                 super().__init__(**model.get_structure_containers(), **kwargs)
             else:
-                raise NotImplementedError(f'Setting {type(self).__name__} with a {type(model).__name__} isn\'t '
-                                          f'supported')
+                raise NotImplementedError(f"Setting {type(self).__name__} with a {type(model).__name__} isn't "
+                                          'supported')
         else:
             super().__init__(**kwargs)
 
@@ -4634,12 +4635,14 @@ class SymmetricModel(Models):
                     # #                                             have to add 1 for slice ^
                     if np.linalg.norm(chain_center_of_mass - sym_model_center_of_mass) < epsilon:
                         equivalent_models.append(model_idx)
+                        self.log.debug(f'Entity.chain{chain_idx}/Sym-model{model_idx} center of mass overlap')
                         break
                     else:
-                        self.log.debug(f'Entity.chain/Sym-model{model_idx} center of mass overlap: '
-                                       f'{np.linalg.norm(chain_center_of_mass - sym_model_center_of_mass)}')
-                        self.log.debug(f'Entity.chain com: {chain_center_of_mass.astype(int)}')
-                        self.log.debug(f'Sym-model com: {sym_model_center_of_mass}')
+                        self.log.debug(f'Entity.chain{chain_idx}/Sym-model{model_idx} center of mass distance: '
+                                       f'{np.format_float_positional(com_norm, precision=2)}\n'
+                                       # f'{np.array_str(com_norm, precision=2)}\n'
+                                       f'\tEntity.chain com: {np.array_str(chain_center_of_mass, precision=2)} | '
+                                       f'Sym-model com: {np.array_str(sym_model_center_of_mass, precision=2)}')
 
             if len(equivalent_models) != len(entity.chains):
                 raise SymmetryError(f'The number of equivalent models ({len(equivalent_models)}) '
@@ -5074,7 +5077,7 @@ class SymmetricModel(Models):
                 #     #     dummy = True
 
     @property
-    def entity_transformations(self) -> list[transformation_mapping]:
+    def entity_transformations(self) -> list[transformation_mapping] | list:
         """The transformation parameters for each Entity in the SymmetricModel. Each entry has the
         transformation_mapping type
         """
@@ -5125,7 +5128,7 @@ class SymmetricModel(Models):
 
         # Solve for the transform solution for each symmetry group and the indices where the asymmetric unit
         entity_asu_indices: list[int] | None
-        internal_tx: float | None
+        internal_tx: np.ndarray | None
         setting_matrix: np.ndarray | None
         setting_matrices = utils.symmetry.setting_matrices
 
@@ -5211,6 +5214,8 @@ class SymmetricModel(Models):
                                           f'{sym_group} (specified in position {group_idx + 1} of '
                                           f'{self.sym_entry.specification}). The solution with a positive translation '
                                           'was chosen by convention. This may result in inaccurate behavior')
+                            # internal_tx will have been set already
+                            internal_tx: np.ndarray
                             if internal_tx[-1] < 0 < centrally_disposed_group_height:
                                 set_solution()
                         else:  # The central offset is larger
@@ -5222,15 +5227,18 @@ class SymmetricModel(Models):
                     pass
 
             if entity_asu_indices is None:  # No solution
-                raise ValueError(f'Using the supplied Model ({self.name}) and the specified symmetry ({self.symmetry}),'
-                                 f' there was no solution found for Entity #{group_idx + 1}. A possible issue could be '
-                                 f"that the supplied Model has it's Entities out of order for the assumed symmetric "
-                                 f'entry "{self.sym_entry.specification}". If the order of the Entities in the file is '
-                                 'different than the provided symmetry please supply the correct order with the '
-                                 f'symmetry combination format "{utils.SymEntry.symmetry_combination_format}" to the '
-                                 f'flag --{"symmetry"}. Another possibility is that the symmetry is generated '
-                                 'improperly or imprecisely. Please ensure your inputs are symmetrically viable for '
-                                 'the desired symmetry')
+                # raise ValueError(f'Using the supplied Model ({self.name}) and the specified symmetry ({self.symmetry}'
+                raise SymmetryError(
+                    f'Using the supplied Model ({self.name}) and the specified symmetry ({self.symmetry}),'
+                    f' there was no solution found for Entity #{group_idx + 1}. A possible issue could be '
+                    "that the supplied Model has it's Entities out of order for the assumed symmetric "
+                    f'entry "{self.sym_entry.specification}". If the order of the Entities in the file is '
+                    'different than the provided symmetry, please supply the correct order using the '
+                    f'symmetry specification with format "{utils.SymEntry.symmetry_combination_format}" to the '
+                    f'flag {"/".join(flags.symmetry_args)}. Another possibility is that the symmetry of the '
+                    f'{self.__class__.__name__} was generated improperly or imprecisely. Please ensure '
+                    'your inputs are symmetrically viable and if not, "orient" them. See the flag'
+                    f'{"/".join(flags.guide_args)} for more help on this')
             else:
                 transform_solutions.append(dict(translation=internal_tx,
                                                 rotation2=setting_matrix,
@@ -5252,8 +5260,8 @@ class SymmetricModel(Models):
         #
         # def find_minimal_com():
         """This routine uses the same logic as find_contacting_asu(), however, using the COM of the found
-        pose_transformation coordinates to find the ASU entities. These will then be used to make oligomers assume a 
-        globular nature to entity chains therefore the minimal com to com dist is our asu and therefore naive asu coords
+        transform_solutions to find the ASU entities. These COM are then used to make collection of entities assume a 
+        globular nature. Therefore, the minimal com to com distance is our naive ASU coords
         """
 
         # The only input here is the asu_indices
@@ -5533,7 +5541,7 @@ class SymmetricModel(Models):
             symmetry: The symmetry of the Structure
         """
         if self.is_symmetric():
-            raise NotImplementedError(f'{self.orient.__name__} is not available for {type(self).__name__}')
+            raise NotImplementedError(f"{self.orient.__name__} isn't available for {type(self).__name__}")
             # Todo is this method at all useful? Could there be a situation where the symmetry is right,
             #  but the axes aren't in their canonical locations?
         else:
