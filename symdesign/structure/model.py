@@ -1044,10 +1044,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             residue_indices = None
 
         super().__init__(residue_indices=residue_indices, **kwargs)
-        if self.is_parent():  # Todo this logic is not correct. Could be .from_chains() without parent passed!
+        if self.is_parent():  # Todo this logic isn't correct. Could be .from_chains() without parent passed!
             # This is used when Entity.from_file() is called
             # We must create all chains after parsing so that we can set up correctly
-            # self._chains = []
+            self._chains = []
             self._create_chains(as_mate=True)
             # Set chains now that we parsed chains so we can use self.chains for mate chain functionality
             chains = self.chains
@@ -1404,7 +1404,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     @property
     def chains(self) -> list[Entity]:  # Structures
         """Returns transformed copies of the Entity"""
-        # Set in init -> self._chains = [self]
+        # Set in __init__() -> self._chains = [self]
         if len(self._chains) == 1 and self._chain_transforms and self._is_captain:
             # populate ._chains with Entity mates
             # These mates will be their own "parent", and will be under the control of this instance, ie. the captain
@@ -5910,13 +5910,13 @@ class Pose(SymmetricModel, Metrics):
             residue_idx = np.arange(number_of_sym_residues, dtype=np.int32)  # (number_of_residues,)
             number_of_chains = self.number_of_chains
             for model_idx in range(number_of_symmetry_mates):
-                model_offset = model_idx*number_of_residues
-                model_chain_number = model_idx*number_of_chains
+                model_offset = model_idx * number_of_residues
+                model_chain_number = model_idx * number_of_chains
                 for idx, chain in enumerate(self.chains, 1):
                     chain_number_of_residues = chain.number_of_residues
-                    chain_start = chain.offset_index+model_offset
-                    chain_encoding[chain_start:chain_start+chain_number_of_residues] = model_chain_number+idx
-                    residue_idx[chain_start:chain_start+chain_number_of_residues] += 100 * (model_chain_number+idx)
+                    chain_start = chain.offset_index + model_offset
+                    chain_encoding[chain_start:chain_start + chain_number_of_residues] = model_chain_number + idx
+                    residue_idx[chain_start:chain_start + chain_number_of_residues] += 100 * (model_chain_number + idx)
 
             # self.log.debug(f'Tiled chain_encoding chain_break: '
             #                f'{chain_encoding[number_of_residues-5: number_of_residues+5]}')
