@@ -63,6 +63,8 @@ class PoseDirectory:
     _designed_sequences: list[Sequence]
     _id: int
     # _sym_entry: SymEntry
+    _refined_pdb: str | Path
+    _scouted_pdb: str | Path
     _symmetry_definition_files: list[AnyStr]
     # frag_file: str | Path
     name: str
@@ -122,12 +124,6 @@ class PoseDirectory:
             # /root/Projects/project_Poses/design/data/evolutionary.pssm
             self.fragment_profile_file: str | Path = os.path.join(self.data_path, 'fragment.pssm')
             # /root/Projects/project_Poses/design/data/fragment.pssm
-            # These next two files are used to dynamically update whether preprocessing should occur for designs
-            # self.refined_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/design_name_refined.pdb
-            self.refined_pdb: str | Path = \
-                os.path.join(self.designs_path, f'{os.path.basename(os.path.splitext(self.asu_path)[0])}_refine.pdb')
-            # self.scouted_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/design_name_scouted.pdb
-            self.scouted_pdb: str | Path = f'{os.path.splitext(self.refined_pdb)[0]}_scout.pdb'
             # These next two files may be present from NanohedraV1 outputs
             # self.pose_file = os.path.join(self.out_directory, putils.pose_file)
             # self.frag_file = os.path.join(self.frags_path, putils.frag_text_file)
@@ -175,6 +171,34 @@ class PoseDirectory:
             self.out_directory = os.path.join(os.getcwd(), 'temp')
 
         super().__init__(**kwargs)
+
+    # These next two file locations are used to dynamically update whether preprocessing should occur for designs
+    @property
+    def refined_pdb(self) -> str:
+        try:
+            return self._refined_pdb
+        except AttributeError:
+            if self.pre_refine:
+                self._refined_pdb = self.asu_path
+            else:
+                # self.refined_pdb = None  # /root/Projects/project_Poses/design/design_name_refined.pdb
+                self._refined_pdb = \
+                    os.path.join(self.designs_path,
+                                 f'{os.path.basename(os.path.splitext(self.asu_path)[0])}_refine.pdb')
+            return self._refined_pdb
+
+    @property
+    def scouted_pdb(self) -> str:
+        try:
+            return self._scouted_pdb
+        except AttributeError:
+            if self.pre_refine:
+                self._scouted_pdb = os.path.join(self.designs_path,
+                                                 f'{os.path.basename(os.path.splitext(self.refined_pdb)[0])}_scout.pdb')
+            else:
+                # self.scouted_pdb = None  # /root/Projects/project_Poses/design/design_name_scouted.pdb
+                self._scouted_pdb = f'{os.path.splitext(self.refined_pdb)[0]}_scout.pdb'
+            return self._scouted_pdb
 
     # @property
     # def id(self) -> int:
@@ -334,8 +358,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     _sym_entry: SymEntry
     # _entity_names: list[str]
     # _pose_transformation: list[transformation_mapping]
-    # _pre_loop_model: bool  # DB
-    # _pre_refine: bool  # DB
     # entity_data: list[EntityData]  # DB
     # name: str  # DB
     # project: str  # DB
@@ -929,25 +951,26 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Returns:
             Whether refinement has occurred
         """
-        return self._pre_refine
+        # return self._pre_refine
+        return all(data.meta.pre_refine for data in self.entity_data)
         # try:
         #     return self._pre_refine
         # except AttributeError:  # Get from the pose state
         #     self._pre_refine = self.info.get('pre_refine', True)
         #     return self._pre_refine
 
-    @pre_refine.setter
-    def pre_refine(self, pre_refine: bool):
-        if isinstance(pre_refine, bool):
-            self._pre_refine = self.info['pre_refine'] = pre_refine
-            if pre_refine:
-                self.refined_pdb = self.asu_path
-                self.scouted_pdb = os.path.join(self.designs_path,
-                                                f'{os.path.basename(os.path.splitext(self.refined_pdb)[0])}_scout.pdb')
-        elif pre_refine is None:
-            pass
-        else:
-            raise ValueError(f'The attribute pre_refine must be a boolean or NoneType, not {type(pre_refine).__name__}')
+    # @pre_refine.setter
+    # def pre_refine(self, pre_refine: bool):
+    #     if isinstance(pre_refine, bool):
+    #         self._pre_refine = self.info['pre_refine'] = pre_refine
+    #         if pre_refine:
+    #             self.refined_pdb = self.asu_path
+    #             self.scouted_pdb = os.path.join(self.designs_path,
+    #                                             f'{os.path.basename(os.path.splitext(self.refined_pdb)[0])}_scout.pdb')
+    #     elif pre_refine is None:
+    #         pass
+    #     else:
+    #         raise ValueError(f'The attribute pre_refine must be a boolean or NoneType, not {type(pre_refine).__name__}')
 
     @property
     def pre_loop_model(self) -> bool:
@@ -956,24 +979,25 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Returns:
             Whether loop modeling has occurred
         """
-        return self._pre_loop_model
+        # return self._pre_loop_model
+        return all(data.meta.pre_loop_model for data in self.entity_data)
         # try:
         #     return self._pre_loop_model
         # except AttributeError:  # Get from the pose state
         #     self._pre_loop_model = self.info.get('pre_loop_model', True)
         #     return self._pre_loop_model
-
-    @pre_loop_model.setter
-    def pre_loop_model(self, pre_loop_model: bool):
-        if isinstance(pre_loop_model, bool):
-            self._pre_loop_model = self.info['pre_loop_model'] = pre_loop_model
-            # if pre_loop_model:
-            #     do_something
-        elif pre_loop_model is None:
-            pass
-        else:
-            raise ValueError(f'The attribute pre_loop_model must be a boolean or NoneType, not '
-                             f'{type(pre_loop_model).__name__}')
+    #
+    # @pre_loop_model.setter
+    # def pre_loop_model(self, pre_loop_model: bool):
+    #     if isinstance(pre_loop_model, bool):
+    #         self._pre_loop_model = self.info['pre_loop_model'] = pre_loop_model
+    #         # if pre_loop_model:
+    #         #     do_something
+    #     elif pre_loop_model is None:
+    #         pass
+    #     else:
+    #         raise ValueError(f'The attribute pre_loop_model must be a boolean or NoneType, not '
+    #                          f'{type(pre_loop_model).__name__}')
 
     # @close_logs
     # def find_entity_names(self):
@@ -1219,8 +1243,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                                        f'"{source_datastore.location}"')
 
             entities.extend([entity for entity in model.entities])
-        if source_idx == 0:
-            self.pre_refine = True
+        # if source_idx == 0:
+        #     self.pre_refine = True
         # if source_idx == 0:  # Todo
         #     self.pre_loop_model = True
 
@@ -1323,6 +1347,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                                  out_path=os.path.join(self.out_directory, f'{entity.name}_oligomer.pdb'))
             # If we have an empty list for the pose_transformation, save the identified transformations from the Pose
             if not self.transformations:
+                # Todo make sure that his is self.job.current_session.commit
                 # self.pose_transformation = self.pose.entity_transformations
                 for data, transformation in zip(self.entity_data, self.pose.entity_transformations):
                     data.transform.transformation = transformation
@@ -1494,7 +1519,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 self.pose.write_fragment_pairs(out_path=self.frags_path)
 
         # self.fragment_observations = self.pose.get_fragment_observations()
-        self.info['fragment_source'] = self.job.fragment_db.source
+        # # Todo move to ProtocolMetaData?
+        # self.info['fragment_source'] = self.job.fragment_db.source
         # self.pickle_info()  # Todo remove once PoseJob state can be returned to the SymDesign dispatch w/ MP
 
     def __key(self) -> str:
@@ -3037,12 +3063,12 @@ class PoseProtocol(PoseData):
 
         if self.job.design.method == putils.consensus:
             self.protocol = putils.consensus
-            consensus_cmd = main_cmd + rosetta.relax_flags_cmdline + \
-                            [f'@{self.flags}', '-in:file:s', self.consensus_pdb,
-                             # '-in:file:native', self.refined_pdb,
-                             '-parser:protocol', os.path.join(putils.rosetta_scripts_dir,
-                                                              f'{putils.consensus}.xml'),
-                             '-parser:script_vars', f'switch={putils.consensus}']
+            consensus_cmd = main_cmd + rosetta.relax_flags_cmdline \
+                + [f'@{self.flags}', '-in:file:s', self.consensus_pdb,
+                   # '-in:file:native', self.refined_pdb,
+                   '-parser:protocol', os.path.join(putils.rosetta_scripts_dir,
+                                                    f'{putils.consensus}.xml'),
+                   '-parser:script_vars', f'switch={putils.consensus}']
             self.log.info(f'Consensus command: {list2cmdline(consensus_cmd)}')
             if self.job.distribute_work:
                 write_shell_script(list2cmdline(consensus_cmd), name=putils.consensus, out_path=self.scripts_path)
@@ -3993,10 +4019,10 @@ class PoseProtocol(PoseData):
                 # self.job.current_session.add(pose_metrics)
                 idx = 1
                 is_thermophilic = []
-                for idx, entity in enumerate(self.pose.entities, idx):
+                for idx, (entity, data) in enumerate(zip(self.pose.entities, self.entity_data), idx):
                     # Todo remove entity.thermophilic once sql load more streamlined
                     is_thermophilic.append(1 if entity.thermophilic else 0)
-                    self.entity_metrics.append(entity.metrics)
+                    data.metrics = entity.metrics
                     # entity.metrics.pose_id = self.id
                     # self.job.current_session.add(entity.metrics)
 

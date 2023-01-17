@@ -394,9 +394,6 @@ def main():
         # session.add_all(uniprot_entities)
         # uniprot_entities.extend(existing_uniprot_entities)
 
-        # Finalize additions to the database
-        session.commit()
-
         # Set up common Structure/Entity resources
         info_messages = []
         if job.design.evolution_constraint:
@@ -433,11 +430,18 @@ def main():
             print('\n')
             logger.info(resubmit_command_message)
             terminate(output=False)
+
+        for uniprot_ids, protein_metadata in possible_uniprot_id_protein_property.items():
+            protein_metadata.pre_refine = job.initial_refinement
+            protein_metadata.pre_loop_model = job.initial_loop_model
+
             # After completion of sbatch, the next time command is entered program will proceed
         #     else:
         #         # We always prepare info_messages when jobs should be run
         #         raise utils.InputError("This shouldn't have happened. 'info_messages' can't be False here...")
 
+        # Finalize additions to the database
+        session.commit()
         # # Ensure all_entities are symmetric. As of now, all orient_structures returns are the symmetrized structure
         # for entity in [entity for structure in all_structures for entity in structure.entities]:
         #     entity.make_oligomer(symmetry=entity.symmetry)
@@ -870,81 +874,6 @@ def main():
             # with job.db.session(expire_on_commit=False) as session:
             initialize_entities(all_structures, possible_uniprot_ids)
 
-            # # Find existing UniProtEntity table entry instances
-            # with job.db.session() as session:  # current_session
-            #     existing_uniprot_entities = \
-            #         select(wrapapi.UniProtEntity)\
-            #         .where(wrapapi.UniProtEntity.id.in_(possible_uniprot_ids.keys()))
-            #
-            #     # Remove those from the possible that already exist
-            #     for entity in existing_uniprot_entities:
-            #         possible_uniprot_ids.pop(entity.id, None)
-            #
-            #     # Insert the remaining UniProtIDs as UniProtEntity entries
-            #     uniprot_entities = []
-            #     for uniprot_id, protein_metadata in possible_uniprot_ids.items():
-            #         # Create new entry
-            #         new_entity = wrapapi.UniProtEntity(id=uniprot_id)
-            #         # Add ProteinProperty to new entry
-            #         new_entity.protein_metadata = protein_metadata
-            #         uniprot_entities.append(new_entity)
-            #
-            #     session.add_all(uniprot_entities)
-            #     session.commit()
-            #
-            # uniprot_entities.extend(existing_uniprot_entities)
-            #
-            # # Set up common Structure/Entity resources
-            # info_messages = []
-            # if job.design.evolution_constraint:
-            #     evolution_instructions = job.setup_evolution_constraint(uniprot_entities=uniprot_entities)
-            #     #                                                         entities=all_entities)
-            #     # load_resources = True if evolution_instructions else False
-            #     info_messages.extend(evolution_instructions)
-            #
-            # if job.preprocessed:
-            #     # Don't perform refinement or loop modeling, this has already been done or isn't desired
-            #     # args.orient, args.refine = True, True  # Todo make part of argparse?
-            #     # Move the oriented Entity.file_path (should be the ASU) to the respective directory
-            #     putils.make_path(job.refine_dir)
-            #     putils.make_path(job.full_model_dir)
-            #     # for entity in all_entities:
-            #     for entity in all_structures:
-            #         shutil.copy(entity.file_path, job.refine_dir)
-            #         shutil.copy(entity.file_path, job.full_model_dir)
-            #
-            #     # Report to JobResources the results after skipping set up
-            #     job.initial_refinement = job.initial_loop_model = True
-            # else:
-            #     preprocess_instructions, job.initial_refinement, job.initial_loop_model = \
-            #         job.structure_db.preprocess_structures_for_design(all_structures, script_out_path=job.sbatch_scripts)
-            #     if info_messages and preprocess_instructions:
-            #         info_messages += ['The following can be run at any time regardless of evolutionary script progress']
-            #     info_messages += preprocess_instructions
-            #
-            # if info_messages:
-            #     # Entity processing commands are needed
-            #     logger.critical(sbatch_warning)
-            #     for message in info_messages:
-            #         logger.info(message)
-            #     print('\n')
-            #     logger.info(resubmit_command_message)
-            #     terminate(output=False)
-            #     # After completion of sbatch, the next time command is entered program will proceed
-            # #     else:
-            # #         # We always prepare info_messages when jobs should be run
-            # #         raise utils.InputError("This shouldn't have happened. 'info_messages' can't be False here...")
-
-            # # Ensure all_entities are symmetric.
-            # FOR NOW, all orient_structures returns are the symmetrized structure
-            # for entity in [entity for structure in all_structures for entity in structure.entities]:
-            #     entity.make_oligomer(symmetry=entity.symmetry)
-
-            if by_file1:
-                structure_names1 = eventual_structure_names1
-            if by_file2:
-                structure_names2 = eventual_structure_names2
-
             # Make all possible structure pairs given input entities by finding entities from entity_names
             # Using combinations of directories with .pdb files
             if single_component_design:
@@ -953,23 +882,9 @@ def main():
                 # ^ doesn't work as entity_id is set in orient_structures, but structure name is entry_id
                 pose_jobs.extend(combinations(all_structures, 2))
             else:
-                # structures1 = []
-                # for structure_name in structure_names1:
-                #     for structure in all_structures:
-                #         if structure_name in structure.name:
-                #             structures1.append(structure)
-                #
-                # structures2 = []
-                # for structure_name in structure_names2:
-                #     for structure in all_structures:
-                #         if structure_name in structure.name:
-                #             structures2.append(structure)
-                #             break
-                #
                 # # v doesn't work as entity_id is set in orient_structures, but structure name is entry_id
                 # # structures1 = [entity for entity in all_entities if entity.name in structures1]
                 # # structures2 = [entity for entity in all_entities if entity.name in structures2]
-                # pose_jobs = list(product(structures1, structures2))
                 pose_jobs = []
                 for structures1, structures2 in combinations(grouped_structures, 2):
                     pose_jobs.extend(product(structures1, structures2))
@@ -1241,84 +1156,18 @@ def main():
                 session.commit()
                 initialize_entities(all_entities, possible_uniprot_ids,
                                     existing_uniprot_entities=existing_uniprot_entities)
-                # # Commit new changes to the database
-                # # if job.db:
-                # with job.db.session() as session:  # current_session
-                #     # # Parse different UniProtID states
-                #     # existing_uniprot_ids = {entity.id for entity in existing_uniprot_entities}
-                #     # # all_uniprot_ids = existing_uniprot_ids.union(possible_uniprot_ids.keys())
-                #     # missing_uniprot_ids = set(possible_uniprot_ids.keys()).difference(existing_uniprot_ids)
-                #     #
-                #     # Remove those from the possible that already exist
-                #     for entity in existing_uniprot_entities:
-                #         possible_uniprot_ids.pop(entity.id, None)
-                #
-                #     # Insert the remaining UniProtIDs as UniProtEntity entries
-                #     uniprot_entities = []
-                #     for uniprot_id, protein_metadata in possible_uniprot_ids.items():
-                #         # Create new entry
-                #         new_entity = wrapapi.UniProtEntity(id=uniprot_id)
-                #         # Add ProteinProperty to new entry
-                #         new_entity.protein_metadata = protein_metadata
-                #         uniprot_entities.append(new_entity)
-                #
-                #     session.add_all(uniprot_entities)
-                #     session.commit()
-                #     # uniprot_entities = select(wrapapi.UniProtEntity).where(wrapapi.UniProtEntity.id.in_(all_uniprot_ids))
-                #
-                # uniprot_entities.extend(existing_uniprot_entities)
-                #
-                # # Set up common Structure/Entity resources
-                # info_messages = []
-                # if job.design.evolution_constraint:
-                #     evolution_instructions = job.setup_evolution_constraint(uniprot_entities=uniprot_entities)
-                #     #                                                         entities=all_entities)
-                #     # load_resources = True if evolution_instructions else False
-                #     info_messages.extend(evolution_instructions)
-                #
-                # if job.preprocessed:
-                #     # Don't perform refinement or loop modeling, this has already been done or isn't desired
-                #     # args.orient, args.refine = True, True  # Todo make part of argparse?
-                #     # Move the oriented Entity.file_path (should be the ASU) to the respective directory
-                #     putils.make_path(job.refine_dir)
-                #     putils.make_path(job.full_model_dir)
-                #     for entity in all_entities:
-                #         shutil.copy(entity.file_path, job.refine_dir)
-                #         shutil.copy(entity.file_path, job.full_model_dir)
-                #
-                #     # Report to JobResources the results after skipping set up
-                #     job.initial_refinement = job.initial_loop_model = True
-                # else:
-                #     preprocess_instructions, job.initial_refinement, job.initial_loop_model = \
-                #         job.structure_db.preprocess_structures_for_design(all_entities, script_out_path=job.sbatch_scripts)
-                #     if info_messages and preprocess_instructions:
-                #         info_messages += ['The following can be run at any time regardless of evolutionary script progress']
-                #     info_messages += preprocess_instructions
-                #
-                # if info_messages:
-                #     # Entity processing commands are needed
-                #     logger.critical(sbatch_warning)
-                #     for message in info_messages:
-                #         logger.info(message)
-                #     print('\n')
-                #     logger.info(resubmit_command_message)
-                #     terminate(output=False)
-                #     # After completion of sbatch, the next time command is entered program will proceed
-                # #     else:
-                # #         # We always prepare info_messages when jobs should be run
-                # #         raise utils.InputError("This shouldn't have happened. 'info_messages' can't be False here...")
 
                 if args.multi_processing:  # and not args.skip_master_db:
                     logger.debug('Loading Database for multiprocessing fork')
                     # Todo set up a job based data acquisition as this takes some time and loading everythin isn't necessary!
                     job.structure_db.load_all_data()
                     job.api_db.load_all_data()
-                # Set up in series
-                for pose_job in pose_jobs:
-                    # pose.initialize_structure_attributes(pre_refine=job.initial_refinement,
-                    #                                      pre_loop_model=job.initial_loop_model)
-                    pose_job.pre_refine = job.initial_refinement
-                    pose_job.pre_loop_model = job.initial_loop_model
+                # # Set up in series
+                # for pose_job in pose_jobs:
+                #     # pose.initialize_structure_attributes(pre_refine=job.initial_refinement,
+                #     #                                      pre_loop_model=job.initial_loop_model)
+                #     pose_job.pre_refine = job.initial_refinement
+                #     pose_job.pre_loop_model = job.initial_loop_model
 
                 logger.info(f'Found {len(pose_jobs)} unique poses from provided input location "{job.location}"')
                 if not job.debug and not job.skip_logging:
