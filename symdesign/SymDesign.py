@@ -1142,8 +1142,9 @@ def main():
                 existing_uniprot_ids = set()
                 existing_uniprot_entities = set()
                 existing_protein_metadata = set()
+                remove_pose_jobs = []
                 pose_jobs_to_commit = []
-                for idx, pose_job in enumerate(list(pose_jobs)):  # New list since we can remove
+                for idx, pose_job in enumerate(pose_jobs):
                     if pose_job.id is None:
                         # Todo expand the definition of SymEntry/Entity to include
                         #  specification of T:{T:{C3}{C3}}{C1}
@@ -1153,7 +1154,7 @@ def main():
                             pose_job.load_initial_model()
                         except utils.InputError as error:
                             logger.error(error)
-                            pose_jobs.pop(idx)
+                            remove_pose_jobs.append(idx)
                             continue
 
                         # for entity in pose_job.initial_model.entities:
@@ -1201,7 +1202,8 @@ def main():
                             # meta = data.meta
                             # if meta.uniprot_id in possible_uniprot_ids:
                             #     existing_uniprot_entities.add(meta.uniprot_entity)
-
+                for idx in reversed(remove_pose_jobs):
+                    pose_jobs.pop(idx)
                 # all_structures = []
                 # Populate all_entities to set up sequence dependent resources
                 all_entities = []
