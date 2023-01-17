@@ -109,10 +109,16 @@ def retrieve_entity_id_by_sequence(sequence: str) -> str | None:
     Returns:
         '1ABC_1'
     """
-    return find_matching_entities_by_sequence(sequence, all_matching=False)[0]
+    matching_entities = find_matching_entities_by_sequence(sequence, all_matching=False)
+    if matching_entities:
+        logger.debug(f'Sequence search found the matching EntityIDs: {", ".join(matching_entities)}')
+        return matching_entities[0]
+    else:
+        return None
 
 
-def find_matching_entities_by_sequence(sequence: str = None, return_id: str = 'polymer_entity', **kwargs) -> list[str] | list[None]:
+def find_matching_entities_by_sequence(sequence: str = None, return_id: str = 'polymer_entity', **kwargs)\
+        -> list[str] | None:
     """Search the PDB for matching IDs given a sequence and a return_type. Pass all_matching=False to retrieve the top
     10 IDs, otherwise return all IDs
 
@@ -128,26 +134,42 @@ def find_matching_entities_by_sequence(sequence: str = None, return_id: str = 'p
     logger.debug(f'Using the default sequence similarity parameters: '
                  f'{", ".join(f"{k}: {v}" for k, v in default_sequence_values.items())}')
     sequence_query = generate_terminal_group(service='sequence', sequence=sequence)
-    sequence_query_results = query_pdb(generate_query(sequence_query, return_id=return_id, **kwargs))
+    sequence_query_results = query_pdb(generate_query(sequence_query, return_id=return_id, sequence=sequence, **kwargs))
     if sequence_query_results:
         return parse_pdb_response_for_ids(sequence_query_results)
     else:
-        logger.warning(f'Sequence not found in PDB API:\n{sequence}')
-        return [None]
+        logger.warning(f"Sequence wasn't found by the PDB API:\n{sequence}")
+        return None  # [None]
 
 
-def parse_pdb_response_for_ids(response) -> list[str]:
+def parse_pdb_response_for_ids(response: dict[str, dict[str, str]]) -> list[str]:
+    # logger.debug(f'Response contains the results: {response["result_set"]}')
     return [result['identifier'] for result in response['result_set']]
 
 
-def parse_pdb_response_for_score(response) -> list[float] | list:
+def parse_pdb_response_for_score(response: dict[str, dict[str, str]]) -> list[float] | list:
     if response:
         return list(map(float, (result['score'] for result in response['result_set'])))
     else:
         return []
 
 
-def query_pdb(_query) -> dict[str, Any] | None:
+# Todo move to GraphQL
+#  For target queries of all the information needed from a single Entity
+# https://data.rcsb.org/graphql?query=%7B%0A%20%20entries(entry_ids:%20%5B%224HHB%22,%20%2212CA%22,%20%223PQR%22%5D)%20%7B%0A%20%20%20%20exptl%20%7B%0A%20%20%20%20%20%20method%0A%20%20%20%20%7D%0A%20%20%7D%0A%7D
+# Potential route of incorporating into query_pdb()
+# pdb_graphql_url = https://data.rcsb.org/graphql
+# params = {query:{
+#             entries(entry_ids:["4HHB", "12CA", "3PQR"]) {
+#               exptl {
+#                 method
+#               }
+#             }
+#           }
+# query_response = requests.get(pdb_graphql_url, params=params)
+
+
+def query_pdb(query_) -> dict[str, Any] | None:
     """Take a JSON formatted PDB API query and return the results
 
     PDB response can look like:
@@ -174,7 +196,8 @@ def query_pdb(_query) -> dict[str, Any] | None:
     iteration = 0
     while True:
         try:
-            query_response = requests.get(pdb_query_url, params={'json': dumps(_query)})
+            query_response = requests.get(pdb_query_url, params={'json': dumps(query_)})
+            # logger.debug(f'Found the PDB query with url: {query_response.url}')
             if query_response.status_code == 200:
                 return query_response.json()
             elif query_response.status_code == 204:
@@ -207,7 +230,8 @@ default_sequence_values = {'evalue_cutoff': 0.0001, 'identity_cutoff': 0.5}
 # Todo set up by kwargs
 def generate_parameters(attribute=None, operator=None, negation=None, value=None, sequence=None, **kwargs):
     if sequence:  # scaled identity_cutoff to 50% due to scoring function and E-value usage
-        return {**default_sequence_values, 'target': 'pdb_protein_sequence', 'value': sequence}
+        return {**default_sequence_values, 'sequence_type': 'protein', 'value': sequence}
+        # 'target': 'pdb_protein_sequence',
     else:
         return {'attribute': attribute, 'operator': operator, 'negation': negation, 'value': value}
 
@@ -246,23 +270,50 @@ def generate_terminal_group(service, *parameter_args, **kwargs):
     return {'type': 'terminal', 'service': service, 'parameters': generate_parameters(**kwargs)}
 
 
-def generate_query(search, return_id='entry', all_matching=True):
+# Used to return the uniprot_accession number
+sequence_request_options = {
+    'group_by_return_type': 'representatives',
+    'group_by': {
+        'aggregation_method': 'matching_uniprot_accession',  # 'sequence_identity'
+        'ranking_criteria_type': {
+            'sort_by': 'rcsb_entry_info.resolution_combined',
+            'direction': 'asc'
+        }
+        # "similarity_cutoff": 95  # for 'sequence_identity'
+    }
+}
+
+
+def generate_query(search: dict, return_id: str = 'entry', sequence: bool = False, all_matching: bool = True) \
+        -> dict[str, dict | str]:
     """Format a PDB query with the specific return type and parameters affecting search results
 
     Args:
-        search (dict): Contains the key, value pairs in accordance with groups and terminal groups
-    Keyword Args:
-        return_id='entry' (str): The type of value to return where the acceptable values are in return_types
+        search: Contains the key, value pairs in accordance with groups and terminal groups
+        return_id: The type of ID that should be returned
+        sequence: Whether the query generated is a sequence type query
+        all_matching: Whether to get all matching IDs
     Returns:
-        (dict): The formatted query to be sent via HTTP GET
+        The formatted query to be sent via HTTP GET
     """
     if return_id not in return_types:
-        raise KeyError('The specified return type "%s" is not supported. Viable types include %s'
-                       % (return_id, ', '.join(return_types)))
+        raise KeyError(f"The specified return type '{return_id}' isn't supported. Viable types include "
+                       f"{', '.join(return_types)}")
 
     query_d = {'query': search, 'return_type': return_id}
+    request_options = {'results_content_type': ['experimental'],  # "computational" for Alphafold
+                       'sort': [{
+                           'sort_by': 'score',
+                           'direction': 'desc'}],
+                       'scoring_strategy': 'combined'
+                       }
+    if sequence:
+        request_options.update(sequence_request_options)
+
     if all_matching:
-        query_d.update({'request_options': {'return_all_hits': True}})
+        request_options.update({'return_all_hits': True})
+
+    query_d.update({'request_options': request_options})
 
     return query_d
 
@@ -979,7 +1030,7 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
             #  ]
             if len(uniprot_ids) > 1:
                 logger.warning(f'For Entity {entity_ids_json["rcsb_id"]}, found multiple UniProt Entries: '
-                               f'{", ".join(uniprot_ids)}. Using the first')
+                               f'{", ".join(uniprot_ids)}')  # . Using the first')
             db_d = dict(zip(database_keys, (UKB, tuple(uniprot_ids))))  # uniprot_ids[0])))
         except KeyError:  # No 'uniprot_ids'
             # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
