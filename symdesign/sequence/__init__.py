@@ -5,6 +5,7 @@ import logging
 import os
 import subprocess
 from collections import namedtuple, defaultdict
+from itertools import count
 from math import log2
 from pathlib import Path
 from typing import Sequence, AnyStr, Iterable, Type, Literal, Any, get_args
@@ -221,12 +222,15 @@ def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = '
     matrix_ = subs_matrices.get(matrix, substitution_matrices.load(matrix))
 
     # logger.debug(f'Generating sequence alignment between:\n{seq1}\n\tAND:\n{seq2}')
+    # Set these the default from blastp
+    open_gap_score = -12.  # gap_penalty
+    extend_gap_score = -1.  # gap_ext_penalty
     # Create sequence alignment
-    aligner = PairwiseAligner(mode=mode, substitution_matrix=matrix_)
+    aligner = PairwiseAligner(mode=mode, substitution_matrix=matrix_,  # scoring='blastp')
+                              open_gap_score=open_gap_score, extend_gap_score=extend_gap_score)
     alignments = aligner.align(seq1, seq2)
-    logger.info(f'Found alignment with score: {alignments.score}')
-    for idx, alignment in enumerate(alignments):
-        logger.info('Alignment{idx}:\n{alignment}')
+    first_alignment = alignments[0]
+    logger.debug(f'Found alignment with score: {alignments.score}\n{first_alignment}')
     # print("Number of alignments: %d" % len(alignments))
     #   Number of alignments: 1
     # alignment = alignments[0]
@@ -246,7 +250,7 @@ def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = '
     # logger.debug(f'Generated alignment:\n{pairwise2.format_alignment(*align[0])}')
 
     # return align[0] if top_alignment else align
-    return alignments[0] if top_alignment else alignments
+    return first_alignment if top_alignment else alignments
 
 
 def read_fasta_file(file_name: AnyStr, **kwargs) -> Iterable[SeqRecord]:
@@ -727,8 +731,15 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
     """
     if offset:
         alignment = generate_alignment(reference, query)
-        align_seq_1, align_seq_2 = alignment.sequences
-        # align_seq_1, align_seq_2, *_ = generate_alignment(reference, query)
+        # # numeric_to_sequence()
+        # seq_indices1, seq_indices2 = alignment.indices
+        # seq_gaps1 = seq_indices1 == -1
+        # seq_gaps2 = seq_indices2 == -1
+        # align_seq_1 = alignment.target
+        # align_seq_2 = alignment.query
+        align_seq_1, align_seq_2 = alignment
+        # # align_seq_1, align_seq_2 = alignment.sequences
+        # # align_seq_1, align_seq_2, *_ = generate_alignment(reference, query)
     else:
         align_seq_1, align_seq_2 = reference, query
 
@@ -947,27 +958,50 @@ def get_equivalent_indices(target: Sequence = None, query: Sequence = None, alig
     """
     if alignment is None:
         if target is not None and query is not None:
-            # Get all mutations from the alignment of sequence1 and sequence2
+            # # Get all mutations from the alignment of sequence1 and sequence2
             mutations = generate_mutations(target, query, blanks=True, return_all=True)
+            # alignment = generate_alignment(target, query)
+            # alignment.inverse_indices
+            # return
         else:
             raise ValueError(f"Can't {get_equivalent_indices.__name__} without passing either 'alignment' or "
                              f"'target' and 'query'")
     else:
         raise NotImplementedError(f"Set {get_equivalent_indices.__name__} up with an Alignment object from Bio.Align")
+
+    target_mutations = ''.join([mutation['to'] for mutation in mutations.values()])
+    query_mutations = ''.join([mutation['from'] for mutation in mutations.values()])
+    logger.debug(f"Sequence info:\ntarget :{target_mutations}\nquery  :{query_mutations}")
     # Get only those indices where there is an aligned aa on the opposite chain
     sequence1_indices, sequence2_indices = [], []
-    to_idx, from_idx = 0, 0
+    # to_idx = from_idx = 0
+    to_idx, from_idx = count(0), count(0)
     # sequence1 'from' is fixed, sequence2 'to' is moving
-    for mutation in mutations.values():
-        if mutation['from'] == '-':  # increment to_idx/fixed_idx
-            to_idx += 1
+    for mutation_idx, mutation in enumerate(mutations.values()):
+        if mutation['to'] == mutation['from']:  # They are equal
+            sequence1_indices.append(next(from_idx))  # from_idx)
+            sequence2_indices.append(next(to_idx))  # to_idx)
+        elif mutation['from'] == '-':  # increment to_idx/fixed_idx
+            # to_idx += 1
+            next(to_idx)
         elif mutation['to'] == '-':  # increment from_idx/moving_idx
-            from_idx += 1
-        else:
-            sequence1_indices.append(from_idx)
-            sequence2_indices.append(to_idx)
-            to_idx += 1
-            from_idx += 1
+            # from_idx += 1
+            next(from_idx)
+        elif mutation['to'] != mutation['from']:
+            next(from_idx)
+            next(to_idx)
+            # to_idx += 1
+            # from_idx += 1
+        else:  # What else is there
+            target_mutations = ''.join([mutation['to'] for mutation in mutations.values()])
+            query_mutations = ''.join([mutation['from'] for mutation in mutations.values()])
+            raise RuntimeError(f"This should never be reached. Ran into error at index {mutation_idx}:\n"
+                               f"{mutation}\nSequence info:\ntarget :{target_mutations}\nquery  :{query_mutations}")
+        # else:  # They are equal
+        #     sequence1_indices.append(next(from_idx))  # from_idx)
+        #     sequence2_indices.append(next(to_idx))  # to_idx)
+        #     # to_idx += 1
+        #     # from_idx += 1
 
     return sequence1_indices, sequence2_indices
 

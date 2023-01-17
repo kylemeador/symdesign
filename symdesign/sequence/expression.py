@@ -322,8 +322,8 @@ def add_expression_tag(tag: str, sequence: str) -> str:
     if not tag:
         return sequence
     alignment = generate_alignment(tag, sequence)
+    tag_seq, seq = alignment
     # print('Expression TAG alignment:', alignment[0])
-    tag_seq, seq = alignment.sequences
     # score = alignment.score
     # # tag_seq, seq, score, *_ = alignment
     # # score = alignment[2]  # first alignment, grab score value
