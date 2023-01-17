@@ -42,7 +42,7 @@ class Coords:
 
         Args:
             at: The index to perform the insert at
-            new_coords: The coords to include into Coords
+            new_coords: The coordinate values to insert into Coords
         Sets:
             self.coords = numpy.concatenate(self.coords[:at] + new_coords + self.coords[at:])
         """
@@ -52,7 +52,7 @@ class Coords:
         """Append additional coordinates into the Coords container
 
         Args:
-            new_coords: The coords to include into Coords
+            new_coords: The coordinate values to append to Coords
         Sets:
             self.coords = numpy.concatenate(self.coords[:at] + new_coords + self.coords[at:])
         """
@@ -62,18 +62,19 @@ class Coords:
         """Replace existing coordinates in the Coords container with new coordinates
 
         Args:
-            indices: The indices to delete from the Coords array
+            indices: The indices to replace in the Coords array
             new_coords: The coordinate values to replace in Coords
         Sets:
             self.coords[indices] = new_coords
         """
         try:
             self.coords[indices] = new_coords
-        except ValueError as error:  # they are probably different lengths or another numpy indexing/setting issue
-            if self.coords.shape[0] == 0:  # there are no coords, lets use set mechanism
+        except ValueError as error:
+            # They are probably different lengths or another numpy indexing/setting issue
+            if self.coords.shape[0] == 0:  # There are no coords, lets use set mechanism
                 self.coords = new_coords
             else:
-                raise ValueError(f'The new_coords are not the same shape as the selected indices: {error}')
+                raise ValueError(f"The new_coords aren't the same shape as the selected indices: {error}")
 
     def set(self, coords: np.ndarray | list[list[float]]):
         """Set self.coords to the provided coordinates
