@@ -845,14 +845,19 @@ def main():
                             n_terminal_helix=entity.is_termini_helical(),
                             c_terminal_helix=entity.is_termini_helical('c'),
                             thermophilic=entity.thermophilic,
-                            symmetry=symmetry)
+                            symmetry_group=symmetry)
                         # Set the Entity with .metadata attribute to fetch in fragdock()
                         entity.metadata = protein_metadata
                         # for uniprot_id in entity.uniprot_ids:
                         try:
-                            uniprot_ids = entity.uniprot_ids
+                            ''.join(entity.uniprot_ids)
+                        except TypeError:  # Uniprot_ids is (None,)
+                            uniprot_ids = (entity.name,)
                         except AttributeError:  # Unable to retrieve
                             uniprot_ids = (entity.name,)
+                        else:
+                            uniprot_ids = entity.uniprot_ids
+
                         if uniprot_ids in possible_uniprot_ids:
                             # This Entity already found for processing and we shouldn't have duplicates
                             raise RuntimeError(f"This error wasn't expected to occur.{putils.report_issue}")
@@ -1160,7 +1165,15 @@ def main():
                         # for entity in pose_job.initial_model.entities:
                         # entity_data = []
                         for entity, symmetry in zip(pose_job.initial_model.entities, symmetry_map):
-                            uniprot_ids = entity.uniprot_ids
+                            try:
+                                ''.join(entity.uniprot_ids)
+                            except TypeError:  # Uniprot_ids is (None,)
+                                uniprot_ids = (entity.name,)
+                            except AttributeError:  # Unable to retrieve
+                                uniprot_ids = (entity.name,)
+                            else:
+                                uniprot_ids = entity.uniprot_ids
+                            # input(f'uniprot_ids MAIN: {uniprot_ids}')
                             # Check if the tuple of UniProtIDs has already been observed
                             protein_metadata = possible_uniprot_ids.get(uniprot_ids, None)
                             if protein_metadata is None:  # uniprot_ids in possible_uniprot_ids:
@@ -1169,7 +1182,7 @@ def main():
                                     entity_id=entity.name,
                                     reference_sequence=entity.reference_sequence,
                                     thermophilic=entity.thermophilic,
-                                    symmetry=symmetry
+                                    symmetry_group=symmetry
                                     # # Todo there could be no sym_entry, the use the entity.symmetry
                                     # symmetry=entity.symmetry
                                 )
@@ -1187,7 +1200,7 @@ def main():
                             # Create EntityData
                             # entity_data.append(sql.EntityData(pose=pose_job,
                             sql.EntityData(pose=pose_job,
-                                           metadata=protein_metadata
+                                           meta=protein_metadata
                                            )
                         # # Update PoseJob
                         # pose_job.entity_data = entity_data

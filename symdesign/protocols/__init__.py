@@ -369,7 +369,7 @@ def orient(job: pose.PoseJob, to_pose_directory: bool = True):
         job.log.info(f'The oriented file was saved to {orient_file}')
         for entity in job.initial_model.entities:
             entity.remove_mate_chains()
-            job.entity_names.append(entity.name)
+            # job.entity_names.append(entity.name)
 
         # Load the pose and save the asu
         job.load_pose()  # entities=model.entities)

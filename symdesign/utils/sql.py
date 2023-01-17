@@ -276,8 +276,9 @@ class ProteinMetadata(Base):
     c_terminal_helix = Column(Boolean)  # entity_ is used in config.metrics
     thermophilic = Column(Boolean)  # entity_ is used in config.metrics
     # Symmetry parameters
-    symmetry_group = Column(String(4))  # entity_ is used in config.metrics
-    symmetry = Column(ForeignKey('symmetry_groups.id'))
+    symmetry_group = Column(String)  # entity_ is used in config.metrics
+    # # Todo ^ v simplify to only one of these
+    # symmetry = Column(ForeignKey('symmetry_groups.id'))
 
 
 class EntityData(Base):
@@ -331,8 +332,11 @@ class EntityData(Base):
         return self.meta.uniprot_ids
 
     @property
-    def transformation(self):
-        return self.transform.transformation
+    def transformation(self) -> dict:  # transformation_mapping
+        try:
+            return self.transform.transformation
+        except AttributeError:  # self.transform is probably None
+            return {}
 
     # @property
     # def uniprot_id(self):
@@ -379,7 +383,7 @@ class EntityTransform(Base):
     external_translation_z = Column(Float, default=0.)
 
     @property
-    def transformation(self):  # Todo -> transformation_mapping:
+    def transformation(self) -> dict:  # Todo -> transformation_mapping:
         """Provide the names of all Entity instances mapped to the Pose"""
         # Todo hook in self.rotation_x, self.rotation_y
         return dict(
