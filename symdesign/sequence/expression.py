@@ -323,18 +323,20 @@ def add_expression_tag(tag: str, sequence: str) -> str:
         return sequence
     alignment = generate_alignment(tag, sequence)
     # print('Expression TAG alignment:', alignment[0])
-    tag_seq, seq, score, *_ = alignment
-    # score = alignment[2]  # first alignment, grab score value
-    # print('Expression TAG alignment score:', score)
-    # if score == 0:  # TODO find the correct score for a bad alignment to indicate there was no productive alignment?
-    #     # alignment[0][4]:  # the length of alignment
-    #     # match_score = score / len(sequence)  # could also use which ever sequence is greater
-    #     return sequence
-    # print(alignment[0])
-    # print(tag_seq)
-    # print(seq)
-    # starting_index_of_seq2 = seq.find(sequence[0])
-    # i = -starting_index_of_seq2 + zero_offset  # make 1 index so residue value starts at 1
+    tag_seq, seq = alignment.sequences
+    # score = alignment.score
+    # # tag_seq, seq, score, *_ = alignment
+    # # score = alignment[2]  # first alignment, grab score value
+    # # print('Expression TAG alignment score:', score)
+    # # if score == 0:  # TODO find the correct score for a bad alignment to indicate there was no productive alignment?
+    # #     # alignment[0][4]:  # the length of alignment
+    # #     # match_score = score / len(sequence)  # could also use which ever sequence is greater
+    # #     return sequence
+    # # print(alignment[0])
+    # # print(tag_seq)
+    # # print(seq)
+    # # starting_index_of_seq2 = seq.find(sequence[0])
+    # # i = -starting_index_of_seq2 + zero_offset  # make 1 index so residue value starts at 1
     final_seq = ''
     for i, (seq1_aa, seq2_aa) in enumerate(zip(tag_seq, seq)):
         if seq2_aa == '-':

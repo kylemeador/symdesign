@@ -3296,7 +3296,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         """
         if tolerance > 1:
             raise ValueError(f"{self._get_entity_info_from_atoms.__name__} tolerance={tolerance}. Can't be > 1")
-        entity_idx = 0
+        entity_idx = count(1)
         # Get rid of any information already acquired
         existing_entity_info = self.entity_info
         self.entity_info = {}
@@ -3322,9 +3322,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 if chain.sequence == sequence:
                     score = len(chain.sequence)
                 else:
-                    alignment = generate_alignment(chain.sequence, sequence, local=True)
-                    # alignment = pairwise2.align.localxx(chain.sequence, sequence)
-                    score = alignment[2]  # Grab score value
+                    alignment = generate_alignment(chain.sequence, sequence)  # , local=True)
+                    score = alignment.score  # Grab score value
                 # Use which ever sequence is greater as the max
                 seq_len, chain_seq_len = len(sequence), len(chain.sequence)
                 large_sequence_length = max(seq_len, chain_seq_len)
@@ -3342,8 +3341,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     break
 
             if new_entity:  # No existing entity matches, add new entity
-                entity_idx += 1
-                self.entity_info[f'{self.name}_{entity_idx}'] = dict(chains=[chain], sequence=chain.sequence)
+                entity_name = f'{self.name}_{next(entity_idx)}'
+                self.log.debug(f'Chain {chain.name} is a new Entity "{entity_name}"')
+                self.entity_info[entity_name] = dict(chains=[chain], sequence=chain.sequence)
 
         self.log.debug(f'Entity information was solved by {method} match')
 
@@ -3382,6 +3382,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             -> Entity | None:
         """From another sequence, returns the first matching chain from the corresponding Entity
 
+        Uses a local alignment to produce the match score
+
         Args:
             other_seq: The sequence to query
             force_closest: Whether to force the search if a perfect match isn't identified
@@ -3395,7 +3397,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             if other_seq == entity.sequence:
                 return entity
 
-        # we didn't find an ideal match
+        # We didn't find an ideal match
         if force_closest:
             entity_alignment_scores = {}
             for entity in self.entities:
