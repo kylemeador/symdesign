@@ -527,8 +527,12 @@ class StructureBase(Symmetry, ABC):
     _atom_indices: list[int] | None  # np.ndarray
     _coords: Coords
     _copier: bool = False
-    """Whether the StructureBase is being copied by a Container object. If so cut corners"""
+    """Whether the StructureBase is being copied by a Container object. If so, cut corners"""
+    _dependent_is_updating: bool
+    """Whether the StructureBase.coords are being updated by a dependent. If so, cut corners"""
     _log: Log
+    _parent_is_updating: bool
+    """Whether the StructureBase.coords are being updated by a parent. If so, cut corners"""
     __parent: StructureBase | None
     state_attributes: set[str] = set()
 
@@ -536,15 +540,17 @@ class StructureBase(Symmetry, ABC):
                  , biological_assembly=None, cryst_record=None, entity_info=None, file_path=None, header=None,
                  multimodel=None, resolution=None, reference_sequence=None, sequence=None, entities=None,
                  pose_format=None, query_by_sequence=True, entity_names=None, rename_chains=None, **kwargs):
-        if parent:  # initialize StructureBase from parent
+        if parent:  # Initialize StructureBase from parent
             self._parent = parent
-        else:  # this is the parent
-            self.__parent = None  # requries use of _StructureBase__parent attribute checks
-            # initialize Log
+            self._parent_is_updating = False
+        else:  # This is the parent
+            self.__parent = None  # Requries use of _StructureBase__parent attribute checks
+            self._dependent_is_updating = False
+            # Initialize Log
             if log:
-                if log is True:  # use the module logger
+                if log is True:  # Use the module logger
                     self._log = Log(logger)
-                elif isinstance(log, Log):  # initialized Log
+                elif isinstance(log, Log):  # Initialized Log
                     self._log = log
                 elif isinstance(log, Logger):  # logging.Logger object
                     self._log = Log(log)
@@ -644,7 +650,11 @@ class StructureBase(Symmetry, ABC):
     @coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
         # self.log.critical(f'Setting {self.name} coords')
-        if self.is_parent() and self.is_symmetric() and self._symmetric_dependents:
+        # Setting this first to ensure proper size of later manipulations
+        # Update the whole Coords.coords as symmetry is not everywhere
+        self._coords.replace(self._atom_indices, coords)
+        # Check for additional requirements
+        if self.is_parent() and self.is_symmetric() and self._symmetric_dependents and not self._dependent_is_updating:
             # This Structure is a symmetric parent, update dependent coords to update the parent
             # self.log.debug(f'self._symmetric_dependents: {self._symmetric_dependents}')
             for dependent in self._symmetric_dependents:
@@ -652,11 +662,11 @@ class StructureBase(Symmetry, ABC):
                     dependent._parent_is_updating = True
                     # self.log.debug(f'Setting {dependent.name} _symmetric_dependent coords')
                     dependent.coords = coords[dependent.atom_indices]
-                    del dependent._parent_is_updating
-            # Update the whole Coords.coords as symmetry is not everywhere
-            self._coords.replace(self._atom_indices, coords)
-        else:  # Simply update these Coords.coords
-            self._coords.replace(self._atom_indices, coords)
+                    dependent._parent_is_updating = False
+                else:
+                #     input(f'See we didnt get an update')
+                    logger.critical(f'TESTING NEW COORDS vs existing similarity: '
+                                    f'{np.allclose(dependent.coords, coords[dependent.atom_indices])}')
 
     def reset_state(self):
         """Remove StructureBase attributes that are valid for the current state

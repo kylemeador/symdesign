@@ -1113,8 +1113,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # self._coords.replace(self._atom_indices, coords)
             try:
                 if self.parent.is_symmetric() and not self._parent_is_updating:
-                    # Update the parent coords accordingly if a Pose and is symmetric
+                    self.parent._dependent_is_updating = True
+                    # Update the parent coords accordingly which propagates symmetric updates
                     self.parent.coords = self.parent.coords
+                    self.parent._dependent_is_updating = False
             except AttributeError:  # No parent
                 pass
 
@@ -3868,6 +3870,7 @@ class SymmetricModel(Models):
     _center_of_mass_symmetric_models: np.ndarray
     _cryst_record: str
     _dimension: int
+    _no_reset: bool
     _number_of_symmetry_mates: int
     _point_group_symmetry: str
     _transformation: list[transformation_mapping] | list[dict]
@@ -5612,7 +5615,6 @@ class Pose(SymmetricModel, Metrics):
     _metrics_table = sql.PoseMetrics
     _interface_neighbor_residues: list[Residue]
     _interface_residues: list[Residue]
-    _no_reset: bool
     design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] | None
     design_selector_entities: set[Entity]
     design_selector_indices: set[int]
