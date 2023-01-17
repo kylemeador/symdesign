@@ -548,6 +548,7 @@ output_directory_args = ('-Od', f'--{output_directory}', '--outdir')
 output_file_args = ('-Of', f'--{output_file}')
 setup_args = ('--setup',)
 setup_kwargs = dict(action='store_true', help='Show the %(prog)s set up instructions')
+symmetry_args = ('-S', '--symmetry')
 sym_entry_args = ('-E', f'--{sym_entry}', '--entry', '-entry')
 sym_entry_kwargs = dict(type=int, default=None, metavar='INT',
                         help=f'The entry number of {nanohedra.title()} docking combinations to use.\n'
@@ -603,7 +604,7 @@ options_arguments = {
     (f'--{skip_logging}',): dict(action='store_true',
                                  help='Skip logging output to files and direct all logging to stream?'),
     sym_entry_args: sym_entry_kwargs,
-    ('-S', '--symmetry'): dict(type=str, default=None, metavar='RESULT:{GROUP1}{GROUP2}...',
+    symmetry_args: dict(type=str, default=None, metavar='RESULT:{GROUP1}{GROUP2}...',
                                help='The specific symmetry of the poses of interest.\nPreferably in a composition '
                                     'formula such as T:{C3}{C3}...\nCan also provide the keyword "cryst" to use crystal'
                                     ' symmetry'),
