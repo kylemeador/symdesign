@@ -984,8 +984,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     rotation_d: dict[str, dict[str, int | np.ndarray]] | dict
     """Maps mate entities to their rotation matrix"""
     symmetry: str | None
-    uniprot_ids: tuple[str, ...] | None
-    # Todo _uniprot_ids: tuple[str, ...] | None
+    _uniprot_ids: tuple[str, ...] | None
 
     @classmethod
     def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
@@ -1167,8 +1166,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         except AttributeError:
             retrieve_api_info = query.pdb.query_pdb_by
         # self._api_data = get_pdb_info_by_entity(self.name)
-        self._api_data: dict[str, Any] = retrieve_api_info(entity_id=self.name)[self.name]
-        """retrieve_api_info returns
+        api_return = retrieve_api_info(entity_id=self.name)
+        """Get the data on it's own since retrieve_api_info returns
         {'EntityID':
            {'chains': ['A', 'B', ...],
             'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
@@ -1176,6 +1175,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             'thermophilic': True},
         ...}
         """
+        if api_return:
+            self._api_data: dict[str, Any] = api_return[self.name]
+        else:
+            self._api_data = {}
 
         if self._api_data is not None:
             for data_type, data in self._api_data.items():  # [next(iter(self._api_data))]
@@ -1189,32 +1192,39 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                         self.uniprot_ids = data.get('accession')
         else:
             self.log.warning(f'Entity {self.name}: No information found from PDB API')
-            self.uniprot_ids = None
 
-    # # @hybrid_property Todo wrapapi.UniProtEntity
-    # @property  # Todo make this a property again
-    # def uniprot_id(self) -> str | None:
-    #     """The UniProt ID for the Entity used for accessing genomic and homology features"""
-    #     # Todo wrapapi.UniProtEntity
-    #     # try:
-    #     #     return self._uniprot_id.upper()
-    #     # except AttributeError:
-    #     #     if not self._search_uniprot_id:
-    #     #         self._search_uniprot_id = True
-    #     #         # wrapapi.UniProtEntity set as None, and we haven't tried to find, so lets try
-    #     # return self._uniprot_id
-    #     try:
-    #         return self._uniprot_id
-    #     except AttributeError:
-    #         self._retrieve_info_from_api()
-    #     return self._uniprot_id
-    #
-    # @uniprot_id.setter
-    # def uniprot_id(self, uniprot_id: dict[str, str] | str):
-    #     # if isinstance(dbref, dict) and dbref.get('db') == 'UNP':
-    #     #     self._uniprot_id = dbref['accession']
-    #     # else:
-    #     self._uniprot_id = uniprot_id
+    # @hybrid_property Todo wrapapi.UniProtEntity
+    @property
+    def uniprot_ids(self) -> tuple[str, ...]:
+        """The UniProt ID for the Entity used for accessing genomic and homology features"""
+        # Todo wrapapi.UniProtEntity
+        # try:
+        #     return self._uniprot_id.upper()
+        # except AttributeError:
+        #     if not self._search_uniprot_id:
+        #         self._search_uniprot_id = True
+        #         # wrapapi.UniProtEntity set as None, and we haven't tried to find, so lets try
+        # return self._uniprot_id
+        try:
+            return self._uniprot_ids
+        except AttributeError:
+            # Set None but attempt to get from the API
+            self._uniprot_ids = None
+            self._retrieve_info_from_api()
+        return self._uniprot_ids
+
+    @uniprot_ids.setter
+    def uniprot_ids(self, uniprot_ids: tuple[str, ...] | str):  # dict[str, str] |
+        # if isinstance(dbref, dict) and dbref.get('db') == 'UNP':
+        #     self._uniprot_id = dbref['accession']
+        # else:
+        if isinstance(uniprot_ids, tuple):
+            self._uniprot_ids = uniprot_ids
+        elif isinstance(uniprot_ids, str):
+            self._uniprot_ids = (uniprot_ids,)
+        else:
+            raise ValueError(f"Couldn't set {self.uniprot_ids.__name__}. Expected tuple[str, ...] or str, not "
+                             f"{type(uniprot_ids).__name__}")
 
     @property
     def reference_sequence(self) -> str:
@@ -3113,13 +3123,15 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             # have to solve by using the atomic info
             self.retrieve_pdb_info_from_api()  # First, try to set self.api_entry
             if self.api_entry:  # Not an empty dict
+                found_api_entry = True
                 if self.biological_assembly:
                     # As API returns information on the asu, assembly may be different.
                     # We fetch API info for assembly, so we try to reconcile
                     multimodel = self.is_multimodel()
                     for entity_name, data in self.api_entry.get('entity', {}).items():
                         chains = data['chains']
-                        for cluster_chains in self.api_entry.get('assembly', []):
+                        assembly_data = self.api_entry.get('assembly', [])
+                        for cluster_chains in assembly_data:
                             if not set(cluster_chains).difference(chains):  # nothing missing, correct cluster
                                 self.entity_info[entity_name] = data
                                 if multimodel:  # Ensure the renaming of chains is handled correctly
@@ -3131,30 +3143,28 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                                 #     self.entity_info[entity_name] = data
                                 break  # we satisfied this cluster, move on
                         else:  # if we didn't satisfy a cluster, report and move to the next
-                            self.log.error('Unable to find the chains corresponding from entity (%s) to assembly (%s)'
-                                           % (entity_name, self.api_entry.get('assembly', {})))
+                            self.log.error(f'Unable to find the chains corresponding from Entity {entity_name} to '
+                                           f'assembly {self.biological_assembly} with data {assembly_data}')
                 else:  # We can't be certain of the requested biological assembly
                     for entity_name, data in self.api_entry.get('entity', {}).items():
                         self.entity_info[entity_name] = data
-                # Todo this was commented out because nucleotides can't be parsed. This issue still needs solving
-                # Check to see that the entity_info is in line with the number of chains already parsed
-                found_entity_chains = [chain for data in self.entity_info.values() for chain in data.get('chains', [])]
-                if len(self.chain_ids) != len(found_entity_chains):
-                    if self.nucleotides_present:
-                        raise NotImplementedError(f"The parsing and integration of nucleotides hasn't been worked out")
-                    # We didn't get this correct, so use the Structure attributes only
-                    self._get_entity_info_from_atoms(**kwargs)
             else:  # Still nothing, the API didn't work for self.name. Solve by atom information
+                found_api_entry = False
+                # Get rid of any information already acquired
+                self.entity_info = {}
                 self._get_entity_info_from_atoms(**kwargs)
                 if query_by_sequence and entity_names is None:
                     for entity_name, data in list(self.entity_info.items()):  # Make a new list to prevent pop issues
                         # Todo incorporate wrapapi call to fetch from local sequence db
-                        pdb_api_name = query.pdb.retrieve_entity_id_by_sequence(data['sequence'])
-                        if pdb_api_name:
-                            pdb_api_name = pdb_api_name.lower()
-                            self.log.info(f'Entity {entity_name} now named "{pdb_api_name}", as found by PDB API '
+                        pdb_api_entity_id = query.pdb.retrieve_entity_id_by_sequence(data['reference_sequence'])
+                        if pdb_api_entity_id:
+                            pdb_api_entity_id = pdb_api_entity_id.lower()
+                            self.log.info(f'Entity {entity_name} now named "{pdb_api_entity_id}", as found by PDB API '
                                           f'sequence search')
-                            self.entity_info[pdb_api_name] = self.entity_info.pop(entity_name)
+                            self.entity_info[pdb_api_entity_id] = self.entity_info.pop(entity_name)
+        else:
+            found_api_entry = False
+
         if entity_names is not None:
             for idx, entity_name in enumerate(list(self.entity_info.keys())):  # Make a new list to prevent pop issues
                 try:
@@ -3167,42 +3177,70 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self.entity_info[new_entity_name] = self.entity_info.pop(entity_name)
                 self.log.debug(f'Entity {entity_name} now named "{new_entity_name}", as supplied by entity_names')
 
-        # if self.api_db:
-        try:
-            # retrieve_api_info = self.api_db.pdb.retrieve_data
-            retrieve_api_info = resources.wrapapi.api_database_factory().pdb.retrieve_data
-        except AttributeError:
-            retrieve_api_info = query.pdb.query_pdb_by
+        # Check to see that the parsed entity_info is compatible with the chains already parsed
+        if found_api_entry:  # found_api_entry is set only if self.retrieve_pdb_info_from_api was called above
+            # found_entity_chains = [chain for data in self.entity_info.values() for chain in data.get('chains', [])]
+            # if len(self.chain_ids) != len(found_entity_chains):
+            if self.nucleotides_present:
+                raise NotImplementedError(f"The parsing and integration of nucleotides hasn't been worked out")
+            max_reference_sequence = 0
+            # Remove all previously found chains
+            for data in self.entity_info.values():
+                data['chains'] = []
+                reference_sequence_length = len(data['reference_sequence'])
+                if reference_sequence_length > max_reference_sequence:
+                    max_reference_sequence = reference_sequence_length
+            max_chain_sequence = 0
+            # Remove all previously found chains
+            for chain in self.chains:
+                chain_sequence_length = chain.number_of_residues
+                if chain_sequence_length > max_chain_sequence:
+                    max_chain_sequence = chain_sequence_length
 
-        api_entry_entity = self.api_entry.get('entity', {})
-        if not api_entry_entity:
-            self.api_entry['entity'] = api_entry_entity
+            # Provide an expected because we are using a reference sequence which could be much longer than
+            # the chain sequence
+            tolerance = (max_chain_sequence - max_reference_sequence) / max_reference_sequence
+            # We didn't get this correct, so use the Structure attributes to fix
+            self._get_entity_info_from_atoms(tolerance=tolerance, **kwargs)
+        else:
+            entity_api_entry = {}
+            self.api_entry = {'entity': entity_api_entry}
+            # entity_api_entry = self.api_entry.get('entity', {})
+            # if not entity_api_entry:
+            #     self.api_entry['entity'] = entity_api_entry
+            # if self.api_db:
+            try:
+                # retrieve_api_info = self.api_db.pdb.retrieve_data
+                retrieve_api_info = resources.wrapapi.api_database_factory().pdb.retrieve_data
+            except AttributeError:
+                retrieve_api_info = query.pdb.query_pdb_by
 
+            for entity_name, data in self.entity_info.items():
+                # update_entity_info_from_api(new_entity_name)
+                # def update_entity_info_from_api(entity_name: str):
+                entity_api_data: dict = retrieve_api_info(entity_id=entity_name)
+                """entity_api_data takes the format:
+                {'EntityID': 
+                    {'chains': ['A', 'B', ...],
+                     'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
+                     'reference_sequence': 'MSLEHHHHHH...',
+                     'thermophilic': True},
+                 ...}
+                This is the final format of each entry in the self.entity_info dictionary
+                """
+                # Set the parent self.api_entry['entity']
+                # If the entity_name is already present, we expect that self.entity_info is already solved
+                if entity_api_data:  # and entity_name not in entity_api_entry:
+                    entity_api_entry.update(entity_api_data)
+                    # Respect already solved 'chains' info in self.entity_info
+                    if data.get('chains', {}):
+                        # Remove entity_api_data 'chains'
+                        entity_api_data[entity_name].pop('chains')
+                    # Update the entity_info with the entity_api_data
+                    data.update(entity_api_data[entity_name])
+
+        # Finish processing by cleaning data and preparing for Entity()
         for entity_name, data in self.entity_info.items():
-            # update_entity_info_from_api(new_entity_name)
-            # def update_entity_info_from_api(entity_name: str):
-            entity_api_data: dict = retrieve_api_info(entity_id=entity_name)
-            """entity_api_data takes the format:
-            {'EntityID': 
-                {'chains': ['A', 'B', ...],
-                 'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
-                 'reference_sequence': 'MSLEHHHHHH...',
-                 'thermophilic': True},
-             ...}
-            This is the final format of each entry in the self.entity_info dictionary
-            """
-            # Set the parent self.api_entry['entity']
-            # If the entity_name is already present, we expect that self.entity_info is already solved
-            if entity_api_data and entity_name not in api_entry_entity:
-                api_entry_entity.update(entity_api_data)
-                # Respect already solved 'chains' info in self.entity_info
-                if data.get('chains', {}):
-                    # Remove entity_api_data 'chains'
-                    entity_api_data[entity_name].pop('chains')
-                # Update the entity_info with the entity_api_data
-                data.update(entity_api_data[entity_name])
-
-        # for entity_name, data in self.entity_info.items():
             # For each Entity, get matching Chain instances
             # Add any missing information to the individual data dictionary
             # dbref = data.get('dbref', None)
@@ -3216,6 +3254,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 if db_source == query.utils.UKB:  # This is a protein
                     uniprot_ids = dbref['accession']
                     # Todo put all Entity.from_chains() in this flow control segment
+                    #  once uniprot_ids can be queried with blastp
                 elif db_source == query.utils.GB:  # Nucleotide
                     self.log.critical(f'Found a PDB API database source of {db_source} for the Entity {entity_name}'
                                       f'This is currently not parsable')
@@ -3242,35 +3281,29 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             # # else:
             # entity_data['reference_sequence'] = data['reference_sequence'] = reference_sequence
             if 'reference_sequence' not in data:
-                new_reference_sequence = data.get('sequence')
-                if new_reference_sequence is None:
-                    # We should try to set using the entity_name
-                    # Todo transition to wrap_api
-                    new_reference_sequence = query.pdb.get_entity_reference_sequence(entity_id=entity_name)
+                # This is only possible when self.entity_info was set during __init__()
+                # This should not be possible with the passing of an explicit list[sql.ProteinMetadata class]
+                # new_reference_sequence = data.get('sequence')
+                # if new_reference_sequence is None:
+                # We should try to set using the entity_name
+                # Todo transition to wrap_api
+                new_reference_sequence = query.pdb.get_entity_reference_sequence(entity_id=entity_name)
                 # else:  # We set from Atom info
                 #     reference_sequence = sequence
                 data['reference_sequence'] = new_reference_sequence
 
             # Set up a new dictionary with the modified keyword 'chains' which refers to Chain instances
-            data_chains = data.get('chains', [])
+            # data_chains = data.get('chains', [])
+            data_chains = set(data.get('chains', []))
             chains = [self.chain(chain) if isinstance(chain, str) else chain for chain in data_chains]
             entity_data = {
                 **data,  # Place the original data in the new dictionary
                 'uniprot_ids': uniprot_ids,
                 'chains': [chain for chain in chains if chain]}  # remove any missing chains
-            # # get uniprot ID if the file is from the PDB and has a DBREF remark
-            # try:
-            #     accession = self.dbref.get(data['chains'][0].chain_id, None)
-            # except IndexError:  # we didn't find any chains. It may be a nucleotide structure
-            #     continue
-            # try:  # Todo clean here and the above entity vs chain len checks with nucleotide parsing
-            #     chain_check_to_account_for_inability_to_parse_nucleotides = entity_data['chains'][0]
             if len(entity_data['chains']) == 0:
-            #     # We missed a chain from the entity_info. We probably have a nucleotide at the moment
-            # except IndexError:  # we didn't find any chains. It may be a nucleotide structure
                 self.log.warning(f'Missing associated chains for the Entity {entity_name} with data: '
                                  f"self.chain_ids={self.chain_ids}, entity_data['chains']={entity_data['chains']}, "
-                                 f"data['chains']={data_chains}"
+                                 f"data['chains']={data_chains}, "
                                  f'{", ".join(f"{k}={v}" for k, v in data.items())}')
                 continue
             #     raise utils.DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and '
@@ -3296,16 +3329,21 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         """
         if tolerance > 1:
             raise ValueError(f"{self._get_entity_info_from_atoms.__name__} tolerance={tolerance}. Can't be > 1")
-        entity_idx = count(1)
-        # Get rid of any information already acquired
-        existing_entity_info = self.entity_info
-        self.entity_info = {}
+
+        if not self.entity_info:
+            # We are starting from scratch. Assume that all chains are new_entities
+            start_from_scratch = True
+            entity_idx = count(1)
+        else:
+            start_from_scratch = False
+            entity_idx = count(1 + len(self.entity_info))
+        # # Get rid of any information already acquired
+        # existing_entity_info = self.entity_info
+        # self.entity_info = {}
         # self.entity_info = {f'{self.name}_{entity_idx}':
         #                     dict(chains=[self.chains[0]], sequence=self.chains[0].sequence)}
         for chain in self.chains:
             self.log.debug(f'Searching for matching Entities for Chain {chain.name}')
-            # Assume all chains are unique entities
-            new_entity = True
             for entity_name, data in self.entity_info.items():
                 # Todo implement structure check
                 #  rmsd_threshold = 1.  # threshold needs testing
@@ -3318,7 +3356,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 #      new_entity = False  # The entity is not unique, do not add
                 #      break
                 # Check if the sequence associated with the Chain is in entity_info
-                sequence = data['sequence']
+                sequence = data['reference_sequence']
                 if chain.sequence == sequence:
                     score = len(chain.sequence)
                 else:
@@ -3332,29 +3370,31 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 length_proportion = (large_sequence_length-small_sequence_length) / large_sequence_length
                 self.log.debug(f'Chain {chain.name} to Entity {entity_name} has {match_score:.2f} identity '
                                f'and {length_proportion:.2f} length difference')
-                if match_score >= tolerance and length_proportion <= 1-tolerance:
+                if match_score >= tolerance and length_proportion <= 1 - tolerance:
                     self.log.debug(f'Chain {chain.name} matches Entity {entity_name}')
                     # If number of sequence matches is > tolerance, and the length difference < tolerance
                     # the current chain is the same as the Entity, add to chains, and move on to the next chain
                     data['chains'].append(chain)
-                    new_entity = False  # The entity is not unique, do not add
+                    # The entity is not unique, do not add
                     break
-
-            if new_entity:  # No existing entity matches, add new entity
+            else:  # We didn't find a match, this is new
+                if not start_from_scratch:
+                    self.log.warning(f"Couldn't find a matching Entity from those existing for Chain {chain.name}")
+            # if new_entity:  # No existing entity matches, add new entity
                 entity_name = f'{self.name}_{next(entity_idx)}'
                 self.log.debug(f'Chain {chain.name} is a new Entity "{entity_name}"')
-                self.entity_info[entity_name] = dict(chains=[chain], sequence=chain.sequence)
+                self.entity_info[entity_name] = dict(chains=[chain], reference_sequence=chain.sequence)
 
         self.log.debug(f'Entity information was solved by {method} match')
 
-        # Check if information was found from PDB API, but was not accurate with regard to chains. Add existing info
-        if existing_entity_info:
-            for entity_name, data in self.entity_info.items():
-                original_entity_data = existing_entity_info.get(entity_name)
-                if original_entity_data:
-                    original_entity_data.pop('chains', None)
-                    original_entity_data.pop('sequence', None)
-                    data.update(original_entity_data)
+        # # Check if information was found from PDB API, but was not accurate with regard to chains. Add existing info
+        # if existing_entity_info:
+        #     for entity_name, data in self.entity_info.items():
+        #         original_entity_data = existing_entity_info.get(entity_name)
+        #         if original_entity_data:
+        #             original_entity_data.pop('chains', None)
+        #             original_entity_data.pop('sequence', None)
+        #             data.update(original_entity_data)
 
     def entity_from_chain(self, chain_id: str) -> Entity | None:
         """Return the entity associated with a particular chain id"""
