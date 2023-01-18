@@ -489,6 +489,7 @@ def interface_design(job: pose.PoseJob):
     # job.pose.combine_sequence_profiles()
     # I could also add the combined profile here instead of at each Entity
     # job.pose.calculate_profile(favor_fragments=favor_fragments)
+    # Todo this is required to simplify pose.profile from each source
     job.pose.add_profile(evolution=job.job.design.evolution_constraint,
                          fragments=job.job.design.term_constraint, favor_fragments=favor_fragments,
                          out_dir=job.job.api_db.hhblits_profiles.location)
@@ -563,7 +564,7 @@ def design(job: pose.PoseJob):
     # job.pose.combine_sequence_profiles()
     # I could also add the combined profile here instead of at each Entity
     # job.pose.calculate_profile(favor_fragments=favor_fragments)
-    # Todo this is required to add evolution. Nee to make above if add it if not or combine below method with generate_evolutionary_profile()
+    # Todo this is required to simplify pose.profile from each source
     job.pose.add_profile(evolution=job.job.design.evolution_constraint,
                          fragments=job.job.design.term_constraint, favor_fragments=favor_fragments,
                          out_dir=job.job.api_db.hhblits_profiles.location)

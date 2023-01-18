@@ -3756,7 +3756,7 @@ class Models(Model):
     PDB files that share a common element.
     """
     _models_coords: Coords
-    models: list[Model]
+    models: list[Model]  # Could be SymmetricModel/Pose
     # state_attributes: set[str] = Model.state_attributes | {'_models_coords'}
 
     def __init__(self, models: Iterable[Model] = None, **kwargs):
@@ -4244,7 +4244,7 @@ class SymmetricModel(Models):
         try:
             return utils.symmetry.space_group_number_operations[self.symmetry]
         except KeyError:
-            raise SymmetryError(f'The symmetry "{self.symmetry}" is not an available unit cell at this time. If '
+            raise SymmetryError(f"The symmetry '{self.symmetry}' isn't an available unit cell at this time. If "
                                 'this is a point group, adjust your code, otherwise, help expand the code to '
                                 'include the symmetry operators for this symmetry group')
 
@@ -4288,6 +4288,7 @@ class SymmetricModel(Models):
         try:  # To see if the coords setting doesn't require updating attributes in the case we are doing ourselves
             self._no_reset  # This is only set in Pose now
         except AttributeError:
+            # self.log.debug(f'Resetting {self.__class__.__name__} state_attributes')
             self.reset_state()
 
     @property
@@ -4389,6 +4390,7 @@ class SymmetricModel(Models):
         try:
             return self._center_of_mass_symmetric_entities
         except AttributeError:
+            # self.log.debug(f"Creating _center_of_mass_symmetric_entities")
             self._center_of_mass_symmetric_entities = [self.return_symmetric_coords(entity.center_of_mass)
                                                        for entity in self.entities]
             return self._center_of_mass_symmetric_entities
@@ -4427,7 +4429,7 @@ class SymmetricModel(Models):
             self.log.debug(f'Found selected models {interacting_model_indices} for assembly')
 
             chains = []
-            for idx in [0] + interacting_model_indices:  # add the ASU to the model first
+            for idx in [0] + interacting_model_indices:  # Add the ASU to the model first
                 chains.extend(self.models[idx].chains)
             self._assembly_minimally_contacting = \
                 Model.from_chains(chains, name=f'{self.name}-minimal-assembly', log=self.log,
@@ -4437,6 +4439,13 @@ class SymmetricModel(Models):
             # self.assembly.write(out_path=os.path.join(os.getcwd(), 'debug_assembly.pdb'))
 
             return self._assembly_minimally_contacting
+
+    # def report_symmetric_coords_issue(self, func_name: str):
+    #     """Debug the symmetric coords for equallity across instances"""
+    #     self.log.debug(f'In {func_name}, coords and symmetric_coords (ASU) equal: '
+    #                    f'{self.coords == self.symmetric_coords[:self.number_of_atoms]}\n'
+    #                    f'coords {np.array_str(self.coords[:2], precision=2)}\n'
+    #                    f'symmetric_coords {np.array_str(self.symmetric_coords[:2], precision=2)}')
 
     def generate_symmetric_coords(self, surrounding_uc: bool = True):
         """Expand the asu using self.symmetry for the symmetry specification, and optional unit cell dimensions if
@@ -4475,12 +4484,8 @@ class SymmetricModel(Models):
 
         # Set the self.symmetric_coords property
         self._models_coords = Coords(symmetric_coords)
-        # Todo remove
-        # equal = self.coords == self.symmetric_coords[:self.number_of_atoms]
-        # self.log.critical(f'The self.coords and the self.symmetric_coords asu are equal? {equal}')
-        # print('IN GENERATE SYMMETRIC COORDS')
-        # self.log.critical(f'self.coords {self.coords[:2]} '
-        #                   f'and\nself.symmetric_coords {self.symmetric_coords[:2]}')
+        # Tod0 remove
+        # self.report_symmetric_coords_issue(self.generate_symmetric_coords.__name__)
 
     def cart_to_frac(self, cart_coords: np.ndarray | Iterable | int | float) -> np.ndarray:
         """Return fractional coordinates from cartesian coordinates
@@ -4560,16 +4565,54 @@ class SymmetricModel(Models):
         number_of_symmetry_mates = self.number_of_symmetry_mates
         if len(self.models) != number_of_symmetry_mates:
             # self.log.debug(f'Generating symmetry mates')
+            # found__coords_ids = []
             for _ in range(number_of_symmetry_mates):
                 symmetry_mate = self.copy()
                 self.models.append(symmetry_mate)
+                # new_id = id(symmetry_mate._coords)
+                # if new_id in found__coords_ids:
+                #     input(f"Found idx {_} which has existing id to {new_id}. self._coords id = {id(self._coords)}")
+                # else:
+                #     found__coords_ids.append(new_id)
 
         # Update all models with the symmetric_coords
         number_of_atoms = self.number_of_atoms
         symmetric_coords = self.symmetric_coords
         # self.log.debug(f'Setting symmetry mate coordinates')
+        # model_coord_ids = []
+        # model__coord_ids = []
+        # model_models_coord_ids = []
+        # model__models_coord_ids = []
         for model_idx, model in enumerate(self.models):
             model.coords = symmetric_coords[model_idx * number_of_atoms: (model_idx+1) * number_of_atoms]
+        #     # We have to reset since the new .coords are spatially different
+        #     # model._no_reset = True
+        #     print(f'Found model index {model_idx}, '
+        #           f'slice[{model_idx * number_of_atoms}:{(model_idx+1) * number_of_atoms}]')
+        #     setting_coords = symmetric_coords[model_idx * number_of_atoms: (model_idx+1) * number_of_atoms]
+        #     # print(f"Setting the coordinates to model.coords: {setting_coords[:2]}")
+        #     print(f"self.coords before: {self.coords[:2]}")
+        #     print(f"self._atom_indices before: {self._atom_indices[:2]}")
+        #     model.coords = setting_coords
+        #     # print(f"setting_coords now set as model.coords: {setting_coords[:2]}")
+        #     print(f"self.coords after: {self.coords[:2]}")
+        #     print(f"self._atom_indices after: {self._atom_indices[:2]}")
+        #     # del model._no_reset
+        #     model_coord_ids.append(id(model.coords))
+        #     model__coord_ids.append(id(model._coords))
+        #     model_models_coord_ids.append(id(model.models_coords))
+        #     model__models_coord_ids.append(id(model._models_coords))
+        #
+        # print(f"self._coords id = {id(self._coords)}")
+        # # print(f"Found the model.coord_ids: {', '.join(map(str, model_coord_ids))}\nset: {set(model_coord_ids)}")
+        # # print(f"Found the model._coord_ids: {', '.join(map(str, model__coord_ids))}\nset: {set(model__coord_ids)}")
+        # # print(f"Found the model.coords: {[model.coords[0] for model in self.models]}")
+        # print(f"Found the model.models_coords_ids: {', '.join(map(str, model_models_coord_ids))}\nset: {set(model_models_coord_ids)}")
+        # print(f"Found the model._models_coords_ids: {', '.join(map(str, model__models_coord_ids))}\nset: {set(model__models_coord_ids)}")
+        # print(f"Found the model.coords: {[model.coords[0] for model in self.models]}")
+        # print(f"Found the model.symmetric_coords ids: {[id(model._models_coords.coords) for model in self.models]}")
+        # print(f"Found the model.symmetric_coords: {[model.symmetric_coords[0] for model in self.models]}")
+        self.log.debug(f"Found {self.number_of_models} models in {self.generate_assembly_symmetry_models.__name__}")
 
     @property
     def asu_model_index(self) -> int:
@@ -4692,15 +4735,10 @@ class SymmetricModel(Models):
             # bb_cb_indices = None if self.coords_type == 'bb_cb' else self.backbone_and_cb_indices
             # asu_bb_cb_indices = self.backbone_and_cb_indices
             # self.generate_assembly_tree()
-            # Todo remove
-            # equal = self.coords == self.symmetric_coords[:self.number_of_atoms]
-            # self.log.critical(f'The self.coords and the self.symmetric_coords asu are equal? {equal}')
-            # print('***IN GET_ASU', len(self.coords), '=', self.number_of_atoms)
-            # self.log.critical(f'self.coords {self.coords[:2]} '
-            #                   f'and self.symmetric_coords {self.symmetric_coords[:2]}')
-            # asu_query = self.assembly_tree.query_radius(self.coords[self.backbone_and_cb_indices], distance)
-            # Temporary fix...
-            asu_query = self.assembly_tree.query_radius(self.symmetric_coords[self.backbone_and_cb_indices], distance)
+            # Tod0 remove
+            # self.report_symmetric_coords_issue(self.get_asu_interaction_model_indices.__name__)
+
+            asu_query = self.assembly_tree.query_radius(self.coords[self.backbone_and_cb_indices], distance)
             # coords_length = len(bb_cb_indices)
             # contacting_model_indices = [assembly_idx // coords_length
             #                             for asu_idx, assembly_contacts in enumerate(asu_query)
@@ -4789,8 +4827,8 @@ class SymmetricModel(Models):
         try:
             jump_size = getattr(self, f'number_of_{dtype}s')
         except AttributeError:
-            raise AttributeError(f'The dtype number_of_{dtype} was not found in the {type(self).__name__} object. '
-                                 f'Possible values of dtype are "atom" or "residue"')
+            raise AttributeError(f"The dtype 'number_of_{dtype}' wasn't found in the {type(self).__name__} object. "
+                                 f"'Possible values of dtype are 'atom' or 'residue''")
 
         return [idx + jump_size*model_num for model_num in range(self.number_of_symmetry_mates) for idx in indices]
         # symmetric_indice = [] + indices
@@ -4883,7 +4921,8 @@ class SymmetricModel(Models):
                 elif self.dimension == 2:
                     z_shifts = [0.]
                 else:
-                    raise SymmetryError(f"The specified dimension '{self.dimension}' isn't crystalline")
+                    raise SymmetryError(
+                        f"The specified symmetry {self.symmetry} dimension ({self.dimension}) isn't crystalline")
 
                 uc_frac_coords = self.return_unit_cell_coords(coords, fractional=True)
                 surrounding_frac_coords = \
@@ -5245,7 +5284,7 @@ class SymmetricModel(Models):
                                                 translation2=external_tx[group_idx]))
                 asu_indices.append(entity_asu_indices)
 
-        # Todo find the particular rotation to orient the Entity oligomer to a cannonical orientation. This must
+        # Todo find the particular rotation to orient the Entity oligomer to a canonical orientation. This must
         #  accompany standards required for the SymDesign Database for actions like refinement
 
         # def set_contacting_asu(from_com: bool = True):
@@ -5490,6 +5529,8 @@ class SymmetricModel(Models):
             transformations: The entity_transformations operations that reproduce the individual oligomers
         """
         if transformations is None or not all(transformations):  # Can't use is None:, could be an empty list
+            # If this fails then the symmetry is failed... We shouldn't get an empty list back as
+            # _assign_pose_transformation() will raise a SymmetryError
             transformations = self.entity_transformations
 
         for entity, subunit_number, symmetry, transformation in zip(self.entities, self.sym_entry.group_subunit_numbers,
@@ -5531,7 +5572,7 @@ class SymmetricModel(Models):
             # Last, we take out those indices that are inclusive of the model_asu_indices like below
             return self._assembly_tree
 
-    def orient(self, symmetry: str = None):  # similar function in Entity
+    def orient(self, symmetry: str = None):  # Similar function in Entity
         """Orient is not available for SymmetricModel!
         Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
 
@@ -5584,11 +5625,11 @@ class SymmetricModel(Models):
             if self.is_symmetric():
                 # symmetric_model_write(outfile)
                 # def symmetric_model_write(handle):
-                if assembly:  # will make models and use next logic steps to write them out
+                if assembly:  # Will make models and use next logic steps to write them out
                     self.generate_assembly_symmetry_models(**kwargs)
                     # self.models is populated, use Models.write() to finish
                     super(SymmetricModel, SymmetricModel).write(self, file_handle=handle, **kwargs)
-                else:  # skip models, write asu using biomt_record/cryst_record for sym
+                else:  # Skip models, write asu using biomt_record/cryst_record for sym
                     for entity in self.entities:
                         entity.write(file_handle=handle, **kwargs)
             else:  # Use Model.write() to finish
@@ -6862,7 +6903,7 @@ class Pose(SymmetricModel, Metrics):
             # return
         else:
             sym_string = ''
-            entity2_coords = self.coords[entity2_indices]  # only get the coordinate indices we want
+            entity2_coords = self.coords[entity2_indices]  # Only get the coordinate indices we want
 
         # Construct CB tree for entity1 and query entity2 CBs for a distance less than a threshold
         entity1_coords = self.coords[entity1_indices]  # Only get the coordinates we specified

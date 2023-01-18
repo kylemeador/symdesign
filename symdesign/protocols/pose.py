@@ -1343,8 +1343,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
             if self.job.write_oligomers:  # Write out new oligomers to the PoseJob
                 for idx, entity in enumerate(self.pose.entities):
-                    entity.write(oligomer=True,
-                                 out_path=os.path.join(self.out_directory, f'{entity.name}_oligomer.pdb'))
+                    oligomer_path = os.path.join(self.out_directory, f'{entity.name}_oligomer.pdb')
+                    entity.write(oligomer=True, out_path=oligomer_path)
+                    self.log.info(f'Entity {entity.name} oligomer written to: "{oligomer_path}"')
+
             # If we have an empty list for the pose_transformation, save the identified transformations from the Pose
             if not self.transformations:
                 # Todo make sure that his is self.job.current_session.commit
@@ -1384,8 +1386,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                         # break
                 # if not rename_success:
                 if not new_success and not same_success:
-                    raise DesignError('Your requested fusion of chain %s with chain %s didn\'t work!' %
-                                      (fusion_nterm, fusion_cterm))
+                    raise DesignError(f"Your requested fusion of chain {fusion_nterm} with chain {fusion_cterm} didn't "
+                                      f"work!")
                     # self.log.critical('Your requested fusion of chain %s with chain %s didn\'t work!' %
                     #                   (fusion_nterm, fusion_cterm))
                 else:  # won't be accessed unless entity_new_chain_idx is set
