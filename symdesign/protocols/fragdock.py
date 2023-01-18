@@ -347,7 +347,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
 
         # Make, then save a new model based on the symmetric version of each Entity in the Model
         _model = Model.from_chains([chain for entity in model.entities
-                                    for chain in entity.chains], name=model.name, log=logger)
+                                    for chain in entity.chains],  # log=logger
+                                   entity_info=model.entity_info, name=model.name)
         _model.file_path = model.file_path
         _model.fragment_db = job.fragment_db
         # Ensure we pass the .metadata attribute to each entity in the full assembly
