@@ -4990,7 +4990,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 other._parent = self.parent.spawn
             except AttributeError:  # Copy was not initiated by the parent, set this Structure as parent
                 self.log.debug(f'The copied {type(self).__name__} {self.name} is being set as a parent. '
-                               f'It was a dependent previously')
+                               'It was a dependent previously')
                 other.detach_from_parent()
                 other._copy_structure_containers()
                 other._update_structure_container_attributes(_parent=other)
