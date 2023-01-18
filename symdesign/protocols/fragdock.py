@@ -1856,6 +1856,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
             # logger.debug(f'Equality of tsnfmd and original {np.allclose(tsnfmd, entity_start_coords[entity_idx])}')
             # logger.debug(f'tsnfmd: {tsnfmd[:5]}')
             # logger.debug(f'start_coords: {entity_start_coords[entity_idx][:5]}')
+            # logger.debug(f'entity_start_coords{entity_idx + 1}: {entity_start_coords[entity_idx][:2]}')
             new_coords.append(transform_coordinate_sets(entity_start_coords[entity_idx],
                                                         **specific_transformations[transform_indices[entity_idx]]))
         pose.coords = np.concatenate(new_coords)
@@ -1904,7 +1905,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         logger.warning(f'Not checking for symmetric clashes per requested flag --{flags.ignore_symmetric_clashes}')
         passing_symmetric_clash_indices_perturb = slice(None)
     else:
-        logger.warning('Checking solutions for symmetric clashes')
+        logger.info('Checking solutions for symmetric clashes')
         if sym_entry.unit_cell:
             # Calculate the vectorized uc_dimensions
             full_uc_dimensions = sym_entry.get_uc_dimensions(full_optimal_ext_dof_shifts)
