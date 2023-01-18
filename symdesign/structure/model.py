@@ -3870,15 +3870,16 @@ class SymmetricModel(Models):
     _dimension: int
     _no_reset: bool
     _number_of_symmetry_mates: int
-    _point_group_symmetry: str
-    _transformation: list[transformation_mapping] | list[dict]
     _oligomeric_model_indices: dict[Entity, list[int]]
+    _point_group_symmetry: str
     _sym_entry: utils.SymEntry.SymEntry | None
     _symmetry: str
     _symmetric_coords_by_entity: list[np.ndarray]
     _symmetric_coords_split: list[np.ndarray]
     _symmetric_coords_split_by_entity: list[list[np.ndarray]]
+    _transformation: list[transformation_mapping] | list[dict]
     _uc_dimensions: tuple[float, float, float, float, float, float] | None
+    # Todo can I set the orthogonalization_matrix here?
     deorthogonalization_matrix: np.ndarray = utils.symmetry.identity_matrix
     expand_matrices: np.ndarray | list[list[float]] | None
     expand_translations: np.ndarray | list[float] | None
@@ -4655,7 +4656,7 @@ class SymmetricModel(Models):
             # entity_length = entity.number_of_atoms
             # entity_center_of_mass_divisor = np.full(entity_length, 1 / entity_length)
             equivalent_models = []
-            for chain in entity.chains:
+            for chain_idx, chain in enumerate(entity.chains):
                 chain_center_of_mass = chain.center_of_mass
                 for model_idx, sym_model_center_of_mass in enumerate(entity_symmetric_centers_of_mass):
                     # sym_model_center_of_mass = \
@@ -4663,7 +4664,8 @@ class SymmetricModel(Models):
                     #               self.symmetric_coords[model_idx*number_of_atoms + entity_start:
                     #                                     model_idx*number_of_atoms + entity_end + 1])
                     # #                                             have to add 1 for slice ^
-                    if np.linalg.norm(chain_center_of_mass - sym_model_center_of_mass) < epsilon:
+                    com_norm = np.linalg.norm(chain_center_of_mass - sym_model_center_of_mass)
+                    if com_norm < epsilon:
                         equivalent_models.append(model_idx)
                         self.log.debug(f'Entity.chain{chain_idx}/Sym-model{model_idx} center of mass overlap')
                         break
@@ -4732,7 +4734,7 @@ class SymmetricModel(Models):
             #                             for assembly_idx in assembly_contacts]
             # interacting_models = sorted(set(contacting_model_indices))
             # combine each subarray of the asu_query and divide by the assembly_tree interval length -> len(asu_query)
-            interacting_models = (np.unique(np.concatenate(asu_query) // len(asu_query)) + 1).tolist()
+            interacting_models = (np.unique(np.concatenate(asu_query)//len(asu_query)) + 1).tolist()
             # asu is missing from assembly_tree so add 1 to get correct model index ^
         else:
             # distance = self.asu.radius * 2  # value too large self.radius * 2
@@ -4776,9 +4778,8 @@ class SymmetricModel(Models):
         for model_number in self.oligomeric_model_indices.get(entity):
             # start_idx = number_of_atoms * model_number
             # end_idx = number_of_atoms * (model_number + 1)
-            oligomeric_atom_indices.extend(list(range(number_of_atoms * model_number,
-                                                      number_of_atoms * (model_number + 1))))
-
+            oligomeric_atom_indices.extend(range(number_of_atoms * model_number,
+                                                 number_of_atoms * (model_number + 1)))
         return oligomeric_atom_indices
 
     def get_asu_interaction_indices(self, **kwargs) -> list[int]:
@@ -4797,7 +4798,7 @@ class SymmetricModel(Models):
         # number_of_atoms = len(self.coords)
         for model_number in model_numbers:
             start_idx = number_of_atoms * model_number
-            end_idx = number_of_atoms * (model_number + 1)
+            end_idx = number_of_atoms * (model_number+1)
             interacting_indices.extend(list(range(start_idx, end_idx)))
 
         return interacting_indices
@@ -5229,8 +5230,11 @@ class SymmetricModel(Models):
                             pass
                 # If a viable group was found save the group COM as an internal_tx and setting_matrix used to find it
                 if centrally_disposed_group_height is not None:
-                    if setting_matrix is not None and internal_tx is not None:
-                        # There is an alternative solution. Is it better? Or is it a degeneracy?
+                    if setting_matrix is None and internal_tx is None:
+                        # These were not set yet
+                        set_solution()
+                        current_best_minimal_central_offset = minimal_central_offset
+                    else:  # There is an alternative solution. Is it better? Or is it a degeneracy?
                         if minimal_central_offset < current_best_minimal_central_offset:
                             # The new one if it is less offset
                             set_solution()
@@ -5246,9 +5250,6 @@ class SymmetricModel(Models):
                                 set_solution()
                         else:  # The central offset is larger
                             pass
-                    else:  # These were not set yet
-                        set_solution()
-                        current_best_minimal_central_offset = minimal_central_offset
                 else:  # No viable group probably because the setting matrix was wrong. Continue with next
                     pass
 
