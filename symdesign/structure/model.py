@@ -1100,8 +1100,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         """Set the Coords object while propagating changes to symmetric "mate" chains"""
         if self._is_oligomeric and self._is_captain:
             # **This routine handles imperfect symmetry**
-            # self.log.debug('Entity captain is modifying coords')
-            # must do these before super().coords.fset()
+            self.log.debug('Entity captain is updating coords')
+            # Must do these before super().coords.fset()
             # Populate .chains (if not already) with current coords and transformation
             current_chains = self.chains
             # Set current .ca_coords as prior_ca_coords
@@ -1420,7 +1420,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         if len(self._chains) == 1 and self._chain_transforms and self._is_captain:
             # populate ._chains with Entity mates
             # These mates will be their own "parent", and will be under the control of this instance, ie. the captain
-            self.log.debug(f'Generating Entity mates as .chains')
+            self.log.debug('Generating mate Entity instances in "chains" attribute')
             self._chains.extend([self.get_transformed_mate(**transform) for transform in self._chain_transforms])
             chain_ids = self.chain_ids
             # self.log.debug(f'Entity chains property has {len(self._chains)} chains because the underlying '
@@ -2331,7 +2331,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             other._captain = None  # Initialize the copy as a captain -> None
             if self.is_dependent() and other.is_dependent():
                 # A parent is making the copy. Update all structure_containers with new instance accordingly
-                self.log.debug('is parent copy_structure_containers')
+                # self.log.debug('is parent copy_structure_containers')
                 # We must update the structure_containers as this wasn't performed by Structure.copy()
                 other._copy_structure_containers()
             # other._update_structure_container_attributes(_parent=other)
@@ -2537,6 +2537,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             query_by_sequence: bool = True - Whether the PDB API should be queried for an Entity name by matching sequence. Only used
                 if entity_names not provided
         """
+        # self.log.debug('_process_model')
         # Add lists together, only one is populated from class construction
         structures = (chains if isinstance(chains, (list, Structures)) else []) + \
                      (entities if isinstance(entities, (list, Structures)) else [])
@@ -2610,6 +2611,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self.chains = self.entities
                 # self.chain_ids = [chain.name for chain in self.chains]
             else:  # Create Entities from Chain.Residues
+                # self.log.debug('_process_model create_entities')
                 self._create_entities(**kwargs)
 
             if not self.chain_ids:  # set according to self.entities
@@ -3175,7 +3177,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                                           f'sequence search')
                             self.entity_info[pdb_api_entity_id] = self.entity_info.pop(entity_name)
         else:
-            found_api_entry = False
+            # self.log.debug(f"_create_entities entity_info={self.entity_info}")
+            # This is being set to True because there is API info in the self.entity_info (If passed correctly)
+            found_api_entry = True
 
         if entity_names is not None:
             for idx, entity_name in enumerate(list(self.entity_info.keys())):  # Make a new list to prevent pop issues
@@ -3355,7 +3359,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # self.entity_info = {f'{self.name}_{entity_idx}':
         #                     dict(chains=[self.chains[0]], sequence=self.chains[0].sequence)}
         for chain in self.chains:
-            self.log.debug(f'Searching for matching Entities for Chain {chain.name}')
+            chain_id = chain.chain_id
+            self.log.debug(f'Searching for matching Entities for Chain {chain_id}')
             for entity_name, data in self.entity_info.items():
                 # Todo implement structure check
                 #  rmsd_threshold = 1.  # threshold needs testing
@@ -3380,10 +3385,10 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 small_sequence_length = min(seq_len, chain_seq_len)
                 match_score = score / large_sequence_length
                 length_proportion = (large_sequence_length-small_sequence_length) / large_sequence_length
-                self.log.debug(f'Chain {chain.name} to Entity {entity_name} has {match_score:.2f} identity '
+                self.log.debug(f'Chain {chain_id} to Entity {entity_name} has {match_score:.2f} identity '
                                f'and {length_proportion:.2f} length difference')
                 if match_score >= tolerance and length_proportion <= 1 - tolerance:
-                    self.log.debug(f'Chain {chain.name} matches Entity {entity_name}')
+                    self.log.debug(f'Chain {chain_id} matches Entity {entity_name}')
                     # If number of sequence matches is > tolerance, and the length difference < tolerance
                     # the current chain is the same as the Entity, add to chains, and move on to the next chain
                     data['chains'].append(chain)
@@ -3391,10 +3396,10 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     break
             else:  # We didn't find a match, this is new
                 if not start_from_scratch:
-                    self.log.warning(f"Couldn't find a matching Entity from those existing for Chain {chain.name}")
+                    self.log.warning(f"Couldn't find a matching Entity from those existing for Chain {chain_id}")
             # if new_entity:  # No existing entity matches, add new entity
                 entity_name = f'{self.name}_{next(entity_idx)}'
-                self.log.debug(f'Chain {chain.name} is a new Entity "{entity_name}"')
+                self.log.debug(f'Chain {chain_id} is a new Entity "{entity_name}"')
                 self.entity_info[entity_name] = dict(chains=[chain], reference_sequence=chain.sequence)
 
         self.log.debug(f'Entity information was solved by {method} match')
@@ -5525,6 +5530,8 @@ class SymmetricModel(Models):
                                                                     self.sym_entry.groups, transformations):
             if entity.number_of_symmetry_mates != subunit_number:
                 entity.make_oligomer(symmetry=symmetry, **transformation)
+            else:
+                self.log.debug(f'{self.make_oligomers.__name__}: Entity is already the correct oligomer')
 
     def symmetric_assembly_is_clash(self, distance: float = 2.1, warn: bool = True) -> bool:  # Todo design_selector
         """Returns True if the SymmetricModel presents any clashes. Checks only backbone and CB atoms

@@ -679,7 +679,7 @@ class StructureBase(SymmetryMixin, ABC):
         if self.is_parent() and self.is_symmetric() \
                 and self.has_symmetric_dependents() and not self._dependent_is_updating:
             # This Structure is a symmetric parent, update dependent coords to update the parent
-            # self.log.debug(f'self._symmetric_dependents: {self._symmetric_dependents}')
+            self.log.debug(f'Updating symmetric dependent coords')
             for dependent in self.symmetric_dependents:
                 if dependent.is_symmetric():
                     dependent._parent_is_updating = True
@@ -985,8 +985,8 @@ class Atom(StructureBase):
                     pass
                 else:
                     other.detach_from_parent()
-                    # self.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
-                    #                f'previously')
+                    # other.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
+                    #                 'previously')
 
         return other
 
@@ -2487,8 +2487,8 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                     pass
                 else:
                     other.detach_from_parent()
-                    # self.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
-                    #                f'previously')
+                    # other.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
+                    #                 'previously')
 
         return other
 
@@ -5010,9 +5010,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         else:  # This Structure is a dependent
             try:  # If initiated by the parent, this Structure's copy should be a dependent too
                 other._parent = self.parent.spawn
-            except AttributeError:  # Copy was not initiated by the parent, set this Structure as parent
-                self.log.debug(f'The copied {type(self).__name__} {self.name} is being set as a parent. '
-                               'It was a dependent previously')
+            except AttributeError:  # Copy wasn't initiated by the parent, set this Structure as parent
+                other.log.debug(f'The copied {type(self).__name__} {self.name} is being set as a parent. '
+                                'It was a dependent previously')
                 other.detach_from_parent()
                 other._copy_structure_containers()
                 other._update_structure_container_attributes(_parent=other)
