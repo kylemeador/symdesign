@@ -5,7 +5,7 @@ from collections import OrderedDict
 from itertools import combinations
 
 import numpy as np
-import scipy
+from scipy.spatial.transform import Rotation
 from mysql.connector import MySQLConnection, Error
 from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, select, UniqueConstraint
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -372,8 +372,11 @@ class EntityTransform(Base):
     entity = relationship('EntityData', back_populates='transform')
     rotation_x = Column(Float, default=0.)
     rotation_y = Column(Float, default=0.)
-    rotation_z = Column(Float)
+    rotation_z = Column(Float, default=0.)
     setting_matrix = Column(Integer)
+    external_rotation_x = Column(Float)
+    external_rotation_y = Column(Float)
+    external_rotation_z = Column(Float)
     internal_translation_x = Column(Float, default=0.)
     internal_translation_y = Column(Float, default=0.)
     internal_translation_z = Column(Float, default=0.)
@@ -385,8 +388,10 @@ class EntityTransform(Base):
     def transformation(self) -> dict:  # Todo -> transformation_mapping:
         """Provide the names of all Entity instances mapped to the Pose"""
         # Todo hook in self.rotation_x, self.rotation_y
+        # Todo if self.setting_matrix is None
+        #  rotation2 = Rotation.from_rotvec([external_rotation_x, external_rotation_y, external_rotation_z], degrees=True).as_matrix()
         return dict(
-            rotation=scipy.spatial.transform.Rotation.from_rotvec([0., 0., self.rotation_z], degrees=True).as_matrix(),
+            rotation=Rotation.from_rotvec([self.rotation_x, self.rotation_y, self.rotation_z], degrees=True).as_matrix(),
             translation=np.array([self.internal_translation_x,
                                   self.internal_translation_y,
                                   self.internal_translation_z]),
@@ -412,15 +417,26 @@ class EntityTransform(Base):
                              # f'{transformation_mapping.__name__}, not {type(transform[0]).__name__}')
 
         for operation_type, operation in transform.items():
-            if operation_type == 'rotation':
+            if operation is None:
+                continue
+            elif operation_type == 'rotation':
                 self.rotation_x, self.rotation_y, self.rotation_z = \
-                    scipy.spatial.transform.Rotation.from_matrix(operation).as_rotvec(degrees=True)
+                    Rotation.from_matrix(operation).as_rotvec(degrees=True)
             elif operation_type == 'translation':
                 self.internal_translation_x, \
                     self.internal_translation_y, \
                     self.internal_translation_z = operation
             elif operation_type == 'rotation2':
-                self.setting_matrix = self.sym_entry.setting_matrices_numbers[idx]
+                # Convert to setting number
+                for number, matrix in symmetry.setting_matrices.items():
+                    # input(f'setting matrix number: {number}')
+                    if np.allclose(operation, matrix):
+                        # input(f'found all_close: {operation}\n{matrix}')
+                        self.setting_matrix = number
+                        break
+                else:
+                    self.external_rotation_x, self.external_rotation_y, self.external_rotation_z = \
+                        Rotation.from_matrix(operation).as_rotvec(degrees=True)
             elif operation_type == 'translation2':
                 self.external_translation_x, \
                     self.external_translation_y, \

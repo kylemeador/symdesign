@@ -1349,10 +1349,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     self.log.info(f'Entity {entity.name} oligomer written to: "{oligomer_path}"')
 
             # If we have an empty list for the pose_transformation, save the identified transformations from the Pose
-            if not self.transformations:
-                # Todo make sure that his is self.job.current_session.commit
-                # self.pose_transformation = self.pose.entity_transformations
+            if not any(self.transformations):
                 for data, transformation in zip(self.entity_data, self.pose.entity_transformations):
+                    # Make an empty EntityTransform
+                    data.transform = sql.EntityTransform()
                     data.transform.transformation = transformation
         # # Then modify numbering to ensure standard and accurate use during protocols
         # # self.pose.pose_numbering()
