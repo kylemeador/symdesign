@@ -484,7 +484,7 @@ class Log:
 null_struct_log = Log()
 
 
-class Symmetry:
+class SymmetryMixin:
     symmetry: str | None
     _symmetric_dependents: str  # list[Structure] | list
     """The Structure container where dependent symmetric Structures are contained"""
@@ -518,7 +518,11 @@ class Symmetry:
     @symmetric_dependents.setter
     def symmetric_dependents(self, symmetric_dependents: str):
         """Set the attribute name where dependent Structure instances occupy"""
-        self._symmetric_dependents = symmetric_dependents
+        try:
+            self._symmetric_dependents = symmetric_dependents.lower()
+        except AttributeError:
+            raise ValueError(f"Can't set the symmetric_dependents with {type(symmetric_dependents).__name__}. "
+                             f"Must be a string")
 
 
 # parent Structure controls these attributes
@@ -530,7 +534,7 @@ and _residues
 """
 
 
-class StructureBase(Symmetry, ABC):
+class StructureBase(SymmetryMixin, ABC):
     """Structure object sets up and handles Coords and Log objects as well as maintaining atom_indices and the history
     of Structure subclass creation and subdivision from parent Structure to dependent Structure's. Collects known
     keyword arguments for all derived class construction calls to protect base object. Should always be the last class
@@ -589,7 +593,7 @@ class StructureBase(Symmetry, ABC):
         try:
             super().__init__(**kwargs)
         except TypeError:
-            raise TypeError(f"The argument(s) passed to the StructureBase object were not recognized and aren't "
+            raise TypeError("The argument(s) passed to the StructureBase object weren't recognized and aren't "
                             f'accepted by the object class: {", ".join(kwargs.keys())}')
 
     @property
@@ -668,10 +672,10 @@ class StructureBase(Symmetry, ABC):
     @coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
         # self.log.critical(f'Setting {self.name} coords')
-        # Setting this first to ensure proper size of later manipulations
-        # Update the whole Coords.coords as symmetry is not everywhere
-        self._coords.replace(self._atom_indices, coords)
-        # Check for additional requirements
+        # # Setting this first to ensure proper size of later manipulations
+        # # Update the whole Coords.coords as symmetry is not everywhere
+        # self._coords.replace(self._atom_indices, coords)
+        # Check for coordinate update requirements
         if self.is_parent() and self.is_symmetric() \
                 and self.has_symmetric_dependents() and not self._dependent_is_updating:
             # This Structure is a symmetric parent, update dependent coords to update the parent
@@ -682,6 +686,9 @@ class StructureBase(Symmetry, ABC):
                     # self.log.debug(f'Setting {dependent.name} _symmetric_dependent coords')
                     dependent.coords = coords[dependent.atom_indices]
                     dependent._parent_is_updating = False
+
+        # Setting this after because symmetric dependents use these coords
+        self._coords.replace(self._atom_indices, coords)
 
     def reset_state(self):
         """Remove StructureBase attributes that are valid for the current state
