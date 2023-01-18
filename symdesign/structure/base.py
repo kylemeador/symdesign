@@ -485,13 +485,11 @@ null_struct_log = Log()
 
 
 class Symmetry:
-    # _has_symmetry: bool | None
     symmetry: str | None
-    _symmetric_dependents: list[Structure]
+    _symmetric_dependents: str  # list[Structure] | list
+    """The Structure container where dependent symmetric Structures are contained"""
 
     def __init__(self, **kwargs):
-        # self._has_symmetry = None
-        self._symmetric_dependents = []
         super().__init__(**kwargs)
 
     # @property
@@ -501,6 +499,26 @@ class Symmetry:
             return self.symmetry is not None
         except AttributeError:
             return False
+
+    def has_symmetric_dependents(self) -> bool:
+        """Indicates True if the Structure has symmetric dependents"""
+        try:
+            return True if self._symmetric_dependents else False
+        except AttributeError:
+            return False
+
+    @property
+    def symmetric_dependents(self) -> list[Structure] | list:
+        """Access the symmetrically dependent Structure instances"""
+        # try:
+        return getattr(self, self._symmetric_dependents, [])
+        # except AttributeError:
+        #     return []
+
+    @symmetric_dependents.setter
+    def symmetric_dependents(self, symmetric_dependents: str):
+        """Set the attribute name where dependent Structure instances occupy"""
+        self._symmetric_dependents = symmetric_dependents
 
 
 # parent Structure controls these attributes
@@ -654,19 +672,16 @@ class StructureBase(Symmetry, ABC):
         # Update the whole Coords.coords as symmetry is not everywhere
         self._coords.replace(self._atom_indices, coords)
         # Check for additional requirements
-        if self.is_parent() and self.is_symmetric() and self._symmetric_dependents and not self._dependent_is_updating:
+        if self.is_parent() and self.is_symmetric() \
+                and self.has_symmetric_dependents() and not self._dependent_is_updating:
             # This Structure is a symmetric parent, update dependent coords to update the parent
             # self.log.debug(f'self._symmetric_dependents: {self._symmetric_dependents}')
-            for dependent in self._symmetric_dependents:
+            for dependent in self.symmetric_dependents:
                 if dependent.is_symmetric():
                     dependent._parent_is_updating = True
                     # self.log.debug(f'Setting {dependent.name} _symmetric_dependent coords')
                     dependent.coords = coords[dependent.atom_indices]
                     dependent._parent_is_updating = False
-                else:
-                #     input(f'See we didnt get an update')
-                    logger.critical(f'TESTING NEW COORDS vs existing similarity: '
-                                    f'{np.allclose(dependent.coords, coords[dependent.atom_indices])}')
 
     def reset_state(self):
         """Remove StructureBase attributes that are valid for the current state

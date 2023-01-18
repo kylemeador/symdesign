@@ -2612,9 +2612,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             else:  # Create Entities from Chain.Residues
                 self._create_entities(**kwargs)
 
-            # Set the potential symmetric_dependents to the entities
-            self._symmetric_dependents = self.entities  # Todo ensure these never change
-
             if not self.chain_ids:  # set according to self.entities
                 self.chain_ids.extend([entity.chain_id for entity in self.entities])
 
@@ -3928,6 +3925,8 @@ class SymmetricModel(Models):
 
         # Ensure that the symmetric system is set up properly
         if self.is_symmetric():  # True if symmetry keyword args were passed
+            # Set the symmetric_dependents to the entities attribute
+            self.symmetric_dependents = 'entities'
             # Ensure the number of Modela matches the SymEntry groups
             number_of_entities = self.number_of_entities
             # number_of_chains = self.number_of_chains
