@@ -22,7 +22,7 @@ class Coords:
         if coords is None:
             self.coords = np.array([])
         elif not isinstance(coords, (np.ndarray, list)):
-            raise TypeError(f'Can\'t initialize {type(self).__name__} with {type(coords).__name__}. Type must be a '
+            raise TypeError(f"Can't initialize {type(self).__name__} with {type(coords).__name__}. Type must be a "
                             f'numpy.ndarray of float with shape (n, 3) or list[list[float]]')
         else:
             self.coords = np.array(coords, np.float_)
@@ -74,7 +74,7 @@ class Coords:
             if self.coords.shape[0] == 0:  # There are no coords, lets use set mechanism
                 self.coords = new_coords
             else:
-                raise ValueError(f"The new_coords aren't the same shape as the selected indices: {error}")
+                raise ValueError(f"The selected indices aren't the same shape as the 'new_coords': {error}")
 
     def set(self, coords: np.ndarray | list[list[float]]):
         """Set self.coords to the provided coordinates

@@ -1297,7 +1297,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             entities: The Entities desired in the Pose
         """
         # Check to see if Pose is already loaded and nothing new provided
-        if self.pose and file is not None or entities is not None:
+        if self.pose and file is None and entities is None:
             return
 
         # rename_chains = True  # Because the result of entities, we should rename
@@ -1330,7 +1330,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         elif self.initial_model:  # This is a fresh Model, and we already loaded so reuse
             self.structure_source = self.source_path
             # Careful, if processing has occurred to the initial_model, then this may be wrong!
-            self.pose = Pose.from_model(self.initial_model, name=self.name, **self.pose_kwargs)
+            self.pose = Pose.from_model(self.initial_model, entity_info=self.initial_model.entity_info,
+                                        name=self.name, **self.pose_kwargs)
         else:
             self.structure_source = file if file else self.source_path
             self.pose = Pose.from_file(self.structure_source, name=self.name, **self.pose_kwargs)

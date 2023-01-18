@@ -541,7 +541,7 @@ class SequenceProfile(ABC):
             # evolution = fragments = False
             # self.add_evolutionary_profile(null=null, **kwargs)
 
-        if evolution:  # add evolutionary information to the SequenceProfile
+        if evolution:  # Add evolutionary information to the SequenceProfile
             if not self.evolutionary_profile:
                 self.add_evolutionary_profile(**kwargs)
 
