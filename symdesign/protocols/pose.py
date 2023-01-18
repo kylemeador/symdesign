@@ -36,7 +36,7 @@ from symdesign.structure.model import Pose, Models, Model, Entity
 from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
 from symdesign.sequence import MultipleSequenceAlignment, protein_letters_3to1, read_fasta_file, write_sequences
 from symdesign.structure.utils import DesignError, ClashError
-from symdesign.utils import large_color_array, starttime, start_log, unpickle, pickle_object, write_shell_script, \
+from symdesign.utils import large_color_array, starttime, start_log, pickle_object, write_shell_script, \
     all_vs_all, condensed_to_square, rosetta, InputError, sql, path as putils
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
 # from symdesign.utils.nanohedra.general import get_components_from_nanohedra_docking

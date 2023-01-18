@@ -1782,38 +1782,37 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     for model in models:
         for entity in model.entities:
             pose.entities[next(entity_idx)].metadata = entity.metadata
-    # entity_energies = tuple(0. for _ in pose.entities)
 
     # Define functions for updating the single Pose instance coordinates
-    def create_specific_transformation(idx: int) -> tuple[dict[str, np.ndarray], ...]:
-        """Take the current transformation index and create a mapping of the transformation operations
-
-        Args:
-            idx: The index of the transformation to select
-        Returns:
-            A tuple containing the transformation operations for each model
-        """
-        if sym_entry.is_internal_tx1:
-            internal_tx_param1 = full_int_tx1[idx]
-        else:
-            internal_tx_param1 = None
-
-        if sym_entry.is_internal_tx2:
-            internal_tx_param2 = full_int_tx2[idx]
-        else:
-            internal_tx_param2 = None
-
-        if sym_entry.unit_cell:
-            external_tx1 = full_ext_tx1[idx]
-            external_tx2 = full_ext_tx2[idx]
-        else:
-            external_tx1 = external_tx2 = None
-
-        specific_transformation1 = dict(rotation=full_rotation1[idx], translation=internal_tx_param1,
-                                        rotation2=set_mat1, translation2=external_tx1)
-        specific_transformation2 = dict(rotation=full_rotation2[idx], translation=internal_tx_param2,
-                                        rotation2=set_mat2, translation2=external_tx2)
-        return specific_transformation1, specific_transformation2
+    # def create_specific_transformation(idx: int) -> tuple[dict[str, np.ndarray], ...]:
+    #     """Take the current transformation index and create a mapping of the transformation operations
+    #
+    #     Args:
+    #         idx: The index of the transformation to select
+    #     Returns:
+    #         A tuple containing the transformation operations for each model
+    #     """
+    #     if sym_entry.is_internal_tx1:
+    #         internal_tx_param1 = full_int_tx1[idx]
+    #     else:
+    #         internal_tx_param1 = None
+    #
+    #     if sym_entry.is_internal_tx2:
+    #         internal_tx_param2 = full_int_tx2[idx]
+    #     else:
+    #         internal_tx_param2 = None
+    #
+    #     if sym_entry.unit_cell:
+    #         external_tx1 = full_ext_tx1[idx]
+    #         external_tx2 = full_ext_tx2[idx]
+    #     else:
+    #         external_tx1 = external_tx2 = None
+    #
+    #     specific_transformation1 = dict(rotation=full_rotation1[idx], translation=internal_tx_param1,
+    #                                     rotation2=set_mat1, translation2=external_tx1)
+    #     specific_transformation2 = dict(rotation=full_rotation2[idx], translation=internal_tx_param2,
+    #                                     rotation2=set_mat2, translation2=external_tx2)
+    #     return specific_transformation1, specific_transformation2
 
     def update_pose_coords(idx: int):
         """Take the current transformation index and update the reference coordinates with the provided transforms

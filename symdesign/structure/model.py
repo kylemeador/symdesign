@@ -1103,9 +1103,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             self.log.debug('Entity captain is updating coords')
             # Must do these before super().coords.fset()
             # Populate .chains (if not already) with current coords and transformation
-            current_chains = self.chains
+            self_, *mate_chains = self.chains
             # Set current .ca_coords as prior_ca_coords
-            prior_ca_coords = self.ca_coords
+            prior_ca_coords = self.ca_coords.copy()
             current_chain_transforms = self._chain_transforms
 
             # Set coords with new coords
@@ -1127,7 +1127,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # Remove prior transforms by setting a fresh container
             self._chain_transforms = []
             # Find the transform between the new coords and the current mate chain coords
-            for chain, transform in zip(current_chains[1:], current_chain_transforms):
+            for chain, transform in zip(mate_chains, current_chain_transforms):
                 # self.log.debug(f'Updated transform of mate {chain.chain_id}')
                 # In liu of using chain.coords as lengths might be different
                 # Transform prior_coords to chain.coords position, then transform using new_rot and new_tx
@@ -1460,12 +1460,16 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         self._is_captain = False
         self.chain_ids = [self.chain_id]
 
-    def _make_mate(self, other: Entity):
-        """Turn the Entity into a "mate" Entity"""
+    def _make_mate(self, captain: Entity):
+        """Turn the Entity into a "mate" Entity
+
+        Args:
+            captain: The Entity to designate as the instance's captain Entity
+        """
         # self.log.debug(f'Designating Entity mate')
-        self._captain = other
+        self._captain = captain
         self._is_captain = False
-        self.chain_ids = [other.chain_id]  # set for a length of 1, using the captain.chain_id
+        self.chain_ids = [captain.chain_id]  # Set for a length of 1, using the captain.chain_id
         self._chain_transforms.clear()
 
     def _make_captain(self):
@@ -1626,9 +1630,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         new_structure = self.copy()
         new_structure._make_mate(self)
         # _make_mate executes the following
-        # self._captain = other
+        # self._captain = self
         # self._is_captain = False
-        # self._chain_ids = [other.chain_id]
+        # self._chain_ids = [self.chain_id]
         # self._chain_transforms.clear()
         new_structure.coords = new_coords
 
@@ -2313,7 +2317,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         # self.log.debug('In Entity copy_structure_containers()')
         for structure_type in self.structure_containers:
             structures = getattr(self, structure_type)
-            for idx, structure in enumerate(structures[1:], 1):  # only operate on [1:] slice since index 0 is different
+            for idx, structure in enumerate(structures[1:], 1):  # Only operate on [1:] slice since index 0 is different
                 # structures[idx] = copy(structure)
                 structure.entity_spawn = True
                 new_structure = structure.copy()
@@ -2551,12 +2555,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         if chains:  # Create the instance from existing chains
             if isinstance(chains, (list, Structures)):
-                self.chains = chains.copy()  # copy the passed chains
-                self._copy_structure_containers()  # copy each Chain in chains
+                self.chains = chains.copy()  # Copy the passed chains
+                self._copy_structure_containers()  # Copy each Chain in chains
                 # Reindex all residue and atom indices
-                self.chains[0].reset_state()
-                self.chains[0]._start_indices(at=0, dtype='atom')
-                self.chains[0]._start_indices(at=0, dtype='residue')
+                chain0 = self.chains[0]
+                chain0.reset_state()
+                chain0._start_indices(at=0, dtype='atom')
+                chain0._start_indices(at=0, dtype='residue')
                 for prior_idx, chain in enumerate(self.chains[1:]):
                     chain.reset_state()
                     chain._start_indices(at=self.chains[prior_idx].atom_indices[-1] + 1, dtype='atom')
@@ -2581,12 +2586,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         if entities:  # Create the instance from existing entities
             if isinstance(entities, (list, Structures)):
-                self.entities = entities.copy()  # copy the passed entities
-                self._copy_structure_containers()  # copy each Entity in entities
+                self.entities = entities.copy()  # Copy the passed entities
+                self._copy_structure_containers()  # Copy each Entity in entities
                 # Reindex all residue and atom indices
-                self.entities[0].reset_state()
-                self.entities[0]._start_indices(at=0, dtype='atom')
-                self.entities[0]._start_indices(at=0, dtype='residue')
+                entity0 = self.entities[0]
+                entity0.reset_state()
+                entity0._start_indices(at=0, dtype='atom')
+                entity0._start_indices(at=0, dtype='residue')
                 for prior_idx, entity in enumerate(self.entities[1:]):
                     entity.reset_state()
                     entity._start_indices(at=self.entities[prior_idx].atom_indices[-1] + 1, dtype='atom')
@@ -2594,7 +2600,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
                 # Set the parent attribute for all containers
                 self._update_structure_container_attributes(_parent=self)
-                if rename_chains:  # set each successive Entity to have an incrementally higher chain id
+                if rename_chains:  # Set each successive Entity to have an incrementally higher chain id
                     self.chain_ids = []
                     available_chain_ids = chain_id_generator()
                     for idx, entity in enumerate(self.entities):
@@ -3315,7 +3321,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             entity_data = {
                 **data,  # Place the original data in the new dictionary
                 'uniprot_ids': uniprot_ids,
-                'chains': [chain for chain in chains if chain]}  # remove any missing chains
+                'chains': [chain for chain in chains if chain]}  # Remove any missing chains
             if len(entity_data['chains']) == 0:
                 self.log.warning(f'Missing associated chains for the Entity {entity_name} with data: '
                                  f"self.chain_ids={self.chain_ids}, entity_data['chains']={entity_data['chains']}, "
@@ -3935,7 +3941,6 @@ class SymmetricModel(Models):
             self.symmetric_dependents = 'entities'
             # Ensure the number of Modela matches the SymEntry groups
             number_of_entities = self.number_of_entities
-            # number_of_chains = self.number_of_chains
             if number_of_entities != self.sym_entry.number_of_groups:
                 raise SymmetryError(f'The {type(self).__name__} has {self.number_of_entities} symmetric entities,'
                                     f' but {self.sym_entry.number_of_groups} were expected')
@@ -3950,8 +3955,6 @@ class SymmetricModel(Models):
 
             # Generate oligomers for each entity in the pose
             self.make_oligomers(transformations=transformations)
-            # if generate_symmetry_mates:  # always set to False before. commenting out
-            #     self.generate_assembly_symmetry_models(**kwargs)
 
     def set_symmetry(self, sym_entry: utils.SymEntry.SymEntry | int = None, symmetry: str = None,
                      uc_dimensions: list[float] = None, expand_matrices: np.ndarray | list = None):
@@ -5521,7 +5524,7 @@ class SymmetricModel(Models):
         Args:
             transformations: The entity_transformations operations that reproduce the individual oligomers
         """
-        if transformations is None or not all(transformations):  # Can't use is None:, could be an empty list
+        if transformations is None or not all(transformations):
             # If this fails then the symmetry is failed... We shouldn't get an empty list back as
             # _assign_pose_transformation() will raise a SymmetryError
             transformations = self.entity_transformations
