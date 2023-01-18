@@ -4281,7 +4281,7 @@ class SymmetricModel(Models):
         # self._coords.replace(self._atom_indices, coords)
         if self.is_symmetric():  # Set the symmetric coords according to the ASU
             self.log.debug(f'Updating symmetric coords')
-            self.generate_symmetric_coords()
+            self.generate_symmetric_coords(surrounding_uc=self.is_surrounding_uc())
 
         # Delete any saved attributes from the SymmetricModel (or Model)
         try:  # To see if the coords setting doesn't require updating attributes in the case we are doing ourselves
@@ -4455,32 +4455,20 @@ class SymmetricModel(Models):
         """
         # if not self.symmetry:
         #     raise utils.SymmetryError(f'{self.generate_symmetric_coords.__name__}: No symmetry set for {self.name}!')
-
-        if self.dimension == 0:
-            symmetric_coords = (np.matmul(np.tile(self.coords, (self.number_of_symmetry_mates, 1, 1)),
-                                          self.expand_matrices) + self.expand_translations).reshape(-1, 3)
-        else:
-            if surrounding_uc:
-                shift_3d = [0., 1., -1.]
+        if surrounding_uc:
+            if self.dimension > 0:
                 if self.dimension == 3:
-                    z_shifts, uc_number = shift_3d, 27
+                    uc_number = 27
                 elif self.dimension == 2:
-                    z_shifts, uc_number = [0.], 9
-                else:
-                    raise SymmetryError(f'The specified dimension "{self.dimension}" is not crystalline')
-
+                    uc_number = 9
                 # Set the number_of_symmetry_mates to account for the unit cell number
+                # This results in is_surrounding_uc() being True during return_symmetric_coords()
                 self.number_of_symmetry_mates = self.number_of_uc_symmetry_mates * uc_number
-                uc_frac_coords = self.return_unit_cell_coords(self.coords, fractional=True)
-                surrounding_frac_coords = \
-                    np.concatenate([uc_frac_coords + [x, y, z] for x in shift_3d for y in shift_3d for z in z_shifts])
-                symmetric_coords = self.frac_to_cart(surrounding_frac_coords)
-            else:
-                # Must set number_of_symmetry_mates before self.return_unit_cell_coords as it relies on copy number
-                # self.number_of_symmetry_mates = self.number_of_uc_symmetry_mates
-                # uc_number = 1
-                symmetric_coords = self.return_unit_cell_coords(self.coords)
+            # else:
+            #     self.log.debug(f"The specified symmetry {self.symmetry} dimension ({self.dimension}) isn't "
+            #                    f"crystalline")
 
+        symmetric_coords = self.return_symmetric_coords(self.coords)
         # Set the self.symmetric_coords property
         self._models_coords = Coords(symmetric_coords)
         # Tod0 remove
