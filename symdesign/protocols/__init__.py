@@ -464,7 +464,7 @@ def interface_design(job: pose.PoseJob):
     # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
     if job.job.design.method == putils.rosetta_str:
         # Update the Pose with the number of designs
-        raise NotImplementedError('Need to generate number_of_designs matching proteinmpnn_design()...')
+        raise NotImplementedError('Need to generate number_of_designs matching job.proteinmpnn_design()...')
         # Todo update upon completion given results of designs list file...
         job.update_design_data(design_parent=job.pose_source, number=job.job.design.number)
         favor_fragments = evo_fill = True

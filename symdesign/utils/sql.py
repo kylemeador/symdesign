@@ -63,6 +63,16 @@ class PoseMetadata(Base):
     pose_identifier = column_property(project + os.sep + name)
     # pose_identifier = column_property(f'{project}{os.sep}{name}')
 
+    # # Relationships concerning construction
+    # # Set up many-to-one relationship with trajectory_metadata table
+    # trajectory_id = Column(ForeignKey('trajectory_metadata.id'))
+    # protocol = relationship('TrajectoryMetadata', back_populates='poses')
+    # # # Set up one-to-one relationship with design_data table
+    # # parent_design_id = Column(ForeignKey('design_data.id'))
+    # # parent_design = relationship('DesignData', back_populates='child_pose')
+    # parent_design = association_proxy('protocol', 'parent_design')
+
+    # Relationships concerning associated entities and their metrics
     # # Set up many-to-one relationship with entity_data table
     # entity_data = Column(ForeignKey('entity_data.id'))
     # # Set up one-to-many relationship with entity_data table
@@ -488,6 +498,31 @@ class EntityTransform(Base):
 #     for metric, value in entity_pose_metrics.items():
 #         setattr(PoseMetrics, metric.replace('entity', f'entity{idx}'), Column(value))
 
+# class Protocol(Base):
+#     __tablename__ = 'protocols'
+#     id = Column(Integer, primary_key=True)
+#     name = Column(String, nullable=False, unique=True)
+#
+#     # # Set up one-to-many relationship with trajectory_metadata table
+#     # trajectories = relationship('TrajectoryMetadata', back_populates='protocol')
+#     # Set up one-to-many relationship with design_protocol table
+#     designs = relationship('DesignProtocol', back_populates='protocol')
+
+
+# class TrajectoryMetadata(Base):
+#     __tablename__ = 'trajectory_metadata'
+#     id = Column(Integer, primary_key=True)
+#
+#     # protocol = Column(String, nullable=False)
+#     # Set up many-to-one relationship with protocols table
+#     protocol_id = Column(ForeignKey('protocols.id'), nullable=False)
+#     protocol = relationship('Protocol', back_populates='trajectories')
+#     # # Set up one-to-many relationship with pose_data table
+#     # poses = relationship('PoseJob', back_populates='protocol')
+#     # Set up many-to-one relationship with design_data table
+#     parent_design_id = Column(ForeignKey('design_data.id'))
+#     parent_design = relationship('DesignData', back_populates='trajectories')
+
 
 class DesignProtocol(Base):
     __tablename__ = 'design_protocol'
@@ -497,6 +532,9 @@ class DesignProtocol(Base):
     id = Column(Integer, primary_key=True)
 
     protocol = Column(String, nullable=False)
+    # # Set up many-to-one relationship with protocols table
+    # protocol_id = Column(ForeignKey('protocols.id'), nullable=False)
+    # protocol = relationship('Protocol', back_populates='designs')
     # Set up many-to-one relationship with design_data table
     design_id = Column(ForeignKey('design_data.id'))
     design = relationship('DesignData', back_populates='protocols')

@@ -6760,7 +6760,7 @@ class Pose(SymmetricModel, Metrics):
         for entity in self.entities:
             # Todo when Entity.oligomer works
             #  entity.oligomer.get_sasa()
-            entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
+            entity_oligomer = Model.from_chains(entity.chains, entities=False, log=self.log)
             entity_oligomer.get_sasa()
             oligomer_asu_residues = entity_oligomer.residues[:entity.number_of_residues]
             per_residue_sasa_unbound_apolar.extend([residue.sasa_apolar for residue in oligomer_asu_residues])

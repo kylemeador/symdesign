@@ -270,7 +270,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     Returns:
         The resulting Poses satisfying docking criteria
     """
-    protocol = 'nanohedra'  # Todo change if the docking is described as 'C1'
     frag_dock_time_start = time.time()
 
     # Todo reimplement this feature to write a log to the Project directory?
@@ -288,8 +287,15 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
 
     # Retrieve symjob.JobResources for all flags
     job = symjob.job_resources_factory.get()
+
     sym_entry: SymEntry = job.sym_entry
     """The SymmetryEntry object describing the material"""
+    # if sym_entry:
+    #     protocol_name = 'nanohedra'
+    # else:
+    #     protocol_name = 'fragment_docking'
+    #
+    # protocol = Protocol(name=protocol_name)
 
     euler_lookup = job.fragment_db.euler_lookup
     # This is used in clustering algorithms to define an observation outside the found clusters
@@ -4166,23 +4172,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
             #         scores_df.apply(metrics.interface_composition_similarity, axis=1)
             poses_df.drop(metrics.clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
 
-            # scores_columns = scores_df.columns.to_list()
-            # logger.debug(f'Metrics present: {scores_columns}')
-
-            # interface_metrics_s = pd.Series(poses_df)
-            # Concatenate all design information after parsing data sources
-            # poses_df = pd.concat([poses_df], keys=[('dock', 'pose')])
-
-            # CONSTRUCT: Create pose series and format index names
-            # scores_df.columns = scores_df.columns.swaplevel(0, 1)
-            # pose_df = pd.concat([scores_df, poses_df, all_pose_divergence_df]).swaplevel(0, 1)
-            # Remove specific metrics from scores_df and sort
-            # scores_df.sort_index(level=2, axis=1, inplace=True, sort_remaining=False)
-            # scores_df.sort_index(level=1, axis=1, inplace=True, sort_remaining=False)
-            # scores_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-            # scores_df.name = str(building_blocks)
-
-            # if job.design.sequences:
             if job.db:
                 poses_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
                 # poses_df = pd.concat([poses_df], keys=[project], axis=0)
