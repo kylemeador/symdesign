@@ -3225,11 +3225,15 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 if chain_sequence_length > max_chain_sequence:
                     max_chain_sequence = chain_sequence_length
 
-            # Provide an expected because we are using a reference sequence which could be much longer than
-            # the chain sequence
-            tolerance = (max_chain_sequence - max_reference_sequence) / max_reference_sequence
+            # Provide an expected tolerance
+            # Because we are using a reference sequence which could be much longer than the chain sequence find an
+            # expected length proportion
+            length_proportion = (max_reference_sequence - max_chain_sequence) / max_reference_sequence
+            # We could be highly mutated compared to the reference, so lets set the tolerance threshold to a percentage
+            # of the maximum. This value seems to be close given Sanders and Sanders? 1994 (BLOSUM matrix publicaiton)
+            tolerance = .3
             # We didn't get this correct, so use the Structure attributes to fix
-            self._get_entity_info_from_atoms(tolerance=tolerance, **kwargs)
+            self._get_entity_info_from_atoms(tolerance=tolerance, length_difference=length_proportion, **kwargs)
         else:
             entity_api_entry = {}
             self.api_entry = {'entity': entity_api_entry}
@@ -3343,20 +3347,26 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             entity_data.pop('dbref')  # This isn't used anymore
             self.entities.append(Entity.from_chains(**entity_data, name=entity_name, parent=self))
 
-    def _get_entity_info_from_atoms(self, method: str = 'sequence', tolerance: float = 0.9, **kwargs):  # Todo define inside _create_entities?
+    def _get_entity_info_from_atoms(self, method: str = 'sequence', tolerance: float = 0.9,
+                                    length_difference: float = None, **kwargs):
         """Find all unique Entities in the input .pdb file. These are unique sequence objects
 
         Args:
             method: The method used to extract information. One of 'sequence' or 'structure'
             tolerance: The acceptable difference between chains to consider them the same Entity.
-                Tuning this parameter is necessary if you have chains which should be considered different entities,
-                but are fairly similar. Alternatively, the use of a structural match should be used.
-                For example, when each chain in an ASU is structurally deviating, but they all share the same sequence
+                Alternatively, the use of a structural match should be used. For example, when each chain in an ASU is
+                structurally deviating, but shares a sequence with an existing chain
+            length_difference: A percentage expressing the maximum length difference acceptable for a matching entity.
+                Where the difference in lengths is calculated by the magnitude difference between them divided by the
+                larger. For example, 100 and 111 and 100 and 90 would both be ~10% length difference
         Sets:
             self.entity_info
         """
-        if tolerance > 1:
-            raise ValueError(f"{self._get_entity_info_from_atoms.__name__} tolerance={tolerance}. Can't be > 1")
+        if not 0 < tolerance <= 1:
+            raise ValueError(f"{self._get_entity_info_from_atoms.__name__} tolerance={tolerance} isn't allowed. "
+                             'Must be bounded between (0-1]')
+        if length_difference is None:
+            length_difference = 1 - tolerance
 
         entity_start_idx = 1
         if self.entity_info:
@@ -3419,8 +3429,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 match_score = alignment.score / perfect_score
                 length_proportion = (large_sequence_length-small_sequence_length) / large_sequence_length
                 self.log.debug(f'Chain {chain_id} to Entity {entity_name} has {match_score:.2f} identity '
-                               f'and {length_proportion:.2f} length difference')
-                if match_score >= tolerance and length_proportion <= 1 - tolerance:
+                               f'and {length_proportion:.2f} length difference with the tolerance={tolerance}')
+                if match_score >= tolerance and length_proportion <= length_difference:
                     self.log.debug(f'Chain {chain_id} matches Entity {entity_name}')
                     # If number of sequence matches is > tolerance, and the length difference < tolerance
                     # the current chain is the same as the Entity, add to chains, and move on to the next chain
@@ -3450,7 +3460,11 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 if start_with_info:
                     # self.log.warning(f"Couldn't find a matching Entity from those existing for Chain {chain_id}")
                     # Set the 'sequence' to the structure sequence
-                    data = self.entity_info[best_entity]
+                    try:
+                        data = self.entity_info[best_entity]
+                    except UnboundLocalError:
+                        raise DesignError('The "tolerance" and "length_difference" parameters are not compatible with '
+                                          'your chain.sequence and your soon to be Entity sequence')
                     data['sequence'] = struct_sequence
                     data['chains'].append(chain_id)
                     del best_entity
