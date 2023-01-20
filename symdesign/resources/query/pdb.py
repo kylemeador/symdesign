@@ -740,14 +740,14 @@ def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: i
                 else:
                     return data
         else:
-            logger.warning(f"EntryID '{entry}' isn't the required format and will not be found with the PDB API")
+            logger.debug(f"EntryID '{entry}' isn't the required format and will not be found with the PDB API")
     elif assembly_id is not None:
         entry, assembly_integer, *extra = assembly_id.split('-')
         if not extra and len(entry) == 4:
             logger.debug(f'Querying PDB API with {entry}-{assembly_integer}')
             return _get_assembly_info(entry=entry, assembly_integer=assembly_integer)
 
-        logger.warning(f"AssemblyID '{assembly_id}' isn't the required format and will not be found with the PDB API")
+        logger.debug(f"AssemblyID '{assembly_id}' isn't the required format and will not be found with the PDB API")
 
     elif entity_id is not None:
         entry, entity_integer, *extra = entity_id.split('_')
@@ -755,7 +755,7 @@ def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: i
             logger.debug(f'Querying PDB API with {entry}_{entity_integer}')
             return _get_entity_info(entry=entry, entity_integer=entity_integer)
 
-        logger.warning(f"EntityID '{entity_id}' isn't the required format and will not be found with the PDB API")
+        logger.debug(f"EntityID '{entity_id}' isn't the required format and will not be found with the PDB API")
     else:
         raise RuntimeError(f'No valid arguments passed to {query_pdb_by.__name__}. Valid arguments include: '
                            f'entry, assembly_id, assembly_integer, entity_id, entity_integer, chain')
@@ -1156,7 +1156,7 @@ def query_entity_id(entry: str = None, entity_integer: str | int = None, entity_
 
 # Todo not completely useful in this module
 def get_entity_id(entry: str = None, entity_integer: int | str = None, entity_id: str = None, chain: str = None) -> \
-        tuple[str, str] | None:
+        tuple[str, str] | tuple[None]:
     """Retrieve a UniProtID from the PDB API by passing various PDB identifiers or combinations thereof
 
     Args:
@@ -1195,9 +1195,9 @@ def get_entity_id(entry: str = None, entity_integer: int | str = None, entity_id
         if not extra and len(entry) == 4:
             return entry, entity_integer
 
-        logger.warning(f"EntityID '{entity_id}' isn't the required format and will not be found with the PDB API")
+        logger.debug(f"EntityID '{entity_id}' isn't the required format and will not be found with the PDB API")
 
-    return None
+    return None,
 
 
 # Todo refactor to internal ResourceDB retrieval from existing entity_json
