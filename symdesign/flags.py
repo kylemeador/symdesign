@@ -71,7 +71,7 @@ allow_multiple_poses = 'allow_multiple_poses'
 project_name = 'project_name'
 profile_memory = 'profile_memory'
 preprocessed = 'preprocessed'
-
+quick = 'quick'
 # Set up JobResources namespaces for different categories of flags
 design_namespace = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
@@ -81,7 +81,7 @@ design_namespace = {
 dock_namespace = {
     proteinmpnn_score, contiguous_ghosts, perturb_dof, perturb_dof_rot, perturb_dof_tx,
     perturb_dof_steps, perturb_dof_steps_rot, perturb_dof_steps_tx, initial_z_value, match_value, min_matched,
-    rotation_step1, rotation_step2, score
+    rotation_step1, rotation_step2, score, quick
 }
 predict_namespace = {
     method
@@ -546,6 +546,7 @@ guide_kwargs = dict(action='store_true', help=f'Display the {program_name}/modul
                                               f' "{program_command} --guide"\nor "{submodule_guide}"')
 output_directory_args = ('-Od', f'--{output_directory}', '--outdir')
 output_file_args = ('-Of', f'--{output_file}')
+quick_args = (f'--{quick}',)
 setup_args = ('--setup',)
 setup_kwargs = dict(action='store_true', help='Show the %(prog)s set up instructions')
 symmetry_args = ('-S', '--symmetry')
@@ -569,6 +570,9 @@ options_arguments = {
                                f'{boolean_positional_prevent_msg("database")}'),
     (f'--{development}',): dict(action='store_true',
                                 help='Run in development mode. This should only be used for active development'),
+    quick_args: dict(action='store_true',
+                     help='Run Nanohedra in minimal sampling mode to generate enough hits to test quickly. '
+                          'This should only be used for active development'),  # Todo DEV branch
     distribute_args: dict(action='store_true',
                           help="Should commands be distributed to a cluster?\nIn most cases, this will "
                                'maximize computational resources\nDefault=%(default)s'),

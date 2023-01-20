@@ -317,6 +317,8 @@ class JobResources:
             process_design_selector_flags(**kwargs)
         # self.design_selector = kwargs.get('design_selector', {})
         self.dock = Dock.from_flags(**kwargs)
+        if self.development:
+            self.dock.quick = True
         if self.dock.perturb_dof or self.dock.perturb_dof_rot or self.dock.perturb_dof_tx:
             # Check if no other values were set and set them if so
             if not self.dock.perturb_dof_rot and not self.dock.perturb_dof_tx:

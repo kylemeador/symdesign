@@ -948,7 +948,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     #         raise RuntimeError('The offset_index has changed to 0')
     #     else:
     #         print(f'{title} offset_index: {pose.entities[-1].offset_index}')
-    if job.development:
+    if job.dock.quick:  # job.development:
         rotations_to_perform1 = min(rotation_matrices1.shape[0], 13)
         rotations_to_perform2 = min(rotation_matrices2.shape[0], 12)
         logger.critical(f'Development: Only sampling {rotations_to_perform1} by {rotations_to_perform2} rotations')
