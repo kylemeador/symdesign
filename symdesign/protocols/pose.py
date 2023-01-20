@@ -826,13 +826,20 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         try:
             return self._sym_entry
         except AttributeError:
-            self._sym_entry = symmetry_factory.get(self.sym_entry_number,
-                                                   parse_symmetry_specification(self.sym_entry_specification))
+            try:
+                self._sym_entry = symmetry_factory.get(self.sym_entry_number,
+                                                       parse_symmetry_specification(self.sym_entry_specification))
+            except AttributeError:  # self.sym_entry_specification is None?
+                return None  # No symmetry specified
             return self._sym_entry
 
     @sym_entry.setter
     def sym_entry(self, sym_entry: SymEntry):
-        self._sym_entry = sym_entry
+        if isinstance(sym_entry, SymEntry):
+            self._sym_entry = sym_entry
+        else:
+            raise InputError(f"Couldn't set the 'sym_entry' attribute with a type {type(sym_entry).__name__}. "
+                             f"Expected a SymEntry instance")
 
     def is_symmetric(self) -> bool:
         """Is the PoseJob symmetric?"""
@@ -3644,8 +3651,11 @@ class PoseProtocol(PoseData):
         #     # Todo handle design sequences from a read_fasta_file?
         #     # Todo implement reference sequence from included file(s) or as with self.pose.sequence below
         if isinstance(sequences, dict):
-            design_ids = list(sequences.keys())  # [self.pose.name] +
-            sequences = list(sequences.values())  # [self.pose.sequence] +
+            if sequences:
+                design_ids = list(sequences.keys())  # [self.pose.name] +
+                sequences = list(sequences.values())  # [self.pose.sequence] +
+            else:  # Nothing passed, return an empty DataFrame
+                return pd.DataFrame()
         else:
             if isinstance(design_ids, Sequence):
                 design_ids = list(design_ids)  # [self.pose.name] +
@@ -3689,6 +3699,9 @@ class PoseProtocol(PoseData):
             per_residue_evolutionary_profile_loss = \
                 resources.ml.sequence_nllloss(torch_numeric_sequences, torch_log_evolutionary_profile)
         else:
+            # Because we use self.pose.calculate_profile() below, we need to ensure there is a null_profile attached
+            if not self.pose.evolutionary_profile:
+                self.pose.evolutionary_profile = self.pose.create_null_profile()
             # per_residue_evolutionary_profile_loss = per_residue_design_profile_loss = nan_blank_data
             per_residue_evolutionary_profile_loss = nan_blank_data
 
