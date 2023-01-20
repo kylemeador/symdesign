@@ -16,7 +16,7 @@ from . import sql
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, validate_type, verify_choice, header_string
 from symdesign.structure.utils import DesignError
-from symdesign.sequence import alphabet_types, create_translation_tables, MultipleSequenceAlignment, \
+from symdesign.sequence import alphabet_types, get_sequence_to_numeric_translation_table, MultipleSequenceAlignment, \
     protein_letters_literal
 from symdesign import utils, flags
 putils = utils.path
@@ -1781,7 +1781,7 @@ def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrop
         if alphabet_type is None:
             raise ValueError(missing_alphabet)
         else:
-            alphabet = create_translation_tables(alphabet_type)
+            alphabet = get_sequence_to_numeric_translation_table(alphabet_type)
 
         values = [hydrophobicity_values[aa] for aa in alphabet]
         sequence_array = [values[aa_int] for aa_int in sequence]
@@ -1794,7 +1794,7 @@ def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrop
             if alphabet_type is None:
                 raise ValueError(missing_alphabet)
             else:
-                alphabet = create_translation_tables(alphabet_type)
+                alphabet = get_sequence_to_numeric_translation_table(alphabet_type)
 
             # torch.Tensor and np.ndarray can multiply by np.ndarray
             values = np.array([hydrophobicity_values[aa] for aa in alphabet])

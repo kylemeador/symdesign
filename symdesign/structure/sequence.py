@@ -23,13 +23,10 @@ from .fragment import info
 from .fragment.db import alignment_types_literal, alignment_types, fragment_info_type
 from symdesign import metrics, utils as sdutils
 # from symdesign.utils import path as putils
-from symdesign.sequence import read_alignment, write_sequence_to_fasta, write_sequences, mutation_dictionary, \
-    protein_letters_alph1, protein_letters_alph3, protein_letters_3to1, \
-    create_translation_tables, protein_letters_alph1_gapped, numerical_translation_alph1_gapped, \
-    numerical_translation_alph1_bytes, numerical_translation_alph1_gapped_bytes, hhblits, get_lod, parse_hhblits_pssm, \
-    alignment_programs_literal, alignment_programs, profile_types, protein_letters_literal, profile_keys, \
-    numerical_profile, MultipleSequenceAlignment
-
+from symdesign.sequence import  alignment_programs_literal, alignment_programs, hhblits, get_lod, \
+    MultipleSequenceAlignment, mutation_dictionary, numerical_profile, numerical_translation_alph1_bytes, \
+    numerical_translation_alph1_gapped_bytes, parse_hhblits_pssm, protein_letters_alph1, protein_letters_alph3, \
+    protein_letters_3to1, profile_types, protein_letters_literal, profile_keys, write_sequence_to_fasta, write_sequences
 # import dependencies.bmdca as bmdca
 putils = sdutils.path
 
@@ -71,17 +68,29 @@ aa_weighted_counts['weight'] = 1
 # protein_letters_alph1_extended: tuple[str, ...] = get_args(utils.protein_letters_alph1_extended_literal)
 
 
-def sequence_to_numeric(sequence: Sequence[str]) -> np.ndarray:
+def sequence_to_numeric(sequence: Sequence[str], translation_table: dict[str, int] = None,
+                        alphabet_order: int = 1) -> np.ndarray:
     """Convert a sequence into a numeric array
 
     Args:
         sequence: The sequence to encode
+        translation_table: If a translation table is provided, it will be used. If not, use alphabet_order
+        alphabet_order: The alphabetical order of the amino acid alphabet. Can be either 1 or 3
     Returns:
         The numerically encoded sequence where each entry along axis=0 is the indexed amino acid. Indices are according
             to the 1 letter alphabetical amino acid
     """
     _array = np.array(list(sequence), np.string_)
-    return np.vectorize(numerical_translation_alph1_bytes.__getitem__)(_array)
+    if translation_table is not None:
+        return np.vectorize(translation_table.__getitem__)(_array)
+    else:
+        if alphabet_order == 1:
+            return np.vectorize(numerical_translation_alph1_bytes.__getitem__)(_array)
+        elif alphabet_order == 3:
+            raise NotImplementedError('Need to make the "numerical_translation_alph3_bytes" table')
+            return np.vectorize(numerical_translation_alph3_bytes.__getitem__)(_array)
+        else:
+            raise ValueError(f"The 'alphabet_order' {alphabet_order} isn't valid. Choose from either 1 or 3")
 
 
 def sequences_to_numeric(sequences: Iterable[Sequence[str]]) -> np.ndarray:
