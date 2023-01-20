@@ -24,14 +24,15 @@ from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementatio
 
 from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, query
-from symdesign.sequence import generate_alignment, generate_mutations, numeric_to_sequence, get_equivalent_indices, \
-    protein_letters_alph1, protein_letters_3to1_extended, protein_letters_1to3_extended, profile_types
+from symdesign.sequence import generate_alignment, generate_mutations, default_substitution_matrix_translation_table, \
+    numeric_to_sequence, get_equivalent_indices, protein_letters_alph1, protein_letters_3to1_extended, \
+    protein_letters_1to3_extended, profile_types, default_substitution_matrix_array
 from symdesign.utils import path as putils, sql
 from . import fragment
 from .base import Structure, Structures, Residue, StructureBase, atom_or_residue
 from .coords import Coords, superposition3d, transform_coordinate_sets
 from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type
-from .sequence import SequenceProfile, Profile, pssm_as_array, default_fragment_contribution
+from .sequence import SequenceProfile, Profile, pssm_as_array, default_fragment_contribution, sequence_to_numeric
 from .utils import DesignError, SymmetryError, ClashError, chain_id_generator
 
 # Globals
@@ -3176,12 +3177,17 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 if query_by_sequence and entity_names is None:
                     for entity_name, data in list(self.entity_info.items()):  # Make a new list to prevent pop issues
                         # Todo incorporate wrapapi call to fetch from local sequence db
-                        pdb_api_entity_id = query.pdb.retrieve_entity_id_by_sequence(data['reference_sequence'])
+                        # Using data['sequence'] here as there is no data['reference_sequence'] from PDB API
+                        pdb_api_entity_id = query.pdb.retrieve_entity_id_by_sequence(data['sequence'])
                         if pdb_api_entity_id:
                             pdb_api_entity_id = pdb_api_entity_id.lower()
                             self.log.info(f'Entity {entity_name} now named "{pdb_api_entity_id}", as found by PDB API '
                                           f'sequence search')
                             self.entity_info[pdb_api_entity_id] = self.entity_info.pop(entity_name)
+                        else:
+                            self.log.info(f"Entity {entity_name} couldn't be located by PDB API sequence search")
+                            # Set as the reference_sequence because we won't find one without another database...
+                            data['reference_sequence'] = data['sequence']
         else:
             # self.log.debug(f"_create_entities entity_info={self.entity_info}")
             # This is being set to True because there is API info in the self.entity_info (If passed correctly)
@@ -3352,21 +3358,25 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         if tolerance > 1:
             raise ValueError(f"{self._get_entity_info_from_atoms.__name__} tolerance={tolerance}. Can't be > 1")
 
-        if not self.entity_info:
-            # We are starting from scratch. Assume that all chains are new_entities
-            start_from_scratch = True
-            entity_idx = count(1)
-        else:
-            start_from_scratch = False
-            entity_idx = count(1 + len(self.entity_info))
-        # # Get rid of any information already acquired
-        # existing_entity_info = self.entity_info
-        # self.entity_info = {}
-        # self.entity_info = {f'{self.name}_{entity_idx}':
-        #                     dict(chains=[self.chains[0]], sequence=self.chains[0].sequence)}
+        entity_start_idx = 1
+        if self.entity_info:
+            start_with_info = True
+            # Remove any existing chain ID information
+            for data in self.entity_info.values():
+                data['chains'] = []
+            entity_idx = count(entity_start_idx + len(self.entity_info))
+        else:  # Assume that all chains are new_entities
+            start_with_info = False
+            entity_idx = count(entity_start_idx)
+
         for chain in self.chains:
             chain_id = chain.chain_id
-            self.log.debug(f'Searching for matching Entities for Chain {chain_id}')
+            chain_sequence = chain.sequence
+            numeric_chain_seq = sequence_to_numeric(
+                chain_sequence, translation_table=default_substitution_matrix_translation_table)
+            perfect_score = default_substitution_matrix_array[numeric_chain_seq, numeric_chain_seq].sum()
+            best_score = 0
+            self.log.debug(f'Searching for matching entities for Chain {chain_id} with perfect_score={perfect_score}')
             for entity_name, data in self.entity_info.items():
                 # Todo implement structure check
                 #  rmsd_threshold = 1.  # threshold needs testing
@@ -3379,17 +3389,34 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 #      new_entity = False  # The entity is not unique, do not add
                 #      break
                 # Check if the sequence associated with the Chain is in entity_info
-                sequence = data['reference_sequence']
-                if chain.sequence == sequence:
-                    score = len(chain.sequence)
-                else:
-                    alignment = generate_alignment(chain.sequence, sequence)  # , local=True)
-                    score = alignment.score  # Grab score value
+                # Start with the Structure sequence as this is going to be a closer match
+                entity_sequence = struct_sequence = data.get('sequence', False)
+                if not struct_sequence:  # No Structure sequence in entity_info
+                    entity_sequence = data['reference_sequence']  # ref_sequence =
+                #     reference_sequence = True
+                # else:
+                #     reference_sequence = False
+
+                if chain_sequence == entity_sequence:
+                    # score = len(chain.sequence)
+                    self.log.debug(f'Chain {chain_id} matches Entity {entity_name} sequence exactly')
+                    data['chains'].append(chain_id)
+                    break
+
                 # Use which ever sequence is greater as the max
-                seq_len, chain_seq_len = len(sequence), len(chain.sequence)
-                large_sequence_length = max(seq_len, chain_seq_len)
-                small_sequence_length = min(seq_len, chain_seq_len)
-                match_score = score / large_sequence_length
+                len_seq, len_chain_seq = len(entity_sequence), len(chain_sequence)
+                if len_seq >= len_chain_seq:
+                    large_sequence_length, small_sequence_length = len_seq, len_chain_seq
+                else:  # len_seq < len_chain_seq
+                    small_sequence_length, large_sequence_length = len_seq, len_chain_seq
+                # large_sequence_length = max(len_seq, len_chain_seq)
+                # small_sequence_length = min(len_seq, len_chain_seq)
+
+                # Align to find their match
+                alignment = generate_alignment(chain_sequence, entity_sequence)
+                # score = alignment.score  # Grab score value
+                # Find score and bound between 0-1. 1 should be max if it perfectly aligns
+                match_score = alignment.score / perfect_score
                 length_proportion = (large_sequence_length-small_sequence_length) / large_sequence_length
                 self.log.debug(f'Chain {chain_id} to Entity {entity_name} has {match_score:.2f} identity '
                                f'and {length_proportion:.2f} length difference')
@@ -3397,16 +3424,40 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     self.log.debug(f'Chain {chain_id} matches Entity {entity_name}')
                     # If number of sequence matches is > tolerance, and the length difference < tolerance
                     # the current chain is the same as the Entity, add to chains, and move on to the next chain
-                    data['chains'].append(chain)
-                    # The entity is not unique, do not add
-                    break
+                    if start_with_info:
+                        # We have information, but we need to make sure it is the best info
+                        # Especially if we don't have a structure_sequence, we are using the reference to align
+                        # so check all references then set a struct_sequence, i.e. data['sequence'] in the else clause
+                        if not struct_sequence:  # ref_sequence
+                            # There is more lenience between the chain.sequence and entity sequence
+                            if match_score > best_score:
+                                # Set the best_score and best_entity
+                                best_score = match_score
+                                best_entity = entity_name
+                            # Run again to ensure that the there isn't a better choice
+                            continue
+                        else:
+                            # These should match perfectly at check above unless there is asymmetry in model
+                            # Todo
+                            #  self.asymmetric = True
+                            data['chains'].append(chain_id)
+                            break
+                    else:
+                        data['chains'].append(chain_id)
+                        # The entity is not unique, do not add
+                        break
             else:  # We didn't find a match, this is new
-                if not start_from_scratch:
-                    self.log.warning(f"Couldn't find a matching Entity from those existing for Chain {chain_id}")
-            # if new_entity:  # No existing entity matches, add new entity
-                entity_name = f'{self.name}_{next(entity_idx)}'
-                self.log.debug(f'Chain {chain_id} is a new Entity "{entity_name}"')
-                self.entity_info[entity_name] = dict(chains=[chain], reference_sequence=chain.sequence)
+                if start_with_info:
+                    # self.log.warning(f"Couldn't find a matching Entity from those existing for Chain {chain_id}")
+                    # Set the 'sequence' to the structure sequence
+                    data = self.entity_info[best_entity]
+                    data['sequence'] = struct_sequence
+                    data['chains'].append(chain_id)
+                    del best_entity
+                else:  # No existing entity matches, add new entity
+                    entity_name = f'{self.name}_{next(entity_idx)}'
+                    self.log.debug(f'Chain {chain_id} is a new Entity "{entity_name}"')
+                    self.entity_info[entity_name] = dict(chains=[chain], sequence=chain.sequence)
 
         self.log.debug(f'Entity information was solved by {method} match')
 
