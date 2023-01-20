@@ -2054,7 +2054,7 @@ class PoseProtocol(PoseData):
                 # source_errat_accuracy.append(oligomer_errat_accuracy)
                 # Todo when Entity.oligomer works
                 #  _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
-                entity_oligomer = Model.from_chains(entity.chains, log=self.pose.log, entities=False)
+                entity_oligomer = Model.from_chains(entity.chains, entities=False, log=self.pose.log)
                 _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
                 source_errat.append(oligomeric_errat[:entity.number_of_residues])
             # atomic_deviation[self.pose.name] = sum(source_errat_accuracy) / float(number_of_entities)
@@ -4013,7 +4013,7 @@ class PoseProtocol(PoseData):
         self.output_metrics(residues=residues_df, designs=designs_df)
 
     def calculate_pose_metrics(self):
-        """Perform metrics update """
+        """Perform a metrics update only on the reference Pose"""
         # Check if PoseMetrics have been captured
         if self.job.db:
             if self.metrics is None:
@@ -4057,7 +4057,7 @@ class PoseProtocol(PoseData):
         residues_df = self.analyze_pose_metrics_per_residue()
         self.output_metrics(residues=residues_df)
 
-    def analyze_pose_metrics_per_residue(self) -> pd.DataFrame:
+    def analyze_pose_metrics_per_residue(self, novel_interface: bool = True) -> pd.DataFrame:
         """Perform per-residue analysis on the PoseJob.pose
 
         Returns:
@@ -4069,13 +4069,12 @@ class PoseProtocol(PoseData):
         pose_length = self.pose.number_of_residues
         residue_indices = list(range(pose_length))
 
-        interface_errat = True
-        if interface_errat:  # The input structure was not meant to be together, treat as such
+        if novel_interface:  # The input structure wasn't meant to be together, take the errat measurement as such
             source_errat = []
             for idx, entity in enumerate(self.pose.entities):
                 # Todo when Entity.oligomer works
                 #  _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
-                entity_oligomer = Model.from_chains(entity.chains, log=self.pose.log, entities=False)
+                entity_oligomer = Model.from_chains(entity.chains, entities=False, log=self.pose.log)
                 _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
                 source_errat.append(oligomeric_errat[:entity.number_of_residues])
             # atomic_deviation[pose_source_name] = sum(source_errat_accuracy) / float(self.pose.number_of_entities)
