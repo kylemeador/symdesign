@@ -33,7 +33,7 @@ from symdesign.structure.sequence import concatenate_profile, pssm_as_array
 from symdesign.structure.utils import chain_id_generator
 from symdesign.sequence import protein_letters_alph1
 from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
-from symdesign.utils.sql import ResidueMetrics, PoseMetrics, EntityTransform, EntityData
+from symdesign.utils.sql import EntityData, EntityTransform, PoseResidueMetrics, PoseMetrics
 from symdesign.utils.symmetry import generate_cryst1_record, identity_matrix
 putils = utils.path
 
@@ -4190,44 +4190,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 poses_df.index.set_names(PoseMetrics.pose_id.name, inplace=True)
                 metrics.sql.write_dataframe(poses=poses_df)  # , update=False)
 
-                # poses_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-                # # designs_df = pd.concat([poses_df], keys=[putils.pose_source], axis=0)
-                # # designs_df.index = designs_df.index.swaplevel(0, 1)
-                # designs_df = pd.concat([poses_df], keys=_pose_ids, axis=0)
-                # designs_df.index.set_names([DesignMetrics.pose_id, DesignMetrics.name], inplace=True)
-                # _design_ids = metrics.sql.write_dataframe(designs=poses_df)
-                # design_index_names = [DesignMetrics.pose_name.name, DesignMetrics.name.name]
-                # designs_index = pd.MultiIndex.from_tuples(list(zip(project_pose_names, pose_names)),
-                #                                           names=design_index_names)
-                # # Add the docked pose "design info" to the Database
-                # designs_index = pd.Index(pose_ids, names=DesignMetrics.pose_id.name)
-                # designs_df = pd.DataFrame(
-                #     list(repeat(protocol, number_of_transforms)),
-                #     index=designs_index, columns=[putils.protocol])
-                # metrics.sql.write_dataframe(designs=designs_df)
-                # # Add an entry for the pose to DesignData. This is strictly to help ResidueMetadata
-                # designs = []
-                # for pose_job in pose_jobs:
-                #     pose_job.designs.append(DesignData(name=pose_job.name))
-                #     designs.append(DesignData(name=pose_job.name))
-
-                residues_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
-                # Add the design name to the dataframe. All output are the 'pose_source'
-                # residues_df = pd.concat([residues_df], keys=[putils.pose_source], axis=0)
-                # residues_df.index = residues_df.index.swaplevel(0, 1)
-                # residue_index_names = [ResidueMetrics.pose_id.name, ResidueMetrics.design_name.name]
-                # # residues_df = pd.concat([residues_df], keys=list(zip(_pose_ids, repeat(0))), axis=0)
-                # #                         names=residue_index_names, axis=0)
-                # residues_df.index = pd.MultiIndex.from_tuples(list(zip(_pose_ids, repeat(0))),
-                #                                               names=residue_index_names)
-                # residue_index_names = [ResidueMetrics.pose_name.name, ResidueMetrics.design_name.name]
-                # residues_df.index = pd.MultiIndex.from_tuples(list(zip(project_pose_names, pose_names)),  # repeat(putils.pose_source))),
-                #                                               names=residue_index_names)
-                residues_df.index = pd.Index(pose_ids, name=ResidueMetrics.pose_id.name)
+                residues_df.index = pd.Index(pose_ids, name=PoseResidueMetrics.pose_id.name)
                 # residues_df.index.set_names(residue_index_names, inplace=True)
                 # _residues_ids = metrics.sql.write_dataframe(residues=residues_df)
-                metrics.sql.write_dataframe(residues=residues_df)  # , update=False)
+                metrics.sql.write_dataframe(pose_residues=residues_df)  # , update=False)
             else:  # Write to disk
+                residues_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
                 putils.make_path(job.all_scores)
                 residue_metrics_csv = os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Residues.csv')
                 residues_df.to_csv(residue_metrics_csv)
@@ -4273,15 +4241,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     # return [PoseJob.from_pose_id(pose_id, entity_names=entity_names,
     # entity_names = [entity.name for model in models for entity in model.entities]
     # with job.db.session(expire_on_commit=False) as session:
-    pose_jobs = [PoseJob.from_name(pose_name, project=project,
-                                   # entity_metadata=entity_metadata,
-                                   # entity_names=entity_names,
-                                   # pose_transformation=create_specific_transformation(idx)
-                                   )
-                 for idx, pose_name in enumerate(pose_names)]
+    pose_jobs = [PoseJob.from_name(pose_name, project=project) for idx, pose_name in enumerate(pose_names)]
     # Commit all new PoseJobs to the current session to generate ids
     session = job.current_session
     session.add_all(pose_jobs)
+    # trajectory = TrajectoryMetadata(poses=pose_jobs, protocol=protocol)
+    # session.add(trajectory)
     session.commit()
 
     # Finalize docking run

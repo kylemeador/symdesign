@@ -466,7 +466,7 @@ def interface_design(job: pose.PoseJob):
         # Update the Pose with the number of designs
         raise NotImplementedError('Need to generate number_of_designs matching proteinmpnn_design()...')
         # Todo update upon completion given results of designs list file...
-        job.update_design_data(number=job.job.design.number)
+        job.update_design_data(design_parent=job.pose_source, number=job.job.design.number)
         favor_fragments = evo_fill = True
     else:
         favor_fragments = evo_fill = False

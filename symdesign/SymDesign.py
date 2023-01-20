@@ -317,82 +317,150 @@ def main():
                                ' "Nanohedra Entry Number:"')
 
     def initialize_entities(structures: Iterable[structure.base.Structure],
-                            possible_uniprot_id_protein_property: dict[tuple[str, ...], sql.ProteinMetadata] = None,
-                            existing_uniprot_entities: Iterable[wrapapi.UniProtEntity] = None):
+                            possibly_new_uniprot_to_prot_data: dict[tuple[str, ...], sql.ProteinMetadata] = None,
+                            existing_uniprot_entities: Iterable[wrapapi.UniProtEntity] = None,
+                            existing_protein_metadata: Iterable[wrapapi.UniProtEntity] = None) -> \
+            dict[tuple[str, ...], sql.ProteinMetadata]:
         """Perform the routine of comparing newly described work to the existing database and handling set up of
         structural and evolutionary data creation
 
         Args:
             structures: The Structure instances that are being imported for the first time
-            possible_uniprot_id_protein_property: A mapping of the required UniProtID to it's associated ProteinProperty
+            possibly_new_uniprot_to_prot_data: A mapping of the possibly required UniProtID entries and their associated
+                ProteinProperty. These could already exist but have indicated they should be added
             existing_uniprot_entities: If any UniProtEntity instances are already available, pass them to expedite setup
         """
         # Find existing UniProtEntity table entry instances
         # Get the set of all UniProtIDs
-        all_uniprot_ids = set()
-        for uniprot_ids in possible_uniprot_id_protein_property.keys():
-            all_uniprot_ids.update(uniprot_ids)
-            # DONE Tod0 move session outside?
+        possibly_new_uniprot_ids = set()
+        for uniprot_ids in possibly_new_uniprot_to_prot_data.keys():
+            possibly_new_uniprot_ids.update(uniprot_ids)
+
+        # DONE Tod0 move session outside?
         # with job.db.session() as session:  # current_session
-        if existing_uniprot_entities is None:
-            # itertools.chain.from_iterable(possible_uniprot_id_protein_property.keys())
+        if not existing_uniprot_entities:  # is None:
+            # itertools.chain.from_iterable(possibly_new_uniprot_to_prot_data.keys())
             existing_uniprot_entities_stmt = \
-                select(wrapapi.UniProtEntity)\
-                .where(wrapapi.UniProtEntity.id.in_(all_uniprot_ids))
+                select(wrapapi.UniProtEntity) \
+                .where(wrapapi.UniProtEntity.id.in_(possibly_new_uniprot_ids))
             existing_uniprot_entities = session.scalars(existing_uniprot_entities_stmt).all()
-            uniprot_entities = set(existing_uniprot_entities)
+            not_new_uniprot_entities = set()
+        elif possibly_new_uniprot_ids:
+            existing_uniprot_ids = {unp_ent.id for unp_ent in existing_uniprot_entities}
+            # Remove the certainly existing from possibly new and query the new
+            existing_uniprot_entities_stmt = \
+                select(wrapapi.UniProtEntity) \
+                .where(wrapapi.UniProtEntity.id.in_(possibly_new_uniprot_ids.difference(existing_uniprot_ids)))
+            not_new_uniprot_entities = session.scalars(existing_uniprot_entities_stmt).all()
         else:
-            uniprot_entities = set(existing_uniprot_entities)
+            raise NotImplementedError("This wasn't expected to happen:\n"
+                                      f"existing_uniprot_entities={existing_uniprot_entities}\n"
+                                      f"possibly_new_uniprot_ids={possibly_new_uniprot_ids}\n")
             # Todo emit this select when there is a stronger association between the multiple
             #  UniProtEntity.uniprot_ids and referencing a unique ProteinMetadata
             #  The below were never tested
             # existing_uniprot_entities_stmt = \
             #     select(sql.UniProtProteinAssociation.protein)\
-            #     .where(sql.UniProtProteinAssociation.uniprot_id.in_(all_uniprot_ids))
+            #     .where(sql.UniProtProteinAssociation.uniprot_id.in_(possibly_new_uniprot_ids))
             #     # NEED TO GROUP THESE BY ProteinMetadata.uniprot_entities
             # OR
             # existing_uniprot_entities_stmt = \
             #     select(wrapapi.UniProtEntity).join(sql.ProteinMetadata)\
-            #     .where(wrapapi.UniProtEntity.uniprot_id.in_(all_uniprot_ids))
+            #     .where(wrapapi.UniProtEntity.uniprot_id.in_(possibly_new_uniprot_ids))
             #     # NEED TO GROUP THESE BY ProteinMetadata.uniprot_entities
+        # Create a container of all UniProtEntity instances to see about evolutionary profile creation
+        uniprot_entities = set(not_new_uniprot_entities).union(existing_uniprot_entities)
 
         # Remove those from the possible that already exist
         # for entity in existing_uniprot_entities:
-        #     possible_uniprot_id_protein_property.pop(entity.id, None)
+        #     possibly_new_uniprot_to_prot_data.pop(entity.id, None)
+        # Map the existing uniprot_id to UniProtEntity
         existing_uniprot_id_to_unp_entity = {unp_entity.id: unp_entity
                                              for unp_entity in existing_uniprot_entities}
-        insert_uniprot_ids = all_uniprot_ids.difference(existing_uniprot_id_to_unp_entity.keys())
+        insert_uniprot_ids = possibly_new_uniprot_ids.difference(existing_uniprot_id_to_unp_entity.keys())
+        logger.info(f'possibly_new_uniprot_ids {possibly_new_uniprot_ids}')
+        logger.info(f'insert_uniprot_ids {insert_uniprot_ids}')
 
         # Insert the remaining UniProtIDs as UniProtEntity entries
         new_uniprot_id_to_unp_entity = {uniprot_id: wrapapi.UniProtEntity(id=uniprot_id)
                                         for uniprot_id in insert_uniprot_ids}
 
+        # Insert new entries
+        new_uniprot_entities = new_uniprot_id_to_unp_entity.values()
+        session.add_all(new_uniprot_entities)
+        uniprot_entities = uniprot_entities.union(new_uniprot_entities)
+        # Make a cumulative dictionary for ProteinMetadata ops below
         all_uniprot_id_to_entity = {
             **existing_uniprot_id_to_unp_entity,
             **new_uniprot_id_to_unp_entity,
         }
 
-        # Attach UniProtEntity to ProteinMetadata by UniProtID
-        for uniprot_ids, protein_metadata in possible_uniprot_id_protein_property.items():
-            # Create the ordered_list of UniProtIDs (UniProtEntity) on ProteinMetadata entry
-            protein_metadata.uniprot_entities.extend(all_uniprot_id_to_entity[uniprot_id]
-                                                     for uniprot_id in uniprot_ids)
-
-        new_uniprot_entities = new_uniprot_id_to_unp_entity.values()
-        session.add_all(new_uniprot_entities)
-        uniprot_entities = uniprot_entities.union(new_uniprot_entities)
-
         # # Attach ProteinMetadata to UniProtEntity entries by UniProtID
         # uniprot_entities = []
-        # for uniprot_id, protein_metadata in possible_uniprot_id_protein_property.items():
+        # for uniprot_id, protein_metadata in possibly_new_uniprot_to_prot_data.items():
         #     # Create new entry
         #     new_entity = wrapapi.UniProtEntity(id=uniprot_id)
         #     # Add ProteinProperty to new entry
         #     new_entity.protein_metadata = protein_metadata
         #     uniprot_entities.append(new_entity)
-        #
-        # session.add_all(uniprot_entities)
-        # uniprot_entities.extend(existing_uniprot_entities)
+
+        # Repeat the process for ProteinMetadata
+        # This time we insert all new ProteinMetadata and let the UniqueObjectValidatedOnPending recipe
+        # associated with PoseJob finish the work of getting the correct objects attached
+        possible_entity_id_to_protein_data = \
+            {protein_data.entity_id: protein_data
+             for protein_data in possibly_new_uniprot_to_prot_data.values()}
+        possibly_new_entity_ids = set(possible_entity_id_to_protein_data.keys())
+        # all_protein_metadata = possibly_new_uniprot_to_prot_data.values()
+        if not existing_protein_metadata:
+            existing_protein_metadata_stmt = \
+                select(sql.ProteinMetadata) \
+                .where(sql.ProteinMetadata.entity_id.in_(possibly_new_entity_ids))
+            existing_protein_metadata = session.scalars(existing_protein_metadata_stmt).all()
+        elif possibly_new_entity_ids:
+            existing_entity_ids = {data.entity_id for data in existing_protein_metadata}
+            # Remove the certainly existing from possibly new and query the new
+            existing_uniprot_entities_stmt = \
+                select(sql.ProteinMetadata) \
+                .where(sql.ProteinMetadata.entity_id.in_(possibly_new_entity_ids.difference(existing_entity_ids)))
+            not_new_protein_metadata = session.scalars(existing_uniprot_entities_stmt).all()
+            existing_protein_metadata = set(not_new_protein_metadata).union(existing_protein_metadata)
+        else:
+            raise NotImplementedError("This wasn't expected to happen:\n"
+                                      f"existing_protein_metadata={existing_protein_metadata}\n"
+                                      f"possibly_new_entity_ids={possibly_new_entity_ids}\n")
+        # # Create a container of all UniProtEntity instances to see about evolutionary profile creation
+        # protein_metadata = set(existing_protein_metadata)
+
+        # Map the existing entity_id to ProteinMetadata
+        existing_entity_id_to_protein_data = {protein_data.entity_id: protein_data
+                                              for protein_data in existing_protein_metadata}
+        insert_entity_ids = possibly_new_entity_ids.difference(existing_entity_id_to_protein_data.keys())
+
+        # Insert the remaining UniProtIDs as UniProtEntity entries
+        session.add_all(tuple(possible_entity_id_to_protein_data[entity_id]
+                              for entity_id in insert_entity_ids))
+
+        # Fix the "possible" protein_property with true set of all (now) existing
+        possible_entity_id_to_uniprot_ids = \
+            {protein_data.entity_id: uniprot_ids
+             for uniprot_ids, protein_data in possibly_new_uniprot_to_prot_data.items()}
+
+        # Remove any pre-existing ProteinMetadata for the correct addition to UniProtEntity
+        for entity_id, protein_data in existing_entity_id_to_protein_data.items():
+            possibly_new_uniprot_to_prot_data.pop(possible_entity_id_to_uniprot_ids[entity_id])
+
+        # Attach UniProtEntity to new ProteinMetadata by UniProtID
+        for uniprot_ids, protein_metadata in possibly_new_uniprot_to_prot_data.items():
+            # Create the ordered_list of UniProtIDs (UniProtEntity) on ProteinMetadata entry
+            protein_metadata.uniprot_entities.extend(all_uniprot_id_to_entity[uniprot_id]
+                                                     for uniprot_id in uniprot_ids)
+
+        # Seal all gaps in data by mapping all UniProtIDs to all ProteinMetadata
+        all_uniprot_to_prot_data = {
+            possible_entity_id_to_uniprot_ids[entity_id]: protein_data
+            for entity_id, protein_data in existing_entity_id_to_protein_data.items()}
+        all_uniprot_to_prot_data.update(possibly_new_uniprot_to_prot_data)
 
         # Set up common Structure/Entity resources
         info_messages = []
@@ -431,7 +499,7 @@ def main():
             logger.info(resubmit_command_message)
             terminate(output=False)
 
-        for uniprot_ids, protein_metadata in possible_uniprot_id_protein_property.items():
+        for uniprot_ids, protein_metadata in possibly_new_uniprot_to_prot_data.items():
             protein_metadata.pre_refine = job.initial_refinement
             protein_metadata.pre_loop_model = job.initial_loop_model
 
@@ -445,6 +513,7 @@ def main():
         # # Ensure all_entities are symmetric. As of now, all orient_structures returns are the symmetrized structure
         # for entity in [entity for structure in all_structures for entity in structure.entities]:
         #     entity.make_oligomer(symmetry=entity.symmetry)
+        return all_uniprot_to_prot_data
 
     resubmit_command_message = f'After completion of sbatch script(s), re-submit your {putils.program_name} ' \
                                f'command:\n\tpython {" ".join(sys.argv)}'
@@ -832,7 +901,7 @@ def main():
             # Initialize the local database
             # # Populate all_entities to set up sequence dependent resources
             # all_entities = []
-            possible_uniprot_ids = {}
+            possibly_new_uniprot_to_prot_metadata = {}
             # Todo expand the definition of SymEntry/Entity to include
             #  specification of T:{T:{C3}{C3}}{C1}
             #  where an Entity is composed of multiple Entity (Chain) instances
@@ -850,8 +919,8 @@ def main():
                             c_terminal_helix=entity.is_termini_helical('c'),
                             thermophilic=entity.thermophilic,
                             symmetry_group=symmetry)
-                        # Set the Entity with .metadata attribute to fetch in fragdock()
-                        entity.metadata = protein_metadata
+                        # # Set the Entity with .metadata attribute to fetch in fragdock()
+                        # entity.metadata = protein_metadata
                         # for uniprot_id in entity.uniprot_ids:
                         try:
                             ''.join(entity.uniprot_ids)
@@ -862,17 +931,24 @@ def main():
                         else:
                             uniprot_ids = entity.uniprot_ids
 
-                        if uniprot_ids in possible_uniprot_ids:
+                        if uniprot_ids in possibly_new_uniprot_to_prot_metadata:
                             # This Entity already found for processing and we shouldn't have duplicates
                             raise RuntimeError(f"This error wasn't expected to occur.{putils.report_issue}")
                         else:  # Process for persistent state
-                            possible_uniprot_ids[uniprot_ids] = protein_metadata
+                            possibly_new_uniprot_to_prot_metadata[uniprot_ids] = protein_metadata
 
                 all_structures.extend(structures)
 
             # Write new data to the database
             # with job.db.session(expire_on_commit=False) as session:
-            initialize_entities(all_structures, possible_uniprot_ids)
+            all_uniprot_to_prot_data = \
+                initialize_entities(all_structures, possibly_new_uniprot_to_prot_metadata)
+            # Correct existing ProteinMetadata
+            for structures in grouped_structures:
+                for structure in structures:
+                    for entity in structure.entities:
+                        # Set the Entity with .metadata attribute to fetch in fragdock()
+                        entity.metadata = all_uniprot_to_prot_data[entity.uniprot_ids]
 
             # Make all possible structure pairs given input entities by finding entities from entity_names
             # Using combinations of directories with .pdb files
@@ -1058,7 +1134,7 @@ def main():
                 else:
                     symmetry_map = repeat('C1')
                     preprocess_entities_by_symmetry = {'C1': []}
-                possible_uniprot_ids: dict[tuple[str, ...], sql.ProteinMetadata] = {}
+                possibly_new_uniprot_to_prot_metadata: dict[tuple[str, ...], sql.ProteinMetadata] = {}
                 existing_uniprot_ids = set()
                 existing_uniprot_entities = set()
                 existing_protein_metadata = set()
@@ -1077,21 +1153,19 @@ def main():
                             remove_pose_jobs.append(idx)
                             continue
 
-                        # for entity in pose_job.initial_model.entities:
-                        # entity_data = []
                         for entity, symmetry in zip(pose_job.initial_model.entities, symmetry_map):
                             try:
                                 ''.join(entity.uniprot_ids)
                             except TypeError:  # Uniprot_ids is (None,)
-                                uniprot_ids = (entity.name,)
-                            except AttributeError:  # Unable to retrieve
-                                uniprot_ids = (entity.name,)
-                            else:
-                                uniprot_ids = entity.uniprot_ids
-                            # input(f'uniprot_ids MAIN: {uniprot_ids}')
+                                entity.uniprot_ids = (entity.name,)
+                            except AttributeError:  # Unable to retrieve .uniprot_ids
+                                entity.uniprot_ids = (entity.name,)
+                            # else:  # .uniprot_ids work. Use as parsed
+                            uniprot_ids = entity.uniprot_ids
+
                             # Check if the tuple of UniProtIDs has already been observed
-                            protein_metadata = possible_uniprot_ids.get(uniprot_ids, None)
-                            if protein_metadata is None:  # uniprot_ids in possible_uniprot_ids:
+                            protein_metadata = possibly_new_uniprot_to_prot_metadata.get(uniprot_ids, None)
+                            if protein_metadata is None:  # uniprot_ids in possibly_new_uniprot_to_prot_metadata:
                                 # Process for persistent state
                                 protein_metadata = sql.ProteinMetadata(
                                     entity_id=entity.name,
@@ -1104,21 +1178,21 @@ def main():
                                     # symmetry=entity.symmetry
                                 )
                                 # for uniprot_id in entity.uniprot_ids:
-                                #     if uniprot_id in possible_uniprot_ids:
+                                #     if uniprot_id in possibly_new_uniprot_to_prot_metadata:
                                 #         # This Entity already found for processing
                                 #         pass
                                 #     else:  # Process for persistent state
-                                #         possible_uniprot_ids[uniprot_id] = protein_metadata
+                                #         possibly_new_uniprot_to_prot_metadata[uniprot_id] = protein_metadata
 
-                                possible_uniprot_ids[uniprot_ids] = protein_metadata
+                                possibly_new_uniprot_to_prot_metadata[uniprot_ids] = protein_metadata
                                 preprocess_entities_by_symmetry[symmetry].append(entity)
                             # else:  # This Entity already found for processing
                             #     pass  # protein_metadata = protein_metadata
-                            # Create EntityData
-                            # entity_data.append(sql.EntityData(pose=pose_job,
-                            sql.EntityData(pose=pose_job,
-                                           meta=protein_metadata
-                                           )
+                            # # Create EntityData
+                            # # entity_data.append(sql.EntityData(pose=pose_job,
+                            # sql.EntityData(pose=pose_job,
+                            #                meta=protein_metadata
+                            #                )
                         # # Update PoseJob
                         # pose_job.entity_data = entity_data
                         pose_jobs_to_commit.append(pose_job)
@@ -1127,10 +1201,10 @@ def main():
                         for data in pose_job.entity_data:
                             existing_protein_metadata.add(data.meta)
                             for uniprot_entity in data.meta.uniprot_entities:
-                                if uniprot_entity.id not in existing_uniprot_ids:  # in possible_uniprot_ids:
+                                if uniprot_entity.id not in existing_uniprot_ids:
                                     existing_uniprot_entities.add(uniprot_entity)
                             # meta = data.meta
-                            # if meta.uniprot_id in possible_uniprot_ids:
+                            # if meta.uniprot_id in possibly_new_uniprot_to_prot_metadata:
                             #     existing_uniprot_entities.add(meta.uniprot_entity)
                 for idx in reversed(remove_pose_jobs):
                     pose_jobs.pop(idx)
@@ -1152,12 +1226,20 @@ def main():
                     #  Where oligomer is deduced from available surface fragment overlap with the specified symmetry...
                     #  job.structure_db.orient_entities(entities, symmetry=symmetry)
 
-                # Write new data to the database
+                # Deal with new data compared to existing entries
+                all_uniprot_to_prot_data = \
+                    initialize_entities(all_entities, possibly_new_uniprot_to_prot_metadata,
+                                        existing_uniprot_entities=existing_uniprot_entities,
+                                        existing_protein_metadata=existing_protein_metadata)
+                # Todo does all_uniprot_to_prot_data need to be returned or can I update in place?
+                # Write new data to the database with correct unique entries
                 # with job.db.session(expire_on_commit=False) as session:
+                for pose_job in pose_jobs_to_commit:
+                    pose_job.entity_data.extend(
+                        sql.EntityData(meta=all_uniprot_to_prot_data[entity.uniprot_ids])
+                        for entity in pose_job.initial_model.entities)
                 session.add_all(pose_jobs_to_commit)
                 session.commit()
-                initialize_entities(all_entities, possible_uniprot_ids,
-                                    existing_uniprot_entities=existing_uniprot_entities)
 
                 if args.multi_processing:  # and not args.skip_master_db:
                     logger.debug('Loading Database for multiprocessing fork')

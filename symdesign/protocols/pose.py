@@ -614,7 +614,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         self.source_path = source_path
         self.initial = initial
         # self.pose_identifier = f'{self.project}{os.sep}{self.name}'
-
+        # self.designs = [sql.DesignData(name=name)]
+        # self.designs.append(sql.DesignData(name=name))
+        # self.designs.append(sql.DesignData(name=name, design_parent=None))
+        pose_source = sql.DesignData(name=name, pose=self, design_parent=None)
         self.__init_from_db__()
         # Most __init__ code is called in __init_from_db__() according to sqlalchemy needs and DRY principles
 
@@ -785,7 +788,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             self._lock_optimize_designs = True
             # self.specific_designs_file_paths = []
             for design in specific_designs:
-                # Todo update this to use DesignData, maybe ProtocolMetadata.file ...
+                # Todo update this to use DesignData, maybe DesignProtocol.file ...
                 matching_path = os.path.join(self.designs_path, f'*{design}.pdb')
                 matching_designs = sorted(glob(matching_path))
                 if matching_designs:
@@ -815,10 +818,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     @structure_source.setter
     def structure_source(self, source: AnyStr):
         self._source = source
-
-    @property
-    def number_of_designs(self) -> int:
-        return len(self.designs)
 
     # SymEntry object attributes
     @property  # @hybrid_property
@@ -3387,7 +3386,7 @@ class PoseProtocol(PoseData):
         # self.log.debug(f"Took {time.time() - design_start:8f}s for design_sequences")
 
         # Update the Pose with the number of designs
-        designs_data = self.update_design_data()
+        designs_data = self.update_design_data(design_parent=self.pose_source)
 
         # self.output_proteinmpnn_scores(design_names, sequences_and_scores)
         # # Write every designed sequence to the sequences file...
@@ -3417,12 +3416,12 @@ class PoseProtocol(PoseData):
         # Update the Pose with the design protocols
         for idx, design_data in enumerate(designs_data):
             design_data.protocols.append(
-                sql.ProtocolMetadata(design_id=design_ids[idx],
-                                     protocol=self.protocol,  # protocols[idx],
-                                     temperature=temperatures[idx],
-                                     file=sequence_files[idx]))
-        # protocol_metadata = self.update_protocol_metadata(protocols=protocols, temperatures=temperatures,
-        #                                                   files=sequence_files)
+                sql.DesignProtocol(design_id=design_ids[idx],
+                                   protocol=self.protocol,  # sql.Protocol(name=self.protocol),  # protocols[idx],
+                                   temperature=temperatures[idx],
+                                   file=sequence_files[idx]))
+        # design_protocol = self.update_design_protocols(protocols=protocols, temperatures=temperatures,
+        #                                                files=sequence_files)
 
         # analysis_start = time.time()
         self.analyze_proteinmpnn_metrics(design_ids, sequences_and_scores)
@@ -3477,27 +3476,28 @@ class PoseProtocol(PoseData):
     #     putils.make_path(self.data_path)
     #     write_per_residue_scores(design_ids, sequences_and_scores)
 
-    def update_protocol_metadata(self, design_ids: Sequence[str], protocols: Sequence[str] = None,
-                                 temperatures: Sequence[float] = None, files: Sequence[AnyStr] = None) \
-            -> list[sql.ProtocolMetadata]:
-        """Associate newly created DesignData with ProtocolMetadata
+    def update_design_protocols(self, design_ids: Sequence[str], protocols: Sequence[str] = None,
+                                temperatures: Sequence[float] = None, files: Sequence[AnyStr] = None) \
+            -> list[sql.DesignProtocol]:
+        """Associate newly created DesignData with DesignProtocol
 
         Args:
             design_ids: The identifiers for each DesignData
-            protocols: The sequence of protocols to associate with ProtocolMetadata
-            temperatures: The temperatures to associate with ProtocolMetadata
-            files: The sequence of files to associate with ProtocolMetadata
+            protocols: The sequence of protocols to associate with DesignProtocol
+            temperatures: The temperatures to associate with DesignProtocol
+            files: The sequence of files to associate with DesignProtocol
         Returns:
-            The new instances of the sql.ProtocolMetadata
+            The new instances of the sql.DesignProtocol
         """
-        metadata = [sql.ProtocolMetadata(design_id=design_id, protocol=protocol, temperature=temperature, file=file)
+        metadata = [sql.DesignProtocol(design_id=design_id, protocol=protocol, temperature=temperature, file=file)
                     for design_id, protocol, temperature, file in zip(design_ids, protocols, temperatures, files)]
         return metadata
 
-    def update_design_data(self, number: int = None) -> list[sql.DesignData]:  # list[int]:
+    def update_design_data(self, design_parent: sql.DesignData, number: int = None) -> list[sql.DesignData]:  # list[int]:
         """Update the PoseData with the newly created design identifiers using DesignData
 
         Args:
+            design_parent: The design whom all new designs are based
             number: The number of designs. If not provided, set according to job.design.number * job.design.temperature
         Returns:
             The new instances of the DesignData
@@ -3512,13 +3512,15 @@ class PoseProtocol(PoseData):
         design_names = [f'{self.name}-{design_idx:04d}'  # f'{self.name}_{self.protocol}{seq_idx:04d}'
                         for design_idx in range(first_new_design_idx,
                                                 first_new_design_idx + number)]
-        designs = [sql.DesignData(name=name, pose_id=self.id) for name in design_names]
-        session = self.job.current_session
-        session.add_all(designs)
-        session.commit()
-        # design_ids = [design.id for design in designs]
+        # # designs = [sql.DesignData(name=name, pose_id=self.id) for name in design_names]
+        # # session.add_all(designs)
+        # # session.commit()
+        # designs = [sql.DesignData(name=name, design_parent=design_parent) for name in design_names]
+        # self.designs.extend(designs)
+        designs = [sql.DesignData(name=name, pose=self, design_parent=design_parent)
+                   for name in design_names]
+        self.job.current_session.commit()
 
-        # return design_ids
         return designs
 
     def output_metrics(self, designs: pd.DataFrame = None, residues: pd.DataFrame = None,
@@ -3569,14 +3571,14 @@ class PoseProtocol(PoseData):
                 # #                      names=residue_index_names, axis=0)
                 # residues.index.set_names(residue_index_names, inplace=True)
                 if pose_metrics:
-                    index_name = sql.ResidueMetrics.pose_id.name
+                    index_name = sql.PoseResidueMetrics.pose_id.name
+                    dataframe_kwargs = dict(pose_residues=residues)
                 else:
                     index_name = sql.ResidueMetrics.design_id.name
+                    dataframe_kwargs = dict(residues=residues)
 
                 residues.index.set_names(index_name, inplace=True)
-                # _residue_ids = metrics.sql.write_dataframe(residues=residues, update=update)
-                metrics.sql.write_dataframe(residues=residues)  # , update=False)
-            # metrics.sql.write_dataframe(designs=designs, residues=residues)
+                metrics.sql.write_dataframe(**dataframe_kwargs)  # , update=False)
         else:
             putils.make_path(self.data_path)
             if residues is not None:
@@ -4031,6 +4033,7 @@ class PoseProtocol(PoseData):
 
                 self.metrics.pose_thermophilicity = sum(is_thermophilic) / idx
 
+                # Commit the newly acquired metrics
                 self.job.current_session.commit()
             else:
                 return
@@ -4052,7 +4055,7 @@ class PoseProtocol(PoseData):
 
         # Output
         residues_df = self.analyze_pose_metrics_per_residue()
-        self.output_metrics(residues=residues_df, pose_metrics=True)
+        self.output_metrics(residues=residues_df)
 
     def analyze_pose_metrics_per_residue(self) -> pd.DataFrame:
         """Perform per-residue analysis on the PoseJob.pose

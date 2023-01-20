@@ -55,8 +55,10 @@ class PoseMetadata(Base):
     __tablename__ = 'pose_data'
     id = Column(Integer, primary_key=True)
 
-    name = Column(String, nullable=False, index=True)  # String(60)
-    project = Column(String, nullable=False)  # String(60)
+    __table_args__ = (UniqueConstraint('project', 'name', name='_project_name_uc'),
+                      )
+    project = Column(String, nullable=False)  # Todo? , index=True)
+    name = Column(String, nullable=False, index=True)
     # This isn't a column in the __table__, but is an attribute of Class and derived instances
     pose_identifier = column_property(project + os.sep + name)
     # pose_identifier = column_property(f'{project}{os.sep}{name}')
@@ -74,9 +76,27 @@ class PoseMetadata(Base):
     # Set up one-to-one relationship with pose_metrics table
     metrics = relationship('PoseMetrics', back_populates='pose', uselist=False, lazy='selectin')
     # Set up one-to-many relationship with design_data table
-    designs = relationship('DesignData', back_populates='pose', lazy='selectin')
-    # Set up one-to-many relationship with residue_metrics table
-    residues = relationship('ResidueMetrics', back_populates='pose')
+    designs = relationship('DesignData', back_populates='pose',
+                           # collection_class=ordering_list('id'),
+                           order_by='DesignData.id',
+                           lazy='selectin')
+
+    @property
+    def number_of_designs(self) -> int:
+        return len(self.designs)
+
+    # # Set up one-to-one relationship with design_data table
+    # pose_source_id = Column(ForeignKey('design_data.id'))
+    # pose_source = relationship('DesignData', lazy='selectin')
+
+    @property
+    def pose_source(self):
+        return self.designs[0]
+
+    # # Set up one-to-many relationship with residue_metrics table
+    # residues = relationship('ResidueMetrics', back_populates='pose')
+    # Set up one-to-many relationship with pose_residue_metrics table
+    residues = relationship('PoseResidueMetrics', back_populates='pose')
 
     transformations = association_proxy('entity_data', 'transformation')
 
@@ -90,17 +110,6 @@ class PoseMetadata(Base):
     # symmetry_groups = relationship('SymmetryGroup')
     sym_entry_specification = Column(String)  # RESULT:{SUBSYMMETRY1}{SUBSYMMETRY2}...
 
-    # @classmethod
-    # def insert_pose(cls, session: Session, name: str, project: str) -> int:
-    #     """Insert a new PoseJob instance into the database and return the Database id"""
-    #     # with session() as session:
-    #     stmt = insert(cls).returning(cls.id)
-    #     result = session.scalars(stmt,  # execute(stmt).inserted_primary_key  # fetchone()
-    #                              dict(name=name, project=project))
-    #     session.commit()
-    #
-    #     return result.one()
-    #
     # def get_design_number(self, session: Session, number: int) -> int:
     #     return self.number_of_designs
     #
@@ -248,7 +257,7 @@ class ProteinMetadata(Base):
     __tablename__ = 'protein_metadata'
     id = Column(Integer, primary_key=True)
 
-    entity_id = Column(String, nullable=False, index=True)  # entity_name is used in config.metrics
+    entity_id = Column(String, nullable=False, index=True, unique=True)  # entity_name is used in config.metrics
     """This could be described as the PDB API EntityID"""
     # # Set up many-to-one relationship with uniprot_entity table. Using "many" because there can be chimera's
     # uniprot_id = Column(ForeignKey('uniprot_entity.id'))
@@ -285,6 +294,8 @@ class EntityData(Base):
     __tablename__ = 'entity_data'
     id = Column(Integer, primary_key=True)
 
+    __table_args__ = (UniqueConstraint('pose_id', 'properties_id', name='_pose_properties_id_uc'),
+                      )
     # Set up many-to-one relationship with pose_data table
     pose_id = Column(ForeignKey('pose_data.id'))
     pose = relationship('PoseJob', back_populates='entity_data')
@@ -478,14 +489,17 @@ class EntityTransform(Base):
 #         setattr(PoseMetrics, metric.replace('entity', f'entity{idx}'), Column(value))
 
 
-class ProtocolMetadata(Base):
-    __tablename__ = 'protocol_metadata'
+class DesignProtocol(Base):
+    __tablename__ = 'design_protocol'
+
+    # class ProtocolMetadata(Base):
+    #     __tablename__ = 'protocol_metadata'
     id = Column(Integer, primary_key=True)
 
     protocol = Column(String, nullable=False)
     # Set up many-to-one relationship with design_data table
-    design_id = Column(ForeignKey('design_data.id'), nullable=False)
-    design = relationship('DesignData', back_populates='protocols')  # , nullable=False)
+    design_id = Column(ForeignKey('design_data.id'))
+    design = relationship('DesignData', back_populates='protocols')
     temperature = Column(Float)
     file = Column(String)
 
@@ -494,14 +508,22 @@ class DesignData(Base):
     """Account for design metadata created from pose metadata"""
     __tablename__ = 'design_data'
     id = Column(Integer, primary_key=True)
-    # __table_args__ = (UniqueConstraint('pose_id', 'name', name='_pose_design_uc'),
-    #                   )
-    name = Column(String, nullable=False, unique=True)  # String(60)
+    __table_args__ = (UniqueConstraint('pose_id', 'name', name='_pose_name_uc'),
+                      )
+    name = Column(String, nullable=False)  # , unique=True)
     # Set up many-to-one relationship with pose_data table
     pose_id = Column(ForeignKey('pose_data.id'), nullable=False)
     pose = relationship('PoseJob', back_populates='designs')
-    # Set up one-to-many relationship with protocol_metadata table
-    protocols = relationship('ProtocolMetadata', back_populates='design')
+    # # Set up one-to-many relationship with trajectory_metadata table
+    # trajectories = relationship('TrajectoryMetadata', back_populates='parent_design')
+    # design_parent = relationship('DesignData', back_populates='parent_design')
+    # design_children = relationship('DesignData', back_populates='design_parent')
+    # Set up one-to-many relationship with design_data (self) table
+    design_parent_id = Column(ForeignKey('design_data.id'))
+    design_parent = relationship('DesignData', remote_side=[id])
+    design_children = relationship('DesignData', lazy='joined', join_depth=1)  # Only get the immediate children
+    # Set up one-to-many relationship with design_protocol table
+    protocols = relationship('DesignProtocol', back_populates='design')
     # Set up one-to-one relationship with design_metrics table
     metrics = relationship('DesignMetrics', back_populates='design', uselist=False)
     # Set up one-to-many relationship with residue_metrics table
@@ -660,26 +682,51 @@ for idx in range(1, 1 + config.MAXIMUM_INTERFACES):
         setattr(DesignMetrics, metric.replace('buns', f'buns{idx}'), Column(value))
 
 
+class PoseResidueMetrics(Base):
+    __tablename__ = 'pose_residue_metrics'
+    id = Column(Integer, primary_key=True)
+
+    __table_args__ = (
+        UniqueConstraint('pose_id', 'index', name='_pose_index_uc'),
+    )
+    # Residue index (surrogate for residue number) and type information
+    index = Column(Integer, nullable=False)
+    interface_residue = Column(Boolean)
+
+    # Set up many-to-one relationship with pose_data table
+    pose_id = Column(ForeignKey('pose_data.id'))
+    pose = relationship('PoseJob', back_populates='residues')
+    # ProteinMPNN score terms
+    proteinmpnn_v_design_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
+    proteinmpnn_v_evolution_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
+    proteinmpnn_v_fragment_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
+    dock_collapse_deviation_magnitude = Column(Float)  # , nullable=False)
+    dock_collapse_increase_significance_by_contact_order_z = Column(Float)  # , nullable=False)
+    dock_collapse_increased_z = Column(Float)  # , nullable=False)
+    dock_collapse_new_positions = Column(Boolean)  # , nullable=False)
+    dock_collapse_new_position_significance = Column(Float)  # , nullable=False)
+    dock_collapse_sequential_peaks_z = Column(Float)  # , nullable=False)
+    dock_collapse_sequential_z = Column(Float)  # , nullable=False)
+    dock_collapse_significance_by_contact_order_z = Column(Float)  # , nullable=False)
+    dock_hydrophobic_collapse = Column(Float)  # , nullable=False)
+
+
 class ResidueMetrics(Base):
     __tablename__ = 'residue_metrics'
     id = Column(Integer, primary_key=True)
 
-    __table_args__ = (UniqueConstraint('pose_id', 'design_id', name='_pose_design_uc'),
-                      )
-    # Set up many-to-one relationship with design_data table
-    pose_id = Column(ForeignKey('pose_data.id'))
-    pose = relationship('PoseJob', back_populates='residues')
+    __table_args__ = (
+        # UniqueConstraint('pose_id', 'design_id', name='_pose_design_uc'),
+        UniqueConstraint('design_id', 'index', name='_design_index_uc'),
+    )
+    # # Set up many-to-one relationship with pose_data table
+    # pose_id = Column(ForeignKey('pose_data.id'))
+    # pose = relationship('PoseJob', back_populates='residues')
     # Set up many-to-one relationship with design_data table
     design_id = Column(ForeignKey('design_data.id'))
     design = relationship('DesignData', back_populates='residues')
 
-    # pose = Column(String, nullable=False)  # String(60)
-    # design = Column(String, nullable=False)  # String(60)
-    # pose_name = Column(String, nullable=False)  # String(60)
-    # pose_id = Column(ForeignKey('pose_data.id'))  # String, nullable=False)  # String(60)
-    # design_name = Column(String, nullable=False)
-
-    # Residue position (surrogate for residue number) and type information
+    # Residue index (surrogate for residue number) and type information
     index = Column(Integer, nullable=False)
     type = Column(String(1), nullable=False)
     design_residue = Column(Boolean)
@@ -731,18 +778,6 @@ class ResidueMetrics(Base):
     sequence_loss_design = Column(Float)  # , nullable=False)
     sequence_loss_evolution = Column(Float)  # , nullable=False)
     sequence_loss_fragment = Column(Float)  # , nullable=False)
-    proteinmpnn_v_design_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
-    proteinmpnn_v_evolution_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
-    proteinmpnn_v_fragment_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
-    dock_collapse_deviation_magnitude = Column(Float)  # , nullable=False)
-    dock_collapse_increase_significance_by_contact_order_z = Column(Float)  # , nullable=False)
-    dock_collapse_increased_z = Column(Float)  # , nullable=False)
-    dock_collapse_new_positions = Column(Boolean)  # , nullable=False)
-    dock_collapse_new_position_significance = Column(Float)  # , nullable=False)
-    dock_collapse_sequential_peaks_z = Column(Float)  # , nullable=False)
-    dock_collapse_sequential_z = Column(Float)  # , nullable=False)
-    dock_collapse_significance_by_contact_order_z = Column(Float)  # , nullable=False)
-    dock_hydrophobic_collapse = Column(Float)  # , nullable=False)
     # Observed in profile measurements
     observed_design = Column(Boolean)  # , nullable=False)
     observed_evolution = Column(Boolean)  # , nullable=False)
@@ -750,11 +785,6 @@ class ResidueMetrics(Base):
     observed_interface = Column(Boolean)  # , nullable=False)
     # Direct coupling analysis energy
     dca_energy = Column(Float)  # , nullable=False)
-
-    # user = relationship("User", back_populates="addresses")
-
-    # def __repr__(self):
-    #     return f"ResidueMetrics(id={self.id!r}, index={self.index!r})"
 
 
 # def start_db(db: AnyStr):
