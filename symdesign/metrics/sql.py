@@ -9,7 +9,7 @@ from sqlalchemy import inspect, select, exc
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
-from symdesign.utils.sql import Base, DesignMetrics, PoseMetrics, ResidueMetrics
+from symdesign.utils.sql import Base, DesignMetrics, PoseMetrics, ResidueMetrics, PoseResidueMetrics
 from symdesign.resources.job import job_resources_factory
 
 # Globals
@@ -194,7 +194,8 @@ def format_residues_df_for_write(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None, poses: pd.DataFrame = None,
+def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
+                    poses: pd.DataFrame = None, pose_residues: pd.DataFrame = None,
                     update: bool = True):
     """Format each possible DataFrame type for output via csv or SQL database
 
@@ -205,6 +206,8 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
             (residue index, residue metric)
         poses: The typical per-pose metric DataFrame where each index is the pose id and the columns are
             pose metrics
+        pose_residues: The typical per-residue metric DataFrame where each index is the design id and the columns are
+            (residue index, residue metric)
         update: Whether the output identifiers are already present in the metrics
     """
     if update:
@@ -227,11 +230,11 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
     if poses is not None:
         # warn = True
         poses.replace({np.nan: None}, inplace=True)
-        dataframe_function(session, table=PoseMetrics, df=poses)
-        table = PoseMetrics.__tablename__
+        table = PoseMetrics
+        dataframe_function(session, table=table, df=poses)
         # poses.to_sql(table, con=engine, if_exists='append', index=True)
         # #              dtype=sql.Base.metadata.table[table])
-        logger.info(f'Wrote {table} metrics to DataBase {job.internal_db}')
+        logger.info(f'Wrote {table.__tablename__} metrics to DataBase {job.internal_db}')
 
         # return result
 
@@ -239,11 +242,11 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
         # warn_multiple_update_results()
         # warn = True
         designs.replace({np.nan: None}, inplace=True)
-        dataframe_function(session, table=DesignMetrics, df=designs)
-        table = DesignMetrics.__tablename__
+        table = DesignMetrics
+        dataframe_function(session, table=table, df=designs)
         # designs.to_sql(table, con=engine, if_exists='append', index=True)
         # #                dtype=sql.Base.metadata.table[table])
-        logger.info(f'Wrote {table} metrics to DataBase {job.internal_db}')
+        logger.info(f'Wrote {table.__tablename__} metrics to DataBase {job.internal_db}')
 
         # return result
 
@@ -252,12 +255,25 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
         # warn = True
         residues = format_residues_df_for_write(residues)
         residues.replace({np.nan: None}, inplace=True)
-        dataframe_function(session, table=ResidueMetrics, df=residues)
-        table = ResidueMetrics.__tablename__
+        table = ResidueMetrics
+        dataframe_function(session, table=table, df=residues)
         # residues.to_sql(table, con=engine, index=True)  # if_exists='append',
         # # Todo Ensure that the 'id' column is present
         # stmt = select(DesignMetrics).where(DesignMetrics.pose.in_(pose_ids))  # text('''SELECT * from residues''')
         # results = session.scalars(stmt)  # execute(stmt)
-        logger.info(f'Wrote {table} metrics to DataBase {job.internal_db}')
+        logger.info(f'Wrote {table.__tablename__} metrics to DataBase {job.internal_db}')
+
+    if pose_residues is not None:
+        # warn_multiple_update_results()
+        # warn = True
+        pose_residues = format_residues_df_for_write(pose_residues)
+        pose_residues.replace({np.nan: None}, inplace=True)
+        table = PoseResidueMetrics
+        dataframe_function(session, table=table, df=pose_residues)
+        # residues.to_sql(table, con=engine, index=True)  # if_exists='append',
+        # # Todo Ensure that the 'id' column is present
+        # stmt = select(DesignMetrics).where(DesignMetrics.pose.in_(pose_ids))  # text('''SELECT * from residues''')
+        # results = session.scalars(stmt)  # execute(stmt)
+        logger.info(f'Wrote {table.__tablename__} metrics to DataBase {job.internal_db}')
 
     # return result
