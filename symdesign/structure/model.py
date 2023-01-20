@@ -3429,7 +3429,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 match_score = alignment.score / perfect_score
                 length_proportion = (large_sequence_length-small_sequence_length) / large_sequence_length
                 self.log.debug(f'Chain {chain_id} to Entity {entity_name} has {match_score:.2f} identity '
-                               f'and {length_proportion:.2f} length difference with the tolerance={tolerance}')
+                               f'and {length_proportion:.2f} length difference with tolerance={tolerance}'
+                               f'and length_difference={length_difference}')
                 if match_score >= tolerance and length_proportion <= length_difference:
                     self.log.debug(f'Chain {chain_id} matches Entity {entity_name}')
                     # If number of sequence matches is > tolerance, and the length difference < tolerance
