@@ -3218,21 +3218,21 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 reference_sequence_length = len(data['reference_sequence'])
                 if reference_sequence_length > max_reference_sequence:
                     max_reference_sequence = reference_sequence_length
-            max_chain_sequence = 0
+            min_chain_sequence = 0
             # Remove all previously found chains
             for chain in self.chains:
                 chain_sequence_length = chain.number_of_residues
-                if chain_sequence_length > max_chain_sequence:
-                    max_chain_sequence = chain_sequence_length
+                if chain_sequence_length < min_chain_sequence:
+                    min_chain_sequence = chain_sequence_length
 
-            # Provide an expected tolerance
-            # Because we are using a reference sequence which could be much longer than the chain sequence find an
-            # expected length proportion
-            length_proportion = (max_reference_sequence - max_chain_sequence) / max_reference_sequence
+            # We didn't get this correct, so use the Structure attributes to fix
+            # Provide an expected tolerance and length_difference
             # We could be highly mutated compared to the reference, so lets set the tolerance threshold to a percentage
             # of the maximum. This value seems to be close given Sanders and Sanders? 1994 (BLOSUM matrix publicaiton)
             tolerance = .3
-            # We didn't get this correct, so use the Structure attributes to fix
+            # Because we are using a reference sequence which could be much longer than the chain sequence find an
+            # expected length proportion
+            length_proportion = (max_reference_sequence - min_chain_sequence) / max_reference_sequence
             self._get_entity_info_from_atoms(tolerance=tolerance, length_difference=length_proportion, **kwargs)
         else:
             entity_api_entry = {}
