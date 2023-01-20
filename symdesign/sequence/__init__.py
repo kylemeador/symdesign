@@ -16,7 +16,7 @@ from Bio import AlignIO, SeqIO
 # BiopythonDeprecationWarning: Bio.pairwise2 has been deprecated, and we intend to remove it in a future release of
 # Biopython. As an alternative, please consider using Bio.Align.PairwiseAligner as a replacement, and contact the
 # Biopython developers if you still need the Bio.pairwise2 module.
-from Bio.Align import MultipleSeqAlignment, PairwiseAligner, substitution_matrices
+from Bio.Align import Alignment, MultipleSeqAlignment, PairwiseAligner, PairwiseAlignments, substitution_matrices
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
@@ -27,9 +27,6 @@ putils = utils.path
 # Globals
 zero_offset = 1
 logger = logging.getLogger(__name__)
-subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
-Alignment = namedtuple('Alignment', 'seqA, seqB, score, start, end')
-
 # Types
 protein_letters3: tuple[str, ...] = \
     ('ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE', 'LYS', 'LEU', 'MET', 'ASN',
@@ -57,38 +54,32 @@ protein_letters_alph3_unknown_gapped = protein_letters_alph3 + 'X-'
 protein_letters_alph1_extended_literal = Literal[tuple(protein_letters_alph1_extended)]
 protein_letters_alph3_unknown_gapped_literal = \
     Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', 'X', '-']
-numerical_translation_alph1 = defaultdict(lambda: 20, zip(protein_letters_alph1,
-                                                          range(len(protein_letters_alph1))))
-numerical_translation_alph3 = defaultdict(lambda: 20, zip(protein_letters_alph3,
-                                                          range(len(protein_letters_alph3))))
-numerical_translation_alph1_bytes = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_alph1],
-                                                                range(len(protein_letters_alph1))))
-numerical_translation_alph3_bytes = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_alph3],
-                                                                range(len(protein_letters_alph3))))
-sequence_translation_alph1 = defaultdict(lambda: '-', zip(range(len(protein_letters_alph1)), protein_letters_alph1))
-sequence_translation_alph3 = defaultdict(lambda: '-', zip(range(len(protein_letters_alph3)), protein_letters_alph3))
-numerical_translation_alph1_gapped = defaultdict(lambda: 20, zip(protein_letters_alph1_gapped,
-                                                                 range(len(protein_letters_alph1_gapped))))
-numerical_translation_alph3_gapped = defaultdict(lambda: 20, zip(protein_letters_alph3_gapped,
-                                                                 range(len(protein_letters_alph3_gapped))))
+# Todo the default value for many of these might have conflicting use cases
+#  For instance, a value of 20 for protein_letters_alph1_unknown_gapped would but a missing in the unknown position
+#  which seems good, but protein_letters_alph1 puts in a value that is not expected to be possible in an array of only
+#  these letters
+numerical_translation_alph1 = defaultdict(lambda: 20, zip(protein_letters_alph1, count()))
+numerical_translation_alph3 = defaultdict(lambda: 20, zip(protein_letters_alph3, count()))
+numerical_translation_alph1_bytes = \
+    defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph1), count()))
+numerical_translation_alph3_bytes = \
+    defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph3), count()))
+sequence_translation_alph1 = defaultdict(lambda: '-', zip(count(), protein_letters_alph1))
+sequence_translation_alph3 = defaultdict(lambda: '-', zip(count(), protein_letters_alph3))
+numerical_translation_alph1_gapped = defaultdict(lambda: 20, zip(protein_letters_alph1_gapped, count()))
+numerical_translation_alph3_gapped = defaultdict(lambda: 20, zip(protein_letters_alph3_gapped, count()))
 numerical_translation_alph1_gapped_bytes = \
-    defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_alph1_gapped],
-                                range(len(protein_letters_alph1_gapped))))
+    defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph1_gapped), count()))
 numerical_translation_alph3_gapped_bytes = \
-    defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_alph3_gapped],
-                                range(len(protein_letters_alph3_gapped))))
+    defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph3_gapped), count()))
 numerical_translation_alph1_unknown_bytes = \
-    defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_alph1_unknown],
-                                range(len(protein_letters_alph1_unknown))))
+    defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph1_unknown), count()))
 numerical_translation_alph3_unknown_bytes = \
-    defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_alph3_unknown],
-                                range(len(protein_letters_alph1_unknown))))
+    defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph3_unknown), count()))
 numerical_translation_alph1_unknown_gapped_bytes = \
-    defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_alph1_unknown_gapped],
-                                range(len(protein_letters_alph1_unknown_gapped))))
+    defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph1_unknown_gapped), count()))
 numerical_translation_alph3_unknown_gapped_bytes = \
-    defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_alph3_unknown_gapped],
-                                range(len(protein_letters_alph1_unknown_gapped))))
+    defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph3_unknown_gapped), count()))
 extended_protein_letters_and_gap_literal = Literal[get_args(protein_letters_alph1_extended_literal), '-']
 extended_protein_letters_and_gap: tuple[str, ...] = get_args(extended_protein_letters_and_gap_literal)
 alphabet_types = Literal['protein_letters_alph1', 'protein_letters_alph3', 'protein_letters_alph1_gapped',
@@ -116,61 +107,89 @@ profile_dictionary: Type[dict[int, dict[profile_keys, profile_values]]]
 """
 
 
-def create_translation_tables(alphabet_type: alphabet_types) -> defaultdict:
+def create_numeric_translation_table(alphabet: Sequence[str], bytes_: bool = True) -> dict[bytes | str, int]:
+    """Return the numeric translation from an alphabet to the integer position in that alphabet
+
+    Args:
+        alphabet: The alphabet to use. Example 'ARNDCQEGHILKMFPSTWYVBZX*'
+        bytes_: Whether to map from byte characters
+    Returns:
+        The mapping from the character to the positional integer
+    """
+    if bytes_:
+        alphabet = (char.encode() for char in alphabet)
+
+    return dict(zip(alphabet, count()))
+
+
+def get_sequence_to_numeric_translation_table(alphabet_type: alphabet_types) -> defaultdict[str, int] | dict[str, int]:
     """Given an amino acid alphabet type, return the corresponding numerical translation table.
     If a table is passed, just return it
 
     Returns:
         The integer mapping to the sequence of the requested alphabet
     """
-    wrong_alphabet_type = ValueError(f"alphabet_type '{alphabet_type}' isn't viable")
+    wrong_alphabet_type = f"Parameter alphabet_type option '{alphabet_type}' isn't viable. Attempting to create it"
     try:
         match alphabet_type:
             case 'protein_letters_alph1':
-                numeric_translation_type = numerical_translation_alph1_bytes
+                numeric_translation_table = numerical_translation_alph1_bytes
             case 'protein_letters_alph3':
-                numeric_translation_type = numerical_translation_alph3_bytes
+                numeric_translation_table = numerical_translation_alph3_bytes
             case 'protein_letters_alph1_gapped':
-                numeric_translation_type = numerical_translation_alph1_gapped_bytes
+                numeric_translation_table = numerical_translation_alph1_gapped_bytes
             case 'protein_letters_alph3_gapped':
-                numeric_translation_type = numerical_translation_alph3_gapped_bytes
+                numeric_translation_table = numerical_translation_alph3_gapped_bytes
             case 'protein_letters_alph1_unknown':
-                numeric_translation_type = numerical_translation_alph1_unknown_bytes
+                numeric_translation_table = numerical_translation_alph1_unknown_bytes
             case 'protein_letters_alph3_unknown':
-                numeric_translation_type = numerical_translation_alph3_unknown_bytes
+                numeric_translation_table = numerical_translation_alph3_unknown_bytes
             case 'protein_letters_alph1_unknown_gapped':
-                numeric_translation_type = numerical_translation_alph1_unknown_gapped_bytes
+                numeric_translation_table = numerical_translation_alph1_unknown_gapped_bytes
             case 'protein_letters_alph3_unknown_gapped':
-                numeric_translation_type = numerical_translation_alph3_unknown_gapped_bytes
+                numeric_translation_table = numerical_translation_alph3_unknown_gapped_bytes
             case _:
                 try:  # To see if we already have the alphabet, and just return defaultdict
-                    numeric_translation_type = alphabet_to_type[alphabet_type]
+                    numeric_translation_table = alphabet_to_type[alphabet_type]
                 except KeyError:
-                    raise wrong_alphabet_type
+                    # raise ValueError(wrong_alphabet_type)
+                    logger.warning(wrong_alphabet_type)
+                    numeric_translation_table = create_numeric_translation_table(alphabet_type)
     except SyntaxError:  # python version not 3.10
         if alphabet_type == 'protein_letters_alph1':
-            numeric_translation_type = numerical_translation_alph1_bytes
+            numeric_translation_table = numerical_translation_alph1_bytes
         elif alphabet_type == 'protein_letters_alph3':
-            numeric_translation_type = numerical_translation_alph3_bytes
+            numeric_translation_table = numerical_translation_alph3_bytes
         elif alphabet_type == 'protein_letters_alph1_gapped':
-            numeric_translation_type = numerical_translation_alph1_gapped_bytes
+            numeric_translation_table = numerical_translation_alph1_gapped_bytes
         elif alphabet_type == 'protein_letters_alph3_gapped':
-            numeric_translation_type = numerical_translation_alph3_gapped_bytes
+            numeric_translation_table = numerical_translation_alph3_gapped_bytes
         elif alphabet_type == 'protein_letters_alph1_unknown':
-            numeric_translation_type = numerical_translation_alph1_unknown_bytes
+            numeric_translation_table = numerical_translation_alph1_unknown_bytes
         elif alphabet_type == 'protein_letters_alph3_unknown':
-            numeric_translation_type = numerical_translation_alph3_unknown_bytes
+            numeric_translation_table = numerical_translation_alph3_unknown_bytes
         elif alphabet_type == 'protein_letters_alph1_unknown_gapped':
-            numeric_translation_type = numerical_translation_alph1_unknown_gapped_bytes
+            numeric_translation_table = numerical_translation_alph1_unknown_gapped_bytes
         elif alphabet_type == 'protein_letters_alph3_unknown_gapped':
-            numeric_translation_type = numerical_translation_alph3_unknown_gapped_bytes
+            numeric_translation_table = numerical_translation_alph3_unknown_gapped_bytes
         else:
             try:  # To see if we already have the alphabet, and return the defaultdict
-                numeric_translation_type = alphabet_to_type[alphabet_type]
+                numeric_translation_table = alphabet_to_type[alphabet_type]
             except KeyError:
-                raise wrong_alphabet_type
+                # raise ValueError(wrong_alphabet_type)
+                logger.warning(wrong_alphabet_type)
+                numeric_translation_table = create_numeric_translation_table(alphabet_type)
 
-    return numeric_translation_type
+    return numeric_translation_table
+
+
+default_substitution_matrix_name = 'BLOSUM62'
+_substitution_matrices_cache = \
+    {default_substitution_matrix_name: substitution_matrices.load(default_substitution_matrix_name)}
+default_substitution_matrix_ = _substitution_matrices_cache.get(default_substitution_matrix_name)
+default_substitution_matrix_translation_table = create_numeric_translation_table(default_substitution_matrix_.alphabet)
+default_substitution_matrix_array = np.array(default_substitution_matrix_)
+# Alignment = namedtuple('Alignment', 'seqA, seqB, score, start, end')
 
 
 # def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = 'BLOSUM62', local: bool = False,
@@ -190,7 +209,7 @@ def create_translation_tables(alphabet_type: alphabet_types) -> defaultdict:
 #         _type = 'local'
 #     else:
 #         _type = 'global'
-#     _matrix = subs_matrices.get(matrix, substitution_matrices.load(matrix))
+#     _matrix = _substitution_matrices_cache.get(matrix, substitution_matrices.load(matrix))
 #     gap_penalty = -10
 #     gap_ext_penalty = -1
 #     # logger.debug(f'Generating sequence alignment between:\n{seq1}\n\tAND:\n{seq2}')
@@ -202,8 +221,8 @@ def create_translation_tables(alphabet_type: alphabet_types) -> defaultdict:
 #     return align[0] if top_alignment else align
 
 
-def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = 'BLOSUM62', local: bool = False,
-                       top_alignment: bool = True) -> Alignment | list[Alignment]:
+def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = default_substitution_matrix_name,
+                       local: bool = False, top_alignment: bool = True) -> Alignment | PairwiseAlignments:
     """Use Biopython's pairwise2 to generate a sequence alignment
 
     Args:
@@ -213,13 +232,19 @@ def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = '
         local: Whether to run a local alignment. Only use for generally similar sequences!
         top_alignment: Only include the highest scoring alignment
     Returns:
-        The resulting alignment
+        The resulting alignment(s). Will be Alignment object if top_alignment is True else PairwiseAlignments
     """
+    matrix_ = _substitution_matrices_cache.get(matrix)
+    if matrix_ is None:
+        try:  # To get the new matrix and store for future ops
+            matrix_ = _substitution_matrices_cache[matrix] = substitution_matrices.load(matrix)
+        except FileNotFoundError:  # Missing this
+            raise KeyError(f"Couldn't find the substitution matrix '{matrix}' ")
+
     if local:
         mode = 'local'
     else:
         mode = 'global'
-    matrix_ = subs_matrices.get(matrix, substitution_matrices.load(matrix))
 
     # logger.debug(f'Generating sequence alignment between:\n{seq1}\n\tAND:\n{seq2}')
     # Set these the default from blastp
@@ -927,21 +952,26 @@ def generate_sequences(wild_type_sequences, all_design_mutations):
     return mutated_sequences
 
 
-def numeric_to_sequence(numeric_sequence: np.ndarray, alphabet_order: int = 1) -> np.ndarray:
+def numeric_to_sequence(numeric_sequence: np.ndarray, translation_table: dict[str, int] = None,
+                        alphabet_order: int = 1) -> np.ndarray:
     """Convert a numeric sequence array into a sequence array
 
     Args:
         numeric_sequence: The sequence to convert
+        translation_table: If a translation table is provided, it will be used. If not, use alphabet_order
         alphabet_order: The alphabetical order of the amino acid alphabet. Can be either 1 or 3
     Returns:
         The alphabetically encoded sequence where each entry along axis=-1 is the one letter amino acid
     """
-    if alphabet_order == 1:
-        return np.vectorize(sequence_translation_alph1.__getitem__)(numeric_sequence)
-    elif alphabet_order == 3:
-        return np.vectorize(sequence_translation_alph3.__getitem__)(numeric_sequence)
+    if translation_table is not None:
+        return np.vectorize(translation_table.__getitem__)(numeric_sequence)
     else:
-        raise ValueError(f"The alphabet_order {alphabet_order} isn't valid. Choose from either 1 or 3")
+        if alphabet_order == 1:
+            return np.vectorize(sequence_translation_alph1.__getitem__)(numeric_sequence)
+        elif alphabet_order == 3:
+            return np.vectorize(sequence_translation_alph3.__getitem__)(numeric_sequence)
+        else:
+            raise ValueError(f"The 'alphabet_order' {alphabet_order} isn't valid. Choose from either 1 or 3")
 
 
 def get_equivalent_indices(target: Sequence = None, query: Sequence = None, alignment: Sequence = None) \
@@ -1437,7 +1467,7 @@ class MultipleSequenceAlignment:
             try:
                 translation_type = self._numeric_translation_type  # Todo clean setting of this with self.alphabet_type
             except AttributeError:
-                self._numeric_translation_type = create_translation_tables(self.alphabet_type)
+                self._numeric_translation_type = get_sequence_to_numeric_translation_table(self.alphabet_type)
                 translation_type = self._numeric_translation_type
 
             self._numerical_alignment = np.vectorize(translation_type.__getitem__)(self.array)
