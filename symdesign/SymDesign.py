@@ -1307,6 +1307,7 @@ def main():
                 flags.interface_design,
                 flags.design,
                 flags.analysis,
+                flags.process_rosetta_metrics,
                 flags.nanohedra
             )
             returns_pose_jobs = (

@@ -28,7 +28,7 @@ from symdesign.utils.path import submodule_guide, submodule_help, force, sym_ent
     distribute_work, output_directory, output_surrounding_uc, skip_logging, output_file, avoid_tagging_helices, \
     multicistronic, multicistronic_intergenic_sequence, generate_fragments, input_, output, output_assembly, \
     preferred_tag, expand_asu, check_clashes, rename_chains, optimize_designs, perturb_dof, tag_entities, design, \
-    default_path_file
+    default_path_file, process_rosetta_metrics
 
 design_programs_literal = Literal['consensus', 'proteinmpnn', 'rosetta']
 design_programs: tuple[str, ...] = get_args(design_programs_literal)
@@ -170,6 +170,7 @@ multicistronic_intergenic_sequence = format_for_cmdline(multicistronic_intergeni
 allow_multiple_poses = format_for_cmdline(allow_multiple_poses)
 project_name = format_for_cmdline(project_name)
 profile_memory = format_for_cmdline(profile_memory)
+process_rosetta_metrics = format_for_cmdline(process_rosetta_metrics)
 
 
 # def return_default_flags():
@@ -944,6 +945,11 @@ analysis_arguments = {
     #                    help=f'Save Trajectory and Residues dataframes?\n{boolean_positional_prevent_msg("save")}')
 }
 # ---------------------------------------------------
+process_rosetta_metrics_help = 'Analyze all poses designed using Rosetta generating a suite of metrics'
+parser_process_rosetta_metrics = {process_rosetta_metrics:
+                                  dict(description=process_rosetta_metrics_help, help=process_rosetta_metrics_help)}
+process_rosetta_metrics_arguments = {}
+# ---------------------------------------------------
 # Common selection arguments
 allow_multiple_poses_args = ('-amp', f'--{allow_multiple_poses}')
 allow_multiple_poses_kwargs = dict(action='store_true',
@@ -1237,6 +1243,7 @@ module_parsers = {
     optimize_designs: parser_optimize_designs,
     # custom_script: parser_custom,
     analysis: parser_analysis,
+    process_rosetta_metrics: parser_process_rosetta_metrics,
     select_poses: parser_select_poses,
     # select_poses_mutual: parser_select_poses_mutual_group,  # _mutual,
     select_designs: parser_select_designs,
@@ -1275,6 +1282,7 @@ parser_arguments = {
     interface_metrics: interface_metrics_arguments,
     optimize_designs: optimize_designs_arguments,
     analysis: analysis_arguments,
+    process_rosetta_metrics: process_rosetta_metrics_arguments,
     select_poses: select_poses_arguments,
     select_designs: select_designs_arguments,
     select_sequences: select_sequences_arguments,
