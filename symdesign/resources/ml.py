@@ -607,12 +607,13 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         null_seq = _batch_sequences == 20
         # null_indices = np.argwhere(null_seq == 1)
         # if null_indices.nelement():  # Not an empty tensor...
+        # Find the indices that are null on each axis
         null_design_indices, null_sequence_indices = torch.nonzero(null_seq == 1, as_tuple=True)
         if null_design_indices.nelement():  # Not an empty tensor...
             proteinmpnn.log.warning(f'Found null sequence output... Resampling selected positions')
             proteinmpnn.log.debug(f'At sequence position(s): {null_sequence_indices}')
             null_seq = (False,)
-            sampled_probs = sample_dict['probs']
+            sampled_probs = sample_dict['probs'].cpu()
             while not all(null_seq):  # null_indices.nelement():  # Not an empty tensor...
                 # _decoding_order = decoding_order.cpu().numpy()[:, :pose_length] / 12  # Hard coded symmetry divisor
                 # # (batch_length, pose_length)
