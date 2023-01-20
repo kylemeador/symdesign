@@ -44,11 +44,11 @@ class _Base:
 Base = declarative_base(cls=_Base)
 
 
-class SymmetryGroup(Base):
-    __tablename__ = 'symmetry_groups'
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
-    rotation = Column(Float, nullable=False)
+# class SymmetryGroup(Base):
+#     __tablename__ = 'symmetry_groups'
+#     id = Column(Integer, primary_key=True)
+#     name = Column(String, nullable=False)
+#     rotation = Column(Float, nullable=False)
 
 
 class PoseMetadata(Base):
@@ -558,8 +558,10 @@ class DesignData(Base):
     # design_children = relationship('DesignData', back_populates='design_parent')
     # Set up one-to-many relationship with design_data (self) table
     design_parent_id = Column(ForeignKey('design_data.id'))
-    design_parent = relationship('DesignData', remote_side=[id])
-    design_children = relationship('DesignData', lazy='joined', join_depth=1)  # Only get the immediate children
+    design_parent = relationship('DesignData', remote_side=[id],
+                                 back_populates='design_children', uselist=False)
+    design_children = relationship('DesignData', back_populates='design_parent',
+                                   lazy='joined', join_depth=1)  # Only get the immediate children
     # Set up one-to-many relationship with design_protocol table
     protocols = relationship('DesignProtocol', back_populates='design')
     # Set up one-to-one relationship with design_metrics table

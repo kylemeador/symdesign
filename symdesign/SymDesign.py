@@ -352,10 +352,12 @@ def main():
                 select(wrapapi.UniProtEntity) \
                 .where(wrapapi.UniProtEntity.id.in_(possibly_new_uniprot_ids.difference(existing_uniprot_ids)))
             not_new_uniprot_entities = session.scalars(existing_uniprot_entities_stmt).all()
-        else:
-            raise NotImplementedError("This wasn't expected to happen:\n"
-                                      f"existing_uniprot_entities={existing_uniprot_entities}\n"
-                                      f"possibly_new_uniprot_ids={possibly_new_uniprot_ids}\n")
+        else:  # We have existing_uniprot_entities and no possibly_new_uniprot_ids
+            # This case is when we are accessing already initialized data
+            not_new_uniprot_entities = set()
+            # raise NotImplementedError("This wasn't expected to happen:\n"
+            #                           f"existing_uniprot_entities={existing_uniprot_entities}\n"
+            #                           f"possibly_new_uniprot_ids={possibly_new_uniprot_ids}\n")
             # Todo emit this select when there is a stronger association between the multiple
             #  UniProtEntity.uniprot_ids and referencing a unique ProteinMetadata
             #  The below were never tested
@@ -426,9 +428,10 @@ def main():
             not_new_protein_metadata = session.scalars(existing_uniprot_entities_stmt).all()
             existing_protein_metadata = set(not_new_protein_metadata).union(existing_protein_metadata)
         else:
-            raise NotImplementedError("This wasn't expected to happen:\n"
-                                      f"existing_protein_metadata={existing_protein_metadata}\n"
-                                      f"possibly_new_entity_ids={possibly_new_entity_ids}\n")
+            existing_protein_metadata = set()
+            # raise NotImplementedError("This wasn't expected to happen:\n"
+            #                           f"existing_protein_metadata={existing_protein_metadata}\n"
+            #                           f"possibly_new_entity_ids={possibly_new_entity_ids}\n")
         # # Create a container of all UniProtEntity instances to see about evolutionary profile creation
         # protein_metadata = set(existing_protein_metadata)
 
@@ -447,8 +450,9 @@ def main():
              for uniprot_ids, protein_data in possibly_new_uniprot_to_prot_data.items()}
 
         # Remove any pre-existing ProteinMetadata for the correct addition to UniProtEntity
-        for entity_id, protein_data in existing_entity_id_to_protein_data.items():
-            possibly_new_uniprot_to_prot_data.pop(possible_entity_id_to_uniprot_ids[entity_id])
+        if possibly_new_uniprot_to_prot_data:
+            for entity_id, protein_data in existing_entity_id_to_protein_data.items():
+                possibly_new_uniprot_to_prot_data.pop(possible_entity_id_to_uniprot_ids[entity_id])
 
         # Attach UniProtEntity to new ProteinMetadata by UniProtID
         for uniprot_ids, protein_metadata in possibly_new_uniprot_to_prot_data.items():
@@ -547,6 +551,8 @@ def main():
     elif args.setup:
         guide.setup_instructions()
         exit()
+    elif args.help:
+        pass  # Let the entire_parser handle their formatting
     else:  # Print the full program readme and exit
         guide.print_guide()
         exit()
@@ -743,25 +749,18 @@ def main():
     # Todo we should run this check before every module used as in the case of universal protocols
     #  See if it can be detached here and made into function in main() scope
     initialize = True
-    if job.module in [flags.interface_design, flags.design, flags.generate_fragments, flags.orient, flags.expand_asu,
-                      flags.interface_metrics, flags.refine, flags.optimize_designs, flags.rename_chains,
-                      flags.check_clashes]:  # , 'custom_script', 'find_asu', 'status', 'visualize'
-        # Set up design directories
-        if job.module == flags.generate_fragments:  # Ensure we write fragments out
-            job.write_fragments = True
-    elif job.module in [flags.analysis, flags.cluster_poses,
-                        flags.select_poses, flags.select_designs, flags.select_sequences]:
-        # Analysis types can be run from nanohedra_output, so ensure that we don't construct new
-        job.construct_pose = False
-        if job.module == flags.analysis:
-            # Ensure analysis write directory exists
-            putils.make_path(job.all_scores)
-        # if job.module == flags.select_designs:  # Alias to module select_sequences with --skip-sequence-generation
-        #     job.module = flags.select_sequences
-        #     job.skip_sequence_generation = True
-        elif job.module == flags.select_poses:
+    if job.module in [flags.cluster_poses, flags.select_poses, flags.select_designs, flags.select_sequences]:
+        # # Analysis types can be run from nanohedra_output, so ensure that we don't construct new
+        # job.construct_pose = False
+        # if job.module == flags.analysis:
+        #     # Ensure analysis write directory exists
+        #     putils.make_path(job.all_scores)
+        # # if job.module == flags.select_designs:  # Alias to module select_sequences with --skip-sequence-generation
+        # #     job.module = flags.select_sequences
+        # #     job.skip_sequence_generation = True
+        if job.module == flags.select_poses:
             # When selecting by dataframe or metric, don't initialize, input is handled in module protocol
-            if job.dataframe or job.metric:
+            if job.dataframe:  # or job.metric:
                 initialize = False
         elif job.module in [flags.select_designs, flags.select_sequences] \
                 and job.number == sys.maxsize and not args.total:
@@ -775,9 +774,20 @@ def main():
         if not job.sym_entry:
             raise utils.InputError(f'When running {flags.nanohedra}, the argument -e/--entry/--{flags.sym_entry} is '
                                    'required')
-    else:  # We have no module passed. Print the guide and exit
-        guide.print_guide()
-        exit()
+    elif job.module == flags.generate_fragments:  # Ensure we write fragments out
+        job.write_fragments = True
+    else:
+        if job.module not in [flags.interface_design, flags.design, flags.refine, flags.optimize_designs,
+                              flags.interface_metrics, flags.analysis, flags.process_rosetta_metrics,
+                              flags.generate_fragments, flags.orient, flags.expand_asu,
+                              flags.rename_chains, flags.check_clashes]:
+            # , 'custom_script', 'find_asu', 'status', 'visualize'
+            # We have no module passed. Print the guide and exit
+            guide.print_guide()
+            exit()
+        # else:
+        #     # Set up design directories
+        #     pass
     # -----------------------------------------------------------------------------------------------------------------
     #  Report options and Set up Databases
     # -----------------------------------------------------------------------------------------------------------------

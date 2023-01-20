@@ -544,6 +544,9 @@ term_constraint_kwargs = dict(action=argparse.BooleanOptionalAction, default=Tru
 guide_args = ('--guide',)
 guide_kwargs = dict(action='store_true', help=f'Display the {program_name}/module specific guide\nEx:'
                                               f' "{program_command} --guide"\nor "{submodule_guide}"')
+help_args = ('-h', '-help', '--help')
+help_kwargs = dict(action='store_true', help=f'Display {program_name}/module argument help\nEx:'
+                                             f' "{program_command} --help"')
 output_directory_args = ('-Od', f'--{output_directory}', '--outdir')
 output_file_args = ('-Of', f'--{output_file}')
 quick_args = (f'--{quick}',)
@@ -570,9 +573,8 @@ options_arguments = {
                                f'{boolean_positional_prevent_msg("database")}'),
     (f'--{development}',): dict(action='store_true',
                                 help='Run in development mode. This should only be used for active development'),
-    quick_args: dict(action='store_true',
-                     help='Run Nanohedra in minimal sampling mode to generate enough hits to test quickly. '
-                          'This should only be used for active development'),  # Todo DEV branch
+    evolution_constraint_args: evolution_constraint_kwargs,
+    term_constraint_args: term_constraint_kwargs,
     distribute_args: dict(action='store_true',
                           help="Should commands be distributed to a cluster?\nIn most cases, this will "
                                'maximize computational resources\nDefault=%(default)s'),
@@ -604,6 +606,9 @@ options_arguments = {
     ('-M', f'--{multi_processing}'): dict(action='store_true', help='Should job be run with multiple processors?'),
     (f'--{profile_memory}',): dict(action='store_true',
                                    help='memory_profiler.profile() a module. Must be run with --development'),
+    quick_args: dict(action='store_true',
+                     help='Run Nanohedra in minimal sampling mode to generate enough hits to\n'
+                          'test quickly. This should only be used for active development'),  # Todo DEV branch
     setup_args: setup_kwargs,
     (f'--{skip_logging}',): dict(action='store_true',
                                  help='Skip logging output to files and direct all logging to stream?'),
@@ -617,8 +622,8 @@ options_arguments = {
                                            '\nthan 0, to use when performing design. In the form:'
                                            '\nexp(G/T), where G = energy and T = temperature'
                                            '\nHigher temperatures result in more diversity'),
-    ('-U', '--update-database'): dict(action='store_true',
-                                      help='Whether to update resources for each Structure in the database')
+    # ('-U', '--update-database'): dict(action='store_true',
+    #                                   help='Whether to update resources for each Structure in the database')
 }
 # ---------------------------------------------------
 residue_selector_help = 'Residue selectors control which parts of the Pose are included during protocols'
@@ -925,18 +930,18 @@ optimize_designs_arguments = {
 analysis_help = 'Analyze all poses specified generating a suite of metrics'
 parser_analysis = {analysis: dict(description=analysis_help, help=analysis_help)}
 analysis_arguments = {
-    ('--figures',): dict(action=argparse.BooleanOptionalAction, default=False,
-                         help='Create figures for all poses?'),
-    ('--merge',): dict(action='store_true', help='Whether to merge Trajectory and Residue Dataframes'),
-    ('--output',): dict(action=argparse.BooleanOptionalAction, default=True,
-                        help=f'Whether to output the --{output_file}?\n{boolean_positional_prevent_msg("output")}'),
-    #                          '\nDefault=%(default)s'),
-    output_file_args: dict(type=str,
-                           help='Name of the output .csv file containing pose metrics.\nWill be saved to the '
-                                f'{all_scores} folder of the output'
-                                f'\nDefault={default_analysis_file.format("TIMESTAMP", "LOCATION")}'),
-    ('--save', ): dict(action=argparse.BooleanOptionalAction, default=True,
-                       help=f'Save Trajectory and Residues dataframes?\n{boolean_positional_prevent_msg("save")}')
+    # ('--figures',): dict(action=argparse.BooleanOptionalAction, default=False,
+    #                      help='Create figures for all poses?'),
+    # ('--merge',): dict(action='store_true', help='Whether to merge Trajectory and Residue Dataframes'),
+    # ('--output',): dict(action=argparse.BooleanOptionalAction, default=True,
+    #                     help=f'Whether to output the --{output_file}?\n{boolean_positional_prevent_msg("output")}'),
+    # #                          '\nDefault=%(default)s'),
+    # output_file_args: dict(type=str,
+    #                        help='Name of the output .csv file containing pose metrics.\nWill be saved to the '
+    #                             f'{all_scores} folder of the output'
+    #                             f'\nDefault={default_analysis_file.format("TIMESTAMP", "LOCATION")}'),
+    # ('--save', ): dict(action=argparse.BooleanOptionalAction, default=True,
+    #                    help=f'Save Trajectory and Residues dataframes?\n{boolean_positional_prevent_msg("save")}')
 }
 # ---------------------------------------------------
 # Common selection arguments
@@ -1117,7 +1122,7 @@ parser_rename_chains = {rename_chains:
 # ---------------------------------------------------
 directory_needed = f'To locate poses from a file utilizing pose identifiers (--{poses}, -sf)\n' \
                    f'provide your working {program_output} directory with -d/--directory.\n' \
-                   f'If you run {program_name} in the context of an existing {program_output}\n' \
+                   f'If you run {program_name} in the context of an existing {program_output},\n' \
                    f'the directory will automatically be inferred'
 input_help = f'Specify where/which poses should be included in processing\n{directory_needed}'
 parser_input = {input_: dict(description=input_help)}  # , help=input_help
@@ -1135,8 +1140,8 @@ input_arguments = {
                                   'preceding the c-terminal chain. Fusion instances should be\n'
                                   'separated by a space\n'
                                   'Ex --fuse-chains A:B C:D'),
-    ('-N', f'--{nanohedra}V1-output'): dict(action='store_true', dest=nanohedra_output,
-                                            help='Is the input a Nanohedra wersion 1 docking output?'),
+    # ('-N', f'--{nanohedra}V1-output'): dict(action='store_true', dest=nanohedra_output,
+    #                                         help='Is the input a Nanohedra wersion 1 docking output?'),
     (f'--{poses}',): dict(type=os.path.abspath, nargs='*',  # dest=putils.specification_file,
                           metavar=ex_path(default_path_file.format('TIMESTAMP', 'MODULE', 'LOCATION')),
                           help=f'For each run of {program_name}, a file will be created that\n'
@@ -1325,6 +1330,7 @@ module_required = ['nanohedra_mutual1']
 subparsers = argparsers[parser_module].add_subparsers(**module_subargparser)  # required=True,
 # For parsing of guide info
 argparsers[parser_guide].add_argument(*guide_args, **guide_kwargs)
+argparsers[parser_guide].add_argument(*help_args, **help_kwargs)
 argparsers[parser_guide].add_argument(*setup_args, **setup_kwargs)
 guide_subparsers = argparsers[parser_guide].add_subparsers(**module_subargparser)
 module_suparsers: dict[str, argparse.ArgumentParser] = {}
