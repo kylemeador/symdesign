@@ -4145,6 +4145,7 @@ class PoseProtocol(PoseData):
             # per_residue_data[pose_source_name].update(self.pose.per_residue_interface_errat())
             pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
 
+        pose_name = self.pose.name
         # Collect reference Structure metrics
         per_residue_data = {pose_name:
                             {**self.pose.per_residue_interface_surface_area(),
