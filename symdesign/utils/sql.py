@@ -95,6 +95,11 @@ class PoseMetadata(Base):
     def number_of_designs(self) -> int:
         return len(self.designs)
 
+    @property
+    def design_ids(self) -> list[str]:
+        """Get the names of each DesignData in the PoseJob"""
+        return [design.name for design in self.designs]
+
     # # Set up one-to-one relationship with design_data table
     # pose_source_id = Column(ForeignKey('design_data.id'))
     # pose_source = relationship('DesignData', lazy='selectin')
