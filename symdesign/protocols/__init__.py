@@ -726,6 +726,7 @@ def process_rosetta_metrics(job: pose.PoseJob):
         job: The PoseJob for which the protocol should be performed on
     """
     # Acquire the pose_metrics if None have been made yet
+    job.load_pose()
     job.calculate_pose_metrics()
     if os.path.exists(job.scores_file):
         return job.process_rosetta_metrics()

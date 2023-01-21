@@ -4069,9 +4069,10 @@ class PoseProtocol(PoseData):
 
     def calculate_pose_metrics(self):
         """Perform a metrics update only on the reference Pose"""
+        self.load_pose()
+
         # Check if PoseMetrics have been captured
         if self.job.db:
-            self.load_pose()
             if self.metrics is None:
                 self.metrics = self.pose.metrics  # Also calculates entity.metrics
                 # pose_metrics = self.pose.metrics
