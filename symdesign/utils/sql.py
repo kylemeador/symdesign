@@ -414,15 +414,20 @@ class EntityTransform(Base):
     def transformation(self) -> dict:  # Todo -> transformation_mapping:
         """Provide the names of all Entity instances mapped to the Pose"""
         # Todo hook in self.rotation_x, self.rotation_y
-        # Todo if self.setting_matrix is None
-        #  rotation2 = Rotation.from_rotvec([external_rotation_x, external_rotation_y, external_rotation_z], degrees=True).as_matrix()
+        if self.setting_matrix is None:
+            rotation2 = None
+            # rotation2 = Rotation.from_rotvec([self.external_rotation_x,
+            #                                   self.external_rotation_y,
+            #                                   self.external_rotation_z], degrees=True).as_matrix()
+        else:
+            rotation2 = symmetry.setting_matrices[self.setting_matrix]
         return dict(
             rotation=Rotation.from_rotvec([self.rotation_x, self.rotation_y, self.rotation_z], degrees=True).as_matrix(),
             translation=np.array([self.internal_translation_x,
                                   self.internal_translation_y,
                                   self.internal_translation_z]),
             # translation=np.array([0., 0., entity.internal_translation]),
-            rotation2=symmetry.setting_matrices[self.setting_matrix],
+            rotation2=rotation2,
             translation2=np.array([self.external_translation_x,
                                    self.external_translation_y,
                                    self.external_translation_z]),
