@@ -3210,7 +3210,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             # found_entity_chains = [chain for data in self.entity_info.values() for chain in data.get('chains', [])]
             # if len(self.chain_ids) != len(found_entity_chains):
             if self.nucleotides_present:
-                raise NotImplementedError(f"The parsing and integration of nucleotides hasn't been worked out")
+                # raise NotImplementedError(f"The parsing and integration of nucleotides hasn't been worked out")
+                self.log.debug(f"Integration of nucleotides hasn't been worked out yet, API information not useful")
+
             max_reference_sequence = 0
             # Remove all previously found chains
             for data in self.entity_info.values():
@@ -3333,10 +3335,14 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 'uniprot_ids': uniprot_ids,
                 'chains': [chain for chain in chains if chain]}  # Remove any missing chains
             if len(entity_data['chains']) == 0:
-                self.log.warning(f'Missing associated chains for the Entity {entity_name} with data: '
-                                 f"self.chain_ids={self.chain_ids}, entity_data['chains']={entity_data['chains']}, "
-                                 f"data['chains']={data_chains}, "
-                                 f'{", ".join(f"{k}={v}" for k, v in data.items())}')
+                if self.nucleotides_present:
+                    self.log.warning(f"Nucleotide chain was removed from Structure")
+                else:
+                    self.log.warning(f'Missing associated chains for the Entity {entity_name} with data: '
+                                     f"self.chain_ids={self.chain_ids}, entity_data['chains']={entity_data['chains']}, "
+                                     f"data['chains']={data_chains}, "
+                                     f'{", ".join(f"{k}={v}" for k, v in data.items())}')
+                    raise DesignError(f"The Entity couldn't be processed as currently configured")
                 continue
             #     raise utils.DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and '
             #                             'api_entry=%s, original_chain_ids=%s'

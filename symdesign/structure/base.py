@@ -3467,6 +3467,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 found_types.add(atom.type)
             else:
                 if protein_backbone_atom_types.difference(found_types):  # Not an empty set, remove [start_idx:idx]
+                    # Todo remove this check when nucleotides can be parsed
                     if dna_sugar_atom_types.intersection(found_types):
                         self.nucleotides_present = True
                     remove_atom_indices.extend(range(start_atom_index, idx))
