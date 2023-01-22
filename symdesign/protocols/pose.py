@@ -3944,9 +3944,13 @@ class PoseProtocol(PoseData):
             design_parent = self.pose_source
             parents = None
 
-        # Update the Pose with the number of designs
-        new_designs_data = self.update_design_data(design_parent=design_parent)
-        for design_data, parent in zip(new_designs_data, parents):
+        # Update the Pose.design by the number of new designs,
+        # to generate DesignData with a prescribed name and design design_parent (which may be updated below)
+        new_designs_data = self.update_design_data(design_parent=design_parent, number=len(new_design_filenames))
+
+        rosetta_provided_new_design_names = \
+            [os.path.splitext(os.path.basename(file))[0] for file in new_design_filenames]
+        for design_data, parent, provided_name in zip(new_designs_data, parents, rosetta_provided_new_design_names):
             design_data.design_parent = parent
             design_data.provided_name = provided_name
 

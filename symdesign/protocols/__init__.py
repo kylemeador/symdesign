@@ -98,10 +98,10 @@ def protocol_decorator(errors: tuple[Type[Exception], ...] = (DesignError,)) -> 
             try:
                 func_return = func(job, *args, **kwargs)
             except errors as error:
-                job.log.error(error)  # Allows exception reporting using self.log
-                # Todo this may be required to remove program memory piling up in the stack at error time
-                func_return = ReportException(traceback.format_exception(error))
-                # func_return = error
+                # Perform exception reporting using self.log
+                job.log.error(error)
+                job.log.info(''.join(traceback.format_exception(error)))
+                func_return = ReportException(str(error))
             # remove_structure_memory()
             if job.job.reduce_memory:
                 job.pose = None
