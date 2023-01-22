@@ -107,21 +107,20 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Initialize local functions
     # -----------------------------------------------------------------------------------------------------------------
-    def parse_protocol_results(jobs: list[Any] = None, _results: list[Any] | dict = None, **kwargs):
+    def parse_results_for_exceptions(results_: list[Any] | dict = None, **kwargs) \
+            -> list[tuple[PoseJob, Exception]] | list:
         """For a multimodule protocol, filter out any exceptions before proceeding to the next module
 
         Args:
-            jobs: Separate items of work to undertake
-            _results: The returned values from the jobs
+            results_: The returned values from the jobs
         Returns:
             Tuple of passing PoseDirectories and Exceptions
         """
-        if _results is None:
-            _results = []
-
-        _exceptions = [(jobs.pop(idx), _results[idx]) for idx, exception in enumerate(_results)
-                       if isinstance(exception, BaseException)]
-        return jobs, _exceptions
+        if results_ is None:
+            return []
+        else:
+            exception_indices = [idx for idx, result_ in enumerate(results_) if isinstance(result_, BaseException)]
+            return [(pose_jobs.pop(idx), results_.pop(idx)) for idx in reversed(exception_indices)]
 
     def terminate(results: list[Any] | dict = None, output: bool = True, **kwargs):
         """Format designs passing output parameters and report program exceptions
@@ -137,28 +136,31 @@ def main():
         #         pose_job.pickle_info()
         # except AttributeError:  # This isn't a PoseJob. Likely is a nanohedra job
         #     pass
-
-        exceptions = kwargs.get('exceptions', [])
+        nonlocal exceptions
         if results:
             if job.module == flags.nanohedra:
                 success = results
                 if job.distribute_work:
                     output_analysis = False
             else:
-                success = \
-                    [pose_jobs[idx] for idx, result in enumerate(results) if
-                     not isinstance(result, BaseException)]
-                exceptions += \
-                    [(pose_jobs[idx], exception) for idx, exception in enumerate(results)
-                     if isinstance(exception, BaseException)]
+                # success_indices = [idx for idx, result in enumerate(results) if not isinstance(result, BaseException)]
+                # success = [pose_jobs[idx] for idx in success_indices]
+                # _exceptions = [(pose_job, exception) for pose_job, exception in zip(pose_jobs, results)
+                #                if isinstance(exception, BaseException)]
+                # exception_indices = [idx for idx, result in enumerate(results) if isinstance(result, BaseException)]
+                # _exceptions = [(pose_jobs.pop(idx), results.pop(idx)) for idx in reversed(exception_indices)]
+                # exceptions += _exceptions
+                exceptions += parse_results_for_exceptions(results)
+                success = pose_jobs
         else:
             success = []
 
         exit_code = 0
         if exceptions:
             print('\n')
-            logger.warning(f'Exceptions were thrown for {len(exceptions)} designs. Check their logs for further details'
-                           '\n\t%s' % '\n\t'.join(f'{design.path}: {_error}' for design, _error in exceptions))
+            logger.warning(f'Exceptions were thrown for {len(exceptions)} designs. '
+                           f'Check their individual .log files for more details\n\t%s'
+                           % '\n\t'.join(f'{pose_job}: {_error}' for pose_job, _error in exceptions))
             print('\n')
 
         if success and output:
@@ -1355,13 +1357,12 @@ def main():
                 #    pass
 
                 # Update the current state of protocols and exceptions
-                pose_jobs, additional_exceptions = parse_protocol_results(pose_jobs, results)
-                exceptions.extend(additional_exceptions)
+                exceptions.extend(parse_results_for_exceptions(results))
             #     # Retrieve any program flags necessary for termination
             #     terminate_kwargs.update(**terminate_options.get(protocol_name, {}))
             #
-            # terminate(results=results, **terminate_kwargs, exceptions=exceptions)
-            # terminate(results=results, exceptions=exceptions)
+            # terminate(results=results, **terminate_kwargs)
+            # terminate(results=results)
         # -----------------------------------------------------------------------------------------------------------------
         #  Run a single submodule
         # -----------------------------------------------------------------------------------------------------------------
@@ -1577,7 +1578,7 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
         # # Reset the current_session
         # job.current_session = None
-        terminate(results=results, exceptions=exceptions)
+        terminate(results=results)
 
 
 if __name__ == '__main__':
