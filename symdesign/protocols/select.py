@@ -460,7 +460,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
     return results  # , exceptions
 
 
-def sequences(pose_jobs: list[PoseJob]):
+def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
     """Perform design selection followed by sequence formatting on those designs
 
     Args:
@@ -470,11 +470,9 @@ def sequences(pose_jobs: list[PoseJob]):
     """
     job = job_resources_factory.get()
     results = designs(pose_jobs)
-
-    job.output_file = os.path.join(job.output_directory, f'{job.prefix}SelectedDesigns{job.suffix}.paths')
-    # Todo should move this to be in terminate(results=results.keys()) -> success
-    with open(job.output_file, 'w') as f:
-        f.write('%s\n' % '\n'.join(str(pose_job) for pose_job in list(results.keys())))
+    # Set up output_file pose_jobs for __main__.terminate()
+    return_pose_jobs = list(results.keys())
+    job.output_file = os.path.join(job.output_directory, f'{job.prefix}SelectedDesigns{job.suffix}.poses')
 
     # Set up mechanism to solve sequence tagging preferences
     def solve_tags(pose: Pose) -> list[bool]:
@@ -857,3 +855,5 @@ def sequences(pose_jobs: list[PoseJob]):
                             file_name=os.path.join(job.output_directory,
                                                    f'{job.prefix}SelectedSequencesNucleotide{job.suffix}'))
         logger.info(f'Final Design nucleotide sequences written to: {nucleotide_sequence_file}')
+
+    return return_pose_jobs
