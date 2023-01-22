@@ -1828,10 +1828,9 @@ class PoseProtocol(PoseData):
 
         entity_energies = [0. for _ in self.pose.entities]
         pose_source_residue_info = \
-            {residue.number: {'complex': 0., 'bound': entity_energies.copy(), 'unbound': entity_energies.copy(),
-                              'solv_complex': 0., 'solv_bound': entity_energies.copy(),
-                              'solv_unbound': entity_energies.copy(), 'fsp': 0., 'cst': 0.,
-                              'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
+            {residue.index: {'complex': 0., 'bound': entity_energies.copy(), 'unbound': entity_energies.copy(),
+                             'solv_complex': 0., 'solv_bound': entity_energies.copy(),
+                             'solv_unbound': entity_energies.copy(), 'fsp': 0., 'cst': 0., 'hbond': 0}
              for entity in self.pose.entities for residue in entity.residues}
         pose_name = self.pose.name
         residue_info = {pose_name: pose_source_residue_info}
@@ -3953,10 +3952,9 @@ class PoseProtocol(PoseData):
         # Take metrics for the pose_source
         entity_energies = [0. for _ in self.pose.entities]
         pose_source_residue_info = \
-            {residue.number: {'complex': 0., 'bound': entity_energies.copy(), 'unbound': entity_energies.copy(),
-                              'solv_complex': 0., 'solv_bound': entity_energies.copy(),
-                              'solv_unbound': entity_energies.copy(), 'fsp': 0., 'cst': 0.,
-                              'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
+            {residue.index: {'complex': 0., 'bound': entity_energies.copy(), 'unbound': entity_energies.copy(),
+                             'solv_complex': 0., 'solv_bound': entity_energies.copy(),
+                             'solv_unbound': entity_energies.copy(), 'fsp': 0., 'cst': 0., 'hbond': 0}
              for entity in self.pose.entities for residue in entity.residues}
         pose_name = self.pose.name
         residue_info = {pose_name: pose_source_residue_info}
@@ -3981,6 +3979,9 @@ class PoseProtocol(PoseData):
 
         # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
         rosetta_info_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
+        # Set each position that was parsed as "designable"
+        # Todo does this include packable residues from neighborhoods?
+        rosetta_info_df['design_residue'] = 1
         # returns multi-index column with residue number as first (top) column index, metric as second index
         # during residues_df unstack, all residues with missing dicts are copied as nan
 
