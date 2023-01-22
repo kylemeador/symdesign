@@ -20,7 +20,7 @@ from symdesign.sequence import protein_letters_1to3, protein_letters_3to1
 from symdesign.structure.model import Models, MultiModel, Model, Pose
 from symdesign.structure.sequence import write_pssm_file, sequence_difference
 from symdesign.structure.utils import DesignError, SymmetryError
-from symdesign.utils import condensed_to_square, path as putils, rosetta, starttime, sym, write_shell_script
+from symdesign.utils import condensed_to_square, path as putils, ReportException, rosetta, starttime, sym, write_shell_script
 # from ..resources.job import JobResources, job_resources_factory
 
 
@@ -100,8 +100,8 @@ def protocol_decorator(errors: tuple[Type[Exception], ...] = (DesignError,)) -> 
             except errors as error:
                 job.log.error(error)  # Allows exception reporting using self.log
                 # Todo this may be required to remove program memory piling up in the stack at error time
-                #  func_return = traceback.format_exception(error)
-                func_return = error
+                func_return = ReportException(traceback.format_exception(error))
+                # func_return = error
             # remove_structure_memory()
             if job.job.reduce_memory:
                 job.pose = None

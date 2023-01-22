@@ -907,6 +907,10 @@ class SymmetryInputError(Exception):
     pass
 
 
+class ReportException(Exception):
+    pass
+
+
 def collect_designs(files: Sequence = None, directory: AnyStr = None, projects: Sequence = None,
                     singles: Sequence = None) -> tuple[list, str]:
     """Grab all poses from an input source

@@ -175,8 +175,7 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                 f.write(top_designs_string % '\n\t'.join(results_strings))
             logger.info(f'Stdout performed a cutoff of ranked Designs at ranking 500. See the output design file '
                         f'"{designs_file}" for the remainder')
-
-        terminate(output=False)
+        exit()  # terminate(output=False)
     # else:
     #     logger.critical('Missing a required method to provide or find metrics from %s. If you meant to gather '
     #                     'metrics from every pose in your input specification, ensure you include the --global '
