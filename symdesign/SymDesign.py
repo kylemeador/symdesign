@@ -1328,12 +1328,9 @@ def main():
                 flags.nanohedra,
                 flags.select_poses,
                 flags.select_designs,
-                # flags.select_sequences
+                flags.select_sequences
             )
-            # terminate_options = dict(
-            #     # analysis=dict(output_analysis=args.output),  # Replaced with args.output in terminate()
-            # )
-            # terminate_kwargs = {}
+
             # Universal protocol runner
             for idx, protocol_name in enumerate(job.modules, 1):
                 logger.info(f'Starting protocol {idx}: {protocol_name}')
@@ -1345,36 +1342,33 @@ def main():
                 # Figure out how the job should be set up
                 if protocol_name in run_on_pose_job:  # Single poses
                     if job.multi_processing:
-                        _results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
+                        results_ = utils.mp_map(protocol, pose_jobs, processes=job.cores)
                     else:
-                        _results = []
+                        results_ = []
                         for pose_job in pose_jobs:
-                            _results.append(protocol(pose_job))
+                            results_.append(protocol(pose_job))
                 else:  # Collection of poses
-                    _results = protocol(pose_jobs)
+                    results_ = protocol(pose_jobs)
 
                 # Handle any returns that require particular treatment
                 if protocol_name in returns_pose_jobs:
                     results = []
-                    if _results:  # Not an empty list
-                        if isinstance(_results[0], list):  # In the case of nanohedra
-                            for result in _results:
+                    if results_:  # Not an empty list
+                        if isinstance(results_[0], list):  # In the case of nanohedra
+                            for result in results_:
                                 results.extend(result)
                         else:
-                            results.extend(_results)  # append(result)
+                            results.extend(results_)
                     pose_jobs = results
                 else:
-                    results = _results
+                    results = results_
                 # elif putils.cluster_poses:  # Returns None
                 #    pass
 
                 # Update the current state of protocols and exceptions
                 exceptions.extend(parse_results_for_exceptions(results))
-            #     # Retrieve any program flags necessary for termination
-            #     terminate_kwargs.update(**terminate_options.get(protocol_name, {}))
-            #
-            # terminate(results=results, **terminate_kwargs)
-            # terminate(results=results)
+                # # Retrieve any program flags necessary for termination
+                # terminate_kwargs.update(**terminate_options.get(protocol_name, {}))
         # -----------------------------------------------------------------------------------------------------------------
         #  Run a single submodule
         # -----------------------------------------------------------------------------------------------------------------
