@@ -329,7 +329,7 @@ class PoseDirectory:
         Args:
             design_type: Specify if a particular type of design should be selected by a "type" string
         Returns:
-            The sorted design files found in the designs directory
+            The sorted design files found in the designs directory with an absolute path
         """
         # if design_type is None:
         #     design_type = ''
@@ -612,6 +612,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # self.designs = [sql.DesignData(name=name)]
         # self.designs.append(sql.DesignData(name=name))
         # self.designs.append(sql.DesignData(name=name, design_parent=None))
+        # Set up original DesignData entry for the pose baseline
         pose_source = sql.DesignData(name=name, pose=self, design_parent=None)
         self.__init_from_db__()
         # Most __init__ code is called in __init_from_db__() according to sqlalchemy needs and DRY principles
@@ -4059,13 +4060,12 @@ class PoseProtocol(PoseData):
             scores_df.loc[scores_df[repacking == 0].index, 'interface_bound_activation_energy'] = np.nan
             scores_df.drop('repacking', axis=1, inplace=True)
 
+        # The DataFrame.index is wrong here. It needs to become the design.id not design.name. Modify after processing
         pose_sequences = {pose.name: pose.sequence for pose in designs}
         sequences_df = self.analyze_sequence_metrics_per_design(sequences=pose_sequences)
-        # Todo the residues_df here has the wrong .index. It needs to become the design.id not design.name
         residues_df = self.analyze_residue_metrics_per_design(designs=designs)
-        # residues_df = residues_df.join(rosetta_info_df)
-        # Join each residues_df like dataframe
-        # Each of these can have difference index, so we use concat to perform an outer merge
+        # Join each per-residue like DataFrame
+        # Each of these could have different index/column, so we use concat to perform an outer merge
         residues_df = pd.concat([residues_df, sequences_df, rosetta_info_df], axis=1)
 
         designs_df = scores_df.join(self.analyze_design_metrics_per_design(residues_df, designs))

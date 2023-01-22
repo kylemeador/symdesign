@@ -3435,7 +3435,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 match_score = alignment.score / perfect_score
                 length_proportion = (large_sequence_length-small_sequence_length) / large_sequence_length
                 self.log.debug(f'Chain {chain_id} to Entity {entity_name} has {match_score:.2f} identity '
-                               f'and {length_proportion:.2f} length difference with tolerance={tolerance}'
+                               f'and {length_proportion:.2f} length difference with tolerance={tolerance} '
                                f'and length_difference={length_difference}')
                 if match_score >= tolerance and length_proportion <= length_difference:
                     self.log.debug(f'Chain {chain_id} matches Entity {entity_name}')
@@ -7736,11 +7736,15 @@ class Pose(SymmetricModel, Metrics):
             design_scores: {'001': {'buns': 2.0, 'per_res_energy_complex_15A': -2.71, ...,
                             'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...'}, ...}
         Returns:
-            {'001': {15: {'complex': -2.71, 'bound': [-1.9, 0], 'unbound': [-1.9, 0],
+            The parsed design information where the outer key is the design alias, and the next key is the Residue.index
+            where the corresponding information belongs. Only returns Residue metrics for those positions where metrics
+            were taken. Example:
+                {'001':
+                    {15: {'complex': -2.71, 'bound': [-1.9, 0], 'unbound': [-1.9, 0],
                           'solv_complex': -2.71, 'solv_bound': [-1.9, 0], 'solv_unbound': [-1.9, 0],
                           'fsp': 0., 'cst': 0.},
                      ...},
-             ...}
+                 ...}
         """
         energy_template = {'complex': 0., 'bound': [0. for _ in self.entities], 'unbound': [0. for _ in self.entities],
                            'solv_complex': 0., 'solv_bound': [0. for _ in self.entities],
@@ -7806,7 +7810,7 @@ class Pose(SymmetricModel, Metrics):
 
             # Finally, check that we are cleaned for sanity
             if residue_data:
-                raise DesignError(f"Found a design that couldn't be cleaned for residues in the Pose. "
+                raise DesignError(f"Found a design that couldn't be cleaned from the input. "
                                   f"Remaining contents:\n{residue_data}")
             parsed_design_residues[design] = clean_residue_data  # residue_data
 
