@@ -4236,7 +4236,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     session.add_all(pose_jobs)
     # trajectory = TrajectoryMetadata(poses=pose_jobs, protocol=protocol)
     # session.add(trajectory)
-    session.commit()
+    session.flush()
 
     # Finalize docking run
     # Format output data, fix missing
