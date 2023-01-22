@@ -160,7 +160,7 @@ def main():
             print('\n')
             logger.warning(f'Exceptions were thrown for {len(exceptions)} designs. '
                            f'Check their individual .log files for more details\n\t%s'
-                           % '\n\t'.join(f'{pose_job}: {_error}' for pose_job, _error in exceptions))
+                           % '\n\t'.join(f'{pose_job}: {error_}' for pose_job, error_ in exceptions))
             print('\n')
 
         if success and output:
@@ -1104,23 +1104,25 @@ def main():
                             for pose_job, _designs, _directives in zip(pose_jobs, designs, directives):
                                 pose_job.use_specific_designs(_designs, _directives)
                     else:
-                        file_paths, job.location = utils.collect_designs(projects=args.project, singles=args.single)
+                        paths, job.location = utils.collect_designs(projects=args.project, singles=args.single)
                         #                                                  directory = symdesign_directory,
-                        if file_paths:  # There are files present
-                            pose_jobs = [PoseJob.from_directory(path) for path in file_paths[range_slice]]
-                        elif args.project:
-                            projects = [os.path.basename(project) for project in args.project]
-                            fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.in_(projects))
-                            pose_jobs = list(session.scalars(fetch_jobs_stmt))
-
-                            job.location = args.project
-                        else:  # args.single:
-                            projects = [os.path.basename(single) for single in args.project]
-                            fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.in_(projects))
-                            pose_jobs = list(session.scalars(fetch_jobs_stmt))
-
-                            job.location = args.project
-                            raise NotImplementedError(f"--{flags.single} not set up yet")
+                        if paths:  # There are files present
+                            # pose_jobs = [PoseJob.from_directory(path) for path in file_paths[range_slice]]
+                            for path in paths:
+                                name, project, *_ = reversed(path.split(os.sep))
+                                pose_identifiers.append(f'{project}{os.sep}{name}')
+                        # elif args.project:
+                        #     job.location = args.project
+                        #     projects = [os.path.basename(project) for project in args.project]
+                        #     fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.in_(projects))
+                        # else:  # args.single:
+                        #     job.location = args.project
+                        #     singles = [os.path.basename(single) for single in args.project]
+                        #     for single in singles:
+                        #         name, project, *_ = reversed(single.split(os.sep))
+                        #         pose_identifiers.append(f'{project}{os.sep}{name}')
+                        fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
+                        pose_jobs = list(session.scalars(fetch_jobs_stmt))
                 else:  # args.file or args.directory
                     file_paths, job.location = utils.collect_designs(files=args.file, directory=args.directory)
                     if file_paths:
