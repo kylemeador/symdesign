@@ -2661,13 +2661,15 @@ class PoseProtocol(PoseData):
             #     plt.savefig('%s_res_energy_pca.png' % _path)
 
         # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
-        if self.job.save:
-            # residues_df[(putils.protocol, putils.protocol)] = protocol_s
-            # residues_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
-            self.output_metrics(residues=residues_df, designs=designs_df)
+        # if self.job.save:
+        # residues_df[(putils.protocol, putils.protocol)] = protocol_s
+        # residues_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
+        self.output_metrics(residues=residues_df, designs=designs_df)
+        # Commit the newly acquired metrics
+        self.job.current_session.commit()
 
-            # pickle_object(pose_sequences, self.designed_sequences_file, out_path='')  # Todo PoseJob(.path)
-            write_sequences(pose_sequences, file_name=self.designed_sequences_file)
+        # pickle_object(pose_sequences, self.designed_sequences_file, out_path='')  # Todo PoseJob(.path)
+        write_sequences(pose_sequences, file_name=self.designed_sequences_file)
 
         # Create figures
         if self.job.figures:  # For plotting collapse profile, errat data, contact order
@@ -3362,6 +3364,8 @@ class PoseProtocol(PoseData):
         #     errors='ignore', axis=1)
 
         self.output_metrics(residues=residues_df, designs=designs_df)
+        # Commit the newly acquired metrics
+        self.job.current_session.commit()
 
     def proteinmpnn_design(self, interface: bool = False, neighbors: bool = False):
         """Perform design based on the ProteinMPNN graph encoder/decoder network and output sequences and scores to the
@@ -3629,6 +3633,8 @@ class PoseProtocol(PoseData):
         residues_df = self.analyze_residue_metrics_per_design(designs)
         designs_df = self.analyze_design_metrics_per_design(residues_df, designs)
         self.output_metrics(residues=residues_df, designs=designs_df, update=True)
+        # Commit the newly acquired metrics
+        self.job.current_session.commit()
 
     def analyze_sequence_metrics_per_design(self, sequences: dict[str, Sequence[str]] | Sequence[Sequence[str]] = None,
                                             design_ids: Sequence[str] = None) -> pd.DataFrame:
@@ -4127,8 +4133,6 @@ class PoseProtocol(PoseData):
 
                 self.metrics.pose_thermophilicity = sum(is_thermophilic) / idx
 
-                # Commit the newly acquired metrics
-                self.job.current_session.commit()
             else:
                 return
         else:
@@ -4150,6 +4154,8 @@ class PoseProtocol(PoseData):
         # Output
         residues_df = self.analyze_pose_metrics_per_residue()
         self.output_metrics(residues=residues_df)
+        # Commit the newly acquired metrics
+        self.job.current_session.commit()
 
     def analyze_pose_metrics_per_residue(self, novel_interface: bool = True) -> pd.DataFrame:
         """Perform per-residue analysis on the PoseJob.pose

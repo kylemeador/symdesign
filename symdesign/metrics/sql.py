@@ -88,7 +88,7 @@ def insert_dataframe(session: Session, table: Base, df: pd.DataFrame):  # -> lis
     #     session.execute(foreign_key_update_stmt2)
     #     logger.info(f'Transaction took {time() - start_time:8f}s')
 
-    session.commit()
+    # session.commit()
     # return result
 
     # # ORM based method which updates objects with each row .id (Takes much longer time
@@ -165,7 +165,7 @@ def upsert_dataframe(session: Session, table: Base, df: pd.DataFrame):  # -> lis
     # result = session.execute(do_update_stmt, df.reset_index().set_index('id').to_dict('records'))
     session.execute(do_update_stmt, df.reset_index().to_dict('records'))
     logger.info(f'Transaction with table "{tablename}" took {time() - start_time:8f}s')
-    session.commit()
+    # session.commit()
 
     # return result.scalars().all()
 
