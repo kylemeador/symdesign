@@ -3866,17 +3866,22 @@ class PoseProtocol(PoseData):
         # if designs is None:
         design_ids = self.design_ids
         design_files = self.get_design_files()  # Todo PoseJob(.path)
-        new_design_names = []
+        new_design_filenames = []
         if self.job.force:
-            # Collect metrics on all designs
-            pass
+            # Collect metrics on all designs (possibly again)
+            for idx, file in enumerate(reversed(design_files[:])):
+                file_name, ext = os.path.splitext(os.path.basename(file))
+                if file_name in design_ids:  # We already processed this file
+                    continue
+                else:
+                    new_design_filenames.append(file_name)
         else:  # Process to get rid of designs that were already calculated
             for idx, file in enumerate(reversed(design_files[:])):
                 file_name, ext = os.path.splitext(os.path.basename(file))
                 if file_name in design_ids:  # We already processed this file
                     design_files.pop(idx)
                 else:
-                    new_design_names.append(file_name)
+                    new_design_filenames.append(file_name)
 
         # Process all desired files to Pose
         designs = [Pose.from_file(file, **self.pose_kwargs) for file in design_files]  # Todo PoseJob(.path)
@@ -3938,17 +3943,12 @@ class PoseProtocol(PoseData):
         new_designs_data = self.update_design_data(design_parent=design_parent)
         for design_data, parent in zip(new_designs_data, parents):
             design_data.design_parent = parent
-        new_design_ids = [design_data.id for design_data in new_designs_data]
+            design_data.provided_name = provided_name
 
-        # Find protocol info and remove from scores_df
-        protocol_s = scores_df.pop(putils.protocol).copy()
-        # Update the Pose with the design protocols
-        for idx, design_data in enumerate(new_designs_data):
-            design_data.protocols.append(
-                sql.DesignProtocol(design_id=new_design_ids[idx],
-                                   protocol=protocol_s[idx],
-                                   # temperature=temperatures[idx],
-                                   file=design_files[idx]))
+        self.designs.append(new_designs_data)
+        # Flush the newly acquired DesignData and DesignProtocol to generate .id primary keys
+        self.job.current_session.flush()
+        new_design_ids = [design_data.id for design_data in new_designs_data]
 
         # Take metrics for the pose_source
         entity_energies = [0. for _ in self.pose.entities]
@@ -4060,7 +4060,48 @@ class PoseProtocol(PoseData):
         designs_df = scores_df.join(self.analyze_design_metrics_per_design(residues_df, designs))
         designs_df = designs_df.join(self.analyze_design_metrics_per_residue(residues_df))
 
+        # Rename all designs and clean up resulting metrics for storage
+        # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
+        # Get the filenames mapped to the DesignData
+        # filename_to_design_data_map = list(zip(new_design_filenames, new_designs_data))
+        # filename_to_new_design_names = dict(zip(new_design_filenames, new_design_files))
+        design_name_to_id_map = \
+            dict(((design_data.provided_name, design_data.id) for design_data in new_designs_data))
+        # design_name_to_id_map = {}
+        # filename_to_new_design_names = {}
+        # for filename, design_data in filename_to_design_data_map:
+        #     filename_to_new_design_names[filename] = os.path.join(self.designs_path, f'{design_data.name}.pdb')
+        #     design_name_to_id_map[filename] = design_data.id
+        designs_df.index = designs_df.index.map(design_name_to_id_map)
+        residues_df.index = residues_df.index.map(design_name_to_id_map)
+
+        designs_path = self.designs_path
+        new_design_new_filenames = [os.path.join(designs_path, f'{design_data.name}.pdb')
+                                    for design_data in new_designs_data]
+        # Commit the newly acquired metrics to the database
+        # First check if the files are situated correctly
+        for filename, new_filename in zip(new_design_filenames, new_design_new_filenames):
+            if os.path.exists(filename) and not os.path.exists(new_filename):
+                continue
+            else:
+                raise DesignError('The specified file renaming scheme creates a conflict:\n'
+                                  f'\t{filename} -> {new_filename}')
+        # If so, proceed with insert, rename and commit
         self.output_metrics(residues=residues_df, designs=designs_df)
+        # Rename the incoming files to their prescribed names
+        for filename, new_filename in zip(new_design_filenames, new_design_new_filenames):
+            shutil.move(filename, new_filename)
+
+        # Find protocol info and remove from scores_df
+        protocol_s = scores_df.pop(putils.protocol).copy()
+        # Update the Pose with the design protocols
+        for idx, design_data in enumerate(new_designs_data):
+            design_data.protocols.append(
+                sql.DesignProtocol(design_id=new_design_ids[idx],
+                                   protocol=protocol_s[idx],
+                                   # temperature=temperatures[idx],
+                                   file=new_design_new_filenames[idx]))  # design_files[idx]))
+        self.job.current_session.commit()
 
     def calculate_pose_metrics(self):
         """Perform a metrics update only on the reference Pose"""
