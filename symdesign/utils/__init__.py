@@ -995,13 +995,13 @@ def get_symdesign_dirs(base: str = None, projects: Iterable = None, singles: Ite
     """
     paths = []
     if base:
-        paths = glob(f'{base}{os.sep}{putils.projects}{os.sep}*{os.sep}*{os.sep}')  # base/Projects/*/*/
-    elif projects:
+        paths.extend(glob(f'{base}{os.sep}{putils.projects}{os.sep}*{os.sep}*{os.sep}'))  # base/Projects/*/*/
+    if projects:
         for project in projects:
-            paths.extend(glob(f'{project}{os.sep}*{os.sep}'))  # project/*/
-    else:  # if single:
-        for single, extension in map(os.path.splitext, singles):  # remove any extension
-            paths.extend(glob(f'{single}{os.sep}'))  # single/
+            paths.extend(glob(f'{project}{os.sep}*{os.sep}'))  # base/Projects/project/*/
+    if singles:
+        for single, extension in map(os.path.splitext, singles):  # Remove extensions
+            paths.extend(glob(f'{single}{os.sep}'))  # base/Projects/project/single/
     return map(os.path.abspath, paths)
 
 

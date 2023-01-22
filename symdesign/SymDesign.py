@@ -1031,6 +1031,9 @@ def main():
                     if low_range < 0 or high_range > n_files:
                         raise ValueError('The input flag --range argument is outside of the acceptable bounds [0-100]')
                     logger.info(f'Selecting poses within range: {low_range if low_range else 1}-{high_range}')
+                    range_slice = slice(low_range, high_range)
+                else:
+                    range_slice = slice(None)
 
                 # if args.nanohedra_output:  # Nanohedra directory
                 #     file_paths, job.location = utils.collect_nanohedra_designs(files=args.file, directory=args.directory)
@@ -1043,7 +1046,7 @@ def main():
                 #         if not job.sym_entry:  # Get from the Nanohedra output
                 #             job.sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
                 #         pose_jobs = [PoseJob.from_file(pose, project=project_name)
-                #                             for pose in file_paths[low_range:high_range]]
+                #                             for pose in file_paths[range_slice]]
                 #         # Copy the master nanohedra log
                 #         project_designs = \
                 #             os.path.join(job.projects, f'{os.path.basename(job.nanohedra_root)}')  # _{putils.pose_directory}')
@@ -1100,17 +1103,26 @@ def main():
                         if args.specification_file:
                             for pose_job, _designs, _directives in zip(pose_jobs, designs, directives):
                                 pose_job.use_specific_designs(_designs, _directives)
-                    elif args.project:
-                        projects = [os.path.basename(project) for project in args.project]
-                        fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.in_(projects))
-                        pose_jobs = list(session.scalars(fetch_jobs_stmt))
+                    else:
+                        file_paths, job.location = utils.collect_designs(projects=args.project, singles=args.single)
+                        #                                                  directory = symdesign_directory,
+                        if file_paths:  # There are files present
+                            pose_jobs = [PoseJob.from_directory(path) for path in file_paths[range_slice]]
+                        elif args.project:
+                            projects = [os.path.basename(project) for project in args.project]
+                            fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.in_(projects))
+                            pose_jobs = list(session.scalars(fetch_jobs_stmt))
 
-                        job.location = args.project
-                    else:  # args.single:
-                        raise NotImplementedError(f"--{flags.single} not set up yet")
+                            job.location = args.project
+                        else:  # args.single:
+                            projects = [os.path.basename(single) for single in args.project]
+                            fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.in_(projects))
+                            pose_jobs = list(session.scalars(fetch_jobs_stmt))
+
+                            job.location = args.project
+                            raise NotImplementedError(f"--{flags.single} not set up yet")
                 else:  # args.file or args.directory
                     file_paths, job.location = utils.collect_designs(files=args.file, directory=args.directory)
-                    #                                                 projects=args.project, singles=args.single)
                     if file_paths:
                         # if file_paths[0].count(os.sep) == 0:  # Check to ensure -f wasn't used when -pf was meant
                         #     # Assume that we have received pose-IDs and process accordingly
@@ -1123,7 +1135,7 @@ def main():
                         #                  for pose in file_paths[low_range:high_range]]
                         # else:
                         pose_jobs = [PoseJob.from_path(path, project=project_name)
-                                     for path in file_paths[low_range:high_range]]
+                                     for path in file_paths[range_slice]]
                 if not pose_jobs:
                     raise utils.InputError(f"No {PoseJob.__name__}'s found at location '{job.location}'")
                 """Check to see that proper data/files have been created 
@@ -1547,7 +1559,7 @@ def main():
                 # else:
                 print(low_range, high_range)
                 print(file_paths)
-                for idx, file in enumerate(files[low_range:high_range], low_range + 1):
+                for idx, file in enumerate(files[range_slice], low_range + 1):
                     if args.name == 'original':
                         cmd.load(file)
                     else:  # if args.name == 'numerical':
