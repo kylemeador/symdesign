@@ -3884,10 +3884,10 @@ class PoseProtocol(PoseData):
         # Returns multi-index column with residue number as first (top) column index, metric as second index
         # Set each position that was parsed as "designable"
         # Todo does this include packable residues from neighborhoods?
-        rosetta_info_df['design_residue'] = 1
-        rosetta_info_df = rosetta_info_df.unstack()
+        rosetta_info_df = rosetta_info_df.stack().unstack(1)
         # During rosetta_info_df unstack, all residues with missing dicts are copied as nan
-
+        rosetta_info_df['design_residue'] = 1
+        rosetta_info_df = rosetta_info_df.unstack().swaplevel(0, 1, axis=1)
         # Todo implement this protocol if sequence data is taken at multiple points along a trajectory and the
         #  sequence data along trajectory is a metric on it's own
         # # Gather mutations for residue specific processing and design sequences
