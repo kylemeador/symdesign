@@ -1660,7 +1660,8 @@ class PoseProtocol(PoseData):
         else:
             raise DesignError(f'{self.thread_sequences_to_backbone.__name__}: No designed sequences were located')
 
-        self.refine(in_file_list=design_files_file)
+        # self.refine(in_file_list=design_files_file)
+        self.refine(design_files=design_files)
 
     def predict_structure(self):
         """"""
@@ -2738,28 +2739,30 @@ class PoseProtocol(PoseData):
 
         return pose_s
 
-    def refine(self, to_pose_directory: bool = True, gather_metrics: bool = True, in_file_list: AnyStr = None):
+    def refine(self, to_pose_directory: bool = True, gather_metrics: bool = True,
+               design_files: AnyStr = None, in_file_list: AnyStr = None):
         """Refine the PoseJob.pose instance or design Model instances associated with this instance
 
-        Will append the suffix "_refine" or that given by f'_{self.protocol}' if in_file_list is passed
+        ## Will append the suffix "_refine" or that given by f'_{self.protocol}' if in_file_list is passed
 
         Args:
             to_pose_directory: Whether the refinement should be saved to the PoseJob
             gather_metrics: Whether metrics should be calculated for the Pose
-            in_file_list: A list of files to perform refinement on
+            design_files: A list of files to perform refinement on
+            in_file_list: The path to a file containing a list of files to pass to Rosetta refinement
         """
         main_cmd = rosetta.script_cmd.copy()
 
         infile = []
-        if to_pose_directory:  # Original protocol to refine a pose as provided from Nanohedra
+        suffix = []
+        generate_files_cmd = null_cmd
+        if to_pose_directory:  # Original protocol to refine a Nanohedra pose
             flag_dir = self.scripts_path
             pdb_out_path = self.designs_path
-            refine_pdb = self.refine_pdb
-            refined_pdb = self.refined_pdb
+            refine_pdb = refined_pdb = self.refined_pdb
             additional_flags = []
         else:  # Protocol to refine input structure, place in a common location, then transform for many jobs to source
-            flag_dir = self.job.refine_dir
-            pdb_out_path = self.job.refine_dir
+            flag_dir = pdb_out_path = self.job.refine_dir
             refine_pdb = self.source_path
             refined_pdb = os.path.join(pdb_out_path, refine_pdb)
             additional_flags = ['-no_scorefile', 'true']
@@ -2774,7 +2777,7 @@ class PoseProtocol(PoseData):
             putils.make_path(pdb_out_path)
 
         # Assign designable residues to interface1/interface2 variables, not necessary for non-complexed PDB jobs
-        if in_file_list is not None:  # Run a list of files produced elsewhere
+        if design_files is not None or in_file_list is not None:  # Run a list of files produced elsewhere
             possible_refine_protocols = ['refine', 'thread']
             if self.protocol in possible_refine_protocols:
                 switch = self.protocol
@@ -2782,16 +2785,31 @@ class PoseProtocol(PoseData):
                 switch = putils.refine
             else:
                 switch = putils.refine
-                self.log.warning(f'The requested protocol {self.protocol}, was not recognized by '
+                self.log.warning(f'The requested protocol "{self.protocol}", was not recognized by '
                                  f'{self.refine.__name__} and is being treated as the standard "{switch}" protocol')
 
-            infile.extend(['-in:file:l', in_file_list,
-                           # -in:file:native is here to block flag file version, not actually useful for refine
-                           '-in:file:native', self.source_path])
-            designed_files = os.path.join(self.scripts_path, f'design_files_{self.protocol}.txt')
-            generate_files_cmd = \
-                ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', designed_files, '-s', f'_{switch}']
-            metrics_pdb = ['-in:file:l', designed_files, '-in:file:native', self.source_path]
+            # Create file output
+            designed_files_file = os.path.join(self.scripts_path, f'{timestamp()}_{switch}_files_output.txt')
+            if in_file_list:
+                generate_files_cmd = \
+                    ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', designed_files_file, '-s',
+                     f'_{switch}']
+                suffix = ['-out:suffix', f'_{switch}']
+            elif design_files:
+                design_files_file = os.path.join(self.scripts_path, f'{timestamp()}_{self.protocol}_files.txt')
+                with open(design_files_file, 'w') as f:
+                    f.write('%s\n' % '\n'.join(design_files))
+                # Write the designed_files_file with all "tentatively" designed file paths
+                out_file_string = f'%s{os.sep}{pdb_out_path}{os.sep}%s'
+                with open(design_files_file, 'w') as f:
+                    f.write('%s\n' % '\n'.join(out_file_string % os.path.split(file) for file in design_files))
+            else:
+                raise ValueError(f"Couldn't run {self.refine.__name__} without passing parameter 'design_files' as an "
+                                 f"iterable of files")
+
+            # -in:file:native is here to block flag file version, not actually useful for refine
+            infile.extend(['-in:file:l', in_file_list, '-in:file:native', self.source_path])
+            metrics_pdb = ['-in:file:l', designed_files_file, '-in:file:native', self.source_path]
             # generate_files_cmdline = [list2cmdline(generate_files_cmd)]
         else:
             # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
@@ -2801,14 +2819,14 @@ class PoseProtocol(PoseData):
 
             self.protocol = switch = putils.refine
             if self.job.interface_to_alanine:  # Mutate all design positions to Ala before the Refinement
-                for entity_pair, interface_residue_sets in self.pose.interface_residues_by_entity_pair.items():
-                    if interface_residue_sets[0]:  # Check that there are residues present
-                        for idx, interface_residue_set in enumerate(interface_residue_sets):
-                            self.log.debug(f'Mutating residues from Entity {entity_pair[idx].name}')
-                            for residue in interface_residue_set:
-                                self.log.debug(f'Mutating {residue.number}{residue.type}')
-                                if residue.type != 'GLY':  # No mutation from GLY to ALA as Rosetta would build a CB
-                                    self.pose.mutate_residue(residue=residue, to='A')
+                for entity_pair, interface_residues_pair in self.pose.interface_residues_by_entity_pair.items():
+                    # if interface_residues_pair[0]:  # Check that there are residues present
+                    for entity, interface_residues in zip(entity_pair, interface_residues_pair):
+                        entity_name = entity.name
+                        for residue in interface_residues:
+                            self.log.debug(f'Mutating Entity {entity_name}, {residue.number}{residue.type}')
+                            if residue.type != 'GLY':  # No mutation from GLY to ALA as Rosetta would build a CB
+                                self.pose.mutate_residue(residue=residue, to='A')
                 # Change the name to reflect mutation so we don't overwrite the self.source_path
                 refine_pdb = f'{os.path.splitext(refine_pdb)[0]}_ala_mutant.pdb'
             # else:  # Do dothing and refine the source
@@ -2816,12 +2834,11 @@ class PoseProtocol(PoseData):
             #     # raise ValueError(f"For {self.refine.__name__}, must pass interface_to_alanine")
 
             self.pose.write(out_path=refine_pdb)
+            # Ensure the mutations to the pose are wiped
+            self.pose = None
             self.log.debug(f'Cleaned PDB for {switch}: "{refine_pdb}"')
-            infile.extend(['-in:file:s', refine_pdb,
-                           # -in:file:native is here to block flag file version, not actually useful for refine
-                           '-in:file:native', refine_pdb])
-            generate_files_cmd = null_cmd
-            # generate_files_cmdline = []
+            # -in:file:native is here to block flag file version, not actually useful for refine
+            infile.extend(['-in:file:s', refine_pdb, '-in:file:native', refine_pdb])
             metrics_pdb = ['-in:file:s', refined_pdb, '-in:file:native', refine_pdb]
 
         # RELAX: Prepare command
@@ -2831,22 +2848,22 @@ class PoseProtocol(PoseData):
             symmetry_definition = []
 
         # '-no_nstruct_label', 'true' comes from v
-        relax_cmd = main_cmd + rosetta.relax_flags_cmdline + additional_flags + symmetry_definition + infile \
+        relax_cmd = main_cmd + rosetta.relax_flags_cmdline + additional_flags + symmetry_definition + infile + suffix \
             + [f'@{flags_file}', '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'refine.xml'),
-               '-out:suffix', f'_{switch}', '-parser:script_vars', f'switch={switch}']
+               '-parser:script_vars', f'switch={switch}']
         self.log.info(f'{switch.title()} Command: {list2cmdline(relax_cmd)}')
 
         if gather_metrics or self.job.metrics:
             gather_metrics = True
+            if self.job.mpi > 0:
+                main_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
             main_cmd += metrics_pdb
             main_cmd += [f'@{flags_file}', '-out:file:score_only', self.scores_file,
                          '-no_nstruct_label', 'true', '-parser:protocol']
-            if self.job.mpi > 0:
-                main_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
-
-            metric_cmd_bound = main_cmd + symmetry_definition \
+            metric_cmd_bound = main_cmd \
                 + [os.path.join(putils.rosetta_scripts_dir, f'{putils.interface_metrics}'
-                                f'{"_DEV" if self.job.development else ""}.xml')]
+                                f'{"_DEV" if self.job.development else ""}.xml')] \
+                + symmetry_definition
             entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
                                                   f'metrics_entity{"_DEV" if self.job.development else ""}.xml')]
             self.log.info(f'Metrics Command: {list2cmdline(metric_cmd_bound)}')
