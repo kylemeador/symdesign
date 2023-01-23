@@ -7814,7 +7814,7 @@ class Pose(SymmetricModel, Metrics):
                 # else:  # sasa or something else old
                 #     pass
             # Turn the residue_data into Residue.index values
-            parsed_residue_numbers = residue_data.keys()
+            parsed_residue_numbers = list(residue_data.keys())
             clean_residue_data = \
                 {residue.index: residue_data.pop(original_number)
                  for original_number, residue in zip(parsed_residue_numbers, self.get_residues(parsed_residue_numbers))}
