@@ -579,6 +579,9 @@ class DesignData(Base):
     # Set up one-to-many relationship with residue_metrics table
     residues = relationship('ResidueMetrics', back_populates='design')
 
+    structure_path = Column(String)
+    sequence = association_proxy('metrics', 'sequence')
+
 
 class DesignMetrics(Base):
     __tablename__ = 'design_metrics'
