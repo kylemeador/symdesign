@@ -344,6 +344,10 @@ class EntityData(Base):
     # Todo set up the loading from database on these relationships
     # Use these accessors to ensure that passing EntityData to Entity.from_chains() can access these variables
     @property
+    def name(self):
+        return self.meta.entity_id
+
+    @property
     def reference_sequence(self):
         return self.meta.reference_sequence
 
