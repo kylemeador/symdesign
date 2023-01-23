@@ -2131,7 +2131,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         If no arguments are passed, the fragment observations will be generated new
         """
         # First, clear any pose information and force identification of the interface
-        pose.split_interface_residues = {}
+        pose.residues_by_interface = {}
         pose.find_and_split_interface(distance=cb_distance)
 
         # Next, set the interface fragment info for gathering of interface metrics
@@ -2475,7 +2475,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
 
                 # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.calculate_metrics()
                 # # Remove saved pose attributes from the prior iteration calculations
-                # pose.ss_index_array.clear(), pose.ss_type_array.clear()
+                # pose.ss_sequence_indices.clear(), pose.ss_type_sequence.clear()
                 # pose.fragment_metrics.clear(), pose.fragment_pairs.clear()
                 # for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
                 #     try:
@@ -2496,8 +2496,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 # Add all interface residues
                 if measure_interface_during_dock:
                     design_residues = []
-                    for number, residues_entities in pose.split_interface_residues.items():
-                        design_residues.extend([residue.index for residue, _ in residues_entities])
+                    for number, residues in pose.residues_by_interface.items():
+                        design_residues.extend([residue.index for residue in residues])
                 else:
                     design_residues = list(range(pose_length))
 
@@ -2880,8 +2880,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 # Add all interface residues
                 if job.design.interface:
                     design_residues = []
-                    for number, residues_entities in pose.split_interface_residues.items():
-                        design_residues.extend([residue.index for residue, _ in residues_entities])
+                    for number, residues in pose.residues_by_interface.items():
+                        design_residues.extend([residue.index for residue in residues])
                 else:
                     design_residues = list(range(pose_length))
                 # Residues to design are 1, others are 0
@@ -2993,7 +2993,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
 
                 # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.calculate_metrics()
                 # # Remove saved pose attributes from the prior iteration calculations
-                # pose.ss_index_array.clear(), pose.ss_type_array.clear()
+                # pose.ss_sequence_indices.clear(), pose.ss_type_sequence.clear()
                 # pose.fragment_metrics.clear(), pose.fragment_pairs.clear()
                 # for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
                 #     try:
@@ -3014,8 +3014,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 # Add all interface residues
                 if job.design.interface:
                     design_residues = []
-                    for number, residues_entities in pose.split_interface_residues.items():
-                        design_residues.extend([residue.index for residue, _ in residues_entities])
+                    for number, residues in pose.residues_by_interface.items():
+                        design_residues.extend([residue.index for residue in residues])
                 else:
                     design_residues = list(range(pose_length))
                 # Residues to design are 1, others are 0
@@ -3822,7 +3822,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                     resources.ml.sequence_nllloss(torch_numeric_sequence, torch.from_numpy(corrected_frag_array))
 
                 # Remove saved pose attributes from the prior iteration calculations
-                pose.ss_index_array.clear(), pose.ss_type_array.clear()
+                pose.ss_sequence_indices.clear(), pose.ss_type_sequence.clear()
                 pose.fragment_metrics.clear(), pose.fragment_pairs.clear()
                 for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
                     try:
