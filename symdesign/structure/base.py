@@ -4331,7 +4331,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         if iteration == 5:
             error = p.stderr.strip().split("\n")
-            self.log.error(f"{self.errat.__name__} couldn't generate the correct output length. "
+            self.log.debug(f"{self.errat.__name__} couldn't generate the correct output length. "
                            f'({len(all_residue_scores) - 1}) != number_of_residues ({number_of_residues}). Got stderr:'
                            f'\n{error}')
         # errat_output_file = os.path.join(out_path, '%s.ps' % name)
