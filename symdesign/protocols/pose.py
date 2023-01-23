@@ -3880,12 +3880,13 @@ class PoseProtocol(PoseData):
         self.log.debug(f'Viable designs with structures remaining after cleaning:\n\t{", ".join(viable_designs)}')
 
         # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
-        rosetta_info_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
+        rosetta_info_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()})
+        # Returns multi-index column with residue number as first (top) column index, metric as second index
         # Set each position that was parsed as "designable"
         # Todo does this include packable residues from neighborhoods?
         rosetta_info_df['design_residue'] = 1
-        # returns multi-index column with residue number as first (top) column index, metric as second index
-        # during residues_df unstack, all residues with missing dicts are copied as nan
+        rosetta_info_df = rosetta_info_df.unstack()
+        # During rosetta_info_df unstack, all residues with missing dicts are copied as nan
 
         # Todo implement this protocol if sequence data is taken at multiple points along a trajectory and the
         #  sequence data along trajectory is a metric on it's own
