@@ -3852,17 +3852,18 @@ class PoseProtocol(PoseData):
         new_design_ids = [design_data.id for design_data in new_designs_data]
 
         # Take metrics for the pose_source
-        entity_energies = [0. for _ in self.pose.entities]
-        pose_source_residue_info = \
-            {residue.index: {'complex': 0., 'bound': entity_energies.copy(), 'unbound': entity_energies.copy(),
-                             'solv_complex': 0., 'solv_bound': entity_energies.copy(),
-                             'solv_unbound': entity_energies.copy(), 'fsp': 0., 'cst': 0., 'hbond': 0}
-             for entity in self.pose.entities for residue in entity.residues}
-        pose_name = self.pose.name
-        residue_info = {pose_name: pose_source_residue_info}
+        # entity_energies = [0. for _ in self.pose.entities]
+        # pose_source_residue_info = \
+        #     {residue.index: {'complex': 0., 'bound': entity_energies.copy(), 'unbound': entity_energies.copy(),
+        #                      'solv_complex': 0., 'solv_bound': entity_energies.copy(),
+        #                      'solv_unbound': entity_energies.copy(), 'fsp': 0., 'cst': 0., 'hbond': 0}
+        #      for entity in self.pose.entities for residue in entity.residues}
+        # pose_name = self.pose.name
+        # residue_info = {pose_name: pose_source_residue_info}
 
         # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
-        residue_info.update(self.pose.rosetta_residue_processing(structure_design_scores))
+        # residue_info.update(self.pose.rosetta_residue_processing(structure_design_scores))
+        residue_info = self.pose.rosetta_residue_processing(structure_design_scores)
         # Can't use residue_processing (clean) ^ in the case there is a design without metrics... columns not found!
         interface_hbonds = metrics.dirty_hbond_processing(structure_design_scores)
         # Can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
