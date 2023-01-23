@@ -3956,6 +3956,11 @@ class PoseProtocol(PoseData):
         pose_sequences = {pose.name: pose.sequence for pose in designs}
         residues_df = self.analyze_residue_metrics_per_design(designs=designs)
         # Join Rosetta per-residue with Structure analysis per-residue like DataFrames
+        self.log.debug(f"Found rosetta_info_df: {rosetta_info_df}")
+        self.log.debug(f"Found rosetta_info_df.index: {rosetta_info_df.index.tolist()}")
+        self.log.debug(f"Found rosetta_info_df.columns: {rosetta_info_df.columns.tolist()}")
+        self.log.debug(f"Found residues_df.index: {residues_df.index.tolist()}")
+        self.log.debug(f"Found residues_df.columns: {residues_df.columns.tolist()}")
         residues_df = pd.concat([residues_df, rosetta_info_df], axis=1)
         designs_df = scores_df.join(self.analyze_design_metrics_per_design(residues_df, designs))
 
