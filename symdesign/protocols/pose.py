@@ -3758,21 +3758,24 @@ class PoseProtocol(PoseData):
         design_ids = self.design_ids
         design_files = self.get_design_files()  # Todo PoseJob(.path)
         new_design_filenames = []
+        rosetta_provided_new_design_names = []
         if self.job.force:
             # Collect metrics on all designs (possibly again)
-            for idx, file in enumerate(reversed(design_files[:])):
-                file_name, ext = os.path.splitext(os.path.basename(file))
+            for idx, path in enumerate(reversed(design_files[:])):
+                file_name, ext = os.path.splitext(os.path.basename(path))
                 if file_name in design_ids:  # We already processed this file
                     continue
                 else:
-                    new_design_filenames.append(file_name)
+                    new_design_filenames.append(path)  # file_name)
+                    rosetta_provided_new_design_names.append(file_name)
         else:  # Process to get rid of designs that were already calculated
-            for idx, file in enumerate(reversed(design_files[:])):
-                file_name, ext = os.path.splitext(os.path.basename(file))
+            for idx, path in enumerate(reversed(design_files[:])):
+                file_name, ext = os.path.splitext(os.path.basename(path))
                 if file_name in design_ids:  # We already processed this file
                     design_files.pop(idx)
                 else:
-                    new_design_filenames.append(file_name)
+                    new_design_filenames.append(path)  # file_name)
+                    rosetta_provided_new_design_names.append(file_name)
 
         # Process all desired files to Pose
         designs = [Pose.from_file(file, **self.pose_kwargs) for file in design_files]  # Todo PoseJob(.path)
@@ -3834,8 +3837,6 @@ class PoseProtocol(PoseData):
         # to generate DesignData with a prescribed name and design design_parent (which may be updated below)
         new_designs_data = self.update_design_data(design_parent=design_parent, number=len(new_design_filenames))
 
-        rosetta_provided_new_design_names = \
-            [os.path.splitext(os.path.basename(file))[0] for file in new_design_filenames]
         if parents is not None:
             for design_data, parent, provided_name in zip(new_designs_data, parents, rosetta_provided_new_design_names):
                 design_data.design_parent = parent
@@ -3986,16 +3987,21 @@ class PoseProtocol(PoseData):
                                     for design_data in new_designs_data]
         # Commit the newly acquired metrics to the database
         # First check if the files are situated correctly
+        files_to_move = {}
         for filename, new_filename in zip(new_design_filenames, new_design_new_filenames):
-            if os.path.exists(filename) and not os.path.exists(new_filename):
+            if filename == new_filename:
+                # These are the same file, proceed without processing
                 continue
+            elif os.path.exists(filename) and not os.path.exists(new_filename):
+                # We have the target file and nothing exists where we are moving it
+                files_to_move[filename] = new_filename
             else:
                 raise DesignError('The specified file renaming scheme creates a conflict:\n'
                                   f'\t{filename} -> {new_filename}')
         # If so, proceed with insert, rename and commit
         self.output_metrics(residues=residues_df, designs=designs_df)
         # Rename the incoming files to their prescribed names
-        for filename, new_filename in zip(new_design_filenames, new_design_new_filenames):
+        for filename, new_filename in files_to_move.items():
             shutil.move(filename, new_filename)
 
         # Find protocol info and remove from scores_df
