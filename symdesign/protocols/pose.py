@@ -3961,6 +3961,7 @@ class PoseProtocol(PoseData):
         self.log.debug(f"Found rosetta_info_df.columns: {rosetta_info_df.columns.tolist()}")
         self.log.debug(f"Found residues_df.index: {residues_df.index.tolist()}")
         self.log.debug(f"Found residues_df.columns: {residues_df.columns.tolist()}")
+        input('GO')
         residues_df = pd.concat([residues_df, rosetta_info_df], axis=1)
         designs_df = scores_df.join(self.analyze_design_metrics_per_design(residues_df, designs))
 
