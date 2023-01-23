@@ -6809,13 +6809,9 @@ class Pose(SymmetricModel, Metrics):
         Returns:
             The Structure containing only the Residues in the interface
         """
-        raise NotImplementedError('This function has not been properly converted to deal with non symmetric poses')
-        number_of_models = self.number_of_symmetry_mates
-        # find all pertinent interface residues from results of find_interface_residues()
-        residues_entities = []
-        for residue_entities in self.split_interface_residues.values():
-            residues_entities.extend(residue_entities)
-        interface_residues, interface_entities = list(zip(*residues_entities))
+        raise NotImplementedError('This function has not been properly converted to deal with non-symmetric poses')
+        # Get all interface residues
+        interface_residues = self.interface_residues
 
         # interface_residues = []
         # interface_core_coords = []
@@ -6849,38 +6845,40 @@ class Pose(SymmetricModel, Metrics):
         #         interface_residues.extend(residues1), interface_residues.extend(residues2)
 
         # return Structure.from_residues(residues=sorted(interface_residues, key=lambda residue: residue.number))
-        interface_asu_structure = \
-            Structure.from_residues(residues=sorted(set(interface_residues), key=lambda residue: residue.number))
         # interface_symmetry_mates = self.return_symmetric_copies(interface_asu_structure)
         # interface_coords = interface_asu_structure.coords
-        coords_length = interface_asu_structure.number_of_atoms
         # interface_cb_indices = interface_asu_structure.cb_indices
         # print('NUMBER of RESIDUES:', interface_asu_structure.number_of_residues,
         #       '\nNUMBER of CB INDICES', len(interface_cb_indices))
         # residue_number = interface_asu_structure.number_of_residues
         # [interface_asu_structure.cb_indices + (residue_number * model) for model in self.number_of_symmetry_mates]
-        symmetric_cb_indices = np.array([idx + (coords_length * model_num) for model_num in range(number_of_models)
-                                         for idx in interface_asu_structure.cb_indices])
+        # symmetric_cb_indices = np.array([idx + (coords_length * model_num) for model_num in range(number_of_models)
+        #                                  for idx in interface_asu_structure.cb_indices])
         # print('Number sym CB INDICES:\n', len(symmetric_cb_indices))
-        symmetric_interface_coords = self.return_symmetric_coords(interface_asu_structure.coords)
-        # from the interface core, find the mean position to seed clustering
-        entities_asu_com = self.center_of_mass
-        initial_interface_coords = self.return_symmetric_coords(entities_asu_com)
+        # From the interface core, find the mean position to seed clustering
+        # entities_asu_com = self.center_of_mass
+        # initial_interface_coords = self.return_symmetric_coords(entities_asu_com)
+        initial_interface_coords = self.center_of_mass_symmetric_models
         # initial_interface_coords = self.return_symmetric_coords(np.array(interface_core_coords).mean(axis=0))
 
+        interface_asu_structure = \
+            Structure.from_residues(residues=sorted(interface_residues, key=lambda residue: residue.index))
+        symmetric_cb_indices = self.make_indices_symmetric(interface_asu_structure.cb_indices)
+        symmetric_interface_coords = self.return_symmetric_coords(interface_asu_structure.coords)
         # index_cluster_labels = KMeans(n_clusters=self.number_of_symmetry_mates).fit_predict(symmetric_interface_coords)
         # symmetric_interface_cb_coords = symmetric_interface_coords[symmetric_cb_indices]
         # print('Number sym CB COORDS:\n', len(symmetric_interface_cb_coords))
         # initial_cluster_indices = [interface_cb_indices[0] + (coords_length * model_number)
         #                            for model_number in range(self.number_of_symmetry_mates)]
-        # fit a KMeans model to the symmetric interface cb coords
-        kmeans_cluster_model: KMeans = KMeans(n_clusters=number_of_models, init=initial_interface_coords, n_init=1) \
+        # Fit a KMeans model to the symmetric interface cb coords
+        number_of_models = self.number_of_symmetry_mates
+        kmeans_cluster_model: KMeans = \
+            KMeans(n_clusters=number_of_models, init=initial_interface_coords, n_init=1) \
             .fit(symmetric_interface_coords[symmetric_cb_indices])
         # kmeans_cluster_model = \
         #     KMeans(n_clusters=self.number_of_symmetry_mates, init=symmetric_interface_coords[initial_cluster_indices],
         #            n_init=1).fit(symmetric_interface_cb_coords)
-        index_cluster_labels = kmeans_cluster_model.labels_
-        # find the label where the asu is nearest too
+        # Find the label where the asu is nearest too
         asu_label = kmeans_cluster_model.predict(entities_asu_com[None, :])  # add new first axis
         # asu_interface_labels = kmeans_cluster_model.predict(interface_asu_structure.cb_coords)
 
@@ -6891,7 +6889,9 @@ class Pose(SymmetricModel, Metrics):
         # asu_index = np.median(asu_interface_labels)
         # grab the symmetric indices for a single interface cluster, matching spatial proximity to the asu_index
         # closest_asu_sym_cb_indices = symmetric_cb_indices[index_cluster_labels == asu_index]
-        closest_asu_sym_cb_indices = np.where(index_cluster_labels == asu_label, symmetric_cb_indices, 0)
+        # index_cluster_labels = kmeans_cluster_model.labels_
+        closest_asu_sym_cb_indices = \
+            np.where(kmeans_cluster_model.labels_ == asu_label, symmetric_cb_indices, 0)
         # # find the cb indices of the closest interface asu
         # closest_asu_cb_indices = closest_asu_sym_cb_indices % coords_length
         # interface_asu_structure.coords_indexed_residues
@@ -6899,6 +6899,7 @@ class Pose(SymmetricModel, Metrics):
         # print('Normal sym CB INDICES\n:', closest_asu_sym_cb_indices)
         flat_sym_model_indices = closest_asu_sym_cb_indices.reshape((number_of_models, -1)).sum(axis=0)
         # print('FLATTENED CB INDICES to get MODEL\n:', flat_sym_model_indices)
+        coords_length = interface_asu_structure.number_of_atoms
         symmetric_model_indices = flat_sym_model_indices // coords_length
         # print('FLOORED sym CB INDICES to get MODEL\n:', symmetric_model_indices)
         symmetry_mate_index_symmetric_coords = symmetric_interface_coords.reshape((number_of_models, -1, 3))
@@ -6911,9 +6912,7 @@ class Pose(SymmetricModel, Metrics):
         #     np.where(index_cluster_labels[:, None] == asu_index, symmetric_interface_coords, np.array([0.0, 0.0, 0.0]))
         # closest_interface_coords = \
         #     closest_symmetric_coords.reshape((self.number_of_symmetry_mates, interface_coords.shape[0], -1)).sum(axis=0)
-        # old-style
-        # interface_asu_structure.replace_coords(closest_interface_coords)
-        # new-style
+
         interface_asu_structure.coords = closest_interface_coords
 
         return interface_asu_structure

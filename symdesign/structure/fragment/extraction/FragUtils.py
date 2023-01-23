@@ -387,8 +387,8 @@ def parameterize_frag_length(length):
     if length % 2 == 1:
         return 0 - _range, 0 + _range + 1
     else:
-        logger.critical('%d is an even integer which is not symmetric about a single residue. '
-                        'Ensure this is what you want and modify %s' % (length, parameterize_frag_length.__name__))
+        logger.critical(f"{length} is an even integer which isn't symmetric about a single residue. "
+                        f'Ensure this is what you want and modify {parameterize_frag_length.__name__}')
         raise NotImplementedError(f'Function not supported: Even fragment length "{length}"')
 
 
