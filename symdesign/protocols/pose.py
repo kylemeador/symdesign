@@ -520,6 +520,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     @reconstructor
     def __init_from_db__(self):
         """Initialize PoseData after the instance is "initialized", i.e. loaded from the database"""
+        self.current_designs = []
+        """Hold DesignData that has been generated in the scope of this job"""
         # Get the main program options
         self.job = resources.job.job_resources_factory.get()
         # Symmetry attributes
@@ -1001,146 +1003,20 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     #         raise ValueError(f'The attribute pre_loop_model must be a boolean or NoneType, not '
     #                          f'{type(pre_loop_model).__name__}')
 
-    # @close_logs
-    # def find_entity_names(self):
-    #     """Load the Structure source_path and extract the entity_names from the Structure"""
-    #     # if self.job.nanohedra_output:
-    #     #     entity_names = get_components_from_nanohedra_docking(self.pose_file)
-    #     # else:
-    #     # self.start_log()
-    #     self.initial_model = Model.from_file(self.source_path)  # , log=self.log)
-    #     self.entity_names = [entity.name for entity in self.initial_model.entities]
+    def get_designs_without_structure(self) -> list[sql.DesignData]:
+        """For each design, access whether there is a structure that exists for it. If not, return the design
 
-    # @close_logs  # Ensure that we don't have too many open at one time
-    # def start_log(self, level: int = 2):
-    #     """Initialize the logger for the Pose"""
-    #     if self.log:
-    #         return
-    #
-    #     if self.job.debug:
-    #         handler, level = 1, 1  # Defaults to stdout, debug is level 1
-    #         no_log_name = False
-    #     else:
-    #         handler = 2  # To a file
-    #         no_log_name = True
-    #
-    #     if self.job.skip_logging or not self.job.construct_pose:  # Set up null_logger
-    #         self.log = logging.getLogger('null')
-    #     else:  # f'{__name__}.{self}'
-    #         if self.job.force:
-    #             os.system(f'rm {self.log_path}')
-    #         self.log = start_log(name=f'pose.{self.project}.{self.name}', handler=handler, level=level,
-    #                              location=self.log_path, no_log_name=no_log_name, propagate=True)
-    #         # propagate=True allows self.log to pass messages to 'pose' and 'project' logger
+        Returns:
+            Each instance of the DesignData that is missing a structure
+        """
+        missing_sequences = []
+        for design in self.designs:
+            if design.structure_path and os.path.exists(design.structure_path):
+                continue
+            else:
+                missing_sequences.append(design)
 
-    # # @close_logs
-    # # @handle_design_errors(errors=(FileNotFoundError,))
-    # def initialize_structure_attributes(self, pre_refine: bool = None, pre_loop_model: bool = None):  # UNUSED
-    #     """Prepare output Directory and File locations. Each PoseJob always includes this format
-    #
-    #     Args:
-    #         pre_refine: Whether the Pose has been refined previously (before loading)
-    #         pre_loop_model: Whether the Pose had loops modeled previously (before loading)
-    #     """
-    #     if self.initialized:
-    #         return
-    #
-    #     # self.start_log()
-    #     # if self.initialized:
-    #     #     # # Gather state data
-    #     #     # try:
-    #     #     #     serial_info = unpickle(self.serialized_info)
-    #     #     #     if not self.info:  # Empty dict
-    #     #     #         self.info = serial_info
-    #     #     #     else:
-    #     #     #         serial_info.update(self.info)
-    #     #     #         self.info = serial_info
-    #     #     # except pickle.UnpicklingError as error:
-    #     #     #     logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
-    #     #     #     raise error
-    #     #     # Make a copy for the checking of current state
-    #     #     self._info = self.info.copy()
-    #     #     # # Dev branch only
-    #     #     # except ModuleNotFoundError as error:
-    #     #     #     self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
-    #     #     #     self.log.critical('Removing %s' % self.serialized_info)
-    #     #     #     # raise error
-    #     #     #     remove(self.serialized_info)
-    #     #     # if stat(self.serialized_info).st_size > 10000:
-    #     #     #     print('Found pickled file with huge size %d. fragment_database being removed'
-    #     #     #           % stat(self.serialized_info).st_size)
-    #     #     #     self.info['fragment_source'] = \
-    #     #     #         getattr(self.info.get('fragment_database'), 'source', putils.biological_interfaces)
-    #     #     #     self.pickle_info()  # save immediately so we don't have this issue with reading again!
-    #     #     # Todo Remove Above this line to Dev branch only
-    #     #     # # These statements are a temporary patch Todo remove for master branch
-    #     #     # # if not self.sym_entry:  # none was provided at initiation or in state
-    #     #     # if putils.sym_entry in self.info:
-    #     #     #     self.sym_entry = self.info[putils.sym_entry]  # get instance
-    #     #     #     self.info.pop(putils.sym_entry)  # remove this object
-    #     #     #     self.info['sym_entry_specification'] = self.sym_entry.number, self.sym_entry.sym_map
-    #     #     if 'oligomer_names' in self.info:
-    #     #         self.info['entity_names'] = [f'{name}_1' for name in self.info['oligomer_names']]
-    #     #     # if 'design_residue_ids' in self.info:  # format is old, convert
-    #     #     #     try:
-    #     #     #         self.info['interface_design_residues'] = self.info.pop('design_residues')
-    #     #     #     except KeyError:
-    #     #     #         pass
-    #     #     #     self.info['interface_residue_ids'] = self.info.pop('design_residue_ids')
-    #     #     #     try:
-    #     #     #         self.info['interface_residues'] = self.info.pop('interface_residues')
-    #     #     #     except KeyError:
-    #     #     #         pass
-    #     #     # else:  # format is old old, remove all
-    #     #     #     for old_element in ['design_residues', 'interface_residues']:
-    #     #     #         try:
-    #     #     #             self.info.pop(old_element)
-    #     #     #         except KeyError:
-    #     #     #             pass
-    #     #     #
-    #     #     # if 'fragment_database' in self.info:
-    #     #     #     self.info['fragment_source'] = self.info.get('fragment_database')
-    #     #     #     self.info.pop('fragment_database')
-    #     #     # fragment_data = self.info.get('fragment_data')
-    #     #     # if fragment_data and not isinstance(fragment_data, dict):  # this is a .pkl file
-    #     #     #     try:
-    #     #     #         self.info['fragment_data'] = unpickle(fragment_data)
-    #     #     #         remove(fragment_data)
-    #     #     #     except FileNotFoundError:
-    #     #     #         self.info.pop('fragment_data')
-    #     #     # if 'pose_transformation' in self.info:
-    #     #     #     self._pose_transformation = self.info.get('pose_transformation')
-    #     #     #     if isinstance(self._pose_transformation, dict):  # old format
-    #     #     #         del self._pose_transformation
-    #     #     # self.pickle_info()
-    #     # else:  # We haven't initialized this PoseJob before
-    #     # __init__ assumes structures have been refined so these only act to set false
-    #     if pre_refine is not None:  # either True or False
-    #         self.pre_refine = pre_refine  # this may have just been set
-    #     if pre_loop_model is not None:  # either True or False
-    #         self.pre_loop_model = pre_loop_model
-    #
-    #     # if self.job.nanohedra_output and self.job.construct_pose:
-    #     #     raise NotImplementedError('Must extract the oligomer_names and save to entity_names before this is used')
-    #     #     if not os.path.exists(os.path.join(self.out_directory, putils.pose_file)):
-    #     #         shutil.copy(self.pose_file, self.out_directory)
-    #     #         shutil.copy(self.frag_file, self.out_directory)
-    #     #     # self.info['oligomer_names'] = self.oligomer_names
-    #     #     # self.info['entity_names'] = self.entity_names
-    #     #     self.pickle_info()  # Save this info on the first copy so that we don't have to construct again
-    #
-    #     # # Check if the source of the pdb files was refined upon loading
-    #     # if self.pre_refine:
-    #     #     self.refined_pdb = self.asu_path
-    #     #     self.scouted_pdb = os.path.join(self.designs_path,
-    #     #                                     f'{os.path.basename(os.path.splitext(self.refined_pdb)[0])}_scout.pdb')
-    #     # else:
-    #     #     self.refined_pdb = os.path.join(self.designs_path,
-    #     #                                     f'{os.path.basename(os.path.splitext(self.asu_path)[0])}_refine.pdb')
-    #     #     self.scouted_pdb = f'{os.path.splitext(self.refined_pdb)[0]}_scout.pdb'
-    #
-    #     # # Check if the source of the pdb files was loop modelled upon loading
-    #     # if self.pre_loop_model:
+        return missing_sequences
 
     def transform_entities_to_pose(self, **kwargs) -> list[Entity]:
         """Take the set of entities involved in a pose composition and transform them from a standard reference frame to
@@ -1764,18 +1640,19 @@ class PoseProtocol(PoseData):
         design_files_file = os.path.join(self.scripts_path, f'files_{self.protocol}.txt')
         putils.make_path(self.scripts_path)
 
-        # Modify each sequence score to reflect the new "decoy" name
-        sequence_ids = sequences.keys()
-        design_scores = metrics.read_scores(self.scores_file)
-        for design, scores in design_scores.items():
-            if design in sequence_ids:
-                # We previously saved data. Copy to the identifier that is present after threading
-                scores['decoy'] = f'{design}_{self.protocol}'
-                # write_json(_scores, self.scores_file)
-                with open(self.scores_file, 'a') as f_save:
-                    json.dump(scores, f_save)  # , **kwargs)
-                    # Ensure JSON lines are separated by newline
-                    f_save.write('\n')
+        # # Modify each sequence score to reflect the new "decoy" name
+        # # Todo update as a consequence of new SQL
+        # sequence_ids = sequences.keys()
+        # design_scores = metrics.read_scores(self.scores_file)
+        # for design, scores in design_scores.items():
+        #     if design in sequence_ids:
+        #         # We previously saved data. Copy to the identifier that is present after threading
+        #         scores['decoy'] = f'{design}_{self.protocol}'
+        #         # write_json(_scores, self.scores_file)
+        #         with open(self.scores_file, 'a') as f_save:
+        #             json.dump(scores, f_save)  # , **kwargs)
+        #             # Ensure JSON lines are separated by newline
+        #             f_save.write('\n')
 
         if design_files:
             with open(design_files_file, 'w') as f:
@@ -1786,13 +1663,18 @@ class PoseProtocol(PoseData):
         self.refine(in_file_list=design_files_file)
 
     def predict_structure(self):
+        """"""
+        if self.current_designs:
+            sequences = [design.sequence for design in self.current_designs]
+        else:
+            sequences = self.get_designs_without_structure()
+
         match self.job.predict.method:
-            case 'thread':
-                self.thread_sequences_to_backbone()
-            case 'proteinmpnn':
-                self.thread_sequences_to_backbone()
+            case ['thread', 'proteinmpnn']:
+                self.thread_sequences_to_backbone(sequences)
             # Todo
             #  case 'alphafold':
+            #  Sequences use within alphafold requires .fasta...
             #      self.run_alphafold()
             case _:
                 raise NotImplementedError(f"For {self.predict_structure.__name__}, the method {self.job.predict.method}"
@@ -3393,22 +3275,21 @@ class PoseProtocol(PoseData):
                         for _ in range(self.job.design.number)]
         design_ids = [design_data.id for design_data in designs_data]
 
-        # Todo use the DesignMetrics.sequence field instead...
-        #  use with alphafold requires .fasta... Which we can make when we are self.predict_sequence()
-        # Write every designed sequence to an individual file...
-        putils.make_path(self.designs_path)
-        design_names = [design_data.name for design_data in designs_data]
-        sequence_files = [
-            write_sequences(sequence, names=name, file_name=os.path.join(self.designs_path, name))
-            for name, sequence in zip(design_names, sequences_and_scores['sequences'])
-        ]
+        # # Write every designed sequence to an individual file...
+        # putils.make_path(self.designs_path)
+        # design_names = [design_data.name for design_data in designs_data]
+        # sequence_files = [
+        #     write_sequences(sequence, names=name, file_name=os.path.join(self.designs_path, name))
+        #     for name, sequence in zip(design_names, sequences_and_scores['sequences'])
+        # ]
         # Update the Pose with the design protocols
         for idx, design_data in enumerate(designs_data):
             design_data.protocols.append(
                 sql.DesignProtocol(design_id=design_ids[idx],
                                    protocol=self.protocol,  # sql.Protocol(name=self.protocol),  # protocols[idx],
                                    temperature=temperatures[idx],
-                                   file=sequence_files[idx]))
+                                   ))
+                                   # file=sequence_files[idx]))
         # design_protocol = self.update_design_protocols(protocols=protocols, temperatures=temperatures,
         #                                                files=sequence_files)
 
@@ -3508,6 +3389,9 @@ class PoseProtocol(PoseData):
         # self.designs.extend(designs)
         designs = [sql.DesignData(name=name, pose=self, design_parent=design_parent)
                    for name in design_names]
+        # Set the PoseJob.current_designs for access by subsequence protocols
+        self.current_designs.extend(designs)
+        # Get the DesignData.id for each design
         self.job.current_session.commit()
 
         return designs
