@@ -3285,7 +3285,8 @@ class PoseProtocol(PoseData):
         # Update the Pose with the design protocols
         for idx, design_data in enumerate(designs_data):
             design_data.protocols.append(
-                sql.DesignProtocol(design_id=design_ids[idx],
+                sql.DesignProtocol(design=design_data,
+                                   # design_id=design_ids[idx],
                                    protocol=self.protocol,  # sql.Protocol(name=self.protocol),  # protocols[idx],
                                    temperature=temperatures[idx],
                                    ))
@@ -3363,8 +3364,8 @@ class PoseProtocol(PoseData):
                     for design_id, protocol, temperature, file in zip(design_ids, protocols, temperatures, files)]
         return metadata
 
-    def update_design_data(self, design_parent: sql.DesignData, number: int = None) -> list[sql.DesignData]:  # list[int]:
-        """Update the PoseData with the newly created design identifiers using DesignData
+    def update_design_data(self, design_parent: sql.DesignData, number: int = None) -> list[sql.DesignData]:
+        """Update the PoseData with the newly created design identifiers using DesignData and flush to the database
 
         Args:
             design_parent: The design whom all new designs are based
@@ -3392,7 +3393,7 @@ class PoseProtocol(PoseData):
         # Set the PoseJob.current_designs for access by subsequence protocols
         self.current_designs.extend(designs)
         # Get the DesignData.id for each design
-        self.job.current_session.commit()
+        self.job.current_session.flush()
 
         return designs
 
@@ -3821,9 +3822,10 @@ class PoseProtocol(PoseData):
             design_data.design_parent = parent
             design_data.provided_name = provided_name
 
-        self.designs.append(new_designs_data)
-        # Flush the newly acquired DesignData and DesignProtocol to generate .id primary keys
-        self.job.current_session.flush()
+        # This is all done in update_design_data
+        # self.designs.append(new_designs_data)
+        # # Flush the newly acquired DesignData and DesignProtocol to generate .id primary keys
+        # self.job.current_session.flush()
         new_design_ids = [design_data.id for design_data in new_designs_data]
 
         # Take metrics for the pose_source
