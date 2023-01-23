@@ -7562,7 +7562,7 @@ class Pose(SymmetricModel, Metrics):
                 self.fragment_metrics[query_pair] = self.fragment_db.calculate_match_metrics(fragment_matches)
 
         if by_interface:
-            metric_d = fragment.metrics.fragment_metric_template.deepcopy()
+            metric_d = deepcopy(fragment.metrics.fragment_metric_template)
             if entity1 is None or entity2 is None:
                 self.log.error(f"{self.get_fragment_metrics.__name__}: entity1 and entity2 can't be None")
             else:
@@ -7581,7 +7581,7 @@ class Pose(SymmetricModel, Metrics):
                     continue
                 for align_type, entity in zip(alignment_types, query_pair):
                     if entity not in metric_d:
-                        metric_d[entity] = fragment.metrics.fragment_metric_template.deepcopy()
+                        metric_d[entity] = deepcopy(fragment.metrics.fragment_metric_template)
 
                     metric_d[entity]['center_indices'].update(_metrics[align_type]['center']['indices'])
                     metric_d[entity]['total_indices'].update(_metrics[align_type]['total']['indices'])
@@ -7613,7 +7613,7 @@ class Pose(SymmetricModel, Metrics):
                     metrics['nanohedra_score_normalized'] = metrics['nanohedra_score_center_normalized'] = 0.
 
         elif total_interface:  # For the entire interface
-            metric_d = fragment.metrics.fragment_metric_template.deepcopy()
+            metric_d = deepcopy(fragment.metrics.fragment_metric_template)
             for query_pair, _metrics in self.fragment_metrics.items():
                 if not _metrics:
                     continue
