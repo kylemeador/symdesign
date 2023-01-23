@@ -280,7 +280,7 @@ def parameterize_frag_length(length: int) -> tuple[int, int]:
         # fragment_range = (0 - _range, 0 + _range + zero_offset)
         # return 0 - _range, 0 + _range + zero_offset
     else:  # length is even
-        logger.critical(f'{length} is an even integer which is not symmetric about a single residue. '
+        logger.critical(f"{length} is an even integer which isn't symmetric about a single residue. "
                         'Ensure this is what you want')
         index_offset = 0
         # fragment_range = (0 - _range, 0 + _range)
