@@ -7240,8 +7240,9 @@ class Pose(SymmetricModel, Metrics):
             # fragment_observations = self.get_fragment_observations()
             center_residue_indices = set()
             for fragment in self.get_fragment_observations():
-                center_residue_indices.add(fragment['mapped'])
-                center_residue_indices.add(fragment['paired'])
+                center_residue_indices.update((fragment['mapped'], fragment['paired']))
+                # center_residue_indices.add(fragment['mapped'])
+                # center_residue_indices.add(fragment['paired'])
 
             self._center_residue_indices = list(center_residue_indices)
 
@@ -7513,7 +7514,7 @@ class Pose(SymmetricModel, Metrics):
         return observations
 
     # Todo Add all fragment instances (not just interface) to the metrics
-    def get_fragment_metrics(self, fragments: list[dict] = None, total_interface: bool = True,
+    def get_fragment_metrics(self, fragments: list[fragment_info_type] = None, total_interface: bool = True,
                              by_interface: bool = False, by_entity: bool = False,
                              entity1: Structure = None, entity2: Structure = None) -> dict:
         """Return fragment metrics from the Pose. Returns the entire Pose unless by_interface or by_entity is True
@@ -7561,7 +7562,7 @@ class Pose(SymmetricModel, Metrics):
                 self.fragment_metrics[query_pair] = self.fragment_db.calculate_match_metrics(fragment_matches)
 
         if by_interface:
-            metric_d = fragment.metrics.fragment_metric_template
+            metric_d = fragment.metrics.fragment_metric_template.deepcopy()
             if entity1 is None or entity2 is None:
                 self.log.error(f"{self.get_fragment_metrics.__name__}: entity1 and entity2 can't be None")
             else:
@@ -7580,7 +7581,7 @@ class Pose(SymmetricModel, Metrics):
                     continue
                 for align_type, entity in zip(alignment_types, query_pair):
                     if entity not in metric_d:
-                        metric_d[entity] = fragment.metrics.fragment_metric_template.copy()
+                        metric_d[entity] = fragment.metrics.fragment_metric_template.deepcopy()
 
                     metric_d[entity]['center_indices'].update(_metrics[align_type]['center']['indices'])
                     metric_d[entity]['total_indices'].update(_metrics[align_type]['total']['indices'])
@@ -7612,7 +7613,7 @@ class Pose(SymmetricModel, Metrics):
                     metrics['nanohedra_score_normalized'] = metrics['nanohedra_score_center_normalized'] = 0.
 
         elif total_interface:  # For the entire interface
-            metric_d = fragment.metrics.fragment_metric_template.copy()
+            metric_d = fragment.metrics.fragment_metric_template.deepcopy()
             for query_pair, _metrics in self.fragment_metrics.items():
                 if not _metrics:
                     continue
@@ -7650,7 +7651,7 @@ class Pose(SymmetricModel, Metrics):
                 metric_d['nanohedra_score_normalized'] = metric_d['nanohedra_score_center_normalized'] = 0.
 
         else:  # For the entire Pose?
-            raise NotImplementedError('There was no mechanism to return fragments specified')
+            raise NotImplementedError("There isn't a mechanism to return fragments for the mode specified")
 
         return metric_d
 
