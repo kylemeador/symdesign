@@ -37,7 +37,7 @@ from symdesign.structure.sequence import sequence_difference, pssm_as_array, con
 from symdesign.sequence import MultipleSequenceAlignment, protein_letters_3to1, read_fasta_file, write_sequences
 from symdesign.structure.utils import DesignError, ClashError
 from symdesign.utils import large_color_array, starttime, start_log, pickle_object, write_shell_script, \
-    all_vs_all, condensed_to_square, rosetta, InputError, sql, path as putils
+    all_vs_all, condensed_to_square, rosetta, InputError, sql, path as putils, timestamp
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
 # from symdesign.utils.nanohedra.general import get_components_from_nanohedra_docking
 
@@ -166,9 +166,9 @@ class PoseDirectory:
             # except AttributeError:  # Missing self.initial as this was loaded from SQL database
             #     pass
         else:
+            self.out_directory = os.path.join(os.getcwd(), 'temp')
             raise NotImplementedError(f"{putils.program_name} hasn't been set up to run without directories yet... "
                                       f"Please solve the {type(self).__name__}.__init__() method")
-            self.out_directory = os.path.join(os.getcwd(), 'temp')
 
         super().__init__(**kwargs)
 
@@ -410,7 +410,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                                  f'"project{os.sep}pose_name" string')
             return cls(name=name, project=project, initial=True, **kwargs)  # source_path=None,
         else:
-            raise InputError(f"{cls.__name__} couldn't load the specified source path '{source_path}'")
+            raise InputError(f"{cls.__name__} couldn't load the specified source path '{path}'")
 
     @classmethod
     def from_file(cls, file: str, project: str = None, **kwargs):
@@ -1612,14 +1612,12 @@ class PoseProtocol(PoseData):
         Pose and build/pack using Rosetta FastRelax. If no sequences are provided, will use self.designed_sequences
 
         Args:
-            sequences: The sequences to thread
+            sequences: A mapping of sequence alias to it's sequence. These will be used for producing outputs and as
+                the input sequence
         """
         if sequences is None:  # Gather all already designed sequences
             # refine_sequences = unpickle(self.designed_sequences_file)
             sequences = {seq.id: seq.seq for seq in read_fasta_file(self.designed_sequences_file)}
-
-        # if self.protocol is not None:  # This hasn't been set yet
-        self.protocol = 'thread'
 
         # Write each "threaded" structure out for further processing
         number_of_residues = self.pose.number_of_residues
@@ -1637,7 +1635,9 @@ class PoseProtocol(PoseData):
         # Ensure that mutations to the Pose are wiped. We can reload if continuing to use
         self.pose = None
 
-        design_files_file = os.path.join(self.scripts_path, f'files_{self.protocol}.txt')
+        # if self.protocol is not None:  # This hasn't been set yet
+        self.protocol = 'thread'
+        design_files_file = os.path.join(self.scripts_path, f'{timestamp()}_{self.protocol}_files.txt')
         putils.make_path(self.scripts_path)
 
         # # Modify each sequence score to reflect the new "decoy" name
@@ -3952,6 +3952,8 @@ class PoseProtocol(PoseData):
         # Join each per-residue like DataFrame
         # Each of these could have different index/column, so we use concat to perform an outer merge
         residues_df = pd.concat([residues_df, sequences_df, rosetta_info_df], axis=1)
+        # Todo should this "different index" be allowed? be possible
+        #  residues_df = residues_df.join(rosetta_info_df)
 
         designs_df = scores_df.join(self.analyze_design_metrics_per_design(residues_df, designs))
         designs_df = designs_df.join(self.analyze_design_metrics_per_residue(residues_df))

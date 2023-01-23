@@ -123,6 +123,7 @@ def predict_structure(job: pose.PoseJob):
     Args:
         job: The PoseJob for which the protocol should be performed on
     """
+    job.load_pose()
     # Acquire the pose_metrics if None have been made yet
     job.calculate_pose_metrics()
 
