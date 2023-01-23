@@ -161,7 +161,7 @@ def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None
 
     if file_list:
         pdb_input = os.path.join(job.scripts_path, 'design_files.txt')
-        generate_files_cmd = ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', pdb_input]
+        generate_files_cmd = ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', pdb_input, '-e', '.pdb']
     else:
         pdb_input = job.refined_pdb
         generate_files_cmd = []  # empty command
@@ -245,8 +245,8 @@ def interface_metrics(job: pose.PoseJob):
     design_files = \
         os.path.join(job.scripts_path, f'design_files'
                      f'{f"_{job.job.specific_protocol}" if job.job.specific_protocol else ""}.txt')
-    generate_files_cmd = ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', design_files] + \
-        (['-s', job.job.specific_protocol] if job.job.specific_protocol else [])
+    generate_files_cmd = ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', design_files, '-e', '.pdb'] \
+        + (['-s', job.job.specific_protocol] if job.job.specific_protocol else [])
     main_cmd += [f'@{job.flags}', '-in:file:l', design_files,
                  # TODO out:file:score_only file is not respected if out:path:score_file given
                  #  -run:score_only true?
@@ -643,7 +643,8 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     nstruct_instruct = ['-nstruct', str(job.job.design.number)]
     design_list_file = os.path.join(job.scripts_path, f'design_files_{job.protocol}.txt')
     generate_files_cmd = \
-        ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', design_list_file, '-s', '_' + job.protocol]
+        ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', design_list_file,  '-e', '.pdb',
+         '-s', f'_{job.protocol}']
 
     main_cmd = rosetta.script_cmd.copy()
     main_cmd += ['-symmetry_definition', 'CRYST1'] if job.symmetry_dimension > 0 else []
