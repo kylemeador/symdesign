@@ -812,7 +812,7 @@ def get_directory_file_paths(directory: AnyStr, suffix: str = '', extension: str
         directory: The directory of interest
         suffix: A string to match before the extension. A glob pattern is built as follows "*suffix*extension"
             ex: suffix="model" matches "design_model.pdb" and "model1.pdb"
-        extension: A extension to filter by including a "." if there is one
+        extension: A extension to filter by. Include the "." if there is one
         sort: Whether the files should be filtered by name before returning
     Returns:
         The list of files matching the search

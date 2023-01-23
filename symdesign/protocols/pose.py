@@ -2792,8 +2792,8 @@ class PoseProtocol(PoseData):
             designed_files_file = os.path.join(self.scripts_path, f'{timestamp()}_{switch}_files_output.txt')
             if in_file_list:
                 generate_files_cmd = \
-                    ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', designed_files_file, '-s',
-                     f'_{switch}']
+                    ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', designed_files_file, '-e', '.pdb',
+                     '-s', f'_{switch}']
                 suffix = ['-out:suffix', f'_{switch}']
             elif design_files:
                 design_files_file = os.path.join(self.scripts_path, f'{timestamp()}_{self.protocol}_files.txt')
@@ -2920,7 +2920,8 @@ class PoseProtocol(PoseData):
         else:
             design_files = os.path.join(self.scripts_path, f'design_files_{self.protocol}.txt')
             generate_files_cmd = \
-                ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', design_files, '-s', '_' + self.protocol]
+                ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', design_files, '-e', '.pdb',
+                 '-s', f'_{self.protocol}']
             metrics_pdb = ['-in:file:l', design_files]
             # metrics_flags = 'repack=yes'
             if self.job.design.structure_background:
