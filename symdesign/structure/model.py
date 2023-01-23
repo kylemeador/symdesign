@@ -7671,7 +7671,7 @@ class Pose(SymmetricModel, Metrics):
         """Process Residue Metrics from Rosetta score dictionary (One-indexed residues)
 
         Args:
-            design_scores: {'001': {'buns': 2.0, 'per_res_energy_complex_15A': -2.71, ...,
+            design_scores: {'001': {'buns': 2.0, 'res_energy_complex_15A': -2.71, ...,
                             'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...'}, ...}
             columns: ['per_res_energy_complex_5', 'per_res_energy_1_unbound_5', ...]
         Returns:
@@ -7733,7 +7733,7 @@ class Pose(SymmetricModel, Metrics):
         """Process Residue Metrics from Rosetta score dictionary (One-indexed residues) accounting for symmetric energy
 
         Args:
-            design_scores: {'001': {'buns': 2.0, 'per_res_energy_complex_15A': -2.71, ...,
+            design_scores: {'001': {'buns': 2.0, 'res_energy_complex_15A': -2.71, ...,
                             'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...'}, ...}
         Returns:
             The parsed design information where the outer key is the design alias, and the next key is the Residue.index
@@ -7757,17 +7757,18 @@ class Pose(SymmetricModel, Metrics):
         pose_energy_multiplier = self.number_of_symmetry_mates  # Will be 1 if not self.is_symmetric()
         entity_energy_multiplier = [entity.number_of_symmetry_mates for entity in self.entities]
 
-        warn = True
+        warn = warn_additional = True
         parsed_design_residues = {}
         for design, scores in design_scores.items():
             residue_data = {}
             for key, value in scores.items():
-                if 'res_' not in key:  # if not key.startswith('per_res_'):
+                if key[:4] != 'res_':  # 'res_' not in key:  # if not key.startswith('per_res_'):
                     continue
                 # per_res_energysolv_complex_15W or per_res_energysolv_2_bound_415B
-                _, _, metric, entity_or_complex, *_ = metadata = key.strip('_').split('_')
-                # metric = metadata[2]  # energy [or sasa]
-                # entity_or_complex = metadata[3]  # 1,2,3,... or complex
+                res, metric, entity_or_complex, *_ = metadata = key.strip('_').split('_')
+                # metadata = key.strip('_').split('_')
+                # metric = metadata[1]  # energy [or sasa]
+                # entity_or_complex = metadata[2]  # 1,2,3,... or complex
                 # remove chain_id in rosetta_numbering="False"
                 # if we have enough chains, weird chain characters appear "per_res_energy_complex_19_" which mess up
                 # split. Also numbers appear, "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
@@ -7791,14 +7792,18 @@ class Pose(SymmetricModel, Metrics):
                 #     metric_str = metadata[-2]  # pose_state - un, bound, complex
                 if metric == 'energysolv':
                     metric_str = f'solv_{metadata[-2]}'  # pose_state - un, bound, complex
-                else:
+                elif metric == 'energy':
                     metric_str = metadata[-2]  # pose_state - un, bound, complex
-
+                else:  # Other residual...
+                    if warn_additional:
+                        warn_additional = False
+                        logger.warning(f"Found additional metrics that aren't being processed. Ex {key}={value}")
+                    continue
                 # use += because instances of symmetric residues from symmetry related chains are summed
                 try:  # to convert to int. Will succeed if we have an entity as a string integer, ex: 1,2,3,...
                     entity = int(entity_or_complex) - zero_offset
                     residue_data[residue_number][metric_str][entity] += (value / entity_energy_multiplier[entity])
-                except ValueError:  # complex is the value, use the pose state
+                except ValueError:  # 'complex' is the value, use the pose state
                     residue_data[residue_number][metric_str] += (value / pose_energy_multiplier)
                 # else:  # sasa or something else old
                 #     pass
