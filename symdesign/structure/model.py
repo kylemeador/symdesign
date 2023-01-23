@@ -7779,7 +7779,7 @@ class Pose(SymmetricModel, Metrics):
                 except ValueError as error:
                     self.log.debug(f'Found the following error converting to int(): {error}\n{key}')
                     continue
-                if any(residue_number > last_residue for last_residue in c_term_residue_numbers):  # pose_length:
+                if all(residue_number > last_residue for last_residue in c_term_residue_numbers):  # pose_length:
                     if warn:
                         warn = False
                         logger.warning(
@@ -7789,7 +7789,7 @@ class Pose(SymmetricModel, Metrics):
                             'debugging. Otherwise, this is likely a numerical chain and will be treated under '
                             'that assumption. Always ensure that output_as_pdb_nums="true" is set'
                         )
-                    residue_number = residue_number[:-1]
+                    residue_number = int(metadata[-1].translate(utils.keep_digit_table)[:-1])
                 if residue_number not in residue_data:
                     residue_data[residue_number] = deepcopy(energy_template)  # deepcopy(residue_template)
 
