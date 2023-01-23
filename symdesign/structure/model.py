@@ -7765,18 +7765,20 @@ class Pose(SymmetricModel, Metrics):
             for key, value in scores.items():
                 if key[res_slice] != 'res_':  # 'res_' not in key:  # if not key.startswith('per_res_'):
                     continue
+                # try:
                 # per_res_energysolv_complex_15W or per_res_energysolv_2_bound_415B
+                res, metric, entity_or_complex, *_ = metadata = key.strip('_').split('_')
+                # metadata = key.strip('_').split('_')
+                # metric = metadata[1]  # energy [or sasa]
+                # entity_or_complex = metadata[2]  # 1,2,3,... or complex
+                # remove chain_id in rosetta_numbering="False"
+                # if we have enough chains, weird chain characters appear "per_res_energy_complex_19_" which mess up
+                # split. Also numbers appear, "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
                 try:
-                    res, metric, entity_or_complex, *_ = metadata = key.strip('_').split('_')
-                    # metadata = key.strip('_').split('_')
-                    # metric = metadata[1]  # energy [or sasa]
-                    # entity_or_complex = metadata[2]  # 1,2,3,... or complex
-                    # remove chain_id in rosetta_numbering="False"
-                    # if we have enough chains, weird chain characters appear "per_res_energy_complex_19_" which mess up
-                    # split. Also numbers appear, "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
                     residue_number = int(metadata[-1].translate(utils.keep_digit_table))
-                except Exception as error:
-                    raise DesignError(f"Found the following error: {error}\n{key}")
+                except ValueError as error:
+                    self.log.debug(f'Found the following error converting to int(): {error}\n{key}')
+                    continue
                 if any(residue_number > last_residue for last_residue in c_term_residue_numbers):  # pose_length:
                     if warn:
                         warn = False
