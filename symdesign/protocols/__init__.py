@@ -201,26 +201,22 @@ def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None
     if job.job.mpi > 0:
         cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(job.job.mpi)] + cmd
 
+    # Create executable to gather interface Metrics on all Designs
     if job.job.distribute_work:
+        analysis_cmd = job.make_analysis_cmd()
         write_shell_script(list2cmdline(generate_files_cmd), name=script_name, out_path=job.scripts_path,
-                           additional=[list2cmdline(cmd)])
+                           additional=[list2cmdline(cmd)] + [list2cmdline(analysis_cmd)])
+        # Todo metrics: [list2cmdline(command) for command in metric_cmds]
     else:
-        raise NotImplementedError('Need to implement this feature')
+        list_all_files_process = Popen(generate_files_cmd)
+        list_all_files_process.communicate()
+        # Todo
+        # for metric_cmd in metric_cmds:
+        #     metrics_process = Popen(metric_cmd)
+        #     metrics_process.communicate()  # wait for command to complete
 
-    # Todo  + [list2cmdline(analysis_cmd)])
-    #  analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', job.path, '--no-output',
-    #                 f'--{flags.output_file}', os.path.join(job.job.all_scores, putils.default_analysis_file
-    #                                                        .format(starttime, job.protocol))]
-
-    # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-    if not job.job.distribute_work:
-        pose_s = job.interface_design_analysis()
-        out_path = os.path.join(job.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
-        if os.path.exists(out_path):
-            header = False
-        else:
-            header = True
-        pose_s.to_csv(out_path, mode='a', header=header)
+        # Gather metrics for each design produced from this proceedure
+        job.process_rosetta_metrics()
 
 
 @protocol_decorator()
@@ -267,9 +263,7 @@ def interface_metrics(job: pose.PoseJob):
 
     # Create executable to gather interface Metrics on all Designs
     if job.job.distribute_work:
-        analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', job.path, '--no-output',
-                        f'--{flags.output_file}', os.path.join(job.job.all_scores, putils.default_analysis_file
-                                                               .format(starttime, job.protocol))]
+        analysis_cmd = job.make_analysis_cmd()
         write_shell_script(list2cmdline(generate_files_cmd), name=putils.interface_metrics, out_path=job.scripts_path,
                            additional=[list2cmdline(command) for command in metric_cmds] +
                                       [list2cmdline(analysis_cmd)])
@@ -280,15 +274,8 @@ def interface_metrics(job: pose.PoseJob):
             metrics_process = Popen(metric_cmd)
             metrics_process.communicate()  # wait for command to complete
 
-    # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-    if not job.job.distribute_work:
-        pose_s = job.interface_design_analysis()
-        out_path = os.path.join(job.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
-        if os.path.exists(out_path):
-            header = False
-        else:
-            header = True
-        pose_s.to_csv(out_path, mode='a', header=header)
+        # Gather metrics for each design produced from this proceedure
+        job.process_rosetta_metrics()
 
 
 @protocol_decorator()
@@ -691,9 +678,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
 
     # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
     if job.job.distribute_work:
-        analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', job.path, '--no-output',
-                        f'--{flags.output_file}', os.path.join(job.job.all_scores, putils.default_analysis_file
-                                                               .format(starttime, job.protocol))]
+        analysis_cmd = job.make_analysis_cmd()
         write_shell_script(list2cmdline(design_cmd), name=job.protocol, out_path=job.scripts_path,
                            additional=[list2cmdline(generate_files_cmd)] +
                                       [list2cmdline(command) for command in metric_cmds] +
@@ -707,15 +692,8 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
             metrics_process = Popen(metric_cmd)
             metrics_process.communicate()
 
-    # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-    if not job.job.distribute_work:
-        pose_s = job.interface_design_analysis()
-        out_path = os.path.join(job.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
-        if os.path.exists(out_path):
-            header = False
-        else:
-            header = True
-        pose_s.to_csv(out_path, mode='a', header=header)
+        # Gather metrics for each design produced from this proceedure
+        job.process_rosetta_metrics()
 
 
 @protocol_decorator()

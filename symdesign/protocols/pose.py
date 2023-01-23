@@ -1727,6 +1727,10 @@ class PoseProtocol(PoseData):
 
         return entity_metric_commands
 
+    def make_analysis_cmd(self) -> list[str]:
+        """Generate a list compatible with subprocess.Popen()/subprocess.list2cmdline()"""
+        return ['python', putils.program_exe, putils.process_rosetta_metrics, '--single', self.out_directory]
+
     def thread_sequences_to_backbone(self, sequences: dict[str, str] = None):
         """From the starting Pose, thread sequences onto the backbone, modifying relevant side chains i.e., mutate the
         Pose and build/pack using Rosetta FastRelax. If no sequences are provided, will use self.designed_sequences
@@ -2971,10 +2975,7 @@ class PoseProtocol(PoseData):
 
         # Create executable/Run FastRelax on Clean ASU with RosettaScripts
         if self.job.distribute_work:
-            # Todo change self.out_directory to a single based on the project/pose (pose_id)
-            analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.out_directory, '--no-output',
-                            f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
-                                                                   .format(starttime, self.protocol))]
+            analysis_cmd = self.make_analysis_cmd()
             write_shell_script(list2cmdline(relax_cmd), name=self.protocol, out_path=flag_dir,
                                additional=[list2cmdline(generate_files_cmd)] +
                                           [list2cmdline(command) for command in metric_cmds] +
@@ -2990,17 +2991,8 @@ class PoseProtocol(PoseData):
                     metrics_process = Popen(metric_cmd)
                     metrics_process.communicate()
 
-        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-        if not self.job.distribute_work:
-            # Ensure that mutations to the Pose are wiped. We can reload if continuing to use
-            self.pose = None
-            pose_s = self.interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
-            if os.path.exists(out_path):
-                header = False
-            else:
-                header = True
-            pose_s.to_csv(out_path, mode='a', header=header)
+            # Gather metrics for each design produced from this proceedure
+            self.process_rosetta_metrics()
 
     def rosetta_interface_design(self):
         """For the basic process of sequence design between two halves of an interface, write the necessary files for
@@ -3105,10 +3097,7 @@ class PoseProtocol(PoseData):
 
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.job.distribute_work:
-            # Todo change self.out_directory to a single based on the project/pose (pose_id)
-            analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.out_directory, '--no-output',
-                            f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
-                                                                   .format(starttime, self.protocol))]
+            analysis_cmd = self.make_analysis_cmd()
             write_shell_script(list2cmdline(design_cmd), name=self.protocol, out_path=self.scripts_path,
                                additional=[list2cmdline(command) for command in additional_cmds] +
                                           [list2cmdline(generate_files_cmd)] +
@@ -3124,15 +3113,8 @@ class PoseProtocol(PoseData):
                 metrics_process = Popen(metric_cmd)
                 metrics_process.communicate()
 
-        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-        if not self.job.distribute_work:
-            pose_s = self.interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
-            if os.path.exists(out_path):
-                header = False
-            else:
-                header = True
-            pose_s.to_csv(out_path, mode='a', header=header)
+            # Gather metrics for each design produced from this proceedure
+            self.process_rosetta_metrics()
 
     def analyze_proteinmpnn_metrics(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.array]):
         #                      designs: Iterable[Pose] | Iterable[AnyStr] = None
