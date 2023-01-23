@@ -3952,16 +3952,19 @@ class PoseProtocol(PoseData):
 
         # The DataFrame.index is wrong here. It needs to become the design.id not design.name. Modify after processing
         pose_sequences = {pose.name: pose.sequence for pose in designs}
-        sequences_df = self.analyze_sequence_metrics_per_design(sequences=pose_sequences)
         residues_df = self.analyze_residue_metrics_per_design(designs=designs)
-        # Join each per-residue like DataFrame
+        # Join Rosetta per-residue with Structure analysis per-residue like DataFrames
+        residues_df = pd.concat([residues_df, rosetta_info_df], axis=1)
+        designs_df = scores_df.join(self.analyze_design_metrics_per_design(residues_df, designs))
+
+        sequences_df = self.analyze_sequence_metrics_per_design(sequences=pose_sequences)
+        designs_df = designs_df.join(self.analyze_design_metrics_per_residue(sequences_df))
+
+        # Join per-residue like DataFrames
         # Each of these could have different index/column, so we use concat to perform an outer merge
-        residues_df = pd.concat([residues_df, sequences_df, rosetta_info_df], axis=1)
+        residues_df = pd.concat([residues_df, sequences_df], axis=1)
         # Todo should this "different index" be allowed? be possible
         #  residues_df = residues_df.join(rosetta_info_df)
-
-        designs_df = scores_df.join(self.analyze_design_metrics_per_design(residues_df, designs))
-        designs_df = designs_df.join(self.analyze_design_metrics_per_residue(residues_df))
 
         # Rename all designs and clean up resulting metrics for storage
         # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
@@ -4457,100 +4460,100 @@ class PoseProtocol(PoseData):
                 continue
         # POSE ANALYSIS
         # designs_df = pd.concat([designs_df, proteinmpnn_df], axis=1)
-        designs_df.dropna(how='all', inplace=True, axis=1)  # Remove completely empty columns
-        # # Refine is not considered sequence design and destroys mean. remove v
-        # # designs_df = designs_df.sort_index().drop(putils.refine, axis=0, errors='ignore')
-        # # Consensus cst_weights are very large and destroy the mean.
-        # # Remove this drop for consensus or refine if they are run multiple times
-        # designs_df = \
-        #     designs_df.drop([self.pose.name, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
+        # designs_df.dropna(how='all', inplace=True, axis=1)  # Remove completely empty columns
+        # # # Refine is not considered sequence design and destroys mean. remove v
+        # # # designs_df = designs_df.sort_index().drop(putils.refine, axis=0, errors='ignore')
+        # # # Consensus cst_weights are very large and destroy the mean.
+        # # # Remove this drop for consensus or refine if they are run multiple times
+        # # designs_df = \
+        # #     designs_df.drop([self.pose.name, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
+        # #
+        # # # Get total design statistics for every sequence in the pose and every protocol specifically
+        # # designs_df[putils.protocol] = protocol_s
+        # # protocol_groups = designs_df.groupby(putils.protocol)
+        # #
+        # # pose_stats, protocol_stats = [], []
+        # # for idx, stat in enumerate(stats_metrics):
+        # #     # Todo both groupby calls have this warning
+        # #     #  FutureWarning: The default value of numeric_only in DataFrame.mean is deprecated. In a future version,
+        # #     #  it will default to False. In addition, specifying 'numeric_only=None' is deprecated. Select only valid
+        # #     #  columns or specify the value of numeric_only to silence this warning.
+        # #     pose_stats.append(getattr(designs_df, stat)().rename(stat))
+        # #     protocol_stats.append(getattr(protocol_groups, stat)())
+        # #
+        # # # Add the number of observations of each protocol
+        # # protocol_stats[stats_metrics.index(mean)]['observations'] = protocol_groups.size()
+        # #
+        # # # Change statistic names for all df that are not groupby means for the final trajectory dataframe
+        # # for idx, stat in enumerate(stats_metrics):
+        # #     if stat != mean:
+        # #         protocol_stats[idx] = protocol_stats[idx].rename(index={protocol: f'{protocol}_{stat}'
+        # #                                                                 for protocol in unique_design_protocols})
+        # # # Remove std rows if there is no stdev
+        # # # final_trajectory_indices = designs_df.index.to_list() + unique_protocols + [mean]
+        # # designs_df = pd.concat([designs_df]
+        # #                        + [df.dropna(how='all', axis=0) for df in protocol_stats]  # v don't add if nothing
+        # #                        + [pd.to_numeric(s).to_frame().T for s in pose_stats if not all(s.isna())])
+        # # # This concat puts back self.pose.name, refine, consensus index as protocol_stats is calculated on designs_df
+        # # designs_df = designs_df.fillna({'observations': 1})
         #
-        # # Get total design statistics for every sequence in the pose and every protocol specifically
-        # designs_df[putils.protocol] = protocol_s
-        # protocol_groups = designs_df.groupby(putils.protocol)
+        # # # Calculate protocol significance
+        # # pvalue_df = pd.DataFrame()
+        # # scout_protocols = list(filter(re.compile(f'.*{putils.scout}').match,
+        # #                               protocol_s[~protocol_s.isna()].unique().tolist()))
+        # # similarity_protocols = unique_design_protocols.difference([putils.refine, job_key] + scout_protocols)
+        # # if putils.structure_background not in unique_design_protocols:
+        # #     self.log.info(f'Missing background protocol "{putils.structure_background}". No protocol significance '
+        # #                   f'measurements available for this pose')
+        # # elif len(similarity_protocols) == 1:  # measure significance
+        # #     self.log.info("Can't measure protocol significance, only one protocol of interest")
+        # # else:  # Test significance between all combinations of protocols by grabbing mean entries per protocol
+        # #     for prot1, prot2 in combinations(sorted(similarity_protocols), 2):
+        # #         select_df = \
+        # #             designs_df.loc[[design for designs in [designs_by_protocol[prot1], designs_by_protocol[prot2]]
+        # #                             for design in designs], metrics.significance_columns]
+        # #         # prot1/2 pull out means from designs_df by using the protocol name
+        # #         difference_s = \
+        # #             designs_df.loc[prot1, metrics.significance_columns].sub(
+        # #                 designs_df.loc[prot2, metrics.significance_columns])
+        # #         pvalue_df[(prot1, prot2)] = metrics.df_permutation_test(select_df, difference_s, compare='mean',
+        # #                                                                 group1_size=len(designs_by_protocol[prot1]))
+        # #     pvalue_df = pvalue_df.T  # transpose significance pairs to indices and significance metrics to columns
+        # #     designs_df = pd.concat([designs_df, pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1)])
+        # #
+        # #     # Compute residue energy/sequence differences between each protocol
+        # #     residue_energy_df = residues_df.loc[:, idx_slice[:, 'energy_delta']]
+        # #
+        # #     scaler = skl.preprocessing.StandardScaler()
+        # #     res_pca = skl.decomposition.PCA(resources.config.default_pca_variance)
+        # #     residue_energy_np = scaler.fit_transform(residue_energy_df.values)
+        # #     residue_energy_pc = res_pca.fit_transform(residue_energy_np)
+        # #     # Make principal components (PC) DataFrame
+        # #     residue_energy_pc_df = pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
+        # #                                         columns=[f'pc{idx}' for idx in range(1, len(res_pca.components_) +1)])
+        # #     residue_energy_pc_df[putils.protocol] = protocol_s
+        # #     # Next group the labels
+        # #     # sequence_groups = seq_pc_df.groupby(putils.protocol)
+        # #     residue_energy_groups = residue_energy_pc_df.groupby(putils.protocol)
+        # #     # Measure statistics for each group
+        # #     # All protocol means have pairwise distance measured to access similarity
+        # #     # Gather protocol similarity/distance metrics
+        # #     for stat in stats_metrics:
+        # #         # grouped_pc_seq_df = getattr(sequence_groups, stat)()
+        # #         grouped_pc_energy_df = getattr(residue_energy_groups, stat)()
+        # #         # similarity_stat = getattr(pvalue_df, stat)(axis=1)  # protocol pair : stat Series
+        # #         if stat == mean:
+        # #             # for each measurement in residue_energy_pc_df, need to take the distance between it and the
+        # #             # structure background mean (if structure background, is the mean is useful too?)
+        # #             background_distance = \
+        # #                 cdist(residue_energy_pc,
+        # #                       grouped_pc_energy_df.loc[putils.structure_background, :].values[np.newaxis, :])
+        # #             designs_df = \
+        # #                 pd.concat([designs_df,
+        # #                            pd.Series(background_distance.flatten(), index=residue_energy_pc_df.index,
+        # #                                      name=f'energy_distance_from_{putils.structure_background}_mean')],axis=1)
         #
-        # pose_stats, protocol_stats = [], []
-        # for idx, stat in enumerate(stats_metrics):
-        #     # Todo both groupby calls have this warning
-        #     #  FutureWarning: The default value of numeric_only in DataFrame.mean is deprecated. In a future version,
-        #     #  it will default to False. In addition, specifying 'numeric_only=None' is deprecated. Select only valid
-        #     #  columns or specify the value of numeric_only to silence this warning.
-        #     pose_stats.append(getattr(designs_df, stat)().rename(stat))
-        #     protocol_stats.append(getattr(protocol_groups, stat)())
-        #
-        # # Add the number of observations of each protocol
-        # protocol_stats[stats_metrics.index(mean)]['observations'] = protocol_groups.size()
-        #
-        # # Change statistic names for all df that are not groupby means for the final trajectory dataframe
-        # for idx, stat in enumerate(stats_metrics):
-        #     if stat != mean:
-        #         protocol_stats[idx] = protocol_stats[idx].rename(index={protocol: f'{protocol}_{stat}'
-        #                                                                 for protocol in unique_design_protocols})
-        # # Remove std rows if there is no stdev
-        # # final_trajectory_indices = designs_df.index.to_list() + unique_protocols + [mean]
-        # designs_df = pd.concat([designs_df]
-        #                        + [df.dropna(how='all', axis=0) for df in protocol_stats]  # v don't add if nothing
-        #                        + [pd.to_numeric(s).to_frame().T for s in pose_stats if not all(s.isna())])
-        # # This concat puts back self.pose.name, refine, consensus index as protocol_stats is calculated on designs_df
-        # designs_df = designs_df.fillna({'observations': 1})
-
-        # # Calculate protocol significance
-        # pvalue_df = pd.DataFrame()
-        # scout_protocols = list(filter(re.compile(f'.*{putils.scout}').match,
-        #                               protocol_s[~protocol_s.isna()].unique().tolist()))
-        # similarity_protocols = unique_design_protocols.difference([putils.refine, job_key] + scout_protocols)
-        # if putils.structure_background not in unique_design_protocols:
-        #     self.log.info(f'Missing background protocol "{putils.structure_background}". No protocol significance '
-        #                   f'measurements available for this pose')
-        # elif len(similarity_protocols) == 1:  # measure significance
-        #     self.log.info("Can't measure protocol significance, only one protocol of interest")
-        # else:  # Test significance between all combinations of protocols by grabbing mean entries per protocol
-        #     for prot1, prot2 in combinations(sorted(similarity_protocols), 2):
-        #         select_df = \
-        #             designs_df.loc[[design for designs in [designs_by_protocol[prot1], designs_by_protocol[prot2]]
-        #                             for design in designs], metrics.significance_columns]
-        #         # prot1/2 pull out means from designs_df by using the protocol name
-        #         difference_s = \
-        #             designs_df.loc[prot1, metrics.significance_columns].sub(
-        #                 designs_df.loc[prot2, metrics.significance_columns])
-        #         pvalue_df[(prot1, prot2)] = metrics.df_permutation_test(select_df, difference_s, compare='mean',
-        #                                                                 group1_size=len(designs_by_protocol[prot1]))
-        #     pvalue_df = pvalue_df.T  # transpose significance pairs to indices and significance metrics to columns
-        #     designs_df = pd.concat([designs_df, pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1)])
-        #
-        #     # Compute residue energy/sequence differences between each protocol
-        #     residue_energy_df = residues_df.loc[:, idx_slice[:, 'energy_delta']]
-        #
-        #     scaler = skl.preprocessing.StandardScaler()
-        #     res_pca = skl.decomposition.PCA(resources.config.default_pca_variance)
-        #     residue_energy_np = scaler.fit_transform(residue_energy_df.values)
-        #     residue_energy_pc = res_pca.fit_transform(residue_energy_np)
-        #     # Make principal components (PC) DataFrame
-        #     residue_energy_pc_df = pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
-        #                                         columns=[f'pc{idx}' for idx in range(1, len(res_pca.components_) +1)])
-        #     residue_energy_pc_df[putils.protocol] = protocol_s
-        #     # Next group the labels
-        #     # sequence_groups = seq_pc_df.groupby(putils.protocol)
-        #     residue_energy_groups = residue_energy_pc_df.groupby(putils.protocol)
-        #     # Measure statistics for each group
-        #     # All protocol means have pairwise distance measured to access similarity
-        #     # Gather protocol similarity/distance metrics
-        #     for stat in stats_metrics:
-        #         # grouped_pc_seq_df = getattr(sequence_groups, stat)()
-        #         grouped_pc_energy_df = getattr(residue_energy_groups, stat)()
-        #         # similarity_stat = getattr(pvalue_df, stat)(axis=1)  # protocol pair : stat Series
-        #         if stat == mean:
-        #             # for each measurement in residue_energy_pc_df, need to take the distance between it and the
-        #             # structure background mean (if structure background, is the mean is useful too?)
-        #             background_distance = \
-        #                 cdist(residue_energy_pc,
-        #                       grouped_pc_energy_df.loc[putils.structure_background, :].values[np.newaxis, :])
-        #             designs_df = \
-        #                 pd.concat([designs_df,
-        #                            pd.Series(background_distance.flatten(), index=residue_energy_pc_df.index,
-        #                                      name=f'energy_distance_from_{putils.structure_background}_mean')],axis=1)
-
-        designs_df.sort_index(inplace=True, axis=1)
+        # designs_df.sort_index(inplace=True, axis=1)
 
         return designs_df
 
