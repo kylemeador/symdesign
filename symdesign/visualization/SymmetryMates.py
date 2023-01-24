@@ -2,7 +2,7 @@ import os
 
 from pymol import cmd, stored
 
-from symdesign.utils import symmetry as symutils
+import symdesign.utils.symmetry as symutils
 
 
 def generate_symmetry_mates_pymol(name, expand_matrices):  # name: str, expand_matrices: list[list[float]]):
