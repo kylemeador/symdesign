@@ -329,7 +329,7 @@ def read_pdb_file(file: AnyStr, pdb_lines: list[str] = None, separate_coords: bo
             #                   float(line[slice_occ]), float(line[slice_temp_fact]),
             #                   line[slice_element].strip(), line[slice_charge].strip()))
             # atom_info.append(dict(number=int(line[slice_number]), type=atom_type, alt_location=alt_loc_str,
-            #                       residue_type=residue_type, chain=line[slice_chain],
+            #                       residue_type=residue_type, chain_id=line[slice_chain],
             #                       residue_number=int(line[slice_residue_number]),
             #                       code_for_insertion=line[slice_code_for_insertion].strip(),
             #                       coords=[float(line[slice_x]), float(line[slice_y]), float(line[slice_z])]
@@ -938,7 +938,7 @@ class Atom(StructureBase):
                f'{x:8.3f}{y:8.3f}{z:8.3f}{self.occupancy:6.2f}{self.b_factor:6.2f}          ' \
                f'{self.element:>2s}{self.charge:2s}'
 
-    def __str__(self) -> str:  # type=None, number=None, pdb=False, chain=None, **kwargs
+    def __str__(self) -> str:  # type=None, number=None, pdb=False, chain_id=None, **kwargs
         """Represent Atom in PDB format"""
         # Use self.type_str to comply with the PDB format specifications because of the atom type field
         # ATOM     32  CG2 VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- PDB format
@@ -949,7 +949,7 @@ class Atom(StructureBase):
         # Todo if parent:  # return full ATOM record
         # return 'ATOM  {:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   '\
         #     '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-        #     .format(self.index, self.type, self.alt_location, self.residue_type, self.chain, self.residue_number,
+        #     .format(self.index, self.type, self.alt_location, self.residue_type, self.chain_id, self.residue_number,
         #             self.code_for_insertion, *list(self.coords), self.occupancy, self.b_factor, self.element,
         #             self.charge)
 
@@ -1470,7 +1470,7 @@ class ContainsAtomsMixin(StructureBase, ABC):
             header: A string that is desired at the top of the file
         Keyword Args
             pdb: bool = False - Whether the Residue representation should use the number at file parsing
-            chain: str = None - The chain ID to use
+            chain_id: str = None - The chain ID to use
             atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed
         Returns:
             The name of the written file if out_path is used
@@ -1547,7 +1547,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     _sasa_apolar: float
     _sasa_polar: float
     _secondary_structure: str
-    chain: str
+    chain_id: str
     # coords: Coords
     number: int
     number_pdb: int
@@ -1721,7 +1721,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                         try:  # To see if the residue has a number attribute already
                             self.number
                         except AttributeError:  # This is the first set up. Add information from the N atom
-                            self.chain = atom.chain_id
+                            self.chain_id = atom.chain_id
                             self.number = atom.residue_number
                             self.number_pdb = atom.pdb_residue_number
                             self.type = atom.residue_type
@@ -1746,7 +1746,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                     try:  # To see if the residue has a number attribute already
                         self.number
                     except AttributeError:  # This is the first set up. Add information from the N atom
-                        self.chain = atom.chain_id
+                        self.chain_id = atom.chain_id
                         self.number = atom.residue_number
                         self.number_pdb = atom.pdb_residue_number
                         self.type = atom.residue_type
@@ -2174,7 +2174,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                 self.parent.local_density()
                 return self._local_density
             except AttributeError:
-                raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.local_density.__name__}" '
+                raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.local_density.__name__}" '
                                      f'attribute! Ensure you call {Structure.local_density.__name__} before you request'
                                      f' Residue local density information')
 
@@ -2192,7 +2192,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             try:
                 return self._secondary_structure
             except AttributeError:
-                raise AttributeError(f'Residue {self.number}{self.chain} has no ".secondary_structure" attribute. '
+                raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".secondary_structure" attribute. '
                                      'Ensure you set the parent .secondary_structure before you '
                                      'request Residue.secondary_structure information')
 
@@ -2230,7 +2230,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             try:  # let _segregate_sasa() call get_sasa() from the .parent if sasa is missing
                 self._sasa = self.sasa_apolar + self.sasa_polar
             except AttributeError:
-                raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa.__name__}" attribute! '
+                raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.sasa.__name__}" attribute! '
                                      f'Ensure you call {Structure.get_sasa.__name__} before you request Residue SASA '
                                      f'information')
             return self._sasa
@@ -2250,7 +2250,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             try:
                 self._segregate_sasa()
             except AttributeError:
-                raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa_apolar.__name__}" '
+                raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.sasa_apolar.__name__}" '
                                      f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
                                      f'Residue SASA information')
             return self._sasa_apolar
@@ -2270,7 +2270,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             try:
                 self._segregate_sasa()
             except AttributeError:
-                raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa_polar.__name__}" '
+                raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.sasa_polar.__name__}" '
                                      f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
                                      f'Residue SASA information')
             return self._sasa_polar
@@ -2296,7 +2296,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                 self.parent.contact_order_per_residue()
                 return self._contact_order
             except AttributeError:
-                raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.contact_order.__name__}" '
+                raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.contact_order.__name__}" '
                                      f'attribute! Ensure you call {Structure.contact_order.__name__} before you request'
                                      f' Residue contact order information')
 
@@ -2329,7 +2329,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             for atom in self.atoms:
                 atom.b_factor = getattr(self, dtype)
         except AttributeError:
-            raise AttributeError(f'The attribute {dtype} was not found in the Residue {self.number}{self.chain}. Are '
+            raise AttributeError(f'The attribute {dtype} was not found in the Residue {self.number}{self.chain_id}. Are '
                                  f'you sure this is the attribute you want?')
         except TypeError:
             # raise TypeError(f'{type(dtype)} is not a string. To set b_factor, you must provide the dtype as a string')
@@ -2389,17 +2389,17 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         """
         return np.linalg.norm(getattr(self, f'.{dtype}_coords') - getattr(other, f'.{dtype}_coords'))
 
-    # def residue_string(self, pdb: bool = False, chain: str = None, **kwargs) -> tuple[str, str, str]:
+    # def residue_string(self, pdb: bool = False, chain_id: str = None, **kwargs) -> tuple[str, str, str]:
     #     """Format the Residue into the contained Atoms. The Atom number is truncated at 5 digits for PDB compliant
     #     formatting
     #
     #     Args:
     #         pdb: Whether the Residue representation should use the pdb number at file parsing
-    #         chain: The ID of the chain to use
+    #         chain_id: The ID of the chain_id to use
     #     Returns:
     #         Tuple of formatted Residue attributes
     #     """
-    #     return format(self.type, '3s'), (chain or self.chain), \
+    #     return format(self.type, '3s'), (chain_id or self.chain_id), \
     #         format(getattr(self, f'number{"_pdb" if pdb else ""}'), '4d')
 
     def __getitem__(self, idx) -> Atom:
@@ -2418,21 +2418,21 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
 
         Keyword Args:
             pdb: bool = False - Whether the Residue representation should use the number at file parsing
-            chain: str = None - The chain ID to use
+            chain_id: str = None - The chain ID to use
             atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed
         Returns:
             The archived .pdb formatted ATOM records for the Structure
         """
         return f'{self.__str__(**kwargs)}\n'
 
-    def __str__(self, pdb: bool = False, chain: str = None, atom_offset: int = 0, **kwargs) -> str:
+    def __str__(self, pdb: bool = False, chain_id: str = None, atom_offset: int = 0, **kwargs) -> str:
         #         type=None, number=None
         """Format the Residue into the contained Atoms. The Atom number is truncated at 5 digits for PDB compliant
         formatting
 
         Args:
             pdb: Whether the Residue representation should use the number at file parsing
-            chain: The chain ID to use
+            chain_id: The chain ID to use
             atom_offset: How much to offset the atom number by. Default returns one-indexed
         Returns:
             The archived .pdb formatted ATOM records for the Residue
@@ -2445,7 +2445,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         # self.type, self.alt_location, self.code_for_insertion, self.occupancy, self.b_factor,
         #                     self.element, self.charge)
         # res_str = self.residue_string(**kwargs)
-        res_str = format(self.type, '3s'), format(chain or self.chain, '>2s'), \
+        res_str = format(self.type, '3s'), format(chain_id or self.chain_id, '>2s'), \
             format(getattr(self, f'number{"_pdb" if pdb else ""}'), '4d')
         offset = 1 + atom_offset  # add 1 to make index one-indexed
         # limit idx + offset with [-5:] to keep pdb string to a minimum v
@@ -3613,8 +3613,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             self._residues.insert(0, alpha_helix_15_struct.get_residues(
                 list(range(helix_start, helix_align_start))))  # helix_end+1
             self._residues.reindex()  # .set_index()
-            # Rename new residues to self.chain
-            self.set_residues_attributes(chain=first_residue.chain)
+            # Rename new residues to self.chain_id
+            self.set_residues_attributes(chain_id=first_residue.chain_id)
 
         elif termini == 'c':
             last_residue = self.c_terminal_residue
@@ -3635,8 +3635,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             self._residues.append(
                 alpha_helix_15_struct.get_residues(list(range(helix_align_end, helix_end+1))))  # helix_start
             self._residues.reindex()  # .set_index()
-            # Rename new residues to self.chain
-            self.set_residues_attributes(chain=last_residue.chain)
+            # Rename new residues to self.chain_id
+            self.set_residues_attributes(chain_id=last_residue.chain_id)
         else:
             raise ValueError('termini must be wither "n" or "c"')
 
@@ -3766,14 +3766,14 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         return delete_indices
 
-    def insert_residue_type(self, residue_type: str, at: int = None, chain: str = None) -> Residue:
+    def insert_residue_type(self, residue_type: str, at: int = None, chain_id: str = None) -> Residue:
         """Insert a standard Residue type into the Structure based on Pose numbering (1 to N) at the origin.
         No structural alignment is performed!
 
         Args:
             residue_type: Either the 1 or 3 letter amino acid code for the residue in question
             at: The pose numbered location which a new Residue should be inserted into the Structure
-            chain: The chain identifier to associate the new Residue with
+            chain_id: The chain identifier to associate the new Residue with
         Returns:
             The newly inserted Residue object
         """
@@ -3827,18 +3827,18 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # set the new chain_id, number_pdb. Must occur after self._residue_indices update if chain isn't provided
         chain_assignment_error = "Can't solve for the new Residue polymer association automatically! If the new " \
                                  'Residue is at a Structure termini in a multi-Structure Structure container, you must'\
-                                 ' specify which Structure it belongs to by passing chain='
-        if chain is not None:
-            new_residue.chain_id = chain
+                                 ' specify which Structure it belongs to by passing chain_id='
+        if chain_id is not None:
+            new_residue.chain_id = chain_id
         else:  # try to solve without it...
             if prior_residue and next_residue:
-                if prior_residue.chain == next_residue.chain:
+                if prior_residue.chain_id == next_residue.chain_id:
                     res_with_info = prior_residue
                 else:  # we have a discrepancy which means this is an internal termini
                     raise stutils.DesignError(chain_assignment_error)
             else:  # we can solve as this represents an absolute termini case
                 res_with_info = prior_residue if prior_residue else next_residue
-            new_residue.chain_id = res_with_info.chain
+            new_residue.chain_id = res_with_info.chain_id
             new_residue.number_pdb = prior_residue.number_pdb + 1 if prior_residue else next_residue.number_pdb - 1
 
         if self.secondary_structure:
@@ -4548,7 +4548,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         Keyword Args:
             pdb: bool = False - Whether the Residue representation should use the number at file parsing
-            chain: str = None - The chain ID to use
+            chain_id: str = None - The chain ID to use
             atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed
         Returns:
             The archived .pdb formatted ATOM records for the Structure
@@ -4606,7 +4606,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #     Keyword Args
     #         header: None | str - A string that is desired at the top of the .pdb file
     #         pdb: bool = False - Whether the Residue representation should use the number at file parsing
-    #         chain: str = None - The chain ID to use
+    #         chain_id: str = None - The chain ID to use
     #         atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed
     #     Returns:
     #         The name of the written file if out_path is used
@@ -4912,8 +4912,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                                                           **kwargs)
                 allowed_aas = {protein_letters_3to1_extended[aa] for aa in allowed_aas}
                 allowed_aas = allowed_aas.union(include.get(residue_number, {}))
-                res_file_lines.append('%d %s PIKAA %s' % (residue.number, residue.chain, ''.join(sorted(allowed_aas))))
-                # res_file_lines.append('%d %s %s' % (residue.number, residue.chain,
+                res_file_lines.append(f'{residue.number} {residue.chain_id} PIKAA {"".join(sorted(allowed_aas))}')
+                # res_file_lines.append('%d %s %s' % (residue.number, residue.chain_id,
                 #                                     'PIKAA %s' % ''.join(sorted(allowed_aas)) if len(allowed_aas) > 1
                 #                                     else 'NATAA'))
         else:
@@ -4922,8 +4922,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                     mutation_possibilities_from_directive(directive, background=background.get(residue), **kwargs)
                 allowed_aas = {protein_letters_3to1_extended[aa] for aa in allowed_aas}
                 allowed_aas = allowed_aas.union(include.get(residue, {}))
-                res_file_lines.append('%d %s PIKAA %s' % (residue.number, residue.chain, ''.join(sorted(allowed_aas))))
-                # res_file_lines.append('%d %s %s' % (residue.number, residue.chain,
+                res_file_lines.append(f'{residue.number} {residue.chain_id} PIKAA {"".join(sorted(allowed_aas))}')
+                # res_file_lines.append('%d %s %s' % (residue.number, residue.chain_id,
                 #                                     'PIKAA %s' % ''.join(sorted(allowed_aas)) if len(allowed_aas) > 1
                 #                                     else 'NATAA'))
 
@@ -5372,11 +5372,11 @@ class Structures(Structure, UserList):
     #         if increment_chains:
     #             available_chain_ids = chain_id_generator()
     #             for structure in self.structures:
-    #                 chain = next(available_chain_ids)
-    #                 structure.write(file_handle=f, chain=chain)
+    #                 chain_id = next(available_chain_ids)
+    #                 structure.write(file_handle=f, chain_id=chain_id)
     #                 c_term_residue = structure.c_terminal_residue
     #                 f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', c_term_residue.atoms[-1].number + 1,
-    #                                                                       c_term_residue.type, chain,
+    #                                                                       c_term_residue.type, chain_id,
     #                                                                       c_term_residue.number))
     #         else:
     #             for model_number, structure in enumerate(self.structures, 1):
