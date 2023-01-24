@@ -106,6 +106,7 @@ class PoseMetadata(Base):
 
     @property
     def pose_source(self):
+        """Provide the DesignData for the Pose itself"""
         return self.designs[0]
 
     # # Set up one-to-many relationship with residue_metrics table
