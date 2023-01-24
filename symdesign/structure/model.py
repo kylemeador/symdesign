@@ -902,6 +902,7 @@ class Chain(SequenceProfile, Structure):
         # only if this instance is a Chain, set residues_attributes as in chain_id.setter
         if type(self) == Chain and chain_id is not None:
             self.set_residues_attributes(chain_id=chain_id)
+            self._chain_id = chain_id
 
         if as_mate:
             self.detach_from_parent()
@@ -1292,7 +1293,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
     @Chain.chain_id.setter
     def chain_id(self, chain_id: str):
-        super().chain_id.fset(self, chain_id)
+        super(Entity, Entity).chain_id.fset(self, chain_id)
         # # Same as Chain class property
         # self.set_residues_attributes(chain_id=chain_id)
         # self._chain_id = chain_id
