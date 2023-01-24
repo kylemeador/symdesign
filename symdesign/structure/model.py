@@ -124,11 +124,11 @@ def get_interface_fragment_chain_residue_numbers(pdb1, pdb2, cb_distance=8):
     interacting_pairs = []
     for pdb2_query_index in range(len(query)):
         if query[pdb2_query_index].tolist() != list():
-            pdb2_cb_res_num = pdb2.all_atoms[pdb2_cb_indices[pdb2_query_index]].residue_number
-            pdb2_cb_chain_id = pdb2.all_atoms[pdb2_cb_indices[pdb2_query_index]].chain
+            pdb2_cb_res_num = pdb2.atoms[pdb2_cb_indices[pdb2_query_index]].residue_number
+            pdb2_cb_chain_id = pdb2.atoms[pdb2_cb_indices[pdb2_query_index]].chain_id
             for pdb1_query_index in query[pdb2_query_index]:
-                pdb1_cb_res_num = pdb1.all_atoms[pdb1_cb_indices[pdb1_query_index]].residue_number
-                pdb1_cb_chain_id = pdb1.all_atoms[pdb1_cb_indices[pdb1_query_index]].chain
+                pdb1_cb_res_num = pdb1.atoms[pdb1_cb_indices[pdb1_query_index]].residue_number
+                pdb1_cb_chain_id = pdb1.atoms[pdb1_cb_indices[pdb1_query_index]].chain_id
                 interacting_pairs.append(((pdb1_cb_res_num, pdb1_cb_chain_id), (pdb2_cb_res_num, pdb2_cb_chain_id)))
 
 
@@ -149,14 +149,14 @@ def get_multi_chain_interface_fragment_residue_numbers(pdb1, pdb2, interacting_p
 
         frag1_ca_count = 0
         for atom in pdb1.all_atoms:
-            if atom.chain == pdb1_central_chain_id:
+            if atom.chain_id == pdb1_central_chain_id:
                 if atom.residue_number in pdb1_res_num_list:
                     if atom.is_ca():
                         frag1_ca_count += 1
 
         frag2_ca_count = 0
         for atom in pdb2.all_atoms:
-            if atom.chain == pdb2_central_chain_id:
+            if atom.chain_id == pdb2_central_chain_id:
                 if atom.residue_number in pdb2_res_num_list:
                     if atom.is_ca():
                         frag2_ca_count += 1
@@ -1292,9 +1292,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
     @Chain.chain_id.setter
     def chain_id(self, chain_id: str):
-        # Same as Chain class property
-        self.set_residues_attributes(chain=chain_id)
-        self._chain_id = chain_id
+        super().chain_id.fset(self, chain_id)
+        # # Same as Chain class property
+        # self.set_residues_attributes(chain=chain_id)
+        # self._chain_id = chain_id
         # Different from Chain class
         if self._is_captain:
             self._set_chain_ids()

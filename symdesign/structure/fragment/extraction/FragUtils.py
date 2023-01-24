@@ -54,7 +54,7 @@ def find_interface_pairs(pdb1: Structure, pdb2: Structure, distance) -> list[tup
 def get_guide_atoms(frag_pdb):
     guide_atoms = []
     for atom in frag_pdb.atoms:
-        if atom.chain == "9":
+        if atom.chain_id == "9":
             guide_atoms.append(atom)
     if len(guide_atoms) == 3:
         return guide_atoms

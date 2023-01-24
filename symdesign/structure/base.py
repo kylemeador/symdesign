@@ -681,7 +681,7 @@ class StructureBase(SymmetryMixin, ABC):
             # This Structure is a symmetric parent, update dependent coords to update the parent
             self.log.debug(f'Updating symmetric dependent coords')
             for dependent in self.symmetric_dependents:
-                if dependent.is_symmetric():
+                if dependent.is_symmetric():  # Todo move check to symmetric_dependents.setter?
                     dependent._parent_is_updating = True
                     # self.log.debug(f'Setting {dependent.name} _symmetric_dependent coords')
                     dependent.coords = coords[dependent.atom_indices]
@@ -723,7 +723,7 @@ class Atom(StructureBase):
     # type: str | None
     alt_location: str | None
     residue_type: str | None
-    chain: str | None
+    chain_id: str | None
     pdb_residue_number: int | None
     residue_number: int | None
     code_for_insertion: str | None
@@ -746,7 +746,7 @@ class Atom(StructureBase):
         self._type_str = f'{"" if atom_type[3:] else " "}{atom_type:<3s}'  # pad with space if atom_type is len()=4
         self.alt_location = alt_location
         self.residue_type = residue_type
-        self.chain = chain
+        self.chain_id = chain
         self.pdb_residue_number = residue_number
         self.residue_number = residue_number  # originally set the same as parsing
         self.code_for_insertion = code_for_insertion
@@ -934,7 +934,7 @@ class Atom(StructureBase):
         x, y, z = list(self.coords)
         # Add 1 to the self.index since this is 0 indexed
         return f'ATOM  {self.index + 1:5d} {self._type_str}{self.alt_location:1s}{self.residue_type:3s}' \
-               f'{self.chain:>2s}{self.residue_number:4d}{self.code_for_insertion:1s}   '\
+               f'{self.chain_id:>2s}{self.residue_number:4d}{self.code_for_insertion:1s}   '\
                f'{x:8.3f}{y:8.3f}{z:8.3f}{self.occupancy:6.2f}{self.b_factor:6.2f}          ' \
                f'{self.element:>2s}{self.charge:2s}'
 
@@ -1721,7 +1721,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                         try:  # To see if the residue has a number attribute already
                             self.number
                         except AttributeError:  # This is the first set up. Add information from the N atom
-                            self.chain = atom.chain
+                            self.chain = atom.chain_id
                             self.number = atom.residue_number
                             self.number_pdb = atom.pdb_residue_number
                             self.type = atom.residue_type
@@ -1746,7 +1746,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                     try:  # To see if the residue has a number attribute already
                         self.number
                     except AttributeError:  # This is the first set up. Add information from the N atom
-                        self.chain = atom.chain
+                        self.chain = atom.chain_id
                         self.number = atom.residue_number
                         self.number_pdb = atom.pdb_residue_number
                         self.type = atom.residue_type
@@ -3829,7 +3829,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                                  'Residue is at a Structure termini in a multi-Structure Structure container, you must'\
                                  ' specify which Structure it belongs to by passing chain='
         if chain is not None:
-            new_residue.chain = chain
+            new_residue.chain_id = chain
         else:  # try to solve without it...
             if prior_residue and next_residue:
                 if prior_residue.chain == next_residue.chain:
@@ -3838,7 +3838,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                     raise stutils.DesignError(chain_assignment_error)
             else:  # we can solve as this represents an absolute termini case
                 res_with_info = prior_residue if prior_residue else next_residue
-            new_residue.chain = res_with_info.chain
+            new_residue.chain_id = res_with_info.chain
             new_residue.number_pdb = prior_residue.number_pdb + 1 if prior_residue else next_residue.number_pdb - 1
 
         if self.secondary_structure:

@@ -974,7 +974,7 @@ def is_entity_thermophilic(entry: str = None, entity_integer: int | str = None, 
         entity_integer: The entity integer from the EntryID of interest
         entity_id: The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
     Returns:
-        {chain: {'accession': 'Q96DC8', 'db': 'UniProt'}, ...}
+        Whether the entity is thermophilic according to it taxonomic classification
     """
     entity_request = query_entity_id(entry=entry, entity_integer=entity_integer, entity_id=entity_id)
     if not entity_request:
