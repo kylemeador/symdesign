@@ -2189,13 +2189,13 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         try:
             return self._secondary_structure
         except AttributeError:
-            self.parent.calculate_secondary_structure()  # Sets this ._secondary_structure
-            try:
-                return self._secondary_structure
-            except AttributeError:
-                raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".secondary_structure" attribute. '
-                                     'Ensure you set the parent .secondary_structure before you '
-                                     'request Residue.secondary_structure information')
+            # self.parent._generate_secondary_structure()  # Sets this ._secondary_structure
+            # try:
+            #     return self._secondary_structure
+            # except AttributeError:
+            raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".secondary_structure" attribute. '
+                                 'Ensure you set the "parent".secondary_structure before you '
+                                 'request Residue.secondary_structure information')
 
     @secondary_structure.setter
     def secondary_structure(self, ss_code: str):
@@ -4491,6 +4491,13 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             return self._secondary_structure
 
     def calculate_secondary_structure(self):
+        # # if self.api_db:
+        # try:
+        #     # retrieve_api_info = self.api_db.pdb.retrieve_data
+        #     retrieve_stride_info = wrapapi.api_database_factory().stride.retrieve_data
+        # except AttributeError:
+        #     retrieve_stride_info = Structure.utils.parse_stride
+
         self.stride()
 
     @secondary_structure.setter
