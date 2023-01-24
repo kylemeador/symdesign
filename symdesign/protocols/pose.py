@@ -2810,11 +2810,6 @@ class PoseProtocol(PoseData):
             metrics_pdb = ['-in:file:l', designed_files_file, '-in:file:native', self.source_path]
             # generate_files_cmdline = [list2cmdline(generate_files_cmd)]
         else:
-            # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
-            self.identify_interface()
-            # else:  # We only need to load pose as we already calculated interface
-            #     self.load_pose()
-
             self.protocol = switch = putils.refine
             if self.job.interface_to_alanine:  # Mutate all design positions to Ala before the Refinement
                 for entity_pair, interface_residues_pair in self.pose.interface_residues_by_entity_pair.items():
