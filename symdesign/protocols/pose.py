@@ -1603,7 +1603,7 @@ class PoseProtocol(PoseData):
 
     def make_analysis_cmd(self) -> list[str]:
         """Generate a list compatible with subprocess.Popen()/subprocess.list2cmdline()"""
-        return ['python', putils.program_exe, putils.process_rosetta_metrics, '--single', self.out_directory]
+        return ['python', putils.program_exe, flags.process_rosetta_metrics, '--single', self.out_directory]
 
     def thread_sequences_to_backbone(self, sequences: dict[str, str] = None):
         """From the starting Pose, thread sequences onto the backbone, modifying relevant side chains i.e., mutate the
