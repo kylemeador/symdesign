@@ -15,10 +15,10 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
 
 from symdesign import flags, sequence, structure, utils
-from symdesign.resources import structure_db, wrapapi
+from symdesign.resources import sql, structure_db, wrapapi
 from symdesign.sequence import hhblits
 from symdesign.structure.fragment import db
-from symdesign.utils import CommandDistributer, guide, SymEntry, InputError, path as putils, sql
+from symdesign.utils import CommandDistributer, guide, SymEntry, InputError, path as putils
 
 logger = logging.getLogger(__name__)
 
@@ -292,12 +292,12 @@ class JobResources:
 
         if self.development:
             # All tables are deleted
-            utils.sql.Base.metadata.drop_all(self.db.engine)
+            sql.Base.metadata.drop_all(self.db.engine)
             # Emit CREATE TABLE DDL
-            utils.sql.Base.metadata.create_all(self.db.engine)
+            sql.Base.metadata.create_all(self.db.engine)
         if not os.path.exists(self.internal_db):
             # Emit CREATE TABLE DDL
-            utils.sql.Base.metadata.create_all(self.db.engine)
+            sql.Base.metadata.create_all(self.db.engine)
 
         # self.score_db: Engine = create_engine(utils.sql.residues)
 

@@ -9,13 +9,14 @@ from sqlalchemy import Column, String
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.orm import synonym, relationship
 
-from symdesign.sequence import MultipleSequenceAlignment, parse_hhblits_pssm, read_fasta_file, write_sequence_to_fasta
-from symdesign.structure.utils import parse_stride
+from . import sql
 from .database import Database, DataStore
 from .query.pdb import query_entity_id, query_assembly_id, parse_entities_json, parse_assembly_json, query_entry_id, \
     parse_entry_json, _is_entity_thermophilic
 from .query.uniprot import query_uniprot
-from symdesign.utils import path as putils, sql
+from symdesign.sequence import MultipleSequenceAlignment, parse_hhblits_pssm, read_fasta_file, write_sequence_to_fasta
+from symdesign.structure.utils import parse_stride
+from symdesign.utils import path as putils
 # import dependencies.bmdca as bmdca
 
 # Globals
