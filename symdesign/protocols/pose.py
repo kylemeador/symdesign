@@ -1529,14 +1529,14 @@ class PoseProtocol(PoseData):
         interface_residue_ids = {}
         for number, residues in self.pose.residues_by_interface.items():
             interface_residue_ids[f'interface{number}'] = \
-                ','.join(f'{residue.number}{residue.chain}' for residue in residues)
+                ','.join(f'{residue.number}{residue.chain_id}' for residue in residues)
         # self.info['interface_residue_ids'] = self.interface_residue_ids
         variables.extend([(interface, residues) if residues else (interface, out_of_bounds_residue)
                           for interface, residues in interface_residue_ids.items()])
 
         # Assign any additional designable residues
         if self.pose.required_residues:
-            variables.extend([('required_residues', ','.join(f'{res.number}{res.chain}'
+            variables.extend([('required_residues', ','.join(f'{res.number}{res.chain_id}'
                                                              for res in self.pose.required_residues))])
         else:  # Get an out-of-bounds index
             variables.extend([('required_residues', out_of_bounds_residue)])
@@ -1545,7 +1545,7 @@ class PoseProtocol(PoseData):
         residues = self.pose.residues
         center_residues = [residues[index] for index in self.pose.center_residue_indices]
         if center_residues:
-            variables.extend([('core_residues', ','.join([f'{res.number}{res.chain}' for res in center_residues]))])
+            variables.extend([('core_residues', ','.join([f'{res.number}{res.chain_id}' for res in center_residues]))])
         else:  # Get an out-of-bounds index
             variables.extend([('core_residues', out_of_bounds_residue)])
 

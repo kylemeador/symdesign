@@ -569,7 +569,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                     logger.debug(f'Inserting {mutation["from"]} into position {residue_number} on chain '
                                  f'{source_entity.chain_id}')
                     design_pose.insert_residue_type(mutation['from'], at=residue_number,
-                                                    chain=source_entity.chain_id)
+                                                    chain_id=source_entity.chain_id)
                     # adjust mutations to account for insertion
                     for mutation_index in sorted(mutations.keys(), reverse=True):
                         if mutation_index < residue_number:

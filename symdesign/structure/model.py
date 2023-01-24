@@ -737,12 +737,12 @@ class State(Structures):
         #         available_chain_ids = chain_id_generator()
         #         for structure in self.structures:
         #             # for entity in structure.entities:  # Todo handle with multiple Structure containers
-        #             chain = next(available_chain_ids)
-        #             structure.write(file_handle=f, chain=chain)
+        #             chain_id = next(available_chain_ids)
+        #             structure.write(file_handle=f, chain_id=chain_id)
         #             c_term_residue = structure.c_terminal_residue
         #             f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER',
         #                                                                   c_term_residue.atoms[-1].number + 1,
-        #                                                                   c_term_residue.type, chain,
+        #                                                                   c_term_residue.type, chain_id,
         #                                                                   c_term_residue.number))
         #     else:
         #         for model_number, structure in enumerate(self.structures, 1):
@@ -791,7 +791,7 @@ class ContainsChainsMixin:
             return
         chain_residues = []
         for idx, residue in enumerate(residues[1:], 1):  # start at the second index to avoid off by one
-            if residue.number <= prior_residue.number or residue.chain != prior_residue.chain:
+            if residue.number <= prior_residue.number or residue.chain_id != prior_residue.chain_id:
                 # less than or equal number should only happen with new chain. this SHOULD satisfy a malformed PDB
                 chain_residues.append(list(range(residue_idx_start, idx)))
                 residue_idx_start = idx
@@ -800,9 +800,9 @@ class ContainsChainsMixin:
         # perform after iteration which is the final chain
         chain_residues.append(list(range(residue_idx_start, idx + 1)))  # have to increment as if next residue
 
-        self.chain_ids = utils.remove_duplicates([residue.chain for residue in residues])
+        self.chain_ids = utils.remove_duplicates([residue.chain_id for residue in residues])
         # if self.multimodel:
-        self.original_chain_ids = [residues[residue_indices[0]].chain for residue_indices in chain_residues]
+        self.original_chain_ids = [residues[residue_indices[0]].chain_id for residue_indices in chain_residues]
         #     self.log.debug(f'Multimodel file found. Original Chains: {",".join(self.original_chain_ids)}')
         # else:
         #     self.original_chain_ids = self.chain_ids
@@ -860,7 +860,7 @@ class ContainsChainsMixin:
             chain.renumber_residues()
 
     def chain(self, chain_id: str) -> Chain | None:
-        """Return the Chain object specified by the passed chain ID from the PDB object
+        """Return the Chain object specified by the passed chain ID from the Structure object
 
         Args:
             chain_id: The name of the Chain to query
@@ -912,7 +912,7 @@ class Chain(SequenceProfile, Structure):
         try:
             return self._chain_id
         except AttributeError:
-            self._chain_id = self.residues[0].chain
+            self._chain_id = self.residues[0].chain_id
             return self._chain_id
 
     @chain_id.setter
@@ -1288,13 +1288,13 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     # @property
     # def chain_id(self) -> str:
     #     """The Chain name for the Entity instance"""
-    #     return self.residues[0].chain
+    #     return self.residues[0].chain_id
 
     @Chain.chain_id.setter
     def chain_id(self, chain_id: str):
         super().chain_id.fset(self, chain_id)
         # # Same as Chain class property
-        # self.set_residues_attributes(chain=chain_id)
+        # self.set_residues_attributes(chain_id=chain_id)
         # self._chain_id = chain_id
         # Different from Chain class
         if self._is_captain:
@@ -1680,7 +1680,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             oligomer: Whether to write the oligomeric form of the Entity
         Keyword Args:
             asu: bool = True - Whether to output SEQRES for the Entity ASU or the full oligomer
-            chain: str = None - The chain ID to use
+            chain_id: str = None - The chain ID to use
         Returns:
             The name of the written file if out_path is used
         """
@@ -2950,16 +2950,16 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     #         for structure in getattr(self, structure_type):  # Iterate over each Structure in each structure_container
     #             structure.reset_state()
 
-    def insert_residue_type(self, residue_type: str, at: int = None, chain: str = None):  # Todo Structures
+    def insert_residue_type(self, residue_type: str, at: int = None, chain_id: str = None):  # Todo Structures
         """Insert a standard Residue type into the Structure based on Pose numbering (1 to N) at the origin.
         No structural alignment is performed!
 
         Args:
             residue_type: Either the 1 or 3 letter amino acid code for the residue in question
             at: The pose numbered location which a new Residue should be inserted into the Structure
-            chain: The chain identifier to associate the new Residue with
+            chain_id: The chain identifier to associate the new Residue with
         """
-        new_residue = super().insert_residue_type(residue_type, at=at, chain=chain)
+        new_residue = super().insert_residue_type(residue_type, at=at, chain_id=chain_id)
         # must update other Structures indices
         residue_index = at - 1  # since at is one-indexed integer
         # for structures in [self.chains, self.entities]:
@@ -2975,7 +2975,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     break  # move to the next container to update the indices by a set increment
                 except (ValueError, IndexError):  # this should happen if the Atom is not in the Structure of interest
                     # edge case where the index is being appended to the c-terminus
-                    if residue_index - 1 == structure.residue_indices[-1] and new_residue.chain == structure.chain_id:
+                    if residue_index - 1 == structure.residue_indices[-1] and \
+                            new_residue.chain_id == structure.chain_id:
                         structure._insert_indices(at=structure.number_of_residues, new_indices=[residue_index],
                                                   dtype='residue')
                         structure._insert_indices(at=structure.number_of_atoms, new_indices=new_residue.atom_indices,
@@ -3402,7 +3403,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 #  except ValueError:  # the chains are different lengths
                 #      try to use the code identified in Entity to match lengths..., if not, continue
                 #  if rmsd < rmsd_threshold:
-                #      data['chains'].append(chain)
+                #      data['chains'].append(chain_id)
                 #      new_entity = False  # The entity is not unique, do not add
                 #      break
                 # Check if the sequence associated with the Chain is in entity_info
@@ -3680,22 +3681,22 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 #
 #     def maxZchain(self):
 #         highest = self.all_atoms[0].z
-#         highest_chain = self.all_atoms[0].chain
+#         highest_chain = self.all_atoms[0].chain_id
 #         for atom in self.all_atoms:
 #             if not atom.is_axis():
 #                 if atom.z > highest:
 #                     highest = atom.z
-#                     highest_chain = atom.chain
+#                     highest_chain = atom.chain_id
 #         return highest_chain
 #
 #     def minZchain(self):
 #         lowest = self.all_atoms[0].z
-#         lowest_chain = self.all_atoms[0].chain
+#         lowest_chain = self.all_atoms[0].chain_id
 #         for atom in self.all_atoms:
 #             if not atom.is_axis():
 #                 if atom.z < lowest:
 #                     lowest = atom.z
-#                     lowest_chain = atom.chain
+#                     lowest_chain = atom.chain_id
 #         return lowest_chain
 #
 #     def higestCBZ_atom(self):
@@ -3909,7 +3910,7 @@ class Models(Model):
                 for structure in self.models:
                     for chain in structure.chains:
                         chain_id = next(available_chain_ids)
-                        chain.write(file_handle=handle, chain=chain_id, **kwargs)
+                        chain.write(file_handle=handle, chain_id=chain_id, **kwargs)
                         c_term_residue = chain.c_terminal_residue
                         # Todo when used with oligomer=True, the c_term_residue is the first monomer residue...
                         handle.write(f'TER   {c_term_residue.atoms[-1].index + 1:>5d}      {c_term_residue.type:3s} '
@@ -7408,7 +7409,7 @@ class Pose(SymmetricModel, Metrics):
                              "Check that your input has an interface or your flags aren't too stringent")
         else:
             self.log.debug('The interface is split as:\n\tInterface 1: %s\n\tInterface 2: %s'
-                           % tuple(','.join(f'{residue.number}{residue.chain}' for residue in residues)
+                           % tuple(','.join(f'{residue.number}{residue.chain_id}' for residue in residues)
                                    for residues in self.residues_by_interface.values()))
 
     def calculate_secondary_structure(self):
@@ -7921,11 +7922,11 @@ class Pose(SymmetricModel, Metrics):
             available_chain_ids = chain_id_generator()
             for entity_idx, entity in enumerate(self.entities, 1):
                 f.write(f'REMARK 999   Entity {entity_idx} - ID {entity.name}\n')
-                entity.write(file_handle=f, chain=next(available_chain_ids))
+                entity.write(file_handle=f, chain_id=next(available_chain_ids))
                 for chain_idx, chain in enumerate(entity.chains, 1):
                     f.write(f'REMARK 999   Entity {entity_idx} - ID {entity.name}   '
                             f'Chain {chain_idx} - ID {chain.chain_id}\n')
-                    chain.write(file_handle=f, chain=next(available_chain_ids))
+                    chain.write(file_handle=f, chain_id=next(available_chain_ids))
 
         self.log.critical(f'Wrote debugging Pose to: {debug_path}')
 

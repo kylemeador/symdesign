@@ -25,7 +25,7 @@ class GhostFragment:
     _representative: 'structure.base.Structure'
     aligned_fragment: Fragment
     """The Fragment instance that this GhostFragment is aligned too. 
-    Must support .chain, .number, .index, .rotation, .translation, and .transformation attributes
+    Must support .chain_id, .number, .index, .rotation, .translation, and .transformation attributes
     """
     fragment_db: db.FragmentDatabase
     # index: int
@@ -80,9 +80,9 @@ class GhostFragment:
         """Return the Fragment identifiers that the GhostFragment was mapped to
 
         Returns:
-            aligned chain, aligned residue_number
+            aligned chain_id, aligned residue_number
         """
-        return self.aligned_fragment.chain, self.aligned_fragment.number
+        return self.aligned_fragment.chain_id, self.aligned_fragment.number
 
     @property
     def number(self) -> int:
@@ -162,7 +162,7 @@ class Fragment(ABC):
     """Holds coordinates (currently backbone) that represent the fragment during spatial transformation"""
     _fragment_db: db.FragmentDatabase | None
     _guide_coords = np.array([[0., 0., 0.], [3., 0., 0.], [0., 3., 0.]])
-    chain: str
+    chain_id: str
     frag_lower_range: int
     frag_upper_range: int
     ghost_fragments: list | list[GhostFragment] | None
@@ -225,9 +225,9 @@ class Fragment(ABC):
         """Return the Fragment identifiers that the Fragment was mapped to
 
         Returns:
-            aligned chain, aligned residue_number
+            aligned chain_id, aligned residue_number
         """
-        return self.chain, self.number
+        return self.chain_id, self.number
 
     @property
     def index(self) -> int:
@@ -392,14 +392,14 @@ class MonoFragment(Fragment):
         """Return the Fragment identifiers that the MonoFragment was mapped to
 
         Returns:
-            aligned chain, aligned residue_number
+            aligned chain_id, aligned residue_number
         """
-        return self.central_residue.chain, self.central_residue.number
+        return self.central_residue.chain_id, self.central_residue.number
 
     @property
     def chain(self) -> str:
         """The Residue number"""
-        return self.central_residue.chain
+        return self.central_residue.chain_id
 
     @property
     def number(self) -> int:
@@ -501,9 +501,9 @@ class ResidueFragment(Fragment, ABC):
     #     """Return the Fragment identifiers that the ResidueFragment was mapped to
     #
     #     Returns:
-    #         aligned chain, aligned residue_number
+    #         aligned chain_id, aligned residue_number
     #     """
-    #     return self.chain, self.number
+    #     return self.chain_id, self.number
 
 
 # @njit
@@ -639,8 +639,8 @@ def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: F
         out_info_file.write('CENTRAL RESIDUES\noligomer1 ch, resnum: {}, {}\noligomer2 ch, resnum: {}, {}\n'.format(
             *ghost_frag.aligned_chain_and_residue, *matched_frag.aligned_chain_and_residue))
         # Todo
-        #  out_info_file.write('oligomer1 ch, resnum: %s, %d\n' % (ghost_residue.chain, ghost_residue.residue))
-        #  out_info_file.write('oligomer2 ch, resnum: %s, %d\n' % (matched_residue.chain, matched_residue.residue))
+        #  out_info_file.write('oligomer1 ch, resnum: %s, %d\n' % (ghost_residue.chain_id, ghost_residue.residue))
+        #  out_info_file.write('oligomer2 ch, resnum: %s, %d\n' % (matched_residue.chain_id, matched_residue.residue))
         out_info_file.write('FRAGMENT CLUSTER\n')
         out_info_file.write(f'id: {cluster_id}\n')
         out_info_file.write(f'mean rmsd: {ghost_frag.rmsd}\n')
