@@ -257,6 +257,7 @@ def interface_metrics(job: pose.PoseJob):
 
     metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if job.symmetry_dimension > 0 else []) + \
         [os.path.join(putils.rosetta_scripts_dir, f'{job.protocol}{"_DEV" if job.job.development else ""}.xml')]
+    job.log.info(f'Metrics command for Pose: {list2cmdline(metric_cmd_bound)}')
     entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
                                           f'metrics_entity{"_DEV" if job.job.development else ""}.xml')]
     metric_cmds = [metric_cmd_bound]
