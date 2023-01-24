@@ -7434,14 +7434,6 @@ class Pose(SymmetricModel, Metrics):
 
         pose_secondary_structure = ''
         for entity in self.entities:  # self.active_entities:
-            # if not entity.secondary_structure:
-            # Try to get the already parsed secondary structure informatino
-            parsed_secondary_structure = retrieve_stride_info(name=entity.name)
-            if parsed_secondary_structure:
-                entity.secondary_structure = parsed_secondary_structure
-            else:
-                entity.stride(to_file=self.api_db.stride.path_to(entity.name))
-            # Generate it new
             pose_secondary_structure += entity.secondary_structure
 
         # Todo include these in ContainsResiduesMixin (still overwrite them here using self.entities)

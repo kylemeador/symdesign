@@ -4486,7 +4486,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             try:
                 self.secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
             except AttributeError:
-                self.stride()
+                self.calculate_secondary_structure()
             # self._secondary_structure = self.fill_secondary_structure()
             return self._secondary_structure
 
