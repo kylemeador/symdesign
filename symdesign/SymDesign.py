@@ -43,6 +43,7 @@ from symdesign.resources.query.utils import validate_input_return_response_value
 from symdesign.resources import sql, wrapapi
 from symdesign.structure.fragment.db import fragment_factory, euler_factory
 from symdesign.structure.model import Entity, Model
+from symdesign.structure import utils as stutils
 from symdesign.sequence import create_mulitcistronic_sequences
 from symdesign.utils import guide, nanohedra
 
@@ -910,6 +911,8 @@ def main():
             grouped_structures.append(job.structure_db.orient_structures(structure_names2,
                                                                          symmetry=job.sym_entry.group2,
                                                                          by_file=by_file2))
+            # Get api wrapper
+            retrieve_stride_info = wrapapi.api_database_factory().stride.retrieve_data
             # Initialize the local database
             # # Populate all_entities to set up sequence dependent resources
             # all_entities = []
@@ -924,6 +927,13 @@ def main():
                 for structure in structures:
                     # all_entities.extend(structure.entities)
                     for entity in structure.entities:
+                        # Try to get the already parsed secondary structure informatino
+                        parsed_secondary_structure = retrieve_stride_info(name=entity.name)
+                        if parsed_secondary_structure:
+                            entity.secondary_structure = parsed_secondary_structure
+                        else:
+                            entity.stride(to_file=job.api_db.stride.path_to(entity.name))
+                            # entity.calculate_secondary_structure()
                         protein_metadata = sql.ProteinMetadata(
                             entity_id=entity.name,
                             reference_sequence=entity.reference_sequence,
@@ -1160,6 +1170,9 @@ def main():
                 else:
                     symmetry_map = repeat('C1')
                     preprocess_entities_by_symmetry = {'C1': []}
+
+                # Get api wrapper
+                retrieve_stride_info = wrapapi.api_database_factory().stride.retrieve_data
                 possibly_new_uniprot_to_prot_metadata: dict[tuple[str, ...], sql.ProteinMetadata] = {}
                 existing_uniprot_ids = set()
                 existing_uniprot_entities = set()
@@ -1192,6 +1205,13 @@ def main():
                             # Check if the tuple of UniProtIDs has already been observed
                             protein_metadata = possibly_new_uniprot_to_prot_metadata.get(uniprot_ids, None)
                             if protein_metadata is None:  # uniprot_ids in possibly_new_uniprot_to_prot_metadata:
+                                # Try to get the already parsed secondary structure informatino
+                                parsed_secondary_structure = retrieve_stride_info(name=entity.name)
+                                if parsed_secondary_structure:
+                                    entity.secondary_structure = parsed_secondary_structure
+                                else:
+                                    entity.stride(to_file=job.api_db.stride.path_to(entity.name))
+                                    # entity.calculate_secondary_structure()
                                 # Process for persistent state
                                 protein_metadata = sql.ProteinMetadata(
                                     entity_id=entity.name,
