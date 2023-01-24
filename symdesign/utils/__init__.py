@@ -1213,4 +1213,4 @@ def condensed_to_square(k, n):
 
 # from . import cluster
 # from . import CommandDistributer
-from . import sql, SymEntry, symmetry
+from . import SymEntry, symmetry

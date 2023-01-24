@@ -126,32 +126,6 @@
 		<FilterReportAsPoseExtraScoresMover name="no" report_as="repacking" filter_name="report_false"/>
 		<SwitchMover name="repack_switch" movers="yes,no" selected="%%repack%%"/>
 		# the main protocol to loop over for interface design
-<!--        <ParsedProtocol name="sym_metrics">-->
-<!--			<Add mover_name="S_run_metrics_bound"/>-->
-<!--&lt;!&ndash;			<Add mover_name="run_metrics_hydrophobic_sasa_bound"/>&ndash;&gt;-->
-<!--&lt;!&ndash;			<Add mover_name="run_metrics_polar_sasa_bound"/>&ndash;&gt;-->
-<!--&lt;!&ndash;			<Add mover_name="run_metrics_sasa_bound"/>&ndash;&gt;-->
-<!--&lt;!&ndash;			<Add mover_name="run_metrics_bound_sum_sasa_hydrophobic"/>&ndash;&gt;-->
-<!--&lt;!&ndash;			<Add mover_name="run_metrics_bound_sum_sasa_polar"/>&ndash;&gt;-->
-<!--&lt;!&ndash;			<Add mover_name="run_metrics_bound_sum_sasa_total"/>&ndash;&gt;-->
-<!--			<Add filter_name="R_S_buns%%entity%%_unbound"/>-->
-<!--			<Add mover_name="repack_interface"/> # Unused in P432 for minimization of the unbound state-->
-<!--			<Add filter_name="R_entity%%entity%%_interface_connectivity"/>-->
-<!--			<Add mover_name="S_run_metrics_unbound"/>-->
-<!--		</ParsedProtocol>-->
-<!--        <ParsedProtocol name="asymmetric_metrics">-->
-<!--			<Add mover_name="run_metrics_bound"/>-->
-<!--&lt;!&ndash;			<Add mover_name="run_metrics_hydrophobic_sasa_bound"/>&ndash;&gt;-->
-<!--&lt;!&ndash;			<Add mover_name="run_metrics_polar_sasa_bound"/>&ndash;&gt;-->
-<!--&lt;!&ndash;			<Add mover_name="run_metrics_sasa_bound"/>&ndash;&gt;-->
-<!--&lt;!&ndash;			<Add mover_name="run_metrics_bound_sum_sasa_hydrophobic"/>&ndash;&gt;-->
-<!--&lt;!&ndash;			<Add mover_name="run_metrics_bound_sum_sasa_polar"/>&ndash;&gt;-->
-<!--&lt;!&ndash;			<Add mover_name="run_metrics_bound_sum_sasa_total"/>&ndash;&gt;-->
-<!--			<Add filter_name="R_buns%%entity%%_unbound"/>-->
-<!--			<Add mover_name="repack_interface"/> # Unused in P432 for minimization of the unbound state-->
-<!--			<Add filter_name="R_entity%%entity%%_interface_connectivity"/>-->
-<!--			<Add mover_name="run_metrics_unbound"/>-->
-<!--		</ParsedProtocol>-->
 		<ParsedProtocol name="metrics">
 			<Add mover_name="run_metrics_bound"/>
 			<Add mover_name="run_solv_metrics_bound"/>
@@ -166,7 +140,6 @@
     # Symmetry set up - generates symmetry for the system in question using %%sdf%% or %%dist%%
 	<MOVERS>
 		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
-<!--		<If name="metrics" filter_name="read_sym" true_mover_name="sym_metrics" false_mover_name="asymmetric_metrics"/>-->
 	</MOVERS>
 
 	<PROTOCOLS>
