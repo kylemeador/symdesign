@@ -15,8 +15,8 @@ from sqlalchemy.orm import declarative_base, relationship, Session, column_prope
 # from sqlalchemy import create_engine
 # from sqlalchemy.dialects.sqlite import insert
 
-from symdesign.resources import config
-from . import symmetry
+from . import config
+from symdesign.utils import symmetry
 # from symdesign import resources
 
 

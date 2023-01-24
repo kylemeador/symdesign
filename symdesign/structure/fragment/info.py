@@ -262,8 +262,8 @@ class FragmentInfo:
 
         return '_'.join(info)
 
-    def start_mysql_connection(self):
-        self.fragdb = utils.sql.Mysql(host='cassini-mysql', database='kmeader', user='kmeader', password='km3@d3r')
+    # def start_mysql_connection(self):
+    #     self.fragdb = sql.Mysql(host='cassini-mysql', database='kmeader', user='kmeader', password='km3@d3r')
 
 
 def parameterize_frag_length(length: int) -> tuple[int, int]:

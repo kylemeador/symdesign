@@ -23,6 +23,8 @@ from . import cluster
 from .pose import PoseJob
 from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, job as symjob
+from symdesign.resources.sql import EntityData, EntityTransform, PoseResidueMetrics, PoseMetrics
+from symdesign.sequence import protein_letters_alph1
 from symdesign.structure.base import Structure, Residue
 from symdesign.structure.coords import transform_coordinate_sets
 from symdesign.structure.fragment import GhostFragment
@@ -31,9 +33,7 @@ from symdesign.structure.fragment.visuals import write_fragment_pairs_as_accumul
 from symdesign.structure.model import Pose, Model, get_matching_fragment_pairs_info, Models
 from symdesign.structure.sequence import concatenate_profile, pssm_as_array
 from symdesign.structure.utils import chain_id_generator
-from symdesign.sequence import protein_letters_alph1
 from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
-from symdesign.utils.sql import EntityData, EntityTransform, PoseResidueMetrics, PoseMetrics
 from symdesign.utils.symmetry import generate_cryst1_record, identity_matrix
 putils = utils.path
 

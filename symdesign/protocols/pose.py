@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import json
 import logging
 import os
-import pickle
 import re
 import shutil
 import warnings
-from abc import ABC
 from glob import glob
 from itertools import combinations, repeat
 from pathlib import Path
@@ -30,14 +27,15 @@ from scipy.spatial.distance import pdist, cdist
 from sqlalchemy.orm import reconstructor
 
 from symdesign import flags, metrics, resources
+from symdesign.resources import sql
+from symdesign.sequence import MultipleSequenceAlignment, read_fasta_file, write_sequences
 from symdesign.structure import fragment
 from symdesign.structure.base import Structure
 from symdesign.structure.model import Pose, Models, Model, Entity
 from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
-from symdesign.sequence import MultipleSequenceAlignment, protein_letters_3to1, read_fasta_file, write_sequences
 from symdesign.structure.utils import DesignError, ClashError
-from symdesign.utils import large_color_array, starttime, start_log, pickle_object, write_shell_script, \
-    all_vs_all, condensed_to_square, rosetta, InputError, sql, path as putils, timestamp
+from symdesign.utils import large_color_array, start_log, pickle_object, write_shell_script, \
+    all_vs_all, condensed_to_square, rosetta, InputError, path as putils, timestamp
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
 # from symdesign.utils.nanohedra.general import get_components_from_nanohedra_docking
 
@@ -1598,7 +1596,7 @@ class PoseProtocol(PoseData):
             metric_cmd = base_command \
                 + ['-parser:script_vars', 'repack=yes', f'entity={idx}', entity_sym] \
                 + ([entity_sdf] if entity_sdf != '' else [])
-            self.log.info(f'Metrics Command for Entity {name}: {list2cmdline(metric_cmd)}')
+            self.log.info(f'Metrics command for Entity {name}: {list2cmdline(metric_cmd)}')
             entity_metric_commands.append(metric_cmd)
 
         return entity_metric_commands
@@ -2866,7 +2864,7 @@ class PoseProtocol(PoseData):
                 + symmetry_definition
             entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
                                                   f'metrics_entity{"_DEV" if self.job.development else ""}.xml')]
-            self.log.info(f'Metrics Command: {list2cmdline(metric_cmd_bound)}')
+            self.log.info(f'Metrics command for Pose: {list2cmdline(metric_cmd_bound)}')
             metric_cmds = [metric_cmd_bound]
             metric_cmds.extend(self.generate_entity_metrics_commands(entity_cmd))
         else:
