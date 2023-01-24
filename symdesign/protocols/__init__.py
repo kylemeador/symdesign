@@ -123,7 +123,8 @@ def predict_structure(job: pose.PoseJob):
     Args:
         job: The PoseJob for which the protocol should be performed on
     """
-    job.load_pose()
+    # job.load_pose()
+    job.identify_interface()
     # Acquire the pose_metrics if None have been made yet
     job.calculate_pose_metrics()
 
@@ -146,12 +147,9 @@ def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None
     """
     # Todo reflect modern metrics collection
     raise NotImplementedError('This module is outdated, please update it to use')
+    job.identify_interface()
     cmd = rosetta.script_cmd.copy()
     script_name = os.path.splitext(os.path.basename(script))[0]
-    # if job.interface_residue_numbers is False or job.interface_design_residue_numbers is False:
-    job.identify_interface()
-    # else:  # We only need to load pose as we already calculated interface
-    #     job.load_pose()
 
     if not os.path.exists(job.flags) or job.job.force:
         job.prepare_rosetta_flags(out_dir=job.scripts_path)
@@ -227,13 +225,10 @@ def interface_metrics(job: pose.PoseJob):
     Args:
         job: The PoseJob for which the protocol should be performed on
     """
+    job.identify_interface()
     # metrics_flags = 'repack=yes'
     job.protocol = putils.interface_metrics
     main_cmd = rosetta.script_cmd.copy()
-    # if job.interface_residue_numbers is False or job.interface_design_residue_numbers is False:
-    job.identify_interface()
-    # else:  # We only need to load pose as we already calculated interface
-    #     job.load_pose()
 
     # Acquire the pose_metrics if None have been made yet
     job.calculate_pose_metrics()
@@ -429,6 +424,8 @@ def refine(job: pose.PoseJob):
     Args:
         job: The PoseJob for which the protocol should be performed on
     """
+    # job.load_pose()
+    job.identify_interface()
     job.refine()  # Inherently utilized... gather_metrics=job.job.metrics)
 
 
@@ -441,13 +438,7 @@ def interface_design(job: pose.PoseJob):
     Args:
         job: The PoseJob for which the protocol should be performed on
     """
-    # if job.job.command_only and not job.job.distribute_work:  # Just reissue the commands
-    #     pass
-    # else:
-    # if job.interface_residue_numbers is False or job.interface_design_residue_numbers is False:
     job.identify_interface()
-    # else:  # We only need to load pose as we already calculated interface
-    #     job.load_pose()
 
     putils.make_path(job.data_path)  # Todo consolidate this check with pickle_info()
     # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
@@ -517,13 +508,8 @@ def design(job: pose.PoseJob):
     Args:
         job: The PoseJob for which the protocol should be performed on
     """
-    # if job.job.command_only and not job.job.distribute_work:  # Just reissue the commands
-    #     pass
-    # else:
-    # if job.interface_residue_numbers is False or job.interface_design_residue_numbers is False:
-    #     job.identify_interface()
-    # else:  # We only need to load pose as we already calculated interface
-    job.load_pose()
+    # job.load_pose()
+    job.identify_interface()
 
     putils.make_path(job.data_path)  # Todo consolidate this check with pickle_info()
     # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
@@ -706,8 +692,9 @@ def process_rosetta_metrics(job: pose.PoseJob):
     Args:
         job: The PoseJob for which the protocol should be performed on
     """
+    # job.load_pose()
+    job.identify_interface()
     # Acquire the pose_metrics if None have been made yet
-    job.load_pose()
     job.calculate_pose_metrics()
     if os.path.exists(job.scores_file):
         return job.process_rosetta_metrics()
@@ -725,6 +712,8 @@ def analysis(job: pose.PoseJob, designs: Iterable[Pose] | Iterable[AnyStr] = Non
     Returns:
         Series containing summary metrics for all designs in the design directory
     """
+    # job.load_pose()
+    job.identify_interface()
     # Acquire the pose_metrics if None have been made yet
     job.calculate_pose_metrics()
 
