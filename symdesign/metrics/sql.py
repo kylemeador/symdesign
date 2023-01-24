@@ -9,7 +9,7 @@ from sqlalchemy import inspect
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
-from symdesign.resources import job, sql
+from symdesign.resources import job as sym_job, sql
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -223,7 +223,7 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
     #                        "transaction")
     #         warned = True
 
-    job = job.job_resources_factory()
+    job = sym_job.job_resources_factory()
     # engine = job.db.engine
     session = job.current_session
     if poses is not None:
