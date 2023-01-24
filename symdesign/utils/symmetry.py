@@ -7,8 +7,7 @@ from typing import List, Union
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from symdesign import utils
-putils = utils.path
+from . import path as putils, pickle_object, unpickle
 
 chiral_space_groups = [
     'P1',  # TRICLINIC
@@ -70,11 +69,11 @@ space_group_number_operations = \
      'P4232': 24}
 cubic_point_groups = ['T', 'O', 'I']
 point_group_symmetry_operators: dict[str, np.ndarray] = \
-    utils.unpickle(putils.point_group_symmetry_operator_location)
+    unpickle(putils.point_group_symmetry_operator_location)
 # with format {'symmetry': rotations[N, 3, 3], ...}
 # where the rotations are pre-transposed to match requirements of np.matmul(coords, rotation)
 space_group_symmetry_operators: dict[str, np.ndarray] = \
-    utils.unpickle(putils.space_group_symmetry_operator_location)
+    unpickle(putils.space_group_symmetry_operator_location)
 # with format {'symmetry': (rotations[N, 3, 3], translations[N, 1, 3]), ...}
 # where the rotations are pre-transposed to match requirements of np.matmul(coords, rotation)
 # Todo modify to use only this or all_sym_entry_dict
@@ -608,7 +607,7 @@ def generate_sym_op_pickles():
     for group in nanohedra_space_groups:
         # sym_op_outfile_path = os.path.join(putils.sym_op_location, f'{symmetry_group}.pkl')
         symmetry_op = get_sg_sym_op(group)
-        utils.pickle_object(symmetry_op, name=symmetry_group, out_path=pickled_dir)
+        pickle_object(symmetry_op, name=symmetry_group, out_path=pickled_dir)
 
 
 identity_matrix = setting_matrices[1]
@@ -664,8 +663,8 @@ if __name__ == '__main__':
     # print('Last spacegroup found:', space_group_operators[symmetry_group])
     continue1 = input('Save these results? Yes hits "Enter". Ctrl-C is quit: ')
     # pickle_object(space_group_operators, name='space_group_operators', out_path=pickled_dir)
-    space_group_file = utils.pickle_object(space_group_operators,
-                                           out_path=putils.space_group_symmetry_operator_location)
+    space_group_file = pickle_object(space_group_operators,
+                                     out_path=putils.space_group_symmetry_operator_location)
     print(space_group_file)
     # sym_op_outfile = open(sym_op_outfile_path, "w")
     # pickle.dump(sym_op, sym_op_outfile)
@@ -693,8 +692,8 @@ if __name__ == '__main__':
     # print('Last pointgroup found:', point_group_operators[symmetry])
     continue2 = input('Save these results? Yes hits "Enter". Ctrl-C is quit: ')
     # pickle_object(point_group_operators, name='point_group_operators', out_path=pickled_dir)
-    point_group_file = utils.pickle_object(point_group_operators,
-                                           out_path=putils.point_group_symmetry_operator_location)
+    point_group_file = pickle_object(point_group_operators,
+                                     out_path=putils.point_group_symmetry_operator_location)
     print(point_group_file)
     # print({notation: notation.replace(' ', '') for notation in hg_notation})
     # generate_sym_op_pickles(sg_op_filepath)
