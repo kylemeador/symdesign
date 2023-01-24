@@ -790,14 +790,14 @@ class ContainsChainsMixin:
         except TypeError:   # self.residues is None
             return
         chain_residues = []
-        for idx, residue in enumerate(residues[1:], 1):  # start at the second index to avoid off by one
+        for idx, residue in enumerate(residues[1:], 1):  # Start at the second index to avoid off by one
             if residue.number <= prior_residue.number or residue.chain_id != prior_residue.chain_id:
-                # less than or equal number should only happen with new chain. this SHOULD satisfy a malformed PDB
+                # Less than or equal number should only happen with new chain. this SHOULD satisfy a malformed PDB
                 chain_residues.append(list(range(residue_idx_start, idx)))
                 residue_idx_start = idx
             prior_residue = residue
 
-        # perform after iteration which is the final chain
+        # Perform after iteration which is the final chain
         chain_residues.append(list(range(residue_idx_start, idx + 1)))  # have to increment as if next residue
 
         self.chain_ids = utils.remove_duplicates([residue.chain_id for residue in residues])
@@ -808,14 +808,14 @@ class ContainsChainsMixin:
         #     self.original_chain_ids = self.chain_ids
 
         number_of_chain_ids = len(self.chain_ids)
-        if len(chain_residues) != number_of_chain_ids:  # would be different if a multimodel or some weird naming
+        if len(chain_residues) != number_of_chain_ids:  # Would be different if a multimodel or some weird naming
             available_chain_ids = chain_id_generator()
             new_chain_ids = []
             for chain_idx in range(len(chain_residues)):
-                if chain_idx < number_of_chain_ids:  # use the chain_ids version
+                if chain_idx < number_of_chain_ids:  # Use the chain_ids version
                     chain_id = self.chain_ids[chain_idx]
                 else:
-                    # chose next available chain unless already taken, then try another
+                    # Chose next available chain unless already taken, then try another
                     chain_id = next(available_chain_ids)
                     while chain_id in self.chain_ids:
                         chain_id = next(available_chain_ids)
@@ -901,7 +901,7 @@ class Chain(SequenceProfile, Structure):
         super().__init__(name=name if name else chain_id, **kwargs)
         # only if this instance is a Chain, set residues_attributes as in chain_id.setter
         if type(self) == Chain and chain_id is not None:
-            self.set_residues_attributes(chain=chain_id)
+            self.set_residues_attributes(chain_id=chain_id)
 
         if as_mate:
             self.detach_from_parent()
@@ -917,7 +917,7 @@ class Chain(SequenceProfile, Structure):
 
     @chain_id.setter
     def chain_id(self, chain_id: str):
-        self.set_residues_attributes(chain=chain_id)
+        self.set_residues_attributes(chain_id=chain_id)
         self._chain_id = chain_id
 
     @property
@@ -1785,7 +1785,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 raise SymmetryError(f'{file_name} could not be oriented: It has {number_of_subunits} subunits '
                                     f'while a multiple of {subunit_number} are expected for {symmetry} symmetry')
         else:
-            raise SymmetryError(f'{self.name}: Cannot orient a Structure with only a single chain. No symmetry present')
+            raise SymmetryError(f"{self.name}: Can't orient a Structure with only a single chain. No symmetry present")
 
         orient_input = Path(putils.orient_exe_dir, 'input.pdb')
         orient_output = Path(putils.orient_exe_dir, 'output.pdb')
@@ -2850,7 +2850,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     raise SymmetryError(f'{file_name} could not be oriented: It has {number_of_subunits} subunits '
                                         f'while a multiple of {subunit_number} are expected for {symmetry} symmetry')
         else:
-            raise SymmetryError(f'{self.name}: Cannot orient a Structure with only a single chain. No symmetry present')
+            raise SymmetryError(f"{self.name}: Can't orient a Structure with only a single chain. No symmetry present")
 
         orient_input = Path(putils.orient_exe_dir, 'input.pdb')
         orient_output = Path(putils.orient_exe_dir, 'output.pdb')

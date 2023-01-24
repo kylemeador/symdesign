@@ -435,9 +435,9 @@ def read_pdb_file(file: AnyStr, pdb_lines: list[str] = None, separate_coords: bo
              else
              # initialize with individual coords. Not sure why anyone would do this, but include for compatibility
              [Atom(number=number, atom_type=atom_type, alt_location=alt_location, residue_type=residue_type,
-                   chain=chain, residue_number=residue_number, code_for_insertion=code_for_insertion,
+                   chain_id=chain_id, residue_number=residue_number, code_for_insertion=code_for_insertion,
                    coords=coords[idx], occupancy=occupancy, b_factor=b_factor, element=element, charge=charge)
-              for idx, (number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion,
+              for idx, (number, atom_type, alt_location, residue_type, chain_id, residue_number, code_for_insertion,
                         occupancy, b_factor, element, charge)
               in enumerate(temp_info)],
              biomt=biomt,  # go to Structure
@@ -734,9 +734,10 @@ class Atom(StructureBase):
     state_attributes: set[str] = StructureBase.state_attributes | {'_sasa'}
 
     def __init__(self, index: int = None, number: int = None, atom_type: str = None, alt_location: str = ' ',
-                 residue_type: str = None, chain: str = None, residue_number: int = None, code_for_insertion: str = ' ',
-                 x: float = None, y: float = None, z: float = None, occupancy: float = None, b_factor: float = None,
-                 element: str = None, charge: str = None, coords: list[float] = None, **kwargs):
+                 residue_type: str = None, chain_id: str = None, residue_number: int = None,
+                 code_for_insertion: str = ' ', x: float = None, y: float = None, z: float = None,
+                 occupancy: float = None, b_factor: float = None, element: str = None, charge: str = None,
+                 coords: list[float] = None, **kwargs):
         # kwargs passed to StructureBase
         #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
         super().__init__(**kwargs)
@@ -746,7 +747,7 @@ class Atom(StructureBase):
         self._type_str = f'{"" if atom_type[3:] else " "}{atom_type:<3s}'  # pad with space if atom_type is len()=4
         self.alt_location = alt_location
         self.residue_type = residue_type
-        self.chain_id = chain
+        self.chain_id = chain_id
         self.pdb_residue_number = residue_number
         self.residue_number = residue_number  # originally set the same as parsing
         self.code_for_insertion = code_for_insertion
@@ -768,11 +769,11 @@ class Atom(StructureBase):
         #     self._residues = parent._residues  # Todo make empty Residues for Structure objects?
 
     @classmethod
-    def without_coordinates(cls, idx, number, atom_type, alt_location, residue_type, chain, residue_number,
+    def without_coordinates(cls, idx, number, atom_type, alt_location, residue_type, chain_id, residue_number,
                             code_for_insertion, occupancy, b_factor, element, charge):
         """Initialize without coordinates"""
         return cls(index=idx, number=number, atom_type=atom_type, alt_location=alt_location, residue_type=residue_type,
-                   chain=chain, residue_number=residue_number, code_for_insertion=code_for_insertion,
+                   chain_id=chain_id, residue_number=residue_number, code_for_insertion=code_for_insertion,
                    occupancy=occupancy, b_factor=b_factor, element=element, charge=charge, coords=[])  # list for speed
 
     def detach_from_parent(self):
