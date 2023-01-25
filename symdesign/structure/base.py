@@ -1179,6 +1179,41 @@ class Atoms:
         yield from self.atoms.tolist()
 
 
+class ContainsResiduesMixin(StructureBase, ABC):
+    ss_sequence_indices: list[int]
+    """Index which indicates the Residue membership to the secondary structure type element sequence"""
+    ss_type_sequence: list[str]
+    """The ordered secondary structure type sequence which contains one character/secondary structure element"""
+
+    def __init__(self, kwargs):
+        raise NotImplementedError(f'{self.__class__.__name__} needs more work')
+        super().__init__(**kwargs)
+        self.ss_sequence_indices = []
+        self.ss_type_sequence = []
+
+    def calculate_secondary_structure(self):
+        """"""
+        self.stride()
+        secondary_structure = self.secondary_structure
+
+        ss_sequence_indices, ss_type_sequence = [], []
+        # Increment a secondary structure index which changes with every secondary structure transition
+        # Simultaneously, map the secondary structure type to an array of pose length
+        ss_increment_index = 0
+        ss_sequence_indices.append(ss_increment_index)
+        ss_type_sequence.append(secondary_structure[0])
+        for prior_ss_type, ss_type in zip(secondary_structure[:-1], secondary_structure[1:]):
+            if prior_ss_type != ss_type:
+                ss_increment_index += 1
+                ss_type_sequence.append(ss_type)
+            ss_sequence_indices.append(ss_increment_index)
+
+        # Clear any information if it exists
+        self.ss_sequence_indices.clear(), self.ss_type_sequence.clear()
+        self.ss_sequence_indices.extend(ss_sequence_indices)
+        self.ss_type_sequence.extend(ss_type_sequence)
+
+
 class ContainsAtomsMixin(StructureBase, ABC):
     # _atom_indices: list[int]
     _atoms: Atoms
