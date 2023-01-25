@@ -43,7 +43,7 @@ from symdesign.resources.query.utils import validate_input_return_response_value
 from symdesign.resources import sql, wrapapi
 from symdesign.structure.fragment.db import fragment_factory, euler_factory
 from symdesign.structure.model import Entity, Model
-from symdesign.structure import utils as stutils
+# from symdesign.structure import utils as stutils
 from symdesign.sequence import create_mulitcistronic_sequences
 from symdesign.utils import guide, nanohedra
 
@@ -296,28 +296,28 @@ def main():
         # print('\n')
         exit(exit_code)
 
-    def get_sym_entry_from_nanohedra_directory(nanohedra_dir: AnyStr) -> utils.SymEntry.SymEntry:
-        """Handles extraction of Symmetry info from Nanohedra outputs.
-
-        Args:
-            nanohedra_dir: The path to a Nanohedra master output directory
-        Raises:
-            FileNotFoundError: If no nanohedra master log file is found
-            SymmetryError: If no symmetry is found
-        Returns:
-            The SymEntry specified by the Nanohedra docking run
-        """
-        log_path = os.path.join(nanohedra_dir, putils.master_log)
-        try:
-            with open(log_path, 'r') as f:
-                for line in f.readlines():
-                    if 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
-                        return utils.SymEntry.symmetry_factory.get(int(line.split(':')[-1]))  # sym_map inclusion?
-        except FileNotFoundError:
-            raise FileNotFoundError('Nanohedra master directory is malformed. '
-                                    f'Missing required docking file {log_path}')
-        raise utils.InputError(f'Nanohedra master docking file {log_path} is malformed. Missing required info'
-                               ' "Nanohedra Entry Number:"')
+    # def get_sym_entry_from_nanohedra_directory(nanohedra_dir: AnyStr) -> utils.SymEntry.SymEntry:
+    #     """Handles extraction of Symmetry info from Nanohedra outputs.
+    #
+    #     Args:
+    #         nanohedra_dir: The path to a Nanohedra master output directory
+    #     Raises:
+    #         FileNotFoundError: If no nanohedra master log file is found
+    #         SymmetryError: If no symmetry is found
+    #     Returns:
+    #         The SymEntry specified by the Nanohedra docking run
+    #     """
+    #     log_path = os.path.join(nanohedra_dir, putils.master_log)
+    #     try:
+    #         with open(log_path, 'r') as f:
+    #             for line in f.readlines():
+    #                 if 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
+    #                     return utils.SymEntry.symmetry_factory.get(int(line.split(':')[-1]))  # sym_map inclusion?
+    #     except FileNotFoundError:
+    #         raise FileNotFoundError('Nanohedra master directory is malformed. '
+    #                                 f'Missing required docking file {log_path}')
+    #     raise utils.InputError(f'Nanohedra master docking file {log_path} is malformed. Missing required info'
+    #                            ' "Nanohedra Entry Number:"')
 
     def initialize_entities(structures: Iterable[structure.base.Structure],
                             possibly_new_uniprot_to_prot_data: dict[tuple[str, ...], sql.ProteinMetadata] = None,
@@ -545,9 +545,9 @@ def main():
             # residue_selector
             # visualize
             #     print('Usage: %s -r %s -- [-d %s, -df %s, -f %s] visualize --range 0-10'
-            #           % (SDUtils.ex_path('pymol'), putils.program_command.replace('python ', ''),
-            #              SDUtils.ex_path('pose_directory'), SDUtils.ex_path('DataFrame.csv'),
-            #              SDUtils.ex_path('design.paths')))
+            #           % (putils.ex_path('pymol'), putils.program_command.replace('python ', ''),
+            #              putils.ex_path('pose_directory'), SDUtils.ex_path('DataFrame.csv'),
+            #              putils.ex_path('design.paths')))
         # else:  # Print the full program readme and exit
         #     guide.print_guide()
         #     exit()
@@ -581,8 +581,8 @@ def main():
     #         return write_fasta(sequences, file_name=f'{os.path.splitext(pdb.file_path)[0]}_residue_selector_sequence')
     #
     #     if not args.single:
-    #         raise SDUtils.DesignError('You must pass a single pdb file to %s. Ex:\n\t%s --single my_pdb_file.pdb '
-    #                                   'residue_selector' % (putils.program_name, putils.program_command))
+    #         raise utils.DesignError('You must pass a single pdb file to %s. Ex:\n\t%s --single my_pdb_file.pdb '
+    #                                 'residue_selector' % (putils.program_name, putils.program_command))
     #     fasta_file = generate_sequence_template(args.single)
     #     logger.info('The residue_selector template was written to %s. Please edit this file so that the '
     #                 'residue_selector can be generated for protein design. Selection should be formatted as a "*" '

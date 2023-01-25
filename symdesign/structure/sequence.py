@@ -23,7 +23,7 @@ from .fragment import info
 from .fragment.db import alignment_types_literal, alignment_types, fragment_info_type
 from symdesign import metrics, utils as sdutils
 # from symdesign.utils import path as putils
-from symdesign.sequence import  alignment_programs_literal, alignment_programs, hhblits, get_lod, \
+from symdesign.sequence import alignment_programs_literal, alignment_programs, hhblits, get_lod, \
     MultipleSequenceAlignment, mutation_dictionary, numerical_profile, numerical_translation_alph1_bytes, \
     numerical_translation_alph1_gapped_bytes, parse_hhblits_pssm, protein_letters_alph1, protein_letters_alph3, \
     protein_letters_3to1, profile_types, protein_letters_literal, profile_keys, write_sequence_to_fasta, write_sequences
