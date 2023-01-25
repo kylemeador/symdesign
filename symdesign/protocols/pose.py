@@ -3641,7 +3641,7 @@ class PoseProtocol(PoseData):
         #  Make this capability
         #   pose_alignment.tolist()
         # Ensure we have strings as MultipleSequenceAlignment.from_dictionary() SeqRecord requires ids as strings
-        design_names = [str(_id) for _id in design_ids]
+        design_names = [str(id_) for id_ in design_ids]
         design_sequences = dict(zip(design_names, sequences))
         pose_alignment = MultipleSequenceAlignment.from_dictionary(design_sequences)
         # Todo this must be calculated on the entire Designs batch
@@ -3748,7 +3748,7 @@ class PoseProtocol(PoseData):
         # Todo get residues_df['design_indices']
         # Find all designs files
         # if designs is None:
-        design_ids = self.design_ids
+        design_names = self.design_names
         design_files = self.get_design_files()  # Todo PoseJob(.path)
         new_design_filenames = []
         rosetta_provided_new_design_names = []
@@ -3756,7 +3756,7 @@ class PoseProtocol(PoseData):
             # Collect metrics on all designs (possibly again)
             for idx, path in enumerate(reversed(design_files[:])):
                 file_name, ext = os.path.splitext(os.path.basename(path))
-                if file_name in design_ids:  # We already processed this file
+                if file_name in design_names:  # We already processed this file
                     continue
                 else:
                     new_design_filenames.append(path)  # file_name)
@@ -3764,7 +3764,7 @@ class PoseProtocol(PoseData):
         else:  # Process to get rid of designs that were already calculated
             for idx, path in enumerate(reversed(design_files[:])):
                 file_name, ext = os.path.splitext(os.path.basename(path))
-                if file_name in design_ids:  # We already processed this file
+                if file_name in design_names:  # We already processed this file
                     design_files.pop(idx)
                 else:
                     new_design_filenames.append(path)  # file_name)

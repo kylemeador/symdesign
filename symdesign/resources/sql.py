@@ -98,6 +98,11 @@ class PoseMetadata(Base):
     @property
     def design_ids(self) -> list[str]:
         """Get the names of each DesignData in the PoseJob"""
+        return [design.id for design in self.designs]
+
+    @property
+    def design_names(self) -> list[str]:
+        """Get the names of each DesignData in the PoseJob"""
         return [design.name for design in self.designs]
 
     # # Set up one-to-one relationship with design_data table
