@@ -134,21 +134,17 @@ def upsert_dataframe(session: Session, table: sql.Base, df: pd.DataFrame):  # ->
     # logger.debug(f'Provided columns: {new_columns}')
     excluded_columns = insert_stmt.excluded
     update_columns = [c for c in excluded_columns if c.name in new_columns]
-    update_dict = {getattr(c, 'name'): c for c in update_columns if not c.primary_key}
-    table_ = table.__table__
+    update_dict = {c.name: c for c in update_columns if not c.primary_key}
     tablename = table.__tablename__
     # Find relevant column indicators to parse the non-primary key non-nullable columns
-    # insp = inspect(sql.ResidueMetrics.__tablename__)
-    # input(insp)
-    # persist = inspect(sql.ResidueMetrics).persist_selectable
-    # input(f'persist: {persist}')
     unique_constraints = inspect(session.connection()).get_unique_constraints(tablename)
-    # Prints
-    # unique_constraints: [{'name': '_pose_design_uc', 'column_names': ['pose_id', 'design_id']}]
-    # input(f'unique_constraints: {unique_constraints}')
+    # Returns
+    #  [{'name': '_pose_design_uc', 'column_names': ['pose_id', 'design_id']}]
     table_unique_constraint_keys = set()
     for constraint in unique_constraints:
         table_unique_constraint_keys.update(constraint['column_names'])
+
+    table_ = table.__table__
     unique_constraint_keys = {col.name for col in table_.columns if col.unique}
     index_keys = unique_constraint_keys.union(table_unique_constraint_keys)
     # primary_keys = [key for key in table_.primary_key]

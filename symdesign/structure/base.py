@@ -17,7 +17,7 @@ from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 # from ..structure import coords, fragment, utils
 from .coords import Coords, superposition3d
 from . import fragment, utils as stutils
-from ..sequence import protein_letters_alph1, protein_letters_1to3, protein_letters_3to1_extended
+from symdesign.sequence import protein_letters_alph1, protein_letters_1to3, protein_letters_3to1_extended
 from symdesign import utils
 # from symdesign.third_party.pdbecif.src.pdbecif.mmcif_io import CifFileReader
 # Before use, need to fix the issue with pdbecif not referring to itself within symdesign.third_party....
