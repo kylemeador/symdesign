@@ -71,10 +71,10 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
     """
     def wrapper(func: Callable) -> Callable[[tuple[Any, ...], dict | None, tuple, dict | None, dict[str, Any]], dict]:
         if setup is None:
-            def _setup(*_args, **_kwargs) -> dict:
+            def setup_(*_args, **_kwargs) -> dict:
                 return {}
         else:
-            _setup = setup
+            setup_ = setup
 
         @functools.wraps(func)
         def wrapped(*args, return_containers: dict = None,
@@ -104,7 +104,7 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                     # logger.critical(f'Before SETUP\nmemory_allocated: {torch.cuda.memory_allocated()}'
                     #                 f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
                     setup_start = time.time()
-                    setup_returns = _setup(_batch_length, *setup_args, **setup_kwargs)
+                    setup_returns = setup_(_batch_length, *setup_args, **setup_kwargs)
                     logger.debug(f'{batch_calculation.__name__} setup function took {time.time() - setup_start:8f}s')
                     # logger.critical(f'After SETUP\nmemory_allocated: {torch.cuda.memory_allocated()}'
                     #                 f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
@@ -162,7 +162,7 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                 # except compute_failure_exceptions:
                 #     raise last_error
                 print(''.join(last_error))
-                raise RuntimeError()
+                raise RuntimeError(f"{func.__name__} wasn't able to be executed. See the above traceback")
 
             return return_containers
         return wrapped
@@ -361,6 +361,7 @@ def batch_proteinmpnn_input(size: int = None, **kwargs) -> dict[str, np.ndarray]
         size: The number of inputs to use. If left blank, the size will be inferred from axis=0 of the X array
     Keyword Args:
         X: numpy.ndarray = None - The array specifying the parameter X
+        X_unbound: numpy.ndarray = None - The array specifying the parameter X_unbound
         S: numpy.ndarray = None - The array specifying the parameter S
         randn: numpy.ndarray = None - The array specifying the parameter randn
         chain_mask: numpy.ndarray = None - The array specifying the parameter chain_mask
@@ -431,6 +432,7 @@ def proteinmpnn_to_device(device: str = None, **kwargs) -> dict[str, torch.Tenso
         device: The device to load tensors to
     Keyword Args:
         X: numpy.ndarray = None - The array specifying the parameter X
+        X_unbound: numpy.ndarray = None - The array specifying the parameter X_unbound
         S: numpy.ndarray = None - The array specifying the parameter S
         randn: numpy.ndarray = None - The array specifying the parameter randn
         chain_mask: numpy.ndarray = None - The array specifying the parameter chain_mask
@@ -686,14 +688,12 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
     _residue_indices_of_interest = residue_mask[:, :pose_length].cpu().numpy().astype(bool)
     sequences = np.concatenate(batch_sequences, axis=1).reshape(actual_batch_length, number_of_temps, pose_length)
     complex_sequence_loss =\
-        np.concatenate(_per_residue_complex_sequence_loss, axis=1).reshape(actual_batch_length,
-                                                                           number_of_temps,
-                                                                           pose_length)
+        np.concatenate(_per_residue_complex_sequence_loss, axis=1) \
+        .reshape(actual_batch_length, number_of_temps, pose_length)
     if X_unbound is not None:
         unbound_sequence_loss = \
-            np.concatenate(_per_residue_unbound_sequence_loss, axis=1).reshape(actual_batch_length,
-                                                                               number_of_temps,
-                                                                               pose_length)
+            np.concatenate(_per_residue_unbound_sequence_loss, axis=1) \
+            .reshape(actual_batch_length, number_of_temps, pose_length)
     else:
         unbound_sequence_loss = np.empty_like(complex_sequence_loss)
 
