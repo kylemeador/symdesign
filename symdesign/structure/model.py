@@ -6188,6 +6188,118 @@ class Pose(SymmetricModel, Metrics):
             return torch.from_numpy(decode_order).to(dtype=torch.float32, device=to_device)
 
     @torch.no_grad()  # Ensure no gradients are produced
+    def score(self, sequences: np.array, method: flags.design_programs_literal = putils.proteinmpnn,
+              measure_unbound: bool = True, ca_only: bool = False, **kwargs) -> dict[str, np.ndarray]:
+        """Perform sequence design on the Pose
+
+        Args:
+            sequences: The sequences to score
+            method: Whether to score using ProteinMPNN or Rosetta
+            measure_unbound: Whether the protein should be designed with concern for the unbound state
+            ca_only: Whether a minimal CA variant of the protein should be used for design calculations
+        Keyword Args:
+            model_name: str = 'v_48_020' - The name of the model to use from ProteinMPNN.
+                v_X_Y where X is neighbor distance, and Y is noise
+            backbone_noise: float = 0.0 - The amount of backbone noise to add to the pose during design
+            pssm_log_odds_flag: bool = False - Whether to use log_odds mask to limit the residues designed
+            pssm_bias_flag: bool = False - Whether to use bias to modulate the residue probabilites designed
+            pssm_multi: float = 0.0 - How much to skew the design probabilities towards the sequence profile.
+                Bounded between [1, 0] where 0 is no sequence profile probability.
+                Only used with pssm_bias_flag
+            decode_core_first: bool = False - Whether to decode identified fragments (constituting the protein core)
+                first
+        Returns:
+            A mapping of the design score type to the output data which is a ndarray with shape
+            (number*temperatures, pose_length). For proteinmpnn, this is the score string mapped to the corresponding
+            'proteinmpnn_loss_complex', and 'proteinmpnn_loss_unbound'
+
+            For rosetta, this function is not implemented
+        """
+        if method == putils.rosetta_str:
+            scores = {}
+            raise NotImplementedError(f"Can't score with Rosetta from this method yet...")
+        elif method == putils.proteinmpnn:  # Design with vanilla version of ProteinMPNN
+            # Set up the model with the desired weights
+            proteinmpnn_model = ml.proteinmpnn_factory(**kwargs)
+            device = proteinmpnn_model.device
+
+            # pose_length = self.number_of_residues
+            size, pose_length, *_ = sequences.shape
+            batch_length = 6  # Todo calculate based on parameters
+            # Set up parameters and model sampling type based on symmetry
+            if self.is_symmetric():
+                # number_of_symmetry_mates = pose.number_of_symmetry_mates
+                # mpnn_sample = proteinmpnn_model.tied_sample
+                number_of_residues = pose_length * self.number_of_symmetry_mates
+            else:
+                # mpnn_sample = proteinmpnn_model.sample
+                number_of_residues = pose_length
+
+            if measure_unbound:
+                if ca_only:  # self.job.design.ca_only:
+                    coords_type = 'ca_coords'
+                    num_model_residues = 1
+                else:
+                    coords_type = 'backbone_coords'
+                    num_model_residues = 4
+
+                # Translate the coordinates along z in increments of 1000 to separate coordinates
+                entity_unbound_coords = [getattr(entity, coords_type) for entity in self.entities]
+                unbound_transform = np.array([0, 0, 1000])
+                if self.is_symmetric():
+                    coord_func = self.return_symmetric_coords
+                else:
+                    def coord_func(coords): return coords
+
+                for idx, coords in enumerate(entity_unbound_coords):
+                    entity_unbound_coords[idx] = coord_func(coords + unbound_transform*idx)
+
+                X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
+                # extra_batch_parameters = ml.batch_proteinmpnn_input(size=batch_length, X=X_unbound)
+                # extra_batch_parameters = ml.proteinmpnn_to_device(device, **extra_batch_parameters)
+                # extra_batch_parameters['X_unbound'] = extra_batch_parameters.pop('X')
+                parameters = {'X_unbound': X_unbound}
+            else:
+                parameters = {}
+
+            # Set up parameters for the scoring task
+            parameters.update(**self.get_proteinmpnn_params(ca_only=ca_only, interface=interface, **kwargs))
+            # Remove the sequence for the pose
+            parameters.pop('S')
+            # Insert the designed sequences
+            raise NotImplementedError('Need to ensure these are the correct size')
+            S = np.tile(self.sequence_numeric, number_of_symmetry_mates)  # (number_of_sym_residues,)
+            parameters['S'] = sequences
+            # Solve decoding order
+            parameters['randn'] = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
+            # # Solve decoding order
+            # parameters['decoding_order'] = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
+
+            per_residue_complex_sequence_loss = np.empty_like(sequences, dtype=np.float32)
+            per_residue_unbound_sequence_loss = np.empty_like(per_residue_complex_sequence_loss)
+
+            @ml.batch_calculation(size=size, batch_length=batch_length,
+                                  setup=ml.setup_pose_batch_for_proteinmpnn,
+                                  compute_failure_exceptions=(RuntimeError,
+                                                              np.core._exceptions._ArrayMemoryError))
+            def _proteinmpnn_batch_score(*args, **_kwargs):
+                return ml.proteinmpnn_batch_score(*args, **_kwargs)
+
+            # score_start = time.time()
+            scores = \
+                _proteinmpnn_batch_score(proteinmpnn_model, pose_length=pose_length,
+                                         setup_args=(device,),
+                                         setup_kwargs=parameters,
+                                         return_containers={
+                                             'proteinmpnn_loss_complex': per_residue_complex_sequence_loss,
+                                             'proteinmpnn_loss_unbound': per_residue_unbound_sequence_loss})
+        else:
+            scores = {}
+            raise ValueError(f"The method '{method}' isn't a viable scoring protocol")
+
+        return scores
+
+    @torch.no_grad()  # Ensure no gradients are produced
     def design_sequences(self, method: flags.design_programs_literal = putils.proteinmpnn, number: int = flags.nstruct,
                          temperatures: Sequence[float] = (0.1,), interface: bool = True, measure_unbound: bool = True,
                          ca_only: bool = False, **kwargs) -> dict[str, np.ndarray]:
