@@ -5825,7 +5825,6 @@ class Pose(SymmetricModel, Metrics):
              'number_interface_residues',
              'number_interface_residues_non_fragment',
              'pose_length',
-             'pose_thermophilicity',
              'minimum_radius',
              'maximum_radius',
              'interface_b_factor_per_residue',
@@ -6661,8 +6660,6 @@ class Pose(SymmetricModel, Metrics):
              'number_interface_residues',
              'number_interface_residues_non_fragment',
              'pose_length',
-             'pose_thermophilicity',
-             'sequence',
              'minimum_radius',
              'maximum_radius',
              'interface_b_factor_per_residue',
@@ -6812,7 +6809,7 @@ class Pose(SymmetricModel, Metrics):
         pose_metrics['minimum_radius'] = minimum_radius
         pose_metrics['maximum_radius'] = maximum_radius
         pose_metrics['pose_length'] = self.number_of_residues
-        pose_metrics['sequence'] = self.sequence
+        # pose_metrics['sequence'] = self.sequence
         # pose_metrics['pose_length'] = \
         #     sum(pose_metrics[f'entity{idx}_number_of_residues'] for idx in range(1, self.number_of_entities + 1))
 
@@ -7666,11 +7663,7 @@ class Pose(SymmetricModel, Metrics):
                  'percent_fragment_coil'}
         """
         # Todo consolidate return to (dict[(dict)]) like by_entity
-        # Todo incorporate these
-        #  'fragment_cluster_ids': ','.join(clusters),
-        #  'number_interface_residues': total_residues,
-        #  'percent_residues_fragment_interface_total': percent_interface_covered,
-        #  'percent_residues_fragment_interface_center': percent_interface_matched,
+        # Todo incorporate 'fragment_cluster_ids': ','.join(clusters),
 
         if fragments is not None:
             return self.fragment_db.format_fragment_metrics(self.fragment_db.calculate_match_metrics(fragments))

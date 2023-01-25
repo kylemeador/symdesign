@@ -236,7 +236,7 @@ class PoseMetrics(Base):
     maximum_radius = Column(Float)  # , nullable=False)
     number_interface_residues = Column(Integer)  # , nullable=False)
     # number_design_residues = Column(Integer)  # , nullable=False)
-    sequence = Column(String(config.MAXIMUM_SEQUENCE))  # , nullable=False)
+    # sequence = Column(String(config.MAXIMUM_SEQUENCE))  # , nullable=False)
     pose_length = Column(Integer)  # , nullable=False)
     pose_thermophilicity = Column(Float)  # Todo make thermophilic? in config.metrics
     """Thermophilicity implies this is a spectrum, while thermophilic implies binary"""
@@ -605,7 +605,7 @@ class DesignMetrics(Base):
     design = relationship('DesignData', back_populates='metrics')
 
     # Pose features
-    number_interface_residues = Column(Integer)  # , nullable=False)
+    # number_interface_residues = Column(Integer)  # , nullable=False)
     contact_order = Column(Float)  # , nullable=False)
     # Design metrics
     number_design_residues = Column(Integer)  # ResidueMetrics sum 'design_residue', nullable=False)

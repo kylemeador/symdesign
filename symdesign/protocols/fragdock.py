@@ -4118,8 +4118,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
 
             summed_poses_df = metrics.sum_per_residue_metrics(
                 residues_df, rename_columns=_rename, mean_metrics=mean_columns)
-            # Need to remove sequence as it is in pose.calculate_metrics()
-            poses_df = poses_df.join(summed_poses_df.drop('sequence', axis=1))
+            poses_df = poses_df.join(summed_poses_df)
+            # # Need to remove sequence as it is in pose.calculate_metrics()
+            # poses_df = poses_df.join(summed_poses_df.drop('sequence', axis=1))
             if job.dock.proteinmpnn_score:
                 poses_df = poses_df.drop(['interface_residue'], axis=1)
 
