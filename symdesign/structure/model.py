@@ -6322,7 +6322,8 @@ class Pose(SymmetricModel, Metrics):
             pssm_multi: float = 0.0 - How much to skew the design probabilities towards the sequence profile.
                 Bounded between [1, 0] where 0 is no sequence profile probability.
                 Only used with pssm_bias_flag
-            decode_core_first: bool = False - Whether to decode identified fragments (constituting the protein core) first
+            decode_core_first: bool = False - Whether to decode identified fragments (constituting the protein core)
+                first
         Returns:
             A mapping of the design score type to the output data which is a ndarray with shape
             (number*temperatures, pose_length). For proteinmpnn, this is the score string mapped to the corresponding
@@ -6432,6 +6433,7 @@ class Pose(SymmetricModel, Metrics):
             # self.log.debug(f'Found proteinmpnn_loss_complex with shape {sequences_and_scores["proteinmpnn_loss_complex"].shape}')
             # self.log.debug(f'Found proteinmpnn_loss_unbound with shape {sequences_and_scores["proteinmpnn_loss_unbound"].shape}')
         else:
+            sequences_and_scores = {}
             raise ValueError(f"The method '{method}' isn't a viable design protocol")
 
         return sequences_and_scores
@@ -7537,18 +7539,10 @@ class Pose(SymmetricModel, Metrics):
                 Stores the interface number mapped to an index corresponding to the secondary structure type
                 Ex: {1: [0, 0, 1, 2, ...] , 2: [9, 9, 9, 13, ...]]}
         """
-        # if self.api_db:
-        try:
-            # retrieve_api_info = self.api_db.pdb.retrieve_data
-            retrieve_stride_info = resources.wrapapi.api_database_factory().stride.retrieve_data
-        except AttributeError:
-            retrieve_stride_info = Structure.utils.parse_stride
-
         pose_secondary_structure = ''
         for entity in self.entities:  # self.active_entities:
             pose_secondary_structure += entity.secondary_structure
 
-        # Todo include these in ContainsResiduesMixin (still overwrite them here using self.entities)
         ss_sequence_indices, ss_type_sequence = [], []
         # Increment a secondary structure index which changes with every secondary structure transition
         # Simultaneously, map the secondary structure type to an array of pose length
@@ -7561,6 +7555,11 @@ class Pose(SymmetricModel, Metrics):
                 ss_type_sequence.append(ss_type)
             ss_sequence_indices.append(ss_increment_index)
 
+        # Clear any information if it exists
+        self.ss_sequence_indices.clear(), self.ss_type_sequence.clear()
+        self.ss_sequence_indices.extend(ss_sequence_indices)
+        self.ss_type_sequence.extend(ss_type_sequence)
+
         # ss_sequence_indices = self.ss_sequence_indices
         for number, residues in self.residues_by_interface.items():
             interface_number_elements = [ss_sequence_indices[residue.index] for residue in residues]
@@ -7572,11 +7571,6 @@ class Pose(SymmetricModel, Metrics):
             #         raise IndexError(f'The index {residue.index}, from Entity {entity.name}, residue {residue.number}'
             #                          f" isn't found in ss_sequence_indices with size {len(self.ss_sequence_indices)}")
             self.split_interface_ss_elements[number] = interface_number_elements
-
-        # Clear any information if it exists
-        self.ss_sequence_indices.clear(), self.ss_type_sequence.clear()
-        self.ss_sequence_indices.extend(ss_sequence_indices)
-        self.ss_type_sequence.extend(ss_type_sequence)
         self.log.debug(f'Found interface secondary structure: {self.split_interface_ss_elements}')
 
     def calculate_fragment_profile(self, **kwargs):  # Todo move to Model
