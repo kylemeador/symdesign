@@ -602,7 +602,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
 
         # Format outputs - All have at lease shape (batch_length, model_length,)
         S_sample = sample_dict['S']
-        _batch_sequences = S_sample.cpu()[:, :pose_length]
+        _batch_sequences = S_sample[:, :pose_length]
         # Check for null sequence output
         null_seq = _batch_sequences == 20
         # null_indices = np.argwhere(null_seq == 1)
@@ -639,7 +639,6 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
                 _batch_sequences[null_design_indices, null_sequence_indices] = new_amino_acid_types
             # proteinmpnn.log.debug('Fixed null sequence elements')
 
-        batch_sequences.append(_batch_sequences)
         decoding_order = sample_dict['decoding_order']
         # decoding_order_out = decoding_order  # When using the same decoding order for all
         log_probs_start_time = time.time()
@@ -648,16 +647,16 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
             unbound_log_probs = \
                 proteinmpnn(X_unbound, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
                             None,  # This argument is provided but with below args, is not used
-                            use_input_decoding_order=True, decoding_order=decoding_order).cpu()
+                            use_input_decoding_order=True, decoding_order=decoding_order)
             _per_residue_unbound_sequence_loss.append(
-                sequence_nllloss(_batch_sequences, unbound_log_probs[:, :pose_length]).numpy())
+                sequence_nllloss(_batch_sequences, unbound_log_probs[:, :pose_length]).cpu().numpy())
             # logger.debug(f'Unbound log probabilities calculation took '
             #              f'{time.time() - unbound_log_prob_start_time:8f}s')
 
         complex_log_probs = \
             proteinmpnn(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
                         None,  # This argument is provided but with below args, is not used
-                        use_input_decoding_order=True, decoding_order=decoding_order).cpu()
+                        use_input_decoding_order=True, decoding_order=decoding_order)
         # complex_log_probs is
         # tensor([[[-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
         #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
@@ -679,8 +678,9 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         # batch_scores is
         # tensor([2.1039, 2.0618, 2.0802, 2.0538, 2.0114, 2.0002], device='cuda:0')
         _per_residue_complex_sequence_loss.append(
-            sequence_nllloss(_batch_sequences, complex_log_probs[:, :pose_length]).numpy())
-        proteinmpnn.log.info(f'Log probabilities calculation took {time.time() - log_probs_start_time:8f}s')
+            sequence_nllloss(_batch_sequences, complex_log_probs[:, :pose_length]).cpu().numpy())
+        proteinmpnn.log.info(f'Log probabilities score calculation took {time.time() - log_probs_start_time:8f}s')
+        batch_sequences.append(_batch_sequences.cpu())
 
     # Reshape data structures to have shape (batch_length, number_of_temperatures, pose_length)
     _residue_indices_of_interest = residue_mask[:, :pose_length].cpu().numpy().astype(bool)
