@@ -703,6 +703,126 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
             'design_indices': _residue_indices_of_interest}
 
 
+def proteinmpnn_batch_score(batch_slice: slice, proteinmpnn: ProteinMPNN,
+                            X: torch.Tensor = None,
+                            sequences: torch.Tensor = None,
+                            chain_mask: torch.Tensor = None,
+                            chain_encoding: torch.Tensor = None,
+                            residue_idx: torch.Tensor = None,
+                            mask: torch.Tensor = None,
+                            pose_length: int = None,
+                            X_unbound: torch.Tensor = None,
+                            chain_M_pos: torch.Tensor = None,
+                            residue_mask: torch.Tensor = None,
+                            randn: torch.Tensor = None,
+                            decoding_order: torch.Tensor = None,
+                            **batch_parameters
+                            ) -> dict[str, np.ndarray]:
+    """Perform ProteinMPNN design tasks on input that is split into batches
+
+    Args:
+        batch_slice:
+        proteinmpnn:
+        X:
+        sequences:
+        chain_mask:
+        chain_encoding:
+        residue_idx:
+        mask:
+        pose_length:
+        X_unbound:
+        chain_M_pos:
+        residue_mask:
+        randn:
+        decoding_order:
+    Returns:
+        A mapping of the key describing to the corresponding value, i.e. sequences, complex_sequence_loss, and
+            unbound_sequence_loss
+    """
+    if chain_M_pos is not None:
+        residue_mask = chain_M_pos  # Name change makes more sense
+    elif residue_mask is not None:
+        pass
+    else:
+        raise ValueError(f'Must pass either "residue_mask" or "chain_M_pos"')
+
+    if pose_length is None:
+        batch_length, pose_length, *_ = X.shape
+    else:
+        batch_length, *_ = X.shape
+
+    actual_batch_length = batch_slice.stop - batch_slice.start
+
+    if actual_batch_length != batch_length:
+        # Slice these for the last iteration
+        X = X[:actual_batch_length]  # , None)
+        sequences = sequences[:actual_batch_length]  # , None)
+        chain_mask = chain_mask[:actual_batch_length]  # , None)
+        chain_encoding = chain_encoding[:actual_batch_length]  # , None)
+        residue_idx = residue_idx[:actual_batch_length]  # , None)
+        mask = mask[:actual_batch_length]  # , None)
+        randn = randn[:actual_batch_length]
+        residue_mask = residue_mask[:actual_batch_length]
+        try:
+            X_unbound = X_unbound[:actual_batch_length]  # , None)
+        except TypeError:  # Can't slice NoneType
+            pass
+
+    # # Use the sequence as an unknown token then guess the probabilities given the remaining
+    # # information, i.e. the sequence and the backbone
+    # S_design_null[residue_mask.type(torch.bool)] = MPNN_NULL_IDX
+    chain_residue_mask = chain_mask * residue_mask
+
+    _per_residue_complex_sequence_loss = []
+    _per_residue_unbound_sequence_loss = []
+
+    # Score and format outputs - All have at lease shape (batch_length, model_length,)
+    if decoding_order is not None:
+        provided_decoding_order = True
+        randn = None
+    else:
+        provided_decoding_order = False
+        randn =
+        decoding_order = None
+
+    # decoding_order_out = decoding_order  # When using the same decoding order for all
+    log_probs_start_time = time.time()
+
+    complex_log_probs = \
+        proteinmpnn(X, sequences, mask, chain_residue_mask, residue_idx, chain_encoding, randn,
+                    use_input_decoding_order=provided_decoding_order, decoding_order=decoding_order)
+    per_residue_complex_sequence_loss = \
+        sequence_nllloss(sequences[:, :pose_length], complex_log_probs[:, :pose_length]).cpu().numpy()
+
+    # Reshape data structures to have shape (batch_length, number_of_temperatures, pose_length)
+    # _residue_indices_of_interest = residue_mask[:, :pose_length].cpu().numpy().astype(bool)
+    # sequences = np.concatenate(batch_sequences, axis=1).reshape(actual_batch_length, number_of_temps, pose_length)
+    # complex_sequence_loss = \
+    #     np.concatenate(per_residue_complex_sequence_loss, axis=1)\
+    #     .reshape(actual_batch_length, number_of_temps, pose_length)
+    # if X_unbound is not None:
+    #     unbound_sequence_loss = \
+    #         np.concatenate(per_residue_unbound_sequence_loss, axis=1)\
+    #         .reshape(actual_batch_length, number_of_temps, pose_length)
+    # else:
+    #     unbound_sequence_loss = np.empty_like(complex_sequence_loss)
+    if X_unbound is not None:
+        # unbound_log_prob_start_time = time.time()
+        unbound_log_probs = \
+            proteinmpnn(X_unbound, sequences, mask, chain_residue_mask, residue_idx, chain_encoding, randn,
+                        use_input_decoding_order=provided_decoding_order, decoding_order=decoding_order)
+        per_residue_unbound_sequence_loss = \
+            sequence_nllloss(sequences[:, :pose_length], unbound_log_probs[:, :pose_length]).cpu().numpy()
+        # logger.debug(f'Unbound log probabilities calculation took '
+        #              f'{time.time() - unbound_log_prob_start_time:8f}s')
+    else:
+        per_residue_unbound_sequence_loss = np.empty_like(complex_log_probs)
+    proteinmpnn.log.info(f'Log probabilities score calculation took {time.time() - log_probs_start_time:8f}s')
+
+    return {'proteinmpnn_loss_complex': per_residue_complex_sequence_loss,
+            'proteinmpnn_loss_unbound': per_residue_unbound_sequence_loss}
+
+
 def sequence_nllloss(sequence: torch.Tensor, log_probs: torch.Tensor,
                      mask: torch.Tensor = None, per_residue: bool = True) -> torch.Tensor:
     """Score designed sequences using the Negative log likelihood loss function
