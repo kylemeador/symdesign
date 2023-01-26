@@ -299,8 +299,6 @@ class JobResources:
             # Emit CREATE TABLE DDL
             sql.Base.metadata.create_all(self.db.engine)
 
-        # self.score_db: Engine = create_engine(utils.sql.residues)
-
         # PoseJob initialize Flags
         self.preprocessed = kwargs.get(flags.preprocessed)
         self.initial_refinement = self.initial_loop_model = None
@@ -638,11 +636,11 @@ class JobResources:
             flags.analysis,
             flags.cluster_poses,
             flags.select_poses,
+            flags.select_designs
         ]
         disallowed_modules = [
             # 'custom_script',
-            flags.select_designs,  # As alias for select_sequences with --skip-sequence-generation
-            flags.select_sequences,
+            # flags.select_sequences,
         ]
         problematic_modules = []
         not_recognized_modules = []
@@ -654,19 +652,21 @@ class JobResources:
                         raise InputError(f"For {flags.protocol} module, {flags.nanohedra} can currently only be run as "
                                          f"module position #1")
                     nanohedra_prior = True
-                # We only allow select-poses after nanohedra
-                if module in flags.select_modules and module not in disallowed_modules:
-                    if nanohedra_prior:
-                        # if self.total:
-                        if not self.weight:  # not self.filter or
-                            logger.critical(f'Using {module} after {flags.nanohedra} without specifying the flag '
-                                            # f'{flags.format_args(flags.filter_args)} or '
-                                            f'{flags.format_args(flags.weight_args)} defaults to selection parameters '
-                                            f'{config.default_weight_parameter[flags.nanohedra]}')
-                            # self.total = False
-                            # raise InputError('Using selection flag --total as input after nanohedra is not allowed')
-                # Convert the command-line name to python acceptable
-                # self.modules[idx] = flags.format_from_cmdline(module)
+                    continue
+                if nanohedra_prior:
+                    if module in flags.select_modules:
+                        # We only should allow select-poses after nanohedra
+                        if module == flags.select_poses:
+                            logger.critical(f"Running {module} after {flags.nanohedra} won't produce any Designs to "
+                                            f"operate on. In order to {module}, ensure you run a design protocol first")
+                        else:  # flags.select_designs, flags.select_sequences
+                            if not self.weight:  # not self.filter or
+                                logger.critical(f'Using {module} after {flags.nanohedra} without specifying the flag '
+                                                # f'{flags.format_args(flags.filter_args)} or '
+                                                f'{flags.format_args(flags.weight_args)} defaults to selection parameters '
+                                                f'{config.default_weight_parameter[flags.nanohedra]}')
+                                # raise InputError('Using selection flag --total as input after nanohedra isn't allowed')
+                nanohedra_prior = False
             elif module in disallowed_modules:
                 problematic_modules.append(module)
             else:
