@@ -68,49 +68,158 @@ def load_total_dataframe(pose_jobs: Iterable[PoseJob], pose: bool = False) -> pd
     return df
 
 
-def load_sql_to_dataframe(pose_jobs: Iterable[PoseJob], pose: bool = False) -> pd.DataFrame:
-    """Return a pandas DataFrame with the trajectories of every PoseJob loaded and formatted according to the
-    design directory and design on the index
+def load_sql_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None, design_ids: Iterable[int] = None) \
+        -> pd.DataFrame:
+    """Load and format every PoseJob instance's, PoseMetrics, EntityMetrics, and DesignMetrics for each associated
+    design
+
+    Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
 
     Args:
-        pose_jobs: The PoseJob instances for which metrics are desired
-        pose: Whether the total dataframe should contain the mean metrics from the pose or each individual design
+        session: A session object to complete the transaction
+        pose_ids: PoseJob instance identifiers for which metrics are desired
+        design_ids: DesignData instance identifiers for which metrics are desired
+    Returns:
+        The pandas DataFrame formatted with the every metric in PoseMetrics, EntityMetrics, and DesignMetrics. The final
+            DataFrame will have an as many entries corresponding to each Entity in EntityData for a total of
+            DesignData's X number of Entities entries
     """
-    all_design_ids = []
-    for pose_job in pose_jobs:
-        all_design_ids.extend(pose_job.design_ids)
+    pm_c = [c for c in sql.PoseMetrics.__table__.columns if not c.primary_key]
+    pm_names = [c.name for c in pm_c]
+    dm_c = [c for c in sql.DesignMetrics.__table__.columns if not c.primary_key]
+    dm_names = [c.name for c in dm_c]
+    entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
+                         sql.ProteinMetadata.c_terminal_helix,
+                         sql.ProteinMetadata.thermophilic]
+    em_c = [c for c in sql.EntityMetrics.__table__.columns + entity_metadata_c if not c.primary_key]
+    em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
+    selected_columns = (*pm_c, *dm_c, *em_c)
+    selected_columns_name = (*pm_names, *dm_names, *em_names)
+    # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
+    join_stmt = select(selected_columns).select_from(PoseJob).join(sql.PoseMetrics).join(sql.EntityData).join(
+        sql.EntityMetrics).join(sql.DesignData).join(sql.DesignMetrics)
 
-    select(sql.DesignMetrics).where(sql.DesignMetrics.design_id.in_(all_design_ids))
-    all_dfs = []
-    for idx, pose_job in enumerate(pose_jobs):
-        try:
-            all_dfs.append(pd.DataFrame.from_records(pose_job.design_metrics, index_col=0, header=[0]))
-        except FileNotFoundError:  # as error
-            # results[idx] = error
-            logger.warning(f'{pose_job}: No trajectory analysis file found. Skipping')
+    if pose_ids:
+        # pose_identifiers = [pose_job.pose_identifier for pose_job in pose_jobs]
+        stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
+    else:
+        stmt = join_stmt
 
-    if pose:
-        for pose_job, df in zip(pose_jobs, all_dfs):
-            df.fillna(0., inplace=True)  # Shouldn't be necessary if saved files were formatted correctly
-            # try:
-            df.drop([index for index in df.index.to_list() if isinstance(index, float)], inplace=True)
-            # Get rid of all individual trajectories and std, not mean
-            pose_name = pose_job.name
-            df.drop([index for index in df.index.to_list() if pose_name in index or 'std' in index], inplace=True)
-            # except TypeError:
-            #     for index in df.index.to_list():
-            #         print(index, type(index))
-    else:  # designs
-        for pose_job, df in zip(pose_jobs, all_dfs):
-            # Get rid of all statistic entries, mean, std, etc.
-            pose_name = pose_job.name
-            df.drop([index for index in df.index.to_list() if pose_name not in index], inplace=True)
+    if design_ids:
+        stmt = stmt.where(sql.DesignData.id.in_(design_ids))
+    else:
+        stmt = stmt
 
-    # Add pose directory str as MultiIndex
-    try:
-        df = pd.concat(all_dfs, keys=[str(pose_job) for pose_job in pose_jobs])
-    except ValueError:  # No objects to concatenate
-        raise RuntimeError(f"Didn't find any trajectory information in the provided PoseDirectory instances")
+    # all_metrics_rows = session.execute(stmt).all()
+    df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_columns_name)
+    logger.debug(f'Loaded total Metrics DataFrame with primary identifier keys: '
+                 f'{[key for key in selected_columns_name if "id" in key and "residue" not in key]}')
+
+    # Format the dataframe and set the index
+    # df = df.sort_index(axis=1).set_index('design_id')
+    df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
+
+    return df
+
+
+def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None, design_ids: Iterable[int] = None) \
+        -> pd.DataFrame:
+    """Load and format every PoseJob instance's, PoseMetrics and EntityMetrics
+
+    Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
+
+    Args:
+        session: A session object to complete the transaction
+        pose_ids: PoseJob instance identifiers for which metrics are desired
+        design_ids: DesignData instance identifiers for which metrics are desired
+    Returns:
+        The DataFrame formatted with the every metric in PoseMetrics and EntityMetrics. The final DataFrame will have an
+            entry corresponding to each Entity in EntityData for a total of PoseJob's X number of Entities entries
+    """
+    # Accessing only the PoseMetrics and EntityMetrics
+    pm_c = [c for c in sql.PoseMetrics.__table__.columns if not c.primary_key]
+    pm_names = [c.name for c in pm_c]
+    entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
+                         sql.ProteinMetadata.c_terminal_helix,
+                         sql.ProteinMetadata.thermophilic]
+    em_c = [c for c in sql.EntityMetrics.__table__.columns + entity_metadata_c if not c.primary_key]
+    em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
+    # em_c = [c for c in sql.EntityMetrics.__table__.columns if not c.primary_key]
+    # em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
+    pose_selected_columns = (*pm_c, *em_c)
+    pose_selected_columns_name = (*pm_names, *em_names)
+
+    # Construct the SQL query
+    # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
+    join_stmt = select(pose_selected_columns).select_from(PoseJob)\
+        .join(sql.PoseMetrics).join(sql.EntityData).join(sql.EntityMetrics)
+    if pose_ids:
+        # pose_identifiers = [pose_job.pose_identifier for pose_job in pose_jobs]
+        stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
+    else:
+        stmt = join_stmt
+
+    if design_ids:
+        stmt = stmt.where(sql.DesignData.id.in_(design_ids))
+    else:
+        stmt = stmt
+
+    # pose_all_metrics_rows = session.execute(stmt).all()
+    df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=pose_selected_columns_name)
+    logger.debug(f'Loaded total Pose DataFrame with primary identifier keys: '
+                 f'{[key for key in pose_selected_columns_name if "id" in key and "residue" not in key]}')
+
+    # Format the dataframe and set the index
+    # df = df.sort_index(axis=1).set_index('pose_id')
+    df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
+
+    return df
+
+
+def load_sql_designs_dataframe(session: Session, pose_ids: Iterable[int] = None, design_ids: Iterable[int] = None) \
+        -> pd.DataFrame:
+    """Load and format every PoseJob instance associated DesignMetrics for each design associated with the PoseJob
+
+    Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
+
+    Args:
+        session: A session object to complete the transaction
+        pose_ids: PoseJob instance identifiers for which metrics are desired
+        design_ids: DesignData instance identifiers for which metrics are desired
+    Returns:
+        The pandas DataFrame formatted with the every metric in DesignMetrics. The final DataFrame will
+            have an entry for each DesignData
+    """
+    # dd_c = [sql.DesignData.pose_id, sql.DesignData.design_id]
+    dd_c = (sql.DesignData.pose_id,)
+    dm_c = [c for c in sql.DesignMetrics.__table__.columns if not c.primary_key]
+    selected_columns = (*dd_c, *dm_c)
+    # dm_names = [c.name for c in dm_c]
+    # selected_columns_name = (dd_pose_id.name, *dm_names)
+    selected_columns_name = [c.name for c in selected_columns]
+
+    # Construct the SQL query
+    # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
+    join_stmt = select(selected_columns).select_from(sql.DesignData)\
+        .join(sql.DesignMetrics).join(PoseJob)
+    if pose_ids:
+        # pose_identifiers = [pose_job.pose_identifier for pose_job in pose_jobs]
+        stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
+    else:
+        stmt = join_stmt
+
+    if design_ids:
+        stmt = stmt.where(sql.DesignData.id.in_(design_ids))
+    else:
+        stmt = stmt
+
+    # all_metrics_rows = session.execute(stmt).all()
+    df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_columns_name)
+    logger.debug(f'Loaded total Metrics DataFrame with primary identifier keys: '
+                 f'{[key for key in selected_columns_name if "id" in key and "residue" not in key]}')
+
+    # Format the dataframe and set the index
+    # df = df.sort_index(axis=1).set_index('design_id')
     df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
 
     return df
