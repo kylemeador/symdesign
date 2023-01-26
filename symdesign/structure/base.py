@@ -104,6 +104,7 @@ gxg_sasa = {'A': 129, 'R': 274, 'N': 195, 'D': 193, 'C': 167, 'E': 223, 'Q': 225
             'ALA': 129, 'ARG': 274, 'ASN': 195, 'ASP': 193, 'CYS': 167, 'GLU': 223, 'GLN': 225, 'GLY': 104, 'HIS': 224,
             'ILE': 197, 'LEU': 201, 'LYS': 236, 'MET': 224, 'PHE': 240, 'PRO': 159, 'SER': 155, 'THR': 172, 'TRP': 285,
             'TYR': 263, 'VAL': 174}  # from table 1, theoretical values of Tien et al. 2013
+sasa_burial_threshold = 0.25  # Default relative_sasa amount from Levy 2010
 
 
 def unknown_index():
@@ -4262,7 +4263,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                                       f'Debug files written to {utils.path.sasa_debug_dir}')
 
     @property
-    def surface_residues(self, relative_sasa_thresh: float = 0.25, **kwargs) -> list[Residue]:
+    def surface_residues(self, relative_sasa_thresh: float = sasa_burial_threshold, **kwargs) -> list[Residue]:
         """Get the Residue instances that reside on the surface of the molecule
 
         Args:
@@ -4282,7 +4283,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         return [residue for residue in self.residues if residue.relative_sasa >= relative_sasa_thresh]
 
     @property
-    def core_residues(self, relative_sasa_thresh: float = 0.25, **kwargs) -> list[Residue]:
+    def core_residues(self, relative_sasa_thresh: float = sasa_burial_threshold, **kwargs) -> list[Residue]:
         """Get the Residue instances that reside in the core of the molecule
 
         Args:
