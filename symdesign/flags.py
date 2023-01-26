@@ -4,7 +4,7 @@ import argparse
 import os
 import operator
 import sys
-from typing import Any, AnyStr, Callable, Container, Literal, get_args
+from typing import Any, AnyStr, Callable, Container, Literal, get_args, Sequence
 
 import pandas as pd
 from psutil import cpu_count
@@ -67,7 +67,8 @@ increment_chains = 'increment_chains'
 number = 'number'
 nucleotide = 'nucleotide'
 as_objects = 'as_objects'
-allow_multiple_poses = 'allow_multiple_poses'
+# allow_multiple_poses = 'allow_multiple_poses'
+designs_per_pose = 'designs_per_pose'
 project_name = 'project_name'
 profile_memory = 'profile_memory'
 preprocessed = 'preprocessed'
@@ -91,12 +92,37 @@ cluster_namespace = {
 }
 
 
-def format_for_cmdline(flag: str):
+def format_for_cmdline(flag: str) -> str:
+    """Format a flag for the command line
+
+    Args:
+        flag: The string for a program flag
+    Returns:
+        The flag formatted by replacing any underscores (_) with a dash (-)
+    """
     return flag.replace('_', '-')
 
 
-def format_from_cmdline(flag: str):
+def format_from_cmdline(flag: str) -> str:
+    """Format a flag from the command line format to a program acceptable string
+
+    Args:
+        flag: The string for a program flag
+    Returns:
+        The flag formatted by replacing any dash (-) with an underscore (_)
+    """
     return flag.replace('-', '_')
+
+
+def format_args(flag_args: Sequence[str]) -> str:
+    """Create a string to format different flags for their various acceptance options on the command line
+
+    Args:
+        flag_args: Typically a tuple of allowed flag "keywords" specified using "-" or "--'
+    Returns:
+        The flag arguments formatted with a "/" between each allowed version
+    """
+    return '/'.join(flag_args)
 
 
 as_objects = format_for_cmdline(as_objects)
@@ -167,12 +193,17 @@ optimize_species = format_for_cmdline(optimize_species)
 avoid_tagging_helices = format_for_cmdline(avoid_tagging_helices)
 preferred_tag = format_for_cmdline(preferred_tag)
 multicistronic_intergenic_sequence = format_for_cmdline(multicistronic_intergenic_sequence)
-allow_multiple_poses = format_for_cmdline(allow_multiple_poses)
+# allow_multiple_poses = format_for_cmdline(allow_multiple_poses)
+designs_per_pose = format_for_cmdline(designs_per_pose)
 project_name = format_for_cmdline(project_name)
 profile_memory = format_for_cmdline(profile_memory)
 process_rosetta_metrics = format_for_cmdline(process_rosetta_metrics)
 
-
+select_modules = (
+    select_poses,
+    select_designs,
+    select_sequences,
+)
 # def return_default_flags():
 #     # mode_flags = flags.get(mode, design_flags)
 #     # if mode_flags:
@@ -951,13 +982,13 @@ parser_process_rosetta_metrics = {process_rosetta_metrics:
 process_rosetta_metrics_arguments = {}
 # ---------------------------------------------------
 # Common selection arguments
-allow_multiple_poses_args = ('-amp', f'--{allow_multiple_poses}')
-allow_multiple_poses_kwargs = dict(action='store_true',
-                                   help='Allow multiple sequences to be selected from the same Pose when using --total'
-                                        '\nBy default, --total filters the selected sequences by a single Pose')
+# allow_multiple_poses_args = ('-amp', f'--{allow_multiple_poses}')
+# allow_multiple_poses_kwargs = dict(action='store_true',
+#                                    help='Allow multiple designs to be selected from the same Pose when using --total'
+#                                         '\nBy default, --total filters the selected designs by a single Pose')
 csv_args = ('--csv',)
 csv_kwargs = dict(action='store_true', help='Write the sequences file as a .csv instead of the default .fasta')
-designs_per_pose_args = ('--designs-per-pose',)
+designs_per_pose_args = (f'--{designs_per_pose}',)
 designs_per_pose_kwargs = dict(type=int, default=1, help='What is the maximum number of designs that should be selected'
                                                          ' from each pose?\nDefault=%(default)s')
 
@@ -982,11 +1013,11 @@ select_number_kwargs = dict(type=int, default=sys.maxsize, metavar='int',
                             help='Number to return\nIf --total, returns the '
                                  'specified number of sequences (Where Default=No Limit).\nOtherwise the '
                                  'specified number will be selected from each pose (Where Default=1/pose)')
-total_args = ('--total',)
-total_kwargs = dict(action='store_true',
-                    help='Should sequences be selected based on their ranking in the total\ndesign pool? Searches '
-                         'for the top sequences from all poses,\nthen chooses one sequence/pose unless '
-                         f'--{allow_multiple_poses} is invoked')
+# total_args = ('--total',)
+# total_kwargs = dict(action='store_true',
+#                     help='Should selection be based on the total design pool?\n'
+#                          'Searches for the top sequences from all poses, then\n'
+#                          f'chooses one sequence/pose unless --{allow_multiple_poses} is invoked')
 weight_file_args = ('--weight-file',)
 weight_file_kwargs = dict(type=os.path.abspath,
                           help='Whether to weight selection results using metrics provided in a file')
@@ -1004,7 +1035,7 @@ select_arguments = {
     number_args + (f'--s-{number}',): select_number_kwargs,
     protocol_args: protocol_kwargs,
     save_total_args: save_total_kwargs,
-    total_args: total_kwargs,
+    # total_args: total_kwargs,
     weight_args: weight_kwargs,
     weight_function_args: weight_function_kwargs,
 }
@@ -1017,10 +1048,10 @@ parser_select_poses = {select_poses: dict(description=select_poses_help, help=se
 select_poses_arguments = {
     **select_arguments,
     number_args + (f'--s-{number}',): pose_select_number_kwargs,
-    total_args: dict(action='store_true',
-                     help='Should poses be selected based on their ranking in the total\npose pool? This will select '
-                          'the top poses based on the\naverage of all designs in that pose for the metrics specified\n'
-                          'unless --protocol is invoked, then the protocol average\nwill be used instead'),
+    # total_args: dict(action='store_true',
+    #                  help='Should poses be selected based on their ranking in the total\npose pool? This will select '
+    #                       'the top poses based on the\naverage of all designs in that pose for the metrics specified\n'
+    #                       'unless --protocol is invoked, then the protocol average\nwill be used instead'),
     # }
     # # parser_filter_mutual = parser_select_poses.add_mutually_exclusive_group(required=True)
     # parser_select_poses_mutual_group = dict(required=True)
@@ -1045,7 +1076,7 @@ multicistronic_args = {
     optimize_species_args: optimize_species_kwargs,
 }
 _select_designs_arguments = {
-    allow_multiple_poses_args: allow_multiple_poses_kwargs,
+    # allow_multiple_poses_args: allow_multiple_poses_kwargs,
     designs_per_pose_args: designs_per_pose_kwargs,
     output_directory_args:
         dict(type=os.path.abspath, default=None,
@@ -1077,8 +1108,8 @@ select_sequences_arguments = {
 }
 # ---------------------------------------------------
 select_designs_help = 'From the provided poses, select designs based on specified selection criteria using\n' \
-                      f'metrics. Alias for {select_sequences} with --skip-sequence-generation. The pose\n' \
-                      f'input flag --{specification_file} can be provided to restrict selection criteria'
+                      f'metrics. The pose input flag --{specification_file} can be provided to restrict\n' \
+                      'selection criteria to specific designs for each pose'
 parser_select_designs = {select_designs: dict(description=select_designs_help, help=select_designs_help)}
 select_designs_arguments = {
     **select_arguments,

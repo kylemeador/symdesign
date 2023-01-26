@@ -5345,10 +5345,10 @@ class SymmetricModel(Models):
                     f'entry "{self.sym_entry.specification}". If the order of the Entities in the file is '
                     'different than the provided symmetry, please supply the correct order using the '
                     f'symmetry specification with format "{utils.SymEntry.symmetry_combination_format}" to the '
-                    f'flag {"/".join(flags.symmetry_args)}. Another possibility is that the symmetry of the '
+                    f'flag {flags.format_args(flags.symmetry_args)}. Another possibility is that the symmetry of the '
                     f'{self.__class__.__name__} was generated improperly or imprecisely. Please ensure '
                     'your inputs are symmetrically viable and if not, "orient" them. See the flag'
-                    f'{"/".join(flags.guide_args)} for more help on this')
+                    f'{flags.format_args(flags.guide_args)} for more help on this')
             else:
                 transform_solutions.append(dict(translation=internal_tx,
                                                 rotation2=setting_matrix,

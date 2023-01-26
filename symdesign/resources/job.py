@@ -14,8 +14,8 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
 
+from . import config, sql, structure_db, wrapapi
 from symdesign import flags, sequence, structure, utils
-from symdesign.resources import sql, structure_db, wrapapi
 from symdesign.sequence import hhblits
 from symdesign.structure.fragment import db
 from symdesign.utils import CommandDistributer, guide, SymEntry, InputError, path as putils
@@ -416,7 +416,7 @@ class JobResources:
 
         # Selection flags
         self.save_total = kwargs.get('save_total')
-        self.total = kwargs.get('total')
+        # self.total = kwargs.get('total')
         self.protocol = kwargs.get(putils.protocol)
         _filter = kwargs.get('filter')
         _filter_file = kwargs.get('filter_file')
@@ -437,7 +437,7 @@ class JobResources:
         self.weight_function = kwargs.get('weight_function')
         self.number = kwargs.get('number')
         self.designs_per_pose = kwargs.get('designs_per_pose')
-        self.allow_multiple_poses = kwargs.get('allow_multiple_poses')
+        # self.allow_multiple_poses = kwargs.get('allow_multiple_poses')
         self.tag_entities = kwargs.get(putils.tag_entities)
         # self.metric = kwargs.get('metric')
         self.specification_file = kwargs.get(putils.specification_file)
@@ -644,11 +644,6 @@ class JobResources:
             flags.select_designs,  # As alias for select_sequences with --skip-sequence-generation
             flags.select_sequences,
         ]
-        select_modules = (
-            flags.select_poses,
-            flags.select_designs,
-            flags.select_sequences,
-        )
         problematic_modules = []
         not_recognized_modules = []
         nanohedra_prior = False
@@ -660,12 +655,15 @@ class JobResources:
                                          f"module position #1")
                     nanohedra_prior = True
                 # We only allow select-poses after nanohedra
-                if module in select_modules and module not in disallowed_modules:
+                if module in flags.select_modules and module not in disallowed_modules:
                     if nanohedra_prior:
-                        if self.total:
-                            logger.error("Using selection flag --total as input after nanohedra isn't allowed. "
-                                         "Changing to --dataframe")
-                            self.total = False
+                        # if self.total:
+                        if not self.weight:  # not self.filter or
+                            logger.critical(f'Using {module} after {flags.nanohedra} without specifying the flag '
+                                            # f'{flags.format_args(flags.filter_args)} or '
+                                            f'{flags.format_args(flags.weight_args)} defaults to selection parameters '
+                                            f'{config.default_weight_parameter[flags.nanohedra]}')
+                            # self.total = False
                             # raise InputError('Using selection flag --total as input after nanohedra is not allowed')
                 # Convert the command-line name to python acceptable
                 # self.modules[idx] = flags.format_from_cmdline(module)
