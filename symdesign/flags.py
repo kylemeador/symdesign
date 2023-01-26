@@ -13,9 +13,9 @@ from symdesign.sequence import constants
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
-from symdesign.utils import ex_path, handle_errors, pretty_format_table, read_json, InputError, remove_digit_table, \
+from symdesign.utils import handle_errors, pretty_format_table, read_json, InputError, remove_digit_table, \
     path as putils
-from symdesign.utils.path import fragment_dbs, biological_interfaces, default_logging_level
+from symdesign.utils.path import biological_interfaces, default_logging_level, ex_path, fragment_dbs
 # These attributes ^ shouldn't be moved here. Below should be with proper handling of '-' vs. '_'
 from symdesign.utils.path import submodule_guide, submodule_help, force, sym_entry, program_output, projects, \
     interface_metrics, nano_entity_flag1, nano_entity_flag2, data, multi_processing, residue_selector, options, \

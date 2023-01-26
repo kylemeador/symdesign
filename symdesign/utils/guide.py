@@ -21,16 +21,16 @@ available_design_methods = \
     'Currently, the available landscape can be sampled and scored according to ProteinMPNN or the Rosetta Energy ' \
     f'Function (currently {current_energy_function}). '
 # Select specific strings
-select_modules = f'{flags.select_poses}, {flags.select_designs}, or {flags.select_sequences} '
+select_modules_str = f'{flags.select_poses}, {flags.select_designs}, or {flags.select_sequences} '
 protocol_usage_in_select = \
-    f' Different protocols can be explicitly selected in {select_modules} modules using the flag --{putils.protocol}.'
+    f' Different protocols can be explicitly selected in {select_modules_str} modules using the flag --{putils.protocol}.'
 select_advice =\
     f" It's recommended that %s is performed after {flags.select_poses} as typically, many of the designs " \
     f'from a single pose will have similar characteristics. Given that the degrees of freedom between a pose and each' \
     f' of its designs are not too different if not rigid body degrees of freedom are sampled, the user would like to ' \
     f'prioritize features which pertain specifically to the particular sequence placed on the design.'
 select_string = \
-    f" It's intended that the user mix and match {select_modules} to curate their design " \
+    f" It's intended that the user mix and match {select_modules_str} to curate their design " \
     "hypothesis. The outcome of these can be fed back into design steps by resubmitting poses for further " \
     "processing."
 select_poses = \
@@ -102,7 +102,7 @@ cluster_poses = \
     f"identities and therefore they wouldn't be equal by transformation. When thousands of poses are under " \
     f'consideration, such as in the case of {flags.nanohedra.title()} outputs, spatial transformation can quickly identify ' \
     f'matching poses.{nltb}Cluster maps are implemented through the --{flags.cluster_map} and can be used in many ' \
-    f'cases during a selection scheme such as in {select_modules}, This will allow a' \
+    f'cases during a selection scheme such as in {select_modules_str}, This will allow a' \
     f' mapping from cluster representative to cluster members should be utilized to select the most favorable poses' \
     f' from those considered.{module_help_string}'
 design = \
@@ -140,7 +140,7 @@ design = \
     f'accuracy. It is not recommended to use any of the designs produced by the scout procedure, however. Instead, ' \
     f'they should be immediately followed by the {flags.select_poses} module to understand which out of a handful of ' \
     f'input poses are the most advantageous to the design task. After {flags.design} is completed, use the ' \
-    f'{flags.analysis} module to prepare metrics for the modules {select_modules}. Importantly, {flags.design} can be' \
+    f'{flags.analysis} module to prepare metrics for the modules {select_modules_str}. Importantly, {flags.design} can be' \
     f' undertaken multiple times with different protocols to sample different characteristics.' \
     f'{protocol_usage_in_select}.{module_help_string}'
 interface_design = \
@@ -187,7 +187,7 @@ interface_design = \
     f'accuracy. It is not recommended to use any of the designs produced by the scout procedure, however. Instead, ' \
     f'they should be immediately followed by the analysis module to understand which out of a handful of input poses ' \
     f'are the most advantageous to the design task. After interface_design is completed, use the {flags.analysis} ' \
-    f'module to prepare metrics for the modules {select_modules}. Importantly, ' \
+    f'module to prepare metrics for the modules {select_modules_str}. Importantly, ' \
     f'{flags.interface_design} can be undertaken multiple times with different protocols to sample different ' \
     f'interface characteristics.{protocol_usage_in_select}.{module_help_string}'
 formatted_metrics = \
@@ -200,7 +200,7 @@ analysis = \
     f' Usage of overall pose metrics across all poses should facilitate selection of the best configurations to move' \
     f' forward with, while Trajectory and Residue information can inform your choice of sequence selection ' \
     f'parameters. Selection of the resulting poses/designs/sequences can be accomplished through the modules ' \
-    f'"{select_modules}".{module_help_string}'
+    f'"{select_modules_str}".{module_help_string}'
 nanohedra = \
     f'{flags.nanohedra} operates the {flags.nanohedra.title()} program which carries out the fragment based docking ' \
     f'routine described in {nano_publication}. Fragment based docking is the main way {program_name} samples new ' \

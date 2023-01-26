@@ -664,7 +664,7 @@ def main():
             symdesign_directory = args.output_directory
             putils.make_path(symdesign_directory)
     else:
-        symdesign_directory = utils.get_base_symdesign_dir(
+        symdesign_directory = utils.get_program_root_directory(
             (args.directory or (args.project or args.single or [None])[0] or os.getcwd()))
 
     project_name = None
@@ -684,7 +684,7 @@ def main():
                     line = f.readline()
                     basename, extension = os.path.splitext(line)
                     if extension == '':  # Provided as directory/pose_name (pose_identifier) from SymDesignOutput
-                        file_directory = utils.get_base_symdesign_dir(line)
+                        file_directory = utils.get_program_root_directory(line)
                         if file_directory is not None:
                             symdesign_directory = file_directory
                             new_symdesign_output = False
@@ -773,7 +773,6 @@ def main():
             # Change default number to a single pose
             job.number = 1
     elif job.module == flags.nanohedra:
-        initialize = False
         if not job.sym_entry:
             raise utils.InputError(f'When running {flags.nanohedra}, the argument -e/--entry/--{flags.sym_entry} is '
                                    'required')
@@ -1026,286 +1025,284 @@ def main():
                 # utils.write_shell_script(list2cmdline(commands), name=flags.nanohedra, out_path=job.job_paths)
                 terminate(results=commands)
         else:
-            if not initialize:
-                # This logic is possible with job.module as select_poses with --metric or --dataframe
-                # job.location = os.path.basename(representative_pose_job.project)
-                raise RuntimeError(f"This wasn't expected to be possible")
+            if args.range:
+                try:
+                    low, high = map(float, args.range.split('-'))
+                except ValueError:  # We didn't unpack correctly
+                    raise ValueError('The input flag -r/--range argument must take the form "LOWER-UPPER"')
+                n_files = len(file_paths)
+                low_range, high_range = int((low / 100) * n_files), int((high / 100) * n_files)
+                if low_range < 0 or high_range > n_files:
+                    raise ValueError('The input flag --range argument is outside of the acceptable bounds [0-100]')
+                logger.info(f'Selecting poses within range: {low_range if low_range else 1}-{high_range}')
+                range_slice = slice(low_range, high_range)
             else:
-                if args.range:
-                    try:
-                        low, high = map(float, args.range.split('-'))
-                    except ValueError:  # We didn't unpack correctly
-                        raise ValueError('The input flag -r/--range argument must take the form "LOWER-UPPER"')
-                    n_files = len(file_paths)
-                    low_range, high_range = int((low / 100) * n_files), int((high / 100) * n_files)
-                    if low_range < 0 or high_range > n_files:
-                        raise ValueError('The input flag --range argument is outside of the acceptable bounds [0-100]')
-                    logger.info(f'Selecting poses within range: {low_range if low_range else 1}-{high_range}')
-                    range_slice = slice(low_range, high_range)
-                else:
-                    range_slice = slice(None)
+                range_slice = slice(None)
 
-                # if args.nanohedra_output:  # Nanohedra directory
-                #     file_paths, job.location = utils.collect_nanohedra_designs(files=args.file, directory=args.directory)
-                #     if file_paths:
-                #         first_pose_path = file_paths[0]
-                #         if first_pose_path.count(os.sep) == 0:
-                #             job.nanohedra_root = args.directory
-                #         else:
-                #             job.nanohedra_root = f'{os.sep}{os.path.join(*first_pose_path.split(os.sep)[:-4])}'
-                #         if not job.sym_entry:  # Get from the Nanohedra output
-                #             job.sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
-                #         pose_jobs = [PoseJob.from_file(pose, project=project_name)
-                #                             for pose in file_paths[range_slice]]
-                #         # Copy the master nanohedra log
-                #         project_designs = \
-                #             os.path.join(job.projects, f'{os.path.basename(job.nanohedra_root)}')  # _{putils.pose_directory}')
-                #         if not os.path.exists(os.path.join(project_designs, putils.master_log)):
-                #             putils.make_path(project_designs)
-                #             shutil.copy(os.path.join(job.nanohedra_root, putils.master_log), project_designs)
-                if args.poses or args.specification_file or args.project or args.single:
-                    # Use sqlalchemy database selection to find the requested work
-                    pose_identifiers = []
-                    if args.specification_file or args.poses:
-                        # Todo no --file and --specification-file at the same time
-                        # These poses are already included in the "program state"
-                        if not args.directory:  # Todo react .directory to program operation inside or in dir with SymDesignOutput
-                            raise utils.InputError(f'A --{flags.directory} must be provided when using '
-                                                   f'--{flags.specification_file}')
-                        # Todo, combine this with collect_designs
-                        #  this works for file locations as well! should I have a separate mechanism for each?
-                        if args.poses:
-                            job.location = args.poses
-                            for specification_file in args.poses:
-                                # Returns list of _designs and _directives
-                                pose_identifiers.extend(utils.PoseSpecification(specification_file).pose_identifiers)
-                        else:
-                            job.location = args.specification_file
-                            designs = []
-                            directives = []
-                            for specification_file in args.specification_file:
-                                # Returns list of _designs and _directives
-                                _pose_identifiers, _designs, _directives = \
-                                    zip(*utils.PoseSpecification(specification_file).get_directives())
-                                pose_identifiers.extend(_pose_identifiers)
-                                designs.extend(_designs)
-                                directives.extend(_directives)
-
-                        # with job.db.session(expire_on_commit=False) as session:
-                        fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
-                        pose_jobs = list(session.scalars(fetch_jobs_stmt))
-                        # pose_jobs = list(job.current_session.scalars(fetch_jobs_stmt))
-                        # for specification_file in args.specification_file:
-                        #     pose_jobs.extend(
-                        #         [PoseJob.from_directory(pose_identifier, root=job.projects,
-                        #                                 specific_designs=designs,
-                        #                                 directives=directives)
-                        #          for pose_identifier, designs, directives in
-                        #          utils.PoseSpecification(specification_file).get_directives()])
-
-                        # Check all jobs that were checked out against those that were requested
-                        checked_out_identifiers = {pose_job.pose_identifier for pose_job in pose_jobs}
-                        missing_input_identifiers = checked_out_identifiers.difference(pose_identifiers)
-                        if missing_input_identifiers:
-                            logger.warning(
-                                "Couldn't find the following identifiers:\n%s" % '\n'.join(missing_input_identifiers))
-
-                        if args.specification_file:
-                            for pose_job, _designs, _directives in zip(pose_jobs, designs, directives):
-                                pose_job.use_specific_designs(_designs, _directives)
+            # if args.nanohedra_output:  # Nanohedra directory
+            #     file_paths, job.location = utils.collect_nanohedra_designs(files=args.file, directory=args.directory)
+            #     if file_paths:
+            #         first_pose_path = file_paths[0]
+            #         if first_pose_path.count(os.sep) == 0:
+            #             job.nanohedra_root = args.directory
+            #         else:
+            #             job.nanohedra_root = f'{os.sep}{os.path.join(*first_pose_path.split(os.sep)[:-4])}'
+            #         if not job.sym_entry:  # Get from the Nanohedra output
+            #             job.sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
+            #         pose_jobs = [PoseJob.from_file(pose, project=project_name)
+            #                             for pose in file_paths[range_slice]]
+            #         # Copy the master nanohedra log
+            #         project_designs = \
+            #             os.path.join(job.projects, f'{os.path.basename(job.nanohedra_root)}')  # _{putils.pose_directory}')
+            #         if not os.path.exists(os.path.join(project_designs, putils.master_log)):
+            #             putils.make_path(project_designs)
+            #             shutil.copy(os.path.join(job.nanohedra_root, putils.master_log), project_designs)
+            if args.poses or args.specification_file or args.project or args.single:
+                # Use sqlalchemy database selection to find the requested work
+                pose_identifiers = []
+                if args.specification_file or args.poses:
+                    # Todo no --file and --specification-file at the same time
+                    # These poses are already included in the "program state"
+                    if not args.directory:  # Todo react .directory to program operation inside or in dir with SymDesignOutput
+                        raise utils.InputError(f'A --{flags.directory} must be provided when using '
+                                               f'--{flags.specification_file}')
+                    # Todo, combine this with collect_designs
+                    #  this works for file locations as well! should I have a separate mechanism for each?
+                    if args.poses:
+                        job.location = args.poses
+                        for specification_file in args.poses:
+                            # Returns list of _designs and _directives
+                            pose_identifiers.extend(utils.PoseSpecification(specification_file).pose_identifiers)
                     else:
-                        paths, job.location = utils.collect_designs(projects=args.project, singles=args.single)
-                        #                                                  directory = symdesign_directory,
-                        if paths:  # There are files present
-                            # pose_jobs = [PoseJob.from_directory(path) for path in file_paths[range_slice]]
-                            for path in paths:
-                                name, project, *_ = reversed(path.split(os.sep))
-                                pose_identifiers.append(f'{project}{os.sep}{name}')
-                        # elif args.project:
-                        #     job.location = args.project
-                        #     projects = [os.path.basename(project) for project in args.project]
-                        #     fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.in_(projects))
-                        # else:  # args.single:
-                        #     job.location = args.project
-                        #     singles = [os.path.basename(single) for single in args.project]
-                        #     for single in singles:
-                        #         name, project, *_ = reversed(single.split(os.sep))
-                        #         pose_identifiers.append(f'{project}{os.sep}{name}')
-                        fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
-                        pose_jobs = list(session.scalars(fetch_jobs_stmt))
-                else:  # args.file or args.directory
-                    file_paths, job.location = utils.collect_designs(files=args.file, directory=args.directory)
-                    if file_paths:
-                        # if file_paths[0].count(os.sep) == 0:  # Check to ensure -f wasn't used when -pf was meant
-                        #     # Assume that we have received pose-IDs and process accordingly
-                        #     if not args.directory:
-                        #         raise utils.InputError('Your input specification appears to be pose IDs, however no '
-                        #                                f'--{flags.directory} was passed. Please resubmit with '
-                        #                                f'--{flags.directory} and use --{flags.poses}/'
-                        #                                f'--{flags.specification_file} with pose IDs')
-                        #     pose_jobs = [PoseJob.from_directory(pose, root=job.projects)
-                        #                  for pose in file_paths[low_range:high_range]]
-                        # else:
-                        pose_jobs = [PoseJob.from_path(path, project=project_name)
-                                     for path in file_paths[range_slice]]
-                if not pose_jobs:
-                    raise utils.InputError(f"No {PoseJob.__name__}'s found at location '{job.location}'")
-                """Check to see that proper data/files have been created 
-                Data includes:
-                - UniProtEntity
-                - ProteinMetadata
-                Files include:
-                - Structure in orient, refined, loop modelled
-                - Profile from hhblits, bmdca?
-                """
-                # initialize_modules = \
-                #     [flags.design, flags.interface_design, flags.interface_metrics, flags.optimize_designs]
-                #      # flags.analysis,  # maybe hhblits, bmDCA. Only refine if Rosetta were used, no loop_modelling
-                #      # flags.refine]  # pre_refine not necessary. maybe hhblits, bmDCA, loop_modelling
+                        job.location = args.specification_file
+                        designs = []
+                        directives = []
+                        for specification_file in args.specification_file:
+                            # Returns list of _designs and _directives
+                            _pose_identifiers, _designs, _directives = \
+                                zip(*utils.PoseSpecification(specification_file).get_directives())
+                            pose_identifiers.extend(_pose_identifiers)
+                            designs.extend(_designs)
+                            directives.extend(_directives)
 
-                if job.sym_entry:
-                    symmetry_map = job.sym_entry.groups
-                    preprocess_entities_by_symmetry: dict[str, list[Entity]] = \
-                        {symmetry: [] for symmetry in job.sym_entry.groups}
+                    # with job.db.session(expire_on_commit=False) as session:
+                    fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
+                    pose_jobs = list(session.scalars(fetch_jobs_stmt))
+                    # pose_jobs = list(job.current_session.scalars(fetch_jobs_stmt))
+                    # for specification_file in args.specification_file:
+                    #     pose_jobs.extend(
+                    #         [PoseJob.from_directory(pose_identifier, root=job.projects,
+                    #                                 specific_designs=designs,
+                    #                                 directives=directives)
+                    #          for pose_identifier, designs, directives in
+                    #          utils.PoseSpecification(specification_file).get_directives()])
+
+                    # Check all jobs that were checked out against those that were requested
+                    checked_out_identifiers = {pose_job.pose_identifier for pose_job in pose_jobs}
+                    missing_input_identifiers = checked_out_identifiers.difference(pose_identifiers)
+                    if missing_input_identifiers:
+                        logger.warning(
+                            "Couldn't find the following identifiers:\n%s" % '\n'.join(missing_input_identifiers))
+
+                    if args.specification_file:
+                        for pose_job, _designs, _directives in zip(pose_jobs, designs, directives):
+                            pose_job.use_specific_designs(_designs, _directives)
                 else:
-                    symmetry_map = repeat('C1')
-                    preprocess_entities_by_symmetry = {'C1': []}
+                    paths, job.location = utils.collect_designs(projects=args.project, singles=args.single)
+                    #                                                  directory = symdesign_directory,
+                    if paths:  # There are files present
+                        # pose_jobs = [PoseJob.from_directory(path) for path in file_paths[range_slice]]
+                        for path in paths:
+                            name, project, *_ = reversed(path.split(os.sep))
+                            pose_identifiers.append(f'{project}{os.sep}{name}')
+                    # elif args.project:
+                    #     job.location = args.project
+                    #     projects = [os.path.basename(project) for project in args.project]
+                    #     fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.in_(projects))
+                    # else:  # args.single:
+                    #     job.location = args.project
+                    #     singles = [os.path.basename(single) for single in args.project]
+                    #     for single in singles:
+                    #         name, project, *_ = reversed(single.split(os.sep))
+                    #         pose_identifiers.append(f'{project}{os.sep}{name}')
+                    fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
+                    pose_jobs = list(session.scalars(fetch_jobs_stmt))
+            elif select_from_directory:
+                # This logic is possible with flags.select_modules
+                # job.location = os.path.basename(representative_pose_job.project)
+                pass
+            else:  # args.file or args.directory
+                file_paths, job.location = utils.collect_designs(files=args.file, directory=args.directory)
+                if file_paths:
+                    # if file_paths[0].count(os.sep) == 0:  # Check to ensure -f wasn't used when -pf was meant
+                    #     # Assume that we have received pose-IDs and process accordingly
+                    #     if not args.directory:
+                    #         raise utils.InputError('Your input specification appears to be pose IDs, however no '
+                    #                                f'--{flags.directory} was passed. Please resubmit with '
+                    #                                f'--{flags.directory} and use --{flags.poses}/'
+                    #                                f'--{flags.specification_file} with pose IDs')
+                    #     pose_jobs = [PoseJob.from_directory(pose, root=job.projects)
+                    #                  for pose in file_paths[low_range:high_range]]
+                    # else:
+                    pose_jobs = [PoseJob.from_path(path, project=project_name)
+                                 for path in file_paths[range_slice]]
+            if not pose_jobs:
+                raise utils.InputError(f"No {PoseJob.__name__}'s found at location '{job.location}'")
+            """Check to see that proper data/files have been created 
+            Data includes:
+            - UniProtEntity
+            - ProteinMetadata
+            Files include:
+            - Structure in orient, refined, loop modelled
+            - Profile from hhblits, bmdca?
+            """
+            # initialize_modules = \
+            #     [flags.design, flags.interface_design, flags.interface_metrics, flags.optimize_designs]
+            #      # flags.analysis,  # maybe hhblits, bmDCA. Only refine if Rosetta were used, no loop_modelling
+            #      # flags.refine]  # pre_refine not necessary. maybe hhblits, bmDCA, loop_modelling
 
-                # Get api wrapper
-                retrieve_stride_info = wrapapi.api_database_factory().stride.retrieve_data
-                possibly_new_uniprot_to_prot_metadata: dict[tuple[str, ...], sql.ProteinMetadata] = {}
-                existing_uniprot_ids = set()
-                existing_uniprot_entities = set()
-                existing_protein_metadata = set()
-                remove_pose_jobs = []
-                pose_jobs_to_commit = []
-                for idx, pose_job in enumerate(pose_jobs):
-                    if pose_job.id is None:
-                        # Todo expand the definition of SymEntry/Entity to include
-                        #  specification of T:{T:{C3}{C3}}{C1}
-                        #  where an Entity is composed of multiple Entity (Chain) instances
-                        # Need to initialize the local database. Load this model to get required info
-                        try:
-                            pose_job.load_initial_model()
-                        except utils.InputError as error:
-                            logger.error(error)
-                            remove_pose_jobs.append(idx)
-                            continue
+            if job.sym_entry:
+                symmetry_map = job.sym_entry.groups
+                preprocess_entities_by_symmetry: dict[str, list[Entity]] = \
+                    {symmetry: [] for symmetry in job.sym_entry.groups}
+            else:
+                symmetry_map = repeat('C1')
+                preprocess_entities_by_symmetry = {'C1': []}
 
-                        for entity, symmetry in zip(pose_job.initial_model.entities, symmetry_map):
-                            try:
-                                ''.join(entity.uniprot_ids)
-                            except TypeError:  # Uniprot_ids is (None,)
-                                entity.uniprot_ids = (entity.name,)
-                            except AttributeError:  # Unable to retrieve .uniprot_ids
-                                entity.uniprot_ids = (entity.name,)
-                            # else:  # .uniprot_ids work. Use as parsed
-                            uniprot_ids = entity.uniprot_ids
-
-                            # Check if the tuple of UniProtIDs has already been observed
-                            protein_metadata = possibly_new_uniprot_to_prot_metadata.get(uniprot_ids, None)
-                            if protein_metadata is None:  # uniprot_ids in possibly_new_uniprot_to_prot_metadata:
-                                # Try to get the already parsed secondary structure informatino
-                                parsed_secondary_structure = retrieve_stride_info(name=entity.name)
-                                if parsed_secondary_structure:
-                                    entity.secondary_structure = parsed_secondary_structure
-                                else:
-                                    entity.stride(to_file=job.api_db.stride.path_to(entity.name))
-                                    # entity.calculate_secondary_structure()
-                                # Process for persistent state
-                                protein_metadata = sql.ProteinMetadata(
-                                    entity_id=entity.name,
-                                    reference_sequence=entity.reference_sequence,
-                                    n_terminal_helix=entity.is_termini_helical(),
-                                    c_terminal_helix=entity.is_termini_helical('c'),
-                                    thermophilic=entity.thermophilic,
-                                    symmetry_group=symmetry
-                                    # # Todo there could be no sym_entry, the use the entity.symmetry
-                                    # symmetry=entity.symmetry
-                                )
-                                # for uniprot_id in entity.uniprot_ids:
-                                #     if uniprot_id in possibly_new_uniprot_to_prot_metadata:
-                                #         # This Entity already found for processing
-                                #         pass
-                                #     else:  # Process for persistent state
-                                #         possibly_new_uniprot_to_prot_metadata[uniprot_id] = protein_metadata
-
-                                possibly_new_uniprot_to_prot_metadata[uniprot_ids] = protein_metadata
-                                preprocess_entities_by_symmetry[symmetry].append(entity)
-                            # else:  # This Entity already found for processing
-                            #     pass  # protein_metadata = protein_metadata
-                            # # Create EntityData
-                            # # entity_data.append(sql.EntityData(pose=pose_job,
-                            # sql.EntityData(pose=pose_job,
-                            #                meta=protein_metadata
-                            #                )
-                        # # Update PoseJob
-                        # pose_job.entity_data = entity_data
-                        pose_jobs_to_commit.append(pose_job)
-                    else:  # PoseJob is initialized
-                        # Add each UniProtEntity to existing_uniprot_entities to limit work
-                        for data in pose_job.entity_data:
-                            existing_protein_metadata.add(data.meta)
-                            for uniprot_entity in data.meta.uniprot_entities:
-                                if uniprot_entity.id not in existing_uniprot_ids:
-                                    existing_uniprot_entities.add(uniprot_entity)
-                            # meta = data.meta
-                            # if meta.uniprot_id in possibly_new_uniprot_to_prot_metadata:
-                            #     existing_uniprot_entities.add(meta.uniprot_entity)
-                for idx in reversed(remove_pose_jobs):
-                    pose_jobs.pop(idx)
-                # all_structures = []
-                # Populate all_entities to set up sequence dependent resources
-                all_entities = []
-                # Orient entities, then load each entity to all_structures for further database processing
-                for symmetry, entities in preprocess_entities_by_symmetry.items():
-                    if not entities:  # useful in a case where symmetry groups are the same or group is None
+            # Get api wrapper
+            retrieve_stride_info = wrapapi.api_database_factory().stride.retrieve_data
+            possibly_new_uniprot_to_prot_metadata: dict[tuple[str, ...], sql.ProteinMetadata] = {}
+            existing_uniprot_ids = set()
+            existing_uniprot_entities = set()
+            existing_protein_metadata = set()
+            remove_pose_jobs = []
+            pose_jobs_to_commit = []
+            for idx, pose_job in enumerate(pose_jobs):
+                if pose_job.id is None:
+                    # Todo expand the definition of SymEntry/Entity to include
+                    #  specification of T:{T:{C3}{C3}}{C1}
+                    #  where an Entity is composed of multiple Entity (Chain) instances
+                    # Need to initialize the local database. Load this model to get required info
+                    try:
+                        pose_job.load_initial_model()
+                    except utils.InputError as error:
+                        logger.error(error)
+                        remove_pose_jobs.append(idx)
                         continue
-                    # all_entities.extend(entities)
-                    # job.structure_db.orient_structures(
-                    #     [entity.name for entity in entities], symmetry=symmetry)
-                    # Can't do this ^ as structure_db.orient_structures sets .name, .symmetry, and .file_path on each Entity
-                    all_entities.extend(job.structure_db.orient_structures(
-                        [entity.name for entity in entities], symmetry=symmetry))
-                    # Todo orient Entity individually, which requires symmetric oligomer be made
-                    #  This could be found from Pose._assign_pose_transformation() or new meachanism
-                    #  Where oligomer is deduced from available surface fragment overlap with the specified symmetry...
-                    #  job.structure_db.orient_entities(entities, symmetry=symmetry)
 
-                # Deal with new data compared to existing entries
-                all_uniprot_to_prot_data = \
-                    initialize_entities(all_entities, possibly_new_uniprot_to_prot_metadata,
-                                        existing_uniprot_entities=existing_uniprot_entities,
-                                        existing_protein_metadata=existing_protein_metadata)
-                # Todo does all_uniprot_to_prot_data need to be returned or can I update in place?
-                # Write new data to the database with correct unique entries
-                # with job.db.session(expire_on_commit=False) as session:
-                for pose_job in pose_jobs_to_commit:
-                    pose_job.entity_data.extend(
-                        sql.EntityData(meta=all_uniprot_to_prot_data[entity.uniprot_ids])
-                        for entity in pose_job.initial_model.entities)
-                session.add_all(pose_jobs_to_commit)
-                session.commit()
+                    for entity, symmetry in zip(pose_job.initial_model.entities, symmetry_map):
+                        try:
+                            ''.join(entity.uniprot_ids)
+                        except TypeError:  # Uniprot_ids is (None,)
+                            entity.uniprot_ids = (entity.name,)
+                        except AttributeError:  # Unable to retrieve .uniprot_ids
+                            entity.uniprot_ids = (entity.name,)
+                        # else:  # .uniprot_ids work. Use as parsed
+                        uniprot_ids = entity.uniprot_ids
 
-                if args.multi_processing:  # and not args.skip_master_db:
-                    logger.debug('Loading Database for multiprocessing fork')
-                    # Todo set up a job based data acquisition as this takes some time and loading everythin isn't necessary!
-                    job.structure_db.load_all_data()
-                    job.api_db.load_all_data()
-                # # Set up in series
-                # for pose_job in pose_jobs:
-                #     # pose.initialize_structure_attributes(pre_refine=job.initial_refinement,
-                #     #                                      pre_loop_model=job.initial_loop_model)
-                #     pose_job.pre_refine = job.initial_refinement
-                #     pose_job.pre_loop_model = job.initial_loop_model
+                        # Check if the tuple of UniProtIDs has already been observed
+                        protein_metadata = possibly_new_uniprot_to_prot_metadata.get(uniprot_ids, None)
+                        if protein_metadata is None:  # uniprot_ids in possibly_new_uniprot_to_prot_metadata:
+                            # Try to get the already parsed secondary structure informatino
+                            parsed_secondary_structure = retrieve_stride_info(name=entity.name)
+                            if parsed_secondary_structure:
+                                entity.secondary_structure = parsed_secondary_structure
+                            else:
+                                entity.stride(to_file=job.api_db.stride.path_to(entity.name))
+                                # entity.calculate_secondary_structure()
+                            # Process for persistent state
+                            protein_metadata = sql.ProteinMetadata(
+                                entity_id=entity.name,
+                                reference_sequence=entity.reference_sequence,
+                                n_terminal_helix=entity.is_termini_helical(),
+                                c_terminal_helix=entity.is_termini_helical('c'),
+                                thermophilic=entity.thermophilic,
+                                symmetry_group=symmetry
+                                # # Todo there could be no sym_entry, the use the entity.symmetry
+                                # symmetry=entity.symmetry
+                            )
+                            # for uniprot_id in entity.uniprot_ids:
+                            #     if uniprot_id in possibly_new_uniprot_to_prot_metadata:
+                            #         # This Entity already found for processing
+                            #         pass
+                            #     else:  # Process for persistent state
+                            #         possibly_new_uniprot_to_prot_metadata[uniprot_id] = protein_metadata
 
-                logger.info(f'Found {len(pose_jobs)} unique poses from provided input location "{job.location}"')
-                if not job.debug and not job.skip_logging:
-                    representative_pose_job = next(iter(pose_jobs))
-                    if representative_pose_job.log_path:
-                        logger.info(f'All design specific logs are located in their corresponding directories\n\tEx: '
-                                    f'{representative_pose_job.log_path}')
+                            possibly_new_uniprot_to_prot_metadata[uniprot_ids] = protein_metadata
+                            preprocess_entities_by_symmetry[symmetry].append(entity)
+                        # else:  # This Entity already found for processing
+                        #     pass  # protein_metadata = protein_metadata
+                        # # Create EntityData
+                        # # entity_data.append(sql.EntityData(pose=pose_job,
+                        # sql.EntityData(pose=pose_job,
+                        #                meta=protein_metadata
+                        #                )
+                    # # Update PoseJob
+                    # pose_job.entity_data = entity_data
+                    pose_jobs_to_commit.append(pose_job)
+                else:  # PoseJob is initialized
+                    # Add each UniProtEntity to existing_uniprot_entities to limit work
+                    for data in pose_job.entity_data:
+                        existing_protein_metadata.add(data.meta)
+                        for uniprot_entity in data.meta.uniprot_entities:
+                            if uniprot_entity.id not in existing_uniprot_ids:
+                                existing_uniprot_entities.add(uniprot_entity)
+                        # meta = data.meta
+                        # if meta.uniprot_id in possibly_new_uniprot_to_prot_metadata:
+                        #     existing_uniprot_entities.add(meta.uniprot_entity)
+            for idx in reversed(remove_pose_jobs):
+                pose_jobs.pop(idx)
+            # all_structures = []
+            # Populate all_entities to set up sequence dependent resources
+            all_entities = []
+            # Orient entities, then load each entity to all_structures for further database processing
+            for symmetry, entities in preprocess_entities_by_symmetry.items():
+                if not entities:  # useful in a case where symmetry groups are the same or group is None
+                    continue
+                # all_entities.extend(entities)
+                # job.structure_db.orient_structures(
+                #     [entity.name for entity in entities], symmetry=symmetry)
+                # Can't do this ^ as structure_db.orient_structures sets .name, .symmetry, and .file_path on each Entity
+                all_entities.extend(job.structure_db.orient_structures(
+                    [entity.name for entity in entities], symmetry=symmetry))
+                # Todo orient Entity individually, which requires symmetric oligomer be made
+                #  This could be found from Pose._assign_pose_transformation() or new meachanism
+                #  Where oligomer is deduced from available surface fragment overlap with the specified symmetry...
+                #  job.structure_db.orient_entities(entities, symmetry=symmetry)
 
+            # Deal with new data compared to existing entries
+            all_uniprot_to_prot_data = \
+                initialize_entities(all_entities, possibly_new_uniprot_to_prot_metadata,
+                                    existing_uniprot_entities=existing_uniprot_entities,
+                                    existing_protein_metadata=existing_protein_metadata)
+            # Todo does all_uniprot_to_prot_data need to be returned or can I update in place?
+            # Write new data to the database with correct unique entries
+            # with job.db.session(expire_on_commit=False) as session:
+            for pose_job in pose_jobs_to_commit:
+                pose_job.entity_data.extend(
+                    sql.EntityData(meta=all_uniprot_to_prot_data[entity.uniprot_ids])
+                    for entity in pose_job.initial_model.entities)
+            session.add_all(pose_jobs_to_commit)
+            session.commit()
+
+            if args.multi_processing:  # and not args.skip_master_db:
+                logger.debug('Loading Database for multiprocessing fork')
+                # Todo set up a job based data acquisition as this takes some time and loading everythin isn't necessary!
+                job.structure_db.load_all_data()
+                job.api_db.load_all_data()
+            # # Set up in series
+            # for pose_job in pose_jobs:
+            #     # pose.initialize_structure_attributes(pre_refine=job.initial_refinement,
+            #     #                                      pre_loop_model=job.initial_loop_model)
+            #     pose_job.pre_refine = job.initial_refinement
+            #     pose_job.pre_loop_model = job.initial_loop_model
+
+            logger.info(f'Found {len(pose_jobs)} unique poses from provided input location "{job.location}"')
+            if not job.debug and not job.skip_logging:
+                representative_pose_job = next(iter(pose_jobs))
+                if representative_pose_job.log_path:
+                    logger.info(f'All design specific logs are located in their corresponding directories\n\tEx: '
+                                f'{representative_pose_job.log_path}')
     # -----------------------------------------------------------------------------------------------------------------
     #  Set up Job specific details and resources
     # -----------------------------------------------------------------------------------------------------------------
