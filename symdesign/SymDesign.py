@@ -173,10 +173,10 @@ def main():
 
             # Format the output file depending on specified name and module type
             default_output_tuple = (utils.starttime, job.module, design_source)
-            designs_file = None
+            poses_file = None
             if job.output_file:
                 # if job.module not in [flags.analysis, flags.cluster_poses]:
-                #     designs_file = job.output_file
+                #     poses_file = job.output_file
                 if job.module == flags.analysis:
                     if len(job.output_file.split(os.sep)) <= 1:
                         # The path isn't an absolute or relative path, so prepend the job.all_scores location
@@ -186,8 +186,8 @@ def main():
                     if not args.output:  # No output is specified
                         output_analysis = False
                 else:
-                    # Set the designs_file to the provided job.output_file
-                    designs_file = job.output_file
+                    # Set the poses_file to the provided job.output_file
+                    poses_file = job.output_file
             else:
                 # For certain modules, use the default file type
                 if job.module == flags.analysis:
@@ -195,38 +195,49 @@ def main():
                 else:  # We don't have a default output specified
                     pass
 
-            # Make single file with names of each directory where all_docked_poses can be found
+            # Make single file with names of each directory where poses can be found
             if output_analysis:
-                if designs_file is None:  # Make a default file name
+                if poses_file is None:  # Make a default file name
                     putils.make_path(job_paths)
                     # # Remove possible multiple instances of _pose from location in default_output_tuple
                     # scratch_designs = \
                     #     os.path.join(job_paths, putils.default_path_file.format(*default_output_tuple)).split('_pose')
-                    # designs_file = f'{scratch_designs[0]}_pose{scratch_designs[-1]}'
-                    designs_file = \
+                    # poses_file = f'{scratch_designs[0]}_pose{scratch_designs[-1]}'
+                    poses_file = \
                         os.path.join(job_paths, putils.default_path_file.format(*default_output_tuple))
 
-                with open(designs_file, 'w') as f_out:
+                with open(poses_file, 'w') as f_out:
                     f_out.write('%s\n' % '\n'.join(str(pose_job) for pose_job in success))
-                logger.critical(f'The file "{designs_file}" contains the locations of every pose that passed checks/'
+                logger.critical(f'The file "{poses_file}" contains the locations of every pose that passed checks/'
                                 f'filters for this job. Utilize this file to input these poses in future '
                                 f'{putils.program_name} commands such as:'
-                                f'\n\t{putils.program_command} MODULE --{flags.poses} {designs_file} ...')
+                                f'\n\t{putils.program_command} MODULE --{flags.poses} {poses_file} ...')
 
             # Output any additional files for the module
-            if job.module == flags.analysis:
-                # Save Design DataFrame
-                design_df = pd.DataFrame([result_ for result_ in results if not isinstance(result_, BaseException)])
-                if args.output:  # Create a new file
-                    design_df.to_csv(args.output_file)
-                else:
-                    # This is the mechanism set up to append to an existing file. Check if we should add a header
-                    header = False if os.path.exists(args.output_file) else True
-                    design_df.to_csv(args.output_file, mode='a', header=header)
+            if job.module in [flags.select_designs, flags.select_sequences]:
+                designs_file = \
+                    os.path.join(job_paths, putils.default_specification_file.format(*default_output_tuple))
+                with open(designs_file, 'w') as f_out:
+                    f_out.write('%s\n' % '\n'.join(f'{pose_job}, {design.name}' for pose_job in success
+                                                   for design in pose_job.current_designs))
+                logger.critical(f'The file "{designs_file}" contains the locations of every design selected by this job'
+                                f'. Utilize this file to input these designs in future {putils.program_name} commands '
+                                f'such as:\n\t{putils.program_command} MODULE --{flags.specification_file} '
+                                f'{designs_file} ...')
 
-                logger.info(f'Analysis of all poses written to {args.output_file}')
-                if args.save:
-                    logger.info(f'Analysis of all Trajectories and Residues written to {job.all_scores}')
+            # if job.module == flags.analysis:
+            #     # Save Design DataFrame
+            #     design_df = pd.DataFrame([result_ for result_ in results if not isinstance(result_, BaseException)])
+            #     if args.output:  # Create a new file
+            #         design_df.to_csv(args.output_file)
+            #     else:
+            #         # This is the mechanism set up to append to an existing file. Check if we should add a header
+            #         header = False if os.path.exists(args.output_file) else True
+            #         design_df.to_csv(args.output_file, mode='a', header=header)
+            #
+            #     logger.info(f'Analysis of all poses written to {args.output_file}')
+            #     if args.save:
+            #         logger.info(f'Analysis of all Trajectories and Residues written to {job.all_scores}')
 
             # Set up sbatch scripts for processed Poses
             if job.module == flags.interface_design:
@@ -655,6 +666,7 @@ def main():
              'or append --overwrite to your command')
     symdesign_directory = None
     # If output exists, get the base SymDesign dir -> symdesign_directory
+    # Todo make output_directory separate from existing symdesign_directory storage location
     if args.output_directory:
         if os.path.exists(args.output_directory) and not args.overwrite:
             exit(f'The specified output directory "{args.output_directory}" already exists, this will overwrite '
