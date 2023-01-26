@@ -3,10 +3,10 @@ from __future__ import annotations
 import argparse
 import os
 
-from symdesign import utils
 from symdesign.interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_interfaces
 from symdesign.resources import query, structure_db
 from symdesign.structure.model import Model, Chain
+from symdesign.utils import path as putils
 
 
 def pisa_polymer_interface(interface):
@@ -336,7 +336,7 @@ def find_representative_pdbs_for_uniprot_entry(unp_d, pdb_uniprot_info, min_reso
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Extract Chain/Chain Interfaces from a PDB or PDB Library\n')
     parser.add_argument('-f', '--file_list', type=os.path.abspath,
-                        help=f'{utils.ex_path("pdblist.file")}. Can be newline or comma separated.')
+                        help=f'{putils.ex_path("pdblist.file")}. Can be newline or comma separated.')
     parser.add_argument('-d', '--download', type=bool, help='Whether files should be downloaded. Default=False',
                         default=False)
     parser.add_argument('-p', '--input_pdb_directory', type=os.path.abspath,

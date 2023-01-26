@@ -12,7 +12,7 @@ import os
 import pstats
 from pstats import SortKey
 
-from symdesign import utils
+from symdesign.utils import path as putils
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -20,7 +20,7 @@ if __name__ == '__main__':
                         choices=list(key for key in SortKey.__dict__.keys() if not key.startswith('_')),
                         help='The specific key to sort statistics by. Choices are defined by pstats.SortKey. '
                              'Default=CUMULATIVE')
-    parser.add_argument('-f', '--file', type=os.path.abspath, metavar=utils.ex_path('file_with_stats.txt'),
+    parser.add_argument('-f', '--file', type=os.path.abspath, metavar=putils.ex_path('file_with_stats.txt'),
                         help='File containing the stats from a cProfile run', default=None)
     parser.add_argument('-t', '--top', type=int, help='The number of results to view', default=10)
 

@@ -13,6 +13,7 @@ import requests
 from symdesign import utils
 from .utils import input_string, confirmation_string, bool_d, validate_input, invalid_string, \
     header_string, format_string, connection_exception_handler, UKB, GB
+putils = utils.path
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -1351,7 +1352,7 @@ def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Query the PDB for entries\n')
     parser.add_argument('-f', '--file_list', type=os.path.abspath,
-                        help=f'{utils.ex_path("pdblist.file")}. Can be newline or comma separated')
+                        help=f'{putils.ex_path("pdblist.file")}. Can be newline or comma separated')
     parser.add_argument('-d', '--download', type=bool, default=False,
                         help='Whether files should be downloaded. Default=False')
     parser.add_argument('-p', '--input_pdb_directory', type=os.path.abspath,

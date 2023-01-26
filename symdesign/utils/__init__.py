@@ -539,11 +539,11 @@ def to_iterable(obj: str | bytes | list, ensure_file: bool = False, skip_comma: 
     return clean_list
 
 
-def remove_duplicates(_iter: Iterable) -> list:
-    """An efficient, order maintaining, and set free function to remove duplicates"""
+def remove_duplicates(iter_: Iterable[Any]) -> list[Any]:
+    """An efficient, order maintaining, and set function to remove duplicates"""
     seen = set()
     seen_add = seen.add
-    return [x for x in _iter if not (x in seen or seen_add(x))]
+    return [x for x in iter_ if not (x in seen or seen_add(x))]
 
 
 def write_shell_script(command: str, name: str = 'script', out_path: AnyStr = os.getcwd(),
@@ -941,13 +941,13 @@ def collect_designs(files: Sequence = None, directory: AnyStr = None, projects: 
                     raise InputError(f'{file} is a directory not a file. Did you mean to run with --file?')
                 all_paths.extend(paths)
     else:
-        base_directory = get_base_symdesign_dir(directory)
+        base_directory = get_program_root_directory(directory)
         # return all design directories within:
         #  base directory -> /base/Projects/project1, ... /base/Projects/projectN
         #  specified projects -> /base/Projects/project1, /base/Projects/project2, ...
         #  specified singles -> /base/Projects/project/design1, /base/Projects/project/design2, ...
         if base_directory or projects or singles:
-            all_paths = get_symdesign_dirs(base=base_directory, projects=projects, singles=singles)
+            all_paths = get_program_directories(base=base_directory, projects=projects, singles=singles)
         elif directory:  # This is probably an uninitialized project. Grab all .pdb files
             all_paths = get_directory_file_paths(directory, extension='.pdb')
             directory = os.path.basename(directory)  # This is for the location variable return
@@ -959,7 +959,7 @@ def collect_designs(files: Sequence = None, directory: AnyStr = None, projects: 
     return sorted(set(all_paths)), location  # if isinstance(location, str) else location[0]  # Grab first index
 
 
-def get_base_symdesign_dir(search_path: str = None) -> AnyStr | None:
+def get_program_root_directory(search_path: str = None) -> AnyStr | None:
     """Find the program_output variable in the specified path and return the path to it
 
     Args:
@@ -989,7 +989,7 @@ def get_base_symdesign_dir(search_path: str = None) -> AnyStr | None:
     return base_dir
 
 
-def get_symdesign_dirs(base: str = None, projects: Iterable = None, singles: Iterable = None) -> Iterator:
+def get_program_directories(base: str = None, projects: Iterable = None, singles: Iterable = None) -> Iterator:
     """Return the specific design directories from the specified hierarchy with the format
     /base(program_output)/Projects/project/design
     """
@@ -1003,15 +1003,6 @@ def get_symdesign_dirs(base: str = None, projects: Iterable = None, singles: Ite
         for single, extension in map(os.path.splitext, singles):  # Remove extensions
             paths.extend(glob(f'{single}{os.sep}'))  # base/Projects/project/single/
     return map(os.path.abspath, paths)
-
-
-def ex_path(*directories: Sequence[str]) -> AnyStr:
-    """Create an example path prepended with /path/to/provided/directories
-
-    Args:
-        directories: Example: ('provided', 'directories')
-    """
-    return os.path.join('path', 'to', *directories)
 
 
 # class PoseSpecification(csv.Dialect):

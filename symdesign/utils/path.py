@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import subprocess
-from typing import AnyStr
+from typing import AnyStr, Sequence
 
 logger = logging.getLogger(__name__)
 # Project strings and file names
@@ -392,3 +392,12 @@ def make_path(path: AnyStr, condition: bool = True):
     """
     if condition:
         os.makedirs(path, exist_ok=True)
+
+
+def ex_path(*directories: Sequence[str]) -> AnyStr:
+    """Create an example path prepended with /path/to/provided/directories
+
+    Args:
+        directories: Example: ('provided', 'directories')
+    """
+    return os.path.join('path', 'to', *directories)
