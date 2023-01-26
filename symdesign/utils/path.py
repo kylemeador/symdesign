@@ -145,6 +145,7 @@ scores_file = 'design_scores.sc'  # was all_scores.sc 1/25/21
 pose_metrics_file = 'pose_scores.sc'  # UNUSED
 # default_path_file = '{}_{}_{}_pose.paths'
 default_path_file = '{}_{}_{}.poses'
+default_specification_file = '{}_{}_{}.specification'
 default_analysis_file = '{}-{}PoseMetrics.csv'
 default_clustered_pose_file = '{}ClusteredPoses-{}.pkl'
 pdb_source = 'db'  # 'fetch_pdb_file'  # TODO set up
