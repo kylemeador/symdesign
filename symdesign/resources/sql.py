@@ -96,6 +96,11 @@ class PoseMetadata(Base):
         return len(self.designs)
 
     @property
+    def number_of_entities(self) -> int:
+        """Return the number of distinct entities (Gene/Protein products) found in the PoseMetadata"""
+        return len(self.entity_data)
+
+    @property
     def design_ids(self) -> list[str]:
         """Get the names of each DesignData in the PoseJob"""
         return [design.id for design in self.designs]
