@@ -11,6 +11,13 @@ MAXIMUM_INTERFACES = 2
 min_, max_ = 'min', 'max'
 rank, normalize, boolean = 'rank', 'normalize', 'boolean'
 weight_functions_literal = Literal['rank', 'normalize']
+default_weight_parameter: dict[str, str] = {
+    putils.rosetta_str: 'interface_energy',
+    putils.proteinmpnn: 'proteinmpnn_score_complex',
+    # putils.nanohedra: 'nanohedra_score_center_normalized',
+    putils.nanohedra: 'proteinmpnn_v_design_probability_cross_entropy_loss',
+
+}
 metric_weight_functions: tuple[weight_functions_literal, ...] = get_args(weight_functions_literal)
 default_pca_variance = 0.8  # P432 designs used 0.8 percent of the variance
 
