@@ -17,7 +17,7 @@ from symdesign.resources import sql, config
 from symdesign.resources.job import job_resources_factory
 from symdesign.resources.query.utils import input_string, boolean_choice
 import symdesign.utils.path as putils
-from symdesign.structure.model import Model, Pose
+from symdesign.structure.model import Model
 from symdesign.sequence import optimize_protein_sequence, write_sequences, expression, find_orf_offset, \
     generate_mutations, protein_letters_alph1
 from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
@@ -346,17 +346,17 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #     exit()
 
     if job.save_total:
-        total_df_filename = os.path.join(program_root, 'TotalPosesTrajectoryMetrics.csv')
+        total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
         total_df.to_csv(total_df_filename)
         logger.info(f'Total Pose/Designs DataFrame was written to: {total_df_filename}')
 
     logger.info(f'{len(save_poses_df)} poses were selected')
     if len(save_poses_df) != len(total_df):
         if job.filter or job.weight:
-            new_dataframe = os.path.join(program_root, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
-                                                       f'{"Weighted" if job.weight else ""}PoseMetrics.csv')
+            new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
+                                                               f'{"Weighted" if job.weight else ""}PoseMetrics.csv')
         else:
-            new_dataframe = os.path.join(program_root, f'{utils.starttime}-PoseMetrics.csv')
+            new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-PoseMetrics.csv')
         save_poses_df.to_csv(new_dataframe)
         logger.info(f'New DataFrame with selected poses was written to: {new_dataframe}')
 
@@ -373,7 +373,7 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         selected_pose_strs = list(map(str, selected_poses))
         # Check if the cluster map is stored as PoseDirectories or strings and convert
         representative_representative = next(iter(cluster_map))
-        if not isinstance(representative_representative, protocols.PoseJob):
+        if not isinstance(representative_representative, PoseJob):
             # Make the cluster map based on strings
             for representative in list(cluster_map.keys()):
                 # Remove old entry and convert all arguments to pose_id strings, saving as pose_id strings
@@ -644,13 +644,13 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
     job.output_file = os.path.join(job.output_directory, f'{job.prefix}SelectedDesigns{job.suffix}.poses')
 
     # Set up mechanism to solve sequence tagging preferences
-    def solve_tags(pose: Pose) -> list[bool]:
+    def solve_tags(n_of_tags: int) -> list[bool]:
         if job.tag_entities is None:
-            boolean_tags = [False for _ in pose.entities]
+            boolean_tags = [False for _ in range(n_of_tags)]
         elif job.tag_entities == 'all':
-            boolean_tags = [True for _ in pose.entities]
+            boolean_tags = [True for _ in range(n_of_tags)]
         elif job.tag_entities == 'single':
-            boolean_tags = [True for _ in pose.entities]
+            boolean_tags = [True for _ in range(n_of_tags)]
         else:
             boolean_tags = []
             for tag_specification in map(str.strip, job.tag_entities.split(',')):
@@ -666,7 +666,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                     boolean_tags.append(False)
 
             # Add any missing arguments to the tagging scheme
-            for _ in range(pose.number_of_entities - len(boolean_tags)):
+            for _ in range(n_of_tags - len(boolean_tags)):
                 boolean_tags.append(False)
 
         return boolean_tags
@@ -677,12 +677,12 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
         intergenic_sequence = ''
 
     # Format sequences for expression
-    missing_tags = {}  # result: [True, True] for result in results
     tag_sequences, final_sequences, inserted_sequences, nucleotide_sequences = {}, {}, {}, {}
     codon_optimization_errors = {}
     for pose_job, _designs in results.items():
         pose_job.load_pose()
-        tag_index = solve_tags(pose_job.pose)
+        n_pose_entities = pose_job.number_of_entities
+        tag_index = solve_tags(n_pose_entities)
         number_of_tags = sum(tag_index)
         # Todo do I need to modify chains?
         pose_job.pose.rename_chains()
@@ -695,7 +695,8 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
             design_pose = Model.from_file(file[0], log=pose_job.log, entity_names=pose_job.entity_names)
             designed_atom_sequences = [entity.sequence for entity in design_pose.entities]
 
-            missing_tags[(pose_job, design)] = [1 for _ in pose_job.pose.entities]
+            # Container of booleans whether each Entity has been tagged
+            missing_tags = [1 for _ in range(n_pose_entities)]
             prior_offset = 0
             # all_missing_residues = {}
             # mutations = []
@@ -708,12 +709,12 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 # design_string = '%s_design_%s_%s' % (pose_job, design, source_entity.name)  # [i])), pdb_code)
                 design_string = f'{design}_{source_entity.name}'
                 termini_availability = pose_job.pose.get_termini_accessibility(source_entity)
-                logger.debug(f'Design {sequence_id} has the following termini accessible for tags: '
+                logger.debug(f'Designed Entity {sequence_id} has the following termini accessible for tags: '
                              f'{termini_availability}')
                 if job.avoid_tagging_helices:
                     termini_helix_availability = \
                         pose_job.pose.get_termini_accessibility(source_entity, report_if_helix=True)
-                    logger.debug(f'Design {sequence_id} has the following helical termini available: '
+                    logger.debug(f'Designed Entity {sequence_id} has the following helical termini available: '
                                  f'{termini_helix_availability}')
                     termini_availability = {'n': termini_availability['n'] and not termini_helix_availability['n'],
                                             'c': termini_availability['c'] and not termini_helix_availability['c']}
@@ -776,7 +777,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                     continue
 
                 if not selected_tag:  # Find compatible tags from matching PDB observations
-                    uniprot_id = source_entity.uniprot_id
+                    uniprot_id = source_entity.uniprot_ids
                     uniprot_id_matching_tags = tag_sequences.get(uniprot_id, None)
                     if not uniprot_id_matching_tags:
                         uniprot_id_matching_tags = \
@@ -807,15 +808,15 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                         iteration += 1
 
                 if selected_tag.get('name'):
-                    missing_tags[(pose_job, design)][idx] = 0
+                    missing_tags[idx] = 0
                     logger.debug(f'The pre-existing, identified tag is:\n{selected_tag}')
                 sequences_and_tags[design_string] = {'sequence': formatted_design_sequence, 'tag': selected_tag}
 
             # After selecting all tags, consider tagging the design as a whole
             if number_of_tags > 0:
-                number_of_found_tags = len(pose_job.pose.entities) - sum(missing_tags[(pose_job, design)])
+                number_of_found_tags = n_pose_entities - sum(missing_tags)
                 if number_of_tags > number_of_found_tags:
-                    print(f'There were {number_of_tags} requested tags for design {pose_job} and '
+                    print(f'There were {number_of_tags} requested tags for {pose_job} design {design.name} and '
                           f'{number_of_found_tags} were found')
                     current_tag_options = \
                         '\n\t'.join([f'{i} - {entity_name}\n'
@@ -834,7 +835,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
 
                     iteration_idx = 0
                     while number_of_tags != number_of_found_tags:
-                        if iteration_idx == len(missing_tags[(pose_job, design)]):
+                        if iteration_idx == len(missing_tags):
                             print(f'You have seen all options, but the number of requested tags ({number_of_tags}) '
                                   f"doesn't equal the number selected ({number_of_found_tags})")
                             satisfied = input('If you are satisfied with this, enter "continue", otherwise enter '
@@ -844,7 +845,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                                 break
                             else:
                                 iteration_idx = 0
-                        for idx, entity_missing_tag in enumerate(missing_tags[(pose_job, design)][iteration_idx:]):
+                        for idx, entity_missing_tag in enumerate(missing_tags[iteration_idx:]):
                             sequence_id = f'{pose_job}_{pose_job.pose.entities[idx].name}'
                             if entity_missing_tag and tag_index[idx]:  # isn't tagged but could be
                                 print(f'Entity {sequence_id} is missing a tag. Would you like to tag this entity?')
@@ -892,11 +893,11 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                                     sequences_and_tags[selected_entity]['sequence'][-12:] \
                                     + 'GS' + resources.config.expression_tags[tag]
                             sequences_and_tags[selected_entity]['tag'] = {'name': tag, 'sequence': new_tag_sequence}
-                            missing_tags[(pose_job, design)][idx] = 0
+                            missing_tags[idx] = 0
                             break
 
                         iteration_idx += 1
-                        number_of_found_tags = len(pose_job.pose.entities) - sum(missing_tags[(pose_job, design)])
+                        number_of_found_tags = n_pose_entities - sum(missing_tags)
 
                 elif number_of_tags < number_of_found_tags:  # when more than the requested number of tags were id'd
                     print(f'There were only {number_of_tags} requested tags for design {pose_job} and '
@@ -913,7 +914,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                         elif tag_input.isdigit():
                             tag_input = int(tag_input)
                             if tag_input <= len(sequences_and_tags):
-                                missing_tags[(pose_job, design)][tag_input - 1] = 1
+                                missing_tags[tag_input - 1] = 1
                                 selected_entity = list(sequences_and_tags.keys())[tag_input - 1]
                                 sequences_and_tags[selected_entity]['tag'] = \
                                     {'name': None, 'termini': None, 'sequence': None}
@@ -923,7 +924,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                                 print("Input doesn't match an integer from the available options. Please try again")
                         else:
                             print(f'"{tag_input}" is an invalid input. Try again')
-                        number_of_found_tags = len(pose_job.pose.entities) - sum(missing_tags[(pose_job, design)])
+                        number_of_found_tags = n_pose_entities - sum(missing_tags)
 
             # Apply all tags to the sequences
             # Todo indicate the linkers that will be used!
@@ -1116,17 +1117,18 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
 
     selected_poses = [session.get(PoseJob, id_) for id_ in selected_pose_ids]
     if job.save_total:
-        total_df_filename = os.path.join(program_root, 'TotalPosesTrajectoryMetrics.csv')
+        total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
         total_df.to_csv(total_df_filename)
         logger.info(f'Total Pose/Designs DataFrame was written to: {total_df_filename}')
 
-    logger.info(f'{len(save_poses_df)} poses were selected')
+    logger.info(f'{len(save_poses_df)} Poses were selected')
+    # Todo output regardless?
     if len(save_poses_df) != len(total_df):
         if job.filter or job.weight:
-            new_dataframe = os.path.join(program_root, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
-                                                       f'{"Weighted" if job.weight else ""}PoseMetrics.csv')
+            new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
+                                                               f'{"Weighted" if job.weight else ""}PoseMetrics.csv')
         else:
-            new_dataframe = os.path.join(program_root, f'{utils.starttime}-PoseMetrics.csv')
+            new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-PoseMetrics.csv')
         save_poses_df.to_csv(new_dataframe)
         logger.info(f'New DataFrame with selected poses was written to: {new_dataframe}')
 
@@ -1143,7 +1145,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         selected_pose_strs = list(map(str, selected_poses))
         # Check if the cluster map is stored as PoseDirectories or strings and convert
         representative_representative = next(iter(cluster_map))
-        if not isinstance(representative_representative, protocols.PoseJob):
+        if not isinstance(representative_representative, PoseJob):
             # Make the cluster map based on strings
             for representative in list(cluster_map.keys()):
                 # Remove old entry and convert all arguments to pose_id strings, saving as pose_id strings
@@ -1388,7 +1390,6 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
         intergenic_sequence = ''
 
     # Format sequences for expression
-    missing_tags = {}  # result: [True, True] for result in results
     tag_sequences, final_sequences, inserted_sequences, nucleotide_sequences = {}, {}, {}, {}
     codon_optimization_errors = {}
     for pose_job in results:
@@ -1420,12 +1421,10 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 designed_atom_sequences.append(list(design_sequence[residue_number_begin:residue_number_end]))
                 residue_number_begin = residue_number_end
 
-            missing_tags[(pose_job, design)] = [1 for _ in range(n_pose_entities)]
-            prior_offset = 0
-            # all_missing_residues = {}
-            # mutations = []
-            sequences_and_tags = {}
-            entity_termini_availability, entity_helical_termini = {}, {}
+            # Container of booleans whether each Entity has been tagged
+            missing_tags = [1 for _ in range(n_pose_entities)]
+            entity_names = []
+            sequences_and_tags = []
             # for idx, (entity, design_entity) in enumerate(zip(pose_job.pose.entities, design_pose.entities)):
             for idx, (entity, design_sequence) in enumerate(zip(pose_job.pose.entities, designed_atom_sequences)):
                 # entity.retrieve_info_from_api()
@@ -1652,7 +1651,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                                 print("Input doesn't match an integer from the available options. Please try again")
                         else:
                             print(f'"{tag_input}" is an invalid input. Try again')
-                        number_of_found_tags = n_pose_entities - sum(missing_tags[(pose_job, design)])
+                        number_of_found_tags = n_pose_entities - sum(missing_tags)
 
             # Apply all tags to the sequences
             # Todo indicate the linkers that will be used!
@@ -1661,8 +1660,9 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
             for idx, (design_string, sequence_tag) in enumerate(sequences_and_tags.items()):
                 tag, sequence = sequence_tag['tag'], sequence_tag['sequence']
                 # print('TAG:\n', tag.get('sequence'), '\nSEQUENCE:\n', sequence)
-                design_sequence = expression.add_expression_tag(tag.get('sequence'), sequence)
-                if tag.get('sequence') and design_sequence == sequence:  # tag exists and no tag added
+                chimeric_tag_sequence = tag.get('sequence')
+                design_sequence = expression.add_expression_tag(chimeric_tag_sequence, sequence)
+                if chimeric_tag_sequence and design_sequence == sequence:  # tag exists and no tag added
                     tag_sequence = resources.config.expression_tags[tag.get('name')]
                     if tag.get('termini') == 'n':
                         if design_sequence[0] == 'M':  # remove existing Met to append tag to n-term
