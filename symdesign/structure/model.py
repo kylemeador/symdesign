@@ -940,8 +940,8 @@ class Chain(SequenceProfile, Structure):
     #     self._reference_sequence = sequence
     @property
     def disorder(self) -> dict[int, dict[str, str]]:
-        """Return the Residue number keys where disordered residues are found by comparison of the genomic (construct)
-        sequence with that of the structure sequence
+        """Return the Residue number keys where disordered residues are found by comparison of the reference sequence
+        with the structure sequence
 
         Returns:
             Mutation index to mutations in the format of {1: {'from': 'A', 'to': 'K'}, ...}
