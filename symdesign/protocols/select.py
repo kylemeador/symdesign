@@ -759,7 +759,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 # Find the open reading frame offset using the structure sequence after insertion
                 offset = find_orf_offset(pretag_sequence, mutations)
                 formatted_design_sequence = pretag_sequence[offset:]
-                logger.debug(f'The open reading frame offset is {offset}')
+                logger.debug(f'The open reading frame offset index is {offset}')
                 logger.debug(f'The formatted_design sequence is:\n{formatted_design_sequence}')
 
                 if number_of_tags == 0:  # Don't solve tags
@@ -1380,19 +1380,32 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
     codon_optimization_errors = {}
     for pose_job in results:
         pose_job.load_pose()
+        # Create the source_mutations which provide mutation style dict for each gep
+        # from the reference to the structure sequence
+        source_mutations = []
+        for idx, entity in enumerate(pose_job.pose.entities):
+            source_mutations.append(generate_mutations(entity.reference_sequence, entity.sequence,
+                                                       zero_index=True, only_gaps=True))
         n_pose_entities = pose_job.number_of_entities
         tag_index = solve_tags(n_pose_entities)
         number_of_tags = sum(tag_index)
         # Todo do I need to modify chains?
         pose_job.pose.rename_chains()
         for design in pose_job.current_designs:
-            file_glob = f'{pose_job.designs_path}{os.sep}*{design}*'
-            file = sorted(glob(file_glob))
-            if not file:
-                logger.error(f'No file found for {file_glob}')
-                continue
-            design_pose = Model.from_file(file[0], log=pose_job.log, entity_names=pose_job.entity_names)
-            designed_atom_sequences = [entity.sequence for entity in design_pose.entities]
+            # file_glob = f'{pose_job.designs_path}{os.sep}*{design}*'
+            # file = sorted(glob(file_glob))
+            # if not file:
+            #     logger.error(f'No file found for {file_glob}')
+            #     continue
+            # design_pose = Model.from_file(file[0], log=pose_job.log, entity_names=pose_job.entity_names)
+            # designed_atom_sequences = [entity.sequence for entity in design_pose.entities]
+            design_sequence = design.metrics.sequence
+            residue_number_begin = residue_number_end = 0
+            designed_atom_sequences = []
+            for data in pose_job.entity_data:
+                residue_number_end += data.metrics.number_of_residues
+                designed_atom_sequences.append(list(design_sequence[residue_number_begin:residue_number_end]))
+                residue_number_begin = residue_number_end
 
             missing_tags[(pose_job, design)] = [1 for _ in range(n_pose_entities)]
             prior_offset = 0
@@ -1400,18 +1413,19 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
             # mutations = []
             sequences_and_tags = {}
             entity_termini_availability, entity_helical_termini = {}, {}
-            for idx, (source_entity, design_entity) in enumerate(zip(pose_job.pose.entities, design_pose.entities)):
-                # source_entity.retrieve_info_from_api()
-                # source_entity.reference_sequence
-                sequence_id = f'{pose_job}_{source_entity.name}'
-                # design_string = '%s_design_%s_%s' % (pose_job, design, source_entity.name)  # [i])), pdb_code)
-                design_string = f'{design}_{source_entity.name}'
-                termini_availability = pose_job.pose.get_termini_accessibility(source_entity)
+            # for idx, (entity, design_entity) in enumerate(zip(pose_job.pose.entities, design_pose.entities)):
+            for idx, (entity, design_sequence) in enumerate(zip(pose_job.pose.entities, designed_atom_sequences)):
+                # entity.retrieve_info_from_api()
+                # entity.reference_sequence
+                sequence_id = f'{pose_job}_{entity.name}'
+                # design_string = '%s_design_%s_%s' % (pose_job, design, entity.name)  # [i])), pdb_code)
+                design_string = f'{design.name}_{entity.name}'
+                termini_availability = pose_job.pose.get_termini_accessibility(entity)
                 logger.debug(f'Design {sequence_id} has the following termini accessible for tags: '
                              f'{termini_availability}')
                 if job.avoid_tagging_helices:
                     termini_helix_availability = \
-                        pose_job.pose.get_termini_accessibility(source_entity, report_if_helix=True)
+                        pose_job.pose.get_termini_accessibility(entity, report_if_helix=True)
                     logger.debug(f'Design {sequence_id} has the following helical termini available: '
                                  f'{termini_helix_availability}')
                     termini_availability = {'n': termini_availability['n'] and not termini_helix_availability['n'],
@@ -1421,32 +1435,35 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 entity_termini_availability[design_string] = termini_availability
                 true_termini = [term for term, is_true in termini_availability.items() if is_true]
 
-                # Find sequence specified attributes required for expression formatting
-                # disorder = generate_mutations(source_entity.sequence, source_entity.reference_sequence,
-                #                               only_gaps=True)
-                # disorder = source_entity.disorder
-                source_offset = source_entity.offset_index
-                indexed_disordered_residues = {res_number + source_offset + prior_offset: mutation
-                                               for res_number, mutation in source_entity.disorder.items()}
-                # Todo, moved below indexed_disordered_residues on 7/26, ensure correct!
-                prior_offset += len(indexed_disordered_residues)
-                # Generate the source TO design mutations before any disorder handling
-                mutations = generate_mutations(source_entity.sequence, design_entity.sequence, offset=False)
-                # Insert the disordered residues into the design pose
-                for residue_number, mutation in indexed_disordered_residues.items():
-                    logger.debug(f'Inserting {mutation["from"]} into position {residue_number} on chain '
-                                 f'{source_entity.chain_id}')
-                    design_pose.insert_residue_type(mutation['from'], at=residue_number,
-                                                    chain_id=source_entity.chain_id)
-                    # adjust mutations to account for insertion
+                # # Find sequence specified attributes required for expression formatting
+                # # disorder = generate_mutations(entity.sequence, entity.reference_sequence,
+                # #                               only_gaps=True)
+                # # disorder = entity.disorder
+                # source_offset = entity.offset_index
+                # indexed_disordered_residues = {res_number + source_offset + prior_offset: mutation
+                #                                for res_number, mutation in entity.disorder.items()}
+                # # Todo, moved below indexed_disordered_residues on 7/26, ensure correct!
+                # prior_offset += len(indexed_disordered_residues)
+                # Generate the design TO source mutations before any disorder handling
+                # This will place design sequence identities in the 'from' position of mutations dictionary
+                mutations = generate_mutations(''.join(design_sequence), entity.sequence, zero_index=True)
+                # Insert the disordered residues into the design sequence
+                for residue_index, mutation in source_mutations[idx].items():
+                    # residue_index is zero indexed
+                    new_aa_type = mutation['from']
+                    logger.debug(f'Inserting {new_aa_type} into index {residue_index} on Entity {entity.name}')
+                    # design_pose.insert_residue_type(new_aa_type, at=residue_number,
+                    #                                 chain_id=entity.chain_id)
+                    design_sequence.insert(residue_index, new_aa_type)
+                    # Adjust mutations to account for insertion
                     for mutation_index in sorted(mutations.keys(), reverse=True):
-                        if mutation_index < residue_number:
+                        if mutation_index < residue_index:
                             break
-                        else:  # mutation should be incremented by one
+                        else:  # Mutation should be incremented by one
                             mutations[mutation_index + 1] = mutations.pop(mutation_index)
 
                 # Check for expression tag addition to the designed sequences after disorder addition
-                inserted_design_sequence = design_entity.sequence
+                inserted_design_sequence = ''.join(design_sequence)
                 selected_tag = {}
                 available_tags = expression.find_expression_tags(inserted_design_sequence)
                 if available_tags:  # look for existing tag to remove from sequence and save identity
@@ -1467,7 +1484,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 # Find the open reading frame offset using the structure sequence after insertion
                 offset = find_orf_offset(pretag_sequence, mutations)
                 formatted_design_sequence = pretag_sequence[offset:]
-                logger.debug(f'The open reading frame offset is {offset}')
+                logger.debug(f'The open reading frame offset index is {offset}')
                 logger.debug(f'The formatted_design sequence is:\n{formatted_design_sequence}')
 
                 if number_of_tags == 0:  # Don't solve tags

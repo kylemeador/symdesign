@@ -632,6 +632,7 @@ def create_mulitcistronic_sequences(args):
 def make_mutations(sequence: Sequence, mutations: dict[int, dict[str, str]], find_orf: bool = True) -> str:
     """Modify a sequence to contain mutations specified by a mutation dictionary
 
+    Assumes a zero-index sequence and zero-index mutations
     Args:
         sequence: 'Wild-type' sequence to mutate
         mutations: {mutation_index: {'from': AA, 'to': AA}, ...}
@@ -644,15 +645,16 @@ def make_mutations(sequence: Sequence, mutations: dict[int, dict[str, str]], fin
         offset = -find_orf_offset(sequence, mutations)
         logger.info(f'Found ORF. Offset = {-offset}')
     else:
-        offset = zero_offset
+        offset = 0  # zero_offset
 
-    # zero index seq and 1 indexed mutation_dict
+    seq = sequence
     index_errors = []
-    for key in mutations:
+    for key, mutation in mutations.items():
+        index = key - offset
         try:
-            if seq[key - offset] == mutations[key]['from']:  # adjust seq for zero index slicing
-                seq = seq[:key - offset] + mutations[key]['to'] + seq[key - offset + 1:]
-            else:  # find correct offset, or mark mutation source as doomed
+            if seq[index] == mutation['from']:  # Adjust key for zero index slicing
+                seq = seq[:index] + mutation['to'] + seq[index + 1:]
+            else:  # Find correct offset, or mark mutation source as doomed
                 index_errors.append(key)
         except IndexError:
             logger.error(key - offset)
@@ -662,12 +664,12 @@ def make_mutations(sequence: Sequence, mutations: dict[int, dict[str, str]], fin
     return seq
 
 
-def find_orf_offset(sequence: Sequence,  mutations: dict[int, dict[str, str]]) -> int:
+def find_orf_offset(sequence: Sequence, mutations: mutation_dictionary) -> int:
     """Using a sequence and mutation data, find the open reading frame that matches mutations closest
 
     Args:
         sequence: Sequence to search for ORF in 1 letter format
-        mutations: {mutation_index: {'from': AA, 'to': AA}, ...} One-indexed sequence dictionary
+        mutations: {mutation_index: {'from': AA, 'to': AA}, ...} zero-indexed sequence dictionary
     Returns:
         The zero-indexed integer to offset the provided sequence to best match the provided mutations
     """
@@ -677,15 +679,15 @@ def find_orf_offset(sequence: Sequence,  mutations: dict[int, dict[str, str]]) -
     methionine_positions = list(orf_offsets.keys())
     while True:
         if not orf_offsets:  # MET is missing/not the ORF start
-            orf_offsets = {start_idx: 0 for start_idx in range(0, 50)}
+            orf_offsets = {start_idx: 0 for start_idx in range(50)}
 
         # Weight potential MET offsets by finding the one which gives the highest number correct mutation sites
         for test_orf_index in orf_offsets:
             for mutation_index, mutation in mutations.items():
                 try:
-                    if sequence[test_orf_index + mutation_index - zero_offset] == mutation['from']:
+                    if sequence[test_orf_index + mutation_index] == mutation['from']:
                         orf_offsets[test_orf_index] += 1
-                except IndexError:  # we have reached the end of the sequence
+                except IndexError:  # We have reached the end of the sequence
                     break
 
         max_count = max(list(orf_offsets.values()))
@@ -695,13 +697,13 @@ def find_orf_offset(sequence: Sequence,  mutations: dict[int, dict[str, str]]) -
                 return orf_start_idx
             orf_offsets = {}
             unsolvable = True  # if we reach this spot again, the problem is deemed unsolvable
-        else:  # find the index of the max_count
-            for idx, count in orf_offsets.items():
-                if max_count == count:  # orf_offsets[offset]:
-                    orf_start_idx = idx  # select the first occurrence of the max count
+        else:  # Find the index of the max_count
+            for idx, count_ in orf_offsets.items():
+                if max_count == count_:  # orf_offsets[offset]:
+                    orf_start_idx = idx  # Select the first occurrence of the max count
                     break
 
-            # for cases where the orf doesn't begin on Met, try to find a prior Met. Otherwise, selects the id'd Met
+            # For cases where the orf doesn't begin on Met, try to find a prior Met. Otherwise, selects the id'd Met
             closest_met = None
             for met_index in methionine_positions:
                 if met_index <= orf_start_idx:
@@ -732,9 +734,9 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
                        zero_index: bool = False,
                        return_all: bool = False, return_to: bool = False, return_from: bool = False) \
         -> mutation_dictionary | sequence_dictionary:
-    """Create mutation data in a typical A5K format. One-indexed dictionary keys with the index matching the reference
-    sequence index. Sequence mutations accessed by "from" and "to" keys. By default, only mutated positions are
-    returned and all gaped sequences are excluded
+    """Create mutation data in a typical A5K format. Integer indexed dictionary keys with the index matching reference
+    sequence. Sequence mutations accessed by "from" and "to" keys. By default, only mutated positions arereturned and
+    all gaped sequences are excluded
 
     For PDB comparison, reference should be expression sequence (SEQRES), query should be atomic sequence (ATOM)
 
@@ -751,8 +753,10 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
         return_to: Whether to return only the 'to' amino acid type
         return_from: Whether to return only the 'from' amino acid type
     Returns:
-        Mutation index to mutations in the format of {1: {'from': 'A', 'to': 'K'}, ...}
-            unless return_to or return_from is True, then {1: 'K', ...}
+        Mutation index to mutations with format
+            {1: {'from': 'A', 'to': 'K'}, ...}
+            unless return_to or return_from is True, then
+            {1: 'K', ...} or {1: 'A', ...}, respectively
     """
     if offset:
         alignment = generate_alignment(reference, query)
@@ -772,7 +776,7 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
 
     # Get the first matching index of the reference sequence
     starting_idx_of_seq1 = align_seq_1.find(reference[0])
-    # Ensure iteration sequence1/reference starts at idx 1       v
+    # Ensure iteration sequence1/reference starts at idx 0       v
     sequence_iterator = enumerate(zip(align_seq_1, align_seq_2), -starting_idx_of_seq1 + idx_offset)
     # Extract differences from the alignment
     if return_all:
@@ -783,18 +787,18 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
     # Find last index of reference
     ending_index_of_seq1 = starting_idx_of_seq1 + align_seq_1.rfind(reference[-1])
     remove_mutation_list = []
-    if only_gaps:  # remove the actual mutations, keep internal and external gap indices and the reference sequence
+    if only_gaps:  # Femove the actual mutations, keep internal and external gap indices and the reference sequence
         blanks = True
         remove_mutation_list.extend([entry for entry, mutation in mutations.items()
                                      if idx_offset < entry <= ending_index_of_seq1 and mutation['to'] != '-'])
-    if blanks:  # leave all types of blanks, otherwise check for each requested type
+    if blanks:  # Leave all types of blanks, otherwise check for each requested type
         remove_termini, remove_query_gaps = False, False
 
-    if remove_termini:  # remove indices outside of sequence 1
+    if remove_termini:  # Remove indices outside of sequence 1
         remove_mutation_list.extend([entry for entry in mutations
                                      if entry < idx_offset or ending_index_of_seq1 < entry])
 
-    if remove_query_gaps:  # remove indices where sequence 2 is gaped
+    if remove_query_gaps:  # Remove indices where sequence 2 is gaped
         remove_mutation_list.extend([entry for entry, mutation in mutations.items()
                                      if 0 < entry <= ending_index_of_seq1 and mutation['to'] == '-'])
     for entry in remove_mutation_list:
