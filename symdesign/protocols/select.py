@@ -461,8 +461,7 @@ def select_from_cluster_map(selected_members: Sequence[Any], cluster_map: dict[A
     return final_member_indices
 
 
-# Todo v, change list[str] to list[DesignData]?
-def designs(pose_jobs: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
+def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     """Select PoseJob instances based on filters and weighting of all design summary metrics
 
     Args:
@@ -481,13 +480,15 @@ def designs(pose_jobs: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
                                               protocol=job.protocol, function=job.weight_function,
                                               default_weight=default_weight_metric)
         # Specify the result order according to any filtering, weighting, and number
-        results = {}
+        selected_poses = {}
         for pose_job, design in selected_poses_df.index.to_list()[:job.number]:
-            if pose_job in results:
-                results[pose_job].append(design)
+            _designs = selected_poses.get(pose_job, None)
+            if _designs:
+                _designs.append(design)
             else:
-                results[pose_job] = [design]
+                selected_poses[pose_job] = [design]
 
+        # results = selected_poses
         save_poses_df = selected_poses_df.droplevel(0)  # .droplevel(0, axis=1).droplevel(0, axis=1)
         # Convert to PoseJob objects
         # results = {pose_job: results[str(pose_job)] for pose_job in pose_jobs
@@ -529,7 +530,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
             if next(number_chosen) == job.number:
                 break
 
-        results = selected_poses
+        # results = selected_poses
         loc_result = [(pose_job, design) for pose_job, _designs in selected_poses.items() for design in _designs]
 
         # Include only the found index names to the saved dataframe
@@ -599,7 +600,8 @@ def designs(pose_jobs: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
 
     # Create new output of designed PDB's  # Todo attach the state to these files somehow for further use
     exceptions = []
-    for pose_job, _designs in results.items():
+    for pose_job, _designs in selected_poses.items():
+        pose_job.current_designs = _designs
         for design in _designs:
             file_path = os.path.join(pose_job.designs_path, f'*{design}*')
             file = sorted(glob(file_path))
@@ -624,7 +626,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
         # except FileExistsError:
         #     pass
 
-    return results  # , exceptions
+    return list(selected_poses.keys())
 
 
 def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
