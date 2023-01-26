@@ -13,7 +13,7 @@ from sqlalchemy import select
 from . import cluster
 from .pose import PoseJob
 from symdesign import flags, metrics, resources, utils
-from symdesign.resources import sql
+from symdesign.resources import sql, config
 from symdesign.resources.job import job_resources_factory
 from symdesign.resources.query.utils import input_string, boolean_choice
 import symdesign.utils.path as putils
@@ -234,13 +234,16 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         The matching PoseJob instances
     """
     job = job_resources_factory.get()
+    default_weight_metric = config.default_weight_parameter[job.design.method]
+
     if job.specification_file:  # Figure out poses from a specification file, filters, and weights
         loc_result = [(pose_job, design) for pose_job in pose_jobs
                       for design in pose_job.specific_designs]
         total_df = load_total_dataframe(pose_jobs, pose=True)
         selected_poses_df = \
             metrics.prioritize_design_indices(total_df.loc[loc_result, :], filter=job.filter, weight=job.weight,
-                                              protocol=job.protocol, function=job.weight_function)
+                                              protocol=job.protocol, function=job.weight_function,
+                                              default_weight=default_weight_metric)
         # Remove excess pose instances
         number_chosen = 0
         selected_indices, selected_poses = [], set()
@@ -268,7 +271,8 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             df = pd.concat([total_df], axis=1, keys=['pose', 'metric'])
         # Figure out designs from dataframe, filters, and weights
         selected_poses_df = metrics.prioritize_design_indices(df, filter=job.filter, weight=job.weight,
-                                                              protocol=job.protocol, function=job.weight_function)
+                                                              protocol=job.protocol, function=job.weight_function,
+                                                              default_weight=default_weight_metric)
         # Remove excess pose instances
         number_chosen = 0
         selected_indices, selected_poses = [], set()
@@ -467,13 +471,15 @@ def designs(pose_jobs: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
         The matching PoseJob instances mapped to design name
     """
     job = job_resources_factory.get()
+    default_weight_metric = config.default_weight_parameter[job.design.method]
     if job.specification_file:  # Figure out designs from a specification file, filters, and weights
         loc_result = [(pose_job, design) for pose_job in pose_jobs
                       for design in pose_job.specific_designs]
         total_df = load_total_dataframe(pose_jobs)
         selected_poses_df = \
             metrics.prioritize_design_indices(total_df.loc[loc_result, :], filter=job.filter, weight=job.weight,
-                                              protocol=job.protocol, function=job.weight_function)
+                                              protocol=job.protocol, function=job.weight_function,
+                                              default_weight=default_weight_metric)
         # Specify the result order according to any filtering, weighting, and number
         results = {}
         for pose_job, design in selected_poses_df.index.to_list()[:job.number]:
@@ -496,7 +502,8 @@ def designs(pose_jobs: Iterable[PoseJob]) -> dict[PoseJob, list[str]]:
             df = pd.concat([total_df], axis=1, keys=['pose', 'metric'])
         # Figure out designs from dataframe, filters, and weights
         selected_poses_df = metrics.prioritize_design_indices(df, filter=job.filter, weight=job.weight,
-                                                              protocol=job.protocol, function=job.weight_function)
+                                                              protocol=job.protocol, function=job.weight_function,
+                                                              default_weight=default_weight_metric)
         selected_designs = selected_poses_df.index.to_list()
         job.number = \
             len(selected_designs) if len(selected_designs) < job.number else job.number
@@ -1028,6 +1035,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         The matching PoseJob instances
     """
     job = job_resources_factory.get()
+    default_weight_metric = config.default_weight_parameter[job.design.method]
     session = job.current_session
     # Figure out poses from a specification file, filters, and weights
     # if job.specification_file:
@@ -1074,7 +1082,8 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     total_df = pose_designs_mean_df.join(poses_df)
     selected_poses_df = \
         metrics.prioritize_design_indices_sql(total_df, filter=job.filter, weight=job.weight,
-                                              protocol=job.protocol, function=job.weight_function)
+                                              protocol=job.protocol, function=job.weight_function,
+                                              default_weight=default_weight_metric)
     # Remove excess pose instances
     selected_pose_ids = utils.remove_duplicates(selected_poses_df['pose_id'])[:job.number]
     selected_indices = []
@@ -1189,6 +1198,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     """
     nonlocal exceptions
     job = job_resources_factory.get()
+    default_weight_metric = config.default_weight_parameter[job.design.method]
     session = job.current_session
 
     # Figure out poses from a specification file, filters, and weights
@@ -1241,7 +1251,8 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     total_df = metrics_df
     selected_designs_df = \
         metrics.prioritize_design_indices(total_df, filter=job.filter, weight=job.weight,
-                                          protocol=job.protocol, function=job.weight_function)
+                                          protocol=job.protocol, function=job.weight_function,
+                                          default_weight=default_weight_metric)
     # # Groupby the design_id to remove extra instances of 'entity_id'
     # # This will turn these values into average which is fine since we just want the order
     # pose_designs_mean_df = selected_designs_df.groupby('design_id').mean()
