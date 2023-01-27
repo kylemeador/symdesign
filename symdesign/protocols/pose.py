@@ -3724,7 +3724,19 @@ class PoseProtocol(PoseData):
 
         return residues_df
 
-    def parse_rosetta_scores(self, scores):
+    def parse_rosetta_scores(self, scores: dict[str, dict[str, str | int | float]]) \
+            -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Process Rosetta scoring dictionary into suitable values
+
+        Args:
+            scores: The dictionary of scores to be parsed
+        Returns:
+            A tuple of DataFrame where each contains (
+                A per-design metric DataFrame where each index is the design id and the columns are design metrics,
+                A per-residue metric DataFrame where each index is the design id and the columns are
+                    (residue index, residue metric)
+            )
+        """
         # Create protocol dataframe
         scores_df = pd.DataFrame.from_dict(scores, orient='index')
         # # Fill in all the missing values with that of the default pose_source
@@ -3871,7 +3883,10 @@ class PoseProtocol(PoseData):
                 # structure_design_scores[self.name] = design_scores.pop(self.name)
                 pose_design_scores = design_scores.pop(self.name)
                 # Acquire the pose_metrics if None have been made yet
-                self.calculate_pose_metrics(pose_design_scores)
+                # pose_name = self.pose.name
+                pose_source_id = self.pose_source.id
+                # self.calculate_pose_metrics(dict(str(self.id)=pose_design_scores))
+                self.calculate_pose_metrics({pose_source_id: pose_design_scores})
 
         scores_df, rosetta_info_df = self.parse_rosetta_scores(structure_design_scores)
 
@@ -4021,11 +4036,11 @@ class PoseProtocol(PoseData):
                                    file=new_design_new_filenames[idx]))  # design_files[idx]))
         self.job.current_session.commit()
 
-    def calculate_pose_metrics(self, scores: dict[str, Any] = None):
+    def calculate_pose_metrics(self, scores: dict[str, dict[str, str | int | float]] = None):
         """Perform a metrics update only on the reference Pose
 
         Args:
-            scores: Parsed scores from Rosetta
+            scores: Parsed Pose scores from Rosetta output
         """
         self.load_pose()
 
