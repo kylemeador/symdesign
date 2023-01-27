@@ -3971,7 +3971,8 @@ class PoseProtocol(PoseData):
         # filename_to_design_data_map = list(zip(new_design_filenames, new_designs_data))
         # filename_to_new_design_names = dict(zip(new_design_filenames, new_design_files))
         design_name_to_id_map = \
-            dict(((design_data.provided_name, design_data.id) for design_data in new_designs_data))
+            dict(*((design_data.name, design_data.id) for design_data in self.designs),
+                 *((design_data.provided_name, design_data.id) for design_data in new_designs_data))
         # design_name_to_id_map = {}
         # filename_to_new_design_names = {}
         # for filename, design_data in filename_to_design_data_map:
