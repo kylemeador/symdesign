@@ -1580,6 +1580,7 @@ class PoseProtocol(PoseData):
         if len(self.entity_data) == 1:  # There is no unbound state to query as only one entity
             return []
         if len(self.symmetry_definition_files) != len(self.entity_data) or self.job.force:
+            putils.make_path(self.data_path)
             for entity in self.pose.entities:
                 if entity.is_oligomeric():  # make symmetric energy in line with SymDesign energies v
                     entity.make_sdf(out_path=self.data_path,
@@ -2887,7 +2888,7 @@ class PoseProtocol(PoseData):
                     metrics_process = Popen(metric_cmd)
                     metrics_process.communicate()
 
-            # Gather metrics for each design produced from this proceedure
+            # Gather metrics for each design produced from this procedure
             self.process_rosetta_metrics()
 
     def rosetta_interface_design(self):
