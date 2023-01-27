@@ -755,10 +755,11 @@ def proteinmpnn_batch_score(batch_slice: slice, proteinmpnn: ProteinMPNN,
 
     actual_batch_length = batch_slice.stop - batch_slice.start
 
+    # Slice the sequence according to those that are currently batched for scoring
+    S = S[batch_slice]  # , None)
     if actual_batch_length != batch_length:
         # Slice these for the last iteration
         X = X[:actual_batch_length]  # , None)
-        S = S[:actual_batch_length]  # , None)
         chain_mask = chain_mask[:actual_batch_length]  # , None)
         chain_encoding = chain_encoding[:actual_batch_length]  # , None)
         residue_idx = residue_idx[:actual_batch_length]  # , None)
@@ -770,13 +771,16 @@ def proteinmpnn_batch_score(batch_slice: slice, proteinmpnn: ProteinMPNN,
         except TypeError:  # Can't slice NoneType
             pass
 
-    # # Use the sequence as an unknown token then guess the probabilities given the remaining
-    # # information, i.e. the sequence and the backbone
-    # S_design_null[residue_mask.type(torch.bool)] = MPNN_NULL_IDX
-    chain_residue_mask = chain_mask * residue_mask
+    logger.debug(f'S shape: {S.shape}')
+    logger.debug(f'X shape: {X.shape}')
+    # logger.debug(f'chain_mask shape: {chain_mask.shape}')
+    logger.debug(f'chain_encoding shape: {chain_encoding.shape}')
+    logger.debug(f'residue_idx shape: {residue_idx.shape}')
+    logger.debug(f'mask shape: {mask.shape}')
+    # logger.debug(f'residue_mask shape: {residue_mask.shape}')
 
-    _per_residue_complex_sequence_loss = []
-    _per_residue_unbound_sequence_loss = []
+    chain_residue_mask = chain_mask * residue_mask
+    logger.debug(f'chain_residue_mask shape: {chain_residue_mask.shape}')
 
     # Score and format outputs - All have at lease shape (batch_length, model_length,)
     if decoding_order is not None:
@@ -786,7 +790,6 @@ def proteinmpnn_batch_score(batch_slice: slice, proteinmpnn: ProteinMPNN,
     elif randn is not None:
         decoding_order = None
         provided_decoding_order = False
-        # randn = randn
         randn = randn[:actual_batch_length]
     else:
         # Todo generate a randn fresh?
