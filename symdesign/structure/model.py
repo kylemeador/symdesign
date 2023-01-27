@@ -6311,8 +6311,8 @@ class Pose(SymmetricModel, Metrics):
             else:
                 parameters = {}
 
-            # Set up parameters for the scoring task
-            parameters.update(**self.get_proteinmpnn_params(ca_only=ca_only, **kwargs))
+            # Set up parameters for the scoring task, including scoring all positions
+            parameters.update(**self.get_proteinmpnn_params(ca_only=ca_only, interface=False, **kwargs))
 
             # Insert the designed sequences inplace of the pose sequence
             parameters['S'] = np.tile(numeric_sequences, (1, number_of_symmetry_mates))
