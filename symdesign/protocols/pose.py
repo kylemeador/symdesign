@@ -3724,7 +3724,9 @@ class PoseProtocol(PoseData):
         self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseJob(.path)
         design_scores = metrics.read_scores(self.scores_file)  # Todo PoseJob(.path)
 
-        # Todo get residues_df['design_indices']
+        pose_length = self.pose.number_of_residues
+        # residue_indices = list(range(pose_length))
+
         # Find all designs files
         # if designs is None:
         design_names = self.design_names
@@ -3801,7 +3803,7 @@ class PoseProtocol(PoseData):
             design_parent = None  # parent_s
             parents = scores_df.pop(putils.design_parent).tolist()
         else:
-            # Assume this is a offspring of the pose
+            # Assume this is an offspring of the pose
             design_parent = self.pose_source
             parents = None
 
@@ -3853,14 +3855,25 @@ class PoseProtocol(PoseData):
         self.log.debug(f'Viable designs with structures remaining after cleaning:\n\t{", ".join(viable_designs)}')
 
         # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
-        rosetta_info_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()})
-        # Returns multi-index column with residue number as first (top) column index, metric as second index
+        # which ends up with multi-index column with residue index as first (top) column index, metric as second index
+        rosetta_info_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()})\
+            .unstack().swaplevel(0, 1, axis=1)
+        # # During rosetta_info_df unstack, all residues with missing dicts are copied as nan
+        # Todo get residues_df['design_indices'] worked out with set up using sql.DesignProtocol?
         # Set each position that was parsed as "designable"
-        # Todo does this include packable residues from neighborhoods?
-        rosetta_info_df = rosetta_info_df.stack().unstack(1)
-        # During rosetta_info_df unstack, all residues with missing dicts are copied as nan
-        rosetta_info_df['design_residue'] = 1
-        rosetta_info_df = rosetta_info_df.unstack().swaplevel(0, 1, axis=1)
+        # This includes packable residues from neighborhoods. How can we get only designable?
+        # Right now, it is only the interface residues that go into Rosetta
+        # Use simple reporting here until that changes...
+        interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
+        design_residues = np.zeros((len(scores_df), pose_length), dtype=bool)
+        design_residues[:, interface_residue_indices] = 1
+        # 'design_residue' is now integrated using analyze_proteinmpnn_metrics()
+        # design_indices_df = pd.DataFrame(design_residues, index=scores_df.index,
+        #                                  columns=pd.MultiIndex.from_product([residue_indices, ['design_residue']]))
+        # rosetta_info_df = rosetta_info_df.stack().unstack(1)
+        # rosetta_info_df['design_residue'] = 1
+        # rosetta_info_df = rosetta_info_df.unstack().swaplevel(0, 1, axis=1)
+
         # Todo implement this protocol if sequence data is taken at multiple points along a trajectory and the
         #  sequence data along trajectory is a metric on it's own
         # # Gather mutations for residue specific processing and design sequences
@@ -3926,18 +3939,29 @@ class PoseProtocol(PoseData):
             scores_df.drop('repacking', axis=1, inplace=True)
 
         # The DataFrame.index is wrong here. It needs to become the design.id not design.name. Modify after processing
-        pose_sequences = {pose.name: pose.sequence for pose in designs}
         residues_df = self.analyze_residue_metrics_per_design(designs=designs)
         # Join Rosetta per-residue with Structure analysis per-residue like DataFrames
         residues_df = pd.concat([residues_df, rosetta_info_df], axis=1)
         designs_df = scores_df.join(self.analyze_design_metrics_per_design(residues_df, designs))
 
+        pose_sequences = {pose.name: pose.sequence for pose in designs}
         sequences_df = self.analyze_sequence_metrics_per_design(sequences=pose_sequences)
+        # Score using proteinmpnn
+        # Todo only score if it hasn't been scored previously...
+        proteinmpnn_scores = self.pose.score(pose_sequences.values())
+        sequences_and_scores = {
+            'design_indices': design_residues,
+            **proteinmpnn_scores
+        }
+        design_names = list(pose_sequences.keys())
+        mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
+
+        designs_df = designs_df.join(mpnn_designs_df)
         designs_df = designs_df.join(self.analyze_design_metrics_per_residue(sequences_df))
 
         # Join per-residue like DataFrames
         # Each of these could have different index/column, so we use concat to perform an outer merge
-        residues_df = pd.concat([residues_df, sequences_df], axis=1)
+        residues_df = pd.concat([residues_df, mpnn_residues_df, sequences_df], axis=1)
         # Todo should this "different index" be allowed? be possible
         #  residues_df = residues_df.join(rosetta_info_df)
 
