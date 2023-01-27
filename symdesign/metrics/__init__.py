@@ -1867,11 +1867,6 @@ def window_function(data: Sequence[int | float], windows: Iterable[int] = None, 
     return window_array
 
 
-np_torch_int_types = (np.int8, np.int16, np.int32, np.int64,
-                      torch.int, torch.int8, torch.int16, torch.int32, torch.int64)
-np_torch_float_types = (np.float16, np.float32, np.float64,
-                        torch.float, torch.float16, torch.float32, torch.float64)
-np_torch_int_float_types = np_torch_int_types + np_torch_float_types
 hydrophobicity_scale = \
     {'expanded': {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 1, 'N': 0,
                   'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 1, 'Y': 1, 'B': 0, 'J': 0, 'O': 0, 'U': 0,
@@ -1924,7 +1919,7 @@ def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrop
         sequence_array = [hydrophobicity_values.get(aa, 0) for aa in sequence]
         # raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
     elif isinstance(sequence, (torch.Tensor, np.ndarray)):  # This is an integer sequence. An alphabet is required
-        if sequence.dtype in np_torch_int_float_types:
+        if sequence.dtype in utils.np_torch_int_float_types:
             if alphabet_type is None:
                 raise ValueError(missing_alphabet)
             else:
