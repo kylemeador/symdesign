@@ -26,7 +26,8 @@ from . import fragment
 from .base import Structure, Structures, Residue, StructureBase, atom_or_residue, sasa_burial_threshold
 from .coords import Coords, superposition3d, transform_coordinate_sets
 from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type
-from .sequence import SequenceProfile, Profile, pssm_as_array, default_fragment_contribution, sequence_to_numeric
+from .sequence import SequenceProfile, Profile, pssm_as_array, default_fragment_contribution, sequence_to_numeric, \
+    sequences_to_numeric
 from .utils import DesignError, SymmetryError, ClashError, chain_id_generator
 from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, query, sql
@@ -6228,12 +6229,10 @@ class Pose(SymmetricModel, Metrics):
             size, pose_length, *_ = sequences.shape
             batch_length = 6  # Todo calculate based on parameters
             # Set up parameters and model sampling type based on symmetry
+            number_of_symmetry_mates = self.number_of_symmetry_mates
             if self.is_symmetric():
-                # number_of_symmetry_mates = pose.number_of_symmetry_mates
-                # mpnn_sample = proteinmpnn_model.tied_sample
-                number_of_residues = pose_length * self.number_of_symmetry_mates
+                number_of_residues = pose_length * number_of_symmetry_mates
             else:
-                # mpnn_sample = proteinmpnn_model.sample
                 number_of_residues = pose_length
 
             if measure_unbound:
@@ -6264,15 +6263,59 @@ class Pose(SymmetricModel, Metrics):
                 parameters = {}
 
             # Set up parameters for the scoring task
-            parameters.update(**self.get_proteinmpnn_params(ca_only=ca_only, interface=interface, **kwargs))
-            # Remove the sequence for the pose
-            parameters.pop('S')
-            # Insert the designed sequences
-            raise NotImplementedError('Need to ensure these are the correct size')
-            S = np.tile(self.sequence_numeric, number_of_symmetry_mates)  # (number_of_sym_residues,)
-            parameters['S'] = sequences
+            parameters.update(**self.get_proteinmpnn_params(ca_only=ca_only, **kwargs))
+
+            # Convert the sequences to correct format
+            # missing_alphabet = ''
+            warn_alphabet = 'With passed sequences type of {}, ensure that the order of '\
+                            f'integers is of the default ProteinMPNN alphabet "{ml.mpnn_alphabet}"'
+
+            def convert_and_check_sequence_type(sequences_) -> Sequence[Sequence[str | int]]:
+                nesting_level = count()
+                item = sequences_
+                # print(item)
+                while not isinstance(item, (int, str)):
+                    next(nesting_level)
+                    item = item[0]
+                    # print(item)
+                else:
+                    final_level = next(nesting_level)
+                    item_type = type(item)
+                    # print(final_level)
+                    # print(item_type)
+                    if final_level == 1:
+                        pass
+                    elif final_level == 2:
+                        if item_type is str:
+                            for idx, sequence in enumerate(sequences_):
+                                sequences[idx] = ''.join(sequence)
+
+                            sequences_ = sequences_to_numeric(sequences,
+                                                              translation_table=ml.proteinmpnn_default_translation_table)
+                        else:
+                            self.log.warning(warn_alphabet.format('int'))
+                            sequences_ = np.array(sequences_)
+                    else:
+                        raise ValueError(f'The passed sequences must be an Sequence[Sequence[Any]]')
+                    # print('Final', sequences)
+                return sequences_
+
+            if isinstance(sequences, (torch.Tensor, np.ndarray)):
+                if sequences.dtype in utils.np_torch_int_float_types:
+                    # This is an integer sequence. An alphabet is required
+                    self.log.warning(warn_alphabet.format(sequences.dtype))
+                    numeric_sequences = sequences
+                    # raise ValueError(missing_alphabet)
+                else:  # This is an AnyStr type?
+                    numeric_sequences = sequences_to_numeric(sequences)
+            else:  # Some sort of iterable
+                numeric_sequences = convert_and_check_sequence_type(sequences)
+
+            # Insert the designed sequences inplace of the pose sequence
+            parameters['S'] = np.tile(numeric_sequences, (1, number_of_symmetry_mates))
             # Solve decoding order
-            parameters['randn'] = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
+            # parameters['randn'] = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
+            decoding_order = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
             # # Solve decoding order
             # parameters['decoding_order'] = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
 
@@ -6288,7 +6331,7 @@ class Pose(SymmetricModel, Metrics):
 
             # score_start = time.time()
             scores = \
-                _proteinmpnn_batch_score(proteinmpnn_model, pose_length=pose_length,
+                _proteinmpnn_batch_score(proteinmpnn_model, pose_length=pose_length, decoding_order=decoding_order,
                                          setup_args=(device,),
                                          setup_kwargs=parameters,
                                          return_containers={
