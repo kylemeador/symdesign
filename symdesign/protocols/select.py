@@ -1274,7 +1274,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     Returns:
         The selected PoseJob instances with selected designs stored in the .current_designs attribute
     """
-    nonlocal exceptions
+    global exceptions  # nonlocal exceptions
     job = job_resources_factory.get()
     default_weight_metric = config.default_weight_parameter[job.design.method]
     session = job.current_session
