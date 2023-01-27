@@ -785,13 +785,15 @@ def proteinmpnn_batch_score(batch_slice: slice, proteinmpnn: ProteinMPNN,
 
     # Score and format outputs - All have at lease shape (batch_length, model_length,)
     if decoding_order is not None:
-        decoding_order = decoding_order[:actual_batch_length]
+        logger.debug(f'decoding_order shape: {decoding_order.shape}, type: {decoding_order.dtype}')
+        # decoding_order = decoding_order[:actual_batch_length]
         provided_decoding_order = True
         randn = None
     elif randn is not None:
+        logger.debug(f'decoding_order shape: {randn.shape}, type: {randn.dtype}')
         decoding_order = None
         provided_decoding_order = False
-        randn = randn[:actual_batch_length]
+        # randn = randn[:actual_batch_length]
     else:
         # Todo generate a randn fresh?
         raise ValueError('Missing either argument "randn" or "decoding_order"')
