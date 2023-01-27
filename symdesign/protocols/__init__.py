@@ -28,9 +28,9 @@ logger = logging.getLogger(__name__)
 # Protocols
 nanohedra = fragdock.fragment_dock
 cluster_poses = cluster.cluster_poses
-select_poses = select.poses
-select_designs = select.designs
-select_sequences = select.sequences
+select_poses = select.sql_poses  # select.poses
+select_designs = select.sql_designs  # select.designs
+select_sequences = select.sql_sequences  # select.sequences
 warn_missing_symmetry = \
     f'Cannot %s without providing symmetry! Provide symmetry with "--symmetry" or "--{putils.sym_entry}"'
 
