@@ -750,8 +750,9 @@ class JobResources:
                                number_jobs * putils.approx_ave_design_directory_memory_w_pose) * 1.2
 
         available_memory = psutil.virtual_memory().available
-        logger.debug(f'Available memory: {available_memory:f}')
-        logger.debug(f'Required memory: {required_memory:f}')
+        gb_divisior = 1000000000
+        logger.debug(f'Available memory: {available_memory / gb_divisior:f}GB')
+        logger.debug(f'Required memory: {required_memory / gb_divisior:f}GB')
         if available_memory < required_memory:
             self.reduce_memory = True
         logger.debug(f'Reduce job memory?: {self.reduce_memory}')
