@@ -167,14 +167,14 @@ class DataStore:
         """
         data = getattr(self, name, None)
         if data:
-            self.log.debug(f'{name}{self.extension} was retrieved from {type(self).__name__}')
+            self.log.debug(f'{name}{self.extension} was retrieved from {self.__class__.__name__}')
         else:
             data = self._load_data(name, log=None)  # Attempt to retrieve the new data
             if data:
                 setattr(self, name, data)  # Attempt to store the new data as an attribute
-                self.log.debug(f'The file {name}{self.extension} was loaded into the {type(self).__name__}')
+                self.log.debug(f'The file {name}{self.extension} was loaded into the {self.__class__.__name__}')
             else:
-                self.log.debug(f'Failed to load file {name}{self.extension} into the {type(self).__name__}')
+                self.log.debug(f'Failed to load file {name}{self.extension} into the {self.__class__.__name__}')
 
         return data
 
@@ -252,7 +252,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         try:
             return getattr(self, name)
         except AttributeError:
-            raise AttributeError(f'There is no source named "{name}" found in the {type(self).__name__}. '
+            raise AttributeError(f'There is no source named "{name}" found in the {self.__class__.__name__}. '
                                  f'Possible sources are: {", ".join(self.__dict__)}')
 
     def retrieve_data(self, source: str = None, name: str = None) -> object | None:

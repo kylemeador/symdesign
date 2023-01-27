@@ -958,7 +958,8 @@ class Atom(StructureBase):
     def __eq__(self, other: Atom) -> bool:
         if isinstance(other, Atom):
             return self.__key() == other.__key()
-        raise NotImplementedError(f"Can't compare {type(self).__name__} instance to {type(other).__name__} instance")
+        raise NotImplementedError(
+            f"Can't compare {self.__class__.__name__} instance to {type(other).__name__} instance")
 
     def __hash__(self) -> int:
         return hash(self.__key())
@@ -987,8 +988,8 @@ class Atom(StructureBase):
                     pass
                 else:
                     other.detach_from_parent()
-                    # other.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
-                    #                 'previously')
+                    # other.log.debug(f'The copied {self.__class__.__name__} is being set as a parent. It was a '
+                    #                 'dependent previously')
 
         return other
 
@@ -1079,7 +1080,7 @@ class Atoms:
         if atoms is None:
             self.atoms = np.array([])
         elif not isinstance(atoms, (np.ndarray, list)):
-            raise TypeError(f"Can't initialize {type(self).__name__} with {type(atoms).__name__}. Type must be a "
+            raise TypeError(f"Can't initialize {self.__class__.__name__} with {type(atoms).__name__}. Type must be a "
                             f'numpy.ndarray or list of {Atom.__name__} instances')
         else:
             self.atoms = np.array(atoms, dtype=np.object_)
@@ -1442,9 +1443,9 @@ class ContainsAtomsMixin(StructureBase, ABC):
                 try:  # Probably missing from_source. .coords is available in all structure_container_types...
                     getattr(self, from_source)
                 except AttributeError:
-                    raise AttributeError(f'{from_source} is not set on the current {type(self).__name__} instance!')
-                raise AttributeError(f'Missing .coords attribute on the current {type(self).__name__} '
-                                     f'instance.{from_source} attribute. This is really not supposed to happen! '
+                    raise AttributeError(f"{from_source} isn't set on the current {self.__class__.__name__} instance")
+                raise AttributeError(f'Missing .coords attribute on the current {self.__class__.__name__} '
+                                     f"instance.{from_source} attribute. This isn't supposed to happen! "
                                      f'Congrats you broke a core feature! 0.15 bitcoin have been added to your wallet')
 
     def _validate_coords(self):
@@ -1452,8 +1453,8 @@ class ContainsAtomsMixin(StructureBase, ABC):
         # This is the functionality we car about most of the time when making a new Structure
         if self.number_of_atoms != len(self.coords):  # .number_of_atoms typically just set by self._atom_indices
             raise ValueError(f'The number of Atoms ({self.number_of_atoms}) != number of Coords ({len(self.coords)}). '
-                             f'Consider initializing {type(self).__name__} without explicitly passing coords if this '
-                             f"isn't expected")
+                             f'Consider initializing {self.__class__.__name__} without explicitly passing coords if '
+                             "this isn't expected")
 
     def renumber_atoms(self, at: int = 1):
         """Renumber all Atom objects sequentially starting with 1
@@ -1630,7 +1631,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         try:
             return self._index
         except AttributeError:
-            raise TypeError(f"{type(self).__name__} is not a member of a Residues container and has no index!")
+            raise TypeError(f"{self.__class__.__name__} isn't a member of a Residues container and has no index")
 
     # @index.setter
     # def index(self, index):
@@ -1696,15 +1697,15 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                 if atom.type not in found_types:
                     found_types.add(atom.type)
                 else:
-                    raise ValueError(f'{self.is_residue_valid.__name__}: The Atom type at index {idx} was already'
+                    raise ValueError(f'{self.is_residue_valid.__name__}: The Atom type at index {idx} was already '
                                      f'observed')
             else:
-                raise ValueError(f'{self.is_residue_valid.__name__}: The Atom at index {idx} doesn\'t have the '
+                raise ValueError(f"{self.is_residue_valid.__name__}: The Atom at index {idx} doesn't have the "
                                  f'same properties as all previous Atoms')
 
         if protein_backbone_atom_types.difference(found_types):  # modify if building NucleotideResidue
-            raise ValueError(f'{self.is_residue_valid.__name__}: The provided Atoms don\'t contain the required '
-                             f'types ({", ".join(protein_backbone_atom_types)}) to build a {type(self).__name__}')
+            raise ValueError(f"{self.is_residue_valid.__name__}: The provided Atoms don't contain the required "
+                             f'types ({", ".join(protein_backbone_atom_types)}) to build a {self.__class__.__name__}')
 
         return True
 
@@ -2448,7 +2449,8 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     def __eq__(self, other: Residue) -> bool:
         if isinstance(other, Residue):
             return self.__key() == other.__key()
-        raise NotImplementedError(f"Can't compare {type(self).__name__} instance to {type(other).__name__} instance")
+        raise NotImplementedError(
+            f"Can't compare {self.__class__.__name__} instance to {type(other).__name__} instance")
 
     def get_atom_record(self, **kwargs) -> str:
         """Provide the Structure Atoms as a PDB file string
@@ -2524,8 +2526,8 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                     pass
                 else:
                     other.detach_from_parent()
-                    # other.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
-                    #                 'previously')
+                    # other.log.debug(f'The copied {self.__class__.__name__} is being set as a parent. It was a '
+                    #                 'dependent previously')
 
         return other
 
@@ -2539,8 +2541,8 @@ class Residues:
         if residues is None:
             self.residues = np.array([])
         elif not isinstance(residues, (np.ndarray, list)):
-            raise TypeError(f"Can't initialize {type(self).__name__} with {type(residues).__name__}. Type must be a "
-                            f'numpy.ndarray or list of {Residue.__name__} instances')
+            raise TypeError(f"Can't initialize {self.__class__.__name__} with {type(residues).__name__}. Type must be a"
+                            f' numpy.ndarray or list of {Residue.__name__} instances')
         else:
             self.residues = np.array(residues, dtype=np.object_)
 
@@ -2758,7 +2760,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self.biomt = biomt if biomt else []  # list of vectors to format
         self.biomt_header = biomt_header if biomt_header else ''  # str with already formatted header
         self.file_path = file_path
-        self.name = name if name not in [None, False] else f'nameless_{type(self).__name__}'
+        self.name = name if name not in [None, False] else f'nameless_{self.__class__.__name__}'
         self.nucleotides_present = False
         self.secondary_structure = None
         self.sasa = None
@@ -2778,9 +2780,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             except TypeError:
                 if isinstance(self, Structures):  # Structures handles this itself
                     return
-                raise stutils.ConstructionError(f'Argument residue_indices must be provided when constructing '
-                                                f'dependent {type(self).__name__} instance. Found state:\n'
-                                                f'{self.residues}')
+                raise stutils.ConstructionError('Argument residue_indices must be provided when constructing dependent '
+                                                f'{self.__class__.__name__} instance. Found state:\n{self.residues}')
             # Must set this before setting _atom_indices
             self._residue_indices = residue_indices
             # Get the atom_indices from the provided residues
@@ -2934,7 +2935,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         try:  # To get the indices through the public property
             indices = getattr(self, f'{dtype}_indices')
         except AttributeError:
-            raise AttributeError(f'The dtype {dtype}_indices was not found the in {type(self).__name__} object. '
+            raise AttributeError(f'The dtype {dtype}_indices was not found the in {self.__class__.__name__} object. '
                                  f'Possible values of dtype are "atom" or "residue"')
         offset = at - indices[0]
         # Set the indices through the private attribute
@@ -3063,10 +3064,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             residues = residues.copy()
             residues.reset_state()  # Clear runtime attributes
         else:
-            raise RuntimeError(f'{type(self).__name__} {self.name} '
-                               f'received Residue instances that are not dependents of a parent.'
-                               f'This check was put in place to inspect program runtime. '
-                               f'How did this situation occur that residues are not dependents?')
+            raise RuntimeError(f'{self.__class__.__name__} {self.name} '
+                               'received Residue instances that are not dependents of a parent.'
+                               'This check was put in place to inspect program runtime. '
+                               'How did this situation occur that residues are not dependents?')
         self._residues = residues
 
         self._populate_coords(from_source='residues', **kwargs)  # coords may be passed in kwargs
@@ -3742,7 +3743,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             try:
                 residue = self.residues[index]
             except IndexError:
-                raise IndexError(f'The residue index {index} is out of bounds for the {type(self).__name__} '
+                raise IndexError(f'The residue index {index} is out of bounds for the {self.__class__.__name__} '
                                  f'{self.name} with {self.number_of_residues} residues')
         elif number is not None:
             residue = self.residue(number, **kwargs)
@@ -3858,7 +3859,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             new_residue.next_residue = next_residue
         except IndexError:  # c_termini = True
             if not prior_residue:  # insertion on an empty Structure? block for now to simplify chain identification
-                raise stutils.DesignError(f"Can't insert_residue_type for an empty {type(self).__name__} class")
+                raise stutils.DesignError(f"Can't insert_residue_type for an empty {self.__class__.__name__} class")
             next_residue = None
 
         # set the new chain_id, number_pdb. Must occur after self._residue_indices update if chain isn't provided
@@ -5056,7 +5057,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             try:  # If initiated by the parent, this Structure's copy should be a dependent too
                 other._parent = self.parent.spawn
             except AttributeError:  # Copy wasn't initiated by the parent, set this Structure as parent
-                other.log.debug(f'The copied {type(self).__name__} {self.name} is being set as a parent. '
+                other.log.debug(f'The copied {self.__class__.__name__} {self.name} is being set as a parent. '
                                 'It was a dependent previously')
                 other.detach_from_parent()
                 other._copy_structure_containers()
@@ -5073,7 +5074,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def __eq__(self, other: Structure) -> bool:
         if isinstance(other, Structure):  # Use Structure as subclasses could be the same? with same name and indices
             return self.__key() == other.__key()
-        raise NotImplementedError(f"Can't compare {type(self).__name__} instance to {type(other).__name__} instance")
+        raise NotImplementedError(
+            f"Can't compare {self.__class__.__name__} instance to {type(other).__name__} instance")
 
     # Must define __hash__ in all subclasses that define an __eq__
     def __hash__(self) -> int:
@@ -5117,7 +5119,7 @@ class Structures(Structure, UserList):
 
             self.dtype = dtype if dtype else type(self.data[0]).__name__
         else:
-            raise ValueError(f'Can\'t set {type(self).__name__} by passing '
+            raise ValueError(f"Can't set {self.__class__.__name__} by passing "
                              f'{", ".join(type(structure) for structure in self)}, must set with type [Structure, ...]'
                              f'or an empty constructor. Ex: Structures()')
 

@@ -872,7 +872,7 @@ class ContainsChainsMixin:
                 try:
                     return self.chains[idx]
                 except IndexError:
-                    raise IndexError(f'The number of chains ({len(self.chains)}) in the {type(self).__name__} != '
+                    raise IndexError(f'The number of chains ({len(self.chains)}) in the {self.__class__.__name__} != '
                                      f'number of chain_ids ({len(self.chain_ids)})')
         return None
 
@@ -2377,7 +2377,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         if isinstance(other, Structure):
             return same_entity or self.__key() == other.__key()
-        raise NotImplementedError(f'Can\' compare {type(self).__name__} instance to {type(other).__name__} instance')
+        raise NotImplementedError(
+            f"Can't compare {self.__class__.__name__} instance to {type(other).__name__} instance")
 
     # Must define __hash__ in all subclasses that define an __eq__
     def __hash__(self) -> int:
@@ -2461,7 +2462,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             if isinstance(model, Structure):
                 super().__init__(**model.get_structure_containers(), **kwargs)
             else:
-                raise NotImplementedError(f"Setting {type(self).__name__} with a {type(model).__name__} isn't "
+                raise NotImplementedError(f"Setting {self.__class__.__name__} with a {type(model).__name__} isn't "
                                           'supported')
         else:
             super().__init__(**kwargs)
@@ -2514,7 +2515,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # elif entities:  # pass the entities which should be a Structure type and designate whether chains should be made
         #     self._process_model(entities=entities, chains=chains, **kwargs)
         # else:
-        #     raise ValueError(f'{type(self).__name__} couldn\'t be initialized as there is no specified Structure type')
+        #     raise ValueError(f'{self.__class__.__name__} couldn't be initialized as there is no specified Structure '
+        #                      'type')
 
         if reference_sequence is not None:  # Was parsed from file
             for original_chain, chain in zip(self.original_chain_ids, self.chains):  # self.chains is viable at this point
@@ -3846,8 +3848,8 @@ class Models(Model):
         if models is not None:
             for model in models:
                 if not isinstance(model, Model):
-                    raise TypeError(f"Can't initialize {type(self).__name__} with a {type(model).__name__}. Must be an"
-                                    f' iterable of Model')
+                    raise TypeError(f"Can't initialize {self.__class__.__name__} with a {type(model).__name__}. Must be"
+                                    ' an iterable of Model')
             self.models = [model for model in models]
         else:
             super().__init__(**kwargs)
@@ -4017,7 +4019,7 @@ class SymmetricModel(Models):
             # Ensure the number of Modela matches the SymEntry groups
             number_of_entities = self.number_of_entities
             if number_of_entities != self.sym_entry.number_of_groups:
-                raise SymmetryError(f'The {type(self).__name__} has {self.number_of_entities} symmetric entities,'
+                raise SymmetryError(f'The {self.__class__.__name__} has {self.number_of_entities} symmetric entities,'
                                     f' but {self.sym_entry.number_of_groups} were expected')
 
             # Ensure the Model is an asu
@@ -4360,7 +4362,7 @@ class SymmetricModel(Models):
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
         # self.coords = coords
-        self.log.debug(f'Setting {type(self).__name__} coords')
+        self.log.debug(f'Setting {self.__class__.__name__} coords')
         super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as this mechanism could change
         # self._coords.replace(self._atom_indices, coords)
         if self.is_symmetric():  # Set the symmetric coords according to the ASU
@@ -4629,7 +4631,7 @@ class SymmetricModel(Models):
                 #                           f'{self.generate_symmetric_coords.__name__}')
 
         # self.log.debug(f'Ensure the output of symmetry mate creation is correct. The copy of a '
-        #                f'{type(self).__name__} is being taken which is relying on Structure.__copy__. This may '
+        #                f'{self.__class__.__name__} is being taken which is relying on Structure.__copy__. This may '
         #                f'not be adequate and need to be overwritten')
 
         # Get this attribute fresh as it may have been set by self.generate_symmetric_coords()
@@ -4898,7 +4900,7 @@ class SymmetricModel(Models):
         try:
             jump_size = getattr(self, f'number_of_{dtype}s')
         except AttributeError:
-            raise AttributeError(f"The dtype 'number_of_{dtype}' wasn't found in the {type(self).__name__} object. "
+            raise AttributeError(f"The dtype 'number_of_{dtype}' wasn't found in the {self.__class__.__name__} object. "
                                  f"'Possible values of dtype are 'atom' or 'residue''")
 
         return [idx + jump_size*model_num for model_num in range(self.number_of_symmetry_mates) for idx in indices]
@@ -5540,8 +5542,8 @@ class SymmetricModel(Models):
         # Check to see if the parsed Model is already represented symmetrically
         number_of_symmetry_mates = self.number_of_symmetry_mates
         if self.number_of_entities * number_of_symmetry_mates == self.number_of_chains:
-            self.log.critical(f'Setting the {type(self).__name__} to an ASU from a symmetric representation. '
-                              f'This method has not been thoroughly debugged')
+            self.log.critical(f'Setting the {self.__class__.__name__} to an ASU from a symmetric representation. '
+                              'This method has not been thoroughly debugged')
             # Set base Structure attributes
             # Can't do this as they may not be symmetric!
             # # Set the symmetric coords according to existing coords
@@ -5583,7 +5585,7 @@ class SymmetricModel(Models):
             # for entity in self.entities:
             #     entity.remove_mate_chains()
         else:
-            self.log.debug(f'Setting {type(self).__name__} ASU to the ASU with the most contacting interface')
+            self.log.debug(f'Setting {self.__class__.__name__} ASU to the ASU with the most contacting interface')
             entities = self.find_contacting_asu(**kwargs)
 
             # With perfect symmetry, v this is sufficient
@@ -5655,7 +5657,7 @@ class SymmetricModel(Models):
             symmetry: The symmetry of the Structure
         """
         if self.is_symmetric():
-            raise NotImplementedError(f"{self.orient.__name__} isn't available for {type(self).__name__}")
+            raise NotImplementedError(f"{self.orient.__name__} isn't available for {self.__class__.__name__}")
             # Todo is this method at all useful? Could there be a situation where the symmetry is right,
             #  but the axes aren't in their canonical locations?
         else:
@@ -6481,7 +6483,7 @@ class Pose(SymmetricModel, Metrics):
                         break
                 else:
                     raise ValueError(f"Can't measure {entity.name} reference as it wasn't found in the "
-                                     f"{type(self).__name__}")
+                                     f"{self.__class__.__name__}")
 
         if entity.termini_proximity_from_reference(reference=entity_reference) == 1:  # if outward
             if entity_chain.n_terminal_residue.relative_sasa > sasa_burial_threshold:
@@ -6600,11 +6602,11 @@ class Pose(SymmetricModel, Metrics):
         if missing:
             hydrophobic_collapse_profile = np.empty(0)
             self.log.warning(f'There were missing SequenceProfile objects on {sum(missing)} Entity '
-                             f'instances. The collapse_profile will not be captured for the entire '
-                             f'{type(self).__name__}.')
+                             'instances. The collapse_profile will not be captured for the entire '
+                             f'{self.__class__.__name__}.')
         #     self.log.warning(f'There were missing MultipleSequenceAlignment objects on {sum(missing)} Entity '
-        #                      f'instances. The collapse_profile will not be captured for the entire '
-        #                      f'{type(self).__name__}.')
+        #                      'instances. The collapse_profile will not be captured for the entire '
+        #                      f'{self.__class__.__name__}.')
         #     # empty_list = []
         #     # hydrophobic_collapse_profile = np.ndarray(empty_list)
         #     # print('empty_list', empty_list)
