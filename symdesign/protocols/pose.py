@@ -35,7 +35,7 @@ from symdesign.structure.model import Pose, Models, Model, Entity
 from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
 from symdesign.structure.utils import DesignError, ClashError
 from symdesign.utils import large_color_array, start_log, pickle_object, write_shell_script, \
-    all_vs_all, condensed_to_square, rosetta, InputError, path as putils, timestamp
+    all_vs_all, condensed_to_square, rosetta, InputError, path as putils, starttime
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
 # from symdesign.utils.nanohedra.general import get_components_from_nanohedra_docking
 
@@ -1640,7 +1640,7 @@ class PoseProtocol(PoseData):
 
         # if self.protocol is not None:  # This hasn't been set yet
         self.protocol = 'thread'
-        design_files_file = os.path.join(self.scripts_path, f'{timestamp()}_{self.protocol}_files.txt')
+        design_files_file = os.path.join(self.scripts_path, f'{starttime}_{self.protocol}_files.txt')
         putils.make_path(self.scripts_path)
 
         # # Modify each sequence score to reflect the new "decoy" name
@@ -2792,14 +2792,14 @@ class PoseProtocol(PoseData):
                                  f'{self.refine.__name__} and is being treated as the standard "{switch}" protocol')
 
             # Create file output
-            designed_files_file = os.path.join(self.scripts_path, f'{timestamp()}_{switch}_files_output.txt')
+            designed_files_file = os.path.join(self.scripts_path, f'{starttime}_{switch}_files_output.txt')
             if in_file_list:
                 generate_files_cmd = \
                     ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', designed_files_file, '-e', '.pdb',
                      '-s', f'_{switch}']
                 suffix = ['-out:suffix', f'_{switch}']
             elif design_files:
-                design_files_file = os.path.join(self.scripts_path, f'{timestamp()}_{self.protocol}_files.txt')
+                design_files_file = os.path.join(self.scripts_path, f'{starttime}_{self.protocol}_files.txt')
                 with open(design_files_file, 'w') as f:
                     f.write('%s\n' % '\n'.join(design_files))
                 # Write the designed_files_file with all "tentatively" designed file paths
