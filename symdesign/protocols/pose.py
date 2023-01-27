@@ -3009,15 +3009,21 @@ class PoseProtocol(PoseData):
             # Gather metrics for each design produced from this proceedure
             self.process_rosetta_metrics()
 
-    def analyze_proteinmpnn_metrics(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.array]):
+    def analyze_proteinmpnn_metrics(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.array])\
+            -> tuple[pd.DataFrame, pd.DataFrame]:
         #                      designs: Iterable[Pose] | Iterable[AnyStr] = None
-        """
+        """Takes the sequences_and_scores associated with ProteinMPNN including 'design_indices',
+        'proteinmpnn_loss_complex', and 'proteinmpnn_loss_unbound' to format summary metrics
 
         Args:
             design_ids: The associated design identifier for each corresponding entry in sequences_and_scores
             sequences_and_scores: The mapping of ProteinMPNN score type to it's corresponding data
         Returns:
-
+            A tuple of DataFrame where each contains (
+                A per-design metric DataFrame where each index is the design id and the columns are design metrics,
+                A per-residue metric DataFrame where each index is the design id and the columns are
+                    (residue index, residue metric)
+            )
         """
         #     designs: The designs to perform analysis on. By default, fetches all available structures
         # Calculate metrics on input Pose before any manipulation
@@ -3030,42 +3036,12 @@ class PoseProtocol(PoseData):
         # numeric_sequences = sequences_and_scores['numeric_sequences']
         # torch_numeric_sequences = torch.from_numpy(numeric_sequences)
         # nan_blank_data = list(repeat(np.nan, pose_length))
-        sequences = sequences_and_scores['sequences']
-        per_residue_design_indices = sequences_and_scores['design_indices']
-        per_residue_complex_sequence_loss = sequences_and_scores['proteinmpnn_loss_complex']
-        per_residue_unbound_sequence_loss = sequences_and_scores['proteinmpnn_loss_unbound']
-
-        # # Make requisite profiles
-        # profile_background = {}
-        # # Load fragment_profile into the analysis
-        # # This is currently called in design() and this function (analyze_proteinmpnn_metrics) is not used elsewhere
-        # if self.job.design.term_constraint:
-        #     if not self.pose.fragment_queries:
-        #         self.generate_fragments(interface=True)
-        #         self.pose.calculate_fragment_profile()
-        #     profile_background['fragment'] = fragment_profile_array = self.pose.fragment_profile.as_array()
-
-        # if self.job.design.evolution_constraint:
-        #     self.generate_evolutionary_profile(warn_metrics=True)
-        #     # if self.pose.evolutionary_profile:
-        #     profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(self.pose.evolutionary_profile)
-        #     torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
-        #     self.pose.calculate_profile()
-        #     profile_background['design'] = design_profile_array = pssm_as_array(self.pose.profile)
-        #     torch_log_design_profile = torch.from_numpy(np.log(design_profile_array))
-        # else:
-        #     torch_log_evolutionary_profile = torch_log_design_profile = torch.tensor(nan_blank_data)
-        #     per_residue_evolutionary_profile_loss = per_residue_design_profile_loss = nan_blank_data
-
-        # number_of_temperatures = len(self.job.design.temperatures)
-        # per_residue_data = {}
-        # fragment_profile_frequencies = []
 
         # Construct residues_df
         proteinmpnn_data = {
-            'design_residue': per_residue_design_indices,
-            'proteinmpnn_loss_complex': per_residue_complex_sequence_loss,
-            'proteinmpnn_loss_unbound': per_residue_unbound_sequence_loss
+            'design_residue': sequences_and_scores['design_indices'],
+            'proteinmpnn_loss_complex': sequences_and_scores['proteinmpnn_loss_complex'],
+            'proteinmpnn_loss_unbound': sequences_and_scores['proteinmpnn_loss_unbound']
         }
         proteinmpnn_residue_info_df = \
             pd.concat([pd.DataFrame(data, index=design_ids,
@@ -3198,8 +3174,7 @@ class PoseProtocol(PoseData):
         # designs_df = designs_df.join(metadata_df)
 
         # Incorporate residue, design, and sequence metrics on every designed Pose
-        # per_residue_sequence_df.loc[pose_source_id, :] = list(self.pose.sequence)
-        # per_residue_sequence_df.append(pd.DataFrame(list(self.pose.sequence), columns=[pose_source_id]).T)
+        sequences = sequences_and_scores['sequences']
         # Todo UPDATE These are now from a different collapse 'hydrophobicity' source, 'expanded'
         sequences_df = self.analyze_sequence_metrics_per_design(sequences=sequences, design_ids=design_ids)
         # Since no structure design completed, no residue_metrics is performed, but the pose source can be...
@@ -3239,9 +3214,10 @@ class PoseProtocol(PoseData):
         #     list(residues_df.loc[:, idx_slice[:, per_residue_drop_columns]].columns),
         #     errors='ignore', axis=1)
 
-        self.output_metrics(residues=residues_df, designs=designs_df)
-        # Commit the newly acquired metrics
-        self.job.current_session.commit()
+        return designs_df, residues_df
+        # self.output_metrics(residues=residues_df, designs=designs_df)
+        # # Commit the newly acquired metrics
+        # self.job.current_session.commit()
 
     def proteinmpnn_design(self, interface: bool = False, neighbors: bool = False):
         """Perform design based on the ProteinMPNN graph encoder/decoder network and output sequences and scores to the
@@ -3306,9 +3282,12 @@ class PoseProtocol(PoseData):
         #                                                files=sequence_files)
 
         # analysis_start = time.time()
-        self.analyze_proteinmpnn_metrics(design_ids, sequences_and_scores)
+        designs_df, residues_df = self.analyze_proteinmpnn_metrics(design_ids, sequences_and_scores)
         # self.log.debug(f"Took {time.time() - analysis_start:8f}s for analyze_proteinmpnn_metrics. "
         #                f"{time.time() - design_start:8f}s total")
+        self.output_metrics(designs=designs_df, residues=residues_df)
+        # Commit the newly acquired metrics
+        self.job.current_session.commit()
 
     # def output_proteinmpnn_scores(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.ndarray | list]):
     #     """Given the results of a ProteinMPNN design trajectory, format the sequences and scores for the PoseJob
