@@ -772,31 +772,31 @@ def proteinmpnn_batch_score(batch_slice: slice, proteinmpnn: ProteinMPNN,
         except TypeError:  # Can't slice NoneType
             pass
 
-    logger.debug(f'S shape: {S.shape}')
-    logger.debug(f'X shape: {X.shape}')
-    # logger.debug(f'chain_mask shape: {chain_mask.shape}')
-    logger.debug(f'chain_encoding shape: {chain_encoding.shape}')
-    logger.debug(f'residue_idx shape: {residue_idx.shape}')
-    logger.debug(f'mask shape: {mask.shape}')
-    # logger.debug(f'residue_mask shape: {residue_mask.shape}')
+    # logger.debug(f'S shape: {S.shape}')
+    # logger.debug(f'X shape: {X.shape}')
+    # # logger.debug(f'chain_mask shape: {chain_mask.shape}')
+    # logger.debug(f'chain_encoding shape: {chain_encoding.shape}')
+    # logger.debug(f'residue_idx shape: {residue_idx.shape}')
+    # logger.debug(f'mask shape: {mask.shape}')
+    # # logger.debug(f'residue_mask shape: {residue_mask.shape}')
 
     chain_residue_mask = chain_mask * residue_mask
-    logger.debug(f'chain_residue_mask shape: {chain_residue_mask.shape}')
+    # logger.debug(f'chain_residue_mask shape: {chain_residue_mask.shape}')
 
     # Score and format outputs - All have at lease shape (batch_length, model_length,)
     if decoding_order is not None:
-        logger.debug(f'decoding_order shape: {decoding_order.shape}, type: {decoding_order.dtype}')
-        # decoding_order = decoding_order[:actual_batch_length]
+        # logger.debug(f'decoding_order shape: {decoding_order.shape}, type: {decoding_order.dtype}')
+        decoding_order = decoding_order[:actual_batch_length]
         provided_decoding_order = True
         randn = None
     elif randn is not None:
-        logger.debug(f'decoding_order shape: {randn.shape}, type: {randn.dtype}')
+        # logger.debug(f'decoding_order shape: {randn.shape}, type: {randn.dtype}')
+        randn = randn[:actual_batch_length]
         decoding_order = None
         provided_decoding_order = False
-        # randn = randn[:actual_batch_length]
     else:
         # Todo generate a randn fresh?
-        raise ValueError('Missing either argument "randn" or "decoding_order"')
+        raise ValueError('Missing required argument "randn" or "decoding_order"')
 
     # decoding_order_out = decoding_order  # When using the same decoding order for all
     log_probs_start_time = time.time()
