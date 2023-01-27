@@ -6314,11 +6314,11 @@ class Pose(SymmetricModel, Metrics):
             # Set up parameters for the scoring task, including scoring all positions
             parameters.update(**self.get_proteinmpnn_params(ca_only=ca_only, interface=False, **kwargs))
 
-            # Remove the precalculated sequence array
+            # Remove the precalculated sequence array to add our own
             parameters.pop('S')
             # # Insert the designed sequences inplace of the pose sequence
             # parameters['S'] = np.tile(numeric_sequences, (1, number_of_symmetry_mates))
-            # Pass sequencs as 'S' parameter to _proteinmpnn_batch_score instead of as setup_kwargs
+            # Set up for symmetry
             sequences = np.tile(numeric_sequences, (1, number_of_symmetry_mates))
             # Solve decoding order
             # parameters['randn'] = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
@@ -6340,6 +6340,9 @@ class Pose(SymmetricModel, Metrics):
             proteinmpnn_model = ml.proteinmpnn_factory(**kwargs)
             device = proteinmpnn_model.device
 
+            # Send the numpy array to torch.tensor and the device
+            # Pass sequencs as 'S' parameter to _proteinmpnn_batch_score instead of as setup_kwargs
+            sequences = ml.proteinmpnn_to_device(device, S=sequences)
             # score_start = time.time()
             scores = \
                 _proteinmpnn_batch_score(proteinmpnn_model, S=sequences,
