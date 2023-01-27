@@ -6322,9 +6322,9 @@ class Pose(SymmetricModel, Metrics):
             sequences = np.tile(numeric_sequences, (1, number_of_symmetry_mates))
             # Solve decoding order
             # parameters['randn'] = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
-            decoding_order = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
-            # # Solve decoding order
-            # parameters['decoding_order'] = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
+            # decoding_order = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
+            # Solve decoding order
+            parameters['decoding_order'] = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
 
             per_residue_complex_sequence_loss = np.empty_like(sequences, dtype=np.float32)
             per_residue_unbound_sequence_loss = np.empty_like(per_residue_complex_sequence_loss)
@@ -6342,7 +6342,8 @@ class Pose(SymmetricModel, Metrics):
 
             # Send the numpy array to torch.tensor and the device
             # Pass sequences as 'S' parameter to _proteinmpnn_batch_score instead of as setup_kwargs
-            unique_parameters = ml.proteinmpnn_to_device(device, S=sequences, decoding_order=decoding_order)
+            # unique_parameters = ml.proteinmpnn_to_device(device, S=sequences, decoding_order=decoding_order)
+            unique_parameters = ml.proteinmpnn_to_device(device, S=sequences)
             # score_start = time.time()
             scores = \
                 _proteinmpnn_batch_score(proteinmpnn_model, **unique_parameters,  # S=sequences,
