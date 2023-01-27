@@ -101,16 +101,17 @@ class PoseDirectory:
             # /root/Projects/project_Poses/design/data/name.sc
             self.serialized_info: str | Path = os.path.join(self.data_path, putils.state_file)
             # /root/Projects/project_Poses/design/data/info.pkl
+            self.pose_path: str | Path = os.path.join(self.out_directory, f'{self.name}.pdb')
             self.asu_path: str | Path = os.path.join(self.out_directory, putils.asu)
             # /root/Projects/project_Poses/design/asu.pdb
             # self.asu_path: str | Path = os.path.join(self.out_directory, f'{self.name}_{putils.asu}')
             # # /root/Projects/project_Poses/design/design_name_asu.pdb
             self.assembly_path: str | Path = os.path.join(self.out_directory, f'{self.name}_{putils.assembly}')
             # /root/Projects/project_Poses/design/design_name_assembly.pdb
-            self.refine_pdb: str | Path = os.path.join(self.data_path, os.path.basename(self.asu_path))
-            # self.refine_pdb: str | Path = f'{os.path.splitext(self.asu_path)[0]}_refine.pdb'
+            self.refine_pdb: str | Path = os.path.join(self.data_path, os.path.basename(self.pose_path))
+            # self.refine_pdb: str | Path = f'{os.path.splitext(self.pose_path)[0]}_refine.pdb'
             # /root/Projects/project_Poses/design/clean_asu_for_refine.pdb
-            self.consensus_pdb: str | Path = f'{os.path.splitext(self.asu_path)[0]}_for_consensus.pdb'
+            self.consensus_pdb: str | Path = f'{os.path.splitext(self.pose_path)[0]}_for_consensus.pdb'
             # /root/Projects/project_Poses/design/design_name_for_consensus.pdb
             self.consensus_design_pdb: str | Path = os.path.join(self.designs_path, os.path.basename(self.consensus_pdb))
             # /root/Projects/project_Poses/design/designs/design_name_for_consensus.pdb
@@ -177,12 +178,12 @@ class PoseDirectory:
             return self._refined_pdb
         except AttributeError:
             if self.pre_refine:
-                self._refined_pdb = self.asu_path
+                self._refined_pdb = self.pose_path
             else:
                 # self.refined_pdb = None  # /root/Projects/project_Poses/design/design_name_refined.pdb
                 self._refined_pdb = \
                     os.path.join(self.designs_path,
-                                 f'{os.path.basename(os.path.splitext(self.asu_path)[0])}_refine.pdb')
+                                 f'{os.path.basename(os.path.splitext(self.pose_path)[0])}_refine.pdb')
             return self._refined_pdb
 
     @property
@@ -315,11 +316,21 @@ class PoseDirectory:
 
     def get_wildtype_file(self) -> AnyStr:
         """Retrieve the wild-type file name from PoseJob"""
-        wt_file = glob(self.asu_path)
-        if len(wt_file) != 1:
-            raise ValueError(f'More than one matching file found during search {self.asu_path}')
+        # glob_target = os.path.join(self.out_directory, f'{self.name}*.pdb')
+        glob_target = self.pose_path
+        source = sorted(glob(glob_target))
+        if len(source) > 1:
+            raise InputError(f'Found {len(source)} files matching the path "{glob_target}". '
+                             'No more than one expected')
+        else:
+            try:
+                wt_file = source[0]
+            except IndexError:  # glob found no files
+                self.log.debug(f"Couldn't find any Structure files matching the path '{glob_target}'")
+                wt_file = None
+                raise FileNotFoundError
 
-        return wt_file[0]
+        return wt_file
 
     def get_design_files(self, design_type: str = '') -> list[AnyStr]:
         """Return the paths of all design files in a PoseJob
@@ -580,20 +591,13 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         # Configure standard pose loading mechanism with self.source_path
         if self.source_path is None:
-            if os.path.exists(self.asu_path):  # Standard mechanism of loading the pose
-                self.source_path = self.asu_path
-            else:
-                glob_target = os.path.join(self.out_directory, f'{self.name}*.pdb')
-                source = sorted(glob(glob_target))
-                if len(source) > 1:
-                    raise ValueError(f'Found {len(source)} files matching the path "{glob_target}". '
-                                     'No more than one expected')
+            try:
+                self.source_path = self.get_wildtype_file()
+            except FileNotFoundError:
+                if os.path.exists(self.asu_path):  # Standard mechanism of loading the pose
+                    self.source_path = self.asu_path
                 else:
-                    try:
-                        self.source_path = source[0]
-                    except IndexError:  # glob found no files
-                        self.log.debug(f"Couldn't find any Structure files matching the path '{glob_target}'")
-                        self.source_path = None
+                    self.source_path = None
 
     def __init__(self, name: str = None, project: str = None, source_path: AnyStr = None, initial: bool = False,
                  **kwargs):
@@ -799,8 +803,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     raise DesignError(f"Couldn't locate a specific_design matching the name '{matching_path}'")
             # Format specific_designs to a pose ID compatible format
             self.specific_designs = [f'{self.name}_{design}' for design in self.specific_designs]
-            # self.source_path = specific_designs_file_paths  # Todo?
-            # self.source_path = self.specific_design_path
 
     @property
     def structure_source(self) -> AnyStr:
