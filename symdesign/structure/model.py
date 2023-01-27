@@ -6271,6 +6271,8 @@ class Pose(SymmetricModel, Metrics):
                     numeric_sequences = sequences_to_numeric(sequences)
             else:  # Some sort of iterable
                 numeric_sequences = convert_and_check_sequence_type(sequences)
+            print('Found numeric_sequences.shape:', numeric_sequences.shape)
+            print('Found numeric_sequences:', numeric_sequences[0, :10])
 
             # pose_length = self.number_of_residues
             size, pose_length, *_ = numeric_sequences.shape
