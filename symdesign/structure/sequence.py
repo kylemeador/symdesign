@@ -253,7 +253,7 @@ class Profile(UserList):
             if self.lods:
                 data_source = self.lods
             else:
-                raise ValueError(f"There are no values available for {type(self).__name__}.lods")
+                raise ValueError(f"There aren't any values available for {self.__class__.__name__}.lods")
         else:
             data_source = self
 
@@ -592,7 +592,7 @@ class SequenceProfile(ABC):
     def verify_evolutionary_profile(self) -> bool:
         """Returns True if the evolutionary_profile and Structure sequences are equivalent"""
         if self.number_of_residues != len(self.evolutionary_profile):
-            self.log.warning(f'{self.name}: Profile and {type(self).__name__} are different lengths! Profile='
+            self.log.warning(f'{self.name}: Profile and {self.__class__.__name__} are different lengths! Profile='
                              f'{len(self.evolutionary_profile)}, Pose={self.number_of_residues}')
             return False
 
@@ -611,7 +611,7 @@ class SequenceProfile(ABC):
                 # Otherwise, generating evolutionary profiles from individual files will be required which
                 # don't contain a reference sequence and therefore have their own caveats. Warning the user
                 # will allow the user to understand what is happening at least
-                self.log.warning(f'{type(self).__name__}.evolutionary_profile and .sequence mismatched'
+                self.log.warning(f'{self.__class__.__name__}.evolutionary_profile and .sequence mismatched'
                                  f'\n\tResidue {residue.number}: .evolutionary_profile={profile_res_type}, '
                                  f'.sequence={pose_res_type}')
                 if position_data[pose_res_type] > 0:  # The residue choice isn't horrible...
@@ -954,8 +954,9 @@ class SequenceProfile(ABC):
                 # try:
                 self.add_msa(msa)
                 # except FileNotFoundError:
-                #     raise DesignError(f'Ensure that you have set up the .msa for this {type(self).__name__}. To do this'
-                #                       f', either link to the Master Database, call {msa_generation_function}, or pass '
+                #     raise DesignError(f'Ensure that you have set up the .msa for this {self.__class__.__name__}. To '
+                #                       'do this, '
+                #                       f'either link to the Master Database, call {msa_generation_function}, or pass '
                 #                       f'the location of a multiple sequence alignment. '
                 #                       f'Supported formats:\n{pretty_format_table(msa_supported_types.items())}')
 

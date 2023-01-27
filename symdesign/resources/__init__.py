@@ -43,8 +43,8 @@ class OptimalTx:
         if self.n_dof > 0:
             self.dof_convert9()
         else:
-            raise ValueError(f"n_dof is not set! Can't get the {type(self).__name__}"
-                             f" without passing dof_ext, zshift1, or zshift2")
+            raise ValueError(f"n_dof isn't set! Can't get the {self.__class__.__name__}"
+                             " without passing dof_ext, zshift1, or zshift2")
 
     @classmethod
     def from_dof(cls, dof_ext: np.ndarray, zshift1: np.ndarray = None, zshift2: np.ndarray = None,

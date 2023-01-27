@@ -22,7 +22,7 @@ class Coords:
         if coords is None:
             self.coords = np.array([])
         elif not isinstance(coords, (np.ndarray, list)):
-            raise TypeError(f"Can't initialize {type(self).__name__} with {type(coords).__name__}. Type must be a "
+            raise TypeError(f"Can't initialize {self.__class__.__name__} with {type(coords).__name__}. Type must be a "
                             f'numpy.ndarray of float with shape (n, 3) or list[list[float]]')
         else:
             self.coords = np.array(coords, np.float_)

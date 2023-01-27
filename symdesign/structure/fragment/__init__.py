@@ -363,10 +363,10 @@ class MonoFragment(Fragment):
         self.log = self.central_residue._log.log
 
         if not residues:
-            raise ValueError(f"Can't find {type(self).__name__} without passing residues with length "
+            raise ValueError(f"Can't find {self.__class__.__name__} without passing residues with length "
                              f'{self.fragment_length}')
         elif fragment_db is None:
-            raise ValueError(f"Can't find {type(self).__name__} without passing fragment_db")
+            raise ValueError(f"Can't find {self.__class__.__name__} without passing fragment_db")
         else:
             try:
                 fragment_db.representatives
@@ -418,7 +418,7 @@ class MonoFragment(Fragment):
             _, self.rotation, self.translation = superposition3d(coords, self.template_coords)
             # self.guide_coords = coords
         else:
-            raise ValueError(f'{type(self).__name__} coords must be shape (3, 3), not {coords.shape}')
+            raise ValueError(f'{self.__class__.__name__} coords must be shape (3, 3), not {coords.shape}')
 
     # def get_transformed_copy(self, rotation: list | np.ndarray = None, translation: list | np.ndarray = None,
     #                             rotation2: list | np.ndarray = None, translation2: list | np.ndarray = None) -> \
