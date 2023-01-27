@@ -81,9 +81,9 @@ def load_sql_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None,
         pose_ids: PoseJob instance identifiers for which metrics are desired
         design_ids: DesignData instance identifiers for which metrics are desired
     Returns:
-        The pandas DataFrame formatted with the every metric in PoseMetrics, EntityMetrics, and DesignMetrics. The final
-            DataFrame will have an as many entries corresponding to each Entity in EntityData for a total of
-            DesignData's X number of Entities entries
+        A DataFrame formatted with every metric in PoseMetrics, EntityMetrics, and DesignMetrics. The final DataFrame
+            will have an as many entries corresponding to each Entity in EntityData for a total of DesignData's X number
+            of Entities entries
     """
     pm_c = [c for c in sql.PoseMetrics.__table__.columns if not c.primary_key]
     pm_names = [c.name for c in pm_c]
@@ -95,7 +95,7 @@ def load_sql_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None,
     em_c = [c for c in sql.EntityMetrics.__table__.columns + entity_metadata_c if not c.primary_key]
     em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
     selected_columns = (*pm_c, *dm_c, *em_c)
-    selected_columns_name = (*pm_names, *dm_names, *em_names)
+    selected_column_names = (*pm_names, *dm_names, *em_names)
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
     join_stmt = select(selected_columns).select_from(PoseJob).join(sql.PoseMetrics).join(sql.EntityData).join(
         sql.EntityMetrics).join(sql.DesignData).join(sql.DesignMetrics)
@@ -112,9 +112,9 @@ def load_sql_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None,
         stmt = stmt
 
     # all_metrics_rows = session.execute(stmt).all()
-    df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_columns_name)
+    df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_column_names)
     logger.debug(f'Loaded total Metrics DataFrame with primary identifier keys: '
-                 f'{[key for key in selected_columns_name if "id" in key and "residue" not in key]}')
+                 f'{[key for key in selected_column_names if "id" in key and "residue" not in key]}')
 
     # Format the dataframe and set the index
     # df = df.sort_index(axis=1).set_index('design_id')
@@ -123,20 +123,20 @@ def load_sql_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None,
     return df
 
 
-def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None, design_ids: Iterable[int] = None) \
-        -> pd.DataFrame:
+def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None) -> pd.DataFrame:
+    # , design_ids: Iterable[int] = None
     """Load and format every PoseJob instance's, PoseMetrics and EntityMetrics
 
-    Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
+    Optionally limit those loaded to certain PoseJob.id's
 
     Args:
         session: A session object to complete the transaction
         pose_ids: PoseJob instance identifiers for which metrics are desired
-        design_ids: DesignData instance identifiers for which metrics are desired
     Returns:
-        The DataFrame formatted with the every metric in PoseMetrics and EntityMetrics. The final DataFrame will have an
-            entry corresponding to each Entity in EntityData for a total of PoseJob's X number of Entities entries
+        A DataFrame formatted with every metric in PoseMetrics and EntityMetrics. The final DataFrame will have an entry
+            corresponding to each Entity in EntityData for a total of PoseJob's X number of Entities entries
     """
+    #     design_ids: DesignData instance identifiers for which metrics are desired
     # Accessing only the PoseMetrics and EntityMetrics
     pm_c = [c for c in sql.PoseMetrics.__table__.columns if not c.primary_key]
     pm_names = [c.name for c in pm_c]
@@ -147,12 +147,12 @@ def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None, d
     em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
     # em_c = [c for c in sql.EntityMetrics.__table__.columns if not c.primary_key]
     # em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
-    pose_selected_columns = (*pm_c, *em_c)
-    pose_selected_columns_name = (*pm_names, *em_names)
+    selected_columns = (*pm_c, *em_c)
+    selected_column_names = (*pm_names, *em_names)
 
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
-    join_stmt = select(pose_selected_columns).select_from(PoseJob)\
+    join_stmt = select(selected_columns).select_from(PoseJob)\
         .join(sql.PoseMetrics).join(sql.EntityData).join(sql.EntityMetrics)
     if pose_ids:
         # pose_identifiers = [pose_job.pose_identifier for pose_job in pose_jobs]
@@ -160,15 +160,10 @@ def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None, d
     else:
         stmt = join_stmt
 
-    if design_ids:
-        stmt = stmt.where(sql.DesignData.id.in_(design_ids))
-    else:
-        stmt = stmt
-
     # pose_all_metrics_rows = session.execute(stmt).all()
-    df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=pose_selected_columns_name)
+    df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_column_names)
     logger.debug(f'Loaded total Pose DataFrame with primary identifier keys: '
-                 f'{[key for key in pose_selected_columns_name if "id" in key and "residue" not in key]}')
+                 f'{[key for key in selected_column_names if "id" in key and "residue" not in key]}')
 
     # Format the dataframe and set the index
     # df = df.sort_index(axis=1).set_index('pose_id')
@@ -195,9 +190,7 @@ def load_sql_designs_dataframe(session: Session, pose_ids: Iterable[int] = None,
     dd_c = (sql.DesignData.pose_id,)
     dm_c = [c for c in sql.DesignMetrics.__table__.columns if not c.primary_key]
     selected_columns = (*dd_c, *dm_c)
-    # dm_names = [c.name for c in dm_c]
-    # selected_columns_name = (dd_pose_id.name, *dm_names)
-    selected_columns_name = [c.name for c in selected_columns]
+    selected_column_names = [c.name for c in selected_columns]
 
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
@@ -215,9 +208,9 @@ def load_sql_designs_dataframe(session: Session, pose_ids: Iterable[int] = None,
         stmt = stmt
 
     # all_metrics_rows = session.execute(stmt).all()
-    df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_columns_name)
+    df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_column_names)
     logger.debug(f'Loaded total Metrics DataFrame with primary identifier keys: '
-                 f'{[key for key in selected_columns_name if "id" in key and "residue" not in key]}')
+                 f'{[key for key in selected_column_names if "id" in key and "residue" not in key]}')
 
     # Format the dataframe and set the index
     # df = df.sort_index(axis=1).set_index('design_id')
@@ -1078,8 +1071,8 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #     #     df = pd.concat([total_df], axis=1, keys=['pose', 'metric'])
 
     # Figure out designs from dataframe, filters, and weights
-    poses_df = load_sql_poses_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
-    designs_df = load_sql_designs_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
+    poses_df = load_sql_poses_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
+    designs_df = load_sql_designs_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
     pose_designs_mean_df = designs_df.groupby('pose_id').mean()
     # Use the pose_id index to join to the poses_df
     # This will create a total_df that is the number_of_entities X larger than the number of poses
