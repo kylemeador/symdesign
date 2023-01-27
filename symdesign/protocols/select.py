@@ -172,6 +172,90 @@ def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None) -
     return df
 
 
+def load_sql_pose_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None) -> pd.DataFrame:
+    """Load and format every PoseJob instance's, PoseMetrics
+
+    Optionally limit those loaded to certain PoseJob.id's
+
+    Args:
+        session: A session object to complete the transaction
+        pose_ids: PoseJob instance identifiers for which metrics are desired
+    Returns:
+        A DataFrame formatted with every metric in PoseMetrics. The final DataFrame will have an entry corresponding to
+            each PoseJob
+    """
+    # Accessing only the PoseMetrics and EntityMetrics
+    pm_c = [c for c in sql.PoseMetrics.__table__.columns if not c.primary_key]
+    # pm_names = [c.name for c in pm_c]
+    selected_columns = (*pm_c,)
+    selected_column_names = [c.name for c in selected_columns]  # (*pm_names,)
+
+    # Construct the SQL query
+    # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
+    join_stmt = select(selected_columns).select_from(PoseJob)\
+        .join(sql.PoseMetrics)
+    if pose_ids:
+        # pose_identifiers = [pose_job.pose_identifier for pose_job in pose_jobs]
+        stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
+    else:
+        stmt = join_stmt
+
+    # pose_all_metrics_rows = session.execute(stmt).all()
+    df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_column_names)
+    logger.debug(f'Loaded total Pose DataFrame with primary identifier keys: '
+                 f'{[key for key in selected_column_names if "id" in key and "residue" not in key]}')
+
+    # Format the dataframe and set the index
+    # df = df.sort_index(axis=1).set_index('pose_id')
+    df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
+
+    return df
+
+
+def load_sql_entity_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None) -> pd.DataFrame:
+    """Load and format every PoseJob instance's, EntityMetrics
+
+    Optionally limit those loaded to certain PoseJob.id's
+
+    Args:
+        session: A session object to complete the transaction
+        pose_ids: PoseJob instance identifiers for which metrics are desired
+    Returns:
+        A DataFrame formatted with the pose_id and EntityMetrics. The final DataFrame will have an entry corresponding
+            to each Entity in EntityData for a total of PoseJob's X number of Entities entries
+    """
+    # Accessing only the PoseJob.id and EntityMetrics
+    popse_id_c = sql.EntityData.pose_id
+    entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
+                         sql.ProteinMetadata.c_terminal_helix,
+                         sql.ProteinMetadata.thermophilic]
+    em_c = [c for c in sql.EntityMetrics.__table__.columns + entity_metadata_c if not c.primary_key]
+    em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
+    selected_columns = (popse_id_c, *em_c,)
+    selected_column_names = (popse_id_c.name, *em_names,)
+
+    # Construct the SQL query
+    # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
+    join_stmt = select(selected_columns).select_from(PoseJob)\
+        .join(sql.EntityData).join(sql.EntityMetrics)
+    if pose_ids:
+        # pose_identifiers = [pose_job.pose_identifier for pose_job in pose_jobs]
+        stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
+    else:
+        stmt = join_stmt
+
+    # pose_all_metrics_rows = session.execute(stmt).all()
+    df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_column_names)
+    logger.debug(f'Loaded total Pose DataFrame with primary identifier keys: '
+                 f'{[key for key in selected_column_names if "id" in key and "residue" not in key]}')
+
+    # Format the dataframe and set the index
+    # df = df.sort_index(axis=1).set_index('pose_id')
+    df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
+
+    return df
+
+
 def load_sql_designs_dataframe(session: Session, pose_ids: Iterable[int] = None, design_ids: Iterable[int] = None) \
         -> pd.DataFrame:
     """Load and format every PoseJob instance associated DesignMetrics for each design associated with the PoseJob
