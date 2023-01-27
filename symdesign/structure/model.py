@@ -6221,12 +6221,59 @@ class Pose(SymmetricModel, Metrics):
             scores = {}
             raise NotImplementedError(f"Can't score with Rosetta from this method yet...")
         elif method == putils.proteinmpnn:  # Design with vanilla version of ProteinMPNN
-            # Set up the model with the desired weights
-            proteinmpnn_model = ml.proteinmpnn_factory(**kwargs)
-            device = proteinmpnn_model.device
+            # Convert the sequences to correct format
+            # missing_alphabet = ''
+            warn_alphabet = 'With passed sequences type of {}, ensure that the order of ' \
+                            f'integers is of the default ProteinMPNN alphabet "{ml.mpnn_alphabet}"'
+
+            def convert_and_check_sequence_type(sequences_) -> Sequence[Sequence[str | int]]:
+                incorrect_input = ValueError(f'The passed sequences must be an Sequence[Sequence[Any]]')
+                nesting_level = count()
+                item = sequences_
+                # print(item)
+                while not isinstance(item, (int, str)):
+                    next(nesting_level)
+                    item = item[0]
+                    # print(item)
+                else:
+                    final_level = next(nesting_level)
+                    item_type = type(item)
+                    # print(final_level)
+                    # print(item_type)
+                    if final_level == 1:
+                        if item_type is str:
+                            sequences_ = sequences_to_numeric(sequences,
+                                                              translation_table=ml.proteinmpnn_default_translation_table)
+                        else:
+                            raise incorrect_input
+                    elif final_level == 2:
+                        if item_type is str:
+                            for idx, sequence in enumerate(sequences_):
+                                sequences[idx] = ''.join(sequence)
+
+                            sequences_ = sequences_to_numeric(sequences,
+                                                              translation_table=ml.proteinmpnn_default_translation_table)
+                        else:
+                            self.log.warning(warn_alphabet.format('int'))
+                            sequences_ = np.array(sequences_)
+                    else:
+                        raise incorrect_input
+                    # print('Final', sequences)
+                return sequences_
+
+            if isinstance(sequences, (torch.Tensor, np.ndarray)):
+                if sequences.dtype in utils.np_torch_int_float_types:
+                    # This is an integer sequence. An alphabet is required
+                    self.log.warning(warn_alphabet.format(sequences.dtype))
+                    numeric_sequences = sequences
+                    # raise ValueError(missing_alphabet)
+                else:  # This is an AnyStr type?
+                    numeric_sequences = sequences_to_numeric(sequences)
+            else:  # Some sort of iterable
+                numeric_sequences = convert_and_check_sequence_type(sequences)
 
             # pose_length = self.number_of_residues
-            size, pose_length, *_ = sequences.shape
+            size, pose_length, *_ = numeric_sequences.shape
             batch_length = 6  # Todo calculate based on parameters
             # Set up parameters and model sampling type based on symmetry
             number_of_symmetry_mates = self.number_of_symmetry_mates
@@ -6265,52 +6312,6 @@ class Pose(SymmetricModel, Metrics):
             # Set up parameters for the scoring task
             parameters.update(**self.get_proteinmpnn_params(ca_only=ca_only, **kwargs))
 
-            # Convert the sequences to correct format
-            # missing_alphabet = ''
-            warn_alphabet = 'With passed sequences type of {}, ensure that the order of '\
-                            f'integers is of the default ProteinMPNN alphabet "{ml.mpnn_alphabet}"'
-
-            def convert_and_check_sequence_type(sequences_) -> Sequence[Sequence[str | int]]:
-                nesting_level = count()
-                item = sequences_
-                # print(item)
-                while not isinstance(item, (int, str)):
-                    next(nesting_level)
-                    item = item[0]
-                    # print(item)
-                else:
-                    final_level = next(nesting_level)
-                    item_type = type(item)
-                    # print(final_level)
-                    # print(item_type)
-                    if final_level == 1:
-                        pass
-                    elif final_level == 2:
-                        if item_type is str:
-                            for idx, sequence in enumerate(sequences_):
-                                sequences[idx] = ''.join(sequence)
-
-                            sequences_ = sequences_to_numeric(sequences,
-                                                              translation_table=ml.proteinmpnn_default_translation_table)
-                        else:
-                            self.log.warning(warn_alphabet.format('int'))
-                            sequences_ = np.array(sequences_)
-                    else:
-                        raise ValueError(f'The passed sequences must be an Sequence[Sequence[Any]]')
-                    # print('Final', sequences)
-                return sequences_
-
-            if isinstance(sequences, (torch.Tensor, np.ndarray)):
-                if sequences.dtype in utils.np_torch_int_float_types:
-                    # This is an integer sequence. An alphabet is required
-                    self.log.warning(warn_alphabet.format(sequences.dtype))
-                    numeric_sequences = sequences
-                    # raise ValueError(missing_alphabet)
-                else:  # This is an AnyStr type?
-                    numeric_sequences = sequences_to_numeric(sequences)
-            else:  # Some sort of iterable
-                numeric_sequences = convert_and_check_sequence_type(sequences)
-
             # Insert the designed sequences inplace of the pose sequence
             parameters['S'] = np.tile(numeric_sequences, (1, number_of_symmetry_mates))
             # Solve decoding order
@@ -6328,6 +6329,10 @@ class Pose(SymmetricModel, Metrics):
                                                               np.core._exceptions._ArrayMemoryError))
             def _proteinmpnn_batch_score(*args, **_kwargs):
                 return ml.proteinmpnn_batch_score(*args, **_kwargs)
+
+            # Set up the model with the desired weights
+            proteinmpnn_model = ml.proteinmpnn_factory(**kwargs)
+            device = proteinmpnn_model.device
 
             # score_start = time.time()
             scores = \
@@ -6382,10 +6387,6 @@ class Pose(SymmetricModel, Metrics):
             sequences_and_scores = {}
             raise NotImplementedError(f"Can't design with Rosetta from this method yet...")
         elif method == putils.proteinmpnn:  # Design with vanilla version of ProteinMPNN
-            # Set up the model with the desired weights
-            proteinmpnn_model = ml.proteinmpnn_factory(**kwargs)
-            device = proteinmpnn_model.device
-
             pose_length = self.number_of_residues
             size = number
             batch_length = 6  # Todo calculate based on parameters
@@ -6447,6 +6448,9 @@ class Pose(SymmetricModel, Metrics):
 
             # Data has shape (batch_length, number_of_temperatures, pose_length)
             number_of_temps = len(temperatures)
+            # Set up the model with the desired weights
+            proteinmpnn_model = ml.proteinmpnn_factory(**kwargs)
+            device = proteinmpnn_model.device
             # design_start = time.time()
             sequences_and_scores = \
                 _proteinmpnn_batch_design(proteinmpnn_model, temperatures=temperatures, pose_length=pose_length,
