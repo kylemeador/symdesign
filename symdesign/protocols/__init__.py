@@ -150,6 +150,11 @@ def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None
     # Todo reflect modern metrics collection
     raise NotImplementedError('This module is outdated, please update it to use')
     job.identify_interface()
+
+    # Now acquiring in process_rosetta_metrics()
+    # # Acquire the pose_metrics if None have been made yet
+    # job.calculate_pose_metrics()
+
     cmd = rosetta.script_cmd.copy()
     script_name = os.path.splitext(os.path.basename(script))[0]
 
@@ -232,8 +237,9 @@ def interface_metrics(job: pose.PoseJob):
     job.protocol = putils.interface_metrics
     main_cmd = rosetta.script_cmd.copy()
 
-    # Acquire the pose_metrics if None have been made yet
-    job.calculate_pose_metrics()
+    # Now acquiring in process_rosetta_metrics()
+    # # Acquire the pose_metrics if None have been made yet
+    # job.calculate_pose_metrics()
 
     if not os.path.exists(job.flags) or job.job.force:
         job.prepare_rosetta_flags(out_dir=job.scripts_path)
@@ -607,6 +613,10 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     #     job.load_pose(structure_source=design_path)
     #     job.identify_interface()
 
+    # Now acquiring in process_rosetta_metrics()
+    # # Acquire the pose_metrics if None have been made yet
+    # job.calculate_pose_metrics()
+
     # format all amino acids in job.interface_design_residue_numbers with frequencies above the threshold to a set
     # Todo, make threshold and return set of strings a property of a profile object
     # Locate the desired background profile from the pose
@@ -696,8 +706,9 @@ def process_rosetta_metrics(job: pose.PoseJob):
     """
     # job.load_pose()
     job.identify_interface()
-    # Acquire the pose_metrics if None have been made yet
-    job.calculate_pose_metrics()
+    # Now acquiring in process_rosetta_metrics()
+    # # Acquire the pose_metrics if None have been made yet
+    # job.calculate_pose_metrics()
     if os.path.exists(job.scores_file):
         return job.process_rosetta_metrics()
     else:

@@ -3761,21 +3761,13 @@ class PoseProtocol(PoseData):
             except KeyError:  # Structure wasn't scored, we will remove this later
                 pass
 
-        # Create protocol dataframe
-        scores_df = pd.DataFrame.from_dict(structure_design_scores, orient='index')
-        # # Fill in all the missing values with that of the default pose_source
-        # scores_df = pd.concat([source_df, scores_df]).fillna(method='ffill')
-        # Gather all columns into specific types for processing and formatting
-        per_res_columns = []
-        for column in scores_df.columns.to_list():
-            if 'res_' in column:
-                per_res_columns.append(column)
-
-        # Check proper input
-        metric_set = metrics.necessary_metrics.difference(set(scores_df.columns))
-        # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
-        if metric_set:
-            raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
+        if design_scores:  # Still scores present...
+            if self.name in design_scores:
+                # We have included the pose_source in the calculations
+                # structure_design_scores[self.name] = design_scores.pop(self.name)
+                pose_design_scores = design_scores.pop(self.name)
+                # Acquire the pose_metrics if None have been made yet
+                self.calculate_pose_metrics(pose_design_scores)
 
         # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
         # Todo learn know how to produce Rosetta score terms in output score file. Not in FastRelax...
@@ -4014,8 +4006,12 @@ class PoseProtocol(PoseData):
                                    file=new_design_new_filenames[idx]))  # design_files[idx]))
         self.job.current_session.commit()
 
-    def calculate_pose_metrics(self):
-        """Perform a metrics update only on the reference Pose"""
+    def calculate_pose_metrics(self, scores: dict[str, Any] = None):
+        """Perform a metrics update only on the reference Pose
+
+        Args:
+            scores: Parsed scores from Rosetta
+        """
         self.load_pose()
 
         # Check if PoseMetrics have been captured
@@ -4056,8 +4052,16 @@ class PoseProtocol(PoseData):
             entity_df = pd.concat(entity_dfs, keys=list(range(1, 1 + len(entity_dfs))), axis=1)
 
         # Output
-        residues_df = self.analyze_pose_metrics_per_residue()
-        self.output_metrics(residues=residues_df)
+        # residues_df = self.analyze_pose_metrics_per_residue()
+        # self.output_metrics(residues=residues_df)
+        designs_df, residues_df = \
+            self.analyze_pose_metrics_per_residue(novel_interface=False if not self.pose_source.protocols else True)
+        if scores:
+            scores_df, rosetta_info_df = self.parse_rosetta_scores(scores)
+            designs_df = designs_df.join(scores_df)
+            residues_df = residues_df.join(rosetta_info_df)
+
+        self.output_metrics(designs=designs_df, residues=residues_df)
         # Commit the newly acquired metrics
         self.job.current_session.commit()
 
