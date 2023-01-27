@@ -657,6 +657,8 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #     total_df = load_total_dataframe(pose_jobs)
     #     save_poses_df = total_df.loc[loc_result, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
 
+    logger.info(f'{len(selected_poses)} Poses were selected')
+    logger.info(f'{len(save_poses_df)} Designs were selected')
     # Format selected sequences for output
     putils.make_path(job.output_directory)
     logger.info(f'Relevant design files are being copied to the new directory: {job.output_directory}')
@@ -666,8 +668,6 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         total_df.to_csv(total_df_filename)
         logger.info(f'Total Pose/Designs DataFrame was written to: {total_df}')
 
-    logger.info(f'{len(save_poses_df)} poses were selected')
-    # if save_poses_df is not None:  # Todo make work if DataFrame is empty...
     if job.filter or job.weight:
         new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
                                                            f'{"Weighted" if job.weight else ""}DesignMetrics.csv')
@@ -1154,7 +1154,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # Figure out poses from a specification file, filters, and weights
     # if job.specification_file:
     pose_ids = [pose_job.id for pose_job in pose_jobs]
-    design_ids = [design.id for pose_job in pose_jobs for design in pose_job.specific_designs]
+    # design_ids = [design.id for pose_job in pose_jobs for design in pose_job.specific_designs]
     #     total_df = load_sql_poses_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
     #     selected_poses_df = \
     #         metrics.prioritize_design_indices(total_df, filter=job.filter, weight=job.weight,
@@ -1272,7 +1272,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     Args:
         pose_jobs: The PoseJob instances for which selection is desired
     Returns:
-        The matching PoseJob instances with any design stored in the .current_designs attribute
+        The selected PoseJob instances with selected designs stored in the .current_designs attribute
     """
     nonlocal exceptions
     job = job_resources_factory.get()
