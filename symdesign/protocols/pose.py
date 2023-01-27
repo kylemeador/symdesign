@@ -1241,7 +1241,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #     self.log.info(f'Input Entities: {", ".join(self.entity_names)}')
 
         # Save renumbered PDB to clean_asu.pdb
-        if not self.asu_path or not os.path.exists(self.asu_path) or self.job.force:
+        if not self.pose_path or not os.path.exists(self.pose_path) or self.job.force:
             if not self.job.construct_pose:  # This is only true when self.job.nanohedra_output is True
                 return
             # elif self.job.output_to_directory:
@@ -1276,8 +1276,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             # except AttributeError:
             #     raise ValueError('One or both of the chain IDs %s were not found in the input model. Possible chain'
             #                      ' ID\'s are %s' % ((fusion_nterm, fusion_cterm), ','.join(new_asu.chain_ids)))
-        self.pose.write(out_path=self.asu_path)
-        self.log.info(f'Cleaned PDB: "{self.asu_path}"')
+        self.pose.write(out_path=self.pose_path)
+        self.log.info(f'Cleaned Pose file: "{self.pose_path}"')
 
     def _symmetric_assembly_is_clash(self):
         """Wrapper around the Pose symmetric_assembly_is_clash() to check at the Pose level for clashes and raise

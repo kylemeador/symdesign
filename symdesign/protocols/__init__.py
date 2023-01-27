@@ -223,7 +223,8 @@ def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None
         #     metrics_process.communicate()  # wait for command to complete
 
         # Gather metrics for each design produced from this proceedure
-        job.process_rosetta_metrics()
+        if os.path.exists(job.scores_file):
+            job.process_rosetta_metrics()
 
 
 @protocol_decorator()
@@ -291,7 +292,8 @@ def interface_metrics(job: pose.PoseJob):
             metrics_process.communicate()  # wait for command to complete
 
         # Gather metrics for each design produced from this proceedure
-        job.process_rosetta_metrics()
+        if os.path.exists(job.scores_file):
+            job.process_rosetta_metrics()
 
 
 @protocol_decorator()
@@ -705,7 +707,8 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
             metrics_process.communicate()
 
         # Gather metrics for each design produced from this proceedure
-        job.process_rosetta_metrics()
+        if os.path.exists(job.scores_file):
+            job.process_rosetta_metrics()
 
 
 @protocol_decorator()
@@ -721,7 +724,7 @@ def process_rosetta_metrics(job: pose.PoseJob):
     # # Acquire the pose_metrics if None have been made yet
     # job.calculate_pose_metrics()
     if os.path.exists(job.scores_file):
-        return job.process_rosetta_metrics()
+        job.process_rosetta_metrics()
     else:
         raise DesignError(f'No scores from Rosetta present at "{job.scores_file}"')
 
