@@ -21,6 +21,8 @@ from typing import Any, Callable, Iterable, AnyStr, Sequence, Iterator, Literal,
 
 import numpy as np
 import psutil
+import torch
+
 # from numba import njit
 # from Bio.PDB import PDBParser, Superimposer
 
@@ -31,7 +33,11 @@ from . import path as putils
 # Globals
 logger = logging.getLogger(__name__)
 # null_logger = logging.getLogger('null')
-
+np_torch_int_types = (np.int8, np.int16, np.int32, np.int64,
+                      torch.int, torch.int8, torch.int16, torch.int32, torch.int64)
+np_torch_float_types = (np.float16, np.float32, np.float64,
+                        torch.float, torch.float16, torch.float32, torch.float64)
+np_torch_int_float_types = np_torch_int_types + np_torch_float_types
 input_string = '\nInput: '
 zero_offset = 1
 rmsd_threshold = 1.
