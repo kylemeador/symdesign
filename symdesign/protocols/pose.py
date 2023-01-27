@@ -4140,7 +4140,7 @@ class PoseProtocol(PoseData):
 
         # Score using proteinmpnn
         proteinmpnn_scores = self.pose.score([self.pose.sequence])
-        design_residues = np.zeros(pose_length, dtype=bool)
+        design_residues = np.zeros((1, pose_length), dtype=bool)
         # design_residues[interface_residue_indices] = 1
         sequences_and_scores = {
             'design_indices': design_residues,
