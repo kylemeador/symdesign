@@ -166,7 +166,7 @@ class PoseDirectory:
         else:
             self.out_directory = os.path.join(os.getcwd(), 'temp')
             raise NotImplementedError(f"{putils.program_name} hasn't been set up to run without directories yet... "
-                                      f"Please solve the {type(self).__name__}.__init__() method")
+                                      f"Please solve the {self.__class__.__name__}.__init__() method")
 
         super().__init__(**kwargs)
 
@@ -1073,7 +1073,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             source_idx = 1
         else:
             source_idx = 2
-            self.log.info(f'Falling back on Entity instances present in the {type(self).__name__} structure_source')
+            self.log.info(f'Falling back on Entity instances present in the {self.__class__.__name__} structure_source')
 
         # self.entities.clear()
         entities = []
@@ -1184,7 +1184,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             if not self.job.structure_db:
                 raise RuntimeError(f"Couldn't {self.get_entities.__name__} as there was no "
                                    f"{resources.structure_db.StructureDatabase.__name__}"
-                                   f" attached to the {type(self).__name__}")
+                                   f" attached to the {self.__class__.__name__}")
             self.log.info(f'No structure source_path file found. Fetching structure_source from '
                           f'{type(self.job.structure_db).__name__} and transforming to Pose')
             # Minimize I/O with transform...
