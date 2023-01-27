@@ -12,10 +12,12 @@ from typing import Annotated, Iterable, Container, Type, Callable, Sequence, Any
 import numpy as np
 import torch
 
+from symdesign.sequence import numerical_translation_alph1_unknown_bytes
 from symdesign.third_party.ProteinMPNN.protein_mpnn_utils import ProteinMPNN
 from symdesign import utils
 
 logger = logging.getLogger(__name__)
+proteinmpnn_default_translation_table = numerical_translation_alph1_unknown_bytes
 mpnn_alphabet = 'ACDEFGHIKLMNPQRSTVWYX'  # structure.utils.protein_letters_alph1_unknown
 mpnn_alphabet_length = len(mpnn_alphabet)
 MPNN_NULL_IDX = 20
@@ -781,9 +783,9 @@ def proteinmpnn_batch_score(batch_slice: slice, proteinmpnn: ProteinMPNN,
         provided_decoding_order = True
         randn = None
     else:
-        provided_decoding_order = False
-        randn =
         decoding_order = None
+        provided_decoding_order = False
+        randn = randn
 
     # decoding_order_out = decoding_order  # When using the same decoding order for all
     log_probs_start_time = time.time()
