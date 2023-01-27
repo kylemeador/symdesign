@@ -315,6 +315,7 @@ dtype_map = dict(
     X=torch.float32,  # X,
     S=torch.long,  # S,
     randn=torch.float32,
+    decoding_order=torch.float32,
     chain_mask=torch.float32,  # residue_idx,
     chain_encoding=torch.long,  # mask,
     residue_idx=torch.long,  # chain_M_pos,  # residue_mask,
