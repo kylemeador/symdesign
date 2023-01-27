@@ -4097,6 +4097,11 @@ class PoseProtocol(PoseData):
         pose_length = self.pose.number_of_residues
         residue_indices = list(range(pose_length))
 
+        designs = [self.pose]
+        # This function call is accomplished below by the following code
+        # residues_df = self.analyze_residue_metrics_per_design(designs=designs)
+        # Only difference is inclusion of the novel_interface flag
+
         if novel_interface:  # The input structure wasn't meant to be together, take the errat measurement as such
             source_errat = []
             for idx, entity in enumerate(self.pose.entities):
@@ -4128,8 +4133,10 @@ class PoseProtocol(PoseData):
         # Convert per_residue_data into a dataframe matching residues_df orientation
         residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
+        # Make buried surface area (bsa) columns, and residue classification
+        residues_df = metrics.calculate_residue_surface_area(residues_df)
 
-        designs_df = self.analyze_design_metrics_per_design(residues_df, [self.pose])
+        designs_df = self.analyze_design_metrics_per_design(residues_df, designs)
 
         # Score using proteinmpnn
         proteinmpnn_scores = self.pose.score([self.pose.sequence])

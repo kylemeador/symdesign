@@ -707,7 +707,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
 
 def proteinmpnn_batch_score(batch_slice: slice, proteinmpnn: ProteinMPNN,
                             X: torch.Tensor = None,
-                            sequences: torch.Tensor = None,
+                            S: torch.Tensor = None,
                             chain_mask: torch.Tensor = None,
                             chain_encoding: torch.Tensor = None,
                             residue_idx: torch.Tensor = None,
@@ -726,7 +726,7 @@ def proteinmpnn_batch_score(batch_slice: slice, proteinmpnn: ProteinMPNN,
         batch_slice:
         proteinmpnn:
         X:
-        sequences:
+        S:
         chain_mask:
         chain_encoding:
         residue_idx:
@@ -758,12 +758,12 @@ def proteinmpnn_batch_score(batch_slice: slice, proteinmpnn: ProteinMPNN,
     if actual_batch_length != batch_length:
         # Slice these for the last iteration
         X = X[:actual_batch_length]  # , None)
-        sequences = sequences[:actual_batch_length]  # , None)
+        S = S[:actual_batch_length]  # , None)
         chain_mask = chain_mask[:actual_batch_length]  # , None)
         chain_encoding = chain_encoding[:actual_batch_length]  # , None)
         residue_idx = residue_idx[:actual_batch_length]  # , None)
         mask = mask[:actual_batch_length]  # , None)
-        randn = randn[:actual_batch_length]
+        # randn = randn[:actual_batch_length]
         residue_mask = residue_mask[:actual_batch_length]
         try:
             X_unbound = X_unbound[:actual_batch_length]  # , None)
@@ -780,21 +780,28 @@ def proteinmpnn_batch_score(batch_slice: slice, proteinmpnn: ProteinMPNN,
 
     # Score and format outputs - All have at lease shape (batch_length, model_length,)
     if decoding_order is not None:
+        decoding_order = decoding_order[:actual_batch_length]
         provided_decoding_order = True
         randn = None
-    else:
+    elif randn is not None:
         decoding_order = None
         provided_decoding_order = False
-        randn = randn
+        # randn = randn
+        randn = randn[:actual_batch_length]
+    else:
+        # Todo generate a randn fresh?
+        raise ValueError('Missing either argument "randn" or "decoding_order"')
 
     # decoding_order_out = decoding_order  # When using the same decoding order for all
     log_probs_start_time = time.time()
 
+    # Todo debug the input Tensor. Most likely the sequence must be (batch, pose, aa?)
+    # RuntimeError: Index tensor must have the same number of dimensions as input tensor
     complex_log_probs = \
-        proteinmpnn(X, sequences, mask, chain_residue_mask, residue_idx, chain_encoding, randn,
+        proteinmpnn(X, S, mask, chain_residue_mask, residue_idx, chain_encoding, randn,
                     use_input_decoding_order=provided_decoding_order, decoding_order=decoding_order)
     per_residue_complex_sequence_loss = \
-        sequence_nllloss(sequences[:, :pose_length], complex_log_probs[:, :pose_length]).cpu().numpy()
+        sequence_nllloss(S[:, :pose_length], complex_log_probs[:, :pose_length]).cpu().numpy()
 
     # Reshape data structures to have shape (batch_length, number_of_temperatures, pose_length)
     # _residue_indices_of_interest = residue_mask[:, :pose_length].cpu().numpy().astype(bool)
@@ -811,10 +818,10 @@ def proteinmpnn_batch_score(batch_slice: slice, proteinmpnn: ProteinMPNN,
     if X_unbound is not None:
         # unbound_log_prob_start_time = time.time()
         unbound_log_probs = \
-            proteinmpnn(X_unbound, sequences, mask, chain_residue_mask, residue_idx, chain_encoding, randn,
+            proteinmpnn(X_unbound, S, mask, chain_residue_mask, residue_idx, chain_encoding, randn,
                         use_input_decoding_order=provided_decoding_order, decoding_order=decoding_order)
         per_residue_unbound_sequence_loss = \
-            sequence_nllloss(sequences[:, :pose_length], unbound_log_probs[:, :pose_length]).cpu().numpy()
+            sequence_nllloss(S[:, :pose_length], unbound_log_probs[:, :pose_length]).cpu().numpy()
         # logger.debug(f'Unbound log probabilities calculation took '
         #              f'{time.time() - unbound_log_prob_start_time:8f}s')
     else:
