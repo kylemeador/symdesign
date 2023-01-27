@@ -4139,23 +4139,26 @@ class PoseProtocol(PoseData):
         designs_df = self.analyze_design_metrics_per_design(residues_df, designs)
 
         # Score using proteinmpnn
+        sequences = [self.pose.sequence]
         proteinmpnn_scores = self.pose.score([self.pose.sequence])
         design_residues = np.zeros((1, pose_length), dtype=bool)
         # design_residues[interface_residue_indices] = 1
         sequences_and_scores = {
+            'sequences': sequences,
             'design_indices': design_residues,
             **proteinmpnn_scores
         }
-        mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics([self.name], sequences_and_scores)
+        mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics([pose_source_id], sequences_and_scores)
 
         designs_df = designs_df.join(mpnn_designs_df)
-        sequences_df = self.analyze_sequence_metrics_per_design(sequences=[self.pose.sequence],
-                                                                design_ids=[pose_source_id])
+        # sequences_df = self.analyze_sequence_metrics_per_design(sequences=[self.pose.sequence],
+        #                                                         design_ids=[pose_source_id])
 
-        designs_df = designs_df.join(self.analyze_design_metrics_per_residue(sequences_df))
-        # Join per-residue like DataFrames
-        # Each of these could have different index/column, so we use concat to perform an outer merge
-        residues_df = residues_df.join([mpnn_residues_df, sequences_df])
+        # designs_df = designs_df.join(self.analyze_design_metrics_per_residue(sequences_df))
+        # # Join per-residue like DataFrames
+        # # Each of these could have different index/column, so we use concat to perform an outer merge
+        # residues_df = residues_df.join([mpnn_residues_df, sequences_df])
+        residues_df = residues_df.join(mpnn_residues_df)
 
         # return residues_df.join(sequences_df)
         return designs_df, residues_df
