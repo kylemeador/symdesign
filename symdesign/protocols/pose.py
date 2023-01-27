@@ -4163,7 +4163,7 @@ class PoseProtocol(PoseData):
                 (residue index, residue metric)
             designs: The designs to perform analysis on. By default, fetches all available structures
         Returns:
-            The designs_df DataFrame with updated columns containing per-design metrics
+            A per-design metric DataFrame where each index is the design id and the columns are design metrics
         """
         #     designs_df: The typical per-design metric DataFrame where each index is the design id and the columns are
         #         design metrics
@@ -4259,7 +4259,7 @@ class PoseProtocol(PoseData):
             residues_df: The typical per-residue metric DataFrame where each index is the design id and the columns are
                 (residue index, residue metric)
         Returns:
-            The designs_df DataFrame with updated columns containing per-design metrics
+            A per-design metric DataFrame where each index is the design id and the columns are design metrics
         """
         #     designs_df: The typical per-design metric DataFrame where each index is the design id and the columns are
         #         design metrics
