@@ -1107,13 +1107,46 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
     return return_pose_jobs
 
 
+def format_save_df(session: Session, pose_ids: Iterable[int], designs_df: pd.DataFrame) -> pd.DataFrame:
+    """"""
+    structure_type = 'structure_entity'
+    pose_id = 'pose_id'
+    pose_metrics_df = load_sql_pose_metrics_dataframe(session, pose_ids=pose_ids)
+    pose_metrics_df.set_index(pose_id, inplace=True)
+    logger.debug(f'pose_metrics_df: {pose_metrics_df}')  # Todo remove
+    # save_df = pose_metrics_df.join(designs_df)  # , on='pose_id')
+    # Join the designs_df (which may not have pose_id as index) with the pose_id indexed pose_metrics_df
+    save_df = designs_df.join(pose_metrics_df, on=pose_id)
+    save_df.columns = pd.MultiIndex.from_product([['pose'], save_df.columns.tolist()],
+                                                 names=[structure_type, 'metric'])
+    logger.debug(f'save_df: {save_df}')  # Todo remove
+    # Get the EntityMetrics and unstack in the format
+    # structure_entity  1          2
+    # metric            go fish    go fish
+    # pose_id1          3   4      3    3
+    # pose_id2          5   3      3    3
+    # ...
+    entity_metrics_df = load_sql_entity_metrics_dataframe(session, pose_ids=pose_ids)
+    logger.debug(f'entity_metrics_df: {entity_metrics_df}')  # Todo remove
+    entity_metrics_df[structure_type] = entity_metrics_df.groupby(pose_id).entity_id.cumcount() + 1
+    # entity_metrics_df[structure_type] = \
+    #     (entity_metrics_df.groupby('pose_id').entity_id.cumcount() + 1).apply(lambda x: f'entity_{x}')
+    # Make the stacked entity df and use the pose_id index to join with the above df
+    pose_oriented_entity_df = entity_metrics_df.set_index([pose_id, structure_type]).unstack()
+    logger.debug(f'pose_oriented_entity_df: {pose_oriented_entity_df}')  # Todo remove
+    save_df = save_df.join(pose_oriented_entity_df, on=pose_id)
+    logger.debug(f'Final save_df: {save_df}')  # Todo remove
+
+    return save_df
+
+
 def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     """Select PoseJob instances based on filters and weighting of all design summary metrics
 
     Args:
         pose_jobs: The PoseJob instances for which selection is desired
     Returns:
-        The matching PoseJob instances
+        The selected PoseJob instances
     """
     job = job_resources_factory.get()
     default_weight_metric = config.default_weight_parameter[job.design.method]
@@ -1166,54 +1199,14 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                                               protocol=job.protocol, function=job.weight_function,
                                               default_weight=default_weight_metric)
     # Remove excess pose instances
-    selected_pose_ids = utils.remove_duplicates(selected_poses_df['pose_id'])[:job.number]
-    selected_indices = []
-
-    # Specify the result order according to any filtering and weighting
-    # Drop the specific design for the dataframe. If they want the design, they should run select-designs/-sequences
-    save_poses_df = \
-        selected_poses_df.loc[selected_indices, :].droplevel(-1)  # .droplevel(0, axis=1).droplevel(0, axis=1)
-    # # # convert selected_poses to PoseJob objects
-    # # selected_poses = [pose_job for pose_job in pose_jobs if pose_job_name in selected_poses]
-    # elif job.dataframe:  # Figure out poses from a pose dataframe, filters, and weights
-    #     if not pose_jobs:  # not job.directory:
-    #         logger.critical(f'If using a --{flags.dataframe} for selection, you must include the directory where '
-    #                         f'the designs are located in order to properly select designs. Please specify '
-    #                         f'-d/--{flags.directory} with your command')
-    #         exit(1)
-    #
-    #     total_df = pd.read_csv(job.dataframe, index_col=0, header=[0, 1, 2])
-    #     total_df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
-    #
-    #     selected_poses_df = metrics.prioritize_design_indices(total_df, filter=job.filter, weight=job.weight,
-    #                                                           protocol=job.protocol, function=job.weight_function)
-    #     # Only drop excess columns as there is no MultiIndex, so no design in the index
-    #     save_poses_df = selected_poses_df.droplevel(0, axis=1).droplevel(0, axis=1)
-    #     program_root = job.program_root
-    #     selected_poses = [PoseJob.from_directory(pose, root=job.projects)
-    #                       for pose in save_poses_df.index.to_list()]
-
+    selected_pose_ids = utils.remove_duplicates(selected_poses_df['pose_id'].tolist())[:job.number]
     selected_poses = [session.get(PoseJob, id_) for id_ in selected_pose_ids]
-    if job.save_total:
-        total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
-        total_df.to_csv(total_df_filename)
-        logger.info(f'Total Pose/Designs DataFrame was written to: {total_df_filename}')
-
-    logger.info(f'{len(save_poses_df)} Poses were selected')
-    # Todo output regardless?
-    if len(save_poses_df) != len(total_df):
-        if job.filter or job.weight:
-            new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
-                                                               f'{"Weighted" if job.weight else ""}PoseMetrics.csv')
-        else:
-            new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-PoseMetrics.csv')
-        save_poses_df.to_csv(new_dataframe)
-        logger.info(f'New DataFrame with selected poses was written to: {new_dataframe}')
 
     # # Select by clustering analysis
     # if job.cluster:
     # Sort results according to clustered poses if clustering exists
     if job.cluster.map:
+        # cluster_map: dict[str | PoseJob, list[str | PoseJob]] = {}
         if os.path.exists(job.cluster.map):
             cluster_map = utils.unpickle(job.cluster.map)
         else:
@@ -1240,32 +1233,35 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                     f'--{flags.modules} {flags.cluster_poses} {flags.select_poses}')
         logger.info('Grabbing all selected poses')
         final_poses = selected_poses
-        # cluster_map: dict[str | PoseJob, list[str | PoseJob]] = {}
-        # # {pose_string: [pose_string, ...]} where key is representative, values are matching designs
-        # # OLD -> {composition: {pose_string: cluster_representative}, ...}
-        # compositions: dict[tuple[str, ...], list[PoseJob]] = \
-        #     protocols.cluster.group_compositions(selected_poses)
-        # if job.multi_processing:
-        #     mp_results = utils.mp_map(protocols.cluster.cluster_pose_by_transformations, compositions.values(),
-        #                               processes=job.cores)
-        #     for result in mp_results:
-        #         cluster_map.update(result.items())
-        # else:
-        #     for composition_group in compositions.values():
-        #         cluster_map.update(protocols.cluster.cluster_pose_by_transformations(composition_group))
-        #
-        # cluster_map_file = \
-        #     os.path.join(job.clustered_poses, putils.default_clustered_pose_file.format(utils.starttime, location))
-        # pose_cluster_file = utils.pickle_object(cluster_map, name=cluster_map_file, out_path='')
-        # logger.info(f'Found {len(cluster_map)} unique clusters from {len(pose_jobs)} pose inputs. '
-        #             f'All clusters stored in {pose_cluster_file}')
-    # else:
-    #     logger.info('Grabbing all selected poses')
-    #     final_poses = selected_poses
 
     if len(final_poses) > job.number:
         final_poses = final_poses[:job.number]
-        logger.info(f'Found {len(final_poses)} poses after applying your number selection criteria')
+        logger.info(f'Found {len(final_poses)} Poses after applying your number selection criteria')
+
+    final_pose_id_to_identifier = {pose_job.id: pose_job.pose_identifier for pose_job in final_poses}
+
+    # Format selected PoseJob with metrics for output
+    # save_poses_df = format_save_df(session, selected_pose_ids, pose_designs_mean_df)
+    save_poses_df = format_save_df(session, final_pose_id_to_identifier.keys(), pose_designs_mean_df)
+    # Rename the identifiers to human-readable names
+    save_poses_df.reset_index(inplace=True)
+    save_poses_df['pose_identifier'] = save_poses_df['pose_id'].map(final_pose_id_to_identifier)
+    save_poses_df.set_index('pose_identifier', inplace=True)
+
+    if job.save_total:
+        total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
+        total_df.to_csv(total_df_filename)
+        logger.info(f'Total Pose/Designs DataFrame written to: {total_df_filename}')
+
+    logger.info(f'{len(save_poses_df)} Poses were selected')
+    # if len(save_poses_df) != len(total_df):
+    if job.filter or job.weight:
+        new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
+                                                           f'{"Weighted" if job.weight else ""}PoseMetrics.csv')
+    else:
+        new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-PoseMetrics.csv')
+    save_poses_df.to_csv(new_dataframe)
+    logger.info(f'New DataFrame with selected poses written to: {new_dataframe}')
 
     return final_poses
 
@@ -1340,15 +1336,21 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # pose_designs_mean_df = selected_designs_df.groupby('design_id').mean()
     # Drop duplicated values keeping the order of the DataFrame
     selected_designs_df.drop_duplicates(subset='design_id', inplace=True)
-    # Set the index according to 'pose_id', 'design_id'
-    selected_designs_df.set_index(['pose_id', 'design_id'], inplace=True)
+    # Get the pose_id and the design_id for each found design
+    # # Set the index according to 'pose_id', 'design_id'
+    # selected_designs_df.set_index(['pose_id', 'design_id'], inplace=True)
+    # selected_designs = selected_designs_df.index.tolist()
+    # selected_designs = selected_designs_df[['pose_id', 'design_id']].values.tolist()
+    selected_design_ids = selected_designs_df['design_id'].tolist()
+    selected_pose_ids = selected_designs_df['pose_id'].tolist()
+    selected_designs = list(zip(selected_pose_ids, selected_design_ids))
 
     # Specify the result order according to any filtering, weighting, and number
     number_selected = len(selected_designs_df)
     job.number = number_selected if number_selected < job.number else job.number
     designs_per_pose = job.designs_per_pose
     logger.info(f'Choosing up to {job.number} Designs, with {designs_per_pose} Designs per Pose')
-    selected_designs_iter = iter(selected_designs_df.index.tolist())
+    selected_designs_iter = iter(selected_designs)
     number_chosen = count(0)
     selected_pose_id_to_design_ids = {}
     while next(number_chosen) <= job.number:
@@ -1364,34 +1366,21 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
 
     logger.info(f'{len(selected_pose_id_to_design_ids)} Poses were selected')
 
-    save_poses_df = selected_poses_df.droplevel(0)  # .droplevel(0, axis=1).droplevel(0, axis=1)
-
-    # Format selected sequences for output
-    putils.make_path(job.output_directory)
-    logger.info(f'Relevant design files are being copied to the new directory: {job.output_directory}')
-
-    if job.save_total:
-        total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
-        total_df.to_csv(total_df_filename)
-        logger.info(f'Total Pose/Designs DataFrame was written to: {total_df}')
-
-    # if save_poses_df is not None:  # Todo make work if DataFrame is empty...
-    if job.filter or job.weight:
-        new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
-                                                           f'{"Weighted" if job.weight else ""}DesignMetrics.csv')
-    else:
-        new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-DesignMetrics.csv')
-    save_poses_df.to_csv(new_dataframe)
-    logger.info(f'New DataFrame with selected designs was written to: {new_dataframe}')
-
-    # Create new output of designed PDB's  # Todo attach the state to these files somehow for further use
+    # Create new output of designed PDB's  # Todo attach the program state to these files for downstream use?
+    pose_id_to_identifier = {}
+    design_id_to_identifier = {}
     results = []
     for pose_id, design_ids in selected_pose_id_to_design_ids.items():
         pose_job = session.get(PoseJob, pose_id)
+        pose_id_to_identifier[pose_id] = pose_job.pose_identifier
         current_designs = []
         for design_id in design_ids:
             design = session.get(sql.DesignData, design_id)
-            file_path = os.path.join(pose_job.designs_path, f'*{design.name}*')
+            design_name = design.name
+            design_id_to_identifier[design_id] = design_name
+            # Todo is this grabbing the structure everytime? We need to ensure no other files exist or refine this glob
+            #  with an extension
+            file_path = os.path.join(pose_job.designs_path, f'*{design_name}*')
             file = sorted(glob(file_path))
             if not file:  # Add to exceptions
                 pose_job.log.error(f'No file found for "{file_path}"')
@@ -1416,6 +1405,36 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         #     pass
         pose_job.current_designs = current_designs
         results.append(pose_job)
+
+    # Format selected PoseJob with metrics for output
+    # save_poses_df = selected_designs_df
+    save_poses_df = format_save_df(session,
+                                   selected_pose_id_to_design_ids.keys(),
+                                   # # Remove the 'design_id' index
+                                   # selected_designs_df.droplevel(-1, axis=0))
+                                   selected_designs_df.set_index('design_id'))
+    # Rename the identifiers to human-readable names
+    save_poses_df.reset_index(inplace=True)
+    save_poses_df['design_name'] = save_poses_df['design_id'].map(design_id_to_identifier)
+    save_poses_df['pose_identifier'] = save_poses_df['pose_id'].map(pose_id_to_identifier)
+    save_poses_df.set_index(['pose_identifier', 'design_name'], inplace=True)
+
+    # Format selected sequences for output
+    putils.make_path(job.output_directory)
+    logger.info(f'Relevant design files are being copied to the new directory: {job.output_directory}')
+
+    if job.save_total:
+        total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
+        total_df.to_csv(total_df_filename)
+        logger.info(f'Total Pose/Designs DataFrame written to: {total_df}')
+
+    if job.filter or job.weight:
+        new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
+                                                           f'{"Weighted" if job.weight else ""}DesignMetrics.csv')
+    else:
+        new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-DesignMetrics.csv')
+    save_poses_df.to_csv(new_dataframe)
+    logger.info(f'New DataFrame with selected designs written to: {new_dataframe}')
 
     return results  # , exceptions
 
