@@ -20,7 +20,8 @@ from symdesign.sequence import protein_letters_1to3, protein_letters_3to1
 from symdesign.structure.model import Models, MultiModel, Model, Pose
 from symdesign.structure.sequence import write_pssm_file, sequence_difference
 from symdesign.structure.utils import DesignError, SymmetryError
-from symdesign.utils import condensed_to_square, path as putils, ReportException, rosetta, starttime, sym, write_shell_script
+from symdesign.utils import condensed_to_square, path as putils, ReportException, rosetta, starttime, sym, \
+    write_shell_script, get_directory_file_paths
 # from ..resources.job import JobResources, job_resources_factory
 
 
@@ -246,12 +247,20 @@ def interface_metrics(job: pose.PoseJob):
         job.log.debug(f'Pose flags written to: {job.flags}')
 
     design_files = \
-        os.path.join(job.scripts_path, f'design_files'
+        os.path.join(job.scripts_path, f'{starttime}_design_files'
                      f'{f"_{job.job.specific_protocol}" if job.job.specific_protocol else ""}.txt')
-    generate_files_cmd = ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', design_files, '-e', '.pdb'] \
-        + (['-s', job.job.specific_protocol] if job.job.specific_protocol else [])
+    # Inclue the pose source in the designs to perform metrics on
+    file_paths = [job.pose_path] if os.path.exists(job.pose_path) else []
+    file_paths.extend(get_directory_file_paths(job.designs_path,
+                                               suffix=job.job.specific_protocol if job.job.specific_protocol else '',
+                                               extension='.pdb'))
+    with open(design_files, 'w') as f:
+        f.write('%s\n' % '\n'.join(file_paths))
+
+    # generate_files_cmd = ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', design_files, '-e', '.pdb'] \
+    #     + (['-s', job.job.specific_protocol] if job.job.specific_protocol else [])
     main_cmd += [f'@{job.flags}', '-in:file:l', design_files,
-                 # TODO out:file:score_only file is not respected if out:path:score_file given
+                 # Todo out:file:score_only file is not respected if out:path:score_file given
                  #  -run:score_only true?
                  '-out:file:score_only', job.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
     #              '-in:file:native', job.refined_pdb,
@@ -263,19 +272,21 @@ def interface_metrics(job: pose.PoseJob):
     job.log.info(f'Metrics command for Pose: {list2cmdline(metric_cmd_bound)}')
     entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
                                           f'metrics_entity{"_DEV" if job.job.development else ""}.xml')]
-    metric_cmds = [metric_cmd_bound]
-    metric_cmds.extend(job.generate_entity_metrics_commands(entity_cmd))
+    # metric_cmds = [metric_cmd_bound]
+    # metric_cmds.extend(job.generate_entity_metrics_commands(entity_cmd))
+    entity_metric_cmds = job.generate_entity_metrics_commands(entity_cmd)
 
     # Create executable to gather interface Metrics on all Designs
     if job.job.distribute_work:
         analysis_cmd = job.make_analysis_cmd()
-        write_shell_script(list2cmdline(generate_files_cmd), name=putils.interface_metrics, out_path=job.scripts_path,
-                           additional=[list2cmdline(command) for command in metric_cmds] +
-                                      [list2cmdline(analysis_cmd)])
+        # write_shell_script(list2cmdline(generate_files_cmd), name=putils.interface_metrics, out_path=job.scripts_path,
+        write_shell_script(metric_cmd_bound, name=putils.interface_metrics, out_path=job.scripts_path,
+                           additional=[list2cmdline(command) for command in entity_metric_cmds]
+                                      + [list2cmdline(analysis_cmd)])
     else:
-        list_all_files_process = Popen(generate_files_cmd)
-        list_all_files_process.communicate()
-        for metric_cmd in metric_cmds:
+        # list_all_files_process = Popen(generate_files_cmd)
+        # list_all_files_process.communicate()
+        for metric_cmd in [metric_cmd_bound] + entity_metric_cmds:
             metrics_process = Popen(metric_cmd)
             metrics_process.communicate()  # wait for command to complete
 
