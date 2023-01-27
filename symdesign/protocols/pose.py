@@ -4070,12 +4070,17 @@ class PoseProtocol(PoseData):
         # Commit the newly acquired metrics
         self.job.current_session.commit()
 
-    def analyze_pose_metrics_per_residue(self, novel_interface: bool = True) -> pd.DataFrame:
+    def analyze_pose_metrics(self, novel_interface: bool = True) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform per-residue analysis on the PoseJob.pose
 
+        Args:
+            novel_interface: Whether the pose interface is novel (i.e. docked) or from a bonafide input
         Returns:
-            A per-residue metric DataFrame where each index is the design id and the columns are
-                (residue index, residue metric)
+            A tuple of DataFrame where each contains (
+                A per-design metric DataFrame where each index is the design id and the columns are design metrics,
+                A per-residue metric DataFrame where each index is the design id and the columns are
+                    (residue index, residue metric)
+            )
         """
         self.load_pose()
 
@@ -4114,9 +4119,29 @@ class PoseProtocol(PoseData):
         residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
 
+        designs_df = self.analyze_design_metrics_per_design(residues_df, [self.pose])
+
+        # Score using proteinmpnn
+        proteinmpnn_scores = self.pose.score([self.pose.sequence])
+        design_residues = np.zeros(pose_length, dtype=bool)
+        # design_residues[interface_residue_indices] = 1
+        sequences_and_scores = {
+            'design_indices': design_residues,
+            **proteinmpnn_scores
+        }
+        mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics([self.name], sequences_and_scores)
+
+        designs_df = designs_df.join(mpnn_designs_df)
         sequences_df = self.analyze_sequence_metrics_per_design(sequences=[self.pose.sequence],
                                                                 design_ids=[pose_source_id])
-        return residues_df.join(sequences_df)
+
+        designs_df = designs_df.join(self.analyze_design_metrics_per_residue(sequences_df))
+        # Join per-residue like DataFrames
+        # Each of these could have different index/column, so we use concat to perform an outer merge
+        residues_df = residues_df.join([mpnn_residues_df, sequences_df])
+
+        # return residues_df.join(sequences_df)
+        return designs_df, residues_df
 
     def analyze_residue_metrics_per_design(self, designs: Iterable[Pose] | Iterable[AnyStr]) -> pd.DataFrame:
         """Perform per-residue analysis on design Model instances
@@ -4152,6 +4177,7 @@ class PoseProtocol(PoseData):
             # per_residue_data[pose_name].update(pose.per_residue_interface_errat())
             per_residue_data[pose_name] = {
                 **pose.per_residue_interface_surface_area(),
+                **pose.per_residue_contact_order(),
                 **pose.per_residue_interface_errat()}
 
         # Convert per_residue_data into a dataframe matching residues_df orientation
