@@ -6341,11 +6341,11 @@ class Pose(SymmetricModel, Metrics):
             device = proteinmpnn_model.device
 
             # Send the numpy array to torch.tensor and the device
-            # Pass sequencs as 'S' parameter to _proteinmpnn_batch_score instead of as setup_kwargs
-            sequences = ml.proteinmpnn_to_device(device, S=sequences)
+            # Pass sequences as 'S' parameter to _proteinmpnn_batch_score instead of as setup_kwargs
+            unique_parameters = ml.proteinmpnn_to_device(device, S=sequences)
             # score_start = time.time()
             scores = \
-                _proteinmpnn_batch_score(proteinmpnn_model, S=sequences,
+                _proteinmpnn_batch_score(proteinmpnn_model, **unique_parameters,  # S=sequences,
                                          pose_length=pose_length, decoding_order=decoding_order,
                                          setup_args=(device,),
                                          setup_kwargs=parameters,
