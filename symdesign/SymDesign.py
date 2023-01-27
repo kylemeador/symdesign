@@ -763,27 +763,32 @@ def main():
     # Set up module specific arguments
     # Todo we should run this check before every module used as in the case of universal protocols
     #  See if it can be detached here and made into function in main() scope
-    initialize = True
-    if job.module in [flags.cluster_poses, flags.select_poses, flags.select_designs, flags.select_sequences]:
-        # # Analysis types can be run from nanohedra_output, so ensure that we don't construct new
-        # job.construct_pose = False
-        # if job.module == flags.analysis:
-        #     # Ensure analysis write directory exists
-        #     putils.make_path(job.all_scores)
-        # # if job.module == flags.select_designs:  # Alias to module select_sequences with --skip-sequence-generation
-        # #     job.module = flags.select_sequences
-        # #     job.skip_sequence_generation = True
-        if job.module == flags.select_poses:
-            # When selecting by dataframe or metric, don't initialize, input is handled in module protocol
-            if job.dataframe:  # or job.metric:
-                initialize = False
-        elif job.module in [flags.select_designs, flags.select_sequences] \
-                and job.number == sys.maxsize and not args.total:
-            # Change default number to a single sequence/pose when not doing a total selection
-            job.number = 1
-        elif job.module in flags.cluster_poses and job.number == sys.maxsize:
-            # Change default number to a single pose
-            job.number = 1
+    select_from_directory = False
+    # if job.module in (flags.cluster_poses,) + flags.select_modules:
+    #     # # Analysis types can be run from nanohedra_output, so ensure that we don't construct new
+    #     # job.construct_pose = False
+    #     # if job.module == flags.analysis:
+    #     #     # Ensure analysis write directory exists
+    #     #     putils.make_path(job.all_scores)
+    #     # # if job.module == flags.select_designs:  # Alias to module select_sequences with --skip-sequence-generation
+    #     # #     job.module = flags.select_sequences
+    #     # #     job.skip_sequence_generation = True
+    if job.module in flags.select_modules:
+        # Set selection based on full database when no PoseJob are specified through other flags
+        # if utils.is_program_base(symdesign_directory): <- hypothetical test for correct program_root
+        base_symdesign_dir = utils.get_program_root_directory(args.directory)
+        if base_symdesign_dir == args.directory:
+            select_from_directory = True
+        # # When selecting by dataframe or metric, don't initialize, input is handled in module protocol
+        # if job.dataframe:  # or job.metric:
+        #     initialize = False
+    # elif job.module in [flags.select_designs, flags.select_sequences] \
+    #         and job.number == sys.maxsize and not args.total:
+    #     # Change default number to a single sequence/pose when not doing a total selection
+    #     job.number = 1
+    elif job.module in flags.cluster_poses and job.number == sys.maxsize:
+        # Change default number to a single pose
+        job.number = 1
     elif job.module == flags.nanohedra:
         if not job.sym_entry:
             raise utils.InputError(f'When running {flags.nanohedra}, the argument -e/--entry/--{flags.sym_entry} is '
@@ -1140,8 +1145,8 @@ def main():
                     fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
                     pose_jobs = list(session.scalars(fetch_jobs_stmt))
             elif select_from_directory:
-                # This logic is possible with flags.select_modules
-                # job.location = os.path.basename(representative_pose_job.project)
+                # Can make an empty pose_jobs when the program_root is args.directory
+                job.location = args.directory
                 pass
             else:  # args.file or args.directory
                 file_paths, job.location = utils.collect_designs(files=args.file, directory=args.directory)
