@@ -333,7 +333,7 @@ def rename_chains(job: pose.PoseJob):
     """
     model = Model.from_file(job.source, log=job.log)
     model.rename_chains()
-    model.write(out_path=job.asu_path)
+    model.write(out_path=job.pose_path)
 
 
 @protocol_decorator(errors=(DesignError, RuntimeError))  # Todo remove RuntimeError from .orient()
