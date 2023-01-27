@@ -93,17 +93,29 @@ def sequence_to_numeric(sequence: Sequence[str], translation_table: dict[str, in
             raise ValueError(f"The 'alphabet_order' {alphabet_order} isn't valid. Choose from either 1 or 3")
 
 
-def sequences_to_numeric(sequences: Iterable[Sequence[str]]) -> np.ndarray:
+def sequences_to_numeric(sequences: Iterable[Sequence[str]], translation_table: dict[str, int] = None,
+                         alphabet_order: int = 1) -> np.ndarray:
     """Convert sequences into a numeric array
 
     Args:
         sequences: The sequences to encode
+        translation_table: If a translation table is provided, it will be used. If not, use alphabet_order
+        alphabet_order: The alphabetical order of the amino acid alphabet. Can be either 1 or 3
     Returns:
         The numerically encoded sequence where each entry along axis=0 is the indexed amino acid. Indices are according
             to the 1 letter alphabetical amino acid
     """
     _array = np.array([list(sequence) for sequence in sequences], np.string_)
-    return np.vectorize(numerical_translation_alph1_bytes.__getitem__)(_array)
+    if translation_table is not None:
+        return np.vectorize(translation_table.__getitem__)(_array)
+    else:
+        if alphabet_order == 1:
+            return np.vectorize(numerical_translation_alph1_bytes.__getitem__)(_array)
+        elif alphabet_order == 3:
+            raise NotImplementedError('Need to make the "numerical_translation_alph3_bytes" table')
+            return np.vectorize(numerical_translation_alph3_bytes.__getitem__)(_array)
+        else:
+            raise ValueError(f"The 'alphabet_order' {alphabet_order} isn't valid. Choose from either 1 or 3")
 
 
 def pssm_as_array(pssm: profile_dictionary, alphabet: str = protein_letters_alph1, lod: bool = False) \
