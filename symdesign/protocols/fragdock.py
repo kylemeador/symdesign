@@ -290,10 +290,10 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
 
     sym_entry: SymEntry = job.sym_entry
     """The SymmetryEntry object describing the material"""
-    # if sym_entry:
-    #     protocol_name = 'nanohedra'
-    # else:
-    #     protocol_name = 'fragment_docking'
+    if sym_entry:
+        protocol_name = 'nanohedra'
+    else:
+        protocol_name = 'fragment_docking'
     #
     # protocol = Protocol(name=protocol_name)
 
@@ -4231,7 +4231,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     # return [PoseJob.from_pose_id(pose_id, entity_names=entity_names,
     # entity_names = [entity.name for model in models for entity in model.entities]
     # with job.db.session(expire_on_commit=False) as session:
-    pose_jobs = [PoseJob.from_name(pose_name, project=project) for idx, pose_name in enumerate(pose_names)]
+    pose_jobs = [PoseJob.from_name(pose_name, project=project, protocol=protocol_name)
+                 for idx, pose_name in enumerate(pose_names)]
     # Commit all new PoseJobs to the current session to generate ids
     session = job.current_session
     session.add_all(pose_jobs)

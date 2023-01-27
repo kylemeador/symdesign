@@ -600,7 +600,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     self.source_path = None
 
     def __init__(self, name: str = None, project: str = None, source_path: AnyStr = None, initial: bool = False,
-                 **kwargs):
+                 protocol: str = None, **kwargs):
                  # pose_transformation: Sequence[transformation_mapping] = None,
                  # entity_metadata: list[sql.EntityData] = None,
                  # entity_names: Sequence[str] = None,
@@ -618,6 +618,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # self.designs.append(sql.DesignData(name=name, design_parent=None))
         # Set up original DesignData entry for the pose baseline
         pose_source = sql.DesignData(name=name, pose=self, design_parent=None)
+        if protocol is not None:
+            pose_source.protocols.append(sql.DesignProtocol(protocol=protocol))
         self.__init_from_db__()
         # Most __init__ code is called in __init_from_db__() according to sqlalchemy needs and DRY principles
 
