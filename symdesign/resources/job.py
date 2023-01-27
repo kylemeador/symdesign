@@ -751,8 +751,8 @@ class JobResources:
 
         available_memory = psutil.virtual_memory().available
         gb_divisior = 1000000000
-        logger.debug(f'Available memory: {available_memory / gb_divisior:f}GB')
-        logger.debug(f'Required memory: {required_memory / gb_divisior:f}GB')
+        logger.debug(f'Available memory: {available_memory / gb_divisior:2f} GB')
+        logger.debug(f'Required memory: {required_memory / gb_divisior:2f} GB')
         if available_memory < required_memory:
             self.reduce_memory = True
         logger.debug(f'Reduce job memory?: {self.reduce_memory}')
