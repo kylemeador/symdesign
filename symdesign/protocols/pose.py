@@ -3724,6 +3724,105 @@ class PoseProtocol(PoseData):
 
         return residues_df
 
+    def parse_rosetta_scores(self, scores):
+        # Create protocol dataframe
+        scores_df = pd.DataFrame.from_dict(scores, orient='index')
+        # # Fill in all the missing values with that of the default pose_source
+        # scores_df = pd.concat([source_df, scores_df]).fillna(method='ffill')
+        # Gather all columns into specific types for processing and formatting
+        per_res_columns = []
+        for column in scores_df.columns.to_list():
+            if 'res_' in column:
+                per_res_columns.append(column)
+
+        # Check proper input
+        metric_set = metrics.necessary_metrics.difference(set(scores_df.columns))
+        # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
+        if metric_set:
+            self.log.error(f'Score columns present before required metric check: {scores_df.columns.to_list()}')
+            raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
+
+        # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
+        # Todo learn know how to produce Rosetta score terms in output score file. Not in FastRelax...
+        remove_columns = metrics.rosetta_terms + metrics.unnecessary + per_res_columns
+        # Todo remove dirty when columns are correct (after P432)
+        #  and column tabulation precedes residue/hbond_processing
+        scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
+
+        # Todo implement this protocol if sequence data is taken at multiple points along a trajectory and the
+        #  sequence data along trajectory is a metric on it's own
+        # # Gather mutations for residue specific processing and design sequences
+        # for design, data in list(structure_design_scores.items()):  # make a copy as can be removed
+        #     sequence = data.get('final_sequence')
+        #     if sequence:
+        #         if len(sequence) >= pose_length:
+        #             pose_sequences[design] = sequence[:pose_length]  # Todo won't work if design had insertions
+        #         else:
+        #             pose_sequences[design] = sequence
+        #     else:
+        #         self.log.warning('Design %s is missing sequence data, removing from design pool' % design)
+        #         structure_design_scores.pop(design)
+        # # format {entity: {design_name: sequence, ...}, ...}
+        # entity_sequences = \
+        #     {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
+        #               for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
+
+        # Drop designs where required data isn't present
+        # Format protocol columns
+        # # Todo remove not DEV
+        # missing_group_indices = scores_df[putils.protocol].isna()
+        # scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
+        # scores_df.loc[scout_indices, putils.protocol] = putils.scout
+        # structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
+        # scores_df.loc[structure_bkgnd_indices, putils.protocol] = putils.structure_background
+        # # Todo Done remove
+        missing_group_indices = scores_df[putils.protocol].isna()
+        # protocol_s.replace({'combo_profile': putils.design_profile}, inplace=True)  # ensure proper profile name
+
+        scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
+
+        # Replace empty strings with np.nan and convert remaining to float
+        scores_df.replace('', np.nan, inplace=True)
+        scores_df.fillna(dict(zip(metrics.protocol_specific_columns, repeat(0))), inplace=True)
+        # scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
+
+        # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
+        viable_designs = scores_df.index.to_list()
+        if not viable_designs:
+            raise DesignError(f'No viable designs remain after {self.process_rosetta_metrics.__name__} data processing '
+                              f'steps')
+
+        self.log.debug(f'Viable designs with structures remaining after cleaning:\n\t{", ".join(viable_designs)}')
+
+        # Take metrics for the pose_source
+        # entity_energies = [0. for _ in self.pose.entities]
+        # pose_source_residue_info = \
+        #     {residue.index: {'complex': 0., 'bound': entity_energies.copy(), 'unbound': entity_energies.copy(),
+        #                      'solv_complex': 0., 'solv_bound': entity_energies.copy(),
+        #                      'solv_unbound': entity_energies.copy(), 'fsp': 0., 'cst': 0., 'hbond': 0}
+        #      for entity in self.pose.entities for residue in entity.residues}
+        # pose_source_id = self.pose_source.id
+        # residue_info = {pose_source_id: pose_source_residue_info}
+
+        # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
+        # residue_info.update(self.pose.rosetta_residue_processing(structure_design_scores))
+        residue_info = self.pose.rosetta_residue_processing(scores)
+        # Can't use residue_processing (clean) ^ in the case there is a design without metrics... columns not found!
+        interface_hbonds = metrics.dirty_hbond_processing(scores)
+        # Can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
+        # interface_hbonds = hbond_processing(structure_design_scores, hbonds_columns)
+        # Convert interface_hbonds to indices
+        interface_hbonds = {design: [residue.index for residue in self.pose.get_residues(hbond_residues)]
+                            for design, hbond_residues in interface_hbonds.items()}
+        residue_info = metrics.process_residue_info(residue_info, hbonds=interface_hbonds)
+
+        # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
+        # which ends up with multi-index column with residue index as first (top) column index, metric as second index
+        rosetta_info_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}) \
+            .unstack().swaplevel(0, 1, axis=1)
+
+        return scores_df, rosetta_info_df
+
     def process_rosetta_metrics(self):
         """From Rosetta based protocols, tally the resulting metrics and integrate with SymDesign metrics database"""
         self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseJob(.path)
@@ -3774,26 +3873,8 @@ class PoseProtocol(PoseData):
                 # Acquire the pose_metrics if None have been made yet
                 self.calculate_pose_metrics(pose_design_scores)
 
-        # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
-        # Todo learn know how to produce Rosetta score terms in output score file. Not in FastRelax...
-        remove_columns = metrics.rosetta_terms + metrics.unnecessary + per_res_columns
-        # Todo remove dirty when columns are correct (after P432)
-        #  and column tabulation precedes residue/hbond_processing
+        scores_df, rosetta_info_df = self.parse_rosetta_scores(structure_design_scores)
 
-        # Drop designs where required data isn't present
-        # Format protocol columns
-        # # Todo remove not DEV
-        # missing_group_indices = scores_df[putils.protocol].isna()
-        # scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
-        # scores_df.loc[scout_indices, putils.protocol] = putils.scout
-        # structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
-        # scores_df.loc[structure_bkgnd_indices, putils.protocol] = putils.structure_background
-        # # Todo Done remove
-        missing_group_indices = scores_df[putils.protocol].isna()
-        # protocol_s.replace({'combo_profile': putils.design_profile}, inplace=True)  # ensure proper profile name
-
-        scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
-        # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
         # Find protocol info and remove from scores_df
         if putils.design_parent in scores_df:
             # Set as None to start. We will update after the fact
@@ -3822,39 +3903,6 @@ class PoseProtocol(PoseData):
         # self.job.current_session.flush()
         new_design_ids = [design_data.id for design_data in new_designs_data]
 
-        # Take metrics for the pose_source
-        # entity_energies = [0. for _ in self.pose.entities]
-        # pose_source_residue_info = \
-        #     {residue.index: {'complex': 0., 'bound': entity_energies.copy(), 'unbound': entity_energies.copy(),
-        #                      'solv_complex': 0., 'solv_bound': entity_energies.copy(),
-        #                      'solv_unbound': entity_energies.copy(), 'fsp': 0., 'cst': 0., 'hbond': 0}
-        #      for entity in self.pose.entities for residue in entity.residues}
-        # pose_source_id = self.pose_source.id
-        # residue_info = {pose_source_id: pose_source_residue_info}
-
-        # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
-        # residue_info.update(self.pose.rosetta_residue_processing(structure_design_scores))
-        residue_info = self.pose.rosetta_residue_processing(structure_design_scores)
-        # Can't use residue_processing (clean) ^ in the case there is a design without metrics... columns not found!
-        interface_hbonds = metrics.dirty_hbond_processing(structure_design_scores)
-        # Can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
-        # interface_hbonds = hbond_processing(structure_design_scores, hbonds_columns)
-        # Convert interface_hbonds to indices
-        interface_hbonds = {design: [residue.index for residue in self.pose.get_residues(hbond_residues)]
-                            for design, hbond_residues in interface_hbonds.items()}
-        residue_info = metrics.process_residue_info(residue_info, hbonds=interface_hbonds)
-
-        viable_designs = scores_df.index.to_list()
-        if not viable_designs:
-            raise DesignError(f'No viable designs remain after {self.process_rosetta_metrics.__name__} data processing '
-                              f'steps')
-
-        self.log.debug(f'Viable designs with structures remaining after cleaning:\n\t{", ".join(viable_designs)}')
-
-        # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
-        # which ends up with multi-index column with residue index as first (top) column index, metric as second index
-        rosetta_info_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()})\
-            .unstack().swaplevel(0, 1, axis=1)
         # # During rosetta_info_df unstack, all residues with missing dicts are copied as nan
         # Todo get residues_df['design_indices'] worked out with set up using sql.DesignProtocol?
         # Set each position that was parsed as "designable"
@@ -3870,44 +3918,6 @@ class PoseProtocol(PoseData):
         # rosetta_info_df = rosetta_info_df.stack().unstack(1)
         # rosetta_info_df['design_residue'] = 1
         # rosetta_info_df = rosetta_info_df.unstack().swaplevel(0, 1, axis=1)
-
-        # Todo implement this protocol if sequence data is taken at multiple points along a trajectory and the
-        #  sequence data along trajectory is a metric on it's own
-        # # Gather mutations for residue specific processing and design sequences
-        # for design, data in list(structure_design_scores.items()):  # make a copy as can be removed
-        #     sequence = data.get('final_sequence')
-        #     if sequence:
-        #         if len(sequence) >= pose_length:
-        #             pose_sequences[design] = sequence[:pose_length]  # Todo won't work if design had insertions
-        #         else:
-        #             pose_sequences[design] = sequence
-        #     else:
-        #         self.log.warning('Design %s is missing sequence data, removing from design pool' % design)
-        #         structure_design_scores.pop(design)
-        # # format {entity: {design_name: sequence, ...}, ...}
-        # entity_sequences = \
-        #     {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
-        #               for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
-        # return rosetta_info_df
-
-        scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
-
-        # # Find protocols for protocol specific data processing removing from scores_df
-        # protocol_s = scores_df.pop(putils.protocol).copy()
-        # designs_by_protocol = protocol_s.groupby(protocol_s).groups
-        # unique_protocols = list(designs_by_protocol.keys())
-        # # Remove refine and consensus if present as there was no design done over multiple protocols
-        # # Todo change if we did multiple rounds of these protocols
-        # designs_by_protocol.pop(putils.refine, None)
-        # designs_by_protocol.pop(putils.consensus, None)
-        # # Get unique protocols
-        # unique_design_protocols = set(designs_by_protocol.keys())
-        # self.log.info(f'Unique Design Protocols: {", ".join(unique_design_protocols)}')
-
-        # Replace empty strings with np.nan and convert remaining to float
-        scores_df.replace('', np.nan, inplace=True)
-        scores_df.fillna(dict(zip(metrics.protocol_specific_columns, repeat(0))), inplace=True)
-        # scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
 
         # Calculate metrics from combinations of metrics with variable integer number metric names
         scores_columns = scores_df.columns.to_list()
@@ -4057,10 +4067,10 @@ class PoseProtocol(PoseData):
             entity_df = pd.concat(entity_dfs, keys=list(range(1, 1 + len(entity_dfs))), axis=1)
 
         # Output
-        # residues_df = self.analyze_pose_metrics_per_residue()
+        # residues_df = self.analyze_pose_metrics()
         # self.output_metrics(residues=residues_df)
         designs_df, residues_df = \
-            self.analyze_pose_metrics_per_residue(novel_interface=False if not self.pose_source.protocols else True)
+            self.analyze_pose_metrics(novel_interface=False if not self.pose_source.protocols else True)
         if scores:
             scores_df, rosetta_info_df = self.parse_rosetta_scores(scores)
             designs_df = designs_df.join(scores_df)
