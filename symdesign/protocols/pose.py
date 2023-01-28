@@ -3362,15 +3362,19 @@ class PoseProtocol(PoseData):
                     for design_id, protocol, temperature, file in zip(design_ids, protocols, temperatures, files)]
         return metadata
 
-    def update_design_data(self, design_parent: sql.DesignData, number: int = None) -> list[sql.DesignData]:
+    def update_design_data(self, design_parent: sql.DesignData = None, number: int = None) -> list[sql.DesignData]:
         """Update the PoseData with the newly created design identifiers using DesignData and flush to the database
 
+        Sets:
+            self.current_designs (list[DesignData]): Extends with the newly created DesignData instances
         Args:
-            design_parent: The design whom all new designs are based
+            design_parent: The design whom all new designs are based. If not provided, will use the self.pose_source
             number: The number of designs. If not provided, set according to job.design.number * job.design.temperature
         Returns:
             The new instances of the DesignData
         """
+        if design_parent is None:
+            design_parent = self.pose_source
         if number is None:
             number = len(self.job.design.number * self.job.design.temperatures)
 
@@ -3388,7 +3392,7 @@ class PoseProtocol(PoseData):
         # self.designs.extend(designs)
         designs = [sql.DesignData(name=name, pose=self, design_parent=design_parent)
                    for name in design_names]
-        # Set the PoseJob.current_designs for access by subsequence protocols
+        # Set the PoseJob.current_designs for access by subsequent functions/protocols
         self.current_designs.extend(designs)
         # Get the DesignData.id for each design
         self.job.current_session.flush()
