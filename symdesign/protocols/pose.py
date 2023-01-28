@@ -1802,7 +1802,6 @@ class PoseProtocol(PoseData):
 
             # Check proper input
             metric_set = metrics.necessary_metrics.difference(set(scores_df.columns))
-            # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
             if metric_set:
                 raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
 
@@ -2034,17 +2033,17 @@ class PoseProtocol(PoseData):
         residues_df = residues_df.join(per_residue_collapse_df)
 
         # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
-        rosetta_info_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
+        rosetta_residues_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
         # returns multi-index column with residue number as first (top) column index, metric as second index
         # during residues_df unstack, all residues with missing dicts are copied as nan
         # Merge interface design specific residue metrics with total per residue metrics
-        # residues_df = pd.merge(residues_df, rosetta_info_df, left_index=True, right_index=True)
+        # residues_df = pd.merge(residues_df, rosetta_residues_df, left_index=True, right_index=True)
 
         # Join each residues_df like dataframe
         # Each of these can have difference index, so we use concat to perform an outer merge
-        residues_df = pd.concat([residues_df, sequences_df, rosetta_info_df], axis=1)
-        # # Join rosetta_info_df and sequence metrics
-        # residues_df = residues_df.join([rosetta_info_df, sequences_df])
+        residues_df = pd.concat([residues_df, sequences_df, rosetta_residues_df], axis=1)
+        # # Join rosetta_residues_df and sequence metrics
+        # residues_df = residues_df.join([rosetta_residues_df, sequences_df])
 
         if not profile_background:
             divergence_s = pd.Series(dtype=float)
@@ -3756,7 +3755,6 @@ class PoseProtocol(PoseData):
 
         # Check proper input
         metric_set = metrics.necessary_metrics.difference(set(scores_df.columns))
-        # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
         if metric_set:
             self.log.error(f'Score columns present before required metric check: {scores_df.columns.to_list()}')
             raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
@@ -3837,18 +3835,15 @@ class PoseProtocol(PoseData):
 
         # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
         # which ends up with multi-index column with residue index as first (top) column index, metric as second index
-        rosetta_info_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}) \
+        rosetta_residues_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}) \
             .unstack().swaplevel(0, 1, axis=1)
 
-        return scores_df, rosetta_info_df
+        return scores_df, rosetta_residues_df
 
     def process_rosetta_metrics(self):
         """From Rosetta based protocols, tally the resulting metrics and integrate with SymDesign metrics database"""
         self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseJob(.path)
         design_scores = metrics.read_scores(self.scores_file)  # Todo PoseJob(.path)
-
-        pose_length = self.pose.number_of_residues
-        # residue_indices = list(range(pose_length))
 
         # Find all designs files
         # if designs is None:
@@ -3895,7 +3890,8 @@ class PoseProtocol(PoseData):
                 # self.calculate_pose_metrics(dict(str(self.id)=pose_design_scores))
                 self.calculate_pose_metrics({pose_source_id: pose_design_scores})
 
-        scores_df, rosetta_info_df = self.parse_rosetta_scores(structure_design_scores)
+        # Process the parsed scores to scores_df, rosetta_residues_df
+        scores_df, rosetta_residues_df = self.parse_rosetta_scores(design_scores)
 
         # Find protocol info and remove from scores_df
         if putils.design_parent in scores_df:
@@ -3923,9 +3919,11 @@ class PoseProtocol(PoseData):
         # self.designs.append(new_designs_data)
         # # Flush the newly acquired DesignData and DesignProtocol to generate .id primary keys
         # self.job.current_session.flush()
-        new_design_ids = [design_data.id for design_data in new_designs_data]
+        # new_design_ids = [design_data.id for design_data in new_designs_data]
 
-        # # During rosetta_info_df unstack, all residues with missing dicts are copied as nan
+        pose_length = self.pose.number_of_residues
+        # residue_indices = list(range(pose_length))
+        # # During rosetta_residues_df unstack, all residues with missing dicts are copied as nan
         # Todo get residues_df['design_indices'] worked out with set up using sql.DesignProtocol?
         # Set each position that was parsed as "designable"
         # This includes packable residues from neighborhoods. How can we get only designable?
@@ -3937,9 +3935,9 @@ class PoseProtocol(PoseData):
         # 'design_residue' is now integrated using analyze_proteinmpnn_metrics()
         # design_indices_df = pd.DataFrame(design_residues, index=scores_df.index,
         #                                  columns=pd.MultiIndex.from_product([residue_indices, ['design_residue']]))
-        # rosetta_info_df = rosetta_info_df.stack().unstack(1)
-        # rosetta_info_df['design_residue'] = 1
-        # rosetta_info_df = rosetta_info_df.unstack().swaplevel(0, 1, axis=1)
+        # rosetta_residues_df = rosetta_residues_df.stack().unstack(1)
+        # rosetta_residues_df['design_residue'] = 1
+        # rosetta_residues_df = rosetta_residues_df.unstack().swaplevel(0, 1, axis=1)
 
         # Calculate metrics from combinations of metrics with variable integer number metric names
         scores_columns = scores_df.columns.to_list()
@@ -3970,19 +3968,20 @@ class PoseProtocol(PoseData):
         # The DataFrame.index is wrong here. It needs to become the design.id not design.name. Modify after processing
         residues_df = self.analyze_residue_metrics_per_design(designs=designs)
         # Join Rosetta per-residue with Structure analysis per-residue like DataFrames
-        residues_df = pd.concat([residues_df, rosetta_info_df], axis=1)
+        # residues_df = pd.concat([residues_df, rosetta_residues_df], axis=1)
+        residues_df = residues_df.join(rosetta_residues_df)
         designs_df = scores_df.join(self.analyze_design_metrics_per_design(residues_df, designs))
 
         pose_sequences = {pose.name: pose.sequence for pose in designs}
         sequences_df = self.analyze_sequence_metrics_per_design(sequences=pose_sequences)
         # Score using proteinmpnn
         # Todo only score if it hasn't been scored previously...
-        proteinmpnn_scores = self.pose.score(pose_sequences.values())
-        sequences_and_scores = {
-            'design_indices': design_residues,
-            **proteinmpnn_scores
-        }
-        design_names = list(pose_sequences.keys())
+        sequences_and_scores = self.pose.score(design_sequences.values())
+        sequences_and_scores.update({'design_indices': design_residues})
+        # sequences_and_scores = {
+        #     'design_indices': design_residues,
+        #     **proteinmpnn_scores
+        # }
         mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
 
         designs_df = designs_df.join(mpnn_designs_df)
@@ -3992,7 +3991,7 @@ class PoseProtocol(PoseData):
         # Each of these could have different index/column, so we use concat to perform an outer merge
         residues_df = pd.concat([residues_df, mpnn_residues_df, sequences_df], axis=1)
         # Todo should this "different index" be allowed? be possible
-        #  residues_df = residues_df.join(rosetta_info_df)
+        #  residues_df = residues_df.join(rosetta_residues_df)
 
         # Rename all designs and clean up resulting metrics for storage
         # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
@@ -4026,7 +4025,7 @@ class PoseProtocol(PoseData):
             else:
                 raise DesignError('The specified file renaming scheme creates a conflict:\n'
                                   f'\t{filename} -> {new_filename}')
-        # If so, proceed with insert, rename and commit
+        # If so, proceed with insert, file rename and commit
         self.output_metrics(residues=residues_df, designs=designs_df)
         # Rename the incoming files to their prescribed names
         for filename, new_filename in files_to_move.items():
@@ -4094,9 +4093,9 @@ class PoseProtocol(PoseData):
         designs_df, residues_df = \
             self.analyze_pose_metrics(novel_interface=False if not self.pose_source.protocols else True)
         if scores:
-            scores_df, rosetta_info_df = self.parse_rosetta_scores(scores)
+            scores_df, rosetta_residues_df = self.parse_rosetta_scores(scores)
             designs_df = designs_df.join(scores_df)
-            residues_df = residues_df.join(rosetta_info_df)
+            residues_df = residues_df.join(rosetta_residues_df)
 
         self.output_metrics(designs=designs_df, residues=residues_df)
         # Commit the newly acquired metrics
@@ -4189,7 +4188,7 @@ class PoseProtocol(PoseData):
         """Perform per-residue analysis on design Model instances
 
         Args:
-            designs: The designs to perform analysis on. By default, fetches all available structures
+            designs: The designs to analyze. The Structure.name attribute is used for naming DataFrame indices
         Returns:
             A per-residue metric DataFrame where each index is the design id and the columns are
                 (residue index, residue metric)
@@ -4223,8 +4222,8 @@ class PoseProtocol(PoseData):
                 **pose.per_residue_interface_errat()}
 
         # Convert per_residue_data into a dataframe matching residues_df orientation
-        residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
-                                for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
+        residues_df = pd.concat({design_name: pd.DataFrame(data, index=residue_indices)
+                                for design_name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
 
         # Make buried surface area (bsa) columns, and residue classification
         residues_df = metrics.calculate_residue_surface_area(residues_df)
