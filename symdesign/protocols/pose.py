@@ -377,17 +377,19 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     _source: AnyStr
     _directives: list[dict[int, str]]
     _specific_designs: Sequence[str]
-    initial_model: Model = None
+    current_designs: list | list[sql.DesignData]
+    """Hold DesignData that has been generated in the scope of this job"""
+    initial_model: Model | None
     """Used if the pose structure has never been initialized previously"""
-    measure_evolution: bool = False
-    measure_alignment: bool = False
-    pose: Pose = None
+    measure_evolution: bool
+    measure_alignment: bool
+    pose: Pose | None
     """Contains the Pose object"""
-    protocol: str = None
+    protocol: str | None
     """The name of the currently utilized protocol for file naming and metric results"""
     source_path: str | None
-    specific_designs_file_paths: list[AnyStr] = []
-    """Contains the various file paths for each design of interest according to self.specific_designs"""
+    # specific_designs_file_paths: list[AnyStr] = []
+    # """Contains the various file paths for each design of interest according to self.specific_designs"""
 
     # START classmethod where the PoseData isn't initialized
     @classmethod
@@ -530,7 +532,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     def __init_from_db__(self):
         """Initialize PoseData after the instance is "initialized", i.e. loaded from the database"""
         self.current_designs = []
-        """Hold DesignData that has been generated in the scope of this job"""
+        self.measure_evolution = self.measure_alignment = False
+        self.pose = self.initial_model = self.protocol = None
         # Get the main program options
         self.job = resources.job.job_resources_factory.get()
         # Symmetry attributes
