@@ -3849,35 +3849,50 @@ class PoseProtocol(PoseData):
         # if designs is None:
         design_names = self.design_names
         design_files = self.get_design_files()  # Todo PoseJob(.path)
-        new_design_filenames = []
+        scored_design_names = design_scores.keys()
+        design_paths_to_process = []
+        new_design_paths = []
         rosetta_provided_new_design_names = []
-        if self.job.force:
-            # Collect metrics on all designs (possibly again)
-            for idx, path in enumerate(reversed(design_files[:])):
-                file_name, ext = os.path.splitext(os.path.basename(path))
-                if file_name in design_names:  # We already processed this file
-                    continue
-                else:
-                    new_design_filenames.append(path)  # file_name)
+        existing_design_indices = []
+        # Collect designs that we have metrics on (possibly again)
+        for idx, path in enumerate(reversed(design_files[:])):
+            file_name, ext = os.path.splitext(os.path.basename(path))
+            if file_name in scored_design_names:
+                design_paths_to_process.append(path)
+                try:
+                    design_data_index = design_names.index(file_name)
+                except ValueError:  # file_name not in list
+                    # New, we haven't processed this file
+                    new_design_paths.append(path)
                     rosetta_provided_new_design_names.append(file_name)
-        else:  # Process to get rid of designs that were already calculated
-            for idx, path in enumerate(reversed(design_files[:])):
-                file_name, ext = os.path.splitext(os.path.basename(path))
-                if file_name in design_names:  # We already processed this file
-                    design_files.pop(idx)
                 else:
-                    new_design_filenames.append(path)  # file_name)
-                    rosetta_provided_new_design_names.append(file_name)
+                    existing_design_indices.append(design_data_index)
 
-        # Process all desired files to Pose
-        designs = [Pose.from_file(file, **self.pose_kwargs) for file in design_files]  # Todo PoseJob(.path)
-        # Find designs with scores but no structures
-        structure_design_scores = {}
-        for pose in designs:
-            try:
-                structure_design_scores[pose.name] = design_scores.pop(pose.name)
-            except KeyError:  # Structure wasn't scored, we will remove this later
-                pass
+        # if self.job.force:
+        #     # Collect metrics on all designs (possibly again)
+        #     for idx, path in enumerate(reversed(design_files[:])):
+        #         file_name, ext = os.path.splitext(os.path.basename(path))
+        #         if file_name in design_names:  # We already processed this file
+        #             continue
+        #         else:
+        #             new_design_paths.append(path)
+        #             rosetta_provided_new_design_names.append(file_name)
+        # else:  # Process to get rid of designs that were already calculated
+        #     for idx, path in enumerate(reversed(design_files[:])):
+        #         file_name, ext = os.path.splitext(os.path.basename(path))
+        #         if file_name in design_names:  # We already processed this file
+        #             design_files.pop(idx)
+        #         else:
+        #             new_design_paths.append(path)
+        #             rosetta_provided_new_design_names.append(file_name)
+        # Format DesignData
+        # Get all existing
+        design_data = self.designs
+        self.current_designs = [design_data[idx] for idx in existing_design_indices]
+        # Update the Pose.designs with DesignData for each of the new designs
+        new_designs_data = self.update_design_data(number=len(new_design_paths))  # design_parent=design_parent
+        # Extend current_designs with new DesignData instances
+        self.current_designs.extend(new_designs_data)
 
         if design_scores:  # Still scores present...
             if self.name in design_scores:
@@ -3893,27 +3908,18 @@ class PoseProtocol(PoseData):
         # Process the parsed scores to scores_df, rosetta_residues_df
         scores_df, rosetta_residues_df = self.parse_rosetta_scores(design_scores)
 
-        # Find protocol info and remove from scores_df
+        # Find protocol and parent info and remove from scores_df
         if putils.design_parent in scores_df:
-            # Set as None to start. We will update after the fact
-            design_parent = None  # parent_s
-            parents = scores_df.pop(putils.design_parent).tolist()
-        else:
-            # Assume this is an offspring of the pose
-            design_parent = self.pose_source
-            parents = None
+            # Replace missing values with the pose_source DesignData
+            parents = scores_df.pop(putils.design_parent).fillna(self.pose_source)  # .tolist()
+            self.log.critical(f'Found "parents" variable with dtype: {parents.dtype}')
+        else:  # Assume this is an offspring of the pose
+            parents = {provided_name: self.pose_source for provided_name in rosetta_provided_new_design_names}
 
-        # Update the Pose.design by the number of new designs,
-        # to generate DesignData with a prescribed name and design design_parent (which may be updated below)
-        new_designs_data = self.update_design_data(design_parent=design_parent, number=len(new_design_filenames))
-
-        if parents is not None:
-            for design_data, parent, provided_name in zip(new_designs_data, parents, rosetta_provided_new_design_names):
-                design_data.design_parent = parent
-                design_data.provided_name = provided_name
-        else:
-            for design_data, provided_name in zip(new_designs_data, rosetta_provided_new_design_names):
-                design_data.provided_name = provided_name
+        # Add attribute to DesignData to save the provided_name and design design_parent
+        for design_data, provided_name in zip(new_designs_data, rosetta_provided_new_design_names):
+            design_data.design_parent = parents[provided_name]
+            design_data.provided_name = provided_name
 
         # This is all done in update_design_data
         # self.designs.append(new_designs_data)
@@ -4010,12 +4016,30 @@ class PoseProtocol(PoseData):
         residues_df.index = residues_df.index.map(design_name_to_id_map)
 
         designs_path = self.designs_path
-        new_design_new_filenames = [os.path.join(designs_path, f'{design_data.name}.pdb')
-                                    for design_data in new_designs_data]
+        new_design_new_filenames = {design_data.provided_name:
+                                    os.path.join(designs_path, f'{design_data.name}.pdb')
+                                    for design_data in new_designs_data}
+        # Find protocol info and remove from scores_df
+        # protocol_s = scores_df.pop(putils.protocol).copy()
+        # protocol_s = scores_df[putils.protocol]
+        protocol_s = designs_df.pop(putils.protocol).copy()
+        # Update the Pose with the design protocols
+        for name_or_provided_name, design_id in design_name_to_id_map.items():
+            protocol_kwargs = dict(design_id=design_id,
+                                   protocol=protocol_s[design_id],
+                                   # temperature=temperatures[idx],)
+                                   )
+            new_filename = new_design_new_filenames.get(name_or_provided_name)
+            if new_filename:
+                protocol_kwargs['file'] = new_filename
+            else:
+                protocol_kwargs['file'] = os.path.join(designs_path, f'{name_or_provided_name}.pdb')
+            design_data.protocols.append(sql.DesignProtocol(**protocol_kwargs))
+
         # Commit the newly acquired metrics to the database
         # First check if the files are situated correctly
         files_to_move = {}
-        for filename, new_filename in zip(new_design_filenames, new_design_new_filenames):
+        for filename, new_filename in zip(new_design_paths, new_design_new_filenames.values()):
             if filename == new_filename:
                 # These are the same file, proceed without processing
                 continue
