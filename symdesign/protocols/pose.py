@@ -3894,16 +3894,24 @@ class PoseProtocol(PoseData):
         # Extend current_designs with new DesignData instances
         self.current_designs.extend(new_designs_data)
 
-        if design_scores:  # Still scores present...
-            if self.name in design_scores:
-                # We have included the pose_source in the calculations
-                # structure_design_scores[self.name] = design_scores.pop(self.name)
-                pose_design_scores = design_scores.pop(self.name)
-                # Acquire the pose_metrics if None have been made yet
-                # pose_name = self.pose.name
-                pose_source_id = self.pose_source.id
-                # self.calculate_pose_metrics(dict(str(self.id)=pose_design_scores))
-                self.calculate_pose_metrics({pose_source_id: pose_design_scores})
+        # # Find designs with scores but no structures
+        # structure_design_scores = {}
+        # for pose in designs:
+        #     try:
+        #         structure_design_scores[pose.name] = design_scores.pop(pose.name)
+        #     except KeyError:  # Structure wasn't scored, we will remove this later
+        #         pass
+
+        # if design_scores:  # Still scores present...
+        pose_design_scores = design_scores.pop(self.name, None)
+        if pose_design_scores:
+            # We have included the pose_source in the calculations
+            # pose_design_scores = design_scores.pop(self.name)
+            # Acquire the pose_metrics if None have been made yet
+            # pose_name = self.pose.name
+            pose_source_id = self.pose_source.id
+            # self.calculate_pose_metrics(dict(str(self.id)=pose_design_scores))
+            self.calculate_pose_metrics({pose_source_id: pose_design_scores})
 
         # Process the parsed scores to scores_df, rosetta_residues_df
         scores_df, rosetta_residues_df = self.parse_rosetta_scores(design_scores)
@@ -3920,6 +3928,10 @@ class PoseProtocol(PoseData):
         for design_data, provided_name in zip(new_designs_data, rosetta_provided_new_design_names):
             design_data.design_parent = parents[provided_name]
             design_data.provided_name = provided_name
+
+        # Get the name/provided_name to design_id mapping for later rename
+        design_name_to_id_map = \
+            dict((getattr(design_data, 'provided_name', 'name'), design_data.id) for design_data in self.designs)
 
         # This is all done in update_design_data
         # self.designs.append(new_designs_data)
@@ -3971,6 +3983,12 @@ class PoseProtocol(PoseData):
             scores_df.loc[scores_df[repacking == 0].index, 'interface_bound_activation_energy'] = np.nan
             scores_df.drop('repacking', axis=1, inplace=True)
 
+        # Process all desired files to Pose
+        designs = [Pose.from_file(file, **self.pose_kwargs) for file in design_paths_to_process]
+        design_sequences = {design.name: design.sequence for design in designs}
+        design_names = list(design_sequences.keys())
+        sequences_df = self.analyze_sequence_metrics_per_design(sequences=design_sequences)
+
         # The DataFrame.index is wrong here. It needs to become the design.id not design.name. Modify after processing
         residues_df = self.analyze_residue_metrics_per_design(designs=designs)
         # Join Rosetta per-residue with Structure analysis per-residue like DataFrames
@@ -3978,8 +3996,6 @@ class PoseProtocol(PoseData):
         residues_df = residues_df.join(rosetta_residues_df)
         designs_df = scores_df.join(self.analyze_design_metrics_per_design(residues_df, designs))
 
-        pose_sequences = {pose.name: pose.sequence for pose in designs}
-        sequences_df = self.analyze_sequence_metrics_per_design(sequences=pose_sequences)
         # Score using proteinmpnn
         # Todo only score if it hasn't been scored previously...
         sequences_and_scores = self.pose.score(design_sequences.values())
@@ -4001,17 +4017,6 @@ class PoseProtocol(PoseData):
 
         # Rename all designs and clean up resulting metrics for storage
         # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
-        # Get the filenames mapped to the DesignData
-        # filename_to_design_data_map = list(zip(new_design_filenames, new_designs_data))
-        # filename_to_new_design_names = dict(zip(new_design_filenames, new_design_files))
-        design_name_to_id_map = \
-            dict(*((design_data.name, design_data.id) for design_data in self.designs),
-                 *((design_data.provided_name, design_data.id) for design_data in new_designs_data))
-        # design_name_to_id_map = {}
-        # filename_to_new_design_names = {}
-        # for filename, design_data in filename_to_design_data_map:
-        #     filename_to_new_design_names[filename] = os.path.join(self.designs_path, f'{design_data.name}.pdb')
-        #     design_name_to_id_map[filename] = design_data.id
         designs_df.index = designs_df.index.map(design_name_to_id_map)
         residues_df.index = residues_df.index.map(design_name_to_id_map)
 
@@ -4055,15 +4060,7 @@ class PoseProtocol(PoseData):
         for filename, new_filename in files_to_move.items():
             shutil.move(filename, new_filename)
 
-        # Find protocol info and remove from scores_df
-        protocol_s = scores_df.pop(putils.protocol).copy()
-        # Update the Pose with the design protocols
-        for idx, design_data in enumerate(new_designs_data):
-            design_data.protocols.append(
-                sql.DesignProtocol(design_id=new_design_ids[idx],
-                                   protocol=protocol_s[idx],
-                                   # temperature=temperatures[idx],
-                                   file=new_design_new_filenames[idx]))  # design_files[idx]))
+        # Commit all new data
         self.job.current_session.commit()
 
     def calculate_pose_metrics(self, scores: dict[str, dict[str, str | int | float]] = None):
