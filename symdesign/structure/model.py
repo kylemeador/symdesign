@@ -6211,14 +6211,15 @@ class Pose(SymmetricModel, Metrics):
             decode_core_first: bool = False - Whether to decode identified fragments (constituting the protein core)
                 first
         Returns:
-            A mapping of the design score type to the output data which is a ndarray with shape
-            (number*temperatures, pose_length). For proteinmpnn, this is the score string mapped to the corresponding
-            'proteinmpnn_loss_complex', and 'proteinmpnn_loss_unbound'
+            A mapping of the design score type to the per-residue output data which is a ndarray with shape
+            (number of sequences, pose_length).
+            For proteinmpnn, this is the score string mapped to the corresponding
+            'sequences', 'numeric_sequences', 'proteinmpnn_loss_complex', and 'proteinmpnn_loss_unbound' score types
 
             For rosetta, this function is not implemented
         """
         if method == putils.rosetta_str:
-            scores = {}
+            sequences_and_scores = {}
             raise NotImplementedError(f"Can't score with Rosetta from this method yet...")
         elif method == putils.proteinmpnn:  # Design with vanilla version of ProteinMPNN
             # Convert the sequences to correct format
@@ -6271,8 +6272,6 @@ class Pose(SymmetricModel, Metrics):
                     numeric_sequences = sequences_to_numeric(sequences)
             else:  # Some sort of iterable
                 numeric_sequences = convert_and_check_sequence_type(sequences)
-            print('Found numeric_sequences.shape:', numeric_sequences.shape)
-            print('Found numeric_sequences:', numeric_sequences[0, :10])
 
             # pose_length = self.number_of_residues
             size, pose_length, *_ = numeric_sequences.shape
@@ -6354,11 +6353,14 @@ class Pose(SymmetricModel, Metrics):
                                          return_containers={
                                              'proteinmpnn_loss_complex': per_residue_complex_sequence_loss,
                                              'proteinmpnn_loss_unbound': per_residue_unbound_sequence_loss})
+            sequences_and_scores = {'sequences': sequences,
+                                    'numeric_sequences': numeric_sequences,
+                                    **scores}
         else:
-            scores = {}
+            sequences_and_scores = {}
             raise ValueError(f"The method '{method}' isn't a viable scoring protocol")
 
-        return scores
+        return sequences_and_scores
 
     @torch.no_grad()  # Ensure no gradients are produced
     def design_sequences(self, method: flags.design_programs_literal = putils.proteinmpnn, number: int = flags.nstruct,
@@ -6386,7 +6388,7 @@ class Pose(SymmetricModel, Metrics):
             decode_core_first: bool = False - Whether to decode identified fragments (constituting the protein core)
                 first
         Returns:
-            A mapping of the design score type to the output data which is a ndarray with shape
+            A mapping of the design score type to the per-residue output data which is a ndarray with shape
             (number*temperatures, pose_length). For proteinmpnn, this is the score string mapped to the corresponding
             'sequences', 'numeric_sequences', 'proteinmpnn_loss_complex', 'proteinmpnn_loss_unbound', and
             'design_indices'. For each return array, the return varies such as: [temp1/number1, temp1/number2, ...,
