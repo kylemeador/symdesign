@@ -961,7 +961,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         chains: A list of Chain instance that match the Entity
         dbref: The unique database reference for the Entity
         reference_sequence: The reference sequence (according to expression sequence or reference database)
-        thermophilic: Whether the Entity is deemed thermophilic
+        thermophilicity: The extent to which the Entity is deemed thermophilic
     Keyword Args:
         name: str = None - The EntityID. Typically, EntryID_EntityInteger is used to match PDB API identifier format
     """
@@ -1008,8 +1008,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                  uniprot_ids: tuple[str, ...] = None,
                  # uniprot_id: str = None,
                  # dbref: dict[str, str] = None,
-                 # Todo remove self.thermophilic once sql load more streamlined
-                 thermophilic: bool = None,
+                 # Todo remove self.thermophilicity once sql load more streamlined
+                 thermophilicity: bool = None,
                  reference_sequence: str = None, **kwargs):
         """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated"""
         self._captain = None
@@ -1024,15 +1024,15 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # self.__dict__.update(metadata.__dict__)
             if reference_sequence is not None:
                 self._reference_sequence = reference_sequence
-            # Todo remove self.thermophilic once sql load more streamlined
-            self.thermophilic = thermophilic
+            # Todo remove self.thermophilicity once sql load more streamlined
+            self.thermophilicity = thermophilicity
             if uniprot_ids is not None:
                 self.uniprot_ids = uniprot_ids
         else:
             if metadata.reference_sequence is not None:
                 self._reference_sequence = metadata.reference_sequence
-            # Todo remove self.thermophilic once sql load more streamlined
-            self.thermophilic = metadata.thermophilic
+            # Todo remove self.thermophilicity once sql load more streamlined
+            self.thermophilicity = metadata.thermophilicity
             if metadata.uniprot_entities is not None:
                 self.uniprot_ids = tuple(entity.uniprot_id for entity in metadata.uniprot_entities)
 
@@ -1159,10 +1159,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             {'chains': [],
              'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
              'reference_sequence': 'MSLEHHHHHH...',
-             'thermophilic': True}
+             'thermophilicity': True}
             self._uniprot_id: str | None
             self._reference_sequence: str
-            self.thermophilic: bool
+            self.thermophilicity: bool
         """
         # # if self.api_db:
         try:
@@ -1177,7 +1177,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
            {'chains': ['A', 'B', ...],
             'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
             'reference_sequence': 'MSLEHHHHHH...',
-            'thermophilic': True},
+            'thermophilicity': 1.0},
         ...}
         """
         if api_return:
@@ -1190,8 +1190,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 # print('Retrieving UNP ID for %s\nAPI DATA for chain %s:\n%s' % (self.name, chain, api_data))
                 if data_type == 'reference_sequence':
                     self._reference_sequence = data
-                if data_type == 'thermophilic':  # Todo remove self.thermophilic once sql load more streamlined
-                    self.thermophilic = data
+                if data_type == 'thermophilicity':  # Todo remove self.thermophilicity once sql load more streamlined
+                    self.thermophilicity = data
                 if data_type == 'dbref':
                     if data.get('db') == query.utils.UKB:
                         self.uniprot_ids = data.get('accession')
@@ -3040,7 +3040,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                                 {'chains': ['A', 'B', ...],
                                  'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'}
                                  'reference_sequence': 'MSLEHHHHHH...',
-                                 'thermophilic': True},
+                                 'thermophilicity': 1.0},
                             ...},
                  'res': resolution,
                  'struct': {'space': space_group, 'a_b_c': (a, b, c),
@@ -3093,7 +3093,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     # {'EntityID': {'chains': ['A', 'B', ...],
                     #               'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'}
                     #               'reference_sequence': 'MSLEHHHHHH...',
-                    #               'thermophilic': True},
+                    #               'thermophilicity': 1.0},
                     #  ...}
                     parsed_name = f'{parsed_name}_{integer}'
                 else:  # Get entry alone. This is an assembly or unknown conjugation. Either way we need entry info
@@ -3264,7 +3264,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     {'chains': ['A', 'B', ...],
                      'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
                      'reference_sequence': 'MSLEHHHHHH...',
-                     'thermophilic': True},
+                     'thermophilicity': 1.0},
                  ...}
                 This is the final format of each entry in the self.entity_info dictionary
                 """
@@ -6809,11 +6809,11 @@ class Pose(SymmetricModel, Metrics):
 
         # try:
         #     api_db = resources.wrapapi.api_database_factory()
-        #     is_ukb_thermophilic = api_db.uniprot.is_thermophilic
-        #     is_pdb_thermophile = api_db.pdb.is_thermophilic
+        #     is_ukb_thermophilic = api_db.uniprot.thermophilicity
+        #     is_pdb_thermophile = api_db.pdb.entity_thermophilicity
         # except AttributeError:
         #     is_ukb_thermophilic = query.uniprot.is_uniprot_thermophilic
-        #     is_pdb_thermophile = query.pdb.is_entity_thermophilic
+        #     is_pdb_thermophile = query.pdb.entity_thermophilicity
 
         # Todo new-style sql.EntityMetrics
         # # Todo need to get the secondary structure at each entity interface indices
@@ -6837,7 +6837,8 @@ class Pose(SymmetricModel, Metrics):
                 minimum_radius = _entity_metrics.min_radius
             if _entity_metrics.max_radius > maximum_radius:
                 maximum_radius = _entity_metrics.max_radius
-            # is_thermophilic.append(1 if entity.thermophilic else 0)
+            # is_thermophilic.append(1 if entity.thermophilicity else 0)
+            # is_thermophilic.append(entity.thermophilicity)
             entity_metrics.append(_entity_metrics)
 
             # # Old-style
@@ -6848,7 +6849,7 @@ class Pose(SymmetricModel, Metrics):
             # if max_rad > maximum_radius:
             #     maximum_radius = max_rad
             #
-            # if entity.thermophilic is not None:
+            # if entity.thermophilicity is not None:
             #     thermophile = 1 if entity.thermophilic else 0
             # else:
             #     thermophile = 1 if is_pdb_thermophile(entity.name) or is_ukb_thermophilic(entity.uniprot_id) else 0

@@ -91,7 +91,7 @@ def load_sql_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None,
     dm_names = [c.name for c in dm_c]
     entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
                          sql.ProteinMetadata.c_terminal_helix,
-                         sql.ProteinMetadata.thermophilic]
+                         sql.ProteinMetadata.thermophilicity]
     em_c = [c for c in sql.EntityMetrics.__table__.columns + entity_metadata_c if not c.primary_key]
     em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
     selected_columns = (*pm_c, *dm_c, *em_c)
@@ -142,7 +142,7 @@ def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None) -
     pm_names = [c.name for c in pm_c]
     entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
                          sql.ProteinMetadata.c_terminal_helix,
-                         sql.ProteinMetadata.thermophilic]
+                         sql.ProteinMetadata.thermophilicity]
     em_c = [c for c in sql.EntityMetrics.__table__.columns + entity_metadata_c if not c.primary_key]
     em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
     # em_c = [c for c in sql.EntityMetrics.__table__.columns if not c.primary_key]
@@ -228,7 +228,7 @@ def load_sql_entity_metrics_dataframe(session: Session, pose_ids: Iterable[int] 
     popse_id_c = sql.EntityData.pose_id
     entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
                          sql.ProteinMetadata.c_terminal_helix,
-                         sql.ProteinMetadata.thermophilic]
+                         sql.ProteinMetadata.thermophilicity]
     em_c = [c for c in sql.EntityMetrics.__table__.columns + entity_metadata_c if not c.primary_key]
     em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
     selected_columns = (popse_id_c, *em_c,)

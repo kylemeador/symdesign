@@ -4082,8 +4082,9 @@ class PoseProtocol(PoseData):
                 idx = 1
                 is_thermophilic = []
                 for idx, (entity, data) in enumerate(zip(self.pose.entities, self.entity_data), idx):
-                    # Todo remove entity.thermophilic once sql load more streamlined
-                    is_thermophilic.append(1 if entity.thermophilic else 0)
+                    # Todo remove entity.thermophilicity once sql load more streamlined
+                    # is_thermophilic.append(1 if entity.thermophilicity else 0)
+                    is_thermophilic.append(entity.thermophilicity)
                     data.metrics = entity.metrics
                     # entity.metrics.pose_id = self.id
                     # self.job.current_session.add(entity.metrics)

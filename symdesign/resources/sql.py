@@ -215,7 +215,7 @@ class PoseMetrics(Base):
     # entity_c_terminal_helix = Column(Boolean)  # Has a # after entity LIST
     # entity_n_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
     # entity_c_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
-    # entity_thermophilic = Column(Boolean)  # Has a # after entity LIST
+    # entity_thermophilicity = Column(Boolean)  # Has a # after entity LIST
     interface1_secondary_structure_fragment_count = Column(Integer)
     interface1_secondary_structure_fragment_topology = Column(String)
     interface1_secondary_structure_count = Column(Integer)
@@ -243,7 +243,7 @@ class PoseMetrics(Base):
     # number_design_residues = Column(Integer)  # , nullable=False)
     # sequence = Column(String(config.MAXIMUM_SEQUENCE))  # , nullable=False)
     pose_length = Column(Integer)  # , nullable=False)
-    pose_thermophilicity = Column(Float)  # Todo make thermophilic? in config.metrics
+    pose_thermophilicity = Column(Float)
     """Thermophilicity implies this is a spectrum, while thermophilic implies binary"""
 
 
@@ -309,7 +309,7 @@ class ProteinMetadata(Base):
     # number_of_residues = Column(Integer)  # entity_ is used in config.metrics
     n_terminal_helix = Column(Boolean)  # entity_ is used in config.metrics
     c_terminal_helix = Column(Boolean)  # entity_ is used in config.metrics
-    thermophilic = Column(Boolean)  # entity_ is used in config.metrics
+    thermophilicity = Column(Boolean)  # entity_ is used in config.metrics
     # Symmetry parameters
     symmetry_group = Column(String)  # entity_ is used in config.metrics
     # symmetry = Column(ForeignKey('symmetry_groups.id'))
@@ -363,8 +363,8 @@ class EntityData(Base):
         return self.meta.reference_sequence
 
     @property
-    def thermophilic(self):
-        return self.meta.thermophilic
+    def thermophilicity(self):
+        return self.meta.thermophilicity
 
     @property
     def uniprot_ids(self):
@@ -515,7 +515,7 @@ class EntityTransform(Base):
 #     entity_c_terminal_helix=Boolean,
 #     entity_n_terminal_orientation=Integer,
 #     entity_c_terminal_orientation=Integer,
-#     entity_thermophilic=Boolean,
+#     entity_thermophilicity=Boolean,
 #     entity_interface_secondary_structure_fragment_topology=String(60),
 #     entity_interface_secondary_structure_topology=String(60),
 # )

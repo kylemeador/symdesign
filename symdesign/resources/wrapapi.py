@@ -12,7 +12,7 @@ from sqlalchemy.orm import synonym, relationship
 from . import sql
 from .database import Database, DataStore
 from .query.pdb import query_entity_id, query_assembly_id, parse_entities_json, parse_assembly_json, query_entry_id, \
-    parse_entry_json, _is_entity_thermophilic
+    parse_entry_json, thermophilic_taxonomy_ids, thermophilicity_from_entity_json
 from .query.uniprot import query_uniprot
 from symdesign.sequence import MultipleSequenceAlignment, parse_hhblits_pssm, read_fasta_file, write_sequence_to_fasta
 from symdesign.structure.utils import parse_stride
@@ -211,12 +211,19 @@ class PDBDataStore(DataStore):
         # putils.make_path(pdb_entity_api)
         # putils.make_path(pdb_assembly_api)
 
-    def is_thermophilic(self, name: str = None, **kwargs) -> bool:
-        """Return whether the entity json entry in question is thermophilic. If no data is found, also returns False"""
+    def entity_thermophilicity(self, name: str = None, **kwargs) -> float:  # bool:
+        """Return the extent to which the EntityID in question is thermophilic
+
+        Args:
+            name: The EntityID
+        Returns:
+            Value ranging from 0-1 where 1 is completely thermophilic
+        """
+        # Todo make possible for retrieve_entry_data(name=name)
         data = self.retrieve_entity_data(name=name)
         if data is None:
             return False
-        return _is_entity_thermophilic(data)
+        return thermophilicity_from_entity_json(data)
 
     def retrieve_entity_data(self, name: str = None, **kwargs) -> dict | None:
         """Return data requested by PDB EntityID. If in the Database, loads, otherwise, queries the PDB API and stores
@@ -279,7 +286,7 @@ class PDBDataStore(DataStore):
                     {'chains': ['A', 'B', ...],
                      'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
                      'reference_sequence': 'MSLEHHHHHH...',
-                     'thermophilic': True},
+                     'thermophilicity': 1.0},
                  ...}
              'method': xray,
              'res': resolution,
@@ -290,7 +297,7 @@ class PDBDataStore(DataStore):
                 {'chains': ['A', 'B', ...],
                  'dbref': {'accession': ('Q96DC8',), 'db': 'UniProt'},
                  'reference_sequence': 'MSLEHHHHHH...',
-                 'thermophilic': True},
+                 'thermophilicity': 1.0},
              ...}
             If assembly_id OR entry AND assembly_integer
             [['A', 'A', 'A', ...], ...]
@@ -403,20 +410,27 @@ class UniProtDataStore(DataStore):
 
         return data
 
-    def is_thermophilic(self, uniprot_id: str) -> int:
+    def thermophilicity(self, uniprot_id: str) -> float:
         """Query if a UniProtID is thermophilic
 
         Args:
             uniprot_id: The formatted UniProtID which consists of either a 6 or 10 character code
         Returns:
-            1 if the UniProtID of interest has an organism lineage from a thermophilic taxa, else 0
+            1 if the UniProtID of interest is a thermophilic organism according to taxonomic classification, else 0
         """
         data = self.retrieve_data(name=uniprot_id)
-        for element in data.get('organism', {}).get('lineage', []):
-            if 'thermo' in element.lower():
-                return 1  # True
 
-        return 0  # False
+        # Exact - parsing the taxonomic ID and cross-reference
+        taxonomic_id = data.get('organism', {}).get('taxonId', -1)
+        if taxonomic_id in thermophilic_taxonomy_ids:
+            return 1.0
+
+        # # Coarse - parsing the taxonomy for 'thermo'
+        # for element in data.get('organism', {}).get('lineage', []):
+        #     if 'thermo' in element.lower():
+        #         return 1  # True
+
+        return 0.0  # False
 
 
 class UniProtEntity(sql.Base):
