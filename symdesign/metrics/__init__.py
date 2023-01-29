@@ -76,7 +76,8 @@ necessary_metrics = {'buns_complex', 'buns1_unbound', 'contact_count', 'coordina
                      # 'interface_connectivity1',
                      'interface_separation',
                      # 'interface_energy_1_bound', 'interface_energy_1_unbound',  'interface_energy_complex',
-                     'interaction_energy_complex', putils.protocol, 'rosetta_reference_energy', 'shape_complementarity',
+                     'interaction_energy_complex', 'rosetta_reference_energy', 'shape_complementarity',
+                     # putils.protocol,
                      # 'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
                      # 'sasa_hydrophobic_1_bound', 'sasa_polar_1_bound', 'sasa_total_1_bound',
                      # 'solvation_energy_complex', 'solvation_energy_1_bound', 'solvation_energy_1_unbound'

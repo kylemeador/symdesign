@@ -3916,7 +3916,7 @@ class PoseProtocol(PoseData):
         # Process the parsed scores to scores_df, rosetta_residues_df
         scores_df, rosetta_residues_df = self.parse_rosetta_scores(design_scores)
 
-        # Find protocol and parent info and remove from scores_df
+        # Find parent info and remove from scores_df
         if putils.design_parent in scores_df:
             # Replace missing values with the pose_source DesignData
             parents = scores_df.pop(putils.design_parent).fillna(self.pose_source)  # .tolist()
@@ -3932,6 +3932,30 @@ class PoseProtocol(PoseData):
         # Get the name/provided_name to design_id mapping for later rename
         design_name_to_id_map = \
             dict((getattr(design_data, 'provided_name', 'name'), design_data.id) for design_data in self.designs)
+
+        designs_path = self.designs_path
+        new_design_new_filenames = {design_data.provided_name:
+                                    os.path.join(designs_path, f'{design_data.name}.pdb')
+                                    for design_data in new_designs_data}
+        # Find protocol info and remove from scores_df
+        if putils.protocol in scores_df:
+            # Replace missing values with the pose_source DesignData
+            protocol_s = scores_df.pop(putils.protocol).fillna(self.pose_source)
+            self.log.critical(f'Found "protocol_s" variable with dtype: {protocol_s.dtype}')
+            # Update the Pose with the design protocols
+            for name_or_provided_name, design_id in design_name_to_id_map.items():
+                protocol_kwargs = dict(design_id=design_id,
+                                       protocol=protocol_s[design_id],
+                                       # temperature=temperatures[idx],)
+                                       )
+                new_filename = new_design_new_filenames.get(name_or_provided_name)
+                if new_filename:
+                    protocol_kwargs['file'] = new_filename
+                else:
+                    protocol_kwargs['file'] = os.path.join(designs_path, f'{name_or_provided_name}.pdb')
+                design_data.protocols.append(sql.DesignProtocol(**protocol_kwargs))
+        # else:  # Assume that no design was done and only metrics were acquired
+        #     pass
 
         # This is all done in update_design_data
         # self.designs.append(new_designs_data)
@@ -4020,27 +4044,6 @@ class PoseProtocol(PoseData):
         designs_df.index = designs_df.index.map(design_name_to_id_map)
         residues_df.index = residues_df.index.map(design_name_to_id_map)
 
-        designs_path = self.designs_path
-        new_design_new_filenames = {design_data.provided_name:
-                                    os.path.join(designs_path, f'{design_data.name}.pdb')
-                                    for design_data in new_designs_data}
-        # Find protocol info and remove from scores_df
-        # protocol_s = scores_df.pop(putils.protocol).copy()
-        # protocol_s = scores_df[putils.protocol]
-        protocol_s = designs_df.pop(putils.protocol).copy()
-        # Update the Pose with the design protocols
-        for name_or_provided_name, design_id in design_name_to_id_map.items():
-            protocol_kwargs = dict(design_id=design_id,
-                                   protocol=protocol_s[design_id],
-                                   # temperature=temperatures[idx],)
-                                   )
-            new_filename = new_design_new_filenames.get(name_or_provided_name)
-            if new_filename:
-                protocol_kwargs['file'] = new_filename
-            else:
-                protocol_kwargs['file'] = os.path.join(designs_path, f'{name_or_provided_name}.pdb')
-            design_data.protocols.append(sql.DesignProtocol(**protocol_kwargs))
-
         # Commit the newly acquired metrics to the database
         # First check if the files are situated correctly
         files_to_move = {}
@@ -4116,6 +4119,9 @@ class PoseProtocol(PoseData):
             self.analyze_pose_metrics(novel_interface=False if not self.pose_source.protocols else True)
         if scores:
             scores_df, rosetta_residues_df = self.parse_rosetta_scores(scores)
+            # Currently the metrics putils.protocol and putils.design_parent are not handle as this is the pose_source
+            # and no protocols should have been run on this, nor should it have a parent. They will be removed when
+            # output to the database
             designs_df = designs_df.join(scores_df)
             residues_df = residues_df.join(rosetta_residues_df)
 
