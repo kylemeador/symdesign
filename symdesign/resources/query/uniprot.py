@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from requests import Response
 
+# from .pdb import thermophilic_taxonomy_ids
 from .utils import connection_exception_handler
 
 # Globals
@@ -179,18 +180,25 @@ def query_uniprot(uniprot_id: str) -> Response | None:
         return None
 
 
-def is_uniprot_thermophilic(uniprot_id: str) -> int:
-    """Query if a UniProtID is thermophilic
-
-    Args:
-        uniprot_id: The formatted UniProtID which consists of either a 6 or 10 character code
-    Returns:
-        1 if the UniProtID of interest has an organism lineage from a thermophilic taxa, else 0
-    """
-    uniprot_request = query_uniprot(uniprot_id)
-    if uniprot_request:
-        for element in uniprot_request.json().get('organism', {}).get('lineage', []):
-            if 'thermo' in element.lower():
-                return 1  # True
-
-    return 0  # False
+# def is_uniprot_thermophilic(uniprot_id: str) -> int:
+#     """Query if a UniProtID is thermophilic
+#
+#     Args:
+#         uniprot_id: The formatted UniProtID which consists of either a 6 or 10 character code
+#     Returns:
+#         1 if the UniProtID of interest is a thermophilic organism according to taxonomic classification, else 0
+#     """
+#     uniprot_request = query_uniprot(uniprot_id)
+#     if uniprot_request:
+#         data = uniprot_request.json()
+#         # Exact - parsing the taxonomic ID and cross-reference
+#         taxonomic_id = data.get('organism', {}).get('taxonId', -1)
+#         if taxonomic_id in thermophilic_taxonomy_ids:
+#             return 1.0
+#
+#         # # Coarse - parsing the taxonomy for 'thermo'
+#         # for element in data.get('organism', {}).get('lineage', []):
+#         #     if 'thermo' in element.lower():
+#         #         return 1  # True
+#
+#     return 0.0  # False

@@ -955,7 +955,7 @@ def main():
                             reference_sequence=entity.reference_sequence,
                             n_terminal_helix=entity.is_termini_helical(),
                             c_terminal_helix=entity.is_termini_helical('c'),
-                            thermophilic=entity.thermophilic,
+                            thermophilicity=entity.thermophilicity,
                             symmetry_group=symmetry)
                         # # Set the Entity with .metadata attribute to fetch in fragdock()
                         # entity.metadata = protein_metadata
@@ -1233,7 +1233,7 @@ def main():
                                 reference_sequence=entity.reference_sequence,
                                 n_terminal_helix=entity.is_termini_helical(),
                                 c_terminal_helix=entity.is_termini_helical('c'),
-                                thermophilic=entity.thermophilic,
+                                thermophilicity=entity.thermophilicity,
                                 symmetry_group=symmetry
                                 # # Todo there could be no sym_entry, the use the entity.symmetry
                                 # symmetry=entity.symmetry
