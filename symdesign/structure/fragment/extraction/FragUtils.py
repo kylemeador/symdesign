@@ -41,13 +41,11 @@ def find_interface_pairs(pdb1: Structure, pdb2: Structure, distance) -> list[tup
     coords_indexed_residues1 = pdb1.coords_indexed_residues
     coords_indexed_residues2 = pdb2.coords_indexed_residues
     interface_pairs = []
-    for pdb2_index, pdb1_contacts in enumerate(query):
-        if pdb1_contacts.tolist() != list():
-            pdb2_residue = coords_indexed_residues2[pdb2_cb_indices[pdb2_index]]
-            for pdb1_index in pdb1_contacts:
-                pdb1_residue = coords_indexed_residues1[pdb1_cb_indices[pdb1_index]]
-                interface_pairs.append((pdb1_residue, pdb2_residue))
-
+    for pdb2_index, pdb1_contacts in enumerate(query.tolist()):
+        pdb2_residue = coords_indexed_residues2[pdb2_cb_indices[pdb2_index]]
+        interface_pairs.extend([(coords_indexed_residues1[pdb1_cb_indices[pdb1_index]], pdb2_residue)
+                                for pdb1_index in pdb1_contacts.tolist()])
+    # Todo is this faster than indexing pdb2_residue everytime with list comprehension?
     return interface_pairs
 
 
@@ -299,19 +297,18 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
     pdb_mapped_atoms = pdb_mapped.atoms
     pdb_paired_atoms = pdb_paired.atoms
     interacting_pairs = []
-    for patner_index, mapped_contact in enumerate(query):
-        if mapped_contact.tolist() != list():
-            if pdb_paired_atoms[patner_index].is_backbone():  # mark the atom number as backbone
-                paired_residue = False
+    for patner_index, mapped_contact in enumerate(query.tolist()):
+        if pdb_paired_atoms[patner_index].is_backbone():  # mark the atom number as backbone
+            paired_residue = False
+        else:
+            paired_residue = paired_coords_indexed_residues[patner_index]
+        for mapped_index in mapped_contact.tolist():
+            if pdb_mapped_atoms[mapped_index].is_backbone():  # mark the atom number as backbone
+                mapped_residue = False
             else:
-                paired_residue = paired_coords_indexed_residues[patner_index]
-            for mapped_index in mapped_contact:
-                if pdb_mapped_atoms[mapped_index].is_backbone():  # mark the atom number as backbone
-                    mapped_residue = False
-                else:
-                    mapped_residue = mapped_coords_indexed_residues[mapped_index]
+                mapped_residue = mapped_coords_indexed_residues[mapped_index]
 
-                interacting_pairs.append((mapped_residue, paired_residue))
+            interacting_pairs.append((mapped_residue, paired_residue))
 
     # Create dictionary and Count all atoms in each residue sidechain
     # ex. {'A': {32: (0, 9), 33: (0, 5), ...}, 'B':...}

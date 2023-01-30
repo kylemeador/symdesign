@@ -1271,8 +1271,8 @@ class ContainsAtomsMixin(StructureBase, ABC):
         # Query for neighbors of the self coordinates but excluding the self indices
         query = modified_coords_balltree.query_radius(coords, distance)
 
-        return np.unique(np.concatenate(query)).tolist()
-        # return np.unique(np.concatenate(query))
+        return sorted({idx for contacts in query.tolist() for idx in contacts.tolist()})
+        # return np.unique(np.concatenate(query)).tolist()
 
     # @atoms.setter
     # def atoms(self, atoms: Atoms | list[Atom]):
@@ -4031,15 +4031,15 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         all_atom_counts_query = all_atom_tree.query_radius(coords, distance, count_only=True)
         # residue_neighbor_counts, current_residue = 0, coords_indexed_residues[0]
         current_residue = coords_indexed_residues[0]
-        for residue, atom_neighbor_counts in zip(coords_indexed_residues, all_atom_counts_query):  # should be same len
+        for residue, atom_neighbor_counts in zip(coords_indexed_residues, all_atom_counts_query.tolist()):
             if residue == current_residue:
                 current_residue.local_density += atom_neighbor_counts
-            else:  # we have a new residue
-                current_residue.local_density /= current_residue.number_of_heavy_atoms  # find the average
+            else:  # We have a new residue, find the average
+                current_residue.local_density /= current_residue.number_of_heavy_atoms
                 current_residue = residue
                 current_residue.local_density += atom_neighbor_counts
-        # ensure the last residue is calculated
-        current_residue.local_density /= current_residue.number_of_heavy_atoms  # find the average
+        # Ensure the last residue is calculated
+        current_residue.local_density /= current_residue.number_of_heavy_atoms  # Find the average
 
         return [residue.local_density for residue in self.residues]
 
@@ -4127,8 +4127,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             # query the first residue with chosen coords type against the atom_tree
             residue_atom_contacts = atom_tree.query_radius(getattr(residue, coords_type), distance)
             # reduce the dimensions and format as a single array
-            all_contacts = {atom_contact for residue_contacts in residue_atom_contacts
-                            for atom_contact in residue_contacts}
+            all_contacts = {atom_contact for residue_contacts in residue_atom_contacts.tolist()
+                            for atom_contact in residue_contacts.tolist()}
             # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
             clashes = any_clashes(
                 all_contacts.difference(residue.atom_indices
@@ -4137,8 +4137,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             # perform routine for all middle residues
             for residue in residues[1:-1]:  # avoid first and last since no prev_ or next_residue
                 residue_atom_contacts = atom_tree.query_radius(getattr(residue, coords_type), distance)
-                all_contacts = {atom_contact for residue_contacts in residue_atom_contacts
-                                for atom_contact in residue_contacts}
+                all_contacts = {atom_contact for residue_contacts in residue_atom_contacts.tolist()
+                                for atom_contact in residue_contacts.tolist()}
                 prior_residue = residue.prev_residue
                 clashes = any_clashes(
                     all_contacts.difference([prior_residue.o_atom_index,
@@ -4149,8 +4149,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
             residue = residues[-1]
             residue_atom_contacts = atom_tree.query_radius(getattr(residue, coords_type), distance)
-            all_contacts = {atom_contact for residue_contacts in residue_atom_contacts
-                            for atom_contact in residue_contacts}
+            all_contacts = {atom_contact for residue_contacts in residue_atom_contacts.tolist()
+                            for atom_contact in residue_contacts.tolist()}
             prior_residue = residue.prev_residue
             clashes = any_clashes(
                 all_contacts.difference([prior_residue.o_atom_index, prior_residue.c_atom_index]
@@ -4871,13 +4871,13 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         query = tree.query_radius(coords, distance)
 
         residues = self.residues
-        # In case this was already called, we should set all to 0.
+        # In case this was already called, we should set all to 0.0
         for residue in residues:
             residue.contact_order = 0.
 
         heavy_atom_coords_indexed_residues = self.heavy_coords_indexed_residues
         contacting_pairs = set((heavy_atom_coords_indexed_residues[idx1], heavy_atom_coords_indexed_residues[idx2])
-                               for idx2, contacts in enumerate(query) for idx1 in contacts)
+                               for idx2, contacts in enumerate(query.tolist()) for idx1 in contacts.tolist())
         # Residue.contact_order starts as 0., so we are adding any observation to that attribute
         for residue1, residue2 in contacting_pairs:
             residue_sequence_distance = abs(residue1.number - residue2.number)

@@ -841,16 +841,17 @@ def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = No
         seq_neighbors = skl.neighbors.BallTree(seq_pc_np)
         seq_neighbor_counts = seq_neighbors.query_radius(seq_pc_np, epsilon, count_only=True)  # sort_results=True)
         top_count, top_idx = 0, None
-        for count in seq_neighbor_counts:  # idx, enumerate()
+        count_list = seq_neighbor_counts.tolist()
+        for count in count_list:  # idx, enumerate()
             if count > top_count:
                 top_count = count
 
-        sorted_seqs = sorted(seq_neighbor_counts, reverse=True)
+        sorted_seqs = sorted(count_list, reverse=True)
         top_neighbor_counts = sorted(set(sorted_seqs[:number]), reverse=True)
 
         # Find only the designs which match the top x (number) of neighbor counts
         final_designs = {designs[idx]: num_neighbors for num_neighbors in top_neighbor_counts
-                         for idx, count in enumerate(seq_neighbor_counts) if count == num_neighbors}
+                         for idx, count in enumerate(count_list) if count == num_neighbors}
         job.log.info('The final sequence(s) and file(s):\nNeighbors\tDesign\n%s'
                      # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.zero_offset,
                      % '\n'.join(f'\t{neighbors}\t{os.path.join(job.designs_path, _design)}'

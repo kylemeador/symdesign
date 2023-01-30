@@ -479,17 +479,17 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         # surface_frag_cb_coords = np.concatenate([residue.cb_coords for residue in surf_frags1], axis=0)
         surface_frag_cb_coords = np.array([residue.cb_coords for residue in surf_frags1])
         model1_surface_cb_ball_tree = BallTree(surface_frag_cb_coords)
-        residue_contact_query: list[list[int]] = \
+        residue_contact_query: np.ndarray = \
             model1_surface_cb_ball_tree.query_radius(surface_frag_cb_coords, cb_distance)
         surface_frag_residue_indices = list(range(number_or_surface_frags))
-        contacting_residue_pairs: list[tuple[int, int]] = [(surface_frag_residue_indices[idx1],
-                                                            surface_frag_residue_indices[idx2])
-                                                           for idx2, idx1_contacts in enumerate(residue_contact_query)
-                                                           for idx1 in idx1_contacts]
+        contacting_residue_idx_pairs: list[tuple[int, int]] = \
+            [(surface_frag_residue_indices[idx1], surface_frag_residue_indices[idx2])
+             for idx2, idx1_contacts in enumerate(residue_contact_query.tolist())
+             for idx1 in idx1_contacts.tolist()]
 
         # Separate residue-residue contacts into a unique set of residue pairs
         asymmetric_contacting_residue_pairs, found_pairs = [], []
-        for residue_idx1, residue_idx2 in contacting_residue_pairs:
+        for residue_idx1, residue_idx2 in contacting_residue_idx_pairs:
             # Add to unique set (asymmetric_contacting_residue_pairs) if we have never observed either
             if residue_idx1 == residue_idx2:
                 continue  # We don't need to add because this check rules possibility out
@@ -1605,16 +1605,17 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         # Overlap Score Calculation - 0.000209 s for 887 fragment pairs
         # Total Match time          - 0.006250 s
 
-        int_frags_time_start = time.time()
+        # int_frags_time_start = time.time()
         model2_query = model1_cb_balltree.query_radius(inverse_transformed_model2_tiled_cb_coords[idx], cb_distance)
         # model1_cb_balltree_time = time.time() - int_frags_time_start
 
-        contacting_residue_pairs = [(model1_coords_indexed_residues[model1_cb_indices[model1_idx]].index,
-                                     model2_coords_indexed_residues[model2_cb_indices[model2_idx]].index)
-                                    for model2_idx, model1_contacts in enumerate(model2_query)
-                                    for model1_idx in model1_contacts]
+        contacting_residue_idx_pairs = [(model1_coords_indexed_residues[model1_cb_indices[model1_idx]].index,
+                                         model2_coords_indexed_residues[model2_cb_indices[model2_idx]].index)
+                                        for model2_idx, model1_contacts in enumerate(model2_query.tolist())
+                                        for model1_idx in model1_contacts.tolist()]
         try:
-            interface_residue_numbers1, interface_residue_numbers2 = map(list, map(set, zip(*contacting_residue_pairs)))
+            interface_residue_indices1, interface_residue_indices2 = \
+                map(list, map(set, zip(*contacting_residue_idx_pairs)))
         except ValueError:  # Interface contains no residues, so not enough values to unpack
             logger.warning('Interface contains no residues')
             continue
@@ -1627,9 +1628,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         # Todo make ghost_residue_indices1 unique -> unique_ghost_residue_numbers1
         #  index selected numbers against per_residue_ghost_indices 2d (number surface frag residues,
         ghost_indices_in_interface1 = \
-            np.flatnonzero(np.isin(ghost_residue_indices1, interface_residue_numbers1))
+            np.flatnonzero(np.isin(ghost_residue_indices1, interface_residue_indices1))
         surf_indices_in_interface2 = \
-            np.flatnonzero(np.isin(surf_residue_indices2, interface_residue_numbers2, assume_unique=True))
+            np.flatnonzero(np.isin(surf_residue_indices2, interface_residue_indices2, assume_unique=True))
 
         # is_in_index_time = time.time() - is_in_index_start
         all_fragment_match_time_start = time.time()
