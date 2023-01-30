@@ -5398,9 +5398,11 @@ class SymmetricModel(Models):
 
             offset_count = count()
             asu_indices_combinations = []
-            asu_indices_index, asu_coms_index = [], []
-            com_offsets = np.zeros(sum(map(math.prod, combinations((len(indices) for indices in asu_indices), 2))))
-            possible_symmetry_indices = range(number_of_symmetry_groups)
+            entity_idx_pairs, asu_coms_index = [], []
+            com_offsets = np.full(sum(map(math.prod,
+                                          combinations((len(indices) for indices in oligomeric_indices_groups), 2))),
+                                  np.inf)
+            symmetric_group_indices = range(number_of_symmetry_groups)
             # Find the shortest distance between two center of mass points for any of the possible symmetric COMs
             for entity_idx1, entity_idx2 in combinations(symmetric_group_indices, 2):
                 # for index1 in oligomeric_indices_groups[idx1]:
