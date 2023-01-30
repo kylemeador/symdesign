@@ -60,14 +60,17 @@ metrics = {
     # 'buns_total':
     #     dict(description='Total buried unsaturated H-bonds in the design',
     #      direction=min_, function=rank, filter=True),
-    'buns_unbound':
-        dict(description='Total buried unsaturated H-bonds in the design',
-             direction=min_, function=rank, filter=True),
     'buried_unsatisfied_hbond_density':
-        dict(description='Buried Unsaturated Hbonds per Angstrom^2 of interface',
+        dict(description='Buried unsatisfied H-bonds per Angstrom^2 of interface',
              direction=min_, function=normalize, filter=True),
     'buried_unsatisfied_hbonds':
-        dict(description='Total buried unsatisfied H-bonds in the design',
+        dict(description='Total buried unsatisfied H-bonds in the design interface',
+             direction=min_, function=rank, filter=True),
+    'buried_unsatisfied_hbonds_complex':
+        dict(description='Buried unsatisfied H-bonds in the complexed interface state',
+             direction=min_, function=rank, filter=True),
+    'buried_unsatisfied_hbonds_unbound':
+        dict(description='Buried unsatisfied H-bonds in the unbound interface state',
              direction=min_, function=rank, filter=True),
     # 'component_1_symmetry':
     #     dict(description='The symmetry group of component 1',

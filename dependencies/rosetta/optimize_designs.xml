@@ -154,7 +154,7 @@
 
 	<FILTERS>
 		<Time name="time"/>
-		<BuriedUnsatHbonds name="buns_complex" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_cst" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
+		<BuriedUnsatHbonds name="buried_unsatisfied_hbonds_complex" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_cst" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
 		<ShapeComplementarity name="shape_complementarity" min_sc="0.1" min_interface="0" residue_selector1="interface1" residue_selector2="interface2_sc" write_median_dist="1" max_median_dist="0"/> # Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
 <!--		<Delta name="D_shape_complementarity" upper="0" lower="1" range="0.02" filter="shape_complementarity" reference_name="input_pose"/> # reference_pdb="" reference_name="" unbound="0" jump="" relax_mover=""-->
 <!--		<Delta name="D_shape_complementarity_higher" upper="1" lower="0" range="0.0" filter="shape_complementarity" reference_name="input_pose"/> # reference_pdb="" reference_name="" unbound="0" jump="" relax_mover=""-->
@@ -251,7 +251,7 @@
 		<GreedyOptMutationMover name="optimize" task_operations="init,vrt,hbnet_rtr,read_resfile,des_around_total" scorefxn="2015_cst" relax_mover="min"> # repacks an 8A mutation shell then calls "relax_mover". reset_delta_filters="1"-NOT ALLOWED IN 2021 06.16 VERSIONS...
 <!--		<GreedyOptMutationMover name="optimize" task_operations="init,vrt,hbnet_rtr,read_resfile,des_around_total" scorefxn="2015_nano_cst" relax_mover="min"> # repacks an 8A mutation shell then calls "relax_mover". reset_delta_filters="1"-NOT ALLOWED IN 2021 06.16 VERSIONS...-->
 			<Filters> # filter values actually don't matter for filtering, just for final optimization
-				<AND filter_name="buns_complex" sample_type="low"/>
+				<AND filter_name="buried_unsatisfied_hbonds_complex" sample_type="low"/>
 <!--				<AND filter_name="shape_complementarity" sample_type="high"/>-->
 <!--				<AND filter_name="D_shape_complementarity" sample_type="low"/> # lower is better because of the delta-->
 <!--				<AND filter_name="D_shape_complementarity" sample_type="high"/>-->

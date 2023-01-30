@@ -4172,7 +4172,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
             # if job.design.structures:
             #     scores_df['interface_composition_similarity'] = \
             #         scores_df.apply(metrics.interface_composition_similarity, axis=1)
-            poses_df.drop(metrics.clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
+            # poses_df.drop(metrics.clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
 
             if job.db:
                 poses_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
