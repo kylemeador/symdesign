@@ -4131,7 +4131,9 @@ class PoseProtocol(PoseData):
                 current_metrics = self.metrics
                 metrics_ = get_metrics()
                 for attr, value in metrics_.__dict__.items():
-                    setattr(current_metrics, attr, value)
+                    if attr == '_sa_instance_state':
+                        continue
+                    current_metrics.__setattr__(attr, value)
             else:
                 return
         else:
