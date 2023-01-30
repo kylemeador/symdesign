@@ -1401,7 +1401,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                                         oligomer=True)
 
                 ghost_frags = [ghost_frag for ghost_frag, _, _ in self.pose.fragment_pairs]
-                fragment.visuals.write_fragments_as_multimodel(ghost_frags, os.path.join(self.frags_path, 'all_frags.pdb'))
+                fragment.visuals.write_fragments_as_multimodel(ghost_frags,
+                                                               os.path.join(self.frags_path, 'all_frags.pdb'))
                 # for frag_idx, (ghost_frag, frag, match) in enumerate(self.pose.fragment_pairs):
                 #     continue
             else:

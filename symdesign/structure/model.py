@@ -6793,10 +6793,8 @@ class Pose(SymmetricModel, Metrics):
         ss_type_array = self.ss_type_sequence
         total_interface_ss_topology = total_interface_ss_fragment_topology = ''
         for number, elements in self.split_interface_ss_elements.items():
-            fragment_elements = set()
-            for residue, element in zip(self.residues_by_interface[number], elements):
-                if residue.index in center_residue_indices:
-                    fragment_elements.add(element)
+            fragment_elements = {element for residue, element in zip(self.residues_by_interface[number], elements)
+                                 if residue.index in center_residue_indices}
             # Take the set of elements as there are element repeats if SS is continuous over residues
             interface_ss_topology = ''.join(ss_type_array[element] for element in set(elements))
             interface_ss_fragment_topology = ''.join(ss_type_array[element] for element in fragment_elements)
