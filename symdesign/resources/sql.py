@@ -136,14 +136,6 @@ class PoseMetadata(Base):
     # symmetry_groups = relationship('SymmetryGroup')
     sym_entry_specification = Column(String)  # RESULT:{SUBSYMMETRY1}{SUBSYMMETRY2}...
 
-    # def get_design_number(self, session: Session, number: int) -> int:
-    #     return self.number_of_designs
-    #
-    # @staticmethod
-    # def increment_design_number(cls, session: Session, number: int):
-    #     return None
-    # OLD ^
-    # NEW v
     # @property
     # def symmetry_groups(self) -> list[str]:
     #     return [entity.symmetry for entity in self.entity_data]

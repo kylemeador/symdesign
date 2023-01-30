@@ -2170,7 +2170,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
             pose.fragment_metrics = {entity_tuple: fragment_metrics}
 
     # Sort cluster members by the highest metric and take some highest number of members
-    # Todo filter by score for the best then repeat perterbation
+    # Todo filter by score for the best then repeat perturbation
     #  Collect scores according to job.dock.score
 
     if job.dock.score:
@@ -2185,12 +2185,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         perturb_passing_indices = []
         for idx in range(number_of_transform_seeds):
             # Slice the chosen metric along the local perturbation
-            perturb_metric = metric[idx * total_perturbation_size: (idx + 1) * total_perturbation_size]
+            perturb_metric = metric[idx * total_perturbation_size: (idx+1) * total_perturbation_size]
             # Sort the slice and take the top number of hits
             top_candidate_indices = perturb_metric.argsort()[:number_of_chosen_hits]
             # perturb_metric[top_candidate_indices]
             # Scale the selected indices into the transformation indices reference
-            perturb_passing_indices.extend((top_candidate_indices + idx * total_perturbation_size).tolist())
+            perturb_passing_indices.extend((idx*total_perturbation_size + top_candidate_indices).tolist())
 
         remove_non_viable_indices(perturb_passing_indices)
     else:  # Output all
