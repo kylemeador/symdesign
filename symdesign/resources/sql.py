@@ -35,7 +35,7 @@ class _Base:
     def __eq__(self, other) -> bool:
         if isinstance(other, self.__class__):
             return self.__key() == other.__key()
-        raise NotImplementedError(f"Can't compare {self.__class__} instance to {other.__class__} instance")
+        return NotImplemented
 
     def __hash__(self) -> int:
         return hash(self.__key())
