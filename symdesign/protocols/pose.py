@@ -4051,7 +4051,7 @@ class PoseProtocol(PoseData):
 
         # Score using proteinmpnn
         # Todo only score if it hasn't been scored previously...
-        sequences_and_scores = self.pose.score(design_sequences.values())
+        sequences_and_scores = self.pose.score(list(design_sequences.values()))
         sequences_and_scores.update({'design_indices': design_residues})
         # sequences_and_scores = {
         #     'design_indices': design_residues,
