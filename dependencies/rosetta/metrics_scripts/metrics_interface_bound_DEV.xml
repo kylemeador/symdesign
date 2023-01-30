@@ -330,6 +330,7 @@
 <!--		</ParsedProtocol>-->
 		<ParsedProtocol name="metrics">
 			<Add mover_name="run_metrics_complex"/>
+<!-- TODO MISSING			<Add mover_name="run_solv_metrics_complex"/>-->
 			<Add filter_name="R_full_stability_complex"/>
 			<Add filter_name="R_favor_residue_energy"/>
 <!--			<Add filter_name="R_fsp_total_stability"/>-->
@@ -342,10 +343,10 @@
 <!--	<FILTERS>-->
 <!--		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/> # symmetric is -1, asymmetric is 0-->
 <!--	</FILTERS>-->
-<!--	<MOVERS>-->
-<!--		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>-->
-<!--&lt;!&ndash;		<If name="metrics" filter_name="read_sym" true_mover_name="sym_metrics" false_mover_name="asymmetric_metrics"/>&ndash;&gt;-->
-<!--	</MOVERS>-->
+	<MOVERS>
+		<Subroutine name="metrics_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>
+<!--		<If name="metrics" filter_name="read_sym" true_mover_name="sym_metrics" false_mover_name="asymmetric_metrics"/>-->
+	</MOVERS>
 
 	<PROTOCOLS>
 <!--		<Add mover_name="if_symmetry"/>-->
@@ -391,6 +392,14 @@
 <!--		<Add filter_name="R_interface_area_total"/>-->
 <!--		<Add filter_name="R_buns_hpol"/>-->
 <!--		<Add filter_name="R_buns_total"/>-->
+		<Add mover_name="metrics_interface_bound"/>
+		<!-- RUNS ALL BELOW/>-->
+<!--			<Add filter_name="R_shape_complementarity"/>-->
+<!--			<Add filter_name="R_contact_count"/>-->
+<!--			<Add mover_name="metrics"/>-->
+<!--			<Add mover_name="run_metrics"/>-->
+<!--			<Add filter_name="R_buried_unsatisfied_hbonds_complex"/>-->
+<!--		<Add mover_name="DEV"/>-->
 	</PROTOCOLS>
 
 </ROSETTASCRIPTS>
