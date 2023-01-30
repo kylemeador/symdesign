@@ -503,9 +503,11 @@ class JobResources:
         self.module: str = kwargs.get(flags.module)
         # Ensure that the protocol is viable
         if self.module == flags.protocol:
+            self.protocol_module = True
             self.modules: list[str] = kwargs.get(flags.modules)
             self.check_protocol_module_arguments()
         else:
+            self.protocol_module = False
             self.modules = [self.module]
         # When we are performing expand-asu, make sure we set output_assembly to True
         if self.module == flags.expand_asu:
@@ -751,9 +753,16 @@ class JobResources:
 
         available_memory = psutil.virtual_memory().available
         gb_divisior = 1000000000
-        logger.debug(f'Available memory: {available_memory / gb_divisior:2f} GB')
-        logger.debug(f'Required memory: {required_memory / gb_divisior:2f} GB')
-        if available_memory < required_memory:
+        logger.debug(f'Available memory: {available_memory / gb_divisior:.2f} GB')
+        logger.debug(f'Required memory: {required_memory / gb_divisior:.2f} GB')
+        # If we are running a protocol, check for reducing memory requirements
+        if self.protocol_module and len(self.modules) > 2:
+            self.reduce_memory = True
+        elif available_memory < required_memory:
+            self.reduce_memory = True
+        else:
+            # Todo when requirements are more accurate with database
+            #  self.reduce_memory = False
             self.reduce_memory = True
         logger.debug(f'Reduce job memory?: {self.reduce_memory}')
 
