@@ -4067,7 +4067,7 @@ class PoseProtocol(PoseData):
         # Commit all new data
         self.job.current_session.commit()
 
-    def calculate_pose_metrics(self, scores: dict[str, dict[str, str | int | float]] = None):
+    def calculate_pose_metrics(self, scores: dict[str, str | int | float] = None):
         """Perform a metrics update only on the reference Pose
 
         Args:
@@ -4075,26 +4075,39 @@ class PoseProtocol(PoseData):
         """
         self.load_pose()
 
+        def get_metrics():
+            metrics_ = self.pose.metrics  # Also calculates entity.metrics
+            # Todo
+            # # Gather the docking metrics if not acquired from Nanohedra
+            # pose_residues_df = self.analyze_docked_metrics()
+            # self.output_metrics(residues=pose_residues_df, pose_metrics=True)
+            # Todo move into this mechanism PoseMetrics level calculations of the following:
+            #  dock_collapse_*,
+            #  dock_hydrophobicity,
+            #  proteinmpnn_v_evolution_probability_cross_entropy_loss
+            #
+            idx = 1
+            is_thermophilic = []
+            for idx, (entity, data) in enumerate(zip(self.pose.entities, self.entity_data), idx):
+                # Todo remove entity.thermophilicity once sql load more streamlined
+                # is_thermophilic.append(1 if entity.thermophilicity else 0)
+                is_thermophilic.append(entity.thermophilicity)
+                data.metrics = entity.metrics
+            metrics_.pose_thermophilicity = sum(is_thermophilic) / idx
+
+            return metrics_
+
         # Check if PoseMetrics have been captured
         if self.job.db:
             if self.metrics is None:
-                self.metrics = self.pose.metrics  # Also calculates entity.metrics
-                # pose_metrics = self.pose.metrics
-                # pose_metrics.pose_id = self.id
-                # Add metrics objects to the current session
-                # self.job.current_session.add(pose_metrics)
-                idx = 1
-                is_thermophilic = []
-                for idx, (entity, data) in enumerate(zip(self.pose.entities, self.entity_data), idx):
-                    # Todo remove entity.thermophilicity once sql load more streamlined
-                    # is_thermophilic.append(1 if entity.thermophilicity else 0)
-                    is_thermophilic.append(entity.thermophilicity)
-                    data.metrics = entity.metrics
-                    # entity.metrics.pose_id = self.id
-                    # self.job.current_session.add(entity.metrics)
-
-                self.metrics.pose_thermophilicity = sum(is_thermophilic) / idx
-
+                self.metrics = get_metrics()
+            elif scores or self.job.force:
+                # Update existing self.metrics
+                current_metrics = self.metrics
+                print("hasattr('__setattr__')", hasattr(current_metrics, '__setattr__'))
+                metrics_ = get_metrics()
+                for attr, value in metrics_.__dict__.items():
+                    setattr(current_metrics, attr, value)
             else:
                 return
         else:
@@ -4116,16 +4129,23 @@ class PoseProtocol(PoseData):
         # Output
         # residues_df = self.analyze_pose_metrics()
         # self.output_metrics(residues=residues_df)
+        pose_name = self.pose.name
         designs_df, residues_df = \
             self.analyze_pose_metrics(novel_interface=False if not self.pose_source.protocols else True)
         if scores:
-            scores_df, rosetta_residues_df = self.parse_rosetta_scores(scores)
+            # pose_source_id = self.pose_source.id
+            scores_with_identifier = {pose_name: scores}
+            scores_df, rosetta_residues_df = self.parse_rosetta_scores(scores_with_identifier)
             # Currently the metrics putils.protocol and putils.design_parent are not handle as this is the pose_source
             # and no protocols should have been run on this, nor should it have a parent. They will be removed when
             # output to the database
             designs_df = designs_df.join(scores_df)
             residues_df = residues_df.join(rosetta_residues_df)
 
+        # Correct the index of the DataFrame by changing from "name" to database ID
+        name_to_id_map = {pose_name: self.pose_source.id}
+        designs_df.index = designs_df.index.map(name_to_id_map)
+        residues_df.index = residues_df.index.map(name_to_id_map)
         self.output_metrics(designs=designs_df, residues=residues_df)
         # Commit the newly acquired metrics
         self.job.current_session.commit()
@@ -4172,10 +4192,10 @@ class PoseProtocol(PoseData):
             # per_residue_data[pose_source_name].update(self.pose.per_residue_interface_errat())
             pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
 
-        # pose_name = self.pose.name
-        pose_source_id = self.pose_source.id
+        pose_name = self.pose.name
+        # pose_source_id = self.pose_source.id
         # Collect reference Structure metrics
-        per_residue_data = {pose_source_id:
+        per_residue_data = {pose_name:
                             {**self.pose.per_residue_interface_surface_area(),
                              **self.pose.per_residue_contact_order(),
                              'errat_deviation': pose_source_errat}
@@ -4198,7 +4218,7 @@ class PoseProtocol(PoseData):
             'design_indices': design_residues,
             **proteinmpnn_scores
         }
-        mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics([pose_source_id], sequences_and_scores)
+        mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics([pose_name], sequences_and_scores)
 
         designs_df = designs_df.join(mpnn_designs_df)
         # sequences_df = self.analyze_sequence_metrics_per_design(sequences=[self.pose.sequence],
