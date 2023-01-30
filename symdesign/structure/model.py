@@ -122,15 +122,15 @@ def get_interface_fragment_chain_residue_numbers(pdb1, pdb2, cb_distance=8):
     query = pdb1_cb_kdtree.query_radius(pdb2_cb_coords, cb_distance)
 
     # Get ResidueNumber, ChainID for all Interacting PDB1 CB, PDB2 CB Pairs
+    pdb1_atoms = pdb1.atoms
+    pdb2_atoms = pdb2.atoms
     interacting_pairs = []
-    for pdb2_query_index in range(len(query)):
-        if query[pdb2_query_index].tolist() != list():
-            pdb2_cb_res_num = pdb2.atoms[pdb2_cb_indices[pdb2_query_index]].residue_number
-            pdb2_cb_chain_id = pdb2.atoms[pdb2_cb_indices[pdb2_query_index]].chain_id
-            for pdb1_query_index in query[pdb2_query_index]:
-                pdb1_cb_res_num = pdb1.atoms[pdb1_cb_indices[pdb1_query_index]].residue_number
-                pdb1_cb_chain_id = pdb1.atoms[pdb1_cb_indices[pdb1_query_index]].chain_id
-                interacting_pairs.append(((pdb1_cb_res_num, pdb1_cb_chain_id), (pdb2_cb_res_num, pdb2_cb_chain_id)))
+    for pdb2_query_index, pdb1_contacts in enumerate(query.tolist()):
+        pdb2_atom = pdb2_atoms[pdb2_cb_indices[pdb2_query_index]]
+        for pdb1_query_index in pdb1_contacts.tolist():
+            pdb1_atom = pdb1_atoms[pdb1_cb_indices[pdb1_query_index]]
+            interacting_pairs.append(((pdb1_atom.residue_number, pdb1_atom.chain_id),
+                                      (pdb2_atom.residue_number, pdb2_atom.chain_id)))
 
 
 def get_multi_chain_interface_fragment_residue_numbers(pdb1, pdb2, interacting_pairs):
@@ -4820,7 +4820,10 @@ class SymmetricModel(Models):
             #                             for assembly_idx in assembly_contacts]
             # interacting_models = sorted(set(contacting_model_indices))
             # combine each subarray of the asu_query and divide by the assembly_tree interval length -> len(asu_query)
-            interacting_models = (np.unique(np.concatenate(asu_query)//len(asu_query)) + 1).tolist()
+            interacting_models = \
+                ((np.array({asu_idx for asu_contacts in asu_query.tolist()
+                            for asu_idx in asu_contacts})//len(asu_query)) + 1).tolist()
+            # interacting_models = (np.unique(np.concatenate(asu_query)//len(asu_query)) + 1).tolist()
             # asu is missing from assembly_tree so add 1 to get correct model index ^
         else:
             # distance = self.asu.radius * 2  # value too large self.radius * 2
@@ -7176,19 +7179,43 @@ class Pose(SymmetricModel, Metrics):
         # entity1_tree = entity1.balltree(atom_type='cb').query_radius(entity2_coords, distance)
         if len(entity2_coords) == 0:  # Ensure the array is not empty
             return None
-        entity2_query = entity1_tree.query_radius(entity2_coords, distance)
 
-        # Return residue numbers of identified coordinates
         self.log.debug(f'Querying {len(entity1_indices)} CB residues in Entity {entity1.name} versus, '
                        f'{len(entity2_indices)} CB residues in {sym_string}Entity {entity2.name}')
+        entity2_query = entity1_tree.query_radius(entity2_coords, distance)
 
+        # Return pairs of Residue instances
         coords_indexed_residues = self.coords_indexed_residues
         # Get the modulus of the number_of_atoms to account for symmetry if used
         number_of_atoms = self.number_of_atoms
+        # # Trying to make gains on the computations done below seems to result in trade offs in the flexibility of
+        # # this function. The iteration over the entity2_query is an immmediate spot (i.e. .tolist() before iteration.
+        # # Additional benefit could come from only indexing the Residue instances for pairs that are being returned
+        # # after pairs are solved for
+        # cb_coords_indexed_residues = self.cb_coords_indexed_residues
+        # number_of_cb_atoms = len(cb_coords_indexed_residues)
+        # cb_contacting_pairs_idx = [(entity1_idx,
+        #                             entity2_idx % number_of_cb_atoms)
+        #                            for entity2_idx, entity1_contacts in enumerate(entity2_query.tolist())
+        #                            for entity1_idx in entity1_contacts.tolist()]
+        # cb_contacting_pairs = [(cb_coords_indexed_residues[entity1_idx],
+        #                         cb_coords_indexed_residues[entity2_idx % number_of_cb_atoms])
+        #                        for entity2_idx, entity1_contacts in enumerate(entity2_query.tolist())
+        #                        for entity1_idx in entity1_contacts.tolist()]
+        # print(f"cb_contacting_pairs len={len(cb_contacting_pairs)}, {cb_contacting_pairs_idx[:5]}")
+        # print(f"Found the cb_contacting_pairs residues of "
+        #       f"{[(res1.index, res2.index) for res1, res2 in cb_contacting_pairs[:5]]}")
+        # contacting_pairs_idx = [(entity1_indices[entity1_idx],
+        #                          entity2_indices[entity2_idx] % number_of_atoms)
+        #                         for entity2_idx, entity1_contacts in enumerate(entity2_query.tolist())
+        #                         for entity1_idx in entity1_contacts.tolist()]
         contacting_pairs = [(coords_indexed_residues[entity1_indices[entity1_idx]],
                              coords_indexed_residues[entity2_indices[entity2_idx] % number_of_atoms])
-                            for entity2_idx, entity1_contacts in enumerate(entity2_query)
-                            for entity1_idx in entity1_contacts]
+                            for entity2_idx, entity1_contacts in enumerate(entity2_query.tolist())
+                            for entity1_idx in entity1_contacts.tolist()]
+        # print(f"Found the contacting_pairs residues of "
+        #       f"{[(res1.index, res2.index) for res1, res2 in contacting_pairs[:5]]}")
+        # print(f"contacting_pairs len={len(contacting_pairs)}, {contacting_pairs_idx[:5]}")
         if entity1 == entity2:  # Solve symmetric results for asymmetric contacts
             asymmetric_contacting_pairs, found_pairs = [], set()
             for pair1, pair2 in contacting_pairs:
@@ -7290,8 +7317,8 @@ class Pose(SymmetricModel, Metrics):
         interface_atom_tree = BallTree(self.coords[entity1_indices])
         atom_query = interface_atom_tree.query_radius(query_coords, distance)
         contacting_pairs = [(entity1_indices[entity1_idx], entity2_indices[entity2_idx])
-                            for entity2_idx, entity1_contacts in enumerate(atom_query)
-                            for entity1_idx in entity1_contacts]
+                            for entity2_idx, entity1_contacts in enumerate(atom_query.tolist())
+                            for entity1_idx in entity1_contacts.tolist()]
         return contacting_pairs
 
     def local_density_interface(self, distance: float = 12.) -> float:

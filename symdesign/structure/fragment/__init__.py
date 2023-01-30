@@ -307,7 +307,7 @@ class Fragment(ABC):
             transformed_bb_coords = transform_coordinate_sets(stacked_bb_coords, *self.transformation)
             # with .reshape(), we query on a np.view saving memory
             neighbors = clash_tree.query_radius(transformed_bb_coords.reshape(-1, 3), clash_dist)
-            neighbor_counts = np.array([neighbor.size for neighbor in neighbors])
+            neighbor_counts = np.array([neighbor.size for neighbor in neighbors.tolist()])
             # reshape to original size then query for existence of any neighbors for each fragment individually
             clashing_indices = neighbor_counts.reshape(transformed_bb_coords.shape[0], -1).any(axis=1)
             viable_indices = ~clashing_indices
