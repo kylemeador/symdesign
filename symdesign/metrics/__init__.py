@@ -176,7 +176,7 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
 # columns_to_remove = ['decoy', 'symmetry_switch', 'metrics_symmetry', 'oligomer_switch', 'total_score',
 #                      'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex']
 
-# subtract columns using tuple [0] - [1] to make delta column
+# Subtract columns using tuple [0] - [1] to make delta column
 rosetta_delta_pairs = {
     'buried_unsatisfied_hbonds': ('buried_unsatisfied_hbonds_complex', 'buried_unsatisfied_hbonds_unbound'),  # Rosetta
     # Replace by Residues summation
@@ -310,7 +310,7 @@ def columns_to_new_column(df: pd.DataFrame, columns: dict[str, tuple[str, ...]],
         Dataframe with new column values
     """
     for new_column, column_set in columns.items():
-        try:  # Todo check why using attrgetter(mod)(operator) ?
+        try:  # Todo check why using attrgetter(mode)(operator) ?
             df[new_column] = operator.attrgetter(mode)(operator)(df[column_set[0]], df[column_set[1]])
         except KeyError:
             pass
