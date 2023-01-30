@@ -1825,17 +1825,18 @@ class PoseProtocol(PoseData):
 
             # Drop designs where required data isn't present
             # Format protocol columns
-            missing_group_indices = scores_df[putils.protocol].isna()
-            # Todo remove not DEV
-            scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
-            scores_df.loc[scout_indices, putils.protocol] = putils.scout
-            structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
-            scores_df.loc[structure_bkgnd_indices, putils.protocol] = putils.structure_background
-            # Todo Done remove
-            # protocol_s.replace({'combo_profile': putils.design_profile}, inplace=True)  # ensure proper profile name
+            if putils.protocol in scores_df.columns:
+                missing_group_indices = scores_df[putils.protocol].isna()
+                # Todo remove not DEV
+                scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
+                scores_df.loc[scout_indices, putils.protocol] = putils.scout
+                structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
+                scores_df.loc[structure_bkgnd_indices, putils.protocol] = putils.structure_background
+                # Todo Done remove
+                # protocol_s.replace({'combo_profile': putils.design_profile}, inplace=True)  # ensure proper profile name
 
-            scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
-            # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
+                scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
+                # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
 
             viable_designs = scores_df.index.to_list()
             if not viable_designs:
@@ -3786,18 +3787,19 @@ class PoseProtocol(PoseData):
         #               for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
 
         # Drop designs where required data isn't present
-        # Format protocol columns
-        # # Todo remove not DEV
-        # missing_group_indices = scores_df[putils.protocol].isna()
-        # scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
-        # scores_df.loc[scout_indices, putils.protocol] = putils.scout
-        # structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
-        # scores_df.loc[structure_bkgnd_indices, putils.protocol] = putils.structure_background
-        # # Todo Done remove
-        missing_group_indices = scores_df[putils.protocol].isna()
-        # protocol_s.replace({'combo_profile': putils.design_profile}, inplace=True)  # ensure proper profile name
+        if putils.protocol in scores_df.columns:
+            # Format protocol columns
+            # # Todo remove not DEV
+            # missing_group_indices = scores_df[putils.protocol].isna()
+            # scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
+            # scores_df.loc[scout_indices, putils.protocol] = putils.scout
+            # structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
+            # scores_df.loc[structure_bkgnd_indices, putils.protocol] = putils.structure_background
+            # # Todo Done remove
+            missing_group_indices = scores_df[putils.protocol].isna()
+            # protocol_s.replace({'combo_profile': putils.design_profile}, inplace=True)  # ensure proper profile name
 
-        scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
+            scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
 
         # Replace empty strings with np.nan and convert remaining to float
         scores_df.replace('', np.nan, inplace=True)
@@ -3845,6 +3847,15 @@ class PoseProtocol(PoseData):
         """From Rosetta based protocols, tally the resulting metrics and integrate with SymDesign metrics database"""
         self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseJob(.path)
         design_scores = metrics.read_scores(self.scores_file)  # Todo PoseJob(.path)
+
+        pose_design_scores = design_scores.pop(self.name, None)
+        if pose_design_scores:
+            # We have included the pose_source in the calculations
+            self.calculate_pose_metrics(pose_design_scores)
+
+        if not design_scores:
+            # No design scores were found
+            return
 
         # Find all designs files
         # if designs is None:
@@ -3902,17 +3913,6 @@ class PoseProtocol(PoseData):
         #         structure_design_scores[pose.name] = design_scores.pop(pose.name)
         #     except KeyError:  # Structure wasn't scored, we will remove this later
         #         pass
-
-        # if design_scores:  # Still scores present...
-        pose_design_scores = design_scores.pop(self.name, None)
-        if pose_design_scores:
-            # We have included the pose_source in the calculations
-            # pose_design_scores = design_scores.pop(self.name)
-            # Acquire the pose_metrics if None have been made yet
-            # pose_name = self.pose.name
-            pose_source_id = self.pose_source.id
-            # self.calculate_pose_metrics(dict(str(self.id)=pose_design_scores))
-            self.calculate_pose_metrics({pose_source_id: pose_design_scores})
 
         # Process the parsed scores to scores_df, rosetta_residues_df
         scores_df, rosetta_residues_df = self.parse_rosetta_scores(design_scores)
