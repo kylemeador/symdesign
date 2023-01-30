@@ -3585,6 +3585,7 @@ class PoseProtocol(PoseData):
         if self.job.design.term_constraint:
             if not self.pose.fragment_queries:
                 self.generate_fragments(interface=True)
+            if not self.pose.fragment_profile:
                 self.pose.calculate_fragment_profile()
             profile_background['fragment'] = fragment_profile_array = self.pose.fragment_profile.as_array()
             batch_fragment_profile = np.tile(fragment_profile_array, (number_of_sequences, 1, 1))
@@ -4095,6 +4096,9 @@ class PoseProtocol(PoseData):
             scores: Parsed Pose scores from Rosetta output
         """
         self.load_pose()
+        # self.identify_interface()
+        if not self.pose.fragment_queries:
+            self.generate_fragments(interface=True)
 
         def get_metrics():
             _metrics = self.pose.metrics  # Also calculates entity.metrics
