@@ -574,22 +574,23 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         log_path = self.log_path
         if self.job.debug:
             handler = level = 1  # Defaults to stdout, debug is level 1
-            no_log_name = False
+            # Don't propagate, emit ourselves
+            propagate = no_log_name = False
         elif self.log_path:
             if self.job.force:
                 os.system(f'rm {self.log_path}')
             handler = level = 2  # To a file
-            no_log_name = True
+            propagate = no_log_name = True
         else:  # Log to the __main__ file logger
             log_path = None  # Todo figure this out...
             handler = level = 2  # To a file
-            no_log_name = False
+            propagate = no_log_name = False
 
         if self.job.skip_logging or not self.job.construct_pose:  # Set up null_logger
             self.log = logging.getLogger('null')
         else:  # f'{__name__}.{self}'
             self.log = start_log(name=f'pose.{self.project}.{self.name}', handler=handler, level=level,
-                                 location=log_path, no_log_name=no_log_name, propagate=True)
+                                 location=log_path, no_log_name=no_log_name, propagate=propagate)
             # propagate=True allows self.log to pass messages to 'pose' and 'project' logger
 
         # Configure standard pose loading mechanism with self.source_path
