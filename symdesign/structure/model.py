@@ -5235,57 +5235,61 @@ class SymmetricModel(Models):
             # external_tx2 = optimal_external_shifts[:, None] * self.sym_entry.external_dof2
             # external_tx = [external_tx1, external_tx2]
             self.log.critical('This functionality has never been tested! Inspect all outputs before trusting results')
+            # Assuming that the point group symmetry of the lattice lies at the origin, no subtraction of external_tx
+            # is required to solve
             external_tx = \
                 [(optimal_external_shifts[:, None] * getattr(self.sym_entry, f'external_dof{idx}')).sum(axis=-2)
                  for idx, group in enumerate(self.sym_entry.groups, 1)]
 
         # Solve for the transform solution for each symmetry group and the indices where the asymmetric unit
-        entity_asu_indices: list[int] | None
+        entity_model_indices: list[int] | None
         internal_tx: np.ndarray | None
         setting_matrix: np.ndarray | None
         setting_matrices = utils.symmetry.setting_matrices
+        inv_setting_matrices = utils.symmetry.inv_setting_matrices
 
         def set_solution():
-            nonlocal entity_asu_indices, internal_tx, setting_matrix
-            entity_asu_indices = possible_height_groups[centrally_disposed_group_height]
-            internal_tx = temp_model_coms[entity_asu_indices].mean(axis=-2)
+            """Set the values for entity_model_indices, internal_tx, setting_matrix"""
+            nonlocal entity_model_indices, internal_tx, setting_matrix
+            entity_model_indices = possible_height_groups[centrally_disposed_group_height]
+            internal_tx = temp_model_coms[entity_model_indices].mean(axis=-2)
             setting_matrix = setting_matrices[setting_matrix_idx]
 
         center_of_mass_symmetric_entities = self.center_of_mass_symmetric_entities
         number_of_symmetry_mates = self.number_of_symmetry_mates
         point_group_symmetry = self.point_group_symmetry
+        point_group_subsym_setting_matrices = utils.SymEntry.point_group_setting_matrix_members[point_group_symmetry]
         # self.log.debug('center_of_mass_symmetric_entities = {center_of_mass_symmetric_entities}')
         transform_solutions = []
-        asu_indices: list[list[int]] = []
+        oligomeric_indices_groups: list[list[int]] = []
         """Contains Collection of indices that specify the model indices where the asymmetric unit could exist"""
         for group_idx, (entity_symmetric_centers_of_mass, sym_group) in \
                 enumerate(zip(center_of_mass_symmetric_entities, self.sym_entry.groups)):
             # Find groups for which the oligomeric parameters do not apply or exist by nature of orientation [T, O, I]
-            # Add every symmetric index to asu_indices
+            # Add every symmetric index to oligomeric_indices_groups
             if sym_group == self.symmetry:
                 # The molecule should be oriented already and expand matrices handle oligomers
                 transform_solutions.append(dict())  # rotation=rot, translation=tx
-                asu_indices.append(list(range(number_of_symmetry_mates)))
+                oligomeric_indices_groups.append(list(range(number_of_symmetry_mates)))
                 continue
             elif sym_group == 'C1':
                 # No oligomer possible
                 transform_solutions.append(dict())  # rotation=rot, translation=tx
-                asu_indices.append(list(range(number_of_symmetry_mates)))
+                oligomeric_indices_groups.append(list(range(number_of_symmetry_mates)))
                 continue
             # else:  # sym_group requires us to solve
             #     pass
 
             # Search through the sub_symmetry group setting matrices that make up the resulting point group symmetry
             # Apply setting matrix to the entity centers of mass indexed to the proper group number
-            entity_asu_indices = internal_tx = setting_matrix = None
+            entity_model_indices = internal_tx = setting_matrix = None
             group_subunit_number = utils.symmetry.valid_subunit_number[sym_group]
             current_best_minimal_central_offset = float('inf')
-            for setting_matrix_idx in \
-                    utils.SymEntry.point_group_setting_matrix_members[point_group_symmetry].get(sym_group, []):
+            for setting_matrix_idx in point_group_subsym_setting_matrices.get(sym_group, []):
                 # self.log.critical('Setting_matrix_idx = %d' % setting_matrix_idx)
                 temp_model_coms = np.matmul(entity_symmetric_centers_of_mass,
-                                            np.transpose(utils.symmetry.inv_setting_matrices[setting_matrix_idx]))
-                # self.log.critical('temp_model_coms = %s' % temp_model_coms)
+                                            np.transpose(inv_setting_matrices[setting_matrix_idx]))
+
                 # Find groups of COMs with equal z heights
                 possible_height_groups: dict[float, list[int]] = {}
                 for idx, com in enumerate(temp_model_coms.round(decimals=2)):  # 2 decimals may be required precision
@@ -5294,27 +5298,31 @@ class SymmetricModel(Models):
                         possible_height_groups[z_coord].append(idx)
                     else:
                         possible_height_groups[z_coord] = [idx]
-                # Find the most centrally disposed, COM grouping with the correct number of COMs in the group
-                # ot necessarily positive...
+
+                # For those height groups with the correct number of COMs in the group, find the most centrally
+                # disposed, COM grouping where the COM are all most closely situated to the z-axis
+                # This isn't necessarily positive, but we select the positive choice if there are equivalent
                 centrally_disposed_group_height = None
                 minimal_central_offset = float('inf')
-                for height, indices in possible_height_groups.items():
+                for z_height, model_indices in possible_height_groups.items():
                     # if height < 0:  # This may be detrimental. Increased search cost not worth missing solution
                     #     continue
-                    if len(indices) == group_subunit_number:
-                        x = (temp_model_coms[indices] - [0, 0, height])[0]  # get first point. Norms are equivalent
-                        central_offset = np.sqrt(x.dot(x))  # np.abs()
+                    if len(model_indices) == group_subunit_number:
+                        # Get the first point from the group. Norms are equivalent as all are same height
+                        com_point = (temp_model_coms[model_indices] - [0., 0., z_height])[0]
+                        central_offset = np.sqrt(com_point.dot(com_point))  # np.abs()
                         # self.log.debug('central_offset = %f' % central_offset)
                         if central_offset < minimal_central_offset:
                             minimal_central_offset = central_offset
-                            centrally_disposed_group_height = height
+                            centrally_disposed_group_height = z_height
                             # self.log.debug('centrally_disposed_group_height = %d' % centrally_disposed_group_height)
-                        elif central_offset == minimal_central_offset and centrally_disposed_group_height < 0 < height:
-                            centrally_disposed_group_height = height
+                        elif central_offset == minimal_central_offset and centrally_disposed_group_height < 0 < z_height:
+                            centrally_disposed_group_height = z_height
                             # self.log.debug('centrally_disposed_group_height = %d' % centrally_disposed_group_height)
                         else:  # The central offset is larger
                             pass
-                # If a viable group was found save the group COM as an internal_tx and setting_matrix used to find it
+
+                # If a viable group was found, save the group COM as an internal_tx and setting_matrix used to find it
                 if centrally_disposed_group_height is not None:
                     if setting_matrix is None and internal_tx is None:
                         # These were not set yet
@@ -5330,17 +5338,17 @@ class SymmetricModel(Models):
                                           f'{sym_group} (specified in position {group_idx + 1} of '
                                           f'{self.sym_entry.specification}). The solution with a positive translation '
                                           'was chosen by convention. This may result in inaccurate behavior')
-                            # internal_tx will have been set already
+                            # internal_tx will have been set already, check the z-axis value
                             internal_tx: np.ndarray
                             if internal_tx[-1] < 0 < centrally_disposed_group_height:
                                 set_solution()
-                        else:  # The central offset is larger
-                            pass
-                else:  # No viable group probably because the setting matrix was wrong. Continue with next
-                    pass
+                #         else:  # The central offset is larger
+                #             pass
+                # else:  # No viable group probably because the setting matrix was wrong. Continue with next
+                #     pass
 
-            if entity_asu_indices is None:  # No solution
-                # raise ValueError(f'Using the supplied Model ({self.name}) and the specified symmetry ({self.symmetry}'
+            if entity_model_indices is None:  # No solution
+                # raise ValueError(
                 raise SymmetryError(
                     f'Using the supplied Model ({self.name}) and the specified symmetry ({self.symmetry}),'
                     f' there was no solution found for Entity #{group_idx + 1}. A possible issue could be '
@@ -5356,7 +5364,7 @@ class SymmetricModel(Models):
                 transform_solutions.append(dict(translation=internal_tx,
                                                 rotation2=setting_matrix,
                                                 translation2=external_tx[group_idx]))
-                asu_indices.append(entity_asu_indices)
+                oligomeric_indices_groups.append(entity_model_indices)
 
         # Todo find the particular rotation to orient the Entity oligomer to a canonical orientation. This must
         #  accompany standards required for the SymDesign Database for actions like refinement
@@ -5364,7 +5372,7 @@ class SymmetricModel(Models):
         # def set_contacting_asu(from_com: bool = True):
         #     asu_coords = [symmetric_coords_split_by_entity[sym_idx]
         #                   for symmetric_coords_split_by_entity, sym_idx in
-        #                   zip(self.symmetric_coords_split_by_entity, selected_asu_indices)]
+        #                   zip(self.symmetric_coords_split_by_entity, selected_asu_model_indices)]
         #     # self.log.critical('asu_coords: %s' % asu_coords)
         #     self.coords = np.concatenate(asu_coords)
         #     # self.asu_coords = Coords(np.concatenate(asu_coords))
@@ -5377,8 +5385,8 @@ class SymmetricModel(Models):
         globular nature. Therefore, the minimal com to com distance is our naive ASU coords
         """
 
-        # The only input here is the asu_indices
-        number_of_symmetry_groups = len(asu_indices)
+        # The only input here is the oligomeric_indices_groups
+        number_of_symmetry_groups = len(oligomeric_indices_groups)
         if number_of_symmetry_groups == 1:
             # We only have one Entity. Choice doesn't matter, grab the first
             selected_asu_indices: list[int] = [asu_indices[0][0]]
@@ -7954,7 +7962,8 @@ class Pose(SymmetricModel, Metrics):
                 try:
                     residue_number = int(metadata[-1].translate(utils.keep_digit_table))
                 except ValueError as error:
-                    self.log.debug(f'Found the following error converting to int(): {error}\n{key}')
+                    self.log.debug(f'{self.rosetta_residue_processing.__name__}: Found the following error converting '
+                                   f'to int(): {error}\n\tAssociated Key -> {key}')
                     continue
                 if all(residue_number > last_residue for last_residue in c_term_residue_numbers):  # pose_length:
                     if warn:
