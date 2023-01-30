@@ -4821,8 +4821,9 @@ class SymmetricModel(Models):
             # interacting_models = sorted(set(contacting_model_indices))
             # combine each subarray of the asu_query and divide by the assembly_tree interval length -> len(asu_query)
             interacting_models = \
-                ((np.array({asu_idx for asu_contacts in asu_query.tolist()
-                            for asu_idx in asu_contacts})//len(asu_query)) + 1).tolist()
+                ((np.array(list({asu_idx for asu_contacts in asu_query.tolist()
+                                 for asu_idx in asu_contacts.tolist()}))//len(asu_query)) + 1).tolist()
+            interacting_models = sorted(set(interacting_models))
             # interacting_models = (np.unique(np.concatenate(asu_query)//len(asu_query)) + 1).tolist()
             # asu is missing from assembly_tree so add 1 to get correct model index ^
         else:
