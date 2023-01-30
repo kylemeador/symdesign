@@ -5389,29 +5389,29 @@ class SymmetricModel(Models):
         number_of_symmetry_groups = len(oligomeric_indices_groups)
         if number_of_symmetry_groups == 1:
             # We only have one Entity. Choice doesn't matter, grab the first
-            selected_asu_indices: list[int] = [asu_indices[0][0]]
+            selected_asu_model_indices: list[int] = [oligomeric_indices_groups[0][0]]
         else:
-            all_coms = [entity_symmetric_centers_of_mass[indices]
-                        for entity_symmetric_centers_of_mass, indices in
-                        zip(center_of_mass_symmetric_entities, asu_indices)]
-            # self.log.critical('all_coms: %s' % all_coms)
+            oligomeric_com_groups = [entity_symmetric_centers_of_mass[indices]
+                                     for entity_symmetric_centers_of_mass, indices in
+                                     zip(center_of_mass_symmetric_entities, oligomeric_indices_groups)]
+            # self.log.critical('oligomeric_com_groups: %s' % oligomeric_com_groups)
 
-            idx = 0
+            offset_count = count()
             asu_indices_combinations = []
             asu_indices_index, asu_coms_index = [], []
             com_offsets = np.zeros(sum(map(math.prod, combinations((len(indices) for indices in asu_indices), 2))))
             possible_symmetry_indices = range(number_of_symmetry_groups)
             # Find the shortest distance between two center of mass points for any of the possible symmetric COMs
-            for sym_idx1, sym_idx2 in combinations(possible_symmetry_indices, 2):
-                # for index1 in asu_indices[idx1]:
-                for idx_com1, com1 in enumerate(all_coms[sym_idx1]):
-                    for idx_com2, com2 in enumerate(all_coms[sym_idx2]):
-                        asu_indices_combinations.append((sym_idx1, idx_com1, sym_idx2, idx_com2))
-                        asu_indices_index.append((sym_idx1, sym_idx2))
-                        asu_coms_index.append((idx_com1, idx_com2))
+            for entity_idx1, entity_idx2 in combinations(symmetric_group_indices, 2):
+                # for index1 in oligomeric_indices_groups[idx1]:
+                for com_idx1, com1 in enumerate(oligomeric_com_groups[entity_idx1]):
+                    for com_idx2, com2 in enumerate(oligomeric_com_groups[entity_idx2]):
+                        asu_indices_combinations.append((entity_idx1, com_idx1, entity_idx2, com_idx2))
+                        entity_idx_pairs.append((entity_idx1, entity_idx2))
+                        asu_coms_index.append((com_idx1, com_idx2))
                         dist = com2 - com1
-                        com_offsets[idx] = np.sqrt(dist.dot(dist))
-                        idx += 1
+                        com_offsets[next(offset_count)] = np.sqrt(dist.dot(dist))
+
             # self.log.critical('com_offsets: %s' % com_offsets)
             minimal_com_distance_index = com_offsets.argmin()
             entity_index1, com_index1, entity_index2, com_index2 = asu_indices_combinations[minimal_com_distance_index]
@@ -5430,26 +5430,27 @@ class SymmetricModel(Models):
                 remaining_indices = set(possible_symmetry_indices).difference({entity_index1, entity_index2})
                 for index in remaining_indices:
                     # Find the indices where the missing index is utilized
-                    remaining_index_indices = \
-                        {idx for idx, ent_idx_pair in enumerate(asu_indices_index) if index in ent_idx_pair}
+                    remaining_index_indices = {idx for idx, ent_idx_pair in enumerate(entity_idx_pairs)
+                                               if additional_entity_idx in ent_idx_pair}
                     # Only use those where found asu indices already occur
-                    viable_remaining_indices = list(remaining_index_indices.intersection(selected_asu_indices_indices))
-                    index_min_com_dist_idx = com_offsets[viable_remaining_indices].argmin()
-                    for new_index_idx, new_index in enumerate(asu_indices_index[viable_remaining_indices[index_min_com_dist_idx]]):
-                        if index == new_index:
-                            additional_indices.append((index, asu_coms_index[viable_remaining_indices[index_min_com_dist_idx]][new_index_idx]))
-            new_asu_indices: list[tuple[int, int]] = core_indices + additional_indices
+                    viable_remaining_indices = list(remaining_index_indices.intersection(possible_entity_idx_pairs))
+                    next_min_com_dist_idx = com_offsets[viable_remaining_indices].argmin()
+                    new_ent_pair_idx = viable_remaining_indices[next_min_com_dist_idx]
+                    for entity_idx, entity_com in zip(entity_idx_pairs[new_ent_pair_idx],
+                                                      asu_coms_index[new_ent_pair_idx]):
+                        if entity_idx == additional_entity_idx:
+                            additional_indices.append((entity_idx, entity_com))
+            new_asu_entity_com_pairs: list[tuple[int, int]] = core_indices + additional_indices
 
-            # selected_asu_indices = [asu_indices[entity_idx][com_idx] for entity_idx, com_idx in new_asu_indices]
-            selected_asu_indices = []
-            for possible_symmetry_idx in possible_symmetry_indices:
-                for entity_idx, com_idx in new_asu_indices:
-                    if possible_symmetry_idx == entity_idx:
-                        selected_asu_indices.append(asu_indices[entity_idx][com_idx])
+            selected_asu_model_indices = []
+            for entity_idx in symmetric_group_indices:
+                for possible_entity_idx, com_idx in new_asu_entity_com_pairs:
+                    if entity_idx == possible_entity_idx:
+                        selected_asu_model_indices.append(oligomeric_indices_groups[possible_entity_idx][com_idx])
 
         asu_coords = [symmetric_coords_split_by_entity[sym_idx]
                       for symmetric_coords_split_by_entity, sym_idx in
-                      zip(self.symmetric_coords_split_by_entity, selected_asu_indices)]
+                      zip(self.symmetric_coords_split_by_entity, selected_asu_model_indices)]
         # self.log.critical('asu_coords: %s' % asu_coords)
         self.coords = np.concatenate(asu_coords)
         # self.asu_coords = Coords(np.concatenate(asu_coords))
