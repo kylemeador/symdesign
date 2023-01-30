@@ -5,8 +5,9 @@ from typing import Annotated, Literal, get_args, Type, Union
 
 import numpy as np
 
-from symdesign import utils, structure
 from . import info
+from symdesign import utils, structure
+putils = utils.path
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -48,9 +49,9 @@ class FragmentDatabase(info.FragmentInfo):
 
     def __init__(self, **kwargs):  # init_db: bool = True, fragment_length: int = 5
         super().__init__(**kwargs)
-        if self.source == utils.path.biological_interfaces:  # Todo parameterize
-            self.cluster_representatives_path = utils.path.intfrag_cluster_rep_dirpath
-            self.monofrag_representatives_path = utils.path.monofrag_cluster_rep_dirpath
+        if self.source == putils.biological_interfaces:  # Todo parameterize
+            self.cluster_representatives_path = putils.intfrag_cluster_rep_dirpath
+            self.monofrag_representatives_path = putils.monofrag_cluster_rep_dirpath
 
         self.representatives = {}
         self.paired_frags = {}
@@ -299,7 +300,7 @@ class FragmentDatabaseFactory:
     def __init__(self, **kwargs):
         self._databases = {}
 
-    def __call__(self, source: str = utils.path.biological_interfaces, token: int = None, **kwargs) \
+    def __call__(self, source: str = putils.biological_interfaces, token: int = None, **kwargs) \
             -> FragmentDatabase | None:
         """Return the specified FragmentDatabase object singleton
 
@@ -311,10 +312,15 @@ class FragmentDatabaseFactory:
         fragment_db = self._databases.get(source)
         if fragment_db:
             return fragment_db
-        elif source == utils.path.biological_interfaces:
+        elif source == putils.biological_interfaces:
             if token == RELOAD_DB:
                 return None
-            self._databases[source] = utils.unpickle(utils.path.biological_fragment_db_pickle)
+            try:
+                self._databases[source] = utils.unpickle(putils.biological_fragment_db_pickle)
+            except ModuleNotFoundError:
+                raise RuntimeError(f"Couldn't access the serialize {FragmentDatabase.__name__} which is required for "
+                                   "operation. Please reload this by executing "
+                                   f'"{putils.pickle_program_requirements_cmd}"')
         else:
             self._databases[source] = FragmentDatabase(source=source, **kwargs)
 
@@ -370,7 +376,7 @@ def nanohedra_fragment_match_score(fragment_metrics: dict) -> float:
 class EulerLookup:
     def __init__(self, scale: float = 3.):
         # 6-d bool array [[[[[[True, False, ...], ...]]]]] with shape (37, 19, 37, 37, 19, 37)
-        self.eul_lookup_40 = np.load(utils.path.binary_lookup_table_path)['a']
+        self.eul_lookup_40 = np.load(putils.binary_lookup_table_path)['a']
         """Indicates whether two sets of triplet integer values for each Euler angle are within an acceptable angular 
         offset. Acceptable offset is approximately +/- 40 degrees, or +/- 3 integers in one of the rotation angles and
         a couple of integers in another i.e.
@@ -582,7 +588,7 @@ class EulerLookup:
 
 class EulerLookupV1:
     def __init__(self, scale=3.0):
-        self.eul_lookup_40 = np.load(utils.path.binary_lookup_table_path)['a']  # 6-d bool array [[[[[[True, False, ...], ...]]]]]
+        self.eul_lookup_40 = np.load(putils.binary_lookup_table_path)['a']  # 6-d bool array [[[[[[True, False, ...], ...]]]]]
         self.scale = scale
 
     @staticmethod
