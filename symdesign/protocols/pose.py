@@ -3872,13 +3872,13 @@ class PoseProtocol(PoseData):
              'interface_connectivity':
                  list(filter(re.compile('entity[0-9]+_interface_connectivity').match, scores_columns)),  # Rosetta
              }
-        # Rename buns columns
-        # This isn't stable long term given mapping of interface number (sql) and entity number (Rosetta)
-        buns_columns = summation_pairs['buried_unsatisfied_hbonds_unbound']
-        scores_df.columns = scores_df.columns.map(dict((f'buns{idx}_unbound', f'buried_unsatisfied_hbonds_unbound{idx}')
-                                                       for idx in range(1, 1 + len(buns_columns))))\
-            .fillna(scores_df.columns)
         scores_df = metrics.columns_to_new_column(scores_df, summation_pairs)
+        # # Rename buns columns
+        # # This isn't stable long term given mapping of interface number (sql) and entity number (Rosetta)
+        # buns_columns = summation_pairs['buried_unsatisfied_hbonds_unbound']
+        # scores_df.columns = scores_df.columns.map(dict((f'buns{idx}_unbound', f'buried_unsatisfied_hbonds_unbound{idx}')
+        #                                                for idx in range(1, 1 + len(buns_columns))))\
+        #     .fillna(scores_df.columns)
         # Add number_interface_residues for div_pairs and int_comp_similarity
         # scores_df['number_interface_residues'] = other_pose_metrics.pop('number_interface_residues')
         scores_df = metrics.columns_to_new_column(scores_df, metrics.rosetta_delta_pairs, mode='sub')
