@@ -3873,6 +3873,8 @@ class PoseProtocol(PoseData):
                  list(filter(re.compile('entity[0-9]+_interface_connectivity').match, scores_columns)),  # Rosetta
              }
         scores_df = metrics.columns_to_new_column(scores_df, summation_pairs)
+        # This is a nightmare as the column.map() turns all non-existing to np.nan need to fix upstream instead of
+        # changing here
         # # Rename buns columns
         # # This isn't stable long term given mapping of interface number (sql) and entity number (Rosetta)
         # buns_columns = summation_pairs['buried_unsatisfied_hbonds_unbound']
@@ -4024,7 +4026,8 @@ class PoseProtocol(PoseData):
         # Right now, it is only the interface residues that go into Rosetta
         # Use simple reporting here until that changes...
         interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
-        design_residues = np.zeros((len(scores_df), pose_length), dtype=bool)
+        input(f'Found scored_df with len()={len(scores_df)}')
+        design_residues = np.zeros((len(design_paths_to_process), pose_length), dtype=bool)
         design_residues[:, interface_residue_indices] = 1
         # 'design_residue' is now integrated using analyze_proteinmpnn_metrics()
         # design_indices_df = pd.DataFrame(design_residues, index=scores_df.index,
@@ -4057,6 +4060,8 @@ class PoseProtocol(PoseData):
         #     'design_indices': design_residues,
         #     **proteinmpnn_scores
         # }
+        input(f'Found sequences_and_scores.values().shapes: {[data.shape for data in sequences_and_scores.values()]}')
+
         mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
 
         designs_df = designs_df.join(mpnn_designs_df)
