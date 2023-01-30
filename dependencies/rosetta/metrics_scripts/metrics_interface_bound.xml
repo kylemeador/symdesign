@@ -141,7 +141,7 @@
 <!--        </CalculatorFilter>-->
 		# TODO test for RMSD and buns_nano on more than 2 chains
 		# find the total number of unsatisfied hydrogen bonds in the specified interface. will be called at specific poses to determine BUNS at different locations in interface
-		<BuriedUnsatHbonds name="buns_complex" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
+		<BuriedUnsatHbonds name="buried_unsatisfied_hbonds_complex" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
 		#  Nanohedra
 <!--		<Report name="R_S_full_stability_complex"			filter="S_full_stability_complex"/>-->
 <!--		<Report name="R_S_favor_residue_energy" 			filter="S_favor_residue_energy"/>-->
@@ -154,7 +154,7 @@
 		<Report name="R_interaction_energy_per_residue"		filter="interaction_energy_per_residue"/>
 		<Report name="R_shape_complementarity" 				filter="shape_complementarity"/>
 		<Report name="R_contact_count" 						filter="contact_count"/>
-		<Report name="R_buns_complex" 						filter="buns_complex"/>
+		<Report name="R_buried_unsatisfied_hbonds_complex" 	filter="buried_unsatisfied_hbonds_complex"/>
 	</FILTERS>
 
 	<MOVERS>
@@ -173,7 +173,7 @@
 		<Add filter_name="R_contact_count"/>
 		<Add mover_name="metrics"/>
 		<Add mover_name="run_metrics"/>
-		<Add filter_name="R_buns_complex"/>
+		<Add filter_name="R_buried_unsatisfied_hbonds_complex"/>
 	</PROTOCOLS>
 
 </ROSETTASCRIPTS>

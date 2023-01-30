@@ -216,14 +216,14 @@ class PoseMetrics(Base):
     # entity_n_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
     # entity_c_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
     # entity_thermophilicity = Column(Boolean)  # Has a # after entity LIST
-    interface1_secondary_structure_fragment_count = Column(Integer)
-    interface1_secondary_structure_fragment_topology = Column(String)
-    interface1_secondary_structure_count = Column(Integer)
-    interface1_secondary_structure_topology = Column(String)
-    interface2_secondary_structure_fragment_count = Column(Integer)
-    interface2_secondary_structure_fragment_topology = Column(String)
-    interface2_secondary_structure_count = Column(Integer)
-    interface2_secondary_structure_topology = Column(String)
+    # interface1_secondary_structure_fragment_count = Column(Integer)  # Added after the fact
+    # interface1_secondary_structure_fragment_topology = Column(String)  # Added after the fact
+    # interface1_secondary_structure_count = Column(Integer)  # Added after the fact
+    # interface1_secondary_structure_topology = Column(String)  # Added after the fact
+    # interface2_secondary_structure_fragment_count = Column(Integer)  # Added after the fact
+    # interface2_secondary_structure_fragment_topology = Column(String)  # Added after the fact
+    # interface2_secondary_structure_count = Column(Integer)  # Added after the fact
+    # interface2_secondary_structure_topology = Column(String)  # Added after the fact
     # entity_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
     # entity_min_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
     # entity_max_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
@@ -246,6 +246,16 @@ class PoseMetrics(Base):
     pose_thermophilicity = Column(Float)
     """Thermophilicity implies this is a spectrum, while thermophilic implies binary"""
 
+
+interface_pose_metrics = dict(
+    interface_secondary_structure_fragment_count=Integer,
+    interface_secondary_structure_fragment_topology=String,
+    interface_secondary_structure_count=Integer,
+    interface_secondary_structure_topology=String
+)
+for idx in range(1, 1 + config.MAXIMUM_INTERFACES):
+    for metric, value in interface_pose_metrics.items():
+        setattr(PoseMetrics, metric.replace('interface_', f'interface{idx}_'), Column(value))
 
 ratio_design_metrics = dict(
     entity_radius_ratio_v=Float,
@@ -615,10 +625,10 @@ class DesignMetrics(Base):
     # Design metrics
     number_design_residues = Column(Integer)  # ResidueMetrics sum 'design_residue', nullable=False)
     # Rosetta metrics
-    buns_complex = Column(Integer)  # , nullable=False)
-    # buns_unbound = Column(Integer)  # Has a # after buns LIST
-    buried_unsatisfied_hbonds = Column(Integer)  # , nullable=False)
     buried_unsatisfied_hbond_density = Column(Float)  # , nullable=False)
+    buried_unsatisfied_hbonds = Column(Integer)  # , nullable=False)
+    buried_unsatisfied_hbonds_complex = Column(Integer)  # , nullable=False)
+    # buried_unsatisfied_hbonds_unbound = Column(Integer)  # Has a # after buns LIST
     contact_count = Column(Integer)  # , nullable=False)
     # entity_interface_connectivity = Column(Float)  # Has a # after entity LIST
     favor_residue_energy = Column(Float)  # , nullable=False)
@@ -670,11 +680,11 @@ class DesignMetrics(Base):
     residue_favored = Column(Float)  # , nullable=False)
     # SymDesign measurements
     errat_deviation = Column(Float)  # , nullable=False)
-    sasa_hydrophobic_complex = Column(Float)  # , nullable=False)
-    sasa_polar_complex = Column(Float)  # , nullable=False)
+    # sasa_hydrophobic_complex = Column(Float)  # , nullable=False)
+    # sasa_polar_complex = Column(Float)  # , nullable=False)
     # NOT taken sasa_relative_complex = Column(Float)  # , nullable=False)
-    sasa_hydrophobic_bound = Column(Float)  # , nullable=False)
-    sasa_polar_bound = Column(Float)  # , nullable=False)
+    # sasa_hydrophobic_bound = Column(Float)  # , nullable=False)
+    # sasa_polar_bound = Column(Float)  # , nullable=False)
     # NOT taken sasa_relative_bound = Column(Float)  # , nullable=False)
     interior = Column(Float)  # , nullable=False)
     surface = Column(Float)  # , nullable=False)
@@ -743,11 +753,11 @@ for idx in range(1, 1 + config.MAXIMUM_ENTITIES):
     for metric, value in entity_design_metrics.items():
         setattr(DesignMetrics, metric.replace('entity', f'entity{idx}'), Column(value))
 interface_design_metrics = dict(
-    buns_unbound=Integer
+    buried_unsatisfied_hbonds_unbound=Integer
 )
 for idx in range(1, 1 + config.MAXIMUM_INTERFACES):
     for metric, value in interface_design_metrics.items():
-        setattr(DesignMetrics, metric.replace('buns', f'buns{idx}'), Column(value))
+        setattr(DesignMetrics, f'{metric}{idx}', Column(value))
 
 
 class PoseResidueMetrics(Base):

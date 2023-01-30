@@ -1737,8 +1737,8 @@ class PoseProtocol(PoseData):
         # Create metrics for the pose_source
         empty_source = dict(
             # **other_pose_metrics,
-            buns_complex=0,
-            # buns_unbound=0,
+            buried_unsatisfied_hbonds_complex=0,
+            # buried_unsatisfied_hbonds_unbound=0,
             contact_count=0,
             favor_residue_energy=0,
             interaction_energy_complex=0,
@@ -1766,8 +1766,8 @@ class PoseProtocol(PoseData):
             # for idx, entity in enumerate(self.pose.entities, 1):
             #     source_df[f'buns{idx}_unbound'] = 0
             #     source_df[f'entity{idx}_interface_connectivity'] = 0
-            # source_df['buns_complex'] = 0
-            # # source_df['buns_unbound'] = 0
+            # source_df['buried_unsatisfied_hbonds_complex'] = 0
+            # # source_df['buried_unsatisfied_hbonds_unbound'] = 0
             # source_df['contact_count'] = 0
             # source_df['favor_residue_energy'] = 0
             # # Used in sum_per_residue_df
@@ -1878,8 +1878,8 @@ class PoseProtocol(PoseData):
             #     # design_info.update({residue.number: {'energy_delta': 0.,
             #     #                                      'type': protein_letters_3to1.get(residue.type),
             #     #                                      'hbond': 0} for residue in entity.residues})
-            # source_df['buns_complex'] = 0
-            # # source_df['buns_unbound'] = 0
+            # source_df['buried_unsatisfied_hbonds_complex'] = 0
+            # # source_df['buried_unsatisfied_hbonds_unbound'] = 0
             # source_df['contact_count'] = 0
             # source_df['favor_residue_energy'] = 0
             # # source_df['interface_energy_complex'] = 0
@@ -2273,7 +2273,7 @@ class PoseProtocol(PoseData):
         #                                                 solvation_unbound_df.columns]
         #                                 for column in columns], axis=1)
         summation_pairs = \
-            {'buns_unbound': list(filter(re.compile('buns[0-9]+_unbound$').match, scores_columns)),  # Rosetta
+            {'buried_unsatisfied_hbonds_unbound': list(filter(re.compile('buns[0-9]+_unbound$').match, scores_columns)),  # Rosetta
              # 'interface_energy_bound':
              #     list(filter(re.compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
              # 'interface_energy_unbound':
@@ -3845,6 +3845,47 @@ class PoseProtocol(PoseData):
 
         return scores_df, rosetta_residues_df
 
+    def rosetta_column_combinations(self, scores_df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate metrics from combinations of metrics with variable integer number metric names
+
+        Args:
+            scores_df: A DataFrame with Rosetta based metrics that should be combined with other metrics to produce new
+                summary metrics
+        Returns:
+            A per-design metric DataFrame where each index is the design id and the columns are design metrics,
+        """
+        scores_columns = scores_df.columns.to_list()
+        self.log.debug(f'Metrics present: {scores_columns}')
+        summation_pairs = \
+            {'buried_unsatisfied_hbonds_unbound':
+                list(filter(re.compile('buns[0-9]+_unbound$').match, scores_columns)),  # Rosetta
+             # 'interface_energy_bound':
+             #     list(filter(re.compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+             # 'interface_energy_unbound':
+             #     list(filter(re.compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+             # 'interface_solvation_energy_bound':
+             #     list(filter(re.compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+             # 'interface_solvation_energy_unbound':
+             #     list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+             'interface_connectivity':
+                 list(filter(re.compile('entity[0-9]+_interface_connectivity').match, scores_columns)),  # Rosetta
+             }
+        scores_df = metrics.columns_to_new_column(scores_df, summation_pairs)
+        # Add number_interface_residues for div_pairs and int_comp_similarity
+        # scores_df['number_interface_residues'] = other_pose_metrics.pop('number_interface_residues')
+        scores_df = metrics.columns_to_new_column(scores_df, metrics.rosetta_delta_pairs, mode='sub')
+        scores_df = metrics.columns_to_new_column(scores_df, metrics.rosetta_division_pairs, mode='truediv')
+
+        scores_df.drop(metrics.clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
+        repacking = scores_df.get('repacking')
+        if repacking is not None:
+            # Set interface_bound_activation_energy = np.nan where repacking is 0
+            # Currently is -1 for True (Rosetta Filter quirk...)
+            scores_df.loc[scores_df[repacking == 0].index, 'interface_bound_activation_energy'] = np.nan
+            scores_df.drop('repacking', axis=1, inplace=True)
+
+        return scores_df
+
     def process_rosetta_metrics(self):
         """From Rosetta based protocols, tally the resulting metrics and integrate with SymDesign metrics database"""
         self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseJob(.path)
@@ -3984,32 +4025,6 @@ class PoseProtocol(PoseData):
         # rosetta_residues_df['design_residue'] = 1
         # rosetta_residues_df = rosetta_residues_df.unstack().swaplevel(0, 1, axis=1)
 
-        # Calculate metrics from combinations of metrics with variable integer number metric names
-        scores_columns = scores_df.columns.to_list()
-        self.log.debug(f'Metrics present: {scores_columns}')
-        summation_pairs = \
-            {'buns_unbound': list(filter(re.compile('buns[0-9]+_unbound$').match, scores_columns)),  # Rosetta
-             # 'interface_energy_bound':
-             #     list(filter(re.compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
-             # 'interface_energy_unbound':
-             #     list(filter(re.compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
-             # 'interface_solvation_energy_bound':
-             #     list(filter(re.compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
-             # 'interface_solvation_energy_unbound':
-             #     list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
-             'interface_connectivity':
-                 list(filter(re.compile('entity[0-9]+_interface_connectivity').match, scores_columns)),  # Rosetta
-             }
-        scores_df = metrics.columns_to_new_column(scores_df, summation_pairs)
-
-        scores_df.drop(metrics.clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
-        repacking = scores_df.get('repacking')
-        if repacking is not None:
-            # Set interface_bound_activation_energy = np.nan where repacking is 0
-            # Currently is -1 for True (Rosetta Filter quirk...)
-            scores_df.loc[scores_df[repacking == 0].index, 'interface_bound_activation_energy'] = np.nan
-            scores_df.drop('repacking', axis=1, inplace=True)
-
         # Process all desired files to Pose
         designs = [Pose.from_file(file, **self.pose_kwargs) for file in design_paths_to_process]
         design_sequences = {design.name: design.sequence for design in designs}
@@ -4022,6 +4037,9 @@ class PoseProtocol(PoseData):
         # residues_df = pd.concat([residues_df, rosetta_residues_df], axis=1)
         residues_df = residues_df.join(rosetta_residues_df)
         designs_df = scores_df.join(self.analyze_design_metrics_per_design(residues_df, designs))
+
+        # Finish calculation of Rosetta scores with included metrics
+        designs_df = self.rosetta_column_combinations(designs_df)
 
         # Score using proteinmpnn
         # Todo only score if it hasn't been scored previously...
@@ -4078,7 +4096,7 @@ class PoseProtocol(PoseData):
         self.load_pose()
 
         def get_metrics():
-            metrics_ = self.pose.metrics  # Also calculates entity.metrics
+            _metrics = self.pose.metrics  # Also calculates entity.metrics
             # Todo
             # # Gather the docking metrics if not acquired from Nanohedra
             # pose_residues_df = self.analyze_docked_metrics()
@@ -4095,9 +4113,9 @@ class PoseProtocol(PoseData):
                 # is_thermophilic.append(1 if entity.thermophilicity else 0)
                 is_thermophilic.append(entity.thermophilicity)
                 data.metrics = entity.metrics
-            metrics_.pose_thermophilicity = sum(is_thermophilic) / idx
+            _metrics.pose_thermophilicity = sum(is_thermophilic) / idx
 
-            return metrics_
+            return _metrics
 
         # Check if PoseMetrics have been captured
         if self.job.db:
@@ -4106,7 +4124,6 @@ class PoseProtocol(PoseData):
             elif scores or self.job.force:
                 # Update existing self.metrics
                 current_metrics = self.metrics
-                print("hasattr('__setattr__')", hasattr(current_metrics, '__setattr__'))
                 metrics_ = get_metrics()
                 for attr, value in metrics_.__dict__.items():
                     setattr(current_metrics, attr, value)
@@ -4141,7 +4158,9 @@ class PoseProtocol(PoseData):
             # Currently the metrics putils.protocol and putils.design_parent are not handle as this is the pose_source
             # and no protocols should have been run on this, nor should it have a parent. They will be removed when
             # output to the database
-            designs_df = designs_df.join(scores_df)
+            scores_df = scores_df.join(metrics.sum_per_residue_metrics(rosetta_residues_df))
+            # Finish calculation of Rosetta scores with included metrics
+            designs_df = self.rosetta_column_combinations(designs_df.join(scores_df))
             residues_df = residues_df.join(rosetta_residues_df)
 
         # Correct the index of the DataFrame by changing from "name" to database ID
@@ -4283,7 +4302,7 @@ class PoseProtocol(PoseData):
 
     def analyze_design_metrics_per_design(self, residues_df: pd.DataFrame,
                                           designs: Iterable[Pose] | Iterable[AnyStr]) -> pd.DataFrame:
-        """Take every design Model and perform design level structural analysis
+        """Take every design Model and perform design level structural analysis. Sums per-residue metrics (residues_df)
 
         Args:
             residues_df: The typical per-residue metric DataFrame where each index is the design id and the columns are
@@ -4291,6 +4310,8 @@ class PoseProtocol(PoseData):
             designs: The designs to perform analysis on. By default, fetches all available structures
         Returns:
             A per-design metric DataFrame where each index is the design id and the columns are design metrics
+            Including metrics 'interface_area_total' and 'number_interface_residues' which are used in other analysis
+                functions
         """
         #     designs_df: The typical per-design metric DataFrame where each index is the design id and the columns are
         #         design metrics
@@ -4327,6 +4348,7 @@ class PoseProtocol(PoseData):
         #  row_dict = {row.index: row.errat_deviation for row in rows}
         #  pd.Series(row_dict, name='errat_Deviation')
         # pose_source_errat = errat_df.loc[self.pose.name, :]
+        self.load_pose()
         pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
         # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
         source_errat_inclusion_boolean = \
@@ -4337,29 +4359,6 @@ class PoseProtocol(PoseData):
         # This overwrites the metrics.sum_per_residue_metrics() value
         designs_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
-        # # Calculate metrics from combinations of metrics with variable integer number metric names
-        # scores_columns = designs_df.columns.to_list()
-        # self.log.debug(f'Metrics present: {scores_columns}')
-        #
-        # summation_pairs = \
-        #     {'buns_unbound': list(filter(re.compile('buns[0-9]+_unbound$').match, scores_columns)),  # Rosetta
-        #      # 'interface_energy_bound':
-        #      #     list(filter(re.compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
-        #      # 'interface_energy_unbound':
-        #      #     list(filter(re.compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
-        #      # 'interface_solvation_energy_bound':
-        #      #     list(filter(re.compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
-        #      # 'interface_solvation_energy_unbound':
-        #      #     list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
-        #      'interface_connectivity':
-        #          list(filter(re.compile('entity[0-9]+_interface_connectivity').match, scores_columns)),  # Rosetta
-        #      }
-        #
-        # designs_df = metrics.columns_to_new_column(designs_df, summation_pairs)
-        # designs_df = metrics.columns_to_new_column(designs_df, metrics.rosetta_delta_pairs, mode='sub')
-        # Add number_interface_residues for div_pairs and int_comp_similarity
-        # designs_df['number_interface_residues'] = other_pose_metrics.pop('number_interface_residues')
-        self.load_pose()
         pose_df = self.pose.df
         designs_df['number_interface_residues'] = pose_df['number_interface_residues']
 
@@ -4413,7 +4412,7 @@ class PoseProtocol(PoseData):
         # # Create metrics for the pose_source
         # empty_source = dict(
         #     # **other_pose_metrics,
-        #     buns_complex=0,
+        #     buried_unsatisfied_hbonds_complex=0,
         #     contact_count=0,
         #     favor_residue_energy=0,
         #     interaction_energy_complex=0,

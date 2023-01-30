@@ -70,8 +70,9 @@ nanohedra_metrics = ['multiple_fragment_ratio', 'nanohedra_score', 'nanohedra_sc
                      'percent_fragment_helix', 'percent_fragment_strand', 'percent_fragment_coil',
                      'percent_residues_fragment_interface_total', 'percent_residues_fragment_interface_center',
                      'number_interface_residues_non_fragment']
-# These metrics are necessary for all calculations performed during the analysis script. If missing, something will fail
-necessary_metrics = {'buns_complex', 'buns1_unbound', 'contact_count', 'coordinate_constraint',
+# These metrics are necessary for all calculations performed during the analysis script.
+# They are formatted differently from Rosetta output. If missing, something will fail
+necessary_metrics = {'buried_unsatisfied_hbonds_complex', 'buns1_unbound', 'contact_count', 'coordinate_constraint',
                      'favor_residue_energy', 'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound',
                      # 'interface_connectivity1',
                      'interface_separation',
@@ -94,39 +95,6 @@ necessary_metrics = {'buns_complex', 'buns1_unbound', 'contact_count', 'coordina
 #                      'number_of_hbonds', 'number_interface_residues',
 #                      'average_fragment_z_score', 'nanohedra_score', 'number_of_fragments',
 #                      'interface_b_factor_per_res',
-# Todo
-# unused, just a placeholder for the metrics in population
-final_metrics = {'buried_unsatisfied_hbonds', 'contact_count', 'core', 'coordinate_constraint',
-                 'divergence_design_per_residue', 'divergence_evolution_per_residue', 'divergence_fragment_per_residue',
-                 'divergence_interface_per_residue', 'pose_thermophilicity', 'favor_residue_energy',
-                 'interface_area_hydrophobic', 'interface_area_polar', 'interface_area_total',
-                 'interface_composition_similarity', 'interface_connectivity1', 'interface_connectivity2',
-                 # 'interface_energy_1_unbound', 'interface_energy_2_unbound',
-                 'interface_energy_complex', 'interface_energy', 'interface_energy_unbound',
-                 'int_separation',
-                 'interaction_energy_complex', 'interface_b_factor_per_res', 'multiple_fragment_ratio',
-                 'number_of_hbonds', 'nanohedra_score', 'nanohedra_score_center',
-                 'nanohedra_score_per_res', 'nanohedra_score_center_per_res_center',
-                 'number_fragment_residues_total', 'number_fragment_residues_central', 'number_of_fragments',
-                 'observations', 'observed_design', 'observed_evolution', 'observed_fragment', 'observed_interface',
-                 'percent_core', 'percent_fragment_coil', 'percent_fragment_helix', 'percent_fragment_strand',
-                 'percent_interface_area_hydrophobic', 'percent_interface_area_polar', 'percent_mutations',
-                 'percent_residues_fragment_interface_center',
-                 'percent_residues_fragment_interface_total', 'percent_rim', 'percent_support',
-                 'protocol_energy_distance_sum', 'protocol_similarity_sum', 'protocol_seq_distance_sum',
-                 'rosetta_reference_energy', 'rim', 'rmsd', 'shape_complementarity', 'interface_solvation_energy',
-                 'interface_solvation_energy_activation', 'support',
-                 'symmetry', 'number_interface_residues_non_fragment'}
-#                  'buns_heavy_total', 'buns_hpol_total', 'buns_total',
-#                These are missing the bb_hb contribution and are inaccurate
-#                   'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex',
-#                   'int_energy_context_delta', 'int_energy_context_oligomer',
-#                These are accounted for in other pose metrics
-#                   'nanohedra_score', 'average_fragment_z_score', 'number_of_fragments', 'number_interface_residues',
-#                   'interface_b_factor_per_res'}
-#                These could be added in, but seem to be unnecessary
-#                   'fsp_total_stability', 'full_stability_complex',
-
 columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation',
                      'shape_complementarity_core_median_dist': 'interface_core_separation',
                      'ref': 'rosetta_reference_energy',
@@ -157,21 +125,22 @@ columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation'
                      # 'R_int_connectivity_2': 'interface_connectivity2',
                      }
 #                      'total_score': 'REU', 'decoy': 'design', 'symmetry_switch': 'symmetry',
-# Todo clean up these columns for master branch...
-clean_up_intermediate_columns = ['int_energy_no_intra_residue_score',
-                                 'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
-                                 'sasa_hydrophobic_bound', 'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound',
-                                 'sasa_polar_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
-                                 'sasa_total_bound', 'sasa_total_1_bound', 'sasa_total_2_bound',
-                                 'buns_complex', 'buns_unbound', 'buns1_unbound', 'buns2_unbound',
-                                 'solvation_energy', 'solvation_energy_complex',
-                                 'solvation_energy_1_bound', 'solvation_energy_2_bound', 'solvation_energy_1_unbound',
-                                 'solvation_energy_2_unbound',
-                                 'interface_energy_1_bound', 'interface_energy_1_unbound', 'interface_energy_2_bound',
-                                 'interface_energy_2_unbound',
-                                 'interface_solvation_energy_bound', 'interface_solvation_energy_bound',
-                                 'interface_solvation_energy_unbound', 'interface_solvation_energy_complex'
-                                 ]
+clean_up_intermediate_columns = [
+    # 'int_energy_no_intra_residue_score',
+    # 'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
+    # 'sasa_hydrophobic_bound', 'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound',
+    # 'sasa_polar_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
+    # 'sasa_total_bound', 'sasa_total_1_bound', 'sasa_total_2_bound',
+    'buried_unsatisfied_hbonds_unbound',
+    # 'buried_unsatisfied_hbonds_complex', 'buried_unsatisfied_hbonds_unbound1', 'buried_unsatisfied_hbonds_unbound2',
+    # 'solvation_energy', 'solvation_energy_complex',
+    # 'solvation_energy_1_bound', 'solvation_energy_2_bound', 'solvation_energy_1_unbound',
+    # 'solvation_energy_2_unbound',
+    # 'interface_energy_1_bound', 'interface_energy_1_unbound', 'interface_energy_2_bound',
+    # 'interface_energy_2_unbound',
+    # 'interface_solvation_energy_bound',
+    # 'interface_solvation_energy_unbound', 'interface_solvation_energy_complex'
+]
 protocol_specific_columns = ['HBNet_NumUnsatHpol', 'HBNet_Saturation', 'HBNet_Score']
 # Some of these are unneeded now, but hanging around in case renaming occurred
 unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_total',
@@ -209,7 +178,7 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
 
 # subtract columns using tuple [0] - [1] to make delta column
 rosetta_delta_pairs = {
-    'buried_unsatisfied_hbonds': ('buns_complex', 'buns_unbound'),  # Rosetta
+    'buried_unsatisfied_hbonds': ('buried_unsatisfied_hbonds_complex', 'buried_unsatisfied_hbonds_unbound'),  # Rosetta
     # Replace by Residues summation
     # 'interface_energy': ('interface_energy_complex', 'interface_energy_unbound'),  # Rosetta
     # 'interface_energy_no_intra_residue_score': ('interface_energy_complex', 'interface_energy_bound'),
@@ -877,7 +846,7 @@ def calculate_residue_surface_area(per_residue_df: pd.DataFrame) -> pd.DataFrame
 
 
 def sum_per_residue_metrics(df: pd.DataFrame, rename_columns: Mapping[str, str] = None,
-                            mean_metrics: Sequence[str] = None,) -> pd.DataFrame:
+                            mean_metrics: Sequence[str] = None) -> pd.DataFrame:
     """From a DataFrame with per-residue values (i.e. a metric in level -1), tabulate all values across each residue
 
     Renames specific values relating to interfacial energy and solvation energy
@@ -908,7 +877,7 @@ def sum_per_residue_metrics(df: pd.DataFrame, rename_columns: Mapping[str, str] 
         **energy_metrics_rename_mapping,
         **sasa_metrics_rename_mapping,
         **renamed_design_metrics,
-        **({} if rename_columns is None else rename_columns)}
+        **(rename_columns or {})}
     count_df = groupby_df.count().rename(columns=rename_columns)
     # Using min_count=1, we ensure that those columns with np.nan remain np.nan
     summed_df = groupby_df.sum(min_count=1).rename(columns=rename_columns)

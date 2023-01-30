@@ -206,10 +206,10 @@
 		<Holes name="interface_holes" threshold="2" residue_selector="tot_interface_sym" normalize_per_atom="true" exclude_bb_atoms="false" confidence="0"/>
 		# TODO test for RMSD and buns_nano on more than 2 chains
 		# find the total number of unsatisfied hydrogen bonds in the specified interface. will be called at specific poses to determine BUNS at different locations in interface
-		<BuriedUnsatHbonds name="buns_complex" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
-<!--		<BuriedUnsatHbonds name="buns_complex_ignore" residue_selector="tot_interface" ignore_surface_res="true" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement-->
-<!--		<BuriedUnsatHbonds name="buns_complex_sym" residue_selector="tot_interface_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement-->
-<!--		<BuriedUnsatHbonds name="buns_complex_sym_ignore" residue_selector="tot_interface_sym" ignore_surface_res="true" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement-->
+		<BuriedUnsatHbonds name="buried_unsatisfied_hbonds_complex" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
+<!--		<BuriedUnsatHbonds name="buried_unsatisfied_hbonds_complex_ignore" residue_selector="tot_interface" ignore_surface_res="true" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement-->
+<!--		<BuriedUnsatHbonds name="buried_unsatisfied_hbonds_complex_sym" residue_selector="tot_interface_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement-->
+<!--		<BuriedUnsatHbonds name="buried_unsatisfied_hbonds_complex_sym_ignore" residue_selector="tot_interface_sym" ignore_surface_res="true" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false" NOT relevant for own ddG style measurement-->
 
 <!--		<BuriedUnsatHbonds name="buns_hpol" residue_selector="tot_interface" scorefxn="2015_nano" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true"/>-->
 <!--		<BuriedUnsatHbonds name="buns_asu" residue_selector="tot_interface" scorefxn="2015_nano" use_ddG_style="true" report_all_unsats="true" confidence="1.0" ignore_surface_res="true" jump_number="1"/> # print_out_info_to_pdb="true"-->
@@ -223,9 +223,9 @@
 <!--		<Report name="R_interface_area_all_asu_hydrophobic"	filter="interface_area_all_asu_hydrophobic"/>-->
 <!--		<Report name="R_interface_area_all_asu_polar" 		filter="interface_area_all_asu_polar"/>-->
 <!--		<Report name="R_interface_holes" 					filter="interface_holes"/>-->
-<!--		<Report name="R_buns_complex_ignore" 				filter="buns_complex_ignore"/>-->
-<!--		<Report name="R_buns_complex_sym" 					filter="buns_complex_sym"/>-->
-<!--		<Report name="R_buns_complex_sym_ignore" 			filter="buns_complex_sym_ignore"/>-->
+<!--		<Report name="R_buried_unsatisfied_hbonds_complex_ignore" 		filter="buried_unsatisfied_hbonds_complex_ignore"/>-->
+<!--		<Report name="R_buried_unsatisfied_hbonds_complex_sym" 			filter="buried_unsatisfied_hbonds_complex_sym"/>-->
+<!--		<Report name="R_buried_unsatisfied_hbonds_complex_sym_ignore" 	filter="buried_unsatisfied_hbonds_complex_sym_ignore"/>-->
 
 <!--		<Report name="R_buns_asu" 							filter="buns_asu"/>-->
 <!--		<Report name="R_buns_asu_hpol" 						filter="buns_asu_hpol"/>-->
@@ -256,7 +256,7 @@
 <!--		<Report name="R_count_interface1_sc_sym" 			filter="count_interface1_sc_sym"/>-->
 		<Report name="R_shape_complementarity" 				filter="shape_complementarity"/>
 		<Report name="R_contact_count" 						filter="contact_count"/>
-		<Report name="R_buns_complex" 						filter="buns_complex"/>
+		<Report name="R_buried_unsatisfied_hbonds_complex" 	filter="buried_unsatisfied_hbonds_complex"/>
 <!--		<Report name="R_buns_hpol" 					filter="buns_hpol"/>-->
 <!--		<Report name="R_buns_nano" 						filter="buns_nano"/>-->
 <!--		<Report name="R_buns_nano_hpol" 				filter="buns_nano_hpol"/>-->
@@ -369,18 +369,14 @@
 <!--		<Add filter_name="R_count_interface1_sc"/>-->
 <!--		<Add filter_name="R_count_interface1_sc_sym"/>-->
 <!--		<Add filter_name="R_int_energy_context_complex"/>-->
-		<Add filter_name="R_shape_complementarity"/>
 <!--&lt;!&ndash;		<Add filter_name="R_shape_complementarity_self_interface1"/>&ndash;&gt;-->
 <!--&lt;!&ndash;		<Add filter_name="R_shape_complementarity_self_interface2"/>&ndash;&gt;-->
 <!--		<Add filter_name="R_shape_complementarity_interface_only"/>-->
 <!--		<Add filter_name="R_shape_complementarity_neighbors"/>-->
 <!--		<Add filter_name="R_shape_complementarity_neighbors_sym"/>-->
-		<Add filter_name="R_contact_count"/>
 <!--		<Add mover_name="run_metrics_hydrophobic_sasa"/>-->
 <!--		<Add mover_name="run_metrics_polar_sasa"/>-->
 <!--		<Add mover_name="run_metrics_sasa"/>-->
-		<Add mover_name="metrics"/>
-		<Add mover_name="run_metrics"/>
 <!--		<Add mover_name="run_metrics_complex_sum_sasa_hydrophobic"/>-->
 <!--		<Add mover_name="run_metrics_complex_sum_sasa_polar"/>-->
 <!--		<Add mover_name="run_metrics_complex_sum_sasa_total"/>-->
@@ -393,7 +389,6 @@
 <!--		<Add filter_name="R_interface_area_hydrophobic"/>-->
 <!--		<Add filter_name="R_interface_area_polar"/>-->
 <!--		<Add filter_name="R_interface_area_total"/>-->
-		<Add filter_name="R_buns_complex"/>
 <!--		<Add filter_name="R_buns_hpol"/>-->
 <!--		<Add filter_name="R_buns_total"/>-->
 	</PROTOCOLS>

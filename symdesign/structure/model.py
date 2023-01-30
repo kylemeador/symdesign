@@ -228,21 +228,21 @@ class Metrics(abc.ABC):
     _df: pd.Series
     _metrics: _metrics_table
     # _metrics_table: sql.Base
-    _metrics_: dict[str, Any]
+    _metrics_d: dict[str, Any]
 
     @property
     @abc.abstractmethod
     def _metrics_table(self) -> sql.Base:
         """The sqlalchemy Mapped class to associate the metrics with"""
 
-    # @property
-    # def metrics_(self) -> dict[str, Any]:
-    #     """Metrics as a dictionary. __init__: Retrieves all metrics with no arguments"""
-    #     try:
-    #         return self._metrics_
-    #     except AttributeError:  # Load metrics
-    #         self._metrics_ = self.calculate_metrics()
-    #     return self._metrics_
+    @property
+    def _metrics_(self) -> dict[str, Any]:
+        """Metrics as a dictionary. __init__: Retrieves all metrics with no arguments"""
+        try:
+            return self._metrics_d
+        except AttributeError:  # Load metrics
+            self._metrics_d = self.calculate_metrics()
+        return self._metrics_d
 
     @property
     def metrics(self) -> _metrics_table:
@@ -250,7 +250,7 @@ class Metrics(abc.ABC):
         try:
             return self._metrics
         except AttributeError:  # Load
-            self._metrics_ = self.calculate_metrics()
+            # self._metrics_ = self.calculate_metrics()
             self._metrics = self._metrics_table(**self._metrics_)
         return self._metrics
 
@@ -260,7 +260,7 @@ class Metrics(abc.ABC):
         try:
             return self._df
         except AttributeError:  # Load
-            self._metrics_ = self.calculate_metrics()
+            # self._metrics_ = self.calculate_metrics()
             self._df = pd.Series(self._metrics_)
         return self._df
 
