@@ -313,9 +313,10 @@ class Fragment(ABC):
             viable_indices = ~clashing_indices
 
         # self.ghost_fragments = [GhostFragment(*info) for info in zip(list(transformed_guide_coords[viable_indices]),
-        self.ghost_fragments = [GhostFragment(*info) for info in zip(list(stacked_guide_coords[viable_indices]),
-                                                                     *zip(*ijk_types[viable_indices].tolist()),
-                                                                     rmsd_array[viable_indices].tolist(), repeat(self))]
+        self.ghost_fragments = [GhostFragment(*info_) for info_ in zip(list(stacked_guide_coords[viable_indices]),
+                                                                       *zip(*ijk_types[viable_indices].tolist()),
+                                                                       rmsd_array[viable_indices].tolist(),
+                                                                       repeat(self))]
 
     def get_ghost_fragments(self,
                             # indexed_ghost_fragments: dict,

@@ -330,24 +330,25 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
             res_counts_dict['paired'][residue2.number][0] += 1
 
     # Add the value of the total residue involvement for single structure to overall cluster dictionary
-    for chain in res_counts_dict:
+    for chain, residues in res_counts_dict.items():
         total_pose_score = 0
-        for residue in res_counts_dict[chain]:
-            if res_counts_dict[chain][residue][1] == 0:
-                res_counts_dict[chain][residue] = 0.0
+        for residue, data in residues.items():
+            contacts, n_atoms = data
+            if n_atoms == 0:
+                residues[residue] = 0.0
             else:
-                res_normalized_score = res_counts_dict[chain][residue][0] / float(res_counts_dict[chain][residue][1])
-                res_counts_dict[chain][residue] = res_normalized_score
+                res_normalized_score = contacts / float(n_atoms)
+                residues[residue] = res_normalized_score
                 total_pose_score += res_normalized_score
         if total_pose_score == 0:
             # case where no atoms are within interaction distance
-            for residue in res_counts_dict[chain]:
-                res_counts_dict[chain][residue] = 0.0
+            for residue in residues:
+                residues[residue] = 0.0
             continue
-        for residue in res_counts_dict[chain]:
+        for residue, data in residues.items():
             # Get percent of residue contribution to interaction over the entire pose interaction
-            res_counts_dict[chain][residue] /= total_pose_score
-            res_counts_dict[chain][residue] = round(res_counts_dict[chain][residue], 3)
+            residues[residue] /= total_pose_score
+            # residues[residue] = round(residues[residue], 3)
 
     return res_counts_dict
 
