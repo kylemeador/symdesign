@@ -5416,21 +5416,19 @@ class SymmetricModel(Models):
 
             # self.log.critical('com_offsets: %s' % com_offsets)
             minimal_com_distance_index = com_offsets.argmin()
-            entity_index1, com_index1, entity_index2, com_index2 = asu_indices_combinations[minimal_com_distance_index]
-            # entity_index1, entity_index2 = asu_indices_index[minimal_com_distance_index]
-            # com_index1, com_index2 = asu_coms_index[minimal_com_distance_index]
-            core_indices = [(entity_index1, com_index1), (entity_index2, com_index2)]
-            # asu_index2 = asu_indices[entity_index2][com_index2]
+            entity_idx1, com_idx1, entity_idx2, com_idx2 = asu_indices_combinations[minimal_com_distance_index]
+            core_indices = [(entity_idx1, com_idx1), (entity_idx2, com_idx2)]
+            minimal_entity_com_pair = (entity_idx1, entity_idx2)
+
+            # Find any additional index pairs
             additional_indices: list[tuple[int, int]] = []
             if number_of_symmetry_groups != 2:  # We have to find more indices
                 # Find indices where either of the minimally distanced COMs are utilized
-                # selected_asu_indices_indices = {idx for idx, (ent_idx1, com_idx1, ent_idx2, com_idx2) in enumerate(asu_indices_combinations)
-                #                                 if entity_index1 == ent_idx1 or entity_index2 == ent_idx2 and not }
-                selected_asu_indices_indices = {idx for idx, ent_idx_pair in enumerate(asu_indices_index)
-                                                if entity_index1 in ent_idx_pair or entity_index2 in ent_idx_pair and
-                                                asu_indices_index[idx] != ent_idx_pair}
-                remaining_indices = set(possible_symmetry_indices).difference({entity_index1, entity_index2})
-                for index in remaining_indices:
+                possible_entity_idx_pairs = {idx for idx, ent_idx_pair in enumerate(entity_idx_pairs)
+                                             if entity_idx1 in ent_idx_pair or entity_idx2 in ent_idx_pair and
+                                             ent_idx_pair != minimal_entity_com_pair}
+                remaining_indices = set(symmetric_group_indices).difference(minimal_entity_com_pair)
+                for additional_entity_idx in remaining_indices:
                     # Find the indices where the missing index is utilized
                     remaining_index_indices = {idx for idx, ent_idx_pair in enumerate(entity_idx_pairs)
                                                if additional_entity_idx in ent_idx_pair}
