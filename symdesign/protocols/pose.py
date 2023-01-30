@@ -3875,9 +3875,8 @@ class PoseProtocol(PoseData):
         # Rename buns columns
         # This isn't stable long term given mapping of interface number (sql) and entity number (Rosetta)
         buns_columns = summation_pairs['buried_unsatisfied_hbonds_unbound']
-        scores_df.columns = scores_df.columns.map(dict(zip(buns_columns,
-                                                           (f'buried_unsatisfied_hbonds_unbound{idx}'
-                                                            for idx in range(1, 1 + len(buns_columns))))))
+        scores_df.columns = scores_df.columns.map(dict((f'buns{idx}_unbound', f'buried_unsatisfied_hbonds_unbound{idx}')
+                                                       for idx in range(1, 1 + len(buns_columns))))
         scores_df = metrics.columns_to_new_column(scores_df, summation_pairs)
         # Add number_interface_residues for div_pairs and int_comp_similarity
         # scores_df['number_interface_residues'] = other_pose_metrics.pop('number_interface_residues')
@@ -4180,6 +4179,8 @@ class PoseProtocol(PoseData):
         name_to_id_map = {pose_name: self.pose_source.id}
         designs_df.index = designs_df.index.map(name_to_id_map)
         residues_df.index = residues_df.index.map(name_to_id_map)
+        print(designs_df.index.tolist())
+        print(designs_df.columns.tolist())
         self.output_metrics(designs=designs_df, residues=residues_df)
         # Commit the newly acquired metrics
         self.job.current_session.commit()
