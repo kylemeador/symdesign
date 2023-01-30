@@ -3839,7 +3839,7 @@ class PoseProtocol(PoseData):
         # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
         # which ends up with multi-index column with residue index as first (top) column index, metric as second index
         rosetta_residues_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}) \
-            .unstack().swaplevel(0, 1, axis=1)
+            .unstack()
 
         return scores_df, rosetta_residues_df
 
