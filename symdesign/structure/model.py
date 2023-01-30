@@ -5332,6 +5332,7 @@ class SymmetricModel(Models):
                         if minimal_central_offset < current_best_minimal_central_offset:
                             # The new one if it is less offset
                             set_solution()
+                            current_best_minimal_central_offset = minimal_central_offset
                         elif minimal_central_offset == current_best_minimal_central_offset:
                             # Chose the positive one in the case that there are degeneracies (most likely)
                             self.log.info('There are multiple pose transformation solutions for the symmetry group '
