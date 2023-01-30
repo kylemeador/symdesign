@@ -5478,7 +5478,7 @@ class SymmetricModel(Models):
         entities = self.entities
         number_of_entities = self.number_of_entities
         if number_of_entities != 1:
-            idx = 0
+            idx = count()
             chain_combinations: list[tuple[Entity, Entity]] = []
             entity_combinations: list[tuple[Entity, Entity]] = []
             contact_count = \
@@ -5489,9 +5489,8 @@ class SymmetricModel(Models):
                     for chain2 in entity2.chains:
                         entity_combinations.append((entity1, entity2))
                         chain_combinations.append((chain1, chain2))
-                        contact_count[idx] = \
+                        contact_count[next(idx)] = \
                             chain_cb_coord_tree.two_point_correlation(chain2.cb_coords, [distance])[0]
-                        idx += 1
 
             max_contact_idx = contact_count.argmax()
             additional_chains = []
