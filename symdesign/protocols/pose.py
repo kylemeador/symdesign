@@ -1275,13 +1275,15 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                                       f"work!")
                     # self.log.critical('Your requested fusion of chain %s with chain %s didn\'t work!' %
                     #                   (fusion_nterm, fusion_cterm))
-                else:  # won't be accessed unless entity_new_chain_idx is set
+                else:  # Won't be accessed unless entity_new_chain_idx is set
                     self.pose.entities[entity_new_chain_idx].chain_id = fusion_nterm
             # except AttributeError:
             #     raise ValueError('One or both of the chain IDs %s were not found in the input model. Possible chain'
             #                      ' ID\'s are %s' % ((fusion_nterm, fusion_cterm), ','.join(new_asu.chain_ids)))
-        self.pose.write(out_path=self.pose_path)
-        self.log.info(f'Cleaned Pose file: "{self.pose_path}"')
+        # Set the pose_path as the source_path now
+        self.source_path = self.pose_path
+        self.pose.write(out_path=self.source_path)
+        self.log.info(f'Cleaned Pose file: "{self.source_path}"')
 
     def _symmetric_assembly_is_clash(self):
         """Wrapper around the Pose symmetric_assembly_is_clash() to check at the Pose level for clashes and raise
