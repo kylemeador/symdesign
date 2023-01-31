@@ -4043,7 +4043,7 @@ class PoseProtocol(PoseData):
         designs = [Pose.from_file(file, **self.pose_kwargs) for file in design_paths_to_process]
         design_sequences = {design.name: design.sequence for design in designs}
         design_names = list(design_sequences.keys())
-        sequences_df = self.analyze_sequence_metrics_per_design(sequences=design_sequences)
+        # sequences_df = self.analyze_sequence_metrics_per_design(sequences=design_sequences)
 
         # The DataFrame.index is wrong here. It needs to become the design.id not design.name. Modify after processing
         residues_df = self.analyze_residue_metrics_per_design(designs=designs)
@@ -4068,11 +4068,15 @@ class PoseProtocol(PoseData):
         mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
 
         designs_df = designs_df.join(mpnn_designs_df)
-        designs_df = designs_df.join(self.analyze_design_metrics_per_residue(sequences_df))
+        # This call is redundant with the analyze_proteinmpnn_metrics(design_names, sequences_and_scores) above
+        # Todo remove from above the sequences portion..? Commenting out below for now
+        # designs_df = designs_df.join(self.analyze_design_metrics_per_residue(sequences_df))
 
         # Join per-residue like DataFrames
+        residues_df = residues_df.join(mpnn_residues_df)
         # Each of these could have different index/column, so we use concat to perform an outer merge
-        residues_df = pd.concat([residues_df, mpnn_residues_df, sequences_df], axis=1)
+        # residues_df = pd.concat([residues_df, mpnn_residues_df, sequences_df], axis=1) WORKED!!
+        # residues_df = residues_df.join([mpnn_residues_df, sequences_df])
         # Todo should this "different index" be allowed? be possible
         #  residues_df = residues_df.join(rosetta_residues_df)
 
