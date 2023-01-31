@@ -394,8 +394,8 @@ def main():
         existing_uniprot_id_to_unp_entity = {unp_entity.id: unp_entity
                                              for unp_entity in existing_uniprot_entities}
         insert_uniprot_ids = possibly_new_uniprot_ids.difference(existing_uniprot_id_to_unp_entity.keys())
-        logger.info(f'possibly_new_uniprot_ids {possibly_new_uniprot_ids}')
-        logger.info(f'insert_uniprot_ids {insert_uniprot_ids}')
+        # logger.debug(f'possibly_new_uniprot_ids {possibly_new_uniprot_ids}')
+        # logger.debug(f'insert_uniprot_ids {insert_uniprot_ids}')
 
         # Insert the remaining UniProtIDs as UniProtEntity entries
         new_uniprot_id_to_unp_entity = {uniprot_id: wrapapi.UniProtEntity(id=uniprot_id)
@@ -1269,6 +1269,9 @@ def main():
                         #     existing_uniprot_entities.add(meta.uniprot_entity)
             for idx in reversed(remove_pose_jobs):
                 pose_jobs.pop(idx)
+
+            if not pose_jobs:
+                raise utils.InputError(f"No viable {PoseJob.__name__}'s found at location '{job.location}'")
             # all_structures = []
             # Populate all_entities to set up sequence dependent resources
             all_entities = []

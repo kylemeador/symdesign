@@ -3762,7 +3762,7 @@ class PoseProtocol(PoseData):
         # Check proper input
         metric_set = metrics.necessary_metrics.difference(set(scores_df.columns))
         if metric_set:
-            self.log.error(f'Score columns present before required metric check: {scores_df.columns.to_list()}')
+            self.log.debug(f'Score columns present before required metric check: {scores_df.columns.to_list()}')
             raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
 
         # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
@@ -3985,7 +3985,9 @@ class PoseProtocol(PoseData):
 
         # Get the name/provided_name to design_id mapping for later rename
         design_name_to_id_map = \
-            dict((getattr(design_data, 'provided_name', 'name'), design_data.id) for design_data in self.designs)
+            dict((getattr(design_data, 'provided_name',
+                          getattr(design_data, 'name')),
+                  design_data.id) for design_data in self.current_designs)
 
         designs_path = self.designs_path
         new_design_new_filenames = {design_data.provided_name:
@@ -3994,12 +3996,12 @@ class PoseProtocol(PoseData):
         # Find protocol info and remove from scores_df
         if putils.protocol in scores_df:
             # Replace missing values with the pose_source DesignData
-            protocol_s = scores_df.pop(putils.protocol).fillna(self.pose_source)
+            protocol_s = scores_df.pop(putils.protocol).fillna('metrics')
             self.log.critical(f'Found "protocol_s" variable with dtype: {protocol_s.dtype}')
             # Update the Pose with the design protocols
             for name_or_provided_name, design_id in design_name_to_id_map.items():
                 protocol_kwargs = dict(design_id=design_id,
-                                       protocol=protocol_s[design_id],
+                                       protocol=protocol_s[name_or_provided_name],
                                        # temperature=temperatures[idx],)
                                        )
                 new_filename = new_design_new_filenames.get(name_or_provided_name)
@@ -4026,7 +4028,6 @@ class PoseProtocol(PoseData):
         # Right now, it is only the interface residues that go into Rosetta
         # Use simple reporting here until that changes...
         interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
-        input(f'Found scored_df with len()={len(scores_df)}')
         design_residues = np.zeros((len(design_paths_to_process), pose_length), dtype=bool)
         design_residues[:, interface_residue_indices] = 1
         # 'design_residue' is now integrated using analyze_proteinmpnn_metrics()
@@ -4075,8 +4076,10 @@ class PoseProtocol(PoseData):
 
         # Rename all designs and clean up resulting metrics for storage
         # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
+        # input(f'BEFORE MAP: {designs_df.index.tolist()}')
         designs_df.index = designs_df.index.map(design_name_to_id_map)
         residues_df.index = residues_df.index.map(design_name_to_id_map)
+        # input(f'AFTER MAP: {designs_df.index.tolist()}')
 
         # Commit the newly acquired metrics to the database
         # First check if the files are situated correctly
@@ -4092,6 +4095,9 @@ class PoseProtocol(PoseData):
                 raise DesignError('The specified file renaming scheme creates a conflict:\n'
                                   f'\t{filename} -> {new_filename}')
         # If so, proceed with insert, file rename and commit
+        # print(designs_df)
+        # print(designs_df.columns.tolist())
+        # print(designs_df.index.tolist())
         self.output_metrics(residues=residues_df, designs=designs_df)
         # Rename the incoming files to their prescribed names
         for filename, new_filename in files_to_move.items():
@@ -4185,8 +4191,8 @@ class PoseProtocol(PoseData):
         name_to_id_map = {pose_name: self.pose_source.id}
         designs_df.index = designs_df.index.map(name_to_id_map)
         residues_df.index = residues_df.index.map(name_to_id_map)
-        print(designs_df.index.tolist())
-        print(designs_df.columns.tolist())
+        # print(designs_df.index.tolist())
+        # print(designs_df.columns.tolist())
         self.output_metrics(designs=designs_df, residues=residues_df)
         # Commit the newly acquired metrics
         self.job.current_session.commit()

@@ -10,6 +10,7 @@ from typing import Any, Iterable, Sequence
 import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import Select
 
 from . import cluster
 from .pose import PoseJob
@@ -69,12 +70,11 @@ def load_total_dataframe(pose_jobs: Iterable[PoseJob], pose: bool = False) -> pd
     return df
 
 
-def load_and_format(session: Session, stmt, selected_column_names: Iterable[str]) -> pd.DataFrame:
+def load_and_format(session: Session, stmt: Select, selected_column_names: Iterable[str]) -> pd.DataFrame:
     # Todo modify the upstream stmt
     # SAWarning: SELECT statement has a cartesian product between FROM element(s) "pose_metrics", "pose_data",
     # "entity_data", "design_data", "design_metrics", "entity_metrics" and FROM element "protein_metadata".
     # Apply join condition(s) between each element to resolve.
-    input(type(stmt).__name__)
     df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_column_names)
     logger.debug(f'Loaded total Metrics DataFrame with primary identifier keys: '
                  f'{[key for key in selected_column_names if "id" in key and "residue" not in key]}')
@@ -1327,16 +1327,19 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     selected_designs_iter = iter(selected_designs)
     number_chosen = count(0)
     selected_pose_id_to_design_ids = {}
-    while next(number_chosen) <= job.number:
-        pose_id, design_id = next(selected_designs_iter)
-        _designs = selected_pose_id_to_design_ids.get(pose_id, None)
-        if _designs:
-            if len(_designs) >= designs_per_pose:
-                # We already have too many for this pose, continue with search
-                continue
-            _designs.append(design_id)
-        else:
-            selected_pose_id_to_design_ids[pose_id] = [design_id]
+    try:
+        while next(number_chosen) <= job.number:
+            pose_id, design_id = next(selected_designs_iter)
+            _designs = selected_pose_id_to_design_ids.get(pose_id, None)
+            if _designs:
+                if len(_designs) >= designs_per_pose:
+                    # We already have too many for this pose, continue with search
+                    continue
+                _designs.append(design_id)
+            else:
+                selected_pose_id_to_design_ids[pose_id] = [design_id]
+    except StopIteration:  # We exhausted selected_designs_iter
+        pass
 
     logger.info(f'{len(selected_pose_id_to_design_ids)} Poses were selected')
 
