@@ -763,6 +763,11 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             self.initial_model = Model.from_file(self.source_path, log=self.log)
 
     @property
+    def new_pose_identifier(self) -> str:
+        """Return the pose_identifier when the PoseData isn't part of the database"""
+        return f'{self.project}{os.sep}{self.name}'
+
+    @property
     def directives(self) -> list[dict[int, str]]:
         """The design directives given to each design in specific_designs to guide further sampling"""
         try:
