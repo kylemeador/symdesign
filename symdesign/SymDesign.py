@@ -160,6 +160,11 @@ def main():
         exit_code = 0
         if exceptions:
             print('\n')
+            for pose_job, error_ in exceptions:
+                try:
+                    print(f'{pose_job}: {error_}')
+                except TypeError:
+                    print(f'Found the erroneous PoseJob {pose_job.name} with id->{pose_job.id} and {error_}')
             logger.warning(f'Exceptions were thrown for {len(exceptions)} designs. '
                            f'Check their individual .log files for more details\n\t%s'
                            % '\n\t'.join(f'{pose_job}: {error_}' for pose_job, error_ in exceptions))
@@ -1303,11 +1308,15 @@ def main():
                 existing_pose_jobs = list(session.scalars(fetch_jobs_stmt))
 
                 existing_pose_identifiers = [pose_job.pose_identifier for pose_job in existing_pose_jobs]
+                pose_jobs = []
                 for pose_job in pose_jobs_to_commit:
                     if pose_job.new_pose_identifier not in existing_pose_identifiers:
-                        session.add(pose_job)
+                        pose_jobs.append(pose_job)
+                        # session.add(pose_job)
 
+                session.add_all(pose_jobs)
                 session.commit()
+                pose_jobs += existing_pose_jobs
 
             if args.multi_processing:  # and not args.skip_master_db:
                 logger.debug('Loading Database for multiprocessing fork')
