@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import subprocess
+from glob import glob
 from typing import AnyStr, Sequence
 
 logger = logging.getLogger(__name__)
@@ -280,7 +281,9 @@ def get_hhblits_exe():
 def get_uniclust_db() -> str:
     """Get the newest UniClust file by sorting alphanumerically"""
     try:  # To get database files and remove any extra characters from filename
-        return sorted(os.listdir(hhsuite_db_dir), reverse=True)[0].replace(uniclust_hhsuite_file_identifier, '')
+        md5sums = '.md5sums'
+        return sorted(glob(os.path.join(hhsuite_db_dir, f'*{md5sums}')), reverse=True)[0].replace(md5sums, '')
+        # return sorted(os.listdir(hhsuite_db_dir), reverse=True)[0].replace(uniclust_hhsuite_file_identifier, '')
     except IndexError:
         return ''
 
