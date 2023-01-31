@@ -30,7 +30,7 @@
 		<Or name="entity_interface_and_neighbors" selectors="entity_interface_residues,entity_only_interface_neighbors"/>
 		<SymmetricalResidue name="entity_interface_and_neighbors_sym" selector="entity_interface_and_neighbors"/>
 		<Not name="not_entity_interface_and_neighbors" selector="entity_interface_and_neighbors"/>
-		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
+		# select all residues lower than energy 10 involved in sidechain hydrogen bonding
 		<HBond name="interface_hbond_residues" residue_selector="entity_interface_residues" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015"/>
 		# all residues
 		<True name="full_pose"/>
