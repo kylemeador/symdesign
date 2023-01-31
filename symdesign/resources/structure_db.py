@@ -12,7 +12,7 @@ from typing import Iterable, Annotated, AnyStr
 from .database import Database, DataStore
 from .query.utils import boolean_choice
 from symdesign import flags, structure, utils
-from symdesign.utils import rosetta
+from symdesign.utils import CommandDistributer, rosetta
 putils = utils.path
 
 # Todo adjust the logging level for this module?
@@ -522,7 +522,12 @@ class StructureDatabase(Database):
         # Todo remove if need to model. Maybe using Alphafold
         structures_to_loop_model = []
 
-        # query user and set up commands to perform refinement on missing entities
+        # Query user and set up commands to perform refinement on missing entities
+        if CommandDistributer.is_sbatch_available():
+            shell = CommandDistributer.sbatch
+        else:
+            shell = CommandDistributer.default_shell
+
         info_messages = []
         # Assume pre_refine is True until we find it isn't
         pre_refine = True
@@ -569,14 +574,14 @@ class StructureDatabase(Database):
                     commands_file = \
                         utils.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
                                              name=f'{utils.starttime}-refine_entities')
-                    refine_sbatch = \
+                    refine_script = \
                         utils.CommandDistributer.distribute(commands_file, flags.refine, out_path=script_out_path,
                                                             log_file=os.path.join(refine_dir,
                                                                                   f'{putils.refine}.log'),
                                                             max_jobs=int(len(refine_cmds)/2 + .5),
                                                             number_of_commands=len(refine_cmds))
                     refine_sbatch_message = f'Once you are satisfied, run the following to distribute refine jobs:' \
-                                            f'\n\tsbatch {refine_sbatch}'
+                                            f'\n\t{shell} {refine_script}'
                     info_messages.append(refine_sbatch_message)
                 else:
                     raise NotImplementedError("Currently, refinement can't be run in the shell. "
@@ -661,7 +666,7 @@ class StructureDatabase(Database):
                     loop_cmds_file = \
                         utils.write_commands(loop_model_cmds, name=f'{utils.starttime}-loop_model_entities',
                                              out_path=full_model_dir)
-                    loop_model_sbatch = \
+                    loop_model_script = \
                         utils.CommandDistributer.distribute(loop_cmds_file, flags.refine, out_path=script_out_path,
                                                             log_file=os.path.join(full_model_dir, 'loop_model.log'),
                                                             max_jobs=int(len(loop_model_cmds)/2 + .5),
@@ -669,7 +674,7 @@ class StructureDatabase(Database):
                     multi_script_warning = "\n***Run this script AFTER completion of the refinement script***\n" \
                         if info_messages else ""
                     loop_model_sbatch_message = 'Once you are satisfied, run the following to distribute loop_modeling'\
-                                                f' jobs:{multi_script_warning}\n\tsbatch {loop_model_sbatch}'
+                                                f' jobs:{multi_script_warning}\n\t{shell} {loop_model_script}'
                     info_messages.append(loop_model_sbatch_message)
                 else:
                     raise NotImplementedError("Currently, loop modeling can't be run in the shell. "

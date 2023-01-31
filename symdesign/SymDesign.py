@@ -273,18 +273,23 @@ def main():
                     exit_code = 1
                     exit(exit_code)
 
+                if utils.CommandDistributer.is_sbatch_available():
+                    shell = utils.CommandDistributer.sbatch
+                else:
+                    shell = utils.CommandDistributer.default_shell
+
                 putils.make_path(job_paths)
                 putils.make_path(job.sbatch_scripts)
                 if job.module == flags.nanohedra:
                     command_file = utils.write_commands([list2cmdline(cmd) for cmd in success], out_path=job_paths,
                                                         name='_'.join(default_output_tuple))
-                    sbatch_file = \
+                    script_file = \
                         utils.CommandDistributer.distribute(command_file, job.module, out_path=job.sbatch_scripts,
                                                             number_of_commands=len(success))
                 else:
                     command_file = utils.write_commands([os.path.join(des.scripts_path, f'{stage}.sh') for des in success],
                                                         out_path=job_paths, name='_'.join(default_output_tuple))
-                    sbatch_file = utils.CommandDistributer.distribute(command_file, job.module,
+                    script_file = utils.CommandDistributer.distribute(command_file, job.module,
                                                                       out_path=job.sbatch_scripts)
                 logger.critical(sbatch_warning)
 
@@ -293,12 +298,12 @@ def main():
                     refine_file = utils.write_commands([os.path.join(design.scripts_path, f'{flags.refine}.sh')
                                                         for design in success], out_path=job_paths,
                                                        name='_'.join((utils.starttime, flags.refine, design_source)))
-                    sbatch_refine_file = utils.CommandDistributer.distribute(refine_file, flags.refine,
+                    script_refine_file = utils.CommandDistributer.distribute(refine_file, flags.refine,
                                                                              out_path=job.sbatch_scripts)
-                    logger.info(f'Once you are satisfied, enter the following to distribute:\n\tsbatch '
-                                f'{sbatch_refine_file}\nTHEN:\n\tsbatch {sbatch_file}')
+                    logger.info(f'Once you are satisfied, enter the following to distribute:\n\t{shell} '
+                                f'{script_refine_file}\nTHEN:\n\t{shell} {script_file}')
                 else:
-                    logger.info(f'Once you are satisfied, enter the following to distribute:\n\tsbatch {sbatch_file}')
+                    logger.info(f'Once you are satisfied, enter the following to distribute:\n\t{shell} {script_file}')
 
         # # test for the size of each of the PoseJob instances
         # if pose_jobs:

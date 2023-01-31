@@ -851,17 +851,16 @@ class JobResources:
                                      f"'{os.path.join(self.profiles, '*.a3m')}'", '.fasta', '-M', 'first', '-r']
             hhblits_cmd_file = utils.write_commands(hhblits_cmds, name=f'{utils.starttime}-{putils.hhblits}',
                                                     out_path=self.profiles)
-            sbatch = CommandDistributer.is_sbatch_available()
             hhblits_script = \
                 CommandDistributer.distribute(file=hhblits_cmd_file, out_path=self.sbatch_scripts,
                                               scale=putils.hhblits, max_jobs=len(hhblits_cmds),
-                                              number_of_commands=len(hhblits_cmds), sbatch=sbatch,
+                                              number_of_commands=len(hhblits_cmds),
                                               log_file=os.path.join(self.profiles, 'generate_profiles.log'),
                                               finishing_commands=[list2cmdline(reformat_msa_cmd1),
                                                                   list2cmdline(reformat_msa_cmd2)])
             hhblits_job_info_message = \
                 f'Enter the following to distribute {putils.hhblits} jobs:\n\t'
-            if sbatch:
+            if CommandDistributer.is_sbatch_available():
                 hhblits_job_info_message += f'{CommandDistributer.sbatch} {hhblits_script}'
             else:
                 hhblits_job_info_message += f'{CommandDistributer.default_shell} {hhblits_script}'
@@ -878,7 +877,7 @@ class JobResources:
             #      for entity in entities.values()]
             bmdca_cmd_file = \
                 utils.write_commands(bmdca_cmds, name=f'{utils.starttime}-bmDCA', out_path=self.profiles)
-            bmdca_sbatch = utils.CommandDistributer.distribute(file=bmdca_cmd_file, out_path=self.sbatch_scripts,
+            bmdca_script = utils.CommandDistributer.distribute(file=bmdca_cmd_file, out_path=self.sbatch_scripts,
                                                                scale='bmdca', max_jobs=len(bmdca_cmds),
                                                                number_of_commands=len(bmdca_cmds),
                                                                log_file=os.path.join(self.profiles,
@@ -890,14 +889,19 @@ class JobResources:
             #                              scale='script', max_jobs=len(reformat_msa_cmds),
             #                              log_file=os.path.join(self.profiles, 'generate_profiles.log'),
             #                              number_of_commands=len(reformat_msa_cmds))
+            if CommandDistributer.is_sbatch_available():
+                shell = CommandDistributer.sbatch
+            else:
+                shell = CommandDistributer.default_shell
+
             print('\n' * 2)
             # Todo add bmdca_sbatch to hhblits_cmds finishing_commands kwarg
-            bmdca_sbatch_message = \
-                'Once you are satisfied, enter the following to distribute jobs:\n\tsbatch %s' \
-                % bmdca_sbatch if not info_messages else 'ONCE this job is finished, to calculate evolutionary ' \
+            bmdca_script_message = \
+                f'Once you are satisfied, enter the following to distribute jobs:\n\t{shell} %s' \
+                % bmdca_script if not info_messages else 'ONCE this job is finished, to calculate evolutionary ' \
                                                          'couplings i,j for each amino acid in the multiple ' \
-                                                         f'sequence alignment, enter:\n\tsbatch {bmdca_sbatch}'
-            info_messages.append(bmdca_sbatch_message)
+                                                         f'sequence alignment, enter:\n\t{shell} {bmdca_script}'
+            info_messages.append(bmdca_script_message)
         # else:
         #     bmdca_sbatch = reformat_sbatch = None
 

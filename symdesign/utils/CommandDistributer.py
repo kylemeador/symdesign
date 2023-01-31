@@ -184,7 +184,7 @@ def run(cmd: str, log_file_name: str, program: str = None, srun: str = None) -> 
 def distribute(file: AnyStr, scale: protocols_literal, out_path: AnyStr = os.getcwd(),
                success_file: AnyStr = None, failure_file: AnyStr = None, max_jobs: int = 80,
                number_of_commands: int = None, mpi: int = None, log_file: AnyStr = None,
-               finishing_commands: list[str] = None, slurm: bool = True, **kwargs) -> str:
+               finishing_commands: list[str] = None, batch: bool = is_sbatch_available(), **kwargs) -> str:
     """Take a file of commands formatted for execution in the SLURM environment and process into a sbatch script
 
     Args:
@@ -198,7 +198,7 @@ def distribute(file: AnyStr, scale: protocols_literal, out_path: AnyStr = os.get
         mpi: The number of processes to run concurrently with MPI
         log_file: The name of a log file to write command results to
         finishing_commands: Commands to run once all sbatch processes are completed
-        slurm: Whether the distribution file should take the form of a slurm sbatch script
+        batch: Whether the distribution file should take the form of a slurm sbatch script
     Returns:
         The name of the script that was written
     """
@@ -256,7 +256,7 @@ def distribute(file: AnyStr, scale: protocols_literal, out_path: AnyStr = os.get
     putils.make_path(output)
 
     # Make sbatch file from template, array details, and command distribution script
-    if slurm:
+    if batch:
         filename = os.path.join(out_path, f'{name}_{sbatch}.sh')
     else:
         filename = os.path.join(out_path, f'{name}.sh')
@@ -265,7 +265,7 @@ def distribute(file: AnyStr, scale: protocols_literal, out_path: AnyStr = os.get
         # Todo set up sbatch accordingly. Include a multiplier for the number of CPU's. Actually, might be passed
         #  if mpi:
         #      do_mpi_stuff = True
-        if slurm:
+        if batch:
             # grab and write sbatch template
             with open(sbatch_templates[scale]) as template_f:
                 new_f.write(''.join(template_f.readlines()))
@@ -275,7 +275,7 @@ def distribute(file: AnyStr, scale: protocols_literal, out_path: AnyStr = os.get
             new_f.write(f'{sb_flag}{array}\n\n')
         new_f.write(f'python {cmd_dist} --stage {scale} distribute {f"--log_file {log_file} " if log_file else ""}'
                     f'--success_file {success_file} --failure_file {failure_file} --command_file {file}\n')
-        if slurm and finishing_commands:
+        if batch and finishing_commands:
             new_f.write('# Wait for all to complete\n'
                         'wait\n'
                         '\n'
