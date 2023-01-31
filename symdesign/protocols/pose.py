@@ -3990,12 +3990,6 @@ class PoseProtocol(PoseData):
             design_data.design_parent = parents[provided_name]
             design_data.provided_name = provided_name
 
-        # Get the name/provided_name to design_id mapping for later rename
-        design_name_to_id_map = \
-            dict((getattr(design_data, 'provided_name',
-                          getattr(design_data, 'name')),
-                  design_data.id) for design_data in self.current_designs)
-
         designs_path = self.designs_path
         new_design_new_filenames = {design_data.provided_name:
                                     os.path.join(designs_path, f'{design_data.name}.pdb')
@@ -4006,8 +4000,9 @@ class PoseProtocol(PoseData):
             protocol_s = scores_df.pop(putils.protocol).fillna('metrics')
             self.log.critical(f'Found "protocol_s" variable with dtype: {protocol_s.dtype}')
             # Update the Pose with the design protocols
-            for name_or_provided_name, design_id in design_name_to_id_map.items():
-                protocol_kwargs = dict(design_id=design_id,
+            for data in self.current_designs:
+                name_or_provided_name = getattr(data, 'provided_name', getattr(data, 'name'))
+                protocol_kwargs = dict(design_id=data.id,
                                        protocol=protocol_s[name_or_provided_name],
                                        # temperature=temperatures[idx],)
                                        )
@@ -4016,7 +4011,7 @@ class PoseProtocol(PoseData):
                     protocol_kwargs['file'] = new_filename
                 else:
                     protocol_kwargs['file'] = os.path.join(designs_path, f'{name_or_provided_name}.pdb')
-                design_data.protocols.append(sql.DesignProtocol(**protocol_kwargs))
+                data.protocols.append(sql.DesignProtocol(**protocol_kwargs))
         # else:  # Assume that no design was done and only metrics were acquired
         #     pass
 
@@ -4089,6 +4084,11 @@ class PoseProtocol(PoseData):
         #  residues_df = residues_df.join(rosetta_residues_df)
 
         # Rename all designs and clean up resulting metrics for storage
+        # Get the name/provided_name to design_id mapping
+        design_name_to_id_map = \
+            dict((getattr(design_data, 'provided_name',
+                          getattr(design_data, 'name')),
+                  design_data.id) for design_data in self.current_designs)
         # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
         # input(f'BEFORE MAP: {designs_df.index.tolist()}')
         designs_df.index = designs_df.index.map(design_name_to_id_map)
