@@ -18,6 +18,7 @@ from typing import Any, AnyStr, Iterable
 
 import pandas as pd
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 try:
     from memory_profiler import profile
@@ -1151,16 +1152,6 @@ def main():
             else:  # args.file or args.directory
                 file_paths, job.location = utils.collect_designs(files=args.file, directory=args.directory)
                 if file_paths:
-                    # if file_paths[0].count(os.sep) == 0:  # Check to ensure -f wasn't used when -pf was meant
-                    #     # Assume that we have received pose-IDs and process accordingly
-                    #     if not args.directory:
-                    #         raise utils.InputError('Your input specification appears to be pose IDs, however no '
-                    #                                f'--{flags.directory} was passed. Please resubmit with '
-                    #                                f'--{flags.directory} and use --{flags.poses}/'
-                    #                                f'--{flags.specification_file} with pose IDs')
-                    #     pose_jobs = [PoseJob.from_directory(pose, root=job.projects)
-                    #                  for pose in file_paths[low_range:high_range]]
-                    # else:
                     pose_jobs = [PoseJob.from_path(path, project=project_name)
                                  for path in file_paths[range_slice]]
             if not pose_jobs:
@@ -1173,10 +1164,6 @@ def main():
             - Structure in orient, refined, loop modelled
             - Profile from hhblits, bmdca?
             """
-            # initialize_modules = \
-            #     [flags.design, flags.interface_design, flags.interface_metrics, flags.optimize_designs]
-            #      # flags.analysis,  # maybe hhblits, bmDCA. Only refine if Rosetta were used, no loop_modelling
-            #      # flags.refine]  # pre_refine not necessary. maybe hhblits, bmDCA, loop_modelling
 
             if job.sym_entry:
                 symmetry_map = job.sym_entry.groups
@@ -1303,7 +1290,26 @@ def main():
                     sql.EntityData(meta=all_uniprot_to_prot_data[entity.uniprot_ids])
                     for entity in pose_job.initial_model.entities)
             session.add_all(pose_jobs_to_commit)
-            session.commit()
+            # When pose_jobs_to_commit already exist, deal with it by getting those already
+            # OR raise a useful error for the user about input
+            try:
+                session.commit()
+            except SQLAlchemyError:
+                # Remove pose_jobs_to_commit from session
+                session.rollback()
+                # Find the actual pose_jobs_to_commit and place in session
+                pose_identifiers = []
+                for pose_job in pose_jobs_to_commit:
+                    pose_identifiers.append(pose_job.pose_identifier)
+                fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
+                existing_pose_jobs = list(session.scalars(fetch_jobs_stmt))
+
+                existing_pose_identifiers = [pose_job.pose_identifier for pose_job in existing_pose_jobs]
+                for pose_job in pose_jobs_to_commit:
+                    if pose_job.pose_identifier not in existing_pose_identifiers:
+                        session.add(pose_job)
+
+                session.commit()
 
             if args.multi_processing:  # and not args.skip_master_db:
                 logger.debug('Loading Database for multiprocessing fork')
