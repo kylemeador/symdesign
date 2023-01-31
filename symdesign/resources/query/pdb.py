@@ -30,7 +30,7 @@ pdb_query_url = 'https://search.rcsb.org/rcsbsearch/v2/query'  # Use started 8/2
 pdb_advanced_search_url = 'http://www.rcsb.org/search/advanced'
 pdb_rest_url = 'http://data.rcsb.org/rest/v1/core/'  # uniprot/  # 1AB3/1'
 attribute_url = 'https://search.rcsb.org/search-attributes.html'
-attribute_metadata_schema_json = 'https://search.rcsb.org/rcsbsearch/v1/metadata/schema'
+attribute_metadata_schema_json = 'https://search.rcsb.org/rcsbsearch/v2/metadata/schema'
 # additional resources for formatting the schema may be found here - https://data.rcsb.org/#data-schema
 
 # PDB Query formatting
