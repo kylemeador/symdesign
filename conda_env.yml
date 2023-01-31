@@ -6,26 +6,26 @@ channels:
   - nvidia
   - bioconda
 dependencies:
-  - biopython
-  - flametree
-  - ipykernel
-  - matplotlib
   - numpy
   - pandas
   - scikit-learn
   - scipy
-  - sqlalchemy
+  - sqlalchemy=1.4 # Remove to 2.0 once finished with warnings
   - psutil
   - python=3.10
   - pytorch
   - torchvision
   - torchaudio
-  - cudatoolkit=10.2
+  - cudatoolkit=11.3
   - hhsuite
   - requests
+  - biopython
+  - matplotlib
   - tqdm
   - proglog
+  - flametree
 # Personally useful though not required
+#  - ipykernel
 #  - seaborn
 #  - numba
 #  - jupyterlab
