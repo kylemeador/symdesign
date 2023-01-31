@@ -69,6 +69,25 @@ def load_total_dataframe(pose_jobs: Iterable[PoseJob], pose: bool = False) -> pd
     return df
 
 
+def load_and_format(session: Session, stmt, selected_column_names: Iterable[str]) -> pd.DataFrame:
+    # Todo modify the upstream stmt
+    # SAWarning: SELECT statement has a cartesian product between FROM element(s) "pose_metrics", "pose_data",
+    # "entity_data", "design_data", "design_metrics", "entity_metrics" and FROM element "protein_metadata".
+    # Apply join condition(s) between each element to resolve.
+    input(type(stmt).__name__)
+    df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_column_names)
+    logger.debug(f'Loaded total Metrics DataFrame with primary identifier keys: '
+                 f'{[key for key in selected_column_names if "id" in key and "residue" not in key]}')
+
+    # Format the dataframe and set the index
+    # df = df.sort_index(axis=1).set_index('design_id')
+    # Remove completely empty columns such as obs_interface
+    df.dropna(how='all', inplace=True, axis=1)
+    df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
+
+    return df
+
+
 def load_sql_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None, design_ids: Iterable[int] = None) \
         -> pd.DataFrame:
     """Load and format every PoseJob instance's, PoseMetrics, EntityMetrics, and DesignMetrics for each associated
@@ -92,7 +111,7 @@ def load_sql_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None,
     entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
                          sql.ProteinMetadata.c_terminal_helix,
                          sql.ProteinMetadata.thermophilicity]
-    em_c = [c for c in sql.EntityMetrics.__table__.columns + entity_metadata_c if not c.primary_key]
+    em_c = [c for c in (*sql.EntityMetrics.__table__.columns, *entity_metadata_c) if not c.primary_key]
     em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
     selected_columns = (*pm_c, *dm_c, *em_c)
     selected_column_names = (*pm_names, *dm_names, *em_names)
@@ -111,16 +130,7 @@ def load_sql_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None,
     else:
         stmt = stmt
 
-    # all_metrics_rows = session.execute(stmt).all()
-    df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_column_names)
-    logger.debug(f'Loaded total Metrics DataFrame with primary identifier keys: '
-                 f'{[key for key in selected_column_names if "id" in key and "residue" not in key]}')
-
-    # Format the dataframe and set the index
-    # df = df.sort_index(axis=1).set_index('design_id')
-    df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
-
-    return df
+    return load_and_format(session, stmt, selected_column_names)
 
 
 def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None) -> pd.DataFrame:
@@ -143,7 +153,7 @@ def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None) -
     entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
                          sql.ProteinMetadata.c_terminal_helix,
                          sql.ProteinMetadata.thermophilicity]
-    em_c = [c for c in sql.EntityMetrics.__table__.columns + entity_metadata_c if not c.primary_key]
+    em_c = [c for c in (*sql.EntityMetrics.__table__.columns, *entity_metadata_c) if not c.primary_key]
     em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
     # em_c = [c for c in sql.EntityMetrics.__table__.columns if not c.primary_key]
     # em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
@@ -160,16 +170,7 @@ def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None) -
     else:
         stmt = join_stmt
 
-    # pose_all_metrics_rows = session.execute(stmt).all()
-    df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_column_names)
-    logger.debug(f'Loaded total Pose DataFrame with primary identifier keys: '
-                 f'{[key for key in selected_column_names if "id" in key and "residue" not in key]}')
-
-    # Format the dataframe and set the index
-    # df = df.sort_index(axis=1).set_index('pose_id')
-    df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
-
-    return df
+    return load_and_format(session, stmt, selected_column_names)
 
 
 def load_sql_pose_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None) -> pd.DataFrame:
@@ -200,16 +201,7 @@ def load_sql_pose_metrics_dataframe(session: Session, pose_ids: Iterable[int] = 
     else:
         stmt = join_stmt
 
-    # pose_all_metrics_rows = session.execute(stmt).all()
-    df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_column_names)
-    logger.debug(f'Loaded total Pose DataFrame with primary identifier keys: '
-                 f'{[key for key in selected_column_names if "id" in key and "residue" not in key]}')
-
-    # Format the dataframe and set the index
-    # df = df.sort_index(axis=1).set_index('pose_id')
-    df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
-
-    return df
+    return load_and_format(session, stmt, selected_column_names)
 
 
 def load_sql_entity_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None) -> pd.DataFrame:
@@ -229,7 +221,7 @@ def load_sql_entity_metrics_dataframe(session: Session, pose_ids: Iterable[int] 
     entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
                          sql.ProteinMetadata.c_terminal_helix,
                          sql.ProteinMetadata.thermophilicity]
-    em_c = [c for c in sql.EntityMetrics.__table__.columns + entity_metadata_c if not c.primary_key]
+    em_c = [c for c in (*sql.EntityMetrics.__table__.columns, *entity_metadata_c) if not c.primary_key]
     em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
     selected_columns = (popse_id_c, *em_c,)
     selected_column_names = (popse_id_c.name, *em_names,)
@@ -244,16 +236,7 @@ def load_sql_entity_metrics_dataframe(session: Session, pose_ids: Iterable[int] 
     else:
         stmt = join_stmt
 
-    # pose_all_metrics_rows = session.execute(stmt).all()
-    df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_column_names)
-    logger.debug(f'Loaded total Pose DataFrame with primary identifier keys: '
-                 f'{[key for key in selected_column_names if "id" in key and "residue" not in key]}')
-
-    # Format the dataframe and set the index
-    # df = df.sort_index(axis=1).set_index('pose_id')
-    df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
-
-    return df
+    return load_and_format(session, stmt, selected_column_names)
 
 
 def load_sql_designs_dataframe(session: Session, pose_ids: Iterable[int] = None, design_ids: Iterable[int] = None) \
@@ -291,16 +274,7 @@ def load_sql_designs_dataframe(session: Session, pose_ids: Iterable[int] = None,
     else:
         stmt = stmt
 
-    # all_metrics_rows = session.execute(stmt).all()
-    df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_column_names)
-    logger.debug(f'Loaded total Metrics DataFrame with primary identifier keys: '
-                 f'{[key for key in selected_column_names if "id" in key and "residue" not in key]}')
-
-    # Format the dataframe and set the index
-    # df = df.sort_index(axis=1).set_index('design_id')
-    df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
-
-    return df
+    return load_and_format(session, stmt, selected_column_names)
 
 
 def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
@@ -1274,7 +1248,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     Returns:
         The selected PoseJob instances with selected designs stored in the .current_designs attribute
     """
-    global exceptions  # nonlocal exceptions
+    # global exceptions  # nonlocal exceptions
     job = job_resources_factory.get()
     default_weight_metric = config.default_weight_parameter[job.design.method]
     session = job.current_session
@@ -1349,7 +1323,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     number_selected = len(selected_designs_df)
     job.number = number_selected if number_selected < job.number else job.number
     designs_per_pose = job.designs_per_pose
-    logger.info(f'Choosing up to {job.number} Designs, with {designs_per_pose} Designs per Pose')
+    logger.info(f'Choosing up to {job.number} Designs, with {designs_per_pose} Design(s) per Pose')
     selected_designs_iter = iter(selected_designs)
     number_chosen = count(0)
     selected_pose_id_to_design_ids = {}
@@ -1381,18 +1355,21 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             # Todo is this grabbing the structure everytime? We need to ensure no other files exist or refine this glob
             #  with an extension
             file_path = os.path.join(pose_job.designs_path, f'*{design_name}*')
+            # print('file_path', file_path)
             file = sorted(glob(file_path))
+            # print('files', file)
             if not file:  # Add to exceptions
                 pose_job.log.error(f'No file found for "{file_path}"')
-                exceptions.append(utils.ReportException(f'No file found for "{file_path}"'))
+                # exceptions.append(utils.ReportException(f'No file found for "{file_path}"'))
                 continue
-            out_path = os.path.join(job.output_directory, f'{pose_job.project}-{design.name}.pdb')
+            out_path = os.path.join(job.output_directory, f'{pose_job.project}-{design_name}.pdb')
             if not os.path.exists(out_path):
                 shutil.copy(file[0], out_path)  # [i])))
                 # shutil.copy(pose_id.designs_metrics_csv,
                 #     os.path.join(outdir_traj, os.path.basename(pose_id.designs_metrics_csv)))
                 # shutil.copy(pose_id.residues_metrics_csv,
                 #     os.path.join(outdir_res, os.path.basename(pose_id.residues_metrics_csv)))
+            current_designs.append(design)
         # try:
         #     # Create symbolic links to the output PDB's
         #     os.symlink(file[0], os.path.join(job.output_directory,
