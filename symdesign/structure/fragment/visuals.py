@@ -1,9 +1,8 @@
 import os
-from collections.abc import Sequence
 from typing import AnyStr
 
 import pandas as pd
-import seaborn as sns
+# import seaborn as sns
 
 from symdesign import structure
 
@@ -125,17 +124,17 @@ metrics_of_interest = [
 ]
 
 
-def plot_df_correlation(df: pd.DataFrame, metrics_of_interest: Sequence[str]):
-    """From a DataFrame, plot the correlation between all points in the DataFrame for selected metrics
-
-    Args:
-        df: This is assumed to be a three column dataframe with 'pose' and 'dock' present in levels 0 and 1
-        metrics_of_interest: The metrics one is interested in correlating
-    Returns:
-        None
-    """
-    _ = sns.pairplot(df.loc[:, idx_slice['pose', 'dock', metrics_of_interest]]
-                     .droplevel(0, axis=1).droplevel(0, axis=1), kind='reg', diag_kind='kde')
+# def plot_df_correlation(df: pd.DataFrame, metrics_of_interest: Sequence[str]):
+#     """From a DataFrame, plot the correlation between all points in the DataFrame for selected metrics
+#
+#     Args:
+#         df: This is assumed to be a three column dataframe with 'pose' and 'dock' present in levels 0 and 1
+#         metrics_of_interest: The metrics one is interested in correlating
+#     Returns:
+#         None
+#     """
+#     _ = sns.pairplot(df.loc[:, idx_slice['pose', 'dock', metrics_of_interest]]
+#                      .droplevel(0, axis=1).droplevel(0, axis=1), kind='reg', diag_kind='kde')
 
 
 if __name__ == '__main__':
