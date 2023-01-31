@@ -22,6 +22,7 @@ from symdesign.utils import symmetry
 
 # class Base(DeclarativeBase):  # Todo sqlalchemy 2.0
 class _Base:
+    __allow_unmapped__ = True
 
     # def next_primary_key(self, session: Session):
     #     stmt = select(self).order_by(tuple(key.desc() for key in self.__table__.primary_key)).limit(1)
