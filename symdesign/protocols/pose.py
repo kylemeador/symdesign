@@ -6,7 +6,7 @@ import re
 import shutil
 import warnings
 from glob import glob
-from itertools import combinations, repeat
+from itertools import combinations, repeat, count
 from pathlib import Path
 from subprocess import Popen, list2cmdline
 from typing import Any, Iterable, AnyStr, Sequence
@@ -4067,7 +4067,6 @@ class PoseProtocol(PoseData):
         #     'design_indices': design_residues,
         #     **proteinmpnn_scores
         # }
-        input(f'Found sequences_and_scores.values().shapes: {[data.shape for data in sequences_and_scores.values()]}')
 
         mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
 
@@ -4093,23 +4092,35 @@ class PoseProtocol(PoseData):
 
         # Commit the newly acquired metrics to the database
         # First check if the files are situated correctly
+        temp_count = count()
+        temp_files_to_move = {}
         files_to_move = {}
         for filename, new_filename in zip(new_design_paths, new_design_new_filenames.values()):
             if filename == new_filename:
                 # These are the same file, proceed without processing
                 continue
-            elif os.path.exists(filename) and not os.path.exists(new_filename):
-                # We have the target file and nothing exists where we are moving it
-                files_to_move[filename] = new_filename
-            else:
-                raise DesignError('The specified file renaming scheme creates a conflict:\n'
-                                  f'\t{filename} -> {new_filename}')
+            elif os.path.exists(filename):
+                if not os.path.exists(new_filename):
+                    # We have the target file and nothing exists where we are moving it
+                    files_to_move[filename] = new_filename
+                else:
+                    # The new_filename already exists. Redirect the filename to a temporary file, then complete move
+                    dir_, base = os.path.split(new_filename)
+                    temp_filename = os.path.join(dir_, f'TEMP{next(temp_count)}')
+                    temp_files_to_move[filename] = temp_filename
+                    files_to_move[temp_filename] = new_filename
+            else:  # filename doesn't exist
+                raise DesignError(f"The specified file {filename} doesn't exist")
+                # raise DesignError('The specified file renaming scheme creates a conflict:\n'
+                #                   f'\t{filename} -> {new_filename}')
         # If so, proceed with insert, file rename and commit
         # print(designs_df)
         # print(designs_df.columns.tolist())
         # print(designs_df.index.tolist())
         self.output_metrics(residues=residues_df, designs=designs_df)
         # Rename the incoming files to their prescribed names
+        for filename, temp_filename in temp_files_to_move.items():
+            shutil.move(filename, temp_filename)
         for filename, new_filename in files_to_move.items():
             shutil.move(filename, new_filename)
 
