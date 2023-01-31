@@ -486,7 +486,7 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
                     if isinstance(value, str):
                         possible_metrics.append(value)
                 # Todo find the closest and report to the user!
-                raise InputError(f"Couldn't coerce {'any of' if len(possible_metrics) > 1 else ''} '"
+                raise InputError(f"Couldn't coerce{' any of' if len(possible_metrics) > 1 else ''} '"
                                  f"{', '.join(possible_metrics)}' to a viable metric")
 
             # Format the metric for use by select-* protocols
@@ -1102,8 +1102,9 @@ select_sequences_arguments = {
                                  help='If there are specific entities in the designs you want to tag,\nindicate how '
                                       'tagging should occur. Viable options include:\n\t"single" - a single entity\n\t'
                                       '"all" - all entities\n\t"none" - no entities\n\tcomma separated list such as '
-                                      '"1,0,1"\n\t\twhere "1" indicates a tag is required\n\t\tand "0" indicates no tag'
-                                      ' is required'),
+                                      '"1,0,1" where\n'
+                                      '\t    - "1" indicates a tag is required\n'
+                                      '\t    - "0" indicates no tag is required'),
     **multicistronic_args,
 }
 # ---------------------------------------------------

@@ -1356,7 +1356,7 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict = None,
         # filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
         logger.info('Number of designs passing filters:\n\t%s' %
                     '\n\t'.join(utils.pretty_format_table([(metric, len(indices))
-                                                          for metric, indices in filtered_indices.items()])))
+                                                           for metric, indices in filtered_indices.items()])))
         # logger.info('Number of designs passing filters:\n\t%s'
         #             % '\n\t'.join(f'{len(indices):6d} - {metric}' for metric, indices in filtered_indices.items()))
         final_indices = index_intersection(filtered_indices.values())
@@ -1480,7 +1480,7 @@ def prioritize_design_indices_sql(df: pd.DataFrame | AnyStr, filter: dict = None
         # filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
         logger.info('Number of designs passing filters:\n\t%s' %
                     '\n\t'.join(utils.pretty_format_table([(metric, len(indices))
-                                                          for metric, indices in filtered_indices.items()])))
+                                                           for metric, indices in filtered_indices.items()])))
         # logger.info('Number of designs passing filters:\n\t%s'
         #             % '\n\t'.join(f'{len(indices):6d} - {metric}' for metric, indices in filtered_indices.items()))
         final_indices = index_intersection(filtered_indices.values())
@@ -1524,19 +1524,18 @@ describe_string = '\nTo see a description of the data, enter "describe"\n'
 describe = ['describe', 'desc', 'DESCRIBE', 'DESC', 'Describe', 'Desc']
 
 
-def describe_data(df=None):
+def describe_data(df: pd.DataFrame = None) -> None:
     """Describe the DataFrame to STDOUT"""
     print('The available metrics are located in the top row(s) of your DataFrame. Enter your selected metrics as a '
           'comma separated input. To see descriptions for only certain metrics, enter them here. '
           'Otherwise, hit "Enter"')
     metrics_input = input(input_string)
     chosen_metrics = set(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
-                                            repeat(' '), repeat('_'))))
-    # metrics = input('To see descriptions for only certain metrics, enter them here. Otherwise, hit "Enter"%s'
-    #                 % input_string)
+                                            repeat(' '), repeat('_'))))\
+        .difference({''})  # Remove "Enter" input if that was provided
+
     if not chosen_metrics:
         columns_of_interest = slice(None)
-        pass
     else:
         columns_of_interest = [idx for idx, column in enumerate(df.columns.get_level_values(-1).to_list())
                                if column in chosen_metrics]

@@ -1494,19 +1494,19 @@ def main():
             # ---------------------------------------------------
             elif job.module == flags.select_poses:
                 # Need to initialize pose_jobs to terminate()
-                pose_jobs = results = protocols.select.poses(pose_jobs)
+                pose_jobs = results = protocols.select.sql_poses(pose_jobs)
                 # Write out the chosen poses to a pose.paths file
                 terminate(results=results)
             # ---------------------------------------------------
             elif job.module == flags.select_designs:
                 # Need to initialize pose_jobs to terminate()
-                pose_jobs = results = protocols.select.designs(pose_jobs)
+                pose_jobs = results = protocols.select.sql_designs(pose_jobs)
                 # Write out the chosen poses to a pose.paths file
                 terminate(results=results)
             # ---------------------------------------------------
             elif job.module == flags.select_sequences:
                 # Need to initialize pose_jobs to terminate()
-                pose_jobs = results = protocols.select.sequences(pose_jobs)
+                pose_jobs = results = protocols.select.sql_sequences(pose_jobs)
                 # Write out the chosen poses to a pose.paths file
                 terminate(results=results)
             # ---------------------------------------------------
