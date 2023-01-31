@@ -4050,7 +4050,11 @@ class PoseProtocol(PoseData):
         # Join Rosetta per-residue with Structure analysis per-residue like DataFrames
         # residues_df = pd.concat([residues_df, rosetta_residues_df], axis=1)
         residues_df = residues_df.join(rosetta_residues_df)
-        designs_df = scores_df.join(self.analyze_design_metrics_per_design(residues_df, designs))
+        # print(scores_df)
+        # print(scores_df.index.tolist())
+        designs_df = self.analyze_design_metrics_per_design(residues_df, designs)
+        designs_df = designs_df.join(scores_df)
+        # input(f'AFTER JOIN(SCORES_DF) MAP: {designs_df.index.tolist()}')
 
         # Finish calculation of Rosetta scores with included metrics
         designs_df = self.rosetta_column_combinations(designs_df)
