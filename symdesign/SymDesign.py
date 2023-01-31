@@ -160,11 +160,6 @@ def main():
         exit_code = 0
         if exceptions:
             print('\n')
-            for pose_job, error_ in exceptions:
-                try:
-                    print(f'{pose_job}: {error_}')
-                except TypeError:
-                    print(f'Found the erroneous PoseJob {pose_job.name} with id->{pose_job.id} and {error_}')
             logger.warning(f'Exceptions were thrown for {len(exceptions)} designs. '
                            f'Check their individual .log files for more details\n\t%s'
                            % '\n\t'.join(f'{pose_job}: {error_}' for pose_job, error_ in exceptions))
