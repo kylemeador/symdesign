@@ -1298,9 +1298,7 @@ def main():
                 # Remove pose_jobs_to_commit from session
                 session.rollback()
                 # Find the actual pose_jobs_to_commit and place in session
-                pose_identifiers = []
-                for pose_job in pose_jobs_to_commit:
-                    pose_identifiers.append(pose_job.pose_identifier)
+                pose_identifiers = [pose_job.new_pose_identifier for pose_job in pose_jobs_to_commit]
                 fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
                 existing_pose_jobs = list(session.scalars(fetch_jobs_stmt))
 
