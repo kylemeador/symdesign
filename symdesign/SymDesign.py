@@ -1304,7 +1304,7 @@ def main():
 
                 existing_pose_identifiers = [pose_job.pose_identifier for pose_job in existing_pose_jobs]
                 for pose_job in pose_jobs_to_commit:
-                    if pose_job.pose_identifier not in existing_pose_identifiers:
+                    if pose_job.new_pose_identifier not in existing_pose_identifiers:
                         session.add(pose_job)
 
                 session.commit()
