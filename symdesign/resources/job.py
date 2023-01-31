@@ -156,7 +156,7 @@ class DBInfo:
     def __init__(self, location: AnyStr, echo: bool = False):
         self.location = location
         self.engine: Engine = create_engine(f'sqlite:///{self.location}', echo=echo, future=True)
-        self.session: sessionmaker = sessionmaker(self.engine)
+        self.session: sessionmaker = sessionmaker(self.engine, future=True)
 
         # The below functions are recommended to help overcome issues with SQLite transaction scope
         # See:

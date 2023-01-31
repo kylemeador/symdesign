@@ -3396,6 +3396,8 @@ class PoseProtocol(PoseData):
         # self.designs.extend(designs)
         designs = [sql.DesignData(name=name, pose=self, design_parent=design_parent)
                    for name in design_names]
+        # Add all instances to the session
+        self.job.current_session.add_all(designs)
         # Set the PoseJob.current_designs for access by subsequent functions/protocols
         self.current_designs.extend(designs)
         # Get the DesignData.id for each design
