@@ -4569,6 +4569,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         else:
             raise ValueError(f'Termini must be either "n" or "c", not "{termini}"')
 
+        if reference is None:
+            reference = utils.symmetry.origin
+
         max_distance = self.distance_from_reference(reference=reference, measure='max')
         min_distance = self.distance_from_reference(reference=reference, measure='min')
         coord_distance = np.linalg.norm(residue_coords - reference)
@@ -4588,6 +4591,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         Returns:
             The distance from the reference point to the furthest point
         """
+        if reference is None:
+            reference = utils.symmetry.origin
+
         return getattr(np, measure)(np.linalg.norm(self.coords - reference, axis=1))
 
     def get_atom_record(self, **kwargs) -> str:

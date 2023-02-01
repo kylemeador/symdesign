@@ -468,6 +468,7 @@ class JobResources:
             self.suffix = ''
 
         self.overwrite: bool = kwargs.get('overwrite')
+        self.pose_format = kwargs.get('pose_format')
         output_directory = kwargs.get(putils.output_directory)
         if output_directory:
             self.output_directory = output_directory
