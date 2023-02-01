@@ -157,23 +157,28 @@ def main():
         else:
             success = []
 
+        # Format the output file depending on specified name and module type
+        if low and high:
+            design_source = f'{job.input_source}-{low:.2f}-{high:.2f}'
+        else:
+            design_source = job.input_source
+        job_paths = job.job_paths
+        default_output_tuple = (utils.starttime, job.module, design_source)
+
         exit_code = 0
         if exceptions:
             print('\n')
-            logger.warning(f'Exceptions were thrown for {len(exceptions)} designs. '
+            logger.warning(f'Exceptions were thrown for {len(exceptions)} jobs. '
                            f'Check their individual .log files for more details\n\t%s'
                            % '\n\t'.join(f'{pose_job}: {error_}' for pose_job, error_ in exceptions))
             print('\n')
+            exceptions_file = os.path.join(job_paths, putils.default_execption_file.format(*default_output_tuple))
+            with open(exceptions_file, 'w') as f_out:
+                f_out.write('%s\n' % '\n'.join(str(pose_job) for pose_job, error_ in exceptions))
+            logger.critical(f'The file "{exceptions_file}" contains the pose identifier of every pose that failed '
+                            f'checks/filters for this job')
 
         if success and output:
-            design_source = job.input_source
-            job_paths = job.job_paths
-
-            if low and high:
-                design_source = f'{design_source}-{low:.2f}-{high:.2f}'
-
-            # Format the output file depending on specified name and module type
-            default_output_tuple = (utils.starttime, job.module, design_source)
             poses_file = None
             if job.output_file:
                 # if job.module not in [flags.analysis, flags.cluster_poses]:
@@ -209,8 +214,8 @@ def main():
 
                 with open(poses_file, 'w') as f_out:
                     f_out.write('%s\n' % '\n'.join(str(pose_job) for pose_job in success))
-                logger.critical(f'The file "{poses_file}" contains the locations of every pose that passed checks/'
-                                f'filters for this job. Utilize this file to input these poses in future '
+                logger.critical(f'The file "{poses_file}" contains the pose identifier of every pose that passed checks'
+                                f'/filters for this job. Utilize this file to input these poses in future '
                                 f'{putils.program_name} commands such as:'
                                 f'\n\t{putils.program_command} MODULE --{flags.poses} {poses_file} ...')
 
@@ -221,10 +226,10 @@ def main():
                 with open(designs_file, 'w') as f_out:
                     f_out.write('%s\n' % '\n'.join(f'{pose_job}, {design.name}' for pose_job in success
                                                    for design in pose_job.current_designs))
-                logger.critical(f'The file "{designs_file}" contains the locations of every design selected by this job'
-                                f'. Utilize this file to input these designs in future {putils.program_name} commands '
-                                f'such as:\n\t{putils.program_command} MODULE --{flags.specification_file} '
-                                f'{designs_file} ...')
+                logger.critical(f'The file "{designs_file}" contains the pose identifier and design identifier, of '
+                                f'every design selected by this job. Utilize this file to input these designs in future'
+                                f' {putils.program_name} commands such as:\n\t{putils.program_command} MODULE '
+                                f'--{flags.specification_file} {designs_file} ...')
 
             # if job.module == flags.analysis:
             #     # Save Design DataFrame
@@ -266,7 +271,7 @@ def main():
                 flags.interface_metrics: putils.interface_metrics,
                 flags.optimize_designs: putils.optimize_designs
                 # custom_script: os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],
-                }
+            }
             stage = module_files.get(job.module)
             if stage and job.distribute_work:
                 if len(success) == 0:
