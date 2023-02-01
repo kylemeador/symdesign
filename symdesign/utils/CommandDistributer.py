@@ -372,10 +372,13 @@ if __name__ == '__main__':
             program = default_shell
 
         if args.log_file:
+            print(f'Writing job log to "{args.log_file}"')
             log_files = [args.log_file for _ in specific_commands]
         elif program == 'bash':
             # v this overlaps with len(specific_commands[0].split()) > 1 as only shell scripts really satisfy this
             log_files = [f'{os.path.splitext(shell_path)[0]}.log' for shell_path in specific_commands]
+            for idx, log_file in enumerate(log_files):
+                print(f'Writing job {idx} log to "{args.log_file}"')
         else:
             log_files = [None for _ in specific_commands]
 
@@ -394,7 +397,6 @@ if __name__ == '__main__':
 
         # Ensure all log and reporting files exist
         for log_file in log_files:
-            print(f'Writing job log to "{log_file}"')
             create_file(log_file)
         create_file(args.success_file)
         create_file(args.failure_file)
