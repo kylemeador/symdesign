@@ -591,6 +591,9 @@ class JobResources:
             self._location = ', '.join(location)
             self._input_source = '+'.join(map(os.path.basename, [os.path.splitext(_location)[0]
                                                                  for _location in location]))
+            if len(self._input_source) > 100:
+                # Reduce the size
+                self._input_source = self._input_source[:100]
         else:
             raise ValueError(f"Couldn't handle the provided location type {type(location).__name__}")
 
