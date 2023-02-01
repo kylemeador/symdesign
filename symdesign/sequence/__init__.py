@@ -793,7 +793,7 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
     # Find last index of reference
     ending_index_of_seq1 = starting_idx_of_seq1 + align_seq_1.rfind(reference[-1])
     remove_mutation_list = []
-    if only_gaps:  # Femove the actual mutations, keep internal and external gap indices and the reference sequence
+    if only_gaps:  # Remove the actual mutations, keep internal and external gap indices and the reference sequence
         blanks = True
         remove_mutation_list.extend([entry for entry, mutation in mutations.items()
                                      if idx_offset < entry <= ending_index_of_seq1 and mutation['to'] != '-'])
