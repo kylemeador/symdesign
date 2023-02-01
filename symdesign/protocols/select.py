@@ -1805,7 +1805,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 # for mutation_index in sorted(all_insertions.keys()):
                 generated_insertion_mutations = \
                     generate_mutations(tagged_sequence, ''.join(designed_atom_sequences[idx]),
-                                       return_all=True, zero_index=True)
+                                       return_all=True, blanks=True, zero_index=True)
                 # for mutations in generated_insertion_mutations.values():
                 #     reference = mutations['from']
                 #     query = mutations['to']
@@ -1823,7 +1823,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                     try:
                         nucleotide_sequence = \
                             optimize_protein_sequence(tagged_sequence, species=job.optimize_species)
-                    except NoSolutionError:  # add the protein sequence?
+                    except NoSolutionError:  # Add the protein sequence?
                         logger.warning(f'Optimization of {design_string} was not successful!')
                         codon_optimization_errors[design_string] = tagged_sequence
                         break

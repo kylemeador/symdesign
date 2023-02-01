@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import operator
 import sys
@@ -30,6 +31,7 @@ from symdesign.utils.path import submodule_guide, submodule_help, force, sym_ent
     preferred_tag, expand_asu, check_clashes, rename_chains, optimize_designs, perturb_dof, tag_entities, design, \
     default_path_file, process_rosetta_metrics
 
+logger = logging.getLogger(__name__)
 design_programs_literal = Literal['consensus', 'proteinmpnn', 'rosetta']
 design_programs: tuple[str, ...] = get_args(design_programs_literal)
 nstruct = 20
@@ -449,8 +451,10 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
                 if idx % 2 == 0:  # Zero or even index which must contain metric/values
                     # Substitute any numerical characters to test if the provided component is a metric
                     substituted_component = component.translate(remove_digit_table)
-                    _metric_specs = config.metrics.get(substituted_component)
+                    logger.debug(f'substituted_component |{substituted_component}|')
+                    _metric_specs = config.metrics.get(substituted_component.strip())
                     if _metric_specs:  # We found in the list of available program metrics
+                        logger.debug(f'metric specifications {",".join(f"{k}={v}" for k, v in _metric_specs.items())}')
                         if metric_idx is None:
                             metric_specs = _metric_specs
                             metric = component
@@ -480,6 +484,8 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
                         operation = inverse_operations.get(syntax, viable_operations[syntax])
                     else:
                         operation = viable_operations[syntax]
+
+                    logger.debug(f'operation is {operation}')
                     parsed_operations.append(operation)
 
             if metric_idx is None:
