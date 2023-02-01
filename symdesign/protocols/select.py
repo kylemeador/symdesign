@@ -548,7 +548,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     else:  # if job.total:
         total_df = load_total_dataframe(pose_jobs)
         if job.protocol:
-            group_df = total_df.groupby('protocol')
+            group_df = total_df.groupby(putils.protocol)
             df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
                            keys=list(zip(group_df.groups, repeat('mean'))))
         else:
@@ -804,7 +804,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 selected_tag = {}
                 available_tags = expression.find_expression_tags(inserted_design_sequence)
                 if available_tags:  # look for existing tag to remove from sequence and save identity
-                    tag_names, tag_termini, existing_tag_sequences = \
+                    tag_names, tag_termini, _ = \
                         zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in available_tags])
                     try:
                         preferred_tag_index = tag_names.index(job.preferred_tag)
@@ -812,8 +812,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                             selected_tag = available_tags[preferred_tag_index]
                     except ValueError:
                         pass
-                    pretag_sequence = expression.remove_expression_tags(inserted_design_sequence,
-                                                                        existing_tag_sequences)
+                    pretag_sequence = expression.remove_expression_tags(inserted_design_sequence, tag_names)
                 else:
                     pretag_sequence = inserted_design_sequence
                 logger.debug(f'The pretag sequence is:\n{pretag_sequence}')
@@ -1340,7 +1339,9 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         pass
 
     logger.info(f'{len(selected_pose_id_to_design_ids)} Poses were selected')
-
+    # Format selected sequences for output
+    putils.make_path(job.output_directory)
+    logger.info(f'Relevant design files are being copied to the new directory: {job.output_directory}')
     # Create new output of designed PDB's  # Todo attach the program state to these files for downstream use?
     pose_id_to_identifier = {}
     design_id_to_identifier = {}
@@ -1363,7 +1364,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                 pose_job.log.error(f'No file found for "{file_path}"')
                 # exceptions.append(utils.ReportException(f'No file found for "{file_path}"'))
                 continue
-            out_path = os.path.join(job.output_directory, f'{pose_job.project}-{design_name}.pdb')
+            out_path = os.path.join(job.output_directory, pose_job.output_pose_path)
             if not os.path.exists(out_path):
                 shutil.copy(file[0], out_path)  # [i])))
                 # shutil.copy(pose_id.designs_metrics_csv,
@@ -1404,7 +1405,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     if job.save_total:
         total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
         total_df.to_csv(total_df_filename)
-        logger.info(f'Total Pose/Designs DataFrame written to: {total_df}')
+        logger.info(f'Total Pose/Designs DataFrame written to: {total_df_filename}')
 
     if job.filter or job.weight:
         new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
@@ -1482,6 +1483,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
         # Find termini data
         # entity_termini_availability, entity_helical_termini = {}, {}
         entity_termini_availability, entity_helical_termini = [], []
+        entity_true_termini = []
         for entity in pose_job.pose.entities:
             # entity.retrieve_info_from_api()
             # entity.reference_sequence
@@ -1502,29 +1504,31 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
             logger.info(f'Designed Entity {pose_entity_id} has the termini available for tagging: '
                         f'{termini_availability}')
             entity_termini_availability.append(termini_availability)
-            true_termini = [term for term, is_true in termini_availability.items() if is_true]
+            entity_true_termini.append([term for term, is_true in termini_availability.items() if is_true])
 
         for design in pose_job.current_designs:
             design_id_str = f'{pose_job} Design {design.name}'
-            design_sequence = design.metrics.sequence
+            tagged_sequence = design.metrics.sequence
             residue_number_begin = residue_number_end = 0
             designed_atom_sequences = []
             for data in pose_job.entity_data:
                 residue_number_end += data.metrics.number_of_residues
-                designed_atom_sequences.append(list(design_sequence[residue_number_begin:residue_number_end]))
+                designed_atom_sequences.append(list(tagged_sequence[residue_number_begin:residue_number_end]))
                 residue_number_begin = residue_number_end
 
             # Container of booleans whether each Entity has been tagged
             missing_tags = [1 for _ in range(n_pose_entities)]
             entity_names = []
             sequences_and_tags = []
-            for idx, (data, source_sequence, design_sequence) in \
+            for idx, (data, source_sequence, tagged_sequence) in \
                     enumerate(zip(pose_job.entity_data, entity_sequences, designed_atom_sequences)):
                 # Generate the design TO source mutations before any disorder handling
                 # This will place design sequence identities in the 'from' position of mutations dictionary
                 entity_name = data.name
+                design_entity_id = f'{design.name}-{entity_name}'
                 entity_names.append(entity_name)
-                mutations = generate_mutations(''.join(design_sequence), source_sequence, zero_index=True)
+                mutations = generate_mutations(''.join(tagged_sequence), source_sequence, zero_index=True)
+                logger.debug(f'Found mutations: {mutations}')
                 # Insert the disordered residues into the design sequence
                 for residue_index, mutation in source_mutations[idx].items():
                     # residue_index is zero indexed
@@ -1532,7 +1536,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                     logger.debug(f'Inserting {new_aa_type} into index {residue_index} on Entity {entity_name}')
                     # design_pose.insert_residue_type(new_aa_type, at=residue_number,
                     #                                 chain_id=entity.chain_id)
-                    design_sequence.insert(residue_index, new_aa_type)
+                    tagged_sequence.insert(residue_index, new_aa_type)
                     # Adjust mutations to account for insertion
                     for mutation_index in sorted(mutations.keys(), reverse=True):
                         if mutation_index < residue_index:
@@ -1541,22 +1545,25 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                             mutations[mutation_index + 1] = mutations.pop(mutation_index)
 
                 # Check for expression tag addition to the designed sequences after disorder addition
-                inserted_design_sequence = ''.join(design_sequence)
+                inserted_design_sequence = ''.join(tagged_sequence)
                 selected_tag = {}
                 available_tags = expression.find_expression_tags(inserted_design_sequence)
-                if available_tags:  # look for existing tag to remove from sequence and save identity
-                    tag_names, tag_termini, existing_tag_sequences = \
+                if available_tags:
+                    # Look for existing tags, save and possibly select a tag
+                    tag_names, tag_termini, _ = \
                         zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in available_tags])
                     try:
                         preferred_tag_index = tag_names.index(job.preferred_tag)
-                        if tag_termini[preferred_tag_index] in true_termini:
-                            selected_tag = available_tags[preferred_tag_index]
                     except ValueError:
                         pass
-                    pretag_sequence = expression.remove_expression_tags(inserted_design_sequence,
-                                                                        existing_tag_sequences)
+                    else:
+                        if tag_termini[preferred_tag_index] in entity_true_termini[idx]:
+                            selected_tag = available_tags[preferred_tag_index]
+                    # Remove existing tags from sequence
+                    pretag_sequence = expression.remove_expression_tags(inserted_design_sequence, tag_names)
                 else:
                     pretag_sequence = inserted_design_sequence
+                logger.debug(f'The inserted sequence sequence is:\n{inserted_design_sequence}')
                 logger.debug(f'The pretag sequence is:\n{pretag_sequence}')
 
                 # Find the open reading frame offset using the structure sequence after insertion
@@ -1584,21 +1591,20 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                         else:
                             tag_names, tag_termini, _ = [], [], []
 
-                        iteration = 0
-                        while iteration < len(tag_names):
+                        iteration = count()
+                        while next(iteration) < len(tag_names):
                             try:
                                 preferred_tag_index_2 = tag_names[iteration:].index(job.preferred_tag)
-                                if tag_termini[preferred_tag_index_2] in true_termini:
-                                    selected_tag = uniprot_id_matching_tags[preferred_tag_index_2]
+                                if tag_termini[preferred_tag_index_2] in entity_true_termini[idx]:
+                                    selected_tag = possible_matching_tags[preferred_tag_index_2]
                                     break
                             except ValueError:
                                 selected_tag = \
-                                    expression.select_tags_for_sequence(pose_entity_id,
-                                                                        uniprot_id_matching_tags,
+                                    expression.select_tags_for_sequence(design_entity_id,
+                                                                        possible_matching_tags,
                                                                         preferred=job.preferred_tag,
-                                                                        **termini_availability)
+                                                                        **entity_termini_availability[idx])
                                 break
-                            iteration += 1
 
                     if selected_tag.get('name'):
                         missing_tags[idx] = 0
@@ -1715,45 +1721,41 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 tag, sequence = sequence_tag['tag'], sequence_tag['sequence']
                 # print('TAG:\n', tag.get('sequence'), '\nSEQUENCE:\n', sequence)
                 chimeric_tag_sequence = tag.get('sequence')
-                design_sequence = expression.add_expression_tag(chimeric_tag_sequence, sequence)
-                if chimeric_tag_sequence and design_sequence == sequence:  # tag exists and no tag added
+                tagged_sequence = expression.add_expression_tag(chimeric_tag_sequence, sequence)
+                if chimeric_tag_sequence and tagged_sequence == sequence:  # tag exists and no tag added
                     tag_sequence = resources.config.expression_tags[tag.get('name')]
                     if tag.get('termini') == 'n':
-                        if design_sequence[0] == 'M':  # remove existing Met to append tag to n-term
-                            design_sequence = design_sequence[1:]
-                        design_sequence = tag_sequence + 'SG' + design_sequence
+                        if tagged_sequence[0] == 'M':  # Remove existing n-term Met to append tag to n-term
+                            tagged_sequence = tagged_sequence[1:]
+                        tagged_sequence = tag_sequence + 'SG' + tagged_sequence
                     else:  # termini == 'c'
-                        design_sequence = design_sequence + 'GS' + tag_sequence
+                        tagged_sequence = tagged_sequence + 'GS' + tag_sequence
 
                 # If no MET start site, include one
-                if design_sequence[0] != 'M':
-                    design_sequence = f'M{design_sequence}'
+                if tagged_sequence[0] != 'M':
+                    tagged_sequence = f'M{tagged_sequence}'
 
                 # If there is an unrecognized amino acid, modify
-                if 'X' in design_sequence:
+                unknown_char = 'X'
+                if unknown_char in tagged_sequence:
                     logger.critical(f'An unrecognized amino acid was specified in the sequence {design_string}. '
                                     'This requires manual intervention!')
                     # idx = 0
-                    seq_length = len(design_sequence)
+                    seq_length = len(tagged_sequence)
                     while True:
-                        idx = design_sequence.find('X')
-                        if idx == -1:  # Todo clean
+                        missing_idx = tagged_sequence.find(unknown_char)
+                        if missing_idx == -1:
                             break
-                        idx_range = (idx - 6 if idx - 6 > 0 else 0,
-                                     idx + 6 if idx + 6 < seq_length else seq_length)
-                        while True:
-                            new_amino_acid = input('What amino acid should be swapped for "X" in this sequence '
-                                                   f'context?\n\t{idx_range[0] + 1}'
-                                                   f'{" " * (len(range(*idx_range)) - (len(str(idx_range[0])) + 1))}'
-                                                   f'{idx_range[1] + 1}'
-                                                   f'\n\t{design_sequence[idx_range[0]:idx_range[1]]}'
-                                                   f'{input_string}').upper()
-                            if new_amino_acid in protein_letters_alph1:
-                                design_sequence = design_sequence[:idx] + new_amino_acid + design_sequence[idx + 1:]
-                                break
-                            else:
-                                print(f"{new_amino_acid} doesn't match a single letter canonical amino acid. "
-                                      "Please try again")
+                        low_idx = missing_idx - 6 if missing_idx - 6 > 0 else 0
+                        high_idx = missing_idx + 6 if missing_idx + 6 < seq_length else seq_length
+                        print(f'Which amino acid should be swapped for "{unknown_char}" in this sequence context?\n'
+                              f'\t{low_idx + 1}{" " * (missing_idx-low_idx-len(str(low_idx)))}|'
+                              f'{" " * (high_idx-missing_idx-2)}{high_idx + 1}'  # Subtract 2 for slicing and high_idx
+                              # f'{" " * (high_idx-low_idx - (len(str(low_idx))+1))}{high_idx + 1}'
+                              f'\n\t{tagged_sequence[low_idx:high_idx]}')
+                        new_amino_acid = validate_input(input_string, protein_letters_alph1)
+                        tagged_sequence = tagged_sequence[:missing_idx] \
+                            + new_amino_acid + tagged_sequence[missing_idx + 1:]
 
                 # For a final manual check of sequence generation, find sequence additions compared to the design
                 # model and save to view where additions lie on sequence. Cross these additions with design
@@ -1765,14 +1767,14 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 inserted_sequences[design_string] = \
                     f'{"".join([res["to"] for res in all_insertions.values()])}\n{design_sequence}'
                 logger.info(f'Formatted sequence comparison:\n{inserted_sequences[design_string]}')
-                final_sequences[design_string] = design_sequence
+                final_sequences[design_string] = tagged_sequence
                 if job.nucleotide:
                     try:
                         nucleotide_sequence = \
-                            optimize_protein_sequence(design_sequence, species=job.optimize_species)
+                            optimize_protein_sequence(tagged_sequence, species=job.optimize_species)
                     except NoSolutionError:  # add the protein sequence?
                         logger.warning(f'Optimization of {design_string} was not successful!')
-                        codon_optimization_errors[design_string] = design_sequence
+                        codon_optimization_errors[design_string] = tagged_sequence
                         break
 
                     if job.multicistronic:
