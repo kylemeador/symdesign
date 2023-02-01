@@ -30,16 +30,17 @@ class _Base:
         stmt = select(self).order_by(self.id.desc()).limit(1)
         return session.scalars(stmt).first() + 1
 
-    def __key(self) -> str:
+    @property
+    def _key(self) -> str:
         return self.id
 
     def __eq__(self, other) -> bool:
         if isinstance(other, self.__class__):
-            return self.__key() == other.__key()
+            return self._key == other._key
         return NotImplemented
 
     def __hash__(self) -> int:
-        return hash(self.__key())
+        return hash(self._key)
 
 
 Base = declarative_base(cls=_Base)

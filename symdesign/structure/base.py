@@ -924,7 +924,8 @@ class Atom(StructureBase):
     #     self._prev_atom = other
     #     other._prev_atom = self
 
-    def __key(self) -> tuple[int, str, str, float]:
+    @property
+    def _key(self) -> tuple[int, str, str, float]:
         return self.index, self.type, self.residue_type, self.b_factor
 
     def get_atom_record(self) -> str:
@@ -957,12 +958,12 @@ class Atom(StructureBase):
 
     def __eq__(self, other: Atom) -> bool:
         if isinstance(other, Atom):
-            return self.__key() == other.__key()
+            return self._key == other._key
         raise NotImplementedError(
             f"Can't compare {self.__class__.__name__} instance to {type(other).__name__} instance")
 
     def __hash__(self) -> int:
-        return hash(self.__key())
+        return hash(self._key)
 
     def __copy__(self) -> Atom:  # -> Self: Todo python3.11 Todo this is ready, but isn't needed anywhere
         cls = self.__class__
@@ -2443,12 +2444,13 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     def __getitem__(self, idx) -> Atom:
         return self.atoms[idx]
 
-    def __key(self) -> tuple[int, int, str]:
+    @property
+    def _key(self) -> tuple[int, int, str]:
         return self._start_index, self.number_of_atoms, self.type
 
     def __eq__(self, other: Residue) -> bool:
         if isinstance(other, Residue):
-            return self.__key() == other.__key()
+            return self._key == other._key
         raise NotImplementedError(
             f"Can't compare {self.__class__.__name__} instance to {type(other).__name__} instance")
 
@@ -2493,7 +2495,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                          for atom, idx, coord in zip(self.atoms, self._atom_indices, self.coords.tolist()))
 
     def __hash__(self) -> int:
-        return hash(self.__key())
+        return hash(self._key)
 
     def __copy__(self) -> Residue:  # -> Self Todo python3.11
         cls = self.__class__
@@ -5068,18 +5070,19 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     copy = __copy__
 
     # Todo this isn't long term sustainable. Perhaps a better case would be the ._sequence
-    def __key(self) -> tuple[str, int, ...]:
+    @property
+    def _key(self) -> tuple[str, int, ...]:
         return self.name, *self._residue_indices
 
     def __eq__(self, other: Structure) -> bool:
         if isinstance(other, Structure):  # Use Structure as subclasses could be the same? with same name and indices
-            return self.__key() == other.__key()
+            return self._key == other._key
         raise NotImplementedError(
             f"Can't compare {self.__class__.__name__} instance to {type(other).__name__} instance")
 
     # Must define __hash__ in all subclasses that define an __eq__
     def __hash__(self) -> int:
-        return hash(self.__key())
+        return hash(self._key)
 
     def __str__(self) -> str:
         return self.name

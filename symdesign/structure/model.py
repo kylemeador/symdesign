@@ -2366,8 +2366,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
     copy = __copy__
 
-    def __key(self) -> tuple[str, int, ...]:
-        return self.name, *self._residue_indices
+    # @property
+    # def _key(self) -> tuple[str, int, ...]:
+    #     return self.name, *self._residue_indices
 
     def __eq__(self, other: Structure) -> bool:
         if isinstance(other, Entity):
@@ -2377,13 +2378,13 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             same_entity = False
 
         if isinstance(other, Structure):
-            return same_entity or self.__key() == other.__key()
+            return same_entity or self._key == other._key
         raise NotImplementedError(
             f"Can't compare {self.__class__.__name__} instance to {type(other).__name__} instance")
 
     # Must define __hash__ in all subclasses that define an __eq__
     def __hash__(self) -> int:
-        return hash(self.__key())
+        return hash(self._key)
 
 
 # class Model(Structure, ContainsChainsMixin):

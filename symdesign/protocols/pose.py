@@ -1418,16 +1418,17 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # self.info['fragment_source'] = self.job.fragment_db.source
         # self.pickle_info()  # Todo remove once PoseJob state can be returned to the SymDesign dispatch w/ MP
 
-    def __key(self) -> str:
+    @property
+    def _key(self) -> str:
         return self.pose_identifier
 
     def __eq__(self, other) -> bool:
         if isinstance(other, self.__class__):
-            return self.__key() == other.__key()
+            return self._key == other._key
         raise NotImplementedError(f"Can't compare {self.__class__} instance to {other.__class__} instance")
 
     def __hash__(self) -> int:
-        return hash(self.__key())
+        return hash(self._key)
 
     def __str__(self) -> str:
         # if self.job.nanohedra_output:
