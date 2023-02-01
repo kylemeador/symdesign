@@ -71,9 +71,12 @@ def load_total_dataframe(pose_jobs: Iterable[PoseJob], pose: bool = False) -> pd
 
 
 def load_and_format(session: Session, stmt: Select, selected_column_names: Iterable[str]) -> pd.DataFrame:
-    # Todo modify the upstream stmt
+    # Todo modify the upstream stmt to avoid this... if a problem
     # SAWarning: SELECT statement has a cartesian product between FROM element(s) "pose_metrics", "pose_data",
     # "entity_data", "design_data", "design_metrics", "entity_metrics" and FROM element "protein_metadata".
+    # Apply join condition(s) between each element to resolve.
+    # SAWarning: SELECT statement has a cartesian product between FROM element(s) "entity_data", "pose_data",
+    # "entity_metrics" and FROM element "protein_metadata".
     # Apply join condition(s) between each element to resolve.
     df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_column_names)
     logger.debug(f'Loaded total Metrics DataFrame with primary identifier keys: '
@@ -1087,7 +1090,8 @@ def format_save_df(session: Session, pose_ids: Iterable[int], designs_df: pd.Dat
     logger.debug(f'pose_metrics_df: {pose_metrics_df}')  # Todo remove
     # save_df = pose_metrics_df.join(designs_df)  # , on='pose_id')
     # Join the designs_df (which may not have pose_id as index) with the pose_id indexed pose_metrics_df
-    save_df = designs_df.join(pose_metrics_df, on=pose_id)
+    save_df = designs_df.join(pose_metrics_df, on=pose_id, rsuffix='_DROP')
+    save_df.drop(save_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
     save_df.columns = pd.MultiIndex.from_product([['pose'], save_df.columns.tolist()],
                                                  names=[structure_type, 'metric'])
     logger.debug(f'save_df: {save_df}')  # Todo remove
@@ -1099,13 +1103,21 @@ def format_save_df(session: Session, pose_ids: Iterable[int], designs_df: pd.Dat
     # ...
     entity_metrics_df = load_sql_entity_metrics_dataframe(session, pose_ids=pose_ids)
     logger.debug(f'entity_metrics_df: {entity_metrics_df}')  # Todo remove
-    entity_metrics_df[structure_type] = entity_metrics_df.groupby(pose_id).entity_id.cumcount() + 1
+    # Get the first return from factorize since we just care about the unique "code" values
+    entity_metrics_df[structure_type] = \
+        entity_metrics_df.groupby(pose_id).entity_id.transform(lambda x: pd.factorize(x)[0]) + 1
+    # entity_metrics_df[structure_type] = entity_metrics_df.groupby(pose_id).entity_id.cumcount() + 1
     # entity_metrics_df[structure_type] = \
     #     (entity_metrics_df.groupby('pose_id').entity_id.cumcount() + 1).apply(lambda x: f'entity_{x}')
+    entity_metrics_df = entity_metrics_df.drop_duplicates([pose_id, structure_type])
+    # entity_metrics_df = entity_metrics_df.groupby([pose_id, structure_type]).mean()
+    logger.debug(f'entity_metrics_df AFTER GROUBY MEAN: {entity_metrics_df}')  # Todo remove
     # Make the stacked entity df and use the pose_id index to join with the above df
-    pose_oriented_entity_df = entity_metrics_df.set_index([pose_id, structure_type]).unstack()
+    pose_oriented_entity_df = entity_metrics_df.set_index([pose_id, structure_type]).unstack().swaplevel(axis=1)
+    # pose_oriented_entity_df = entity_metrics_df.unstack().swaplevel(axis=1)
     logger.debug(f'pose_oriented_entity_df: {pose_oriented_entity_df}')  # Todo remove
-    save_df = save_df.join(pose_oriented_entity_df, on=pose_id)
+    save_df = save_df.join(pose_oriented_entity_df, rsuffix='_DROP')  # , on=pose_id
+    # save_df.drop(save_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
     logger.debug(f'Final save_df: {save_df}')  # Todo remove
 
     return save_df
@@ -1346,9 +1358,11 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     pose_id_to_identifier = {}
     design_id_to_identifier = {}
     results = []
+    selected_design_ids = []
     for pose_id, design_ids in selected_pose_id_to_design_ids.items():
         pose_job = session.get(PoseJob, pose_id)
         pose_id_to_identifier[pose_id] = pose_job.pose_identifier
+        selected_design_ids.extend(design_ids)
         current_designs = []
         for design_id in design_ids:
             design = session.get(sql.DesignData, design_id)
@@ -1385,18 +1399,25 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         pose_job.current_designs = current_designs
         results.append(pose_job)
 
+    design_metrics_df = load_sql_designs_dataframe(session, design_ids=selected_design_ids)
+    design_metrics_df.set_index('design_id', inplace=True)
     # Format selected PoseJob with metrics for output
     # save_poses_df = selected_designs_df
     save_poses_df = format_save_df(session,
                                    selected_pose_id_to_design_ids.keys(),
                                    # # Remove the 'design_id' index
                                    # selected_designs_df.droplevel(-1, axis=0))
-                                   selected_designs_df.set_index('design_id'))
+                                   design_metrics_df)
+    #                                selected_designs_df.set_index('design_id').loc[selected_design_ids, :])
     # Rename the identifiers to human-readable names
-    save_poses_df.reset_index(inplace=True)
-    save_poses_df['design_name'] = save_poses_df['design_id'].map(design_id_to_identifier)
-    save_poses_df['pose_identifier'] = save_poses_df['pose_id'].map(pose_id_to_identifier)
-    save_poses_df.set_index(['pose_identifier', 'design_name'], inplace=True)
+    save_poses_df.reset_index(inplace=True, col_level=-1, col_fill='pose')
+    save_poses_df[('pose', 'design_name')] = save_poses_df[('pose', 'design_id')].map(design_id_to_identifier)
+    # print('AFTER design_name', save_poses_df)
+    save_poses_df[('pose', 'pose_identifier')] = save_poses_df[('pose', 'pose_id')].map(pose_id_to_identifier)
+    # print('AFTER pose_identifier', save_poses_df)
+    save_poses_df.set_index([('pose', 'pose_identifier'), ('pose', 'design_name')], inplace=True)
+    save_poses_df.index.rename(['pose_identifier', 'design_name'], inplace=True)
+    # print('AFTER set_index', save_poses_df)
 
     # Format selected sequences for output
     putils.make_path(job.output_directory)
