@@ -896,6 +896,7 @@ class Chain(SequenceProfile, Structure):
     """
     _chain_id: str
     _disorder: dict[int, dict[str, str]]
+    _entity_id: str
     _reference_sequence: str | None
 
     def __init__(self, chain_id: str = None, name: str = None, as_mate: bool = False, **kwargs):
@@ -921,6 +922,21 @@ class Chain(SequenceProfile, Structure):
     def chain_id(self, chain_id: str):
         self.set_residues_attributes(chain_id=chain_id)
         self._chain_id = chain_id
+
+    @property
+    def entity_id(self) -> str:
+        """The Entity ID associated with the instance"""
+        return self._entity_id
+        # try:
+        #     return self._entity_id
+        # except AttributeError:
+        #     self._entity_id = self.residues[0].entity_id
+        #     return self._entity_id
+
+    @entity_id.setter
+    def entity_id(self, entity_id: str):
+        # self.set_residues_attributes(entity_id=entity_id)
+        self._entity_id = entity_id
 
     @property
     def reference_sequence(self) -> str:
@@ -1301,6 +1317,11 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         # Different from Chain class
         if self._is_captain:
             self._set_chain_ids()
+
+    @property
+    def entity_id(self) -> str:
+        """The Entity ID associated with the instance"""
+        return self.name
 
     def _set_chain_ids(self):
         """From the Entity.chain_id set all mate Chains with an incrementally higher id
@@ -3337,10 +3358,11 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             # data_chains = data.get('chains', [])
             data_chains = set(data.get('chains', []))
             chains = [self.chain(chain) if isinstance(chain, str) else chain for chain in data_chains]
+            entity_chains = [chain for chain in chains if chain]
             entity_data = {
                 **data,  # Place the original data in the new dictionary
                 'uniprot_ids': uniprot_ids,
-                'chains': [chain for chain in chains if chain]}  # Remove any missing chains
+                'chains': entity_chains}  # Remove any missing chains
             if len(entity_data['chains']) == 0:
                 if self.nucleotides_present:
                     self.log.warning(f"Nucleotide chain was removed from Structure")
@@ -3359,6 +3381,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             # entity_data has attributes chains, dbref, and reference_sequence
             entity_data.pop('dbref')  # This isn't used anymore
             self.entities.append(Entity.from_chains(**entity_data, name=entity_name, parent=self))
+            for chain in entity_chains:
+                chain.entity_id = entity_name
 
     def _get_entity_info_from_atoms(self, method: str = 'sequence', tolerance: float = 0.9,
                                     length_difference: float = None, **kwargs):
@@ -6543,10 +6567,39 @@ class Pose(SymmetricModel, Metrics):
         Returns:
             {'n': True, 'c': False}
         """
-        if not self.assembly.sasa:
-            self.assembly.get_sasa()
+        assembly = self.assembly
+        if not assembly.sasa:
+            assembly.get_sasa()
 
-        entity_chain = self.assembly.chain(entity.chain_id)
+        # Find the chain that matches the Entity
+        # assembly_entity = entity_chain = None
+        # for a_entity in assembly.entities:
+        #     if a_entity == entity:
+        #         assembly_entity = a_entity
+        #
+        # if assembly_entity is None:
+        #     raise DesignError(f"Couldn't find a corresponding assembly entity for the passed Entity {entity.name}")
+        # else:
+        for chain in assembly.chains:
+            if chain.entity_id == entity.name:
+                entity_chain = chain
+                break
+        else:
+            raise DesignError(f"Couldn't find a corresponding assembly chain for the passed Entity {entity.name}")
+
+        # # Find the chain that matches the Entity
+        # entity_chain = None
+        # for chain in assembly.chains[:assembly.number_of_entities]:
+        #     if chain == entity:
+        #         entity_chain = chain
+        #     else:
+        #         print('chain', list(chain._key)[:10])
+        #         print('entity', list(entity._key)[:10])
+        # # entity_chain = self.assembly.chain(entity.chain_id)
+        #
+        # if entity_chain is None:
+        #     raise DesignError("Couldn't find a corresponding chain from the assembly for the passed Entity "
+        #                       f"{entity.name}")
         n_term, c_term = False, False
         entity_reference = None
         if self.is_symmetric():
