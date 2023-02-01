@@ -830,18 +830,21 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                     sequences_and_tags[design_string] = {'sequence': formatted_design_sequence, 'tag': {}}
                     continue
 
-                if not selected_tag:  # Find compatible tags from matching PDB observations
-                    uniprot_id = source_entity.uniprot_ids
-                    uniprot_id_matching_tags = tag_sequences.get(uniprot_id, None)
-                    if not uniprot_id_matching_tags:
-                        uniprot_id_matching_tags = \
-                            expression.find_matching_expression_tags(uniprot_id=uniprot_id)
-                        tag_sequences[uniprot_id] = uniprot_id_matching_tags
+                if not selected_tag:
+                    # Find compatible tags from matching PDB observations
+                    possible_matching_tags = []
+                    for uniprot_id in source_entity.uniprot_ids:
+                        uniprot_id_matching_tags = tag_sequences.get(uniprot_id, None)
+                        if uniprot_id_matching_tags is None:
+                            uniprot_id_matching_tags = \
+                                expression.find_matching_expression_tags(uniprot_id=uniprot_id)
+                            tag_sequences[uniprot_id] = uniprot_id_matching_tags
+                        possible_matching_tags.extend(uniprot_id_matching_tags)
 
-                    if uniprot_id_matching_tags:
+                    if possible_matching_tags:
                         tag_names, tag_termini, _ = \
                             zip(*[(tag['name'], tag['termini'], tag['sequence'])
-                                  for tag in uniprot_id_matching_tags])
+                                  for tag in possible_matching_tags])
                     else:
                         tag_names, tag_termini, _ = [], [], []
 
@@ -1603,18 +1606,21 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 if number_of_tags_requested == 0:  # Don't solve tags
                     sequences_and_tags.append({'sequence': formatted_design_sequence, 'tag': {}})
                 else:
-                    if not selected_tag:  # Find compatible tags from matching PDB observations
-                        uniprot_id = data.uniprot_ids
-                        uniprot_id_matching_tags = tag_sequences.get(uniprot_id, None)
-                        if not uniprot_id_matching_tags:
-                            uniprot_id_matching_tags = \
-                                expression.find_matching_expression_tags(uniprot_id=uniprot_id)
-                            tag_sequences[uniprot_id] = uniprot_id_matching_tags
+                    if not selected_tag:
+                        # Find compatible tags from matching PDB observations
+                        possible_matching_tags = []
+                        for uniprot_id in data.uniprot_ids:
+                            uniprot_id_matching_tags = tag_sequences.get(uniprot_id, None)
+                            if uniprot_id_matching_tags is None:
+                                uniprot_id_matching_tags = \
+                                    expression.find_matching_expression_tags(uniprot_id=uniprot_id)
+                                tag_sequences[uniprot_id] = uniprot_id_matching_tags
+                            possible_matching_tags.extend(uniprot_id_matching_tags)
 
-                        if uniprot_id_matching_tags:
+                        if possible_matching_tags:
                             tag_names, tag_termini, _ = \
                                 zip(*[(tag['name'], tag['termini'], tag['sequence'])
-                                      for tag in uniprot_id_matching_tags])
+                                      for tag in possible_matching_tags])
                         else:
                             tag_names, tag_termini, _ = [], [], []
 
