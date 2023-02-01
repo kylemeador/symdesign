@@ -1381,7 +1381,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                 pose_job.log.error(f'No file found for "{file_path}"')
                 # exceptions.append(utils.ReportException(f'No file found for "{file_path}"'))
                 continue
-            out_path = os.path.join(job.output_directory, pose_job.output_pose_path)
+            out_path = os.path.join(job.output_directory, f'{pose_job.output_modifier}-{design_name}.pdb')
             if not os.path.exists(out_path):
                 shutil.copy(file[0], out_path)  # [i])))
                 # shutil.copy(pose_id.designs_metrics_csv,
