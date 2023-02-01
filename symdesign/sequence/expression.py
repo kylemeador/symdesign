@@ -67,27 +67,28 @@ def pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=None):
     return None
 
 
-def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
-    """Take a pose and find expression tags from each PDB reference asking user for input on tag choice
+def find_matching_expression_tags(uniprot_id: str = None, pdb_code: str = None, chain: str = None) \
+        -> list | list[dict[str, str]]:
+    """Find matching expression tags by PDB ID reference
 
     Args:
-        uniprot_id=None (str): The uniprot_id to query tags from
-        pdb_code=None (str): The pdb to query tags from. Requires chain argument as well
-        chain=None (str): The chain to query tags from. Requires pdb argument as well
+        uniprot_id: The uniprot_id to query tags from
+        pdb_code: The pdb to query tags from. Requires chain argument as well
+        chain: The chain to query tags from. Requires pdb argument as well
     Returns:
-        (list[dict]): [{'name': 'his_tag', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...]
+        [{'name': 'his_tag', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...], or [] if none found
     """
     #         (dict): {'n': {His Tag: 2}, 'c': {Spy Catcher: 1},
     #                  'matching_tags': [{'name': 'his_tag', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...]}
     matching_pdb_tags = []
-    if not uniprot_id:
-        if not pdb_code or not chain:
+    if uniprot_id is None:
+        if pdb_code is None or chain is None:
             # raise AttributeError('One of uniprot_id or pdb_code AND chain is required')
-            logger.error('One of uniprot_id OR pdb_code AND chain is required')
+            logger.error('One of "uniprot_id" OR "pdb_code" AND "chain" is required')
             return matching_pdb_tags
         uniprot_id = pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=chain)
 
-    # from PDB API
+    # From PDB API
     partner_sequences = [query.pdb.get_entity_reference_sequence(entity_id=entity_id)
                          for entity_id in query.pdb.pdb_id_matching_uniprot_id(uniprot_id=uniprot_id)]
     # # from internal data storage
@@ -132,19 +133,19 @@ def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
     # return pdb_tag_tally
 
 
-def select_tags_for_sequence(sequence_id, matching_pdb_tags, preferred=None, n=True, c=True):
+def select_tags_for_sequence(sequence_id: str, matching_pdb_tags: list[dict[str, str]], preferred: str = None,
+                             n: bool = True, c: bool = True) -> dict[str, str]:
     """From a list of possible tags, solve for the tag with the most observations in the PDB. If there are
     discrepancies, query the user for a solution
 
     Args:
-        sequence_id (str): The sequence identifier
-        matching_pdb_tags (list[dict]): [{'name': His Tag, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...]
-    Keyword Args:
-        preferred=None (str): The name of a preferred tag provided by the user
-        n=True (bool): Whether the n-termini can be tagged
-        c=True (bool): Whether the c-termini can be tagged
+        sequence_id: The sequence identifier
+        matching_pdb_tags: [{'name': His Tag, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...]
+        preferred: The name of a preferred tag provided by the user
+        n: Whether the n-termini can be tagged
+        c: Whether the c-termini can be tagged
     Returns:
-        (dict): {'name': 'his_tag', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}
+        {'name': 'his_tag', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}
     """
     # Next, align all the tags to the reference sequence and tally the tag location and type
     # {'n': {His Tag: 2}, 'c': {Spy Catcher: 1}}
@@ -237,8 +238,8 @@ def select_tags_for_sequence(sequence_id, matching_pdb_tags, preferred=None, n=T
             final_choice['termini'] = final_tags['termini']
             break
         elif default == 'options':
-            print('\nFor %s, all tag options are:\n\tTermini Tag:\tCount\n%s\nAll tags:\n%s\n'
-                  % (sequence_id, '\n'.join('\t%s:\t%s' % item for item in pdb_tag_tally.items()), matching_pdb_tags))
+            print(f'\nFor {sequence_id}, all tag options are:\n\tTermini Tag:\tCount\n%s\nAll tags:\n%s\n'
+                  % ('\n'.join('\t%s:\t%s' % item for item in pdb_tag_tally.items()), matching_pdb_tags))
             # Todo pretty_table_format on the .values() from each item in above list() ('name', 'termini', 'sequence')
             while True:
                 termini_input = input('What termini would you like to use [n/c]? If no tag option is appealing, '
@@ -305,7 +306,8 @@ def select_tags_for_sequence(sequence_id, matching_pdb_tags, preferred=None, n=T
     if custom:
         final_tag_sequence['sequence'] = config.expression_tags[final_choice['name']]
     else:
-        final_tag_sequence['sequence'] = all_matching_tags[0]  # for now grab the first
+        logger.debug(f'Grabbing the first matching tag out of {len(all_matching_tags)} possible')
+        final_tag_sequence['sequence'] = all_matching_tags[0]  # For now grab the first
 
     return final_tag_sequence
 
@@ -340,8 +342,8 @@ def add_expression_tag(tag: str, sequence: str) -> str:
     final_seq = ''
     for i, (seq1_aa, seq2_aa) in enumerate(zip(tag_seq, seq)):
         if seq2_aa == '-':
-            if seq1_aa in protein_letters_alph1:
-                final_seq += seq1_aa
+            # if seq1_aa in protein_letters_alph1:
+            final_seq += seq1_aa
         else:
             final_seq += seq2_aa
 
@@ -358,40 +360,70 @@ def find_expression_tags(sequence: str, alignment_length: int = 12) -> list | li
     Keyword Args:
         # tag_file=PathUtils.affinity_tags (list): List of tuples where tuple[0] is the name and tuple[1] is the string
     Returns:
-        (list[dict]): [{'name': tag_name, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...], [] if none are found
+        [{'name': 'tag_name', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...], [] if none are found
     """
+    half_sequence_length = len(sequence) / 2
     matching_tags = []
     for tag, tag_sequence in config.expression_tags.items():
         tag_index = sequence.find(tag_sequence)
-        if tag_index == -1:  # no match was found
+        if tag_index == -1:  # No match was found
             continue
-        # save the tag name, the termini of the sequence it is closest to, and the source sequence context
+        # Save the tag name, the termini of the sequence it is closest to, and the source sequence context
         tag_length = len(tag_sequence)
         alignment_size = tag_length + alignment_length
-        if tag_index == 0 or tag_index < len(sequence) / 2:
+        if tag_index < half_sequence_length:
             termini = 'n'
             matching_sequence = sequence[tag_index:tag_index + alignment_size]
         else:
             termini = 'c'
-            matching_sequence = sequence[tag_index - alignment_size:tag_index + tag_length]
+            final_tag_index = tag_index + tag_length
+            matching_sequence = sequence[final_tag_index - alignment_size:final_tag_index]
         matching_tags.append({'name': tag, 'termini': termini, 'sequence': matching_sequence})
 
     return matching_tags
 
 
-def remove_expression_tags(sequence, tags):
-    """Remove all specified tags from an input sequence
+# def remove_expression_tags(sequence: str, tag_sequences: list[str]) -> str:
+#     """Remove the sequence provided by specified tags from an input sequence
+#
+#     Args:
+#         sequence: 'MSGHHHHHHGKLKPNDLRI...'
+#         tag_sequences: A list with the sequences of found tags
+#     Returns:
+#         'MSGGKLKPNDLRI...' The modified sequence without the tag
+#     """
+#     for tag in tag_sequences:
+#         tag_index = sequence.find(tag)
+#         if tag_index == -1:  # No match was found
+#             continue
+#         sequence = sequence[:tag_index] + sequence[tag_index + len(tag):]
+#
+#     return sequence
+
+
+def remove_expression_tags(sequence: str, tag_names: list[str]) -> str:
+    """Remove the sequence provided by specified tags from an input sequence
 
     Args:
-        sequence (str): 'MSGHHHHHHGKLKPNDLRI...'
-        tags (list): A list with the sequences of found tags
+        sequence: 'MSGHHHHHHGKLKPNDLRI...'
+        tag_names: A list with the names of found tags
     Returns:
-        (str): 'MSGGKLKPNDLRI...' The modified sequence without the tag
+        'MSGGKLKPNDLRI...' The modified sequence without the tag
     """
-    for tag in tags:
-        tag_index = sequence.find(tag)
-        if tag_index == -1:  # no match was found
+    half_sequence_length = len(sequence) / 2
+    for tag_name in tag_names:
+        tag_sequence = config.expression_tags[tag_name]
+        tag_index = sequence.find(tag_sequence)
+        if tag_index == -1:  # No match was found
             continue
-        sequence = sequence[:tag_index] + sequence[tag_index + len(tag):]
+
+        # Remove the tag from the source sequence
+        tag_length = len(tag_sequence)
+        # sequence = sequence[:tag_index] + sequence[tag_index + tag_length:]
+        # Remove from one end based on termini proximity
+        if tag_index < half_sequence_length:  # termini = 'n'
+            sequence = sequence[tag_index + tag_length:]
+        else:  # termini = 'c'
+            sequence = sequence[:tag_index]
 
     return sequence
