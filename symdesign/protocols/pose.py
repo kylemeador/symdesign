@@ -68,7 +68,7 @@ class PoseDirectory:
     name: str
     # pose_file: str | Path
 
-    def __init__(self, directory: AnyStr = None, output_modifier: AnyStr = '', **kwargs):
+    def __init__(self, **kwargs):  # directory: AnyStr = None, output_modifier: AnyStr = '',
         """
 
         Args:
@@ -76,98 +76,109 @@ class PoseDirectory:
             output_modifier:
             initial:
         """
-        if output_modifier is None:
-            output_modifier = ''
         self.info: dict = {}
         """Internal state info"""
         self._info: dict = {}
         """Internal state info at load time"""
 
-        if directory is not None:
-            self.out_directory = directory
-            # PoseDirectory attributes. Set after finding correct path
-            self.log_path: str | Path = os.path.join(self.out_directory, f'{self.name}.log')
-            self.designs_path: str | Path = os.path.join(self.out_directory, putils.designs)
-            # /root/Projects/project_Poses/design/designs
-            self.scripts_path: str | Path = os.path.join(self.out_directory, f'{output_modifier}{putils.scripts}')
-            # /root/Projects/project_Poses/design/scripts
-            self.frags_path: str | Path = os.path.join(self.out_directory, f'{output_modifier}{putils.frag_dir}')
-            # /root/Projects/project_Poses/design/matching_fragments
-            self.flags: str | Path = os.path.join(self.scripts_path, 'flags')
-            # /root/Projects/project_Poses/design/scripts/flags
-            self.data_path: str | Path = os.path.join(self.out_directory, f'{output_modifier}{putils.data}')
-            # /root/Projects/project_Poses/design/data
-            self.scores_file: str | Path = os.path.join(self.data_path, f'{self.name}.sc')
-            # /root/Projects/project_Poses/design/data/name.sc
-            self.serialized_info: str | Path = os.path.join(self.data_path, putils.state_file)
-            # /root/Projects/project_Poses/design/data/info.pkl
-            self.pose_path: str | Path = os.path.join(self.out_directory, f'{self.name}.pdb')
-            self.asu_path: str | Path = os.path.join(self.out_directory, putils.asu)
-            # /root/Projects/project_Poses/design/asu.pdb
-            # self.asu_path: str | Path = os.path.join(self.out_directory, f'{self.name}_{putils.asu}')
-            # # /root/Projects/project_Poses/design/design_name_asu.pdb
-            self.assembly_path: str | Path = os.path.join(self.out_directory, f'{self.name}_{putils.assembly}')
-            # /root/Projects/project_Poses/design/design_name_assembly.pdb
-            self.refine_pdb: str | Path = os.path.join(self.data_path, os.path.basename(self.pose_path))
-            # self.refine_pdb: str | Path = f'{os.path.splitext(self.pose_path)[0]}_refine.pdb'
-            # /root/Projects/project_Poses/design/clean_asu_for_refine.pdb
-            self.consensus_pdb: str | Path = f'{os.path.splitext(self.pose_path)[0]}_for_consensus.pdb'
-            # /root/Projects/project_Poses/design/design_name_for_consensus.pdb
-            self.consensus_design_pdb: str | Path = os.path.join(self.designs_path, os.path.basename(self.consensus_pdb))
-            # /root/Projects/project_Poses/design/designs/design_name_for_consensus.pdb
-            self.pdb_list: str | Path = os.path.join(self.scripts_path, 'design_files.txt')
-            # /root/Projects/project_Poses/design/scripts/design_files.txt
-            self.design_profile_file: str | Path = os.path.join(self.data_path, 'design.pssm')
-            # /root/Projects/project_Poses/design/data/design.pssm
-            self.evolutionary_profile_file: str | Path = os.path.join(self.data_path, 'evolutionary.pssm')
-            # /root/Projects/project_Poses/design/data/evolutionary.pssm
-            self.fragment_profile_file: str | Path = os.path.join(self.data_path, 'fragment.pssm')
-            # /root/Projects/project_Poses/design/data/fragment.pssm
-            # These next two files may be present from NanohedraV1 outputs
-            # self.pose_file = os.path.join(self.out_directory, putils.pose_file)
-            # self.frag_file = os.path.join(self.frags_path, putils.frag_text_file)
-            # These files are used as output from analysis protocols
-            # self.designs_metrics_csv = os.path.join(self.job.all_scores, f'{self}_Trajectories.csv')
-            self.designs_metrics_csv = os.path.join(self.data_path, f'designs.csv')
-            self.residues_metrics_csv = os.path.join(self.data_path, f'residues.csv')
-            # self.designed_sequences_file = os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
-            self.designed_sequences_file = os.path.join(self.designs_path, f'sequences.fasta')
+        directory = os.path.join(self.job.projects, self.project, self.name)
+        # if directory is not None:
+        self.out_directory = directory
+        # PoseDirectory attributes. Set after finding correct path
+        self.log_path: str | Path = os.path.join(self.out_directory, f'{self.name}.log')
+        self.designs_path: str | Path = os.path.join(self.out_directory, putils.designs)
+        # /root/Projects/project_Poses/design/designs
+        self.scripts_path: str | Path = os.path.join(self.out_directory, putils.scripts)
+        # /root/Projects/project_Poses/design/scripts
+        self.frags_path: str | Path = os.path.join(self.out_directory, putils.frag_dir)
+        # /root/Projects/project_Poses/design/matching_fragments
+        self.flags: str | Path = os.path.join(self.scripts_path, 'flags')
+        # /root/Projects/project_Poses/design/scripts/flags
+        self.data_path: str | Path = os.path.join(self.out_directory, putils.data)
+        # /root/Projects/project_Poses/design/data
+        self.scores_file: str | Path = os.path.join(self.data_path, f'{self.name}.sc')
+        # /root/Projects/project_Poses/design/data/name.sc
+        self.serialized_info: str | Path = os.path.join(self.data_path, putils.state_file)
+        # /root/Projects/project_Poses/design/data/info.pkl
+        self.pose_path: str | Path = os.path.join(self.out_directory, f'{self.name}.pdb')
+        self.asu_path: str | Path = os.path.join(self.out_directory, putils.asu)
+        # /root/Projects/project_Poses/design/asu.pdb
+        # self.asu_path: str | Path = os.path.join(self.out_directory, f'{self.name}_{putils.asu}')
+        # # /root/Projects/project_Poses/design/design_name_asu.pdb
+        self.assembly_path: str | Path = os.path.join(self.out_directory, f'{self.name}_{putils.assembly}')
+        # /root/Projects/project_Poses/design/design_name_assembly.pdb
+        self.refine_pdb: str | Path = os.path.join(self.data_path, os.path.basename(self.pose_path))
+        # self.refine_pdb: str | Path = f'{os.path.splitext(self.pose_path)[0]}_refine.pdb'
+        # /root/Projects/project_Poses/design/clean_asu_for_refine.pdb
+        self.consensus_pdb: str | Path = f'{os.path.splitext(self.pose_path)[0]}_for_consensus.pdb'
+        # /root/Projects/project_Poses/design/design_name_for_consensus.pdb
+        self.consensus_design_pdb: str | Path = os.path.join(self.designs_path, os.path.basename(self.consensus_pdb))
+        # /root/Projects/project_Poses/design/designs/design_name_for_consensus.pdb
+        self.pdb_list: str | Path = os.path.join(self.scripts_path, 'design_files.txt')
+        # /root/Projects/project_Poses/design/scripts/design_files.txt
+        self.design_profile_file: str | Path = os.path.join(self.data_path, 'design.pssm')
+        # /root/Projects/project_Poses/design/data/design.pssm
+        self.evolutionary_profile_file: str | Path = os.path.join(self.data_path, 'evolutionary.pssm')
+        # /root/Projects/project_Poses/design/data/evolutionary.pssm
+        self.fragment_profile_file: str | Path = os.path.join(self.data_path, 'fragment.pssm')
+        # /root/Projects/project_Poses/design/data/fragment.pssm
+        # These next two files may be present from NanohedraV1 outputs
+        # self.pose_file = os.path.join(self.out_directory, putils.pose_file)
+        # self.frag_file = os.path.join(self.frags_path, putils.frag_text_file)
+        # These files are used as output from analysis protocols
+        # self.designs_metrics_csv = os.path.join(self.job.all_scores, f'{self}_Trajectories.csv')
+        self.designs_metrics_csv = os.path.join(self.data_path, f'designs.csv')
+        self.residues_metrics_csv = os.path.join(self.data_path, f'residues.csv')
+        # self.designed_sequences_file = os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
+        self.designed_sequences_file = os.path.join(self.designs_path, f'sequences.fasta')
 
-            # try:
-            #     if self.initial:  # This is the first creation
-            #         if os.path.exists(self.serialized_info):
-            #             # This has been initialized without a database, gather existing state data
-            #             try:
-            #                 serial_info = unpickle(self.serialized_info)
-            #                 if not self.info:  # Empty dict
-            #                     self.info = serial_info
-            #                 else:
-            #                     serial_info.update(self.info)
-            #                     self.info = serial_info
-            #             except pickle.UnpicklingError as error:
-            #                 logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
-            #                 raise error
-            #
-            #             # # Make a copy to check for changes to the current state
-            #             # self._info = self.info.copy()
-            #             raise NotImplementedError("Still working this out")
-            #             self.load_initial_model()
-            #             for entity in self.initial_model:
-            #                 self.entity_data.append(sql.EntityData(
-            #                     pose=self,
-            #                     meta=entity.metadata,
-            #                     metrics=entity.metrics,
-            #                     transform=EntityTransform(**transform)
-            #                 ))
-            #             # Todo
-            #             #  if self.job.db:
-            #             #      self.put_info_in_db()
-            # except AttributeError:  # Missing self.initial as this was loaded from SQL database
-            #     pass
-        else:
-            self.out_directory = os.path.join(os.getcwd(), 'temp')
-            raise NotImplementedError(f"{putils.program_name} hasn't been set up to run without directories yet... "
-                                      f"Please solve the {self.__class__.__name__}.__init__() method")
+        # try:
+        #     if self.initial:  # This is the first creation
+        #         if os.path.exists(self.serialized_info):
+        #             # This has been initialized without a database, gather existing state data
+        #             try:
+        #                 serial_info = unpickle(self.serialized_info)
+        #                 if not self.info:  # Empty dict
+        #                     self.info = serial_info
+        #                 else:
+        #                     serial_info.update(self.info)
+        #                     self.info = serial_info
+        #             except pickle.UnpicklingError as error:
+        #                 logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
+        #                 raise error
+        #
+        #             # # Make a copy to check for changes to the current state
+        #             # self._info = self.info.copy()
+        #             raise NotImplementedError("Still working this out")
+        #             self.load_initial_model()
+        #             for entity in self.initial_model:
+        #                 self.entity_data.append(sql.EntityData(
+        #                     pose=self,
+        #                     meta=entity.metadata,
+        #                     metrics=entity.metrics,
+        #                     transform=EntityTransform(**transform)
+        #                 ))
+        #             # Todo
+        #             #  if self.job.db:
+        #             #      self.put_info_in_db()
+        # except AttributeError:  # Missing self.initial as this was loaded from SQL database
+        #     pass
+        # else:
+        #     self.out_directory = os.path.join(os.getcwd(), 'temp')
+        #     raise NotImplementedError(f"{putils.program_name} hasn't been set up to run without directories yet... "
+        #                               f"Please solve the {self.__class__.__name__}.__init__() method")
+
+        if self.job.output_to_directory:
+            self.output_path = self.job.output_directory
+            self.output_modifier = f'{self.project}-{self.name}'
+            """string with contents '{self.project}-{self.name}'"""
+            self.output_pose_path = os.path.join(self.output_path, f'{self.output_modifier}.pdb')
+            """/output_path/{self.output_modifier}.pdb"""
+            # self.output_asu_path: str | Path = os.path.join(self.output_path, f'{self.output_modifier}_{putils.asu}')
+            # """/output_path/{self.output_modifier}_asu.pdb"""
+            self.output_assembly_path: str | Path = os.path.join(self.out_directory, f'{self.output_modifier}_{putils.assembly}')
+            """/output_path/{self.output_modifier}_{putils.assembly}.pdb """
+            # out_directory = self.job.output_directory  # /output_directory <- self.out_directory/design.pdb
 
         super().__init__(**kwargs)
 
@@ -553,20 +564,11 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # self.specific_designs_file_paths = []
         # """Contains the various file paths for each design of interest according to self.specific_designs"""
 
-        if self.job.output_to_directory:
-            # Todo if I use output_modifier for design, it opens up a can of worms.
-            #  Maybe it is better to include only for specific modules
-            output_modifier = f'{self.name}_'
-            out_directory = self.job.program_root  # /output_directory <- self.out_directory/design.pdb
-        else:
-            output_modifier = ''  # None
-            out_directory = os.path.join(self.job.projects, self.project, self.name)
-
         # These arguments are for PoseDirectory. initial signifies that this is the first load of this PoseJob
         # which can help in gathering the self.serialized_info file and converting this to the proper utils.sql
         # table data
         # self.initial = False
-        super().__init__(directory=out_directory, output_modifier=output_modifier)  # **kwargs)
+        super().__init__()  # directory=out_directory, output_modifier=output_modifier)  # Todo **kwargs)
 
         putils.make_path(self.out_directory, condition=self.job.construct_pose)
 
@@ -1229,9 +1231,13 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if self.pose.is_symmetric():
             self._symmetric_assembly_is_clash()
             if self.job.output_assembly:
-                self.pose.write(assembly=True, out_path=self.assembly_path,
+                if self.job.output_to_directory:
+                    assembly_path = self.assembly_path
+                else:
+                    assembly_path = self.output_assembly_path
+                self.pose.write(assembly=True, out_path=assembly_path,
                                 increment_chains=self.job.increment_chains)
-                self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
+                self.log.info(f'Symmetric assembly written to: "{assembly_path}"')
             if self.job.write_oligomers:  # Write out new oligomers to the PoseJob
                 for idx, entity in enumerate(self.pose.entities):
                     oligomer_path = os.path.join(self.out_directory, f'{entity.name}_oligomer.pdb')
@@ -1251,16 +1257,21 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #     self.log.info(f'Input Entities: {", ".join(self.entity_names)}')
 
         # Save renumbered PDB to clean_asu.pdb
-        if not self.pose_path or not os.path.exists(self.pose_path) or self.job.force:
+        if not os.path.exists(self.pose_path) or self.job.force:
             if not self.job.construct_pose:  # This is only true when self.job.nanohedra_output is True
                 return
             # elif self.job.output_to_directory:
             #     return
+            # Set the pose_path as the source_path now
+            self.source_path = self.pose_path
+            self.save_asu(path=self.source_path)
 
-            self.save_asu()
+        if self.job.output_to_directory:
+            self.save_asu(path=self.output_pose_path)
 
-    def save_asu(self):  # Todo to PoseProtocols? # , rename_chains=False
+    def save_asu(self, path: AnyStr):  # Todo to PoseProtocols?
         """Save a new Structure from multiple Chain or Entity objects including the Pose symmetry"""
+        # Todo add other output_options? rename_chains, increment_chains?
         if self.job.fuse_chains:
             # try:
             for fusion_nterm, fusion_cterm in self.job.fuse_chains:
@@ -1286,10 +1297,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             # except AttributeError:
             #     raise ValueError('One or both of the chain IDs %s were not found in the input model. Possible chain'
             #                      ' ID\'s are %s' % ((fusion_nterm, fusion_cterm), ','.join(new_asu.chain_ids)))
-        # Set the pose_path as the source_path now
-        self.source_path = self.pose_path
-        self.pose.write(out_path=self.source_path)
-        self.log.info(f'Cleaned Pose file: "{self.source_path}"')
+
+        self.pose.write(out_path=path)
+        self.log.info(f'Wrote Pose file to: "{path}"')
 
     def _symmetric_assembly_is_clash(self):
         """Wrapper around the Pose symmetric_assembly_is_clash() to check at the Pose level for clashes and raise

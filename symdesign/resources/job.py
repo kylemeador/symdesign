@@ -529,10 +529,10 @@ class JobResources:
         if self.module in [flags.select_designs, flags.select_sequences]:
             if self.prefix == '':
                 # self.location must not be None
-                self.prefix = f'{os.path.basename(os.path.splitext(self.input_source)[0])}_'
+                self.prefix = f'{utils.starttime}_{os.path.basename(os.path.splitext(self.input_source)[0])}_'
             if not self.output_to_directory:
-                self.output_directory = \
-                    os.path.join(os.path.dirname(self.program_root), f'{self.prefix}SelectedDesigns{self.suffix}')
+                self.output_directory = os.path.join(os.path.dirname(self.program_root), f'SelectedDesigns')
+                #     os.path.join(os.path.dirname(self.program_root), f'{self.prefix}SelectedDesigns{self.suffix}')
 
     @property
     def current_session(self) -> Session:
@@ -559,7 +559,7 @@ class JobResources:
         return True if self.output_directory else False
 
     @property
-    def output_directory(self) -> AnyStr:
+    def output_directory(self) -> AnyStr | None:
         """Where to output the Job"""
         try:
             return self._output_directory
@@ -570,7 +570,10 @@ class JobResources:
     @output_directory.setter
     def output_directory(self, output_directory: str):
         """Where to output the Job"""
-        self._output_directory = f'{self.prefix}{output_directory}{self.suffix}'
+        # Format the output_directory so that the basename, i.e. the part that is desired
+        # can be formatted with prefix/suffix
+        dirname, output_directory = os.path.split(output_directory.rstrip(os.sep))
+        self._output_directory = os.path.join(dirname, f'{self.prefix}{output_directory}{self.suffix}')
 
     @property
     def location(self) -> str | None:

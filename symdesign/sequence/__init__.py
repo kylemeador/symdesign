@@ -588,7 +588,8 @@ def optimize_protein_sequence(sequence: str, species: str = 'e_coli') -> str:
 def create_mulitcistronic_sequences(args):
     # if not args.multicistronic_intergenic_sequence:
     #     args.multicistronic_intergenic_sequence = expression.ncoI_multicistronic_sequence
-
+    raise NotImplementedError('Please refactor to a protocols/tools module so that JobResources can be used.')
+    job = job_resources_factory()
     file = args.file[0]  # since args.file is collected with nargs='*', select the first
     if file.endswith('.csv'):
         with open(file) as f:
@@ -619,13 +620,10 @@ def create_mulitcistronic_sequences(args):
         args.prefix = f'{os.path.basename(os.path.splitext(location)[0])}_'
     else:
         args.prefix = f'{args.prefix}_'
-    if args.suffix:
-        args.suffix = f'_{args.suffix}'
 
     nucleotide_sequence_file = write_sequences(nucleotide_sequences, csv=args.csv,
-                                               file_name=os.path.join(os.getcwd(),
-                                                                      f'{args.prefix}MulticistronicNucleotideSequences'
-                                                                      f'{args.suffix}'))
+                                               file_name=os.path.join(job.output_directory,
+                                                                      'MulticistronicNucleotideSequences'))
     logger.info(f'Multicistronic nucleotide sequences written to: {nucleotide_sequence_file}')
 
 

@@ -693,7 +693,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
     results = designs(pose_jobs)
     # Set up output_file pose_jobs for __main__.terminate()
     return_pose_jobs = list(results.keys())
-    job.output_file = os.path.join(job.output_directory, f'{job.prefix}SelectedDesigns{job.suffix}.poses')
+    job.output_file = os.path.join(job.output_directory, 'SelectedDesigns.poses')
 
     # Set up mechanism to solve sequence tagging preferences
     def solve_tags(n_of_tags: int) -> list[bool]:
@@ -1060,22 +1060,20 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
         error_file = \
             write_sequences(codon_optimization_errors, csv=job.csv,
                             file_name=os.path.join(job.output_directory,
-                                                   f'{job.prefix}OptimizationErrorProteinSequences{job.suffix}'))
+                                                   f'OptimizationErrorProteinSequences'))
     # Write output sequences to fasta file
     seq_file = write_sequences(final_sequences, csv=job.csv,
-                               file_name=os.path.join(job.output_directory, f'{job.prefix}SelectedSequences{job.suffix}'))
+                               file_name=os.path.join(job.output_directory, 'SelectedSequences'))
     logger.info(f'Final Design protein sequences written to: {seq_file}')
     seq_comparison_file = \
         write_sequences(inserted_sequences, csv=job.csv,
-                        file_name=os.path.join(job.output_directory,
-                                               f'{job.prefix}SelectedSequencesExpressionAdditions{job.suffix}'))
+                        file_name=os.path.join(job.output_directory, 'SelectedSequencesExpressionAdditions'))
     logger.info(f'Final Expression sequence comparison to Design sequence written to: {seq_comparison_file}')
     # check for protein or nucleotide output
     if job.nucleotide:
         nucleotide_sequence_file = \
             write_sequences(nucleotide_sequences, csv=job.csv,
-                            file_name=os.path.join(job.output_directory,
-                                                   f'{job.prefix}SelectedSequencesNucleotide{job.suffix}'))
+                            file_name=os.path.join(job.output_directory, 'SelectedSequencesNucleotide'))
         logger.info(f'Final Design nucleotide sequences written to: {nucleotide_sequence_file}')
 
     return return_pose_jobs
@@ -1431,7 +1429,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
     results = sql_designs(pose_jobs)
     # Set up output_file pose_jobs for __main__.terminate()
     return_pose_jobs = results
-    job.output_file = os.path.join(job.output_directory, f'{job.prefix}SelectedDesigns{job.suffix}.poses')
+    job.output_file = os.path.join(job.output_directory, 'SelectedDesigns.poses')
 
     # Set up mechanism to solve sequence tagging preferences
     def solve_tags(n_of_tags: int) -> list[bool]:
@@ -1791,23 +1789,20 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
         # Todo utilize errors
         error_file = \
             write_sequences(codon_optimization_errors, csv=job.csv,
-                            file_name=os.path.join(job.output_directory,
-                                                   f'{job.prefix}OptimizationErrorProteinSequences{job.suffix}'))
+                            file_name=os.path.join(job.output_directory, 'OptimizationErrorProteinSequences'))
     # Write output sequences to fasta file
     seq_file = write_sequences(final_sequences, csv=job.csv,
-                               file_name=os.path.join(job.output_directory, f'{job.prefix}SelectedSequences{job.suffix}'))
+                               file_name=os.path.join(job.output_directory, 'SelectedSequences'))
     logger.info(f'Final Design protein sequences written to: {seq_file}')
     seq_comparison_file = \
         write_sequences(inserted_sequences, csv=job.csv,
-                        file_name=os.path.join(job.output_directory,
-                                               f'{job.prefix}SelectedSequencesExpressionAdditions{job.suffix}'))
+                        file_name=os.path.join(job.output_directory, 'SelectedSequencesExpressionAdditions'))
     logger.info(f'Final Expression sequence comparison to Design sequence written to: {seq_comparison_file}')
     # check for protein or nucleotide output
     if job.nucleotide:
         nucleotide_sequence_file = \
             write_sequences(nucleotide_sequences, csv=job.csv,
-                            file_name=os.path.join(job.output_directory,
-                                                   f'{job.prefix}SelectedSequencesNucleotide{job.suffix}'))
+                            file_name=os.path.join(job.output_directory, 'SelectedSequencesNucleotide'))
         logger.info(f'Final Design nucleotide sequences written to: {nucleotide_sequence_file}')
 
     return return_pose_jobs
