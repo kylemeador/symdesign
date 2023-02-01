@@ -642,22 +642,22 @@ def make_mutations(sequence: Sequence, mutations: dict[int, dict[str, str]], fin
     """
     # Seq can be either list or string
     if find_orf:
-        offset = -find_orf_offset(sequence, mutations)
-        logger.info(f'Found ORF. Offset = {-offset}')
+        offset = find_orf_offset(sequence, mutations)
+        logger.info(f'Found ORF. Offset = {offset}')
     else:
         offset = 0  # zero_offset
 
     seq = sequence
     index_errors = []
     for key, mutation in mutations.items():
-        index = key - offset
+        index = key + offset
         try:
             if seq[index] == mutation['from']:  # Adjust key for zero index slicing
                 seq = seq[:index] + mutation['to'] + seq[index + 1:]
             else:  # Find correct offset, or mark mutation source as doomed
                 index_errors.append(key)
         except IndexError:
-            logger.error(key - offset)
+            logger.error(key + offset)
     if index_errors:
         logger.warning(f'{make_mutations.__name__} index errors: {", ".join(map(str, index_errors))}')
 
@@ -673,13 +673,16 @@ def find_orf_offset(sequence: Sequence, mutations: mutation_dictionary) -> int:
     Returns:
         The zero-indexed integer to offset the provided sequence to best match the provided mutations
     """
+    def gen_offset_repr():
+        return f'Found the orf_offsets: {",".join(f"{k}={v}" for k, v in orf_offsets.items())}'
+
     unsolvable = False
     orf_start_idx = 0
     orf_offsets = {idx: 0 for idx, aa in enumerate(sequence) if aa == 'M'}
     methionine_positions = list(orf_offsets.keys())
     while True:
-        if not orf_offsets:  # MET is missing/not the ORF start
-            orf_offsets = {start_idx: 0 for start_idx in range(50)}
+        if not orf_offsets:  # MET is missing for the sequnce/we haven't found the ORF start and need to scan a range
+            orf_offsets = {start_idx: 0 for start_idx in range(-30, 50)}
 
         # Weight potential MET offsets by finding the one which gives the highest number correct mutation sites
         for test_orf_index in orf_offsets:
@@ -690,11 +693,13 @@ def find_orf_offset(sequence: Sequence, mutations: mutation_dictionary) -> int:
                 except IndexError:  # We have reached the end of the sequence
                     break
 
+        # logger.debug(gen_offset_repr())
         max_count = max(list(orf_offsets.values()))
         # Check if likely ORF has been identified (count < number mutations/2). If not, MET is missing/not the ORF start
         if max_count < len(mutations) / 2:
             if unsolvable:
-                return orf_start_idx
+                raise RuntimeError(f"Couldn't find a orf_offset max_count {max_count} < {len(mutations) / 2} (half the "
+                                   f"mutations). The orf_start_idx={orf_start_idx} still\n\t{gen_offset_repr()}")
             orf_offsets = {}
             unsolvable = True  # if we reach this spot again, the problem is deemed unsolvable
         else:  # Find the index of the max_count
@@ -702,13 +707,16 @@ def find_orf_offset(sequence: Sequence, mutations: mutation_dictionary) -> int:
                 if max_count == count_:  # orf_offsets[offset]:
                     orf_start_idx = idx  # Select the first occurrence of the max count
                     break
+            else:
+                raise RuntimeError(f"Couldn't find a orf_offset count == {max_count} (the max_count). "
+                                   f"The orf_start_idx={orf_start_idx} still\n\t{gen_offset_repr()}")
 
             # For cases where the orf doesn't begin on Met, try to find a prior Met. Otherwise, selects the id'd Met
             closest_met = None
             for met_index in methionine_positions:
                 if met_index <= orf_start_idx:
                     closest_met = met_index
-                else:  # we have passed the identified orf_start_idx
+                else:  # We have passed the identified orf_start_idx
                     if closest_met is not None:
                         orf_start_idx = closest_met  # + zero_offset # change to one-index
                     break
@@ -735,7 +743,7 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
                        return_all: bool = False, return_to: bool = False, return_from: bool = False) \
         -> mutation_dictionary | sequence_dictionary:
     """Create mutation data in a typical A5K format. Integer indexed dictionary keys with the index matching reference
-    sequence. Sequence mutations accessed by "from" and "to" keys. By default, only mutated positions arereturned and
+    sequence. Sequence mutations accessed by "from" and "to" keys. By default, only mutated positions are returned and
     all gaped sequences are excluded
 
     For PDB comparison, reference should be expression sequence (SEQRES), query should be atomic sequence (ATOM)
