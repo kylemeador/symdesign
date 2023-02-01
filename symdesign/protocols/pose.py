@@ -3952,6 +3952,8 @@ class PoseProtocol(PoseData):
                 else:
                     existing_design_indices.append(design_data_index)
 
+        if not design_paths_to_process:
+            return
         # if self.job.force:
         #     # Collect metrics on all designs (possibly again)
         #     for idx, path in enumerate(reversed(design_files[:])):
@@ -3993,7 +3995,6 @@ class PoseProtocol(PoseData):
         if putils.design_parent in scores_df:
             # Replace missing values with the pose_source DesignData
             parents = scores_df.pop(putils.design_parent).fillna(self.pose_source)  # .tolist()
-            self.log.critical(f'Found "parents" variable with dtype: {parents.dtype}')
         else:  # Assume this is an offspring of the pose
             parents = {provided_name: self.pose_source for provided_name in rosetta_provided_new_design_names}
 
