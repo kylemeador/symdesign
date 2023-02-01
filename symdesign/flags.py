@@ -73,6 +73,7 @@ project_name = 'project_name'
 profile_memory = 'profile_memory'
 preprocessed = 'preprocessed'
 quick = 'quick'
+pose_format = 'pose_format'
 # Set up JobResources namespaces for different categories of flags
 design_namespace = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
@@ -198,6 +199,7 @@ designs_per_pose = format_for_cmdline(designs_per_pose)
 project_name = format_for_cmdline(project_name)
 profile_memory = format_for_cmdline(profile_memory)
 process_rosetta_metrics = format_for_cmdline(process_rosetta_metrics)
+pose_format = format_for_cmdline(pose_format)
 
 select_modules = (
     select_poses,
@@ -637,7 +639,8 @@ options_arguments = {
                                  help='If desired, the name of the initialized project\nDefault is inferred from file'),
     ('-M', f'--{multi_processing}'): dict(action='store_true', help='Should job be run with multiple processors?'),
     (f'--{profile_memory}',): dict(action='store_true',
-                                   help='memory_profiler.profile() a module. Must be run with --development'),
+                                   help='Use memory_profiler.profile() to understand memory usage of a module. Must be '
+                                        'run with --development'),
     quick_args: dict(action='store_true',
                      help='Run Nanohedra in minimal sampling mode to generate enough hits to\n'
                           'test quickly. This should only be used for active development'),  # Todo DEV branch
@@ -646,9 +649,9 @@ options_arguments = {
                                  help='Skip logging output to files and direct all logging to stream?'),
     sym_entry_args: sym_entry_kwargs,
     symmetry_args: dict(type=str, default=None, metavar='RESULT:{GROUP1}{GROUP2}...',
-                               help='The specific symmetry of the poses of interest.\nPreferably in a composition '
-                                    'formula such as T:{C3}{C3}...\nCan also provide the keyword "cryst" to use crystal'
-                                    ' symmetry'),
+                        help='The specific symmetry of the poses of interest.\nPreferably in a composition '
+                             'formula such as T:{C3}{C3}...\nCan also provide the keyword "cryst" to use crystal'
+                             ' symmetry'),
     ('-K', f'--{temperatures}'): dict(type=float, nargs='*', default=(0.1,), metavar='FLOAT',
                                       help='Different sampling "temperature(s)", i.e. values greater'
                                            '\nthan 0, to use when performing design. In the form:'
@@ -1256,6 +1259,10 @@ output_arguments = {
         dict(action=argparse.BooleanOptionalAction, default=False,
              help=f'For all structures generated, write them as a single multimodel file'),
     ('--overwrite',): dict(action='store_true', help='Whether to overwrite existing structures upon job fulfillment'),
+    ('-Pf', f'--{pose_format}'): dict(action='store_true',
+                                      help='Whether outputs should be converted to pose formatting,\n'
+                                           'where instead of using the original numbering each\n'
+                                           'additional residue is incremented '),
     ('--prefix',): dict(type=str, metavar='string', help='String to prepend to output name'),
     ('--suffix',): dict(type=str, metavar='string', help='String to append to output name'),
 }

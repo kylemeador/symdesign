@@ -861,7 +861,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     # entity_metadata=self.entity_data,
                     entity_names=[data.meta.entity_id for data in self.entity_data],  # self.entity_names,
                     transformations=[data.transformation for data in self.entity_data],  # self.pose_transformation,
-                    ignore_clashes=self.job.design.ignore_pose_clashes, fragment_db=self.job.fragment_db)
+                    ignore_clashes=self.job.design.ignore_pose_clashes, fragment_db=self.job.fragment_db,
+                    pose_format=self.job.pose_format)
         #             api_db=self.job.api_db,
 
     # @property
