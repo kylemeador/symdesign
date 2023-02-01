@@ -1793,12 +1793,30 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 # For a final manual check of sequence generation, find sequence additions compared to the design
                 # model and save to view where additions lie on sequence. Cross these additions with design
                 # structure to check if insertions are compatible
-                all_insertions = {residue: {'to': aa} for residue, aa in enumerate(design_sequence, 1)}
-                all_insertions.update(generate_mutations(design_sequence, designed_atom_sequences[idx],
-                                                         blanks=True))
+                # all_insertions = {residue: {'to': aa} for residue, aa in enumerate(tagged_sequence)}
+                # all_insertions.update(generate_mutations(design_sequence, ''.join(designed_atom_sequences[idx]),
+                #                                          blanks=True))
+                # generated_insertion_mutations = \
+                #     generate_mutations(tagged_sequence, ''.join(designed_atom_sequences[idx]),
+                #                        blanks=True, zero_index=True)
+                # logger.debug(f'generated_insertion_mutations: {generated_insertion_mutations}')
+                # all_insertions.update(generated_insertion_mutations)
+                # formatted_comparison = {}
+                # for mutation_index in sorted(all_insertions.keys()):
+                generated_insertion_mutations = \
+                    generate_mutations(tagged_sequence, ''.join(designed_atom_sequences[idx]),
+                                       return_all=True, zero_index=True)
+                # for mutations in generated_insertion_mutations.values():
+                #     reference = mutations['from']
+                #     query = mutations['to']
+
                 # Reduce to sequence only
                 inserted_sequences[design_string] = \
-                    f'{"".join([res["to"] for res in all_insertions.values()])}\n{design_sequence}'
+                    f'{"".join([res["to"] for res in generated_insertion_mutations.values()])}\n' \
+                    f'{"".join([res["from"] for res in generated_insertion_mutations.values()])}'
+                # # Reduce to sequence only
+                # inserted_sequences[design_string] = \
+                #     f'{"".join([res["to"] for res in all_insertions.values()])}\n{tagged_sequence}'
                 logger.info(f'Formatted sequence comparison:\n{inserted_sequences[design_string]}')
                 final_sequences[design_string] = tagged_sequence
                 if job.nucleotide:
