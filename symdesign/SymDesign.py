@@ -670,25 +670,25 @@ def main():
     #  Find base symdesign_directory and check for proper set up of program i/o
     # -----------------------------------------------------------------------------------------------------------------
     # Check if output already exists or --overwrite is provided
-    if args.output_file and os.path.exists(args.output_file) and args.module not in flags.analysis \
-            and not args.overwrite:
-        exit(f'The specified output file "{args.output_file}" already exists, this will overwrite your old '
-             f'data! Please specify a new name with with -Of/--{flags.output_file}, '
-             'or append --overwrite to your command')
-    symdesign_directory = None
+    # if args.output_file and os.path.exists(args.output_file) and args.module not in flags.analysis \
+    #         and not args.overwrite:
+    #     exit(f'The specified output file "{args.output_file}" already exists, this will overwrite your old '
+    #          f'data! Please specify a new name with with -Of/--{flags.output_file}, '
+    #          'or append --overwrite to your command')
+    # symdesign_directory = None
     # If output exists, get the base SymDesign dir -> symdesign_directory
     # Todo make output_directory separate from existing symdesign_directory storage location
-    if args.output_directory:
-        if os.path.exists(args.output_directory) and not args.overwrite:
-            exit(f'The specified output directory "{args.output_directory}" already exists, this will overwrite '
-                 f'your old data! Please specify a new name with with -Od/--{flags.output_directory}, '
-                 '--prefix or --suffix, or append --overwrite to your command')
-        else:
-            symdesign_directory = args.output_directory
-            putils.make_path(symdesign_directory)
-    else:
-        symdesign_directory = utils.get_program_root_directory(
-            (args.directory or (args.project or args.single or [None])[0] or os.getcwd()))
+    # if args.output_directory:
+    #     # if os.path.exists(args.output_directory) and not args.overwrite:
+    #     #     exit(f'The specified output directory "{args.output_directory}" already exists, this will overwrite '
+    #     #          f'your old data! Please specify a new name with with -Od/--{flags.output_directory}, '
+    #     #          '--prefix or --suffix, or append --overwrite to your command')
+    #     # else:
+    #     symdesign_directory = args.output_directory
+    #     putils.make_path(symdesign_directory)
+    # else:
+    symdesign_directory = utils.get_program_root_directory(
+        (args.directory or (args.project or args.single or [None])[0] or os.getcwd()))
 
     project_name = None
     """Used to set a leading string on all new PoseJob paths"""
