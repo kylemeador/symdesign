@@ -1336,6 +1336,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 continue
 
             profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+            # profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.uniprot_ids)  # Todo
             if not profile:
                 # # We can try and add... This would be better at the program level due to memory issues
                 # entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
@@ -1351,6 +1352,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 entity.evolutionary_profile = profile
                 # Ensure the file is attached as well
                 entity.pssm_file = self.job.api_db.hhblits_profiles.retrieve_file(name=entity.name)
+                # entity.pssm_file = self.job.api_db.hhblits_profiles.retrieve_file(name=entity.uniprot_ids)  # Todo
 
             if not entity.verify_evolutionary_profile():
                 entity.fit_evolutionary_profile_to_structure()
@@ -1362,6 +1364,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
             try:  # To fetch the multiple sequence alignment for further processing
                 msa = self.job.api_db.alignments.retrieve_data(name=entity.name)
+                # msa = self.job.api_db.alignments.retrieve_data(name=entity.uniprot_ids)  # Todo
                 if not msa:
                     self.measure_alignment = False
                     warn = True
