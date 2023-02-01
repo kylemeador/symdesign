@@ -202,6 +202,17 @@ class JobResources:
         if arguments is not None:
             kwargs.update(deepcopy(vars(arguments)))
 
+        # Set the module for the current job. This will always be a '-' separated string when more than one name
+        self.module: str = kwargs.get(flags.module)
+        # Ensure that the protocol is viable
+        if self.module == flags.protocol:
+            self.protocol_module = True
+            self.modules: list[str] = kwargs.get(flags.modules)
+            self.check_protocol_module_arguments()
+        else:
+            self.protocol_module = False
+            self.modules = [self.module]
+
         # Computing environment and development Flags
         # self.command_only: bool = kwargs.get('command_only', False)
         """Whether to reissue commands, only if distribute_work=False"""
@@ -237,7 +248,6 @@ class JobResources:
         # self.reduce_memory = False
 
         # Input parameters
-        self.output_file = kwargs.get(putils.output_file)
         self.project_name = kwargs.get('project_name')
         # program_root subdirectories
         self.data = os.path.join(self.program_root, putils.data.title())
@@ -455,6 +465,8 @@ class JobResources:
         self.multicistronic_intergenic_sequence = kwargs.get(putils.multicistronic_intergenic_sequence)
 
         # Output flags
+        self.overwrite: bool = kwargs.get('overwrite')
+        self.pose_format = kwargs.get('pose_format')
         prefix = kwargs.get('prefix')
         if prefix:
             self.prefix = f'{prefix}_'
@@ -463,16 +475,45 @@ class JobResources:
 
         suffix = kwargs.get('suffix')
         if suffix:
-            self.suffix = f'{suffix}_'
+            self.suffix = f'_{suffix}'
         else:
             self.suffix = ''
 
-        self.overwrite: bool = kwargs.get('overwrite')
-        self.pose_format = kwargs.get('pose_format')
-        output_directory = kwargs.get(putils.output_directory)
+        # Check if output already exists or --overwrite is provided
+        if self.module in [flags.select_designs, flags.select_sequences]:
+            if self.prefix == '':
+                # self.location must not be None
+                self.prefix = f'{utils.starttime}_{os.path.basename(os.path.splitext(self.input_source)[0])}_'
+            output_directory = kwargs.get(putils.output_directory)
+            # if not self.output_to_directory:
+            if not output_directory:
+                output_directory = os.path.join(os.path.dirname(self.program_root), f'SelectedDesigns')
+                #     os.path.join(os.path.dirname(self.program_root), f'{self.prefix}SelectedDesigns{self.suffix}')
+        else:  # if output_directory:
+            output_directory = kwargs.get(putils.output_directory)
+
         if output_directory:
+            if os.path.exists(output_directory):
+                if not self.overwrite:
+                    exit(f'The specified output directory "{output_directory}" already exists, this will overwrite '
+                         f'your old data! Please specify a new name with with -Od/--{flags.output_directory}, '
+                         '--prefix or --suffix, or append --overwrite to your command')
+            else:
+                putils.make_path(output_directory)
             self.output_directory = output_directory
-        self.output_assembly: bool = kwargs.get(putils.output_assembly)
+
+        self.output_file = kwargs.get(putils.output_file)
+        if self.output_file and os.path.exists(self.output_file) and self.module not in flags.analysis \
+                and not self.overwrite:
+            exit(f'The specified output file "{self.output_file}" already exists, this will overwrite your old '
+                 f'data! Please specify a new name with with {flags.format_args(flags.output_file_args)}, '
+                 'or append --overwrite to your command')
+
+        # When we are performing expand-asu, make sure we set output_assembly to True
+        if self.module == flags.expand_asu:
+            self.output_assembly = True
+        else:
+            self.output_assembly: bool = kwargs.get(putils.output_assembly)
         self.output_surrounding_uc: bool = kwargs.get(putils.output_surrounding_uc)
         self.write_fragments: bool = kwargs.get(putils.output_fragments)
         self.write_oligomers: bool = kwargs.get(putils.output_oligomers)
@@ -500,20 +541,6 @@ class JobResources:
         # Prediction flags
         self.predict = Predict.from_flags(**kwargs)
 
-        # Set the module for the current job. This will always be a '-' separated string when more than one name
-        self.module: str = kwargs.get(flags.module)
-        # Ensure that the protocol is viable
-        if self.module == flags.protocol:
-            self.protocol_module = True
-            self.modules: list[str] = kwargs.get(flags.modules)
-            self.check_protocol_module_arguments()
-        else:
-            self.protocol_module = False
-            self.modules = [self.module]
-        # When we are performing expand-asu, make sure we set output_assembly to True
-        if self.module == flags.expand_asu:
-            self.output_assembly = True
-
         # Clustering flags
         # Todo this is pretty sloppy. I should modify this DataClass mechanism...
         # self.cluster_map = kwargs.get('cluster_map')
@@ -525,14 +552,6 @@ class JobResources:
             # """The path to a file containing the currently loaded mapping from cluster representatives to members"""
         else:
             self.cluster = False
-
-        if self.module in [flags.select_designs, flags.select_sequences]:
-            if self.prefix == '':
-                # self.location must not be None
-                self.prefix = f'{utils.starttime}_{os.path.basename(os.path.splitext(self.input_source)[0])}_'
-            if not self.output_to_directory:
-                self.output_directory = os.path.join(os.path.dirname(self.program_root), f'SelectedDesigns')
-                #     os.path.join(os.path.dirname(self.program_root), f'{self.prefix}SelectedDesigns{self.suffix}')
 
     @property
     def current_session(self) -> Session:
