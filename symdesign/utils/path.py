@@ -101,6 +101,7 @@ hbnet = 'hbnet'
 scout = 'scout'
 consensus = 'consensus'
 hhblits = 'hhblits'
+alphafold = 'alphafold'
 setup_exe = os.path.join(git_source, 'setup.py')
 hhsuite_setup_comand = f'python {setup_exe} --hhsuite-dependencies'
 rosetta_str = 'rosetta'
@@ -267,7 +268,9 @@ try:
     with open(config_file, 'r') as f_save:
         config = json.load(f_save)
 except FileNotFoundError:  # We may be running setup.py or this wasn't installed made properly
-    config = {'hhblits_env': '', 'hhblits_db': '', 'rosetta_env': '', 'rosetta_make': 'default'}
+    config = {'hhblits_env': '', 'hhblits_db': '',
+              'rosetta_env': '', 'rosetta_make': 'default',
+              'af_params': ''}
     logger.debug(f"Couldn't find the config file '{config_file}'. Setting default config:\n"
                  f"{', '.join(f'{k}={v}' for k, v in config.items())}")
     # pass
@@ -302,6 +305,10 @@ else:
     uniclust_db = ''
 install_hhsuite_exe = os.path.join(binaries, 'install_hhsuite.sh')
 hhsuite_git = 'https://github.com/soedinglab/hh-suite'
+# Alphfold
+alphafold_db_dir = os.path.join(dependency_dir, alphafold)
+alphafold_params_dir = os.path.join(alphafold_db_dir, 'params')
+alphafold_params_name = config.get('af_params')
 # Rosetta
 rosetta_extras = config.get('rosetta_make')
 rosetta_main = os.environ.get(config.get('rosetta_env'))

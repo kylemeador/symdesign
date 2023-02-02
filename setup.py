@@ -54,6 +54,66 @@ def search_env_for_variable(search_variable: str) -> str | None:
     return string  # env_variable
 
 
+restart_command = f'python {__file__}'
+failure_prompt = f' If this command fails part way through, you can restart by running\n\t{restart_command}'
+
+
+def download_alphafold_latest_params(version: str = None, dry_run: bool = False) -> str:
+    """Return the name of the database version that was downloaded
+
+    Args:
+        version: Whether a particular version should be used. The default is the latest
+        dry_run: Whether to perform a "dry install" without any substantial commands
+    Returns:
+        The name of the database version fetched
+    """
+    if version is None:
+        # Default as of creation on 2/2/23
+        version = 'alphafold_params_2022-12-06.tar'
+
+    source_url = f'https://storage.googleapis.com/alphafold/{version}'
+    # version = os.path.basename(source_url)
+
+    os.chdir(putils.alphafold_params_dir)
+    putils.make_path(putils.alphafold_params_dir)
+
+    # Use the version to wget the file to the dependencies/alphafold/params directory
+    putils.make_path(putils.hhsuite_db_dir)  # Make all dirs - dependencies/hhsuite/databases
+    download_cmd = ['wget', '--directory-prefix', putils.alphafold_params_dir, '--continue',
+                    '-U', '\'Mozilla/5.0', '(X11;', 'U;', 'Linux', 'i686', '(x86_64);', 'en-GB;',
+                    'rv:1.9.0.1)', 'Gecko/2008070206', 'Firefox/3.0.1\'', '--inet4-only',
+                    '--no-check-certificate', source_url
+                    ]  # '--no-verbose'
+    logger.debug(f'Download command:\n\t{subprocess.list2cmdline(download_cmd)}')
+    if dry_run:
+        pass
+    else:
+        logger.info(f'This command will take several minutes to finish depending on your internet speed... '
+                    f'Please be patient and connected to this terminal.{failure_prompt}')
+        download_p = subprocess.Popen(download_cmd)
+        download_out, download_err = download_p.communicate()
+        # logger.debug(f'download stdout:\n{download_out}\n\ndownload stderr:\n{download_err}')
+
+    # Unzip the file to the dependencies/alphafold/params directory
+    downloaded_file = os.path.join(putils.alphafold_params_dir, version)
+    unzip_cmd = ['tar', 'xvzf', f'--file={downloaded_file}', f'--directory={putils.alphafold_params_dir}',
+                 '--preserve-permissions']
+    logger.debug(f'untar command:\n\t{subprocess.list2cmdline(unzip_cmd)}')
+    if dry_run:
+        pass
+    else:
+        unzip_p = subprocess.Popen(unzip_cmd)
+        unzip_out, unzip_err = unzip_p.communicate()
+        logger.debug(f'unzip stdout:\n{unzip_out}\n\nunzip stderr:\n{unzip_err}')
+
+    # Todo # Remove the .tar file if everything worked
+    # if dry_run:
+    #     pass
+    # else:
+    #     os.remove(downloaded_file)
+    return downloaded_file
+
+
 def download_hhblits_latest_database(version: str = None, dry_run: bool = False) -> str:
     """Return the name of the database version that was downloaded
 
@@ -123,7 +183,6 @@ def download_hhblits_latest_database(version: str = None, dry_run: bool = False)
     if dry_run:
         pass
     else:
-        failure_prompt = ' If this command fails part way through'
         logger.info(f'This command will take several minutes to finish depending on your internet speed... '
                     f'Please be patient and connected to this terminal.{failure_prompt}')
         download_p = subprocess.Popen(uniclust_download_cmd)
@@ -331,6 +390,18 @@ if __name__ == '__main__':
         pass
     else:  # _input = 'y'
         config['uniclust_db'] = download_hhblits_latest_database(dry_run=dry_run)
+
+    # Get alphafold database
+    _input = utils.validate_input('Finally, Alphafold databases need to be available for alphafold structure '
+                                  'prediction. The download will take ??>50?? GB of hard drive space. Ensure that you '
+                                  'have the capacity for this operation. '
+                                  'This will automatically be downloaded for you in the directory '
+                                  f'"{putils.alphafold_db_dir}" if you consent.', ['Y', 'n'])
+    if _input == 'n':
+        # Todo issue command to set this feature up at a later date... Rerun with --alphafold-databases for help
+        pass
+    else:  # _input = 'y'
+        config['af_params'] = download_alphafold_latest_params(dry_run=dry_run)
 
     # Write the config file
     utils.write_json(config, putils.config_file)
