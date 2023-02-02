@@ -384,7 +384,7 @@ if __name__ == '__main__':
     _input = utils.validate_input('Finally, a UniClust database needs to be available for hhblits. The file will take '
                                   '>50 GB of hard drive space. Ensure that you have the capacity for this operation. '
                                   'This will automatically be downloaded for you in the directory '
-                                  f'"{putils.dependency_dir}" if you consent.', ['Y', 'n'])
+                                  f'"{putils.hhsuite_db_dir}" if you consent.', ['Y', 'n'])
     if _input == 'n':
         # Todo issue command to set this feature up at a later date... Rerun with --hhsuite-databases for help
         pass

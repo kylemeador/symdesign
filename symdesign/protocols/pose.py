@@ -11,16 +11,16 @@ from pathlib import Path
 from subprocess import Popen, list2cmdline
 from typing import Any, Iterable, AnyStr, Sequence
 
-# from matplotlib.axes import Axes
-import torch
+from cycler import cycler
 from matplotlib import pyplot as plt
+# from matplotlib.axes import Axes
 from matplotlib.ticker import MultipleLocator
 # from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import pandas as pd
 # import seaborn as sns
 import sklearn as skl
-from cycler import cycler
+import torch
 from scipy.spatial.distance import pdist, cdist
 # from sqlalchemy import select
 # from sqlalchemy.ext.hybrid import hybrid_property
@@ -1029,14 +1029,14 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Returns:
             Each instance of the DesignData that is missing a structure
         """
-        missing_sequences = []
+        missing = []
         for design in self.designs:
             if design.structure_path and os.path.exists(design.structure_path):
                 continue
             else:
-                missing_sequences.append(design)
+                missing.append(design)
 
-        return missing_sequences
+        return missing
 
     def transform_entities_to_pose(self, **kwargs) -> list[Entity]:
         """Take the set of entities involved in a pose composition and transform them from a standard reference frame to

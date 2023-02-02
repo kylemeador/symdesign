@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import subprocess
 from glob import glob
 from typing import AnyStr, Sequence
@@ -277,9 +278,11 @@ except FileNotFoundError:  # We may be running setup.py or this wasn't installed
 
 
 def get_hhblits_exe():
-    p = subprocess.Popen(['which', 'hhblits'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    hhblits_exe_out, err = p.communicate()
-    return hhblits_exe_out.decode('utf-8').strip()
+    hhblits_exe_out = shutil.which(hhblits)
+    return hhblits_exe_out
+    # p = subprocess.Popen(['which', 'hhblits'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    # hhblits_exe_out, err = p.communicate()
+    # return hhblits_exe_out.decode('utf-8').strip()
 
 
 def get_uniclust_db() -> str:
