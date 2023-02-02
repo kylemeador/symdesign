@@ -1973,30 +1973,30 @@ class PoseProtocol(PoseData):
              }
 
         number_of_entities = self.pose.number_of_entities
-        if design_was_performed:  # The input structure was not meant to be together, treat as such
-            source_errat = []
-            for idx, entity in enumerate(self.pose.entities):
-                # Replace 'errat_deviation' measurement with uncomplexed entities
-                # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
-                # source_errat_accuracy.append(oligomer_errat_accuracy)
-                # Todo when Entity.oligomer works
-                #  _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
-                entity_oligomer = Model.from_chains(entity.chains, entities=False, log=self.pose.log)
-                _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
-                source_errat.append(oligomeric_errat[:entity.number_of_residues])
-            # atomic_deviation[pose_name] = sum(source_errat_accuracy) / float(number_of_entities)
-            pose_source_errat = np.concatenate(source_errat)
-        else:
-            # pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
-            # # atomic_deviation[pose_source_id], pose_per_residue_errat = \
-            # _, pose_per_residue_errat = \
-            #     pose_assembly_minimally_contacting.errat(out_path=os.path.devnull)
-            # pose_source_errat = pose_per_residue_errat[:pose_length]
-            # Get errat measurement
-            # per_residue_data[pose_source_id].update(self.pose.per_residue_interface_errat())
-            pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
-
-        per_residue_data[pose_source_id]['errat_deviation'] = pose_source_errat
+        # if design_was_performed:  # The input structure was not meant to be together, treat as such
+        #     source_errat = []
+        #     for idx, entity in enumerate(self.pose.entities):
+        #         # Replace 'errat_deviation' measurement with uncomplexed entities
+        #         # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
+        #         # source_errat_accuracy.append(oligomer_errat_accuracy)
+        #         # Todo when Entity.oligomer works
+        #         #  _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
+        #         entity_oligomer = Model.from_chains(entity.chains, entities=False, log=self.pose.log)
+        #         _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
+        #         source_errat.append(oligomeric_errat[:entity.number_of_residues])
+        #     # atomic_deviation[pose_name] = sum(source_errat_accuracy) / float(number_of_entities)
+        #     pose_source_errat = np.concatenate(source_errat)
+        # else:
+        #     # pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
+        #     # # atomic_deviation[pose_source_id], pose_per_residue_errat = \
+        #     # _, pose_per_residue_errat = \
+        #     #     pose_assembly_minimally_contacting.errat(out_path=os.path.devnull)
+        #     # pose_source_errat = pose_per_residue_errat[:pose_length]
+        #     # Get errat measurement
+        #     # per_residue_data[pose_source_id].update(self.pose.per_residue_interface_errat())
+        #     pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
+        #
+        # per_residue_data[pose_source_id]['errat_deviation'] = pose_source_errat
 
         # Compute structural measurements for all designs
         interface_local_density = {pose_source_id: self.pose.local_density_interface()}
@@ -2005,7 +2005,7 @@ class PoseProtocol(PoseData):
             pose.find_and_split_interface()
             per_residue_data[pose.name] = pose.per_residue_interface_surface_area()
             # Get errat measurement
-            per_residue_data[pose.name].update(pose.per_residue_interface_errat())
+            # per_residue_data[pose.name].update(pose.per_residue_interface_errat())
             # Todo remove Rosetta
             #  This is a measurement of interface_connectivity like from Rosetta
             interface_local_density[pose.name] = pose.local_density_interface()
@@ -2228,19 +2228,19 @@ class PoseProtocol(PoseData):
         scores_df['interface_area_to_residue_surface_ratio'] = \
             (bsa_assembly_df / (bsa_assembly_df + scores_df['area_total_complex']))
 
-        # Make scores_df errat_deviation that takes into account the pose_source sequence errat_deviation
-        # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
-        # Get per-residue errat scores from the residues_df
-        errat_df = residues_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
-
-        pose_source_errat = errat_df.loc[pose_source_id, :]
-        source_errat_inclusion_boolean = \
-            np.logical_and(pose_source_errat < metrics.errat_2_sigma, pose_source_errat != 0.)
-        # Find residues where designs deviate above wild-type errat scores
-        errat_sig_df = errat_df.sub(pose_source_errat, axis=1) > metrics.errat_1_sigma  # axis=1 is per-residue subtract
-        # Then select only those residues which are expressly important by the inclusion boolean
-        # This overwrites the metrics.sum_per_residue_metrics() value
-        scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
+        # # Make scores_df errat_deviation that takes into account the pose_source sequence errat_deviation
+        # # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
+        # # Get per-residue errat scores from the residues_df
+        # errat_df = residues_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
+        #
+        # pose_source_errat = errat_df.loc[pose_source_id, :]
+        # source_errat_inclusion_boolean = \
+        #     np.logical_and(pose_source_errat < metrics.errat_2_sigma, pose_source_errat != 0.)
+        # # Find residues where designs deviate above wild-type errat scores
+        # errat_sig_df = errat_df.sub(pose_source_errat, axis=1) > metrics.errat_1_sigma  # axis=1 is per-residue subtract
+        # # Then select only those residues which are expressly important by the inclusion boolean
+        # # This overwrites the metrics.sum_per_residue_metrics() value
+        # scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
         # Calculate mutational content
         mutation_df = residues_df.loc[:, idx_slice[:, 'mutation']]
@@ -2620,7 +2620,8 @@ class PoseProtocol(PoseData):
             # legend_fill_value = int(15 * pose_length / 100)
 
             # collapse_ax, contact_ax, errat_ax = fig.subplots(3, 1, sharex=True)
-            collapse_ax, errat_ax = fig.subplots(2, 1, sharex=True)
+            # collapse_ax, errat_ax = fig.subplots(2, 1, sharex=True)
+            collapse_ax = fig.subplots(1, 1, sharex=True)
             # add the contact order to a new plot
             contact_ax = collapse_ax.twinx()
             contact_order_df = residues_df.loc[pose_source_id, idx_slice[:, 'contact_order']].droplevel(0, axis=1)
@@ -2705,41 +2706,41 @@ class PoseProtocol(PoseData):
                                    color='#e6e6fa', linestyle='-', lw=1, alpha=0.8)  # lavender
                 # collapse_ax.figure.savefig(os.path.join(self.data_path, 'hydrophobic_collapse_versus_profile.png'))
 
-            # Plot: Errat Accuracy
-            # errat_graph_df = pd.DataFrame(per_residue_data['errat_deviation'])
-            # errat_graph_df = residues_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
-            # errat_graph_df = errat_df
-            # wt_errat_concatenated_s = pd.Series(np.concatenate(list(source_errat.values())), name='clean_asu')
-            # errat_graph_df[pose_source_id] = pose_source_errat
-            # errat_graph_df.columns += 1  # offset index to residue numbering
-            errat_df.sort_index(axis=0, inplace=True)
-            # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
-            # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax)
-            # errat_ax = errat_graph_df.plot.line(ax=errat_ax)
-            errat_ax.plot(errat_df.T.values, label=collapse_graph_df.index)
-            errat_ax.xaxis.set_major_locator(MultipleLocator(20))
-            errat_ax.xaxis.set_major_formatter('{x:.0f}')
-            # For the minor ticks, use no labels; default NullFormatter.
-            errat_ax.xaxis.set_minor_locator(MultipleLocator(5))
-            # errat_ax.set_xlim(0, pose_length)
-            errat_ax.set_ylim(0, None)
-            # graph_errat = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
-            # Plot the chain break(s) and design residues
-            # labels = [fill(column, legend_fill_value) for column in errat_graph_df.columns]
-            # errat_ax.legend(labels, loc='lower left', bbox_to_anchor=(0., 1.))
-            # errat_ax.legend(loc='lower center', bbox_to_anchor=(0., 1.))
-            errat_ax.vlines(self.pose.chain_breaks, 0, 1, transform=errat_ax.get_xaxis_transform(),
-                            label='Entity Breaks', colors='#cccccc')  # , grey)
-            errat_ax.vlines(interface_residue_indices, 0, 0.05, transform=errat_ax.get_xaxis_transform(),
-                            label='Design Residues', colors='#f89938', lw=2)  # , orange)
-            # Plot horizontal significance
-            errat_ax.hlines([metrics.errat_2_sigma], 0, 1, transform=errat_ax.get_yaxis_transform(),
-                            label='Significant Error', colors='#fc554f', linestyle='dotted')  # tomato
-            errat_ax.set_xlabel('Residue Number')
-            errat_ax.set_ylabel('Errat Score')
-            # errat_ax.autoscale(True)
-            # errat_ax.figure.tight_layout()
-            # errat_ax.figure.savefig(os.path.join(self.data_path, 'errat.png'))
+            # # Plot: Errat Accuracy
+            # # errat_graph_df = pd.DataFrame(per_residue_data['errat_deviation'])
+            # # errat_graph_df = residues_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
+            # # errat_graph_df = errat_df
+            # # wt_errat_concatenated_s = pd.Series(np.concatenate(list(source_errat.values())), name='clean_asu')
+            # # errat_graph_df[pose_source_id] = pose_source_errat
+            # # errat_graph_df.columns += 1  # offset index to residue numbering
+            # errat_df.sort_index(axis=0, inplace=True)
+            # # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
+            # # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax)
+            # # errat_ax = errat_graph_df.plot.line(ax=errat_ax)
+            # errat_ax.plot(errat_df.T.values, label=collapse_graph_df.index)
+            # errat_ax.xaxis.set_major_locator(MultipleLocator(20))
+            # errat_ax.xaxis.set_major_formatter('{x:.0f}')
+            # # For the minor ticks, use no labels; default NullFormatter.
+            # errat_ax.xaxis.set_minor_locator(MultipleLocator(5))
+            # # errat_ax.set_xlim(0, pose_length)
+            # errat_ax.set_ylim(0, None)
+            # # graph_errat = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
+            # # Plot the chain break(s) and design residues
+            # # labels = [fill(column, legend_fill_value) for column in errat_graph_df.columns]
+            # # errat_ax.legend(labels, loc='lower left', bbox_to_anchor=(0., 1.))
+            # # errat_ax.legend(loc='lower center', bbox_to_anchor=(0., 1.))
+            # errat_ax.vlines(self.pose.chain_breaks, 0, 1, transform=errat_ax.get_xaxis_transform(),
+            #                 label='Entity Breaks', colors='#cccccc')  # , grey)
+            # errat_ax.vlines(interface_residue_indices, 0, 0.05, transform=errat_ax.get_xaxis_transform(),
+            #                 label='Design Residues', colors='#f89938', lw=2)  # , orange)
+            # # Plot horizontal significance
+            # errat_ax.hlines([metrics.errat_2_sigma], 0, 1, transform=errat_ax.get_yaxis_transform(),
+            #                 label='Significant Error', colors='#fc554f', linestyle='dotted')  # tomato
+            # errat_ax.set_xlabel('Residue Number')
+            # errat_ax.set_ylabel('Errat Score')
+            # # errat_ax.autoscale(True)
+            # # errat_ax.figure.tight_layout()
+            # # errat_ax.figure.savefig(os.path.join(self.data_path, 'errat.png'))
             collapse_handles, collapse_labels = collapse_ax.get_legend_handles_labels()
             contact_handles, contact_labels = contact_ax.get_legend_handles_labels()
             # errat_handles, errat_labels = errat_ax.get_legend_handles_labels()
@@ -4268,25 +4269,25 @@ class PoseProtocol(PoseData):
         # residues_df = self.analyze_residue_metrics_per_design(designs=designs)
         # Only difference is inclusion of the novel_interface flag
 
-        if novel_interface:  # The input structure wasn't meant to be together, take the errat measurement as such
-            source_errat = []
-            for idx, entity in enumerate(self.pose.entities):
-                # Todo when Entity.oligomer works
-                #  _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
-                entity_oligomer = Model.from_chains(entity.chains, entities=False, log=self.pose.log)
-                _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
-                source_errat.append(oligomeric_errat[:entity.number_of_residues])
-            # atomic_deviation[pose_source_name] = sum(source_errat_accuracy) / float(self.pose.number_of_entities)
-            pose_source_errat = np.concatenate(source_errat)
-        else:
-            # pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
-            # # atomic_deviation[pose_source_name], pose_per_residue_errat = \
-            # _, pose_per_residue_errat = \
-            #     pose_assembly_minimally_contacting.errat(out_path=os.path.devnull)
-            # pose_source_errat = pose_per_residue_errat[:pose_length]
-            # Get errat measurement
-            # per_residue_data[pose_source_name].update(self.pose.per_residue_interface_errat())
-            pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
+        # if novel_interface:  # The input structure wasn't meant to be together, take the errat measurement as such
+        #     source_errat = []
+        #     for idx, entity in enumerate(self.pose.entities):
+        #         # Todo when Entity.oligomer works
+        #         #  _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
+        #         entity_oligomer = Model.from_chains(entity.chains, entities=False, log=self.pose.log)
+        #         _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
+        #         source_errat.append(oligomeric_errat[:entity.number_of_residues])
+        #     # atomic_deviation[pose_source_name] = sum(source_errat_accuracy) / float(self.pose.number_of_entities)
+        #     pose_source_errat = np.concatenate(source_errat)
+        # else:
+        #     # pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
+        #     # # atomic_deviation[pose_source_name], pose_per_residue_errat = \
+        #     # _, pose_per_residue_errat = \
+        #     #     pose_assembly_minimally_contacting.errat(out_path=os.path.devnull)
+        #     # pose_source_errat = pose_per_residue_errat[:pose_length]
+        #     # Get errat measurement
+        #     # per_residue_data[pose_source_name].update(self.pose.per_residue_interface_errat())
+        #     pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
 
         pose_name = self.pose.name
         # pose_source_id = self.pose_source.id
@@ -4294,8 +4295,8 @@ class PoseProtocol(PoseData):
         per_residue_data = {pose_name:
                             {**self.pose.per_residue_interface_surface_area(),
                              **self.pose.per_residue_contact_order(),
-                             'errat_deviation': pose_source_errat}
-                            }
+                             # 'errat_deviation': pose_source_errat
+                             }}
         # Convert per_residue_data into a dataframe matching residues_df orientation
         residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
@@ -4364,7 +4365,8 @@ class PoseProtocol(PoseData):
             per_residue_data[pose_name] = {
                 **pose.per_residue_interface_surface_area(),
                 **pose.per_residue_contact_order(),
-                **pose.per_residue_interface_errat()}
+                # **pose.per_residue_interface_errat()
+            }
 
         # Convert per_residue_data into a dataframe matching residues_df orientation
         residues_df = pd.concat({design_name: pd.DataFrame(data, index=residue_indices)
@@ -4413,26 +4415,26 @@ class PoseProtocol(PoseData):
         designs_df = metrics.sum_per_residue_metrics(residues_df)
         designs_df['interface_local_density'] = pd.Series(interface_local_density)
 
-        # Make designs_df errat_deviation that takes into account the pose_source sequence errat_deviation
-        # Get per-residue errat scores from the residues_df
-        errat_df = residues_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
-
-        # Todo improve efficiency by using precomputed. Something like:
-        #  stmt = select(ResidueMetrics).where(ResidueMetrics.pose_id == self.id, ResidueMetrics.name == self.name)
-        #  rows = current_session.scalars(stmt)
-        #  row_dict = {row.index: row.errat_deviation for row in rows}
-        #  pd.Series(row_dict, name='errat_Deviation')
-        # pose_source_errat = errat_df.loc[self.pose.name, :]
         self.load_pose()
-        pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
-        # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
-        source_errat_inclusion_boolean = \
-            np.logical_and(pose_source_errat < metrics.errat_2_sigma, pose_source_errat != 0.)
-        # Find residues where designs deviate above wild-type errat scores
-        errat_sig_df = errat_df.sub(pose_source_errat, axis=1) > metrics.errat_1_sigma  # axis=1 is per-residue subtract
-        # Then select only those residues which are expressly important by the inclusion boolean
-        # This overwrites the metrics.sum_per_residue_metrics() value
-        designs_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
+        # # Make designs_df errat_deviation that takes into account the pose_source sequence errat_deviation
+        # # Get per-residue errat scores from the residues_df
+        # errat_df = residues_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
+        #
+        # # Todo improve efficiency by using precomputed. Something like:
+        # #  stmt = select(ResidueMetrics).where(ResidueMetrics.pose_id == self.id, ResidueMetrics.name == self.name)
+        # #  rows = current_session.scalars(stmt)
+        # #  row_dict = {row.index: row.errat_deviation for row in rows}
+        # #  pd.Series(row_dict, name='errat_Deviation')
+        # # pose_source_errat = errat_df.loc[self.pose.name, :]
+        # pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
+        # # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
+        # source_errat_inclusion_boolean = \
+        #     np.logical_and(pose_source_errat < metrics.errat_2_sigma, pose_source_errat != 0.)
+        # # Find residues where designs deviate above wild-type errat scores
+        # errat_sig_df = errat_df.sub(pose_source_errat, axis=1) > metrics.errat_1_sigma  # axis=1 is per-residue subtract
+        # # Then select only those residues which are expressly important by the inclusion boolean
+        # # This overwrites the metrics.sum_per_residue_metrics() value
+        # designs_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
         pose_df = self.pose.df
         designs_df['number_interface_residues'] = pose_df['number_interface_residues']

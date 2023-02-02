@@ -51,7 +51,7 @@ select_designs_sequences = \
     f'The purpose of {flags.select_designs} is to analyze individual design trajectories (representing unique ' \
     f'sequences) from your pool of poses. Selection proceeds by applying a set of specified filters and weights to ' \
     f'the collected design metrics. For instance, by filtering for design based on four different metrics, ' \
-    f'say "percent_interface_area_polar > 0.35, shape_complementarity > 0.68, and errat_deviation < 1", those' \
+    f'say "percent_interface_area_polar > 0.35, shape_complementarity > 0.68, and proteinmpnn_score_complex < 1", those' \
     f' designs which contain metrics that satisfy each of these filters will be chosen. Additionally, by using four' \
     f' weights, say "interface_energy = 0.3, buried_unsatisfied_hbond_density = 0.3, interface_local_density = 0.2,' \
     f' and shape_complementarity 0.2" passing designs can then be sorted according to their cumulative weight' \

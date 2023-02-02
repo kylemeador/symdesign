@@ -3793,13 +3793,13 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
             idx_slice = pd.IndexSlice
             # Set up data structures
             # nan_blank_data = list(repeat(np.nan, pose_length))
-            unbound_errat = []
-            for idx, entity in enumerate(pose.entities):
-                # Todo when Entity.oligomer works
-                #  _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
-                entity_oligomer = Model.from_chains(entity.chains, entities=False)
-                _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
-                unbound_errat.append(oligomeric_errat[:entity.number_of_residues])
+            # unbound_errat = []
+            # for idx, entity in enumerate(pose.entities):
+            #     # Todo when Entity.oligomer works
+            #     #  _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
+            #     entity_oligomer = Model.from_chains(entity.chains, entities=False)
+            #     _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
+            #     unbound_errat.append(oligomeric_errat[:entity.number_of_residues])
 
             torch_numeric_sequence = torch.from_numpy(pose.sequence_numeric)
             if evolutionary_profile_array is not None:
@@ -3818,7 +3818,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
 
             sequence_params = {
                 **pose.per_residue_contact_order(),
-                'errat_deviation': np.concatenate(unbound_errat),
+                # 'errat_deviation': np.concatenate(unbound_errat),
                 'type': tuple(pose.sequence),
                 **profile_loss
                 # 'sequence_loss_fragment': per_residue_fragment_profile_loss  # Todo each pose...
