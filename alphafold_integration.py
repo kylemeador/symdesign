@@ -43,7 +43,7 @@ features = {
     # where each axis=-1 are the atom mask for each atom residue
     'template_all_atom_positions',
     # np.array with shape (num_templates, seq_length, 37, 3), dtype=np.float32
-    # where each axis=-1 are the corrdinates with padding for each atom
+    # where each axis=-1 are the coordinates with padding for each atom
     'template_domain_names',
     # np.array with shape (num_templates), dtype=np.object (bytes) where each index is the PDB_code and asymID (chainID)
     'template_e_value',
@@ -75,13 +75,15 @@ features = {
 #  'chainID1': multimer_features1, ...
 # msa sequences are paired (seems like a tedious process) if a heteromer is provided,
 # otherwise, the single sequence is used
+# The uniprot_90 is required when running multimer as I presume the uniprot references are used to pair.
+# Would uniclust30 work for this?
 
 # All these features below stem from the requirements found at
 # alphafold.alphafold.data.feature_processing.REQUIRED_FEATURES
 multimer_features = {
     'msa_mask',  # also made in the monomer version
     'deletion_matrix',
-    # '_all_seq' features are only used if the model is a heteromer
+    # START '_all_seq' features are only used if the model is a heteromer
     'msa_all_seq',
     'msa_mask_all_seq',
     'deletion_matrix_all_seq',
@@ -96,7 +98,7 @@ multimer_features = {
     # where each axis=-1 are the atom mask for each atom residue
     'all_atom_positions',
     # np.array with shape (num_templates, seq_length, 37, 3), dtype=np.float32
-    # where each axis=-1 are the corrdinates with padding for each atom
+    # where each axis=-1 are the coordinates with padding for each atom
     # where each features['deletion_matrix_int'] is converted
     'deletion_matrix',
     # converted from 'deletion_matrix_int' to float32 for multimer
@@ -114,7 +116,7 @@ multimer_features = {
     # np.array with shape (seq_length), dtype=np.int32
 
     # These are added by the function alphafold.alphafold.data.pipeline_multimer.add_assembly_features()
-    # and are really easy to add by myself
+    # and are really easy to add by myself. See below...
     'asym_id',
     # np.array with shape (seq_length), dtype=np.int32
     # one array for each chain up to number_of_chains
@@ -134,27 +136,103 @@ multimer_features = {
 """
 import alphafold
 
-all_chain_features = {}
-available_chain_ids = structure.utils.chain_id_generator()  # structure.model
-for entity in pose.entities:
-    entity_features = entity.process_alphafold_features()
-    # The above function creates most of the work for the adaptation
-    # particular importance needs to be given to the MSA used.
-    # Should fragments be utilized in the MSA? If so, naming them in some way to pair is required!
-    # Follow the example in alphafold.alphafold.data.pipeline.make_msa_features(msas: Sequence[parsers.Msa]) -> FeatureDict:
-    # to featurize
-    for sym_id in range(1, pose.number_of_symmetry_mates):
-        chain_id = next(available_chain_ids)  # The mmCIF formatted chainID with 'AB' type notation
-        all_chain_features[chain_id] = copy.deepcopy(entity_features)
+def Entity.alphafold_process() -> pipeline.FeatureDict:
+    # IS THIS NECESSARY. DON"T THINK SO IF I HAVE MSA
+    chain_features = alphafold.alphafold.data.pipeline.DataPipeline.process(
+        input_fasta_path=
+        msa_output_dir=
+    )
+        # This runs
+        sequence_features = make_sequence_features(sequence=input_sequence,
+                                                   description=input_description,
+                                                   num_res=num_res)
+            features = {
+                'aa_type': MAKE ONE HOT with X i.e. unknown are X
+                'between_segment_residues': np.zeros((seq_length,), dtype=np.int32)
+                'domain_name': np.array([description.encode('utf-8')], dtype=np.object_)
+                'residue_index': np.arange(seq_length, dtype=np.int32)
+                'seq_length': np.full(seq_length, seq_length, dtype=np.int32)
+                'sequence': np.array([sequence.encode('utf-8')], dtype=np.object_)
+            }
+        msa_features = make_msa_features((uniref90_msa, bfd_msa, mgnify_msa)) <- I can use a single one...
+            features = {
+                'deletion_matrix_int': GET THIS FROM THE MATRIX PROBABLY USING CODE IN COLLAPSE PROFILE cumcount...
+                'msa': sequences_to_numeric(HHBLITS_AA_TO_ID, dtype=np.int32)
+                'num_alignments': np.full(num_residues, num_alignments, dtype=np.int32)  # Fill by the number of 
+                # residues how many sequences are in the MSA
+                'msa_species_identifiers': np.array([id.encode('utf-8') for id in species_ids], dtype=np.object_)
+            }
+        return {**msa_features,
+                **sequence_features,
+                **template_result.features} <- for templates. Can use NULL # Todo grab from .ipynb
+                    notebook_utils.empty_placeholder_template_features(num_templates=0, num_res=len(sequence))
 
-# Perform myself
-# all_chain_features = alphafold.alphafold.data.pipeline_multimer.add_assembly_features(all_chain_features)
+    if heteromer:
+        # Unsure about the order of this next part
+        msa = ?? This is likely a MultipleSeqAlignment type object that gets parsed from .sto file
+        all_seq_features = pipeline.make_msa_features([msa])
+        valid_feats = msa_pairing.MSA_FEATURES + (
+            'msa_species_identifiers',
+        )
+        feats = {f'{k}_all_seq': v for k, v in all_seq_features.items()
+                 if k in valid_feats}
+        chain_features.update(feats)
+    
+    return feats
 
-np_example = alphafold.alphafold.data.feature_processing.pair_and_merge(
-    all_chain_features=all_chain_features)
+def Pose.alphafold_process_features():
+    all_chain_features = {}
+    available_chain_ids = structure.utils.chain_id_generator()  # structure.model
+    for entity in pose.entities:
+        # Todo make process_alphafold_features like the below function
+        #  entity_features = pipeline.make_sequence_features(sequence=sequence, description='query', num_res=len(sequence)))
+        #  entity_features = pipeline_multimer.DataPipeline._process_single_chain(sequence=sequence, description='query', 
+        #                                                                         num_res=len(sequence)))
+        entity_features: dict[str, Any] = entity.process_alphafold_features()
+        # The above function creates most of the work for the adaptation
+        # particular importance needs to be given to the MSA used.
+        # Should fragments be utilized in the MSA? If so, naming them in some way to pair is required!
+        # Follow the example in:
+        #    alphafold.alphafold.data.pipeline.make_msa_features(msas: Sequence[parsers.Msa]) -> FeatureDict:
+        # to featurize
+        if multimer:
+            # The chain_id passed to this function is used by the entity_features to (maybe) tie different chains to this chain
+            entity_features = convert_monomer_features(entity_features, chain_id=chain_id)
+            # The chain_id passed should be oriented so that each additional entity has the chain_id of the 
+            chain_id = available_chain_ids[number_of_symmetry_mates * zero indexed entity_idx]
+            # Therefor for an A4B4 C4, the chain_id for entity idx 0 would be A and for entity idx 1 would be E
+            # This may not be important, but this is how multimer gets run  
+        for sym_id in range(1, pose.number_of_symmetry_mates):
+            chain_id = next(available_chain_ids)  # The mmCIF formatted chainID with 'AB' type notation
+            all_chain_features[chain_id] = copy.deepcopy(entity_features)
+            # NOT HERE chain_features = convert_monomer_features(copy.deepcopy(entity_features), chain_id=chain_id)
+            # all_chain_features[chain_id] = chain_features
+    
+    # Perform v myself
+    # all_chain_features = alphafold.alphafold.data.pipeline_multimer.add_assembly_features(all_chain_features)
+    # BY
+    # Make a dictionary with for `<seq_id>_<sym_id>` where seq_id is the chain name assigned to the Entity where chain 
+    # names increment according to excel i.e. A,B,...AA,AB,... and sym_id increments from 1 to number_of_symmetry_mates
+    # Where chain_features comes from each entry in the all_chain_features dictionary
+    # Where chain_id increments for each new chain instance i.e. A_1 is 1, A_2 is 2, ...
+    # Where entity_id increments for each new Entity instance i.e. A_1 is 1, A_2 is 1, ...
+    # Where sym_id increments for each new Entity instance i.e. A_1 is 1, A_2 is 2, ..., B_1 is 1, B2 is 2
+    # {'A_1': chain_features.update({'asym_id': chain_id * np.ones(sequence_length), 
+                                     'sym_id': sym_id * np.ones(sequence_length),
+                                     'entity_id': entity_id * np.ones(sequence_length)})
+    
+    np_example = alphafold.alphafold.data.feature_processing.pair_and_merge(
+        all_chain_features=all_chain_features)
+    
+    # Pad MSA to avoid zero-sized extra_msa.
+    np_example = alphafold.data.pipeline_multimer.pad_msa(np_example, 512)
+    
+    return np_example
 
-# Pad MSA to avoid zero-sized extra_msa.
-np_example = pad_msa(np_example, 512)
-
-return np_example
+# # Turn my input into a feature dict generation. Rely on alphafold.run_alphafold.predict_structure()
+# # Is this a good idea?
+# DataPipeline:
+#     def process(self, input_fasta_path=fasta_path, msa_output_dir=msa_output_dir) -> FeatureDict:
+#         
+#         return features
 """
