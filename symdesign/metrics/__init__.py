@@ -1278,8 +1278,8 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict = None,
     """Return a filtered/sorted DataFrame (both optional) with indices that pass a set of filters and/or are ranked
     according to a feature importance. Both filter and weight instructions are provided or queried from the user
 
-    Caution: Expects that provided DataFrame is of particular formatting, i.e. 3 column MultiIndices, 1 index indices.
-    If the DF varies from this, this function will likely cause errors
+    Caution: Expects that if DataFrame is provided by filename there is particular formatting, i.e. 3 column
+    MultiIndices, 1 index indices. If the DF file varies from this, this function will likely cause errors
 
     Args:
         df: DataFrame to filter/weight indices
@@ -1402,8 +1402,8 @@ def prioritize_design_indices_sql(df: pd.DataFrame | AnyStr, filter: dict = None
     """Return a filtered/sorted DataFrame (both optional) with indices that pass a set of filters and/or are ranked
     according to a feature importance. Both filter and weight instructions are provided or queried from the user
 
-    Caution: Expects that provided DataFrame is of particular formatting, i.e. 3 column MultiIndices, 1 index indices.
-    If the DF varies from this, this function will likely cause errors
+    Caution: Expects that if DataFrame is provided by filename there is particular formatting, i.e. 3 column
+    MultiIndices, 1 index indices. If the DF file varies from this, this function will likely cause errors
 
     Args:
         df: DataFrame to filter/weight indices
@@ -1414,7 +1414,7 @@ def prioritize_design_indices_sql(df: pd.DataFrame | AnyStr, filter: dict = None
         protocol: Whether specific design protocol(s) should be chosen
         default_weight: If there is no weight provided, what is the default metric name to use to sort results
     Returns:
-        The sorted DataFrame based on the provided filters and weights. DataFrame contains size 3 MultiIndex columns
+        The sorted DataFrame based on the provided filters and weights. DataFrame contains simple Index columns
     """
     # Grab pose info from the DateFrame and drop all classifiers in top two rows.
     if isinstance(df, pd.DataFrame):
@@ -1427,6 +1427,7 @@ def prioritize_design_indices_sql(df: pd.DataFrame | AnyStr, filter: dict = None
     logger.info(f'Number of starting designs: {len(df)}')
 
     if protocol is not None:
+        raise NotImplementedError(f"Can't handle filtering by protocol yet. Fix upstream protocol inclusion in df")
         if isinstance(protocol, str):
             # Add protocol to a list
             protocol = [protocol]
@@ -1504,7 +1505,8 @@ def prioritize_design_indices_sql(df: pd.DataFrame | AnyStr, filter: dict = None
         # design_ranking_s.name = selection_weight_column
         # final_df = pd.merge(design_ranking_s, simple_df, left_index=True, right_index=True)
         simple_df[selection_weight_column] = design_ranking_s
-        final_df = pd.concat([simple_df], keys=[('pose', 'metric')], axis=1)
+        final_df = simple_df
+        # final_df = pd.concat([simple_df], keys=[('pose', 'metric')], axis=1)
         # simple_df = pd.concat([simple_df], keys=df.columns.levels[0:1])
         # weighted_df = pd.concat([design_ranking_s], keys=[('-'.join(weights), 'sum', 'selection_weight')], axis=1)
         # final_df = pd.merge(weighted_df, simple_df, left_index=True, right_index=True)
@@ -1686,10 +1688,12 @@ def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = N
                 for idx, weight_op in enumerate(weight_ops):
                     operation, pre_operation, pre_kwargs, value = weight_op
                     coefficients[metric_name] = dict(direction=direction, value=value)
+                    print_weights.append((metric_name, f'= {value}'))
             else:
                 coefficients[metric_name] = dict(direction=direction, value=weight_ops)
-            print_weights.append((metric_name, f'= {value}'))
-        # This sorts the wrong direction despite the perception that it sorts correctly
+                print_weights.append((metric_name, f'= {weight_ops}'))
+
+        # # This sorts the wrong direction despite the perception that it sorts correctly
         # sort_direction = dict(max=False, min=True}  # max - ascending=False, min - ascending=True
         # This sorts the correct direction, putting small and negative value (when min is better) with higher rank
         sort_direction = dict(max=True, min=False)  # max - ascending=False, min - ascending=True
@@ -1726,9 +1730,9 @@ def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = N
             logger.info('Applied weights:\n\t%s' % '\n\t'.join(utils.pretty_format_table(print_weights)))
             weighted_df = pd.concat(metric_df, axis=1)
             return weighted_df.sum(axis=1).sort_values(ascending=False)
-    # else:
+
     if default_sort in df.columns:
-        # Just sort by the default (lowest energy)
+        # Just sort by the default
         return df[default_sort].sort_values(default_sort, ascending=True)
     else:
         raise KeyError(f"There wasn't a metric named {default_sort} which was specified as the default")
