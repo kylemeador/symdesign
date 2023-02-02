@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import shutil
+import time
 import warnings
 from glob import glob
 from itertools import combinations, repeat, count
@@ -1710,7 +1711,7 @@ class PoseProtocol(PoseData):
         if self.current_designs:
             sequences = [design.sequence for design in self.current_designs]
         else:
-            sequences = self.get_designs_without_structure()
+            sequences = [design.sequence for design in self.get_designs_without_structure()]
 
         match self.job.predict.method:
             case ['thread', 'proteinmpnn']:

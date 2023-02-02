@@ -4266,7 +4266,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
     pose_names = [create_pose_name(idx) for idx in range(number_of_transforms)]
-    project_str = f'{project}/'
+    project_str = f'{project}{os.sep}'
     project_pose_names = [f'{project_str}{pose_name}' for pose_name in pose_names]
     # return [PoseJob.from_file(file, entity_names=entity_names,
     #                           pose_transformation=create_specific_transformation(idx))
