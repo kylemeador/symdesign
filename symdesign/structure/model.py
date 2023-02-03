@@ -1773,6 +1773,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         Args:
             symmetry: The symmetry of the Structure
         """
+        # These notes are obviated by the use of the below protocol with Model.from_file() constructor
         # orient_oligomer.f program notes
         # C		Will not work in any of the infinite situations where a PDB file is f***ed up,
         # C		in ways such as but not limited to:
@@ -1780,8 +1781,6 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         # C		are all listed with the same chain ID (e.g. with incremental residue numbering) instead
         # C		of separate IDs; multiple conformations are written out for the same subunit structure
         # C		(as in an NMR ensemble), negative residue numbers, etc. etc.
-        # must format the input.pdb in an acceptable manner
-
         try:
             subunit_number = utils.symmetry.valid_subunit_number[symmetry]
         except KeyError:
@@ -2838,6 +2837,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         Args:
             symmetry: The symmetry of the Structure
         """
+        # These notes are obviated by the use of the below protocol with Model.from_file() constructor
         # orient_oligomer.f program notes
         # C		Will not work in any of the infinite situations where a PDB file is f***ed up,
         # C		in ways such as but not limited to:
@@ -2845,7 +2845,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # C		are all listed with the same chain ID (e.g. with incremental residue numbering) instead
         # C		of separate IDs; multiple conformations are written out for the same subunit structure
         # C		(as in an NMR ensemble), negative residue numbers, etc. etc.
-        # must format the input.pdb in an acceptable manner
         try:
             subunit_number = utils.symmetry.valid_subunit_number[symmetry]
         except KeyError:
@@ -7016,11 +7015,7 @@ class Pose(SymmetricModel, Metrics):
         per_residue_data = {}
         pose_length = self.number_of_residues
         assembly_minimally_contacting = self.assembly_minimally_contacting
-        # self.log.debug(f'Starting Pose {self.name} Errat')
-        # errat_start = time.time()
-        # _, per_residue_errat = assembly_minimally_contacting.errat(out_path=os.devnull)
-        # self.log.debug(f'Finished Errat, time = {time.time() - errat_start:6f}')
-        # per_residue_data['errat_deviation'] = per_residue_errat[:pose_length]
+
         # Perform SASA measurements
         assembly_minimally_contacting.get_sasa()
         assembly_asu_residues = assembly_minimally_contacting.residues[:pose_length]
