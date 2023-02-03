@@ -232,7 +232,7 @@ slice_remark, slice_number, slice_atom_type, slice_alt_location, slice_residue_t
     slice(60, 66), slice(76, 78), slice(78, 80)
 
 
-def read_pdb_file(file: AnyStr, pdb_lines: list[str] = None, separate_coords: bool = True, **kwargs) -> \
+def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate_coords: bool = True, **kwargs) -> \
         dict[str, Any]:
     """Reads .pdb file and returns structural information pertaining to parsed file
 
@@ -253,10 +253,12 @@ def read_pdb_file(file: AnyStr, pdb_lines: list[str] = None, separate_coords: bo
     #  would cause the header information to be invalidated as it would then become a "SymDesign Model"
     if pdb_lines:
         path, extension = None, None
-    else:
+    elif file is not None:
         with open(file, 'r') as f:
             pdb_lines = f.readlines()
         path, extension = os.path.splitext(file)
+    else:
+        raise ValueError(f'{read_pdb_file.__name__}: Must provide the argument "file" or "pdb_lines"')
 
     # PDB
     assembly: str | None = None
@@ -407,7 +409,10 @@ def read_pdb_file(file: AnyStr, pdb_lines: list[str] = None, separate_coords: bo
             # cryst = {'space': space_group, 'a_b_c': tuple(uc_dimensions[:3]), 'ang_a_b_c': tuple(uc_dimensions[3:])}
 
     if not temp_info:
-        raise ValueError(f'The file {file} has no ATOM records!')
+        if file:
+            raise ValueError(f'The file {file} has no ATOM records')
+        else:
+            raise ValueError(f'The provided pdb_lines have no ATOM records')
 
     # Combine entity_info with the reference_sequence info and dbref info
     if seq_res_lines:
@@ -2800,7 +2805,13 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     @classmethod
     def from_file(cls, file: AnyStr, **kwargs):
-        """Create a new Structure from a file with Atom records"""
+        """Create a new Structure from a file with Atom records
+
+        Keyword Args:
+            pdb_lines: Iterable[str] = None - If lines are already read, provide the lines instead
+            separate_coords: bool = True - Whether to separate parsed coordinates from Atom instances. Will be returned
+                as two separate entries in the parsed dictionary, otherwise returned with coords=None
+        """
         if '.pdb' in file:
             return cls.from_pdb(file, **kwargs)
         elif '.cif' in file:
@@ -2813,8 +2824,23 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     @classmethod
     def from_pdb(cls, file: AnyStr, **kwargs):
-        """Create a new Structure from a .pdb formatted file"""
+        """Create a new Structure from a .pdb formatted file
+
+        Keyword Args:
+            separate_coords: bool = True - Whether to separate parsed coordinates from Atom instances. Will be returned
+                as two separate entries in the parsed dictionary, otherwise returned with coords=None
+        """
         return cls(file_path=file, **read_pdb_file(file, **kwargs))
+
+    @classmethod
+    def from_pdb_lines(cls, pdb_lines: Iterable[str], **kwargs):
+        """Create a new Structure from already parsed .pdb file lines
+
+        Keyword Args:
+            separate_coords: bool = True - Whether to separate parsed coordinates from Atom instances. Will be returned
+                as two separate entries in the parsed dictionary, otherwise returned with coords=None
+        """
+        return cls(**read_pdb_file(pdb_lines=pdb_lines, **kwargs))
 
     @classmethod
     def from_mmcif(cls, file: AnyStr, **kwargs):
