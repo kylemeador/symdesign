@@ -1779,25 +1779,27 @@ class PoseProtocol(PoseData):
         #
         #         return features
         def predict(sequences, features):
-            max_sequence_length = max([len(sequence) for sequence in sequences])
-            scores = {
-                'pae': np.zeros((num_models, max_sequence_length, max_sequence_length), dtype=np.float32),
-                'plddt': np.zeros((num_models, max_sequence_length), dtype=np.float32),
-                'ptm': np.zeros(num_models, dtype=np.float32),
-                'iptm': np.zeros(num_models, dtype=np.float32)
-            }
-            ranking_confidences = {}
-            unrelaxed_proteins = {}
-            unrelaxed_pdbs = {}
-            relaxed_pdbs = {}
-            relax_metrics = {}
+            max_sequence_length = max([len(sequence) for sequence in sequences.values()])
             # Iterate over provided sequences
             # Todo include useful design_id?
+            structures_and_scores = {}
             for design_id, sequence in enumerate(sequences):
+                # Todo move this to
+                scores = {
+                    'pae': np.zeros((num_models, max_sequence_length, max_sequence_length), dtype=np.float32),
+                    'plddt': np.zeros((num_models, max_sequence_length), dtype=np.float32),
+                    'ptm': np.zeros(num_models, dtype=np.float32),
+                    'iptm': np.zeros(num_models, dtype=np.float32)
+                }
                 sequence_length = len(sequence)
+                ranking_confidences = {}
+                unrelaxed_proteins = {}
+                unrelaxed_pdbs = {}
+                relax_metrics = {}
                 # Run the models.
                 for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-                    self.log.info(f'Running model {model_name} on {sequence}')
+                    self.log.info(f'Running model {model_name} on {design_id}')
+                    design_model_name = f'{design_id}-{model_name}'
                     # t_0 = time.time()
                     # Set the sequence up in the FeatureDict
                     # Todo the way that I am adding this here instead of during construction, seems that I should
@@ -1849,15 +1851,15 @@ class PoseProtocol(PoseData):
                     model_random_seed = model_index + random_seed * num_models
                     processed_feature_dict = model_runner.process_features(features,
                                                                            random_seed=model_random_seed)
-                    # timings[f'process_features_{model_name}'] = time.time() - t_0
+                    # timings[f'process_features_{design_model_name}'] = time.time() - t_0
 
                     t_0 = time.time()
                     prediction_result = model_runner.predict(processed_feature_dict,
                                                              random_seed=model_random_seed)
                     t_diff = time.time() - t_0
-                    # timings[f'predict_and_compile_{model_name}'] = t_diff
+                    # timings[f'predict_and_compile_{design_model_name}'] = t_diff
                     self.log.info(
-                        f'Total JAX model {model_name} on {sequence} predict time (includes compilation time): '
+                        f'Total JAX model {design_model_name} on {sequence} predict time (includes compilation time): '
                         # ', see --benchmark'
                         f'{t_diff:.1fs}')
                     # Monomer?
@@ -1868,8 +1870,8 @@ class PoseProtocol(PoseData):
                     #     model_runner.predict(processed_feature_dict,
                     #                          random_seed=model_random_seed)
                     #     t_diff = time.time() - t_0
-                    #     timings[f'predict_benchmark_{model_name}'] = t_diff
-                    #     self.log.info(f'Total JAX model {model_name} on {sequence} predict time (excludes compilation '
+                    #     timings[f'predict_benchmark_{design_model_name}'] = t_diff
+                    #     self.log.info(f'Total JAX model {design_model_name} on {sequence} predict time (excludes compilation '
                     #                   f'time): {t_diff:.1fs}')
                     # Remove jax dependency from results.
                     np_prediction_result = _jnp_to_np(dict(prediction_result))
@@ -1880,7 +1882,7 @@ class PoseProtocol(PoseData):
                     # scores['ptm'][model_index] = prediction_result['ptm']
                     if run_multimer_system:
                         scores['iptm'][model_index] = np_prediction_result['iptm']
-                    ranking_confidences[model_name] = np_prediction_result['ranking_confidence']
+                    ranking_confidences[design_model_name] = np_prediction_result['ranking_confidence']
 
                     # Add the predicted LDDT in the b-factor column.
                     # Note that higher predicted LDDT value means higher model confidence.
@@ -1890,11 +1892,11 @@ class PoseProtocol(PoseData):
                         result=prediction_result,
                         b_factors=plddt_b_factors,
                         remove_leading_feature_dimension=not model_runner.multimer_mode)
-                    unrelaxed_proteins[model_name] = unrelaxed_protein
-                    unrelaxed_pdbs[model_name] = protein.to_pdb(unrelaxed_protein)
+                    unrelaxed_proteins[design_model_name] = unrelaxed_protein
+                    unrelaxed_pdbs[design_model_name] = protein.to_pdb(unrelaxed_protein)
 
                 # Rank by model confidence.
-                ranked_order = [model_name for model_name, confidence in
+                ranked_order = [design_model_name for design_model_name, confidence in
                                 sorted(ranking_confidences.items(), key=lambda x: x[1], reverse=True)]
 
                 # Relax predictions.
@@ -1906,22 +1908,57 @@ class PoseProtocol(PoseData):
                     to_relax = ranked_order
 
                 # --enable_gpu_relax=true Less stable results, but much quicker
-                for model_name in to_relax:
+                self.log.critical(f'Starting Amber relaxation')
+                relaxed_pdbs = {}
+                for design_model_name in to_relax:
+                    self.log.critical(f'Relaxing {design_model_name}')
                     t_0 = time.time()
-                    relaxed_pdb_str, _, violations = amber_relaxer.process(prot=unrelaxed_proteins[model_name])
-                    relax_metrics[model_name] = {
+                    relaxed_pdb_str, _, violations = amber_relaxer.process(prot=unrelaxed_proteins[design_model_name])
+                    relax_metrics[design_model_name] = {
                         'remaining_violations': violations,
                         'remaining_violations_count': sum(violations)
                     }
-                    # timings[f'relax_{model_name}'] = time.time() - t_0
+                    # timings[f'relax_{design_model_name}'] = time.time() - t_0
 
-                    relaxed_pdbs[model_name] = relaxed_pdb_str
+                    relaxed_pdbs[design_model_name] = relaxed_pdb_str
 
-            structures_and_scores = {
-                **scores,
-                'structures': relaxed_pdbs
-            }
+                # structures_and_scores = {
+                structures_and_scores[design_id] = {
+                    **scores,
+                    'structures': relaxed_pdbs,
+                    'structures_unrelaxed': unrelaxed_pdbs
+                }
             return structures_and_scores
+
+        def output_alphafold_structures(structures_and_scores: dict[str, dict[str, dict[str, str]]],
+                                        entity_info: dict = None):
+            for design_id, design_scores in structures_and_scores.items():
+                structures = design_scores['structures_unrelaxed']
+                for model_name, structure in structures.items():
+                    with open(os.path.join(self.designs_path, f'{model_name}_unrelaxed.pdb'), 'w') as f:
+                        f.write(structure)
+                structures = design_scores['structures']
+                idx = count(1)
+                for model_name, structure in structures.items():
+                    with open(os.path.join(self.designs_path, f'{model_name}_rank{next(idx)}.pdb'), 'w') as f:
+                        f.write(structure)
+
+        def load_alphafold_structures(structures: dict[str, str], entity_info: dict = None):
+            """
+
+            Args:
+                structures: The PDB formatted strings for each input Structure
+            Returns:
+
+            """
+            if entity_info:
+                model_kwargs = dict(entity_info=entity_info)
+            else:
+                model_kwargs = {}
+
+            for model_name, structure in structures.items():
+                Model.from_pdb_lines(structure.splitlines(), name=model_name,
+                                     **model_kwargs)
 
         # Hard code in the use of only design based single sequence models
         # if self.job.design:
@@ -1931,18 +1968,21 @@ class PoseProtocol(PoseData):
         no_msa = True
         # Prepare the features to feed to the model
         if run_entities_and_interfaces and self.number_of_entities > 1:
+            # Get the features for each oligomeric Entity
             for entity in self.pose.entities:
                 # Fold with symmetry True. If it isn't symmetric, symmetry won't be used
                 features = entity.get_alphafold_features(symmetric=True, no_msa=no_msa)
                 entity_slice = slice(entity.n_terminal_residue.index, entity.c_terminal_residue.index)
-                predict([sequence[entity_slice] for sequence in sequences], features)
+                entity_scores = predict([sequence[entity_slice] for sequence in sequences], features)
+                output_alphafold_structures(entity_scores, entity_info=self.pose.entity_info[entity.name])
 
-            features = self.pose.get_alphafold_features(symmetric=False)
-
-            predict(sequences, features)
+            # Get the features for the ASU
+            features = self.pose.get_alphafold_features(symmetric=False, no_msa=no_msa)
+            interface_scores = predict(sequences, features)
+            output_alphafold_structures(interface_scores, entity_info=self.pose.entity_info)
         else:
             features = self.pose.get_alphafold_features(symmetric=True, no_msa=no_msa)
-            predict(sequences, features)
+            pose_scores = predict(sequences, features)
 
         # Todo output the data as I see fit in
         #  self.analyze_predict_structure_metrics()
