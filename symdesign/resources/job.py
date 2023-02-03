@@ -575,6 +575,9 @@ class JobResources:
     def output_to_directory(self) -> bool:
         """Set so it is known that output is not typical putils.program_output directory structure"""
         # self.output_to_directory: bool = True if self.output_directory else False
+        if self.module in [flags.select_designs, flags.select_sequences]:
+            # Make this explicitly False so that selection doesn't copy extra files
+            return False
         return True if self.output_directory else False
 
     @property
