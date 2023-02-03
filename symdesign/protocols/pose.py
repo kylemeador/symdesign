@@ -1235,9 +1235,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     assembly_path = self.assembly_path
                 else:
                     assembly_path = self.output_assembly_path
-                self.pose.write(assembly=True, out_path=assembly_path,
-                                increment_chains=self.job.increment_chains)
-                self.log.info(f'Symmetric assembly written to: "{assembly_path}"')
+                if not os.path.exists(assembly_path) or self.job.force:
+                    self.pose.write(assembly=True, out_path=assembly_path,
+                                    increment_chains=self.job.increment_chains)
+                    self.log.info(f'Symmetric assembly written to: "{assembly_path}"')
             if self.job.write_oligomers:  # Write out new oligomers to the PoseJob
                 for idx, entity in enumerate(self.pose.entities):
                     oligomer_path = os.path.join(self.out_directory, f'{entity.name}_oligomer.pdb')
@@ -1267,7 +1268,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             self.save_asu(path=self.source_path)
 
         if self.job.output_to_directory:
-            self.save_asu(path=self.output_pose_path)
+            if not os.path.exists(self.output_pose_path) or self.job.force:
+                self.save_asu(path=self.output_pose_path)
 
     def save_asu(self, path: AnyStr):  # Todo to PoseProtocols?
         """Save a new Structure from multiple Chain or Entity objects including the Pose symmetry"""
