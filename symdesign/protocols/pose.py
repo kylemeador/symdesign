@@ -83,29 +83,29 @@ class PoseDirectory:
 
         directory = os.path.join(self.job.projects, self.project, self.name)
         # if directory is not None:
-        self.out_directory = directory
+        self.pose_directory = directory
         # PoseDirectory attributes. Set after finding correct path
-        self.log_path: str | Path = os.path.join(self.out_directory, f'{self.name}.log')
-        self.designs_path: str | Path = os.path.join(self.out_directory, putils.designs)
+        self.log_path: str | Path = os.path.join(self.pose_directory, f'{self.name}.log')
+        self.designs_path: str | Path = os.path.join(self.pose_directory, putils.designs)
         # /root/Projects/project_Poses/design/designs
-        self.scripts_path: str | Path = os.path.join(self.out_directory, putils.scripts)
+        self.scripts_path: str | Path = os.path.join(self.pose_directory, putils.scripts)
         # /root/Projects/project_Poses/design/scripts
-        self.frags_path: str | Path = os.path.join(self.out_directory, putils.frag_dir)
+        self.frags_path: str | Path = os.path.join(self.pose_directory, putils.frag_dir)
         # /root/Projects/project_Poses/design/matching_fragments
         self.flags: str | Path = os.path.join(self.scripts_path, 'flags')
         # /root/Projects/project_Poses/design/scripts/flags
-        self.data_path: str | Path = os.path.join(self.out_directory, putils.data)
+        self.data_path: str | Path = os.path.join(self.pose_directory, putils.data)
         # /root/Projects/project_Poses/design/data
         self.scores_file: str | Path = os.path.join(self.data_path, f'{self.name}.sc')
         # /root/Projects/project_Poses/design/data/name.sc
         self.serialized_info: str | Path = os.path.join(self.data_path, putils.state_file)
         # /root/Projects/project_Poses/design/data/info.pkl
-        self.pose_path: str | Path = os.path.join(self.out_directory, f'{self.name}.pdb')
-        self.asu_path: str | Path = os.path.join(self.out_directory, putils.asu)
+        self.pose_path: str | Path = os.path.join(self.pose_directory, f'{self.name}.pdb')
+        self.asu_path: str | Path = os.path.join(self.pose_directory, putils.asu)
         # /root/Projects/project_Poses/design/asu.pdb
-        # self.asu_path: str | Path = os.path.join(self.out_directory, f'{self.name}_{putils.asu}')
+        # self.asu_path: str | Path = os.path.join(self.pose_directory, f'{self.name}_{putils.asu}')
         # # /root/Projects/project_Poses/design/design_name_asu.pdb
-        self.assembly_path: str | Path = os.path.join(self.out_directory, f'{self.name}_{putils.assembly}')
+        self.assembly_path: str | Path = os.path.join(self.pose_directory, f'{self.name}_{putils.assembly}')
         # /root/Projects/project_Poses/design/design_name_assembly.pdb
         self.refine_pdb: str | Path = os.path.join(self.data_path, os.path.basename(self.pose_path))
         # self.refine_pdb: str | Path = f'{os.path.splitext(self.pose_path)[0]}_refine.pdb'
@@ -123,7 +123,7 @@ class PoseDirectory:
         self.fragment_profile_file: str | Path = os.path.join(self.data_path, 'fragment.pssm')
         # /root/Projects/project_Poses/design/data/fragment.pssm
         # These next two files may be present from NanohedraV1 outputs
-        # self.pose_file = os.path.join(self.out_directory, putils.pose_file)
+        # self.pose_file = os.path.join(self.pose_directory, putils.pose_file)
         # self.frag_file = os.path.join(self.frags_path, putils.frag_text_file)
         # These files are used as output from analysis protocols
         # self.designs_metrics_csv = os.path.join(self.job.all_scores, f'{self}_Trajectories.csv')
@@ -164,11 +164,11 @@ class PoseDirectory:
         # except AttributeError:  # Missing self.initial as this was loaded from SQL database
         #     pass
         # else:
-        #     self.out_directory = os.path.join(os.getcwd(), 'temp')
+        #     self.pose_directory = os.path.join(os.getcwd(), 'temp')
         #     raise NotImplementedError(f"{putils.program_name} hasn't been set up to run without directories yet... "
         #                               f"Please solve the {self.__class__.__name__}.__init__() method")
 
-        if self.job.output_to_directory:
+        if self.job.output_directory:
             self.output_path = self.job.output_directory
             self.output_modifier = f'{self.project}-{self.name}'
             """string with contents '{self.project}-{self.name}'"""
@@ -176,9 +176,10 @@ class PoseDirectory:
             """/output_path/{self.output_modifier}.pdb"""
             # self.output_asu_path: str | Path = os.path.join(self.output_path, f'{self.output_modifier}_{putils.asu}')
             # """/output_path/{self.output_modifier}_asu.pdb"""
-            self.output_assembly_path: str | Path = os.path.join(self.out_directory, f'{self.output_modifier}_{putils.assembly}')
+            self.output_assembly_path: str | Path = \
+                os.path.join(self.output_path, f'{self.output_modifier}_{putils.assembly}')
             """/output_path/{self.output_modifier}_{putils.assembly}.pdb """
-            # out_directory = self.job.output_directory  # /output_directory <- self.out_directory/design.pdb
+            # pose_directory = self.job.output_directory  # /output_directory <- self.pose_directory/design.pdb
 
         super().__init__(**kwargs)
 
@@ -327,7 +328,7 @@ class PoseDirectory:
 
     def get_wildtype_file(self) -> AnyStr:
         """Retrieve the wild-type file name from PoseJob"""
-        # glob_target = os.path.join(self.out_directory, f'{self.name}*.pdb')
+        # glob_target = os.path.join(self.pose_directory, f'{self.name}*.pdb')
         glob_target = self.pose_path
         source = sorted(glob(glob_target))
         if len(source) > 1:
@@ -524,19 +525,19 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     # END classmethod where the PoseData hasn't been initialized before
 
     # def pose_string_to_path(self, root: AnyStr, pose_id: str):
-    #     """Set self.out_directory to the root/poseID where the poseID is converted from dash "-" separation to path separators"""
+    #     """Set self.pose_directory to the root/poseID where the poseID is converted from dash "-" separation to path separators"""
     #     # if root is None:
     #     #     raise ValueError("No 'root' argument was passed. Can't use a pose_id without a root directory")
     #
     #     if self.job.nanohedra_output:
-    #         self.out_directory = os.path.join(root, pose_id.replace('-', os.sep))
+    #         self.pose_directory = os.path.join(root, pose_id.replace('-', os.sep))
     #     else:
-    #         self.out_directory = os.path.join(root, putils.projects, pose_id)  # .replace(f'_{putils.pose_directory}-')
+    #         self.pose_directory = os.path.join(root, putils.projects, pose_id)  # .replace(f'_{putils.pose_directory}-')
     #         # # Dev only
     #         # if '_Designs-' in pose_id:
-    #         #     self.out_directory = os.path.join(root, putils.projects, pose_id.replace('_Designs-', f'_Designs{os.sep}'))
+    #         #     self.pose_directory = os.path.join(root, putils.projects, pose_id.replace('_Designs-', f'_Designs{os.sep}'))
     #         # else:
-    #         #     self.out_directory = os.path.join(root, putils.projects, pose_id.replace(f'_{putils.pose_directory}-',
+    #         #     self.pose_directory = os.path.join(root, putils.projects, pose_id.replace(f'_{putils.pose_directory}-',
     #         #                                                                     f'_{putils.pose_directory}{os.sep}'))
 
     @reconstructor
@@ -568,9 +569,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # which can help in gathering the self.serialized_info file and converting this to the proper utils.sql
         # table data
         # self.initial = False
-        super().__init__()  # directory=out_directory, output_modifier=output_modifier)  # Todo **kwargs)
+        super().__init__()  # directory=pose_directory, output_modifier=output_modifier)  # Todo **kwargs)
 
-        putils.make_path(self.out_directory, condition=self.job.construct_pose)
+        putils.make_path(self.pose_directory, condition=self.job.construct_pose)
 
         # Initialize the logger for the Pose
         log_path = self.log_path
@@ -678,11 +679,11 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #     # if self.job.output_to_directory:
         #     #     # self.job.projects = ''
         #     #     # self.project_path = ''
-        #     #     self.out_directory = self.job.program_root  # /output_directory<- self.out_directory /design.pdb
+        #     #     self.pose_directory = self.job.program_root  # /output_directory<- self.pose_directory /design.pdb
         #     # else:
-        #     #     # self.project_path = os.path.dirname(self.out_directory)
-        #     # self.out_directory = self.source_path
-        #     # self.out_directory = os.path.join(self.job.projects, self.project, self.name)
+        #     #     # self.project_path = os.path.dirname(self.pose_directory)
+        #     # self.pose_directory = self.source_path
+        #     # self.pose_directory = os.path.join(self.job.projects, self.project, self.name)
         #     #     # self.job.projects = os.path.dirname(self.project_path)
         #     # self.project = os.path.basename(self.project_path)
 
@@ -713,7 +714,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #     if os.path.exists(self.asu_path):  # Standard mechanism of loading the pose
         #         self.source_path = self.asu_path
         #     else:
-        #         glob_target = os.path.join(self.out_directory, f'{self.name}*.pdb')
+        #         glob_target = os.path.join(self.pose_directory, f'{self.name}*.pdb')
         #         source = sorted(glob(glob_target))
         #         if len(source) > 1:
         #             raise ValueError(f'Found {len(source)} files matching the path "{glob_target}". '
@@ -1110,7 +1111,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 source_datastore = getattr(self.job.structure_db, source, None)
                 # Todo this course of action isn't set up anymore. It should be depreciated...
                 if source_datastore is None:  # Try to get file from the PoseDirectory
-                    search_path = os.path.join(self.out_directory, f'{name}*.pdb*')
+                    search_path = os.path.join(self.pose_directory, f'{name}*.pdb*')
                     file = sorted(glob(search_path))
                     if file:
                         if len(file) > 1:
@@ -1159,11 +1160,11 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #         out_dir = self.job.orient_dir
         #         for name in self.entity_names:
         #             if not os.path.exists(glob(os.path.join(self.job.refine_dir, f'{name}*.pdb*'))[0]):
-        #                 out_dir = self.out_directory
+        #                 out_dir = self.pose_directory
         #                 self.log.debug('Couldn\'t find entities in the oriented directory')
         #
         #     if not refined and not oriented:
-        #         out_dir = self.out_directory
+        #         out_dir = self.pose_directory
         #
         #     idx = 2  # initialize as 2. it doesn't matter if no names are found, but nominally it should be 2 for now
         #     oligomer_files = []
@@ -1241,9 +1242,13 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     self.log.info(f'Symmetric assembly written to: "{assembly_path}"')
             if self.job.write_oligomers:  # Write out new oligomers to the PoseJob
                 for idx, entity in enumerate(self.pose.entities):
-                    oligomer_path = os.path.join(self.out_directory, f'{entity.name}_oligomer.pdb')
-                    entity.write(oligomer=True, out_path=oligomer_path)
-                    self.log.info(f'Entity {entity.name} oligomer written to: "{oligomer_path}"')
+                    if self.job.output_to_directory:
+                        oligomer_path = os.path.join(self.pose_directory, f'{entity.name}_oligomer.pdb')
+                    else:
+                        oligomer_path = os.path.join(self.output_path, f'{entity.name}_oligomer.pdb')
+                    if not os.path.exists(oligomer_path) or self.job.force:
+                        entity.write(oligomer=True, out_path=oligomer_path)
+                        self.log.info(f'Entity {entity.name} oligomer written to: "{oligomer_path}"')
 
             # If we have an empty list for the pose_transformation, save the identified transformations from the Pose
             if not any(self.transformations):
@@ -1452,7 +1457,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # elif self.job.output_to_directory:
         #     return self.name
         # else:
-        #     return self.out_directory.replace(f'{self.job.projects}{os.sep}', '').replace(os.sep, '-')
+        #     return self.pose_directory.replace(f'{self.job.projects}{os.sep}', '').replace(os.sep, '-')
         return self.pose_identifier
 
 
@@ -1637,7 +1642,7 @@ class PoseProtocol(PoseData):
 
     def make_analysis_cmd(self) -> list[str]:
         """Generate a list compatible with subprocess.Popen()/subprocess.list2cmdline()"""
-        return ['python', putils.program_exe, flags.process_rosetta_metrics, '--single', self.out_directory]
+        return ['python', putils.program_exe, flags.process_rosetta_metrics, '--single', self.pose_directory]
 
     def thread_sequences_to_backbone(self, sequences: dict[str, str] = None):
         """From the starting Pose, thread sequences onto the backbone, modifying relevant side chains i.e., mutate the
