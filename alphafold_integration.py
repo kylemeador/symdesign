@@ -16,11 +16,13 @@ features = {
     # 4GRD_1|Chains A, B, C, D|Phosphoribosylaminoimidazole carboxylase catalytic subunit|Burkholderia cenocepacia (216591)
     'residue_index',
     # np.array with shape (seq_length), dtype=np.int32 where all positions increment from 0 to seq_length-1
-    # HOW DOES THIS LOOK FOR MULTIMER?
+    # HOW DOES THIS LOOK FOR MULTIMER? It seems to be repeating for each additional chain
     'seq_length',
     # int -> np.array with shape (seq_length), dtype=np.int32 where all positions are the seq_length
+    # Gets converted in multimer to a single value with shape->(), size=1
     'sequence',
-    # np.array with shape (seq_length), dtype=np.object (bytes) where all positions are the sequence id
+    # np.array with shape (seq_length), dtype=np.object (bytes) where all positions are the aa type sequence
+    # In multimer converted to np.array with shape->(), size=1 (seq_length), dtype=np.object (bytes)
     'deletion_matrix',
     # list[list[int]] -> np.array with shape (num_alignments, seq_length), dtype=np.float32
     # The element at `deletion_matrix[i][j]` is the number of residues deleted from
@@ -76,7 +78,7 @@ features = {
 # msa sequences are paired (seems like a tedious process) if a heteromer is provided,
 # otherwise, the single sequence is used
 # The uniprot_90 is required when running multimer as I presume the uniprot references are used to pair.
-# Would uniclust30 work for this?
+# Would uniclust30 work for this? Only if the sequences come with species information that can then be paired
 
 # All these features below stem from the requirements found at
 # alphafold.alphafold.data.feature_processing.REQUIRED_FEATURES
@@ -101,14 +103,15 @@ multimer_features = {
     # where each axis=-1 are the coordinates with padding for each atom
     # where each features['deletion_matrix_int'] is converted
     'deletion_matrix',
-    # converted from 'deletion_matrix_int' to float32 for multimer
+    # converted from 'deletion_matrix_int' to float32 for multimer/monomer
     'deletion_mean',
     # take the mean over each sequence in multiple sequence alignment
     'template_all_atom_mask',  # <- notice the change from *_masks to *_mask
     # np.array with shape (num_templates, seq_length, 37), dtype=np.int32
     # where each axis=-1 are the atom mask for each atom residue
     'entity_mask',
-    # np.array with shape (seq_length), dtype=np.int32 where the default value is 1
+    # np.array with shape (seq_length), dtype=np.int32 where the default value is 1, which I believe represents a
+    # position to be predicted, i.e 'entity_id' > 0
     'auth_chain_id',
     # np.array with shape (1,), dtype=np.object_
     'aatype',
@@ -147,7 +150,7 @@ def Entity.alphafold_process() -> pipeline.FeatureDict:
                                                    description=input_description,
                                                    num_res=num_res)
             features = {
-                'aa_type': MAKE ONE HOT with X i.e. unknown are X
+                'aatype': MAKE ONE HOT with X i.e. unknown are X
                 'between_segment_residues': np.zeros((seq_length,), dtype=np.int32)
                 'domain_name': np.array([description.encode('utf-8')], dtype=np.object_)
                 'residue_index': np.arange(seq_length, dtype=np.int32)
@@ -235,4 +238,46 @@ def Pose.alphafold_process_features():
 #     def process(self, input_fasta_path=fasta_path, msa_output_dir=msa_output_dir) -> FeatureDict:
 #         
 #         return features
+"""
+"""
+Setting up the MSA for use in alphafold multimer
+Multimer makes explicit use of the multiple sequence alignment species identifier present from any MSA constructed 
+during data initialization
+Where the species identifier from each of the multimeric sequences are paired so that the resulting msa has 
+sequences only resulting from the same organisms. I.e. homologous msa sequences which are pulled from the some homology
+This would allow multimer to make predictions based on relevant evolutionary coupling information for the domains 
+in question. I think this will fail to materialize upon use of the msa as a prediction of a designed complex.
+The use of multiple sequence alignments for the design would need to be carried out for the design in question to 
+gather any relevant information regarding a new interface installed.  
+ 
+An Msa object, as used in alphafold is a dataclass with three attributes. 
+.sequences, .descriptions, and .deletion_matrix
+
+# Sequences coming from UniProtKB database come in the
+# `db|UniqueIdentifier|EntryName` format, e.g. `tr|A0A146SKV9|A0A146SKV9_FUNHE`
+# or `sp|P0C2L1|A3X1_LOXLA` (for TREMBL/Swiss-Prot respectively).
+where the UniqueIdentifier is the AccessionIdentifier
+where the EntryName is the species_id
+identifiers = msa_identifiers.get_identifiers(msa.descriptions[sequence_index])
+species_ids.append(identifiers.species_id.encode('utf-8'))
+
+# Go without, or go with a custom?
+# Todo Ideally I could construct a msa that uses the interface fragment observed sequences to construct a
+# msa type object that has the occurances of the fragments. 
+To run without use of msa I need to adjust the following parameters
+
+cfg = config.model_config('model_3_ptm')  # <- replace with multimer_3_ptm
+# NONE OF THESE PARAMETERS ARE AVAILABLE WITH MULTIMER. HAVE TO CONSTRUCT A "PSEUDO MSA"
+cfg.model.num_recycle = 0  # Set because the num_recycle are controlled through .ipynb
+cfg.data.common.num_recycle = 0  # Set because the num_recycle are controlled through .ipynb
+cfg.data.eval.max_msa_clusters = 1
+cfg.data.common.max_extra_msa = 1
+cfg.data.eval.masked_msa_replace_fraction = 0
+cfg.model.global_config.subbatch_size = None
+
+SOKRYPTON af_backprop USES:
+make_msa_features(msas=[[seq]], deletion_matrices=[[[0]*length]])
+# IMPORTANT
+for running without an msa, like sokrypton, I can just provide an msa that is one sequence deep (the query)
+
 """

@@ -36,6 +36,7 @@ from symdesign.structure.model import Pose, Models, Model, Entity
 from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
 from symdesign.structure.utils import DesignError, ClashError
 from symdesign.third_party.alphafold.alphafold.common import protein, residue_constants
+from symdesign.third_party.alphafold.alphafold.data.pipeline import make_sequence_features
 from symdesign.third_party.alphafold.alphafold.model import config as afconfig, model as afmodel
 from symdesign.third_party.alphafold.alphafold.model.data import get_model_haiku_params
 from symdesign.third_party.alphafold.alphafold.relax import relax
@@ -1727,23 +1728,17 @@ class PoseProtocol(PoseData):
 
     def alphafold_predict_structure(self, sequences: Sequence[str],
                                     # data_pipeline: pipeline.DataPipeline | pipeline_multimer.DataPipeline,
-                                    model_runners: dict[str, afmodel.RunModel], amber_relaxer: relax.AmberRelaxation,
-                                    random_seed: int, model_name: str = 'monomer', **kwargs):
+                                    # model_runners: dict[str, afmodel.RunModel],
+                                    amber_relaxer: relax.AmberRelaxation,
+                                    random_seed: int, models_to_relax: str = 'best', model_name: str = 'monomer',
+                                    **kwargs):
         """"""
-        # # Turn my input into a feature dict generation. Rely on alphafold.run_alphafold.predict_structure()
-        # # Is this a good idea?
-        # DataPipeline:
-        #     def process(self, input_fasta_path=fasta_path, msa_output_dir=msa_output_dir) -> FeatureDict:
-        #
-        #         return features
         self.load_pose()
         # Hardcode parameters
         num_ensemble = 1  # 8 was used in Alphfold Casp14
 
-        # if self.is_symmetric():
-        #     run_multimer_system = self.sym_entry.number_of_groups > 1
-        # else:
-        # run_multimer_system = len(self.entity_data) > 1
+        heteromer = self.number_of_entities > 1
+        multimer = heteromer or self.pose.number_of_chains > 1
         run_multimer_system = self.pose.number_of_entities > 1 or self.pose.number_of_chains > 1
         if run_multimer_system:
             # multimer = True
@@ -1751,6 +1746,10 @@ class PoseProtocol(PoseData):
             self.log.info(f'The model was automatically set to {model_name} due to detected multimeric pose')
         # else:
         #     multimer = False
+        if models_to_relax is not None:
+            if models_to_relax not in ['all', 'best']:
+                raise ValueError(f"Can't use the models_to_relax value {models_to_relax}. Must be either "
+                                 f"'all', 'best' or NoneType")
 
         # Set up the various model_runners to supervise the prediction task for each sequence
         model_runners = {}
@@ -1766,81 +1765,147 @@ class PoseProtocol(PoseData):
             # Todo -> JobResources
             raise NotImplementedError('Make the job.num_predictions_per_model flag')
             for i in range(self.job.num_predictions_per_model):
+                # multimer default is 5, with 5 models for 25 outputs. Could do --num_multimer_predictions_per_model=1
+                # to increase speed
                 model_runners[f'{model_name}_pred_{i}'] = model_runner
 
         self.log.info(f'Have {len(model_runners)} models: {list(model_runners.keys())}')
-
-        # Prepare the features to feed to the model
-        feature_dict = self.pose.get_alphafold_features(multimer=run_multimer_system)
         num_models = len(model_runners)
-        sequence_length = len(sequences)
 
-        scores = {'pae': np.zeros(num_models, sequence_length, dtype=np.float32),
-                  'plddt': np.zeros(num_models, sequence_length, dtype=np.float32)}
-        ranking_confidences = {}
-        unrelaxed_proteins = {}
-        unrelaxed_pdbs = {}
-        relaxed_pdbs = {}
-        relax_metrics = {}
-        # Iterate over provided sequences
-        for sequence in sequences:
-            # Run the models.
-            for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-                self.log.info(f'Running model {model_name} on {sequence}')
-                t_0 = time.time()
-                model_random_seed = model_index + random_seed * num_models
-                processed_feature_dict = model_runner.process_features(
-                    feature_dict, random_seed=model_random_seed)
-                # timings[f'process_features_{model_name}'] = time.time() - t_0
+        # # Turn my input into a feature dict generation. Rely on alphafold.run_alphafold.predict_structure()
+        # # Is this a good idea?
+        # DataPipeline:
+        #     def process(self, input_fasta_path=fasta_path, msa_output_dir=msa_output_dir) -> FeatureDict:
+        #
+        #         return features
+        def predict(sequences, features):
+            max_sequence_length = max([len(sequence) for sequence in sequences])
+            scores = {
+                'pae': np.zeros((num_models, max_sequence_length, max_sequence_length), dtype=np.float32),
+                'plddt': np.zeros((num_models, max_sequence_length), dtype=np.float32),
+                'ptm': np.zeros(num_models, dtype=np.float32),
+                'iptm': np.zeros(num_models, dtype=np.float32)
+            }
+            ranking_confidences = {}
+            unrelaxed_proteins = {}
+            unrelaxed_pdbs = {}
+            relaxed_pdbs = {}
+            relax_metrics = {}
+            # Iterate over provided sequences
+            # Todo include useful design_id?
+            for design_id, sequence in enumerate(sequences):
+                sequence_length = len(sequence)
+                # Run the models.
+                for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
+                    self.log.info(f'Running model {model_name} on {sequence}')
+                    # t_0 = time.time()
+                    # Set the sequence up in the FeatureDict
+                    # Todo the way that I am adding this here instead of during construction, seems that I should
+                    #  symmetrize the sequence before passing to predict(). This would occur by entity, where the first
+                    #  entity is combined, then the second entity is combined, etc. Any entity agnostic features such
+                    #  as all_atom_mask would be able to be made here
+                    this_seq_features = make_sequence_features(sequence=sequence, description=str(design_id),
+                                                               num_res=sequence_length)
+                    # This v happens ^
+                    # residue_constants.sequence_to_onehot(
+                    #     sequence=sequence,
+                    #     mapping=residue_constants.restype_order_with_x,
+                    #     map_unknown_to_x=True)
+                    if multimer:
+                        # The multimer model performs the one-hot operation itself. So processing gets the sequence as
+                        # the idx encoded by this v argmax on the one-hot
+                        this_seq_features['aatype'] = np.argmax(this_seq_features['aatype'], axis=-1).astype(np.int32)
+                        # For 'domain_name' and 'sequence'
+                        # np.asarray(np.array(['pope'.encode('utf-8')], dtype=np.object_)[0], dtype=np.object_)
+                        # Not sure why this transformation happens... as the multimer gets rid of them, but they are
+                        # ready for the monomer pipeline
+                    # Todo ensure that the sequence is merged such as in the merge_and_pair subroutine
+                    #  a good portion of which is below
+                    # if feature_name_split in SEQ_FEATURES:
+                    #     # Merges features along their length [MLKF...], [MLKF...] -> [MLKF...MLKF...]
+                    #     merged_example[feature_name] = np.concatenate(feats, axis=0)
+                    #     # If sequence is the same length as Entity/Pose, then 'residue_index' should be correct and
+                    #     # increasing for each sequence position, restarting at the beginning of a chain
+                    # Make the atom positions according to the sequence
+                    # Add all_atom_mask and dummy all_atom_positions based on aatype.
+                    all_atom_mask = residue_constants.STANDARD_ATOM_MASK[sequence['aatype']]
+                    this_seq_features['all_atom_mask'] = all_atom_mask
+                    this_seq_features['all_atom_positions'] = np.zeros(list(all_atom_mask.shape) + [3])
+                    # Todo check on 'seq_mask' introduction point for multimer...
+                    # elif feature_name_split in TEMPLATE_FEATURES:
+                    # DONT WORRY ABOUT THESE
+                    #     merged_example[feature_name] = np.concatenate(feats, axis=1)
+                    # elif feature_name_split in CHAIN_FEATURES:
+                    #     merged_example[feature_name] = np.sum(x for x in feats).astype(np.int32)
+                    # 'num_alignments' should be fine as msa incorporation has happened prior
+                    this_seq_features['seq_length'] = np.asarray(len(sequence), dtype=np.int32)
+                    # else:
+                    #     # NO use at this time, these take the value of the first chain and eventually get thrown out
+                    #     # 'domain_name', 'sequence', 'between_segment_residues'
+                    #     merged_example[feature_name] = feats[0]
+                    # Todo merge_and_pair end
 
-                t_0 = time.time()
-                prediction_result = model_runner.predict(processed_feature_dict,
-                                                         random_seed=model_random_seed)
-                t_diff = time.time() - t_0
-                # timings[f'predict_and_compile_{model_name}'] = t_diff
-                self.log.info(f'Total JAX model {model_name} on {sequence} predict time (includes compilation time): '
-                              # ', see --benchmark'
-                              f'{t_diff:.1fs}')
+                    features.update(this_seq_features)
+                    model_random_seed = model_index + random_seed * num_models
+                    processed_feature_dict = model_runner.process_features(features,
+                                                                           random_seed=model_random_seed)
+                    # timings[f'process_features_{model_name}'] = time.time() - t_0
 
-                # if benchmark:
-                #     t_0 = time.time()
-                #     model_runner.predict(processed_feature_dict,
-                #                          random_seed=model_random_seed)
-                #     t_diff = time.time() - t_0
-                #     timings[f'predict_benchmark_{model_name}'] = t_diff
-                #     self.log.info(f'Total JAX model {model_name} on {sequence} predict time (excludes compilation '
-                #                   f'time): {t_diff:.1fs}')
-                # Remove jax dependency from results.
-                np_prediction_result = _jnp_to_np(dict(prediction_result))
-                self.log.critical(f'Found the prediction_result keys: {list(np_prediction_result.keys())}')
-                scores['pae'][model_index, :] = np_prediction_result['pae']  # Todo Does this work??
-                scores['plddt'][model_index, :] = plddt = np_prediction_result['plddt']
-                # scores['plddt'][model_index, :] = plddt = prediction_result['plddt']
-                ranking_confidences[model_name] = np_prediction_result['ranking_confidence']
+                    t_0 = time.time()
+                    prediction_result = model_runner.predict(processed_feature_dict,
+                                                             random_seed=model_random_seed)
+                    t_diff = time.time() - t_0
+                    # timings[f'predict_and_compile_{model_name}'] = t_diff
+                    self.log.info(
+                        f'Total JAX model {model_name} on {sequence} predict time (includes compilation time): '
+                        # ', see --benchmark'
+                        f'{t_diff:.1fs}')
+                    # Monomer?
+                    #  Should take about 96 secs on a 1000 residue protein using 3 recycles...
 
-                # Add the predicted LDDT in the b-factor column.
-                # Note that higher predicted LDDT value means higher model confidence.
-                plddt_b_factors = np.repeat(plddt[:, None], residue_constants.atom_type_num, axis=-1)
-                unrelaxed_protein = protein.from_prediction(
-                    features=processed_feature_dict,
-                    result=prediction_result,
-                    b_factors=plddt_b_factors,
-                    remove_leading_feature_dimension=not model_runner.multimer_mode)
-                unrelaxed_proteins[model_name] = unrelaxed_protein
-                unrelaxed_pdbs[model_name] = protein.to_pdb(unrelaxed_protein)
+                    # if benchmark:
+                    #     t_0 = time.time()
+                    #     model_runner.predict(processed_feature_dict,
+                    #                          random_seed=model_random_seed)
+                    #     t_diff = time.time() - t_0
+                    #     timings[f'predict_benchmark_{model_name}'] = t_diff
+                    #     self.log.info(f'Total JAX model {model_name} on {sequence} predict time (excludes compilation '
+                    #                   f'time): {t_diff:.1fs}')
+                    # Remove jax dependency from results.
+                    np_prediction_result = _jnp_to_np(dict(prediction_result))
+                    self.log.critical(f'Found the prediction_result keys: {list(np_prediction_result.keys())}')
+                    # This is a 2d array
+                    scores['pae'][model_index, :] = np_prediction_result['predicted_aligned_error']
+                    scores['plddt'][model_index, :] = plddt = np_prediction_result['plddt']
+                    # scores['ptm'][model_index] = prediction_result['ptm']
+                    if run_multimer_system:
+                        scores['iptm'][model_index] = np_prediction_result['iptm']
+                    ranking_confidences[model_name] = np_prediction_result['ranking_confidence']
+
+                    # Add the predicted LDDT in the b-factor column.
+                    # Note that higher predicted LDDT value means higher model confidence.
+                    plddt_b_factors = np.repeat(plddt[:, None], residue_constants.atom_type_num, axis=-1)
+                    unrelaxed_protein = protein.from_prediction(
+                        features=processed_feature_dict,
+                        result=prediction_result,
+                        b_factors=plddt_b_factors,
+                        remove_leading_feature_dimension=not model_runner.multimer_mode)
+                    unrelaxed_proteins[model_name] = unrelaxed_protein
+                    unrelaxed_pdbs[model_name] = protein.to_pdb(unrelaxed_protein)
 
                 # Rank by model confidence.
                 ranked_order = [model_name for model_name, confidence in
                                 sorted(ranking_confidences.items(), key=lambda x: x[1], reverse=True)]
 
                 # Relax predictions.
-                if models_to_relax == ModelsToRelax.BEST:
-                    to_relax = [ranked_order[0]]
-                elif models_to_relax == ModelsToRelax.ALL:
-                    to_relax = ranked_order
-                elif models_to_relax == ModelsToRelax.NONE:
+                if models_to_relax is None:
                     to_relax = []
+                elif models_to_relax == 'best':
+                    to_relax = [ranked_order[0]]
+                elif models_to_relax == 'all':
+                    to_relax = ranked_order
 
+                # --enable_gpu_relax=true Less stable results, but much quicker
                 for model_name in to_relax:
                     t_0 = time.time()
                     relaxed_pdb_str, _, violations = amber_relaxer.process(prot=unrelaxed_proteins[model_name])
@@ -1852,14 +1917,36 @@ class PoseProtocol(PoseData):
 
                     relaxed_pdbs[model_name] = relaxed_pdb_str
 
-        structures_and_scores = {
-            **scores,
-            'structures': relaxed_pdbs
-        }
-        raise NotImplementedError("Can't analyze alphafold_predict_structure results yet")
+            structures_and_scores = {
+                **scores,
+                'structures': relaxed_pdbs
+            }
+            return structures_and_scores
+
+        # Hard code in the use of only design based single sequence models
+        # if self.job.design:
+        #     no_msa = True
+        # else:
+        #     no_msa = False
+        no_msa = True
+        # Prepare the features to feed to the model
+        if run_entities_and_interfaces and self.number_of_entities > 1:
+            for entity in self.pose.entities:
+                # Fold with symmetry True. If it isn't symmetric, symmetry won't be used
+                features = entity.get_alphafold_features(symmetric=True, no_msa=no_msa)
+                entity_slice = slice(entity.n_terminal_residue.index, entity.c_terminal_residue.index)
+                predict([sequence[entity_slice] for sequence in sequences], features)
+
+            features = self.pose.get_alphafold_features(symmetric=False)
+
+            predict(sequences, features)
+        else:
+            features = self.pose.get_alphafold_features(symmetric=True, no_msa=no_msa)
+            predict(sequences, features)
+
         # Todo output the data as I see fit in
         #  self.analyze_predict_structure_metrics()
-        return structures_and_scores
+        raise NotImplementedError("Can't analyze alphafold_predict_structure results yet")
 
     def interface_design_analysis(self, designs: Iterable[Pose] | Iterable[AnyStr] = None) -> pd.Series:
         """Retrieve all score information from a PoseJob and write results to .csv file

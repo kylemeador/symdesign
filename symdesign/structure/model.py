@@ -38,6 +38,7 @@ from symdesign.third_party.alphafold.alphafold.data import feature_processing, m
 from symdesign.third_party.alphafold.alphafold.data.pipeline import FeatureDict, make_msa_features, \
     make_sequence_features
 from symdesign.third_party.alphafold.alphafold.notebooks.notebook_utils import empty_placeholder_template_features
+from symdesign.third_party.alphafold.alphafold.common.residue_constants import HHBLITS_AA_TO_ID
 
 putils = utils.path
 
@@ -1775,50 +1776,132 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         }
         # return self._metrics_
 
-    def get_alphafold_features(self, **kwargs) -> FeatureDict:
+    def get_alphafold_features(self, symmetric: bool = False, heteromer: bool = False, no_msa: bool = False, **kwargs) \
+            -> FeatureDict:
+        # multimer: bool = False,
         """Retrieve the required feature dictionary for this instance to use in Alphafold inference
 
         Args:
-
+            symmetric: Whether the symmetric Entity should be used for feature production. If True, this function will
+                fully process the FeatureDict in the symmetric form compatible with Alphafold multimer
+            heteromer: Whether Alphafold should be run as a heteromer. Features directly used in
+                Alphafold from this instance should never be used with heteromer=True
+            no_msa: Whether multiple sequence alignments should be included in the features
         Returns:
             The Alphafold FeatureDict which is essentially a dictionary with dict[str, np.ndarray]
         """
-        # # IS THIS NECESSARY. DON"T THINK SO IF I HAVE MSA
+        if heteromer:
+            if symmetric:
+                raise ValueError(f"Couldn't {self.get_alphafold_features.__name__} with both 'symmetric' and "
+                                 f"'heteromer' True. Only run with symmetric True if this {self.__class__.__name__} "
+                                 "instance alone should be predicted as a multimer")
+        # elif symmetric:
+        #     # Set multimer True as we need to make_msa_features_multimeric
+        #     multimer = True
+
+        # # IS THIS NECESSARY. DON'T THINK SO IF I HAVE MSA
         # chain_features = alphafold.alphafold.data.pipeline.DataPipeline.process(input_fasta_path=P, msa_output_dir=P)
         # This ^ runs
         number_of_residues = self.number_of_residues
-        sequence_features = make_sequence_features(sequence=self.sequence,
+        sequence = self.sequence
+        sequence_features = make_sequence_features(sequence=sequence,
                                                    description=self.name,  # input_description,
                                                    num_res=number_of_residues)
-        # features = {
-        #     'aa_type': ,  # MAKE ONE HOT with X i.e.unknown are X
+        # sequence_features = {
+        #     'aatype': ,  # MAKE ONE HOT with X i.e.unknown are X
         #     'between_segment_residues': np.zeros((number_of_residues,), dtype=np.int32),
         #     'domain_name': np.array([input_description.encode('utf-8')], dtype=np.object_),
         #     'residue_index': np.arange(number_of_residues, dtype=np.int32),
         #     'seq_length': np.full(number_of_residues, number_of_residues, dtype=np.int32),
         #     'sequence': np.array([sequence.encode('utf-8')], dtype=np.object_)
         # }
-        with open(self.msa_file, 'r') as f:
-            uniclust_lines = f.read()
 
-        uniclust30_msa = parsers.parse_stockholm(uniclust_lines)
-        msa_features = make_msa_features((uniclust30_msa,))  # <- I can use a single one...
-        # msa_features = make_msa_features((uniref90_msa, bfd_msa, mgnify_msa))  # <- I can use a single one...
-        # features = {
-        #     'deletion_matrix_int': P, # GET THIS FROM THE MATRIX PROBABLY USING CODE IN COLLAPSE PROFILE cumcount...
-        #     'msa': sequences_to_numeric(HHBLITS_AA_TO_ID, dtype=np.int32),
-        #     'num_alignments': np.full(num_residues, num_alignments, dtype=np.int32),  # Fill by the number of
-        #     # residues how many sequences are in the MSA
-        #     'msa_species_identifiers': np.array([id_.encode('utf-8') for id_ in species_ids], dtype=np.object_)
-        # }
-        chain_features = {
+        def make_msa_features_multimeric(msa_feats: FeatureDict) -> FeatureDict:
+            """Create the feature names for Alphafold heteromeric inputs run in multimer mode"""
+            valid_feats = msa_pairing.MSA_FEATURES + ('msa_species_identifiers',)
+            return {f'{k}_all_seq': v for k, v in msa_feats.items() if k in valid_feats}
+
+        # When no msa_used, construct our own
+        if no_msa or not self.msa_file:
+            num_alignments = 1
+            species_ids = ['human']
+            msa_features = {
+                'deletion_matrix_int': np.zeros(number_of_residues, dtype=np.int32),
+                # When not single sequence, GET THIS FROM THE MATRIX PROBABLY USING CODE IN COLLAPSE PROFILE cumcount...
+                'msa': sequences_to_numeric([sequence], translation_table=HHBLITS_AA_TO_ID).astype(dtype=np.int32),
+                'num_alignments': np.full(number_of_residues, num_alignments, dtype=np.int32),
+                # Fill by the number of residues how many sequences are in the MSA
+                'msa_species_identifiers': np.array([id_.encode('utf-8') for id_ in species_ids], dtype=np.object_)
+            }
+            if heteromer:
+                # Make a deepcopy just incase this screws up something
+                msa_features.update(make_msa_features_multimeric(deepcopy(msa_features)))
+        elif os.path.exists(self.msa_file):
+            with open(self.msa_file, 'r') as f:
+                uniclust_lines = f.read()
+            file, extension = os.path.splitext(self.msa_file)
+            if extension == '.sto':
+                uniclust30_msa = parsers.parse_stockholm(uniclust_lines)
+            else:
+                raise ValueError(f"Currently, the multiple sequence alignment file type '{extension}' isn't supported\n"
+                                 f"\tOffending file located at: {self.msa_file}")
+            msa_features = make_msa_features((uniclust30_msa,))  # <- I can use a single one...
+            # msa_features = make_msa_features((uniref90_msa, bfd_msa, mgnify_msa))  # <- I can use a single one...
+            if heteromer:
+                # Todo enusre that uniref90 runner was used...
+                #  OR equivalent so that we ensure each sequence in a multimeric msa is able to be paired
+                raise NotImplementedError('No uniprot90 database hooked up...')
+                with open(self.msa_file, 'r') as f:
+                    uniref90_lines = f.read()
+
+                uniref90_msa = parsers.parse_stockholm(uniref90_lines)
+                msa_features = make_msa_features((uniref90_msa,))
+                msa_features.update(make_msa_features_multimeric(msa_features))
+        else:
+            raise ValueError(f"Couldn't acquire the msa features...")
+
+        templates = False
+        if templates:
+            raise NotImplementedError(f"Can't specifiy usage with templates yet...")
+            template_features = template_result.features
+        else:
+            empty_placeholder_template_features(num_templates=0, num_res=number_of_residues)
+
+        entity_features = {
             **msa_features,
             **sequence_features,
-            **empty_placeholder_template_features(num_templates=0, num_res=number_of_residues)
-            # **template_result.features  # <- for templates. Can use NULL
+            **template_features
         }
+        if symmetric and self.is_oligomeric():
+            # Hard code in as we are using a multimeric predict on the oligomeric version
+            chain_id = 'A'
+            entity_features = pipeline_multimer.convert_monomer_features(entity_features, chain_id=chain_id)
 
-        return chain_features
+            chain_count = count(1)
+            entity_length = entity.number_of_residues
+            entity_integer = entity_idx + 1
+            entity_id = pipeline_multimer.int_id_to_str_id(entity_integer)
+            all_chain_features = {}
+            for sym_idx in range(1, self.number_of_symmetry_mates):
+                # chain_id = next(available_chain_ids_iter)  # The mmCIF formatted chainID with 'AB' type notation
+                this_entity_features = deepcopy(entity_features)
+                # Where chain_id increments for each new chain instance i.e. A_1 is 1, A_2 is 2, ...
+                # Where entity_id increments for each new Entity instance i.e. A_1 is 1, A_2 is 1, ...
+                # Where sym_id increments for each new Entity instance regardless of chain i.e. A_1 is 1, A_2 is 2, ...,
+                # B_1 is 1, B2 is 2
+                this_entity_features.update({'asym_id': next(chain_count) * np.ones(entity_length),
+                                             'sym_id': sym_idx * np.ones(entity_length),
+                                             'entity_id': entity_integer * np.ones(entity_length)})
+                chain_name = f'{entity_id}_{sym_idx}'
+                all_chain_features[chain_name] = this_entity_features
+
+            np_example = feature_processing.pair_and_merge(all_chain_features=all_chain_features)
+            # Pad MSA to avoid zero-sized extra_msa.
+            np_example = pipeline_multimer.pad_msa(np_example, 512)
+
+            return np_example  # This is still a FeatureDict and could be named entity_features
+        else:
+            return entity_features
 
     def orient(self, symmetry: str = None):  # similar function in Model
         """Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
@@ -6080,73 +6163,88 @@ class Pose(SymmetricModel, Metrics):
         else:
             entity_required, self.required_indices = set(), set()
 
-    def get_alphafold_features(self, multimer: bool = False, **kwargs) -> FeatureDict:
+    def get_alphafold_features(self, symmetric: bool = False, multimer: bool = False, no_msa: bool = False, **kwargs) \
+            -> FeatureDict:
         """Retrieve the required feature dictionary for this instance to use in Alphafold inference
 
         Args:
-            multimer: Whether the multimeric version of the Pose should be used for feature production
-        Keyword Args:
-            # distance: float = 8. - The distance to measure Residues across an interface
+            symmetric: Whether the symmetric version of the Pose should be used for feature production
+            multimer: Whether to run as a multimer. If multimer is True while symmetric is False, the Pose will
+                be processed according to the ASU
+            no_msa: Whether multiple sequence alignments should be included in the features
         Returns:
             The alphafold FeatureDict which is essentially a dictionary with dict[str, np.ndarray]
         """
-        heteromer = self.number_of_entities > 1
-        valid_feats = msa_pairing.MSA_FEATURES + ('msa_species_identifiers',)
-        if not multimer:
-            multimer = heteromer or self.number_of_chains > 1
+        # heteromer = heteromer or self.number_of_entities > 1
+        # symmetric = symmetric or heteromer or self.number_of_chains > 1
+        # if multimer:
+
+        # Set up the ASU unless otherwise specified
+        number_of_symmetry_mates = 1
+        if self.is_symmetric():
+            if symmetric:
+                number_of_symmetry_mates = self.number_of_symmetry_mates
+                multimer = True
+        # else:
+        #     self.log.warning("Can't run as symmetric since Pose isn't symmetric")
+
+        if self.number_of_entities > 1:
+            # self.log.warning(f"Can't run with symmetric=True while multimer=False on a {self.__class__.__name__}. "
+            #                  f"Setting heteromer=True")
+            heteromer = multimer = True
+        else:
+            heteromer = False
+            # if self.number_of_chains > 1:
+            #     multimer = True
+            # raise ValueError(f"Can't run monomer when {self.number_of_entities} entities are present in the "
+            #                  f"{self.__class__.__name__}. Use Entity.{Entity.get_alphafold_features.__name__} on "
+            #                  f"each entity individually instead")
 
         chain_count = count(1)
         all_chain_features = {}
         available_chain_ids = list(chain_id_generator())[:self.number_of_entities * self.number_of_symmetry_mates]
-        # available_chain_ids_iter = iter(available_chain_ids)
+        available_chain_ids_iter = iter(available_chain_ids)
         for entity_idx, entity in enumerate(self.entities):
-            entity_features = entity.get_alphafold_features()
+            entity_features = entity.get_alphafold_features(heteromer=heteromer, no_msa=no_msa)
             # The above function creates most of the work for the adaptation
             # particular importance needs to be given to the MSA used.
             # Should fragments be utilized in the MSA? If so, naming them in some way to pair is required!
             # Follow the example in:
             #    alphafold.alphafold.data.pipeline.make_msa_features(msas: Sequence[parsers.Msa]) -> FeatureDict:
             # to featurize
-            if heteromer:
-                # Unsure about the order of this next part
-                # Todo make uniref90 runner...
-                raise NotImplementedError('No uniprot90 database hooked up...')
-                with open(self.msa_file, 'r') as f:
-                    uniref90_lines = f.read()
 
-                uniref90_msa = parsers.parse_stockholm(uniref90_lines)
-                all_seq_features = make_msa_features((uniref90_msa,))
-                feats = {f'{k}_all_seq': v for k, v in all_seq_features.items()
-                         if k in valid_feats}
-                entity_features.update(feats)
-
-            if multimer:
+            if multimer:  # symmetric:
                 # The chain_id passed to this function is used by the entity_features to (maybe) tie different chains
                 # to this chain. In alphafold implementation, the chain_id passed should be oriented so that each
                 # additional entity has the chain_id of the chain number within the entire system.
                 # For example, for an A4B4 heteromer with C4 symmetry, the chain_id for entity idx 0 would be A and for
-                # entity idx 1 would be E. This may not be important, but this is how multimer is prepared
+                # entity idx 1 would be E. This may not be important, but this is how symmetric is prepared
                 chain_id = available_chain_ids[self.number_of_symmetry_mates * entity_idx]
                 entity_features = pipeline_multimer.convert_monomer_features(entity_features, chain_id=chain_id)
 
-            entity_length = entity.number_of_residues
-            entity_integer = entity_idx + 1
-            entity_id = pipeline_multimer.int_id_to_str_id(entity_integer)
+                entity_length = entity.number_of_residues
+                entity_integer = entity_idx + 1
+                entity_id = pipeline_multimer.int_id_to_str_id(entity_integer)
+
             # for _ in range(self.number_of_symmetry_mates):
-            for sym_idx in range(1, self.number_of_symmetry_mates):
+            for sym_idx in range(1, number_of_symmetry_mates):
                 # chain_id = next(available_chain_ids_iter)  # The mmCIF formatted chainID with 'AB' type notation
                 this_entity_features = deepcopy(entity_features)
                 # Where chain_id increments for each new chain instance i.e. A_1 is 1, A_2 is 2, ...
                 # Where entity_id increments for each new Entity instance i.e. A_1 is 1, A_2 is 1, ...
                 # Where sym_id increments for each new Entity instance regardless of chain i.e. A_1 is 1, A_2 is 2, ...,
                 # B_1 is 1, B2 is 2
-                this_entity_features.update({'asym_id': next(chain_count) * np.ones(entity_length),
-                                             'sym_id': sym_idx * np.ones(entity_length),
-                                             'entity_id': entity_integer * np.ones(entity_length)})
+                if multimer:  # symmetric:
+                    this_entity_features.update({'asym_id': next(chain_count) * np.ones(entity_length),
+                                                 'sym_id': sym_idx * np.ones(entity_length),
+                                                 'entity_id': entity_integer * np.ones(entity_length)})
+                    chain_name = f'{entity_id}_{sym_idx}'
+                else:
+                    chain_name = next(available_chain_ids_iter)
                 # Make the key '<seq_id>_<sym_id>' where seq_id is the chain name assigned to the Entity where
                 # chain names increment according to reverse spreadsheet style i.e. A,B,...AA,BA,...
                 # and sym_id increments from 1 to number_of_symmetry_mates
-                all_chain_features[f'{entity_id}_{sym_idx}'] = this_entity_features
+                all_chain_features[chain_name] = this_entity_features
                 # all_chain_features[next(available_chain_ids_iter)] = this_entity_features
                 # all_chain_features[next(available_chain_ids_iter)] = this_entity_features
                 # NOT HERE chain_features = convert_monomer_features(copy.deepcopy(entity_features), chain_id=chain_id)
@@ -6155,11 +6253,12 @@ class Pose(SymmetricModel, Metrics):
         # This v performed above during all_chain_features creation
         # all_chain_features = alphafold.alphafold.data.pipeline_multimer.add_assembly_features(all_chain_features)
 
-        np_example = feature_processing.pair_and_merge(all_chain_features=all_chain_features)
-        # Pad MSA to avoid zero-sized extra_msa.
-        np_example = pipeline_multimer.pad_msa(np_example, 512)
+        if multimer:  # symmetric:
+            all_chain_features = feature_processing.pair_and_merge(all_chain_features=all_chain_features)
+            # Pad MSA to avoid zero-sized extra_msa.
+            all_chain_features = pipeline_multimer.pad_msa(all_chain_features, 512)
 
-        return np_example
+        return all_chain_features
 
     def get_proteinmpnn_params(self, ca_only: bool = False, pssm_multi: float = 0., pssm_log_odds_flag: bool = False,
                                pssm_bias_flag: bool = False, bias_profile_by_probabilities: bool = False,
