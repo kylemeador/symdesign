@@ -2401,9 +2401,10 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         # Set up Pose parameters
         measure_interface_during_dock = True
         parameters = pose.get_proteinmpnn_params(ca_only=job.design.ca_only)
-        # Todo
-        #  Must calculate randn individually if using some feature to describe order
-        parameters['randn'] = pose.generate_proteinmpnn_decode_order()  # to_device=device)
+        # Todo reinstate if conditional_log_probs
+        # # Todo
+        # #  Must calculate randn individually if using some feature to describe order
+        # parameters['randn'] = pose.generate_proteinmpnn_decode_order()  # to_device=device)
 
         # Add a parameter for the unbound version of X to X
         X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
@@ -3801,7 +3802,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 unbound_errat.append(oligomeric_errat[:entity.number_of_residues])
 
             torch_numeric_sequence = torch.from_numpy(pose.sequence_numeric)
-            if evolutionary_profile_array:
+            if evolutionary_profile_array is not None:
                 # evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
                 # batch_evolutionary_profile = np.tile(evolutionary_profile_array, (number_of_sequences, 1, 1))
                 # torch_log_evolutionary_profile = torch.from_numpy(np.log(batch_evolutionary_profile))
