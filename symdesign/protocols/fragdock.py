@@ -2409,7 +2409,31 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
         # extra_batch_parameters = ml.proteinmpnn_to_device(device, **ml.batch_proteinmpnn_input(size=batch_length,
         #                                                                                        X=X_unbound))
-        parameters['X_unbound'] = X_unbound
+        # parameters['X_unbound'] = X_unbound
+        mask = parameters['mask']
+        residue_idx = parameters['residue_idx']
+        chain_encoding = parameters['chain_encoding']
+        unbound_batch = ml.proteinmpnn_to_device(
+            device=device,
+            **ml.batch_proteinmpnn_input(size=1, X_unbound=X_unbound, mask=mask,
+                                         residue_idx=residue_idx, chain_encoding=chain_encoding)
+        )
+
+        # X_unbound = torch.from_numpy(unbound_batch['X_unbound']).to(device=device)
+        # mask = torch.from_numpy(unbound_batch['mask']).to(device=device)
+        # residue_idx = torch.from_numpy(unbound_batch['residue_idx']).to(device=device)
+        # chain_encoding = torch.from_numpy(unbound_batch['chain_encoding']).to(device=device)
+
+        X_unbound = unbound_batch['X_unbound']
+        mask = unbound_batch['mask']
+        residue_idx = unbound_batch['residue_idx']
+        chain_encoding = unbound_batch['chain_encoding']
+        with torch.no_grad():
+            unconditional_log_probs_unbound = \
+                mpnn_model.unconditional_probs(X_unbound, mask, residue_idx, chain_encoding).cpu()
+            mpnn_null_idx = resources.ml.MPNN_NULL_IDX
+            asu_conditional_softmax_seq_unbound = \
+                np.exp(unconditional_log_probs_unbound[:, :pose_length, :mpnn_null_idx])
         # Disregard X, chain_M_pos, and bias_by_res parameters return and use the pose specific data from below
         # parameters.pop('X')  # overwritten by X_unbound
         parameters.pop('chain_M_pos')
@@ -2433,14 +2457,15 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                                          residue_idx: torch.Tensor = None,
                                          mask: torch.Tensor = None,
                                          pose_length: int = None,
+                                         # X_unbound: torch.Tensor = None,
                                          # Todo reinstate if conditional_log_probs
                                          # chain_mask: torch.Tensor = None,
                                          # randn: torch.Tensor = None,
                                          # tied_pos: Iterable[Container] = None,
                                          **batch_parameters) -> dict[str, np.ndarray]:
             actual_batch_length = batch_slice.stop - batch_slice.start
-            # Get the null_idx
-            mpnn_null_idx = resources.ml.MPNN_NULL_IDX
+            # # Get the null_idx
+            # mpnn_null_idx = resources.ml.MPNN_NULL_IDX
             # Get the batch_length
             if pose_length is None:
                 batch_length, pose_length, *_ = S.shape
@@ -2640,8 +2665,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
             # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
             # asu_conditional_softmax_null_seq = \
             #     np.exp(conditional_log_probs_null_seq[:, :pose_length, :mpnn_null_idx])
-            asu_conditional_softmax_null_seq = \
+            asu_conditional_softmax_seq = \
                 np.exp(unconditional_log_probs[:, :pose_length, :mpnn_null_idx])
+            _per_residue_proteinmpnn_dock_cross_entropy = \
+                metrics.cross_entropy(asu_conditional_softmax_seq,
+                                      asu_conditional_softmax_seq_unbound[:actual_batch_length],
+                                      per_entry=True)
             # asu_conditional_softmax
             # tensor([[[0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
             #          [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
@@ -2666,7 +2695,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 # np.log causes -inf at 0, thus we need to correct these to a very large number
                 batch_fragment_profile = torch.from_numpy(np.nan_to_num(fragment_profile_array, copy=False, nan=np.nan))
                 _per_residue_fragment_cross_entropy = \
-                    metrics.cross_entropy(asu_conditional_softmax_null_seq,
+                    metrics.cross_entropy(asu_conditional_softmax_seq,
                                           batch_fragment_profile,
                                           per_entry=True)
                 #                         mask=_residue_indices_of_interest,
@@ -2683,7 +2712,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
 
             if pose.evolutionary_profile:
                 _per_residue_evolution_cross_entropy = \
-                    metrics.cross_entropy(asu_conditional_softmax_null_seq,
+                    metrics.cross_entropy(asu_conditional_softmax_seq,
                                           batch_evolutionary_profile[:actual_batch_length],
                                           per_entry=True)
                 #                         mask=_residue_indices_of_interest,
@@ -2698,7 +2727,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 #  need to make scipy.softmax(design_profiles) so scaling matches
                 batch_design_profile = torch.from_numpy(np.array(design_profiles))
                 _per_residue_design_cross_entropy = \
-                    metrics.cross_entropy(asu_conditional_softmax_null_seq,
+                    metrics.cross_entropy(asu_conditional_softmax_seq,
                                           batch_design_profile,
                                           per_entry=True)
                 #                         mask=_residue_indices_of_interest,
@@ -2722,7 +2751,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 # Todo use the real sequence?
                 # Include new axis for the sequence iteration to work on an array... v
                 collapse_by_pose = \
-                    metrics.collapse_per_residue(asu_conditional_softmax_null_seq[:, np.newaxis],
+                    metrics.collapse_per_residue(asu_conditional_softmax_seq[:, np.newaxis],
                                                  contact_order_per_res_z, reference_collapse,
                                                  alphabet_type=protein_letters_alph1,
                                                  hydrophobicity='expanded')
@@ -2848,6 +2877,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 **collapse_fit_parameters,
                 # The below structures have a shape (batch_length, pose_length)
                 'design_indices': _residue_indices_of_interest,
+                'dock_cross_entropy': _per_residue_proteinmpnn_dock_cross_entropy,
                 'design_cross_entropy': _per_residue_design_cross_entropy,
                 'evolution_cross_entropy': _per_residue_evolution_cross_entropy,
                 'fragment_cross_entropy': _per_residue_fragment_cross_entropy,
@@ -3429,13 +3459,16 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         # Set up ProteinMPNN output data structures
         # To use torch.nn.NLLL() must use dtype Long -> np.int64, not Int -> np.int32
         # generated_sequences = np.empty((size, pose_length), dtype=np.int64)
-        per_residue_evolution_cross_entropy = np.empty((size, pose_length), dtype=np.float32)
-        per_residue_fragment_cross_entropy = np.empty_like(per_residue_evolution_cross_entropy)
-        per_residue_design_cross_entropy = np.empty_like(per_residue_evolution_cross_entropy)
-        dock_returns = {'design_cross_entropy': per_residue_design_cross_entropy,
-                        'evolution_cross_entropy': per_residue_evolution_cross_entropy,
-                        'fragment_cross_entropy': per_residue_fragment_cross_entropy,
-                        }
+        per_residue_proteinmpnn_dock_cross_entropy = np.empty((size, pose_length), dtype=np.float32)
+        per_residue_evolution_cross_entropy = np.empty_like(per_residue_proteinmpnn_dock_cross_entropy)
+        per_residue_fragment_cross_entropy = np.empty_like(per_residue_proteinmpnn_dock_cross_entropy)
+        per_residue_design_cross_entropy = np.empty_like(per_residue_proteinmpnn_dock_cross_entropy)
+        dock_returns = {
+            'dock_cross_entropy': per_residue_proteinmpnn_dock_cross_entropy,
+            'design_cross_entropy': per_residue_design_cross_entropy,
+            'evolution_cross_entropy': per_residue_evolution_cross_entropy,
+            'fragment_cross_entropy': per_residue_fragment_cross_entropy,
+        }
         # else:
         #     dock_returns = {}
 
@@ -3511,6 +3544,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         # Unpack batch arrays
         per_residue_design_indices = sequences_and_scores['design_indices']
         # if job.dock.proteinmpnn_score:
+        per_residue_dock_cross_entropy = sequences_and_scores['dock_cross_entropy']
         per_residue_design_cross_entropy = sequences_and_scores['design_cross_entropy']
         per_residue_evolution_cross_entropy = sequences_and_scores['evolution_cross_entropy']
         per_residue_fragment_cross_entropy = sequences_and_scores['fragment_cross_entropy']
@@ -3893,6 +3927,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                     design_dock_params = {
                         # This is required to save the interface_residues
                         'interface_residue': per_residue_design_indices[idx],
+                        'proteinmpnn_dock_cross_entropy_loss': per_residue_dock_cross_entropy[idx],
                         'proteinmpnn_v_design_probability_cross_entropy_loss': per_residue_design_cross_entropy[idx],
                         'proteinmpnn_v_evolution_probability_cross_entropy_loss': per_residue_evolution_cross_entropy[idx],
                         'proteinmpnn_v_fragment_probability_cross_entropy_loss': per_residue_fragment_cross_entropy[idx],
@@ -4104,6 +4139,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                     'dock_hydrophobic_collapse',  # dock by default not included
                     'dock_collapse_deviation_magnitude',
                     # proteinmpnn_score required
+                    'proteinmpnn_dock_cross_entropy_loss'
                     'proteinmpnn_v_design_probability_cross_entropy_loss',
                     'proteinmpnn_v_evolution_probability_cross_entropy_loss'
                 ]
@@ -4112,6 +4148,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                     'dock_hydrophobicity',
                     'dock_collapse_variance',
                     # proteinmpnn_score required
+                    'proteinmpnn_dock_cross_entropy_per_residue'
                     'proteinmpnn_v_design_probability_cross_entropy_per_residue',
                     'proteinmpnn_v_evolution_probability_cross_entropy_per_residue'
                 ]

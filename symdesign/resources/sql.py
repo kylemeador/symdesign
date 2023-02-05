@@ -161,6 +161,8 @@ class PoseMetrics(Base):
     # design_ids = relationship('DesignMetrics', back_populates='pose')
     number_of_designs = Column(Integer)  # , nullable=False)
     # Dock features
+    proteinmpnn_dock_cross_entropy_loss = Column(Float)  # , nullable=False)
+    proteinmpnn_dock_cross_entropy_per_residue = Column(Float)  # , nullable=False)
     proteinmpnn_v_design_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
     proteinmpnn_v_design_probability_cross_entropy_per_residue = Column(Float)  # , nullable=False)
     proteinmpnn_v_evolution_probability_cross_entropy_loss = Column(Float)  # , nullable=False)
