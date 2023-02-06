@@ -4,11 +4,11 @@ import csv
 import logging
 import os
 import subprocess
-from collections import namedtuple, defaultdict
+from collections import defaultdict
 from itertools import count
 from math import log2
 from pathlib import Path
-from typing import Sequence, AnyStr, Iterable, Type, Literal, Any, get_args
+from typing import Sequence, AnyStr, Iterable, Literal, Any, TypedDict, get_args
 
 import numpy as np
 from Bio import AlignIO, SeqIO
@@ -100,8 +100,8 @@ profile_types = Literal['evolutionary', 'fragment', '']
 lod_dictionary: dict[protein_letters_literal, int]
 profile_values: float | str | lod_dictionary
 profile_keys = Literal[protein_letters_literal, 'lod', 'type', 'info', 'weight']
-profile_entry: Type[dict[profile_keys, profile_values]]
-profile_dictionary: Type[dict[int, dict[profile_keys, profile_values]]]
+profile_entry: dict[profile_keys, profile_values]  # Type[dict[profile_keys, profile_values]]
+profile_dictionary: dict[int, dict[profile_keys, profile_values]]  # Type[dict[int, dict[profile_keys, profile_values]]]
 """{1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
         'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
 """
@@ -725,9 +725,16 @@ def find_orf_offset(sequence: Sequence, mutations: mutation_dictionary) -> int:
 
 protein_letters_alph3_gapped_literal = \
     Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', '-']
-mutation_entry = Type[dict[Literal['to', 'from'], protein_letters_alph3_gapped_literal]]
+
+# class MutationEntry(TypedDict):
+#     to: protein_letters_alph3_gapped_literal
+#     from: protein_letters_alph3_gapped_literal
+MutationEntry = TypedDict('MutationEntry', {'to': protein_letters_alph3_gapped_literal,
+                                            'from': protein_letters_alph3_gapped_literal})
+# mutation_entry = dict[Literal['to', 'from'], protein_letters_alph3_gapped_literal]
+# mutation_entry = Type[dict[Literal['to', 'from'], protein_letters_alph3_gapped_literal]]
 """Mapping of a reference sequence amino acid type, 'to', and the resulting sequence amino acid type, 'from'"""
-mutation_dictionary = dict[int, mutation_entry]
+mutation_dictionary = dict[int, MutationEntry]
 """The mapping of a residue number to a mutation entry containing the reference, 'to', and sequence, 'from', amino acid 
 type
 """
