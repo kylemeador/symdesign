@@ -312,6 +312,10 @@ hhsuite_git = 'https://github.com/soedinglab/hh-suite'
 alphafold_db_dir = os.path.join(dependency_dir, alphafold)
 alphafold_params_dir = os.path.join(alphafold_db_dir, 'params')
 alphafold_params_name = config.get('af_params')
+alphafold_source_dir = os.path.join(third_party_dir, alphafold)
+alphafold_common_dir = os.path.join(alphafold_source_dir, alphafold, 'common')
+alphafold_openmm_patch = os.path.join(alphafold_source_dir, 'docker', 'openmm.patch')
+openmm_path = shutil.which('openmm')
 # Rosetta
 rosetta_extras = config.get('rosetta_make')
 rosetta_main = os.environ.get(config.get('rosetta_env'))
