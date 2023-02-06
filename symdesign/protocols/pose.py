@@ -10,7 +10,7 @@ from glob import glob
 from itertools import combinations, repeat, count
 from pathlib import Path
 from subprocess import Popen, list2cmdline
-from typing import Any, Iterable, AnyStr, Sequence
+from typing import Any, Iterable, AnyStr, Literal, Sequence
 
 from cycler import cycler
 from matplotlib import pyplot as plt
@@ -40,7 +40,8 @@ from symdesign.third_party.alphafold.alphafold.data.pipeline import make_sequenc
 from symdesign.third_party.alphafold.alphafold.model import config as afconfig, model as afmodel
 from symdesign.third_party.alphafold.alphafold.model.data import get_model_haiku_params
 from symdesign.third_party.alphafold.alphafold.relax import relax
-from symdesign.third_party.alphafold.run_alphafold import _jnp_to_np
+# from symdesign.third_party.alphafold.run_alphafold import _jnp_to_np
+from symdesign.third_party.alphafold import run_alphafold
 from symdesign.utils import large_color_array, start_log, pickle_object, write_shell_script, \
     all_vs_all, condensed_to_square, rosetta, InputError, path as putils, starttime
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
@@ -1724,18 +1725,29 @@ class PoseProtocol(PoseData):
                 raise NotImplementedError(f"For {self.predict_structure.__name__}, the method {self.job.predict.method}"
                                           " isn't implemented yet")
 
-    af_model_presets = ['monomer', 'monomer_casp14', 'monomer_ptm', 'multimer']
+    af_model_literal = Literal['monomer', 'monomer_casp14', 'monomer_ptm', 'multimer']
 
-    def alphafold_predict_structure(self, sequences: Sequence[str],
-                                    # data_pipeline: pipeline.DataPipeline | pipeline_multimer.DataPipeline,
-                                    # model_runners: dict[str, afmodel.RunModel],
-                                    amber_relaxer: relax.AmberRelaxation,
-                                    random_seed: int, models_to_relax: str = 'best', model_name: str = 'monomer',
-                                    **kwargs):
-        """"""
+    def alphafold_predict_structure(self, sequences: dict[str, str], random_seed: int, models_to_relax: str = 'best',
+                                    model_name: af_model_literal = 'monomer', **kwargs):
+        """
+        According to Deepmind Alphafold.ipynb (2/3/23), the usage of multimer with > 3000 residues isn't validated.
+        while a memory requirement of 4000 is the theoretical limit. I think it depends on the available memory
+        Args:
+            sequences:
+            random_seed:
+            models_to_relax:
+            model_name:
+            **kwargs:
+
+        Returns:
+
+        """
         self.load_pose()
         # Hardcode parameters
-        num_ensemble = 1  # 8 was used in Alphfold Casp14
+        if model_name == 'monomer_casp14':
+            num_ensemble = 8
+        else:
+            num_ensemble = 1
 
         heteromer = self.number_of_entities > 1
         multimer = heteromer or self.pose.number_of_chains > 1
@@ -1746,6 +1758,15 @@ class PoseProtocol(PoseData):
             self.log.info(f'The model was automatically set to {model_name} due to detected multimeric pose')
         # else:
         #     multimer = False
+        if self.predict.num_predictions_per_model is None:
+            if run_multimer_system:  # 'multimer
+                # Default is 5, with 5 models for 25 outputs. Could do 1 to increase speed...
+                num_predictions_per_model = 5
+            else:
+                num_predictions_per_model = 1
+        else:
+            num_predictions_per_model = self.predict.num_predictions_per_model
+
         if models_to_relax is not None:
             if models_to_relax not in ['all', 'best']:
                 raise ValueError(f"Can't use the models_to_relax value {models_to_relax}. Must be either "
@@ -1762,11 +1783,8 @@ class PoseProtocol(PoseData):
                 model_config.data.eval.num_ensemble = num_ensemble
             model_params = get_model_haiku_params(model_name=model_name, data_dir=putils.alphafold_db_dir)  # FLAGS.data_dir)
             model_runner = afmodel.RunModel(model_config, model_params)
-            # Todo -> JobResources
-            raise NotImplementedError('Make the job.num_predictions_per_model flag')
-            for i in range(self.job.num_predictions_per_model):
-                # multimer default is 5, with 5 models for 25 outputs. Could do --num_multimer_predictions_per_model=1
-                # to increase speed
+
+            for i in range(num_predictions_per_model):
                 model_runners[f'{model_name}_pred_{i}'] = model_runner
 
         self.log.info(f'Have {len(model_runners)} models: {list(model_runners.keys())}')
@@ -1920,7 +1938,7 @@ class PoseProtocol(PoseData):
                     }
                     # timings[f'relax_{design_model_name}'] = time.time() - t_0
 
-                    relaxed_pdbs[design_model_name] = relaxed_pdb_str
+                        relaxed_pdbs[design_model_name] = relaxed_pdb_str
 
                 # structures_and_scores = {
                 structures_and_scores[design_id] = {
@@ -1967,7 +1985,7 @@ class PoseProtocol(PoseData):
         #     no_msa = False
         no_msa = True
         # Prepare the features to feed to the model
-        if run_entities_and_interfaces and self.number_of_entities > 1:
+        if self.job.predict.run_entities_and_interfaces and self.number_of_entities > 1:
             # Get the features for each oligomeric Entity
             for entity in self.pose.entities:
                 # Fold with symmetry True. If it isn't symmetric, symmetry won't be used

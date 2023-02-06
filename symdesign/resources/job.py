@@ -540,6 +540,12 @@ class JobResources:
 
         # Prediction flags
         self.predict = Predict.from_flags(**kwargs)
+        # self.num_predictions_per_model = kwargs.get('num_predictions_per_model')
+        # if self.predict.num_predictions_per_model is None:
+        #     if 'monomer' in self.predict.mode:
+        #         self.num_predictions_per_model = 1
+        #     else:  # 'multimer
+        #         self.num_predictions_per_model = 5
 
         # Clustering flags
         # Todo this is pretty sloppy. I should modify this DataClass mechanism...
@@ -659,6 +665,7 @@ class JobResources:
             flags.check_clashes,
             flags.generate_fragments,
             flags.nanohedra,
+            flags.predict_structure,
             flags.interface_metrics,
             flags.optimize_designs,
             flags.refine,

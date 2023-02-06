@@ -22,10 +22,10 @@ from symdesign.utils.path import submodule_guide, submodule_help, force, sym_ent
     interface_metrics, nano_entity_flag1, nano_entity_flag2, data, multi_processing, residue_selector, options, \
     cluster_poses, orient, default_clustered_pose_file, interface_design, evolution_constraint, hbnet, term_constraint,\
     number_of_designs, refine, structure_background, scout, design_profile, evolutionary_profile, \
-    fragment_profile, all_scores, default_analysis_file, select_sequences, program_name, nanohedra, predict_structure, \
+    fragment_profile, select_sequences, program_name, nanohedra, predict_structure, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, proteinmpnn, \
-    output_trajectory, development, profile, consensus, ca_only, sequences, structures, temperatures, optimize_species,\
+    output_trajectory, development, consensus, ca_only, sequences, structures, temperatures, optimize_species,\
     distribute_work, output_directory, output_surrounding_uc, skip_logging, output_file, avoid_tagging_helices, \
     multicistronic, multicistronic_intergenic_sequence, generate_fragments, input_, output, output_assembly, \
     preferred_tag, expand_asu, check_clashes, rename_chains, optimize_designs, perturb_dof, tag_entities, design, \
@@ -42,6 +42,8 @@ modules = 'modules'
 score = 'score'
 module = 'module'
 method = 'method'
+num_predictions_per_model = 'num_predictions_per_model'
+run_entities_and_interfaces = 'run_entities_and_interfaces'
 neighbors = 'neighbors'
 # dock_only = 'dock_only'
 rotation_step1 = 'rotation_step1'
@@ -88,7 +90,7 @@ dock_namespace = {
     rotation_step1, rotation_step2, score, quick
 }
 predict_namespace = {
-    method
+    method, num_predictions_per_model, run_entities_and_interfaces
 }
 cluster_namespace = {
     as_objects, 'map', 'mode', number
@@ -132,6 +134,8 @@ as_objects = format_for_cmdline(as_objects)
 query_codes1 = format_for_cmdline(query_codes1)
 query_codes2 = format_for_cmdline(query_codes2)
 predict_structure = format_for_cmdline(predict_structure)
+num_predictions_per_model = format_for_cmdline(num_predictions_per_model)
+run_entities_and_interfaces = format_for_cmdline(run_entities_and_interfaces)
 cluster_poses = format_for_cmdline(cluster_poses)
 generate_fragments = format_for_cmdline(generate_fragments)
 fragment_database = format_for_cmdline(fragment_database)
@@ -738,9 +742,16 @@ predict_structure_help = 'Predict the 3D structure from specified sequence(s)'
 parser_predict_structure = \
     {predict_structure: dict(description=predict_structure_help, help=predict_structure_help)}
 predict_structure_arguments = {
-    ('-m', f'--{method}'f'--predict-{method}'):
-        dict(choices={'thread'}, default='thread',
+    ('-m', f'--{method}', f'--predict-{method}'):
+        dict(choices={'alphafold', 'thread'}, default='alphafold',  # 'thread',
              help=f'The method utilized to {predict_structure}\nChoices=%(choices)s\nDefault=%(default)s'),
+    (f'--{num_predictions_per_model}',):  # '-n',
+        dict(type=int,  # default=5,
+             help=f'How many iterations of prediction should be used\nfor each individual Alphafold model.\n'
+                  'Default=5(multimer mode),1(monomer mode)'),
+    ('-E', f'--{run_entities_and_interfaces}'):
+        dict(action='store_true', help='Whether the Pose should be predicted in separate runs\n'
+                                       'One run per entity and one run for the entire Pose'),
 }
 # ---------------------------------------------------
 orient_help = 'Orient a symmetric assembly in a canonical orientation at the origin'
