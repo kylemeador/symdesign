@@ -78,6 +78,7 @@ profile_memory = 'profile_memory'
 preprocessed = 'preprocessed'
 quick = 'quick'
 pose_format = 'pose_format'
+use_gpu_relax = 'use_gpu_relax'
 # Set up JobResources namespaces for different categories of flags
 design_namespace = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, 'design_method', method, evolution_constraint,
@@ -206,6 +207,7 @@ project_name = format_for_cmdline(project_name)
 profile_memory = format_for_cmdline(profile_memory)
 process_rosetta_metrics = format_for_cmdline(process_rosetta_metrics)
 pose_format = format_for_cmdline(pose_format)
+use_gpu_relax = format_for_cmdline(use_gpu_relax)
 
 select_modules = (
     select_poses,
@@ -752,6 +754,8 @@ predict_structure_arguments = {
     ('-E', f'--{run_entities_and_interfaces}'):
         dict(action='store_true', help='Whether the Pose should be predicted in separate runs\n'
                                        'One run per entity and one run for the entire Pose'),
+    (f'--{use_gpu_relax}',):
+        dict(action='store_true', help='Whether predictions should be relaxed using a GPU (if one is available)'),
 }
 # ---------------------------------------------------
 orient_help = 'Orient a symmetric assembly in a canonical orientation at the origin'

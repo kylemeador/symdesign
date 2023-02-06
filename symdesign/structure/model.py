@@ -1828,7 +1828,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             msa_features = {
                 'deletion_matrix_int': np.zeros(number_of_residues, dtype=np.int32),
                 # When not single sequence, GET THIS FROM THE MATRIX PROBABLY USING CODE IN COLLAPSE PROFILE cumcount...
-                'msa': sequences_to_numeric([sequence], translation_table=HHBLITS_AA_TO_ID).astype(dtype=np.int32),
+                # 'msa': sequences_to_numeric([sequence], translation_table=HHBLITS_AA_TO_ID).astype(dtype=np.int32),
+                'msa': sequences_to_numeric([sequence],
+                                            translation_table=numerical_translation_alph1_unknown_gapped_bytes)
+                .astype(dtype=np.int32),
                 'num_alignments': np.full(number_of_residues, num_alignments, dtype=np.int32),
                 # Fill by the number of residues how many sequences are in the MSA
                 'msa_species_identifiers': np.array([id_.encode('utf-8') for id_ in species_ids], dtype=np.object_)
@@ -1865,7 +1868,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             raise NotImplementedError(f"Can't specifiy usage with templates yet...")
             template_features = template_result.features
         else:
-            empty_placeholder_template_features(num_templates=0, num_res=number_of_residues)
+            template_features = empty_placeholder_template_features(num_templates=0, num_res=number_of_residues)
 
         entity_features = {
             **msa_features,

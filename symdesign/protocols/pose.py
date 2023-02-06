@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import logging
 import os
+import random
 import re
 import shutil
+import sys
 import time
 import warnings
 from glob import glob
@@ -1750,8 +1752,8 @@ class PoseProtocol(PoseData):
 
     af_model_literal = Literal['monomer', 'monomer_casp14', 'monomer_ptm', 'multimer']
 
-    def alphafold_predict_structure(self, sequences: dict[str, str], random_seed: int, models_to_relax: str = 'best',
-                                    model_name: af_model_literal = 'monomer', **kwargs):
+    def alphafold_predict_structure(self, sequences: dict[str, str], random_seed: int = None,
+                                    models_to_relax: str = 'best', model_name: af_model_literal = 'monomer', **kwargs):
         """
         According to Deepmind Alphafold.ipynb (2/3/23), the usage of multimer with > 3000 residues isn't validated.
         while a memory requirement of 4000 is the theoretical limit. I think it depends on the available memory
@@ -1767,8 +1769,10 @@ class PoseProtocol(PoseData):
         """
         self.load_pose()
         number_of_residues = self.pose.number_of_residues
+        self.log.critical(f'Starting prediction with {len(sequences)} sequences')
         for design_id, sequence in sequences.items():
             # Todo if differentially sized sequence inputs
+            self.log.critical(f'Found sequence {sequence}')
             # max_sequence_length = max([len(sequence) for sequence in sequences.values()])
             if len(sequence) != number_of_residues:
                 raise DesignError(f'The length of the sequence {len(sequence)} != {number_of_residues}, '
@@ -1789,7 +1793,8 @@ class PoseProtocol(PoseData):
             self.log.info(f'The model was automatically set to {model_name} due to detected multimeric pose')
         # else:
         #     multimer = False
-        if self.predict.num_predictions_per_model is None:
+
+        if self.job.predict.num_predictions_per_model is None:
             if run_multimer_system:  # 'multimer
                 # Default is 5, with 5 models for 25 outputs. Could do 1 to increase speed...
                 num_predictions_per_model = 5
@@ -1818,8 +1823,10 @@ class PoseProtocol(PoseData):
             for i in range(num_predictions_per_model):
                 model_runners[f'{model_name}_pred_{i}'] = model_runner
 
-        self.log.info(f'Have {len(model_runners)} models: {list(model_runners.keys())}')
         num_models = len(model_runners)
+        self.log.info(f'Have {num_models} models: {list(model_runners.keys())}')
+        if random_seed is None:  # Make one
+            random_seed = random.randrange(sys.maxsize // num_models)
 
         # Set up relax process
         amber_relaxer = relax.AmberRelaxation(
@@ -1828,7 +1835,7 @@ class PoseProtocol(PoseData):
             stiffness=run_alphafold.RELAX_STIFFNESS,
             exclude_residues=run_alphafold.RELAX_EXCLUDE_RESIDUES,
             max_outer_iterations=run_alphafold.RELAX_MAX_OUTER_ITERATIONS,
-            use_gpu=self.job.use_gpu_relax)  # --enable_gpu_relax=true Less stable results, but much quicker
+            use_gpu=self.job.predict.use_gpu_relax)  # --enable_gpu_relax=true Less stable results, but much quicker
 
         # # Turn my input into a feature dict generation. Rely on alphafold.run_alphafold.predict_structure()
         # # Is this a good idea?
