@@ -289,7 +289,7 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         The matching PoseJob instances
     """
     job = job_resources_factory.get()
-    default_weight_metric = config.default_weight_parameter[job.design.method]
+    default_weight_metric = config.default_weight_parameter[job.design.design_method]
 
     if job.specification_file:  # Figure out poses from a specification file, filters, and weights
         loc_result = [(pose_job, design) for pose_job in pose_jobs
@@ -525,7 +525,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         The matching PoseJob instances mapped to design name
     """
     job = job_resources_factory.get()
-    default_weight_metric = config.default_weight_parameter[job.design.method]
+    default_weight_metric = config.default_weight_parameter[job.design.design_method]
     if job.specification_file:  # Figure out designs from a specification file, filters, and weights
         loc_result = [(pose_job, design) for pose_job in pose_jobs
                       for design in pose_job.specific_designs]
@@ -1135,7 +1135,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         The selected PoseJob instances
     """
     job = job_resources_factory.get()
-    default_weight_metric = config.default_weight_parameter[job.design.method]
+    default_weight_metric = config.default_weight_parameter[job.design.design_method]
     session = job.current_session
     # Figure out poses from a specification file, filters, and weights
     # if job.specification_file:
@@ -1262,7 +1262,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     """
     # global exceptions  # nonlocal exceptions
     job = job_resources_factory.get()
-    default_weight_metric = config.default_weight_parameter[job.design.method]
+    default_weight_metric = config.default_weight_parameter[job.design.design_method]
     session = job.current_session
 
     # Figure out poses from a specification file, filters, and weights

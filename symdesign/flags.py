@@ -80,8 +80,8 @@ quick = 'quick'
 pose_format = 'pose_format'
 # Set up JobResources namespaces for different categories of flags
 design_namespace = {
-    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
-    number_of_designs, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
+    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, 'design_method', method, evolution_constraint,
+    hbnet, number_of_designs, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
     sequences, structures, neighbors
 }
 dock_namespace = {
@@ -90,7 +90,7 @@ dock_namespace = {
     rotation_step1, rotation_step2, score, quick
 }
 predict_namespace = {
-    method, num_predictions_per_model, run_entities_and_interfaces
+    'predict_method', method, num_predictions_per_model, run_entities_and_interfaces, use_gpu_relax
 }
 cluster_namespace = {
     as_objects, 'map', 'mode', number
@@ -742,7 +742,7 @@ predict_structure_help = 'Predict the 3D structure from specified sequence(s)'
 parser_predict_structure = \
     {predict_structure: dict(description=predict_structure_help, help=predict_structure_help)}
 predict_structure_arguments = {
-    ('-m', f'--{method}', f'--predict-{method}'):
+    ('-m', f'--predict-{method}'):  # f'--{method}',
         dict(choices={'alphafold', 'thread'}, default='alphafold',  # 'thread',
              help=f'The method utilized to {predict_structure}\nChoices=%(choices)s\nDefault=%(default)s'),
     (f'--{num_predictions_per_model}',):  # '-n',
@@ -889,7 +889,7 @@ structures_kwargs = dict(action='store_true',
 neighbors_args = (f'--{neighbors}',)
 neighbors_kwargs = \
     dict(action='store_true', help='Whether the neighboring residues should be considered during sequence design')
-design_method_args = ('-m', f'--{method}', f'--design-{method}')
+design_method_args = ('-m', f'--design-{method}')  # f'--{method}',
 design_method_kwargs = dict(type=str.lower, default=proteinmpnn, choices=design_programs, metavar='',
                             help='Which design method should be used?\nChoices=%(choices)s\nDefault=%(default)s')
 hbnet_args = ('-hb', f'--{hbnet}')
@@ -1585,4 +1585,4 @@ for group in parser._action_groups:
         elif arg.dest in cluster_namespace:
             cluster_defaults[arg.dest] = arg.default
 
-predict_defaults[method] = design_defaults[method]  # Also in design...
+# predict_defaults[method] = design_defaults[method]  # Also in design...
