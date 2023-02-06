@@ -603,6 +603,9 @@ class DesignData(Base):
     structure_path = Column(String)
     sequence = association_proxy('metrics', 'sequence')
 
+    def __str__(self):
+        return self.name
+
 
 class DesignMetrics(Base):
     __tablename__ = 'design_metrics'

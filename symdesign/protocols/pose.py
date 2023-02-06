@@ -1770,7 +1770,7 @@ class PoseProtocol(PoseData):
         self.load_pose()
         number_of_residues = self.pose.number_of_residues
         self.log.critical(f'Starting prediction with {len(sequences)} sequences')
-        for design_id, sequence in sequences.items():
+        for design, sequence in sequences.items():
             # Todo if differentially sized sequence inputs
             self.log.critical(f'Found sequence {sequence}')
             # max_sequence_length = max([len(sequence) for sequence in sequences.values()])
@@ -1846,7 +1846,7 @@ class PoseProtocol(PoseData):
         def predict(sequences: dict[str, str], features: FeatureDict):
             # Iterate over provided sequences
             structures_and_scores = {}
-            for design_id, sequence in enumerate(sequences):
+            for design, sequence in enumerate(sequences):
                 # Set up scores for each model
                 sequence_length = len(sequence)
                 max_sequence_length = sequence_length
@@ -1862,15 +1862,15 @@ class PoseProtocol(PoseData):
                 relax_metrics = {}
                 # Run the models.
                 for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-                    self.log.info(f'Running model {model_name} on {design_id}')
-                    design_model_name = f'{design_id}-{model_name}'
+                    self.log.info(f'Running model {model_name} on {design}')
+                    design_model_name = f'{design}-{model_name}'
                     # t_0 = time.time()
                     # Set the sequence up in the FeatureDict
                     # Todo the way that I am adding this here instead of during construction, seems that I should
                     #  symmetrize the sequence before passing to predict(). This would occur by entity, where the first
                     #  entity is combined, then the second entity is combined, etc. Any entity agnostic features such
                     #  as all_atom_mask would be able to be made here
-                    this_seq_features = make_sequence_features(sequence=sequence, description=str(design_id),
+                    this_seq_features = make_sequence_features(sequence=sequence, description=str(design),
                                                                num_res=sequence_length)
                     # This v happens ^
                     # residue_constants.sequence_to_onehot(
@@ -1991,7 +1991,7 @@ class PoseProtocol(PoseData):
                         relaxed_pdbs[design_model_name] = relaxed_pdb_str
 
                 # structures_and_scores = {
-                structures_and_scores[design_id] = {
+                structures_and_scores[design] = {
                     **scores,
                     'structures': relaxed_pdbs,
                     'structures_unrelaxed': unrelaxed_pdbs
@@ -2001,7 +2001,7 @@ class PoseProtocol(PoseData):
 
         def output_alphafold_structures(structures_and_scores: dict[str, dict[str, dict[str, str]]],
                                         entity_info: dict = None):
-            for design_id, design_scores in structures_and_scores.items():
+            for design, design_scores in structures_and_scores.items():
                 # Output unrelaxed
                 structures = design_scores['structures_unrelaxed']
                 idx = count(1)
