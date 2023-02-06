@@ -1,0 +1,59 @@
+name: symdesign_af #_dev3 # _dev2 Works until jaxlib import
+channels:
+  - conda-forge
+  - defaults
+  - pytorch
+  - nvidia
+  - bioconda
+dependencies:
+  - numpy # ==1.21.6 # AF
+  - pandas # ==1.3.4 # AF
+  - scikit-learn
+  - scipy # ==1.7.0 # AF
+  - sqlalchemy=1.4 # Remove to 2.0 once finished with warnings
+  - alembic
+  - psutil
+  - python=3.9
+  - pytorch
+  - torchvision
+  - torchaudio
+  - cudatoolkit=11.3
+  - hhsuite
+  - requests
+  - biopython # ==1.79 # AF
+  - matplotlib
+  - tqdm
+  - proglog
+  - flametree
+# Alphafold
+  - cudnn # ==8.0.4
+  - jax # Trying thes two to solve jaxlib version 0.4.2 is newer than and incompatible with jax version 0.3.25.
+  - cuda-nvcc # Please update your jax and/or jaxlib packages.
+  - hmmer
+  - kalign2
+  - openmm=7.5.1 # version causes conflicts, alphafold needs to update to 8.0.0 to be compatible without versions
+  - pdbfixer
+  - pip
+  - pip:
+    - absl-py==1.0.0
+#    - biopython==1.79 Coming from conda
+    - chex==0.0.7
+    - dm-haiku==0.0.9
+    - dm-tree==0.1.6
+#    - docker==5.0.0 ONLY USED WITH DOCKER IMAGE
+    - immutabledict==2.0.0
+#    - jax==0.3.25 # removing in favor of conda...
+    - ml-collections==0.1.0
+#    - numpy==1.21.6 Coming from conda
+#    - pandas==1.3.4 Coming from conda
+#    - scipy==1.7.0 Coming from conda
+#    - tensorflow # kaiku =2.5.1 # Trying to get from conda
+    - tensorflow-cpu==2.11.0
+# Personally useful though not required
+#  - ipykernel
+#  - seaborn
+#  - numba
+#  - jupyterlab
+variables:
+  TF_FORCE_UNIFIED_MEMORY: 1
+  XLA_PYTHON_CLIENT_MEM_FRACTION: 4.0
