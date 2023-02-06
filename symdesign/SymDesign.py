@@ -807,14 +807,15 @@ def main():
     elif job.module == flags.generate_fragments:  # Ensure we write fragments out
         job.write_fragments = True
     else:
-        if job.module not in [flags.interface_design, flags.design, flags.refine, flags.optimize_designs,
-                              flags.interface_metrics, flags.analysis, flags.process_rosetta_metrics,
-                              flags.generate_fragments, flags.orient, flags.expand_asu,
-                              flags.rename_chains, flags.check_clashes]:
-            # , 'custom_script', 'find_asu', 'status', 'visualize'
-            # We have no module passed. Print the guide and exit
-            guide.print_guide()
-            exit()
+        pass
+        # if job.module not in [flags.interface_design, flags.design, flags.refine, flags.optimize_designs,
+        #                       flags.interface_metrics, flags.analysis, flags.process_rosetta_metrics,
+        #                       flags.generate_fragments, flags.orient, flags.expand_asu,
+        #                       flags.rename_chains, flags.check_clashes]:
+        #     # , 'custom_script', 'find_asu', 'status', 'visualize'
+        #     # We have no module passed. Print the guide and exit
+        #     guide.print_guide()
+        #     exit()
         # else:
         #     # Set up design directories
         #     pass
@@ -1366,28 +1367,6 @@ def main():
     #  Perform the specified protocol
     # -----------------------------------------------------------------------------------------------------------------
         if args.module == flags.protocol:  # Use args.module as job.module is set as first in protocol
-            run_on_pose_job = (
-                flags.orient,
-                flags.expand_asu,
-                flags.rename_chains,
-                flags.check_clashes,
-                flags.generate_fragments,
-                flags.interface_metrics,
-                flags.optimize_designs,
-                flags.refine,
-                flags.interface_design,
-                flags.design,
-                flags.analysis,
-                flags.process_rosetta_metrics,
-                flags.nanohedra
-            )
-            returns_pose_jobs = (
-                flags.nanohedra,
-                flags.select_poses,
-                flags.select_designs,
-                flags.select_sequences
-            )
-
             # Universal protocol runner
             for idx, protocol_name in enumerate(job.modules, 1):
                 logger.info(f'Starting protocol {idx}: {protocol_name}')
@@ -1397,7 +1376,7 @@ def main():
                 # Fetch the specified protocol with python acceptable naming
                 protocol = getattr(protocols, protocol_name.replace('-', '_'))
                 # Figure out how the job should be set up
-                if protocol_name in run_on_pose_job:  # Single poses
+                if protocol_name in protocols.config.run_on_pose_job:  # Single poses
                     if job.multi_processing:
                         results_ = utils.mp_map(protocol, pose_jobs, processes=job.cores)
                     else:
@@ -1408,7 +1387,7 @@ def main():
                     results_ = protocol(pose_jobs)
 
                 # Handle any returns that require particular treatment
-                if protocol_name in returns_pose_jobs:
+                if protocol_name in protocols.config.returns_pose_jobs:
                     results = []
                     if results_:  # Not an empty list
                         if isinstance(results_[0], list):  # In the case of nanohedra
