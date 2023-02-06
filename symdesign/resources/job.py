@@ -657,7 +657,7 @@ class JobResources:
         Raises:
             InputError if the inputs are found to be incompatible
         """
-        allowed_modules = [
+        protocol_module_allowed_modules = [
             # 'find_asu',
             flags.orient,
             flags.expand_asu,
@@ -676,15 +676,15 @@ class JobResources:
             flags.select_poses,
             flags.select_designs
         ]
-        disallowed_modules = [
-            # 'custom_script',
-            # flags.select_sequences,
-        ]
+        # disallowed_modules = [
+        #     # 'custom_script',
+        #     # flags.select_sequences,
+        # ]
         problematic_modules = []
         not_recognized_modules = []
         nanohedra_prior = False
         for idx, module in enumerate(self.modules):
-            if module in allowed_modules:
+            if module in protocol_module_allowed_modules:
                 if module == flags.nanohedra:
                     if idx > 0:
                         raise InputError(f"For {flags.protocol} module, {flags.nanohedra} can currently only be run as "
@@ -705,8 +705,8 @@ class JobResources:
                                                 f'{config.default_weight_parameter[flags.nanohedra]}')
                                 # raise InputError('Using selection flag --total as input after nanohedra isn't allowed')
                 nanohedra_prior = False
-            elif module in disallowed_modules:
-                problematic_modules.append(module)
+            # elif module in disallowed_modules:
+            #     problematic_modules.append(module)
             else:
                 not_recognized_modules.append(module)
 
@@ -718,7 +718,7 @@ class JobResources:
         if problematic_modules:
             raise InputError(f'For {flags.protocol} module, the --{flags.modules} '
                              f'{", ".join(problematic_modules)} are not possible modules\n'
-                             f'Allowed modules are {", ".join(allowed_modules)}')
+                             f'Allowed modules are {", ".join(protocol_module_allowed_modules)}')
 
     def report_specified_arguments(self, arguments: argparse.Namespace) -> dict[str, Any]:
         """Filter all flags for only those that were specified as different on the command line

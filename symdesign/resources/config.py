@@ -15,8 +15,7 @@ default_weight_parameter: dict[str, str] = {
     putils.rosetta_str: 'interface_energy',
     putils.proteinmpnn: 'proteinmpnn_score_complex',
     # putils.nanohedra: 'nanohedra_score_center_normalized',
-    putils.nanohedra: 'proteinmpnn_v_design_probability_cross_entropy_loss',
-
+    putils.nanohedra: 'proteinmpnn_dock_cross_entropy_loss',
 }
 metric_weight_functions: tuple[weight_functions_literal, ...] = get_args(weight_functions_literal)
 default_pca_variance = 0.8  # P432 designs used 0.8 percent of the variance
@@ -72,52 +71,6 @@ metrics = {
     'buried_unsatisfied_hbonds_unbound':
         dict(description='Buried unsatisfied H-bonds in the unbound interface state',
              direction=min_, function=rank, filter=True),
-    # 'component_1_symmetry':
-    #     dict(description='The symmetry group of component 1',
-    #      direction=min_, 'function': 'equals', 'filter': True),
-    # 'component_1_name':
-    #     dict(description='component 1 PDB_ID', direction=None, function=None, filter=False),
-    # 'component_1_number_of_residues':
-    #     dict(description='The number of residues in the monomer of component 1',
-    #      direction=max_, function=rank, filter=True),
-    # 'component_1_max_radius':
-    #     dict(description='The maximum distance that component 1 reaches away from the center of mass',
-    #      direction=max_, function=normalize, filter=True),
-    # 'component_1_n_terminal_helix':
-    #     dict(description='Whether the n-terminus has an alpha helix',
-    #      direction=None, function=None, filter=True),  # Todo binary?
-    # 'component_1_c_terminal_helix':
-    #     dict(description='Whether the c-terminus has an alpha helix',
-    #      direction=None, function=None, filter=True),  # Todo binary?
-    # 'component_1_n_terminal_orientation':
-    #     dict(description='The direction the n-terminus is oriented from the symmetry group center of mass.'
-    #                     ' 1 is away, -1 is towards', direction=None, function=None, filter=False),
-    # 'component_1_c_terminal_orientation':
-    #     dict(description='The direction the c-terminus is oriented from the symmetry group center of mass.'
-    #                     ' 1 is away, -1 is towards', direction=None, function=None, filter=False),
-    # 'component_2_symmetry':
-    #     dict(description='The symmetry group of component 2',
-    #      direction=min_, 'function': 'equals', 'filter': True),
-    # 'component_2_name':
-    #     dict(description='component 2 PDB_ID', direction=None, function=None, filter=False),
-    # 'component_2_number_of_residues':
-    #     dict(description='The number of residues in the monomer of component 2',
-    #      direction=min_, function=rank, filter=True),
-    # 'component_2_max_radius':
-    #     dict(description='The maximum distance that component 2 reaches away from the center of mass',
-    #      direction=max_, function=normalize, filter=True),
-    # 'component_2_n_terminal_helix':
-    #     dict(description='Whether the n-terminus has an alpha helix',
-    #      direction=None, function=None, filter=True),  # Todo binary?
-    # 'component_2_c_terminal_helix':
-    #     dict(description='Whether the c-terminus has an alpha helix',
-    #      direction=None, function=None, filter=True),  # Todo binary?
-    # 'component_2_n_terminal_orientation':
-    #     dict(description='The direction the n-terminus is oriented from the symmetry group center of mass.'
-    #                     ' 1 is away, -1 is towards', direction=None, function=None, filter=False),
-    # 'component_2_c_terminal_orientation':
-    #     dict(description='The direction the c-terminus is oriented from the symmetry group center of mass.'
-    #                     ' 1 is away, -1 is towards', direction=None, function=None, filter=False),
     'contact_count':
         dict(description='Number of carbon-carbon contacts across interface',
              direction=max_, function=rank, filter=True),
@@ -266,57 +219,6 @@ metrics = {
         dict(description="The distance of the design's per residue energy from a design with no constraint on "
                          'amino acid selection',
              direction=min_, function=rank, filter=True),
-    # 'entity_1_c_terminal_helix':
-    #     dict(description='Whether the entity has a c-terminal helix',
-    #          direction=max_, function=boolean, filter=True),
-    # 'entity_1_c_terminal_orientation':
-    #     dict(description='Whether the entity c-termini is closer to the assembly core or surface (1 is away, -1 is '
-    #                      'towards',
-    #          direction=max_, function=rank, filter=True),
-    # 'entity_1_max_radius':
-    #     dict(description='The furthest point the entity reaches from the assembly core',
-    #          direction=min_, function=rank, filter=True),
-    # 'entity_1_min_radius':
-    #     dict(description='The closest point the entity approaches the assembly core',
-    #          direction=max_, function=rank, filter=True),
-    # 'entity_1_n_terminal_helix':
-    #     dict(description='Whether the entity has a n-terminal helix',
-    #          direction=max_, function=boolean, filter=True),
-    # 'entity_1_n_terminal_orientation':
-    #     dict(description='Whether the entity n-termini is closer to the assembly core or surface (1 is away, -1 is '
-    #                      'towards)',
-    #          direction=max_, function=rank, filter=True),
-    # 'entity_1_name':
-    #     dict(description='The name of the entity',
-    #          direction=None, function=None, filter=None),
-    # 'entity_1_number_of_mutations':
-    #     dict(description='The number of mutations made',
-    #          direction=min_, function=rank, filter=True),
-    # 'entity_1_number_of_residues':
-    #     dict(description='The number of residues',
-    #          direction=min_, function=rank, filter=True),
-    # 'entity_1_percent_mutations':
-    #     dict(description='The percentage of the entity that has been mutated',
-    #          direction=min_, function=rank, filter=True),
-    # 'entity_1_radius':
-    #     dict(description='The center of mass of the entity from the assembly core',
-    #          direction=min_, function=rank, filter=True),
-    # 'entity_1_symmetry':
-    #     dict(description='The symmetry notation of the entity',
-    #          direction=None, function=None, filter=None),
-    # 'entity_1_thermophile':
-    #     dict(description='Whether the entity is a thermophile',
-    #          direction=max_, function=boolean, filter=None),
-    # 'entity_max_radius_ratio_1v2':
-    #     dict(description='The ratio of the maximum radius from a reference of component 1 versus 2',
-    #          direction=None, function=None, filter=None),
-    # 'entity_min_radius_ratio_1v2':
-    #     dict(description='The ratio of the minimum radius from a reference of component 1 versus 2',
-    #          direction=None, function=None, filter=None),
-    # 'entity_number_of_residues_ratio_1v2':
-    #     dict(description='', direction=None, function=None, filter=None),
-    # 'entity_radius_ratio_1v2':
-    #     dict(description='', direction=None, function=None, filter=None),
     # START entity#_ metrics. These are used with numbers during actual metric acquisition
     'entity_c_terminal_helix':
         dict(description='Whether the entity has a c-terminal helix',
@@ -408,9 +310,6 @@ metrics = {
         dict(description='Total weight of sequence constraints used to favor certain amino acids in design. '
                          'Only protocols with a favored profile have values',
              direction=max_, function=normalize, filter=True),
-    # 'fragment_z_score_total':
-    #     dict(description='The sum of all fragments z-values',
-    #      direction=None, function=None, filter=None),
     'interaction_energy_complex':
         dict(description='The two-body (residue-pair) energy of the complexed interface. No solvation '
                          'energies', direction=min_, function=rank, filter=True),
@@ -437,18 +336,10 @@ metrics = {
         dict(description='The similarity to the expected interface composition given interface buried surface '
                          'area. 1 is similar to natural interfaces, 0 is dissimilar',
              direction=max_, function=rank, filter=True),
-    # 'interface_connectivity1':
-    #     dict(description='How embedded is interface1 in the rest of the protein?',
-    #          direction=max_, function=normalize, filter=True),
-    # 'interface_connectivity2':
-    #     dict(description='How embedded is interface2 in the rest of the protein?',
-    #      direction=max_, function=normalize, filter=True),
+    # These can represent both sides of an interface
     'interface_connectivity':
         dict(description='How embedded is the total interface in the rest of the protein?',
              direction=max_, function=normalize, filter=True),
-    # 'int_energy_density':
-    #     dict(description='Energy in the bound complex per Angstrom^2 of interface area',
-    #      direction=min_, function=rank, filter=True),
     'interface_energy':
         dict(description='DeltaG of the complexed and unbound (repacked) interfaces',
              direction=min_, function=rank, filter=True),
@@ -461,12 +352,6 @@ metrics = {
     'interface_energy_unbound':
         dict(description='Total interface residue energy summed in the unbound state',
              direction=min_, function=rank, filter=True),
-    # 'interface_energy_1_unbound':
-    #     dict(description='Sum of interface1 residue energy in the unbound state',
-    #          direction=min_, function=rank, filter=True),
-    # 'interface_energy_2_unbound':
-    #     dict(description='Sum of interface2 residue energy in the unbound state',
-    #      direction=min_, function=rank, filter=True),
     'interface_separation':
         dict(description='Median distance between all atom points on each side of the interface',
              direction=min_, function=normalize, filter=True),
@@ -492,7 +377,7 @@ metrics = {
                          'values are - H:Alpha helix, G:3-10 helix, I:PI-helix, E:Extended conformation, '
                          'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
              direction=None, function=None, filter=None),
-    # The above are also valid for interface1 and interface2
+    # The above four metrics are valid for total, interface1, and interface2
     'interface_local_density':
         dict(description='A measure of the average number of atom neighbors for each atom in the interface',
              direction=max_, function=rank, filter=True),
@@ -702,9 +587,6 @@ metrics = {
     'rim':
         dict(description='The number of "rim" residues as classified by E. Levy 2010',
              direction=max_, function=rank, filter=True),
-    # 'rmsd':
-    #     dict(description='Root Mean Square Deviation of all CA atoms between the refined (relaxed) and '
-    #                     'designed states', direction=min_, function=normalize, filter=True),
     'rmsd_complex':
         dict(description='Root Mean Square Deviation of all CA atoms between the refined (relaxed) and '
                          'designed states',
@@ -757,9 +639,6 @@ metrics = {
     'symmetry_dimension':  # 'design_dimension':
         dict(description='The underlying dimension of the design. 0 - point, 2 - layer, 3 - space group',
              direction=None, function=None, filter=True),
-    # 'time':
-    #     dict(description='Time for the protocol to complete',
-    #          direction=None, function=None, filter=None),
     'REU':
         dict(description='Rosetta Energy Units. Always 0. We can disregard',
              direction=min_, function=rank, filter=True),
