@@ -3913,18 +3913,23 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
 
                 # Update EntityData
                 # pose_id = pose_job.id
-                # entity_data = []
+                entity_data = []
+                entity_transforms = []
                 # Todo the number of entities and the number of transformations could be different
                 for entity, transform in zip(pose.entities, entity_transformations):
                     # entity_data.metrics = entity.metrics
                     # entity_data.transform = EntityTransform(**transform)
-                    # entity_data.append(EntityData(
-                    EntityData(
+                    transformation = EntityTransform(**transform)
+                    entity_transforms.append(transformation)
+                    # EntityData(
+                    entity_data.append(EntityData(
                         pose=pose_job,
                         meta=entity.metadata,
                         metrics=entity.metrics,
-                        transform=EntityTransform(**transform))
+                        transform=transformation)  # EntityTransform(**transform))
+                    )
 
+                job.current_session.add_all(entity_transforms + entity_data)
                 # # Update the PoseJob with EntityData
                 # pose_job.entity_data.extend(entity_data)
 

@@ -1371,34 +1371,31 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             design = session.get(sql.DesignData, design_id)
             design_name = design.name
             design_id_to_identifier[design_id] = design_name
-            # Todo is this grabbing the structure everytime? We need to ensure no other files exist or refine this glob
-            #  with an extension
-            file_path = os.path.join(pose_job.designs_path, f'*{design_name}*')
-            # print('file_path', file_path)
-            file = sorted(glob(file_path))
-            # print('files', file)
-            if not file:  # Add to exceptions
-                pose_job.log.error(f'No file found for "{file_path}"')
+            design_structure_path = design.structure_path
+            if design_structure_path:
+                out_path = os.path.join(job.output_directory, f'{pose_job.project}-{design_name}.pdb')
+                if os.path.exists(design_structure_path):
+                    shutil.copy(design_structure_path, out_path)  # [i])))
+                else:
+                    pose_job.log.error(f'No file found for "{design_structure_path}"')
                 # exceptions.append(utils.ReportException(f'No file found for "{file_path}"'))
                 continue
-            out_path = os.path.join(job.output_directory, f'{pose_job.output_modifier}-{design_name}.pdb')
-            if not os.path.exists(out_path):
-                shutil.copy(file[0], out_path)  # [i])))
-                # shutil.copy(pose_id.designs_metrics_csv,
-                #     os.path.join(outdir_traj, os.path.basename(pose_id.designs_metrics_csv)))
-                # shutil.copy(pose_id.residues_metrics_csv,
-                #     os.path.join(outdir_res, os.path.basename(pose_id.residues_metrics_csv)))
+            # Tod0 is this grabbing the structure everytime? We need to ensure no other files exist or refine this glob
+            #  with an extension
+            # file_path = os.path.join(pose_job.designs_path, f'*{design_name}*')
+            # # print('file_path', file_path)
+            # file = sorted(glob(file_path))
+            # # print('files', file)
+            # if not file:  # Add to exceptions
+            #     pose_job.log.error(f'No file found for "{file_path}"')
+            #     # exceptions.append(utils.ReportException(f'No file found for "{file_path}"'))
+            #     continue
+            # out_path = os.path.join(job.output_directory, f'{pose_job.output_modifier}-{design_name}.pdb')
+            # if not os.path.exists(out_path):
+            #     shutil.copy(file[0], out_path)  # [i])))
+
             current_designs.append(design)
-        # try:
-        #     # Create symbolic links to the output PDB's
-        #     os.symlink(file[0], os.path.join(job.output_directory,
-        #                                      '%s_design_%s.pdb' % (str(pose_id), design)))  # [i])))
-        #     os.symlink(pose_id.designs_metrics_csv,
-        #                os.path.join(outdir_traj, os.path.basename(pose_id.designs_metrics_csv)))
-        #     os.symlink(pose_id.residues_metrics_csv,
-        #                os.path.join(outdir_res, os.path.basename(pose_id.residues_metrics_csv)))
-        # except FileExistsError:
-        #     pass
+
         pose_job.current_designs = current_designs
         results.append(pose_job)
 

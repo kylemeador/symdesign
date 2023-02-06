@@ -632,7 +632,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # self.designs.append(sql.DesignData(name=name))
         # self.designs.append(sql.DesignData(name=name, design_parent=None))
         # Set up original DesignData entry for the pose baseline
-        pose_source = sql.DesignData(name=name, pose=self, design_parent=None)
+        pose_source = sql.DesignData(name=name, pose=self, design_parent=None, structure_path=source_path)
         if protocol is not None:
             pose_source.protocols.append(sql.DesignProtocol(protocol=protocol))
         self.__init_from_db__()
@@ -4371,6 +4371,8 @@ class PoseProtocol(PoseData):
                 new_filename = new_design_new_filenames.get(name_or_provided_name)
                 if new_filename:
                     protocol_kwargs['file'] = new_filename
+                    # Set the structure_path for this DesignData
+                    data.structure_path = new_filename
                 else:
                     protocol_kwargs['file'] = os.path.join(designs_path, f'{name_or_provided_name}.pdb')
                 data.protocols.append(sql.DesignProtocol(**protocol_kwargs))
