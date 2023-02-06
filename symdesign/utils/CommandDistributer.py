@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import shutil
 import signal
 import subprocess
 from itertools import repeat
@@ -27,18 +28,23 @@ sbatch_template_dir = os.path.join(putils.dependency_dir, sbatch)
 sbatch_exe = ''
 
 
-def get_sbatch_exe():
+def get_sbatch_exe() -> AnyStr | None:
     """Locate where in the $PATH the executable 'sbatch' can be found"""
-    p = subprocess.Popen(['which', sbatch], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    sbatch_exe_out, err = p.communicate()
-    return sbatch_exe_out.decode('utf-8').strip()
+    return shutil.which(sbatch)
+    # p = subprocess.Popen(['which', sbatch], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    # sbatch_exe_out, err = p.communicate()
+    # return sbatch_exe_out.decode('utf-8').strip()
 
 
-def is_sbatch_available():
+def is_sbatch_available() -> bool:
     """Ensure the sbatch executable is available and executable"""
     global sbatch_exe
     sbatch_exe = get_sbatch_exe()
-    return os.path.exists(sbatch_exe) and os.access(sbatch_exe, os.X_OK)
+    # if sbatch_exe is not None:
+    try:
+        return os.path.exists(sbatch_exe) and os.access(sbatch_exe, os.X_OK)
+    except TypeError:  # NoneType
+        return False
 
 
 # Todo modify .linuxgccrelease depending on os
