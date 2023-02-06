@@ -3123,7 +3123,7 @@ class PoseProtocol(PoseData):
         return pose_s
 
     def refine(self, to_pose_directory: bool = True, gather_metrics: bool = True,
-               design_files: AnyStr = None, in_file_list: AnyStr = None):
+               design_files: list[AnyStr] = None, in_file_list: AnyStr = None):
         """Refine the PoseJob.pose instance or design Model instances associated with this instance
 
         ## Will append the suffix "_refine" or that given by f'_{self.protocol}' if in_file_list is passed
@@ -3568,7 +3568,8 @@ class PoseProtocol(PoseData):
         # # Join each per-residue like dataframe
         # # Each of these can have difference index, so we use concat to perform an outer merge
         # residues_df = pd.concat([residues_df, sequences_df, proteinmpnn_residue_info_df], axis=1)
-        residues_df = pd.concat([sequences_df, proteinmpnn_residue_info_df], axis=1)
+        # residues_df = pd.concat([sequences_df, proteinmpnn_residue_info_df], axis=1)
+        residues_df = sequences_df.join(proteinmpnn_residue_info_df)
 
         designs_df = self.analyze_design_metrics_per_residue(residues_df)  # designs_df=metadata_df, designs=designs)
 

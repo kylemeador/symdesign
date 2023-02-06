@@ -31,9 +31,10 @@ from .sequence import SequenceProfile, Profile, pssm_as_array, default_fragment_
 from .utils import DesignError, SymmetryError, ClashError, chain_id_generator
 from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, query, sql
-from symdesign.sequence import generate_alignment, generate_mutations, default_substitution_matrix_translation_table, \
-    numeric_to_sequence, get_equivalent_indices, protein_letters_alph1, protein_letters_3to1_extended, \
-    protein_letters_1to3_extended, profile_types, default_substitution_matrix_array
+from symdesign.sequence import default_substitution_matrix_array, default_substitution_matrix_translation_table, \
+    generate_alignment, generate_mutations, get_equivalent_indices, numeric_to_sequence, \
+    numerical_translation_alph1_unknown_gapped_bytes, protein_letters_alph1, protein_letters_3to1_extended, \
+    protein_letters_1to3_extended, profile_types
 from symdesign.third_party.alphafold.alphafold.data import feature_processing, msa_pairing, parsers, pipeline_multimer
 from symdesign.third_party.alphafold.alphafold.data.pipeline import FeatureDict, make_msa_features, \
     make_sequence_features
@@ -2567,8 +2568,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     # metadata
     api_entry: dict[str, dict[Any] | float] | None
     biological_assembly: str | int | None
-    chain_ids: list[str]
-    chains: list[Chain] | Structures | bool | None
+    # chain_ids: list[str]
+    # chains: list[Chain] | Structures | bool | None
     # cryst: dict[str, str | tuple[float]] | None
     cryst_record: str | None
     # dbref: dict[str, dict[str, str]]
@@ -2578,7 +2579,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     # file_path: AnyStr | None
     header: list
     # multimodel: bool
-    original_chain_ids: list[str]
+    # original_chain_ids: list[str]
     resolution: float | None
     api_db: resources.wrapapi.APIDatabase
     # _reference_sequence: dict[str, str]
@@ -4287,7 +4288,7 @@ class SymmetricModel(Models):
         if expand_matrices is not None:  # Perhaps these would be from a fiber or some sort of BIOMT?
             if isinstance(expand_matrices, tuple) and len(expand_matrices) == 2:
                 self.log.critical('Providing expansion matrices may result in program crash if you '
-                                  'don\'t work on the SymmetricModel class! Proceed with caution')
+                                  "don't work on the SymmetricModel class! Proceed with caution")
                 expand_matrices, expand_translations = expand_matrices
                 self.expand_translations = \
                     np.ndarray(expand_translations) if not isinstance(expand_translations, np.ndarray) \
@@ -8392,7 +8393,7 @@ class Pose(SymmetricModel, Metrics):
         putils.make_path(out_path)
         frag_file = os.path.join(out_path, putils.frag_text_file)
         if os.path.exists(frag_file):
-            os.system(f'rm {frag_file}')  # ensure old file is removed before new write
+            os.system(f'rm {frag_file}')  # Ensure old file is removed before new write
 
         if ghost_mono_frag_pairs is None:
             ghost_mono_frag_pairs = self.fragment_pairs

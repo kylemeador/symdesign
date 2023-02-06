@@ -74,7 +74,7 @@ def sequence_to_numeric(sequence: Sequence[str], translation_table: dict[str, in
 
     Args:
         sequence: The sequence to encode
-        translation_table: If a translation table is provided, it will be used. If not, use alphabet_order
+        translation_table: If a translation table (in bytes) is provided, it will be used. If not, use alphabet_order
         alphabet_order: The alphabetical order of the amino acid alphabet. Can be either 1 or 3
     Returns:
         The numerically encoded sequence where each entry along axis=0 is the indexed amino acid. Indices are according
@@ -99,7 +99,7 @@ def sequences_to_numeric(sequences: Iterable[Sequence[str]], translation_table: 
 
     Args:
         sequences: The sequences to encode
-        translation_table: If a translation table is provided, it will be used. If not, use alphabet_order
+        translation_table: If a translation table (in bytes) is provided, it will be used. If not, use alphabet_order
         alphabet_order: The alphabetical order of the amino acid alphabet. Can be either 1 or 3
     Returns:
         The numerically encoded sequence where each entry along axis=0 is the indexed amino acid. Indices are according
