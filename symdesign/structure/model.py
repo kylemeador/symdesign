@@ -206,10 +206,10 @@ def split_number_pairs_and_sort(pairs: list[tuple[int, int]]) -> tuple[list, lis
         return [], []
 
 
-def parse_cryst_record(cryst_record) -> tuple[list[float], str]:
+def parse_cryst_record(cryst_record: str) -> tuple[list[float], str]:
     """Get the unit cell length, height, width, and angles alpha, beta, gamma and the space group
     Args:
-        cryst_record: The CRYST1 record in a .pdb file
+        cryst_record: The CRYST1 record as found in .pdb file format
     """
     try:
         cryst, a, b, c, ang_a, ang_b, ang_c, *space_group = cryst_record.split()
@@ -1736,7 +1736,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         else:  # out_path always has default argument current working directory
             # oligomer=True implies we want to write all chains, i.e. asu=False
             _header = self.format_header(asu=not oligomer, **kwargs)
-            if header is not None and isinstance(header, str):  # used for cryst_record now...
+            if header is not None and isinstance(header, str):  # Used for cryst_record now...
                 _header += (header if header[-2:] == '\n' else f'{header}\n')
 
             with open(out_path, 'w') as outfile:
@@ -4140,6 +4140,14 @@ class SymmetricModel(Models):
          '_center_of_mass_symmetric_entities', '_center_of_mass_symmetric_models',
          '_oligomeric_model_indices', '_symmetric_coords_by_entity', '_symmetric_coords_split',
          '_symmetric_coords_split_by_entity'}
+    symmetry_state_attrs = ['_symmetry',
+                            '_point_group_symmetry',
+                            '_dimension',
+                            '_cryst_record',
+                            '_number_of_symmetry_mates',
+                            'uc_volume',
+                            'orthogonalization_matrix',
+                            'deorthogonalization_matrix']
     uc_volume: float
 
     @classmethod
@@ -4341,15 +4349,7 @@ class SymmetricModel(Models):
         else:  # Try to convert
             self._sym_entry = utils.SymEntry.symmetry_factory.get(sym_entry)
 
-        symmetry_state = ['_symmetry',
-                          '_point_group_symmetry',
-                          '_dimension',
-                          '_cryst_record',
-                          '_number_of_symmetry_mates',
-                          'uc_volume',
-                          'orthogonalization_matrix',
-                          'deorthogonalization_matrix']
-        for attribute in symmetry_state:
+        for attribute in self.symmetry_state_attrs:
             try:
                 delattr(self, attribute)
             except AttributeError:
@@ -4650,43 +4650,56 @@ class SymmetricModel(Models):
         try:
             return self._assembly
         except AttributeError:
-            if self.dimension > 0:
-                self._assembly = self.assembly_minimally_contacting
-            else:
-                # if not self.models:
-                self.generate_assembly_symmetry_models()
-                chains = []
-                for model in self.models:
-                    chains.extend(model.chains)
-                self._assembly = Model.from_chains(chains, name=f'{self.name}-assembly', log=self.log,
-                                                   biomt_header=self.format_biomt(), cryst_record=self.cryst_record,
-                                                   entity_info=self.entity_info)  # entities=False,
+            # if self.dimension > 0:
+            #     self._assembly = self._generate_assembly(full=False)
+            # else:
+            #     # if not self.models:
+            #     self.generate_assembly_symmetry_models()
+            #     chains = []
+            #     for model in self.models:
+            #         chains.extend(model.chains)
+            #     self._assembly = Model.from_chains(chains, name=f'{self.name}-assembly', log=self.log,
+            #                                        biomt_header=self.format_biomt(), cryst_record=self.cryst_record,
+            #                                        entity_info=self.entity_info)  # entities=False,
+            # If the dimension is 0, then generate the full assembly, otherwise, generate partial
+            self._assembly = self._generate_assembly(minimal=self.dimension)
             return self._assembly
 
     @property
-    def assembly_minimally_contacting(self) -> Model:  # Todo reconcile mechanism with Entity.oligomer
+    def assembly_minimally_contacting(self) -> Model:
         """Provides the Structure object only containing the Symmetric Models contacting the ASU"""
         try:
             return self._assembly_minimally_contacting
         except AttributeError:
-            # if not self.models:
-            self.generate_assembly_symmetry_models(surrounding_uc=self.is_surrounding_uc())
-            # Only return contacting
+            self._assembly_minimally_contacting = self._generate_assembly(minimal=True)
+            return self._assembly_minimally_contacting
+
+    def _generate_assembly(self, minimal: bool = False) -> Model:  # Todo reconcile mechanism with Entity.oligomer
+        """"""
+        self.generate_assembly_symmetry_models(surrounding_uc=self.is_surrounding_uc())
+
+        if minimal:  # Only return contacting
+            name = f'{self.name}-minimal-assembly'
             interacting_model_indices = self.get_asu_interaction_model_indices()
             # interacting_model_indices = self.get_asu_interaction_model_indices(calculate_contacts=False)
-            self.log.debug(f'Found selected models {interacting_model_indices} for assembly')
+            # Add the ASU to the model first
+            model_indices = [0] + interacting_model_indices
+        else:
+            name = f'{self.name}-assembly'
+            model_indices = range(self.number_of_models)
 
-            chains = []
-            for idx in [0] + interacting_model_indices:  # Add the ASU to the model first
-                chains.extend(self.models[idx].chains)
-            self._assembly_minimally_contacting = \
-                Model.from_chains(chains, name=f'{self.name}-minimal-assembly', log=self.log,
-                                  biomt_header=self.format_biomt(),
-                                  cryst_record=self.cryst_record, entity_info=self.entity_info)  #  entities=False)
-            # self._assembly_minimally_contacting.write(out_path=os.path.join(os.getcwd(), 'debug_assembly_minimally_contacting.pdb'))
-            # self.assembly.write(out_path=os.path.join(os.getcwd(), 'debug_assembly.pdb'))
+        self.log.debug(f'Found selected models {model_indices} for assembly')
 
-            return self._assembly_minimally_contacting
+        models = self.models
+        chains = []
+        for idx in model_indices:
+            chains.extend(models[idx].chains)
+
+        self._assembly_minimally_contacting = \
+            Model.from_chains(chains, name=name, log=self.log, biomt_header=self.format_biomt(),
+                              cryst_record=self.cryst_record, entity_info=self.entity_info)  # entities=False)
+
+        return self._assembly_minimally_contacting
 
     # def report_symmetric_coords_issue(self, func_name: str):
     #     """Debug the symmetric coords for equallity across instances"""

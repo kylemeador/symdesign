@@ -1239,24 +1239,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         if self.pose.is_symmetric():
             self._symmetric_assembly_is_clash()
-            if self.job.output_assembly:
-                if self.job.output_to_directory:
-                    assembly_path = self.assembly_path
-                else:
-                    assembly_path = self.output_assembly_path
-                if not os.path.exists(assembly_path) or self.job.force:
-                    self.pose.write(assembly=True, out_path=assembly_path,
-                                    increment_chains=self.job.increment_chains)
-                    self.log.info(f'Symmetric assembly written to: "{assembly_path}"')
-            if self.job.write_oligomers:  # Write out new oligomers to the PoseJob
-                for idx, entity in enumerate(self.pose.entities):
-                    if self.job.output_to_directory:
-                        oligomer_path = os.path.join(self.pose_directory, f'{entity.name}_oligomer.pdb')
-                    else:
-                        oligomer_path = os.path.join(self.output_path, f'{entity.name}_oligomer.pdb')
-                    if not os.path.exists(oligomer_path) or self.job.force:
-                        entity.write(oligomer=True, out_path=oligomer_path)
-                        self.log.info(f'Entity {entity.name} oligomer written to: "{oligomer_path}"')
 
             # If we have an empty list for the pose_transformation, save the identified transformations from the Pose
             if not any(self.transformations):
@@ -1264,28 +1246,26 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     # Make an empty EntityTransform
                     data.transform = sql.EntityTransform()
                     data.transform.transformation = transformation
-        # # Then modify numbering to ensure standard and accurate use during protocols
-        # # self.pose.pose_numbering()
+
         # if not self.entity_names:  # Store the entity names if they were never generated
         #     self.entity_names = [entity.name for entity in self.pose.entities]
         #     self.log.info(f'Input Entities: {", ".join(self.entity_names)}')
 
-        # Save renumbered PDB to clean_asu.pdb
+        # Save the Pose asu
         if not os.path.exists(self.pose_path) or self.job.force:
             if not self.job.construct_pose:  # This is only true when self.job.nanohedra_output is True
                 return
             # elif self.job.output_to_directory:
             #     return
-            # Set the pose_path as the source_path now
-            self.source_path = self.pose_path
-            self.save_asu(path=self.source_path)
+            # Set the pose_path as the source_path. Propagate to the PoseJob parent DesignData
+            self.source_path = self.pose_source.structure_path = self.pose_path
+            self.output_pose(path=self.source_path)
 
-        if self.job.output_to_directory:
-            if not os.path.exists(self.output_pose_path) or self.job.force:
-                self.save_asu(path=self.output_pose_path)
-
-    def save_asu(self, path: AnyStr):  # Todo to PoseProtocols?
+    def output_pose(self, path: AnyStr = None):  # Todo to PoseProtocols?
         """Save a new Structure from multiple Chain or Entity objects including the Pose symmetry"""
+        # if self.job.pose_format:
+        #     self.pose.pose_numbering()
+
         # Todo add other output_options? rename_chains, increment_chains?
         if self.job.fuse_chains:
             # try:
@@ -1313,8 +1293,42 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             #     raise ValueError('One or both of the chain IDs %s were not found in the input model. Possible chain'
             #                      ' ID\'s are %s' % ((fusion_nterm, fusion_cterm), ','.join(new_asu.chain_ids)))
 
-        self.pose.write(out_path=path)
-        self.log.info(f'Wrote Pose file to: "{path}"')
+        if self.pose.is_symmetric():
+            if self.job.output_assembly:
+                if self.job.output_to_directory:
+                    assembly_path = self.assembly_path
+                else:
+                    assembly_path = self.output_assembly_path
+                if not os.path.exists(assembly_path) or self.job.force:
+                    self.pose.write(assembly=True, out_path=assembly_path,
+                                    increment_chains=self.job.increment_chains,
+                                    surrounding_uc=self.job.output_surrounding_uc)
+                    self.log.info(f'Symmetric assembly written to: "{assembly_path}"')
+            if self.job.write_oligomers:  # Write out new oligomers to the PoseJob
+                for idx, entity in enumerate(self.pose.entities):
+                    if self.job.output_to_directory:
+                        oligomer_path = os.path.join(self.pose_directory, f'{entity.name}_oligomer.pdb')
+                    else:
+                        oligomer_path = os.path.join(self.output_path, f'{entity.name}_oligomer.pdb')
+                    if not os.path.exists(oligomer_path) or self.job.force:
+                        entity.write(oligomer=True, out_path=oligomer_path)
+                        self.log.info(f'Entity {entity.name} oligomer written to: "{oligomer_path}"')
+
+        if self.job.write_fragments:
+            if self.pose.fragment_pairs:
+                # Make directories to output matched fragment files
+                putils.make_path(self.frags_path)
+                self.pose.write_fragment_pairs(out_path=self.frags_path)
+
+        if path:
+            self.pose.write(out_path=path)
+            self.log.info(f'Wrote Pose file to: "{path}"')
+
+        if self.job.output_to_directory:
+            if not os.path.exists(self.output_pose_path) or self.job.force:
+                path = self.output_pose_path
+                self.pose.write(out_path=path)
+                self.log.info(f'Wrote Pose file to: "{path}"')
 
     def _symmetric_assembly_is_clash(self):
         """Wrapper around the Pose symmetric_assembly_is_clash() to check at the Pose level for clashes and raise

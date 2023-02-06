@@ -3693,74 +3693,74 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         logger.info(f'Found {len(cluster_map)} unique clusters from {len(pose_names)} pose inputs. '
                     f'Wrote cluster map to {job.cluster.map}')
 
-        # Define functions for outputting docked poses
-        def output_pose(pose_name: AnyStr, uc_dimensions: np.ndarray = None):
-            """Format the current Pose for output using the job parameters
-
-            Args:
-                pose_name: The particular identifier for the pose
-                uc_dimensions: If this is a lattice, the crystal dimensions
-            """
-            # _out_dir: The directory to write files
-            out_dir = os.path.join(project_dir, pose_name)
-            putils.make_path(out_dir)
-
-            # Set the ASU, then write to a file
-            pose.set_contacting_asu(distance=cb_distance)
-            if sym_entry.unit_cell:  # 2, 3 dimensions
-                cryst_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
-            else:
-                cryst_record = None
-
-            if job.write_structures:
-                pose_path = os.path.join(out_dir, putils.asu)
-                # pose_path = os.path.join(out_dir, f'{pose_name}_{putils.asu}.pdb')
-                pose.write(out_path=pose_path, header=cryst_record)
-            else:
-                pose_path = None
-
-            if job.write_trajectory:
-                nonlocal idx
-                if idx % 2 == 0:
-                    new_pose = pose.copy()
-                    # new_pose = pose.models[0]copy()
-                    for entity in new_pose.chains[1:]:  # new_pose.entities[1:]:
-                        entity.chain_id = 'D'
-                        # Todo make more reliable
-                        # Todo NEED TO MAKE SymmetricModel copy .entities and .chains correctly!
-                    trajectory_models.append_model(new_pose)
-
-            # Todo group by input model... not entities
-            # Write Model1, Model2
-            if job.write_oligomers:
-                for entity in pose.entities:
-                    entity.write(oligomer=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))
-
-            # Write assembly files
-            if job.output_assembly:
-                # if sym_entry.unit_cell:  # 2, 3 dimensions
-                if job.output_surrounding_uc:
-                    assembly_path = os.path.join(out_dir, f'{pose_name}_{putils.surrounding_unit_cells}')
-                else:
-                    assembly_path = os.path.join(out_dir, f'{pose_name}_{putils.assembly}')
-                # else:  # 0 dimension
-                #     assembly_path = os.path.join(out_dir, f'{pose_name}_{putils.assembly}')
-                pose.write(assembly=True, out_path=assembly_path, header=cryst_record,
-                           surrounding_uc=job.output_surrounding_uc)
-
-            # Write fragment files
-            if job.write_fragments:
-                # Make directories to output matched fragment files
-                matching_fragments_dir = os.path.join(out_dir, putils.frag_dir)
-                putils.make_path(matching_fragments_dir)
-                # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
-                # high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
-                # low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
-                pose.write_fragment_pairs(out_path=matching_fragments_dir)
-
-            logger.info(f'\tSUCCESSFUL DOCKED POSE: {out_dir}')
-
-            return pose_path
+        # # Define functions for outputting docked poses
+        # def output_pose(pose_name: AnyStr, uc_dimensions: np.ndarray = None):
+        #     """Format the current Pose for output using the job parameters
+        #
+        #     Args:
+        #         pose_name: The particular identifier for the pose
+        #         uc_dimensions: If this is a lattice, the crystal dimensions
+        #     """
+        #     # _out_dir: The directory to write files
+        #     out_dir = os.path.join(project_dir, pose_name)
+        #     putils.make_path(out_dir)
+        #
+        #     # Set the ASU, then write to a file
+        #     pose.set_contacting_asu(distance=cb_distance)
+        #     if sym_entry.unit_cell:  # 2, 3 dimensions
+        #         cryst_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
+        #     else:
+        #         cryst_record = None
+        #
+        #     if job.write_structures:
+        #         pose_path = os.path.join(out_dir, putils.asu)
+        #         # pose_path = os.path.join(out_dir, f'{pose_name}_{putils.asu}.pdb')
+        #         pose.write(out_path=pose_path, header=cryst_record)
+        #     else:
+        #         pose_path = None
+        #
+        #     if job.write_trajectory:
+        #         nonlocal idx
+        #         if idx % 2 == 0:
+        #             new_pose = pose.copy()
+        #             # new_pose = pose.models[0]copy()
+        #             for entity in new_pose.chains[1:]:  # new_pose.entities[1:]:
+        #                 entity.chain_id = 'D'
+        #                 # Todo make more reliable
+        #                 # Todo NEED TO MAKE SymmetricModel copy .entities and .chains correctly!
+        #             trajectory_models.append_model(new_pose)
+        #
+        #     # Todo group by input model... not entities
+        #     # Write Model1, Model2
+        #     if job.write_oligomers:
+        #         for entity in pose.entities:
+        #             entity.write(oligomer=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))
+        #
+        #     # Write assembly files
+        #     if job.output_assembly:
+        #         # if sym_entry.unit_cell:  # 2, 3 dimensions
+        #         if job.output_surrounding_uc:
+        #             assembly_path = os.path.join(out_dir, f'{pose_name}_{putils.surrounding_unit_cells}')
+        #         else:
+        #             assembly_path = os.path.join(out_dir, f'{pose_name}_{putils.assembly}')
+        #         # else:  # 0 dimension
+        #         #     assembly_path = os.path.join(out_dir, f'{pose_name}_{putils.assembly}')
+        #         pose.write(assembly=True, out_path=assembly_path, header=cryst_record,
+        #                    surrounding_uc=job.output_surrounding_uc)
+        #
+        #     # Write fragment files
+        #     if job.write_fragments:
+        #         # Make directories to output matched fragment files
+        #         matching_fragments_dir = os.path.join(out_dir, putils.frag_dir)
+        #         putils.make_path(matching_fragments_dir)
+        #         # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
+        #         # high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
+        #         # low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
+        #         pose.write_fragment_pairs(out_path=matching_fragments_dir)
+        #
+        #     logger.info(f'\tSUCCESSFUL DOCKED POSE: {out_dir}')
+        #
+        #     return pose_path
 
         # Should interface metrics be performed to inform on docking success?
         def nanohedra_metrics():
@@ -3839,9 +3839,35 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 #                           all_passing_z_scores[idx])
 
                 if job.output:
-                    # Modify the pose_name to get rid of the project
-                    output_pose(pose_name)  # .replace(project_str, ''))
-                    # pose_paths.append(output_pose(pose_name))
+                    if job.write_trajectory:
+                        if idx % 2 == 0:
+                            new_pose = pose.copy()
+                            # new_pose = pose.models[0]copy()
+                            for entity in new_pose.chains[1:]:  # new_pose.entities[1:]:
+                                entity.chain_id = 'D'
+                                # Todo make more reliable
+                                # Todo NEED TO MAKE SymmetricModel copy .entities and .chains correctly!
+                            trajectory_models.append_model(new_pose)
+                    # Set the ASU, then write to a file
+                    pose.set_contacting_asu(distance=cb_distance)
+                    try:  # Remove existing cryst_record
+                        del pose._cryst_record
+                    except AttributeError:
+                        pass
+                    # pose.uc_dimensions
+                    # if sym_entry.unit_cell:  # 2, 3 dimensions
+                    #     cryst_record = generate_cryst1_record(full_uc_dimensions[idx], sym_entry.resulting_symmetry)
+                    # else:
+                    #     cryst_record = None
+                    # Todo make a copy of the Pose and add to the PoseJob, then no need for PoseJob.pose = None
+                    pose_job.pose = pose
+                    putils.make_path(pose_job.pose_directory)
+                    pose_job.output_pose()
+                    pose_job.pose = None
+                    # # Modify the pose_name to get rid of the project
+                    # output_pose(pose_name)  # .replace(project_str, ''))
+                    # # pose_paths.append(output_pose(pose_name))
+                    logger.info(f'\tSUCCESSFUL DOCKED POSE: {pose_job.pose_directory}')
 
                 # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
                 for entity in pose.entities:

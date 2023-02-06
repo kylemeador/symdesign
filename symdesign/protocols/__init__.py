@@ -407,7 +407,7 @@ def find_asu(job: pose.PoseJob):
         # asu.update_attributes_from_pdb(pdb)
 
     # Save the Pose.asu
-    job.save_asu()
+    job.output_pose(path=job.pose_path)
 
 
 @protocol_decorator()

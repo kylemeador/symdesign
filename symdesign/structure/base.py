@@ -275,7 +275,7 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
     # atom_info: dict[int | str | list[float]] = {}
     coords: list[list[float]] = []
     # cryst: dict[str, str | tuple[float]] = {}
-    cryst_record: str = ''
+    cryst_record: str = None
     dbref: dict[str, dict[str, str]] = {}
     entity_info: dict[str, dict[dict | list | str]] = {}
     name = os.path.basename(path) if path else None  # .replace('pdb', '')
