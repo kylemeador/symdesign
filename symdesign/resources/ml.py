@@ -180,10 +180,10 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                     #                 f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
                     if _error is None:  # Set the error the first time
                         # _error = last_error = error
-                        _error = last_error = traceback.format_exception(error)
+                        _error = last_error = traceback.format_exc()  # .format_exception(error)
                     else:
                         # last_error = error
-                        last_error = traceback.format_exception(error)
+                        last_error = traceback.format_exc()  # .format_exception(error)
                     _batch_length -= 1
 
             if last_error is not None:  # This exited from the ZeroDivisionError except

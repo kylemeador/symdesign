@@ -78,7 +78,7 @@ def handle_design_errors(errors: tuple[Type[Exception], ...] = (DesignError,)) -
             except errors as error:
                 # Perform exception reporting using self.log
                 job.log.error(error)
-                job.log.info(''.join(traceback.format_exception(error)))
+                job.log.info(''.join(traceback.format_exc()))  # .format_exception(error)))
                 return ReportException(str(error))
         return wrapped
     return wrapper
@@ -103,7 +103,7 @@ def protocol_decorator(errors: tuple[Type[Exception], ...] = (DesignError,)) -> 
             except errors as error:
                 # Perform exception reporting using self.log
                 job.log.error(error)
-                job.log.info(''.join(traceback.format_exception(error)))
+                job.log.info(''.join(traceback.format_exc()))  # .format_exception(error)))
                 func_return = ReportException(str(error))
             # remove_structure_memory()
             if job.job.reduce_memory:
