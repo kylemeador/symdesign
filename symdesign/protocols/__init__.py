@@ -506,18 +506,29 @@ def interface_design(job: pose.PoseJob):
     # Acquire the pose_metrics if None have been made yet
     job.calculate_pose_metrics()
 
-    match job.job.design.method:
-        case putils.rosetta_str:
-            # Write generated files
-            job.pose.pssm_file = \
-                write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
-            write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
-            job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
-            job.rosetta_interface_design()  # Sets job.protocol
-        case putils.proteinmpnn:
-            job.proteinmpnn_design(interface=True, neighbors=job.job.design.neighbors)  # Sets job.protocol
-        case _:
-            raise ValueError(f"The method '{job.job.design.method}' isn't available")
+    # match job.job.design.method:  # Todo python 3.10
+    #     case [putils.rosetta_str | putils.consensus]:
+    #         # Write generated files
+    #         job.pose.pssm_file = \
+    #             write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
+    #         write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
+    #         job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
+    #         job.rosetta_interface_design()  # Sets job.protocol
+    #     case putils.proteinmpnn:
+    #         job.proteinmpnn_design(interface=True, neighbors=job.job.design.neighbors)  # Sets job.protocol
+    #     case _:
+    #         raise ValueError(f"The method '{job.job.design.method}' isn't available")
+    if job.job.design.method in [putils.rosetta_str, putils.consensus]:
+        # Write generated files
+        job.pose.pssm_file = \
+            write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
+        write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
+        job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
+        job.rosetta_interface_design()  # Sets job.protocol
+    elif job.job.design.method == putils.proteinmpnn:
+        job.proteinmpnn_design(interface=True, neighbors=job.job.design.neighbors)  # Sets job.protocol
+    else:
+        raise ValueError(f"The method '{job.job.design.method}' isn't available")
     # job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
 
 
@@ -576,19 +587,31 @@ def design(job: pose.PoseJob):
     # Acquire the pose_metrics if None have been made yet
     job.calculate_pose_metrics()
 
-    match job.job.design.method:
-        case [putils.rosetta_str | putils.consensus]:
-            # Write generated files
-            job.pose.pssm_file = \
-                write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
-            write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
-            job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
-            raise NotImplementedError(f'No function for all residue Rosetta design yet')
-            job.rosetta_design()  # Sets job.protocol
-        case putils.proteinmpnn:
-            job.proteinmpnn_design()  # Sets job.protocol
-        case _:
-            raise ValueError(f"The method '{job.job.design.method}' isn't available")
+    # match job.job.design.method:  # Todo python 3.10
+    #     case [putils.rosetta_str | putils.consensus]:
+    #         # Write generated files
+    #         job.pose.pssm_file = \
+    #             write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
+    #         write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
+    #         job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
+    #         raise NotImplementedError(f'No function for all residue Rosetta design yet')
+    #         job.rosetta_design()  # Sets job.protocol
+    #     case putils.proteinmpnn:
+    #         job.proteinmpnn_design()  # Sets job.protocol
+    #     case _:
+    #         raise ValueError(f"The method '{job.job.design.method}' isn't available")
+    if job.job.design.method in [putils.rosetta_str, putils.consensus]:
+        # Write generated files
+        job.pose.pssm_file = \
+            write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
+        write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
+        job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
+        raise NotImplementedError(f'No function for all residue Rosetta design yet')
+        job.rosetta_design()  # Sets job.protocol
+    elif job.job.design.method == putils.proteinmpnn:
+        job.proteinmpnn_design(interface=True, neighbors=job.job.design.neighbors)  # Sets job.protocol
+    else:
+        raise ValueError(f"The method '{job.job.design.method}' isn't available")
     # job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
 
 

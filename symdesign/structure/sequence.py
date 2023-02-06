@@ -1594,7 +1594,7 @@ def populate_design_dictionary(n: int, alphabet: Sequence, zero_index: bool = Fa
     """
     offset = 0 if zero_index else zero_offset
 
-    # Todo add
+    # Todo python 3.10
     #  match dtype:
     #       case 'int':
     #       ...

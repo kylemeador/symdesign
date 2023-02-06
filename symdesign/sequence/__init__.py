@@ -130,55 +130,55 @@ def get_sequence_to_numeric_translation_table(alphabet_type: alphabet_types) -> 
         The integer mapping to the sequence of the requested alphabet
     """
     wrong_alphabet_type = f"Parameter alphabet_type option '{alphabet_type}' isn't viable. Attempting to create it"
-    try:
-        match alphabet_type:
-            case 'protein_letters_alph1':
-                numeric_translation_table = numerical_translation_alph1_bytes
-            case 'protein_letters_alph3':
-                numeric_translation_table = numerical_translation_alph3_bytes
-            case 'protein_letters_alph1_gapped':
-                numeric_translation_table = numerical_translation_alph1_gapped_bytes
-            case 'protein_letters_alph3_gapped':
-                numeric_translation_table = numerical_translation_alph3_gapped_bytes
-            case 'protein_letters_alph1_unknown':
-                numeric_translation_table = numerical_translation_alph1_unknown_bytes
-            case 'protein_letters_alph3_unknown':
-                numeric_translation_table = numerical_translation_alph3_unknown_bytes
-            case 'protein_letters_alph1_unknown_gapped':
-                numeric_translation_table = numerical_translation_alph1_unknown_gapped_bytes
-            case 'protein_letters_alph3_unknown_gapped':
-                numeric_translation_table = numerical_translation_alph3_unknown_gapped_bytes
-            case _:
-                try:  # To see if we already have the alphabet, and just return defaultdict
-                    numeric_translation_table = alphabet_to_type[alphabet_type]
-                except KeyError:
-                    # raise ValueError(wrong_alphabet_type)
-                    logger.warning(wrong_alphabet_type)
-                    numeric_translation_table = create_numeric_translation_table(alphabet_type)
-    except SyntaxError:  # python version not 3.10
-        if alphabet_type == 'protein_letters_alph1':
-            numeric_translation_table = numerical_translation_alph1_bytes
-        elif alphabet_type == 'protein_letters_alph3':
-            numeric_translation_table = numerical_translation_alph3_bytes
-        elif alphabet_type == 'protein_letters_alph1_gapped':
-            numeric_translation_table = numerical_translation_alph1_gapped_bytes
-        elif alphabet_type == 'protein_letters_alph3_gapped':
-            numeric_translation_table = numerical_translation_alph3_gapped_bytes
-        elif alphabet_type == 'protein_letters_alph1_unknown':
-            numeric_translation_table = numerical_translation_alph1_unknown_bytes
-        elif alphabet_type == 'protein_letters_alph3_unknown':
-            numeric_translation_table = numerical_translation_alph3_unknown_bytes
-        elif alphabet_type == 'protein_letters_alph1_unknown_gapped':
-            numeric_translation_table = numerical_translation_alph1_unknown_gapped_bytes
-        elif alphabet_type == 'protein_letters_alph3_unknown_gapped':
-            numeric_translation_table = numerical_translation_alph3_unknown_gapped_bytes
-        else:
-            try:  # To see if we already have the alphabet, and return the defaultdict
-                numeric_translation_table = alphabet_to_type[alphabet_type]
-            except KeyError:
-                # raise ValueError(wrong_alphabet_type)
-                logger.warning(wrong_alphabet_type)
-                numeric_translation_table = create_numeric_translation_table(alphabet_type)
+    # try:
+    #     match alphabet_type:
+    #         case 'protein_letters_alph1':
+    #             numeric_translation_table = numerical_translation_alph1_bytes
+    #         case 'protein_letters_alph3':
+    #             numeric_translation_table = numerical_translation_alph3_bytes
+    #         case 'protein_letters_alph1_gapped':
+    #             numeric_translation_table = numerical_translation_alph1_gapped_bytes
+    #         case 'protein_letters_alph3_gapped':
+    #             numeric_translation_table = numerical_translation_alph3_gapped_bytes
+    #         case 'protein_letters_alph1_unknown':
+    #             numeric_translation_table = numerical_translation_alph1_unknown_bytes
+    #         case 'protein_letters_alph3_unknown':
+    #             numeric_translation_table = numerical_translation_alph3_unknown_bytes
+    #         case 'protein_letters_alph1_unknown_gapped':
+    #             numeric_translation_table = numerical_translation_alph1_unknown_gapped_bytes
+    #         case 'protein_letters_alph3_unknown_gapped':
+    #             numeric_translation_table = numerical_translation_alph3_unknown_gapped_bytes
+    #         case _:
+    #             try:  # To see if we already have the alphabet, and just return defaultdict
+    #                 numeric_translation_table = alphabet_to_type[alphabet_type]
+    #             except KeyError:
+    #                 # raise ValueError(wrong_alphabet_type)
+    #                 logger.warning(wrong_alphabet_type)
+    #                 numeric_translation_table = create_numeric_translation_table(alphabet_type)
+    # except SyntaxError:  # python version not 3.10
+    if alphabet_type == 'protein_letters_alph1':
+        numeric_translation_table = numerical_translation_alph1_bytes
+    elif alphabet_type == 'protein_letters_alph3':
+        numeric_translation_table = numerical_translation_alph3_bytes
+    elif alphabet_type == 'protein_letters_alph1_gapped':
+        numeric_translation_table = numerical_translation_alph1_gapped_bytes
+    elif alphabet_type == 'protein_letters_alph3_gapped':
+        numeric_translation_table = numerical_translation_alph3_gapped_bytes
+    elif alphabet_type == 'protein_letters_alph1_unknown':
+        numeric_translation_table = numerical_translation_alph1_unknown_bytes
+    elif alphabet_type == 'protein_letters_alph3_unknown':
+        numeric_translation_table = numerical_translation_alph3_unknown_bytes
+    elif alphabet_type == 'protein_letters_alph1_unknown_gapped':
+        numeric_translation_table = numerical_translation_alph1_unknown_gapped_bytes
+    elif alphabet_type == 'protein_letters_alph3_unknown_gapped':
+        numeric_translation_table = numerical_translation_alph3_unknown_gapped_bytes
+    else:
+        try:  # To see if we already have the alphabet, and return the defaultdict
+            numeric_translation_table = alphabet_to_type[alphabet_type]
+        except KeyError:
+            # raise ValueError(wrong_alphabet_type)
+            logger.warning(wrong_alphabet_type)
+            numeric_translation_table = create_numeric_translation_table(alphabet_type)
 
     return numeric_translation_table
 

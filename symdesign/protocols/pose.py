@@ -1715,15 +1715,24 @@ class PoseProtocol(PoseData):
         else:
             sequences = {design: design.sequence for design in self.get_designs_without_structure()}
 
-        match self.job.predict.method:
-            case ['thread', 'proteinmpnn']:
-                self.thread_sequences_to_backbone(sequences)
-            case 'alphafold':
-                # Sequences use within alphafold requires .fasta...
-                self.alphafold_predict_structure(sequences)
-            case _:
-                raise NotImplementedError(f"For {self.predict_structure.__name__}, the method {self.job.predict.method}"
-                                          " isn't implemented yet")
+        # match self.job.predict.method:  # Todo python 3.10
+        #     case ['thread', 'proteinmpnn']:
+        #         self.thread_sequences_to_backbone(sequences)
+        #     case 'alphafold':
+        #         # Sequences use within alphafold requires .fasta...
+        #         self.alphafold_predict_structure(sequences)
+        #     case _:
+        #         raise NotImplementedError(f"For {self.predict_structure.__name__}, the method {self.job.predict.method}"
+        #                                   " isn't implemented yet")
+
+        if self.job.predict.method in ['thread', 'proteinmpnn']:
+            self.thread_sequences_to_backbone(sequences)
+        elif self.job.predict.method == 'alphafold':
+            # Sequences use within alphafold requires .fasta...
+            self.alphafold_predict_structure(sequences)
+        else:
+            raise NotImplementedError(f"For {self.predict_structure.__name__}, the method {self.job.predict.method}"
+                                      " isn't implemented yet")
 
     af_model_literal = Literal['monomer', 'monomer_casp14', 'monomer_ptm', 'multimer']
 

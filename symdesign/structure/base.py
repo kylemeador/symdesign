@@ -1757,57 +1757,57 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     def delegate_atoms(self):
         """Set the Residue atoms from a parent StructureBase"""
         side_chain_indices, heavy_indices = [], []
-        try:
-            for idx, atom in enumerate(self.atoms):
-                match atom.type:
-                    case 'N':
-                        self._n_index = idx
-                        try:  # To see if the residue has a number attribute already
-                            self.number
-                        except AttributeError:  # This is the first set up. Add information from the N atom
-                            self.chain_id = atom.chain_id
-                            self.number = atom.residue_number
-                            self.number_pdb = atom.pdb_residue_number
-                            self.type = atom.residue_type
-                    case 'CA':
-                        self._ca_index = idx
-                    case 'CB':
-                        self._cb_index = idx
-                    case 'C':
-                        self._c_index = idx
-                    case 'O':
-                        self._o_index = idx
-                    case 'H':
-                        self._h_index = idx
-                    case _:
-                        side_chain_indices.append(idx)
-                        if 'H' not in atom.type:
-                            heavy_indices.append(idx)
-        except SyntaxError:  # python version not 3.10
-            for idx, atom in enumerate(self.atoms):
-                if atom.type == 'N':
-                    self._n_index = idx
-                    try:  # To see if the residue has a number attribute already
-                        self.number
-                    except AttributeError:  # This is the first set up. Add information from the N atom
-                        self.chain_id = atom.chain_id
-                        self.number = atom.residue_number
-                        self.number_pdb = atom.pdb_residue_number
-                        self.type = atom.residue_type
-                elif atom.type == 'CA':
-                    self._ca_index = idx
-                elif atom.type == 'CB':
-                    self._cb_index = idx
-                elif atom.type == 'C':
-                    self._c_index = idx
-                elif atom.type == 'O':
-                    self._o_index = idx
-                elif atom.type == 'H':
-                    self._h_index = idx
-                else:
-                    side_chain_indices.append(idx)
-                    if 'H' not in atom.type:
-                        heavy_indices.append(idx)
+        # try:
+        #     for idx, atom in enumerate(self.atoms):
+        #         match atom.type:  # Todo python 3.10
+        #             case 'N':
+        #                 self._n_index = idx
+        #                 try:  # To see if the residue has a number attribute already
+        #                     self.number
+        #                 except AttributeError:  # This is the first set up. Add information from the N atom
+        #                     self.chain_id = atom.chain_id
+        #                     self.number = atom.residue_number
+        #                     self.number_pdb = atom.pdb_residue_number
+        #                     self.type = atom.residue_type
+        #             case 'CA':
+        #                 self._ca_index = idx
+        #             case 'CB':
+        #                 self._cb_index = idx
+        #             case 'C':
+        #                 self._c_index = idx
+        #             case 'O':
+        #                 self._o_index = idx
+        #             case 'H':
+        #                 self._h_index = idx
+        #             case _:
+        #                 side_chain_indices.append(idx)
+        #                 if 'H' not in atom.type:
+        #                     heavy_indices.append(idx)
+        # except SyntaxError:  # python version not 3.10
+        for idx, atom in enumerate(self.atoms):
+            if atom.type == 'N':
+                self._n_index = idx
+                try:  # To see if the residue has a number attribute already
+                    self.number
+                except AttributeError:  # This is the first set up. Add information from the N atom
+                    self.chain_id = atom.chain_id
+                    self.number = atom.residue_number
+                    self.number_pdb = atom.pdb_residue_number
+                    self.type = atom.residue_type
+            elif atom.type == 'CA':
+                self._ca_index = idx
+            elif atom.type == 'CB':
+                self._cb_index = idx
+            elif atom.type == 'C':
+                self._c_index = idx
+            elif atom.type == 'O':
+                self._o_index = idx
+            elif atom.type == 'H':
+                self._h_index = idx
+            else:
+                side_chain_indices.append(idx)
+                if 'H' not in atom.type:
+                    heavy_indices.append(idx)
 
         # Construction ensures proper order for _bb_indices even if out of order
         # Important this order is correct for ProteinMPNN
