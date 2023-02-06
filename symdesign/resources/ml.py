@@ -21,6 +21,38 @@ proteinmpnn_default_translation_table = numerical_translation_alph1_unknown_byte
 mpnn_alphabet = 'ACDEFGHIKLMNPQRSTVWYX'  # structure.utils.protein_letters_alph1_unknown
 mpnn_alphabet_length = len(mpnn_alphabet)
 MPNN_NULL_IDX = 20
+# Todo set this value based on model parameters
+# def calculate_batch_size(element_memory: int = 4) -> int:
+#     """
+#
+#     Args:
+#         element_memory: Where each element is np.int/float32
+#
+#     Returns:
+#
+#     """
+#     number_of_elements_available = mpnn_memory_constraint / element_memory
+#     logger.debug(f'The number_of_elements_available is: {number_of_elements_available}')
+#     number_of_mpnn_model_parameters = sum([math.prod(param.size()) for param in mpnn_model.parameters()])
+#     model_elements = number_of_mpnn_model_parameters
+#     # Todo use 5 as ideal CB is added by the model later with ca_only = False
+#     model_elements += prod((number_of_residues, num_model_residues, 3))  # X,
+#     model_elements += number_of_residues  # S.shape
+#     model_elements += number_of_residues  # chain_mask.shape
+#     model_elements += number_of_residues  # chain_encoding.shape
+#     model_elements += number_of_residues  # residue_idx.shape
+#     model_elements += number_of_residues  # mask.shape
+#     model_elements += number_of_residues  # residue_mask.shape
+#     model_elements += prod((number_of_residues, 21))  # omit_AA_mask.shape
+#     model_elements += number_of_residues  # pssm_coef.shape
+#     model_elements += prod((number_of_residues, 20))  # pssm_bias.shape
+#     model_elements += prod((number_of_residues, 20))  # pssm_log_odds_mask.shape
+#     model_elements += number_of_residues  # tied_beta.shape
+#     model_elements += prod((number_of_residues, 21))  # bias_by_res.shape
+#     logger.debug(f'The number of model_elements is: {model_elements}')
+# 6 - Works for 24 GiB mem with 6264 residue T input, 7 is too much
+PROTEINMPNN_DESIGN_BATCH_LEN = 6
+PROTEINMPNN_SCORE_BATCH_LEN = 6
 # # Use these options to bring down GPU memory when using Tensor instances with fixed size to a model
 # torch.backends.cudnn.benchmark = True
 # torch.backends.cudnn.enabled = True

@@ -6560,7 +6560,7 @@ class Pose(SymmetricModel, Metrics):
 
             # pose_length = self.number_of_residues
             size, pose_length, *_ = numeric_sequences.shape
-            batch_length = 6  # Todo calculate based on parameters
+            batch_length = ml.PROTEINMPNN_SCORE_BATCH_LEN
             # Set up parameters and model sampling type based on symmetry
             number_of_symmetry_mates = self.number_of_symmetry_mates
             if self.is_symmetric():
@@ -6688,7 +6688,7 @@ class Pose(SymmetricModel, Metrics):
         elif method == putils.proteinmpnn:  # Design with vanilla version of ProteinMPNN
             pose_length = self.number_of_residues
             size = number
-            batch_length = 6  # Todo calculate based on parameters
+            batch_length = ml.PROTEINMPNN_DESIGN_BATCH_LEN
             # Set up parameters and model sampling type based on symmetry
             if self.is_symmetric():
                 # number_of_symmetry_mates = pose.number_of_symmetry_mates

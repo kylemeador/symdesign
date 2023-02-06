@@ -2368,34 +2368,13 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
             mpnn_memory_constraint, gpu_memory_total = torch.cuda.mem_get_info()
             logger.debug(f'The available gpu memory is: {mpnn_memory_constraint}')
 
-        element_memory = 4  # where each element is np.int/float32
-        number_of_elements_available = mpnn_memory_constraint / element_memory
-        logger.debug(f'The number_of_elements_available is: {number_of_elements_available}')
-        number_of_mpnn_model_parameters = sum([math.prod(param.size()) for param in mpnn_model.parameters()])
-        model_elements = number_of_mpnn_model_parameters
-        # Todo use 5 as ideal CB is added by the model later with ca_only = False
-        model_elements += prod((number_of_residues, num_model_residues, 3))  # X,
-        model_elements += number_of_residues  # S.shape
-        model_elements += number_of_residues  # chain_mask.shape
-        model_elements += number_of_residues  # chain_encoding.shape
-        model_elements += number_of_residues  # residue_idx.shape
-        model_elements += number_of_residues  # mask.shape
-        model_elements += number_of_residues  # residue_mask.shape
-        model_elements += prod((number_of_residues, 21))  # omit_AA_mask.shape
-        model_elements += number_of_residues  # pssm_coef.shape
-        model_elements += prod((number_of_residues, 20))  # pssm_bias.shape
-        model_elements += prod((number_of_residues, 20))  # pssm_log_odds_mask.shape
-        model_elements += number_of_residues  # tied_beta.shape
-        model_elements += prod((number_of_residues, 21))  # bias_by_res.shape
-        logger.debug(f'The number of model_elements is: {model_elements}')
-
         size = full_rotation1.shape[0]  # This is the number of transformations, i.e. the number_of_designs
         # The batch_length indicates how many models could fit in the allocated memory. Using floor division to get integer
         # Reduce scale by factor of divisor to be safe
         # start_divisor = divisor = 512  # 256 # 128  # 2048 breaks when there is a gradient for training
         # batch_length = 10
         # batch_length = int(number_of_elements_available//model_elements//start_divisor)
-        batch_length = 6  # works for 24 GiB mem with 6264 residue T input, 7 is too much
+        batch_length = ml.PROTEINMPNN_DESIGN_BATCH_LEN
         # once, twice = False, False
 
         # Set up Pose parameters
