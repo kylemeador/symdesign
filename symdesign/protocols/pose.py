@@ -1850,6 +1850,74 @@ class PoseProtocol(PoseData):
                 # Set up scores for each model
                 sequence_length = len(sequence)
                 max_sequence_length = sequence_length
+                # Set the sequence up in the FeatureDict
+                # Todo the way that I am adding this here instead of during construction, seems that I should
+                #  symmetrize the sequence before passing to predict(). This would occur by entity, where the first
+                #  entity is combined, then the second entity is combined, etc. Any entity agnostic features such
+                #  as all_atom_mask would be able to be made here
+                this_seq_features = make_sequence_features(sequence=sequence, description=str(design),
+                                                           num_res=sequence_length)
+                # This v happens ^
+                # residue_constants.sequence_to_onehot(
+                #     sequence=sequence,
+                #     mapping=residue_constants.restype_order_with_x,
+                #     map_unknown_to_x=True)
+                if multimer:
+                    # Remove "object" dtype arrays. These may be required
+                    this_seq_features.pop('domain_name')
+                    this_seq_features.pop('between_segment_residues')
+                    this_seq_features.pop('sequence')
+                    this_seq_features.pop('seq_length')
+                    # The multimer model performs the one-hot operation itself. So processing gets the sequence as
+                    # the idx encoded by this v argmax on the one-hot
+                    this_seq_features['aatype'] = np.argmax(this_seq_features['aatype'], axis=-1).astype(np.int32)
+
+                    # Ensure that new sequence_features are multimerized
+                    multimer_sequence_length = features['seq_length']
+                    multimer_number, remainder = divmod(multimer_sequence_length, sequence_length)
+                    if remainder:
+                        raise ValueError('The multimer_sequence_length and the sequence_length must differ by an '
+                                         f'integer number. Found multimer ({multimer_sequence_length}) /'
+                                         f' monomer ({sequence_length}) with remainder {remainder}')
+                    for key in ['aatype', 'residue_index']:
+                        this_seq_features[key] = np.tile(this_seq_features[key], multimer_number)
+                    # # For 'domain_name', 'sequence', and 'seq_length', transform the 1-D array to a scaler
+                    # # np.asarray(np.array(['pope'.encode('utf-8')], dtype=np.object_)[0], dtype=np.object_)
+                    # # Not sure why this transformation happens for multimer... as the multimer gets rid of them,
+                    # # but they are ready for the monomer pipeline
+                    # for key in ['domain_name', 'sequence']:
+                    #     this_seq_features[key] = np.asarray(this_seq_features[key][0], dtype=np.object_)
+
+                # Todo ensure that the sequence is merged such as in the merge_and_pair subroutine
+                #  a good portion of which is below
+                # if feature_name_split in SEQ_FEATURES:
+                #     # Merges features along their length [MLKF...], [MLKF...] -> [MLKF...MLKF...]
+                #     merged_example[feature_name] = np.concatenate(feats, axis=0)
+                #     # If sequence is the same length as Entity/Pose, then 'residue_index' should be correct and
+                #     # increasing for each sequence position, restarting at the beginning of a chain
+                # Make the atom positions according to the sequence
+                # Add all_atom_mask and dummy all_atom_positions based on aatype.
+                all_atom_mask = residue_constants.STANDARD_ATOM_MASK[this_seq_features['aatype']]
+                this_seq_features['all_atom_mask'] = all_atom_mask
+                this_seq_features['all_atom_positions'] = np.zeros(list(all_atom_mask.shape) + [3])
+                # Todo check on 'seq_mask' introduction point for multimer...
+                # elif feature_name_split in TEMPLATE_FEATURES:
+                # DONT WORRY ABOUT THESE
+                #     merged_example[feature_name] = np.concatenate(feats, axis=1)
+                # elif feature_name_split in CHAIN_FEATURES:
+                #     merged_example[feature_name] = np.sum(x for x in feats).astype(np.int32)
+                # 'num_alignments' should be fine as msa incorporation has happened prior
+                this_seq_features['seq_length'] = np.asarray(len(sequence), dtype=np.int32)
+                # else:
+                #     # NO use at this time, these take the value of the first chain and eventually get thrown out
+                #     # 'domain_name', 'sequence', 'between_segment_residues'
+                #     merged_example[feature_name] = feats[0]
+                # Todo merge_and_pair end
+
+                # self.log.critical(f'Found this_seq_features:\n\t%s'
+                #                   % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
+                features.update(this_seq_features)
+
                 scores = {
                     'pae': np.zeros((num_models, max_sequence_length, max_sequence_length), dtype=np.float32),
                     'plddt': np.zeros((num_models, max_sequence_length), dtype=np.float32),
@@ -1865,76 +1933,9 @@ class PoseProtocol(PoseData):
                     self.log.info(f'Running model {model_name} on {design}')
                     design_model_name = f'{design}-{model_name}'
                     # t_0 = time.time()
-                    # Set the sequence up in the FeatureDict
-                    # Todo the way that I am adding this here instead of during construction, seems that I should
-                    #  symmetrize the sequence before passing to predict(). This would occur by entity, where the first
-                    #  entity is combined, then the second entity is combined, etc. Any entity agnostic features such
-                    #  as all_atom_mask would be able to be made here
-                    this_seq_features = make_sequence_features(sequence=sequence, description=str(design),
-                                                               num_res=sequence_length)
-                    # This v happens ^
-                    # residue_constants.sequence_to_onehot(
-                    #     sequence=sequence,
-                    #     mapping=residue_constants.restype_order_with_x,
-                    #     map_unknown_to_x=True)
-                    if multimer:
-                        # Remove "object" dtype arrays. These may be required
-                        this_seq_features.pop('domain_name')
-                        this_seq_features.pop('between_segment_residues')
-                        this_seq_features.pop('sequence')
-                        this_seq_features.pop('seq_length')
-                        # The multimer model performs the one-hot operation itself. So processing gets the sequence as
-                        # the idx encoded by this v argmax on the one-hot
-                        this_seq_features['aatype'] = np.argmax(this_seq_features['aatype'], axis=-1).astype(np.int32)
-
-                        # Ensure that new sequence_features are multimerized
-                        multimer_sequence_length = features['seq_length']
-                        multimer_number, remainder = divmod(multimer_sequence_length, sequence_length)
-                        if remainder:
-                            raise ValueError('The multimer_sequence_length and the sequence_length must differ by an '
-                                             f'integer number. Found multimer ({multimer_sequence_length}) /'
-                                             f' monomer ({sequence_length}) with remainder {remainder}')
-                        for key in ['aatype', 'residue_index']:
-                            this_seq_features[key] = np.tile(this_seq_features[key], multimer_number)
-                        # # For 'domain_name', 'sequence', and 'seq_length', transform the 1-D array to a scaler
-                        # # np.asarray(np.array(['pope'.encode('utf-8')], dtype=np.object_)[0], dtype=np.object_)
-                        # # Not sure why this transformation happens for multimer... as the multimer gets rid of them,
-                        # # but they are ready for the monomer pipeline
-                        # for key in ['domain_name', 'sequence']:
-                        #     this_seq_features[key] = np.asarray(this_seq_features[key][0], dtype=np.object_)
-
-                    # Todo ensure that the sequence is merged such as in the merge_and_pair subroutine
-                    #  a good portion of which is below
-                    # if feature_name_split in SEQ_FEATURES:
-                    #     # Merges features along their length [MLKF...], [MLKF...] -> [MLKF...MLKF...]
-                    #     merged_example[feature_name] = np.concatenate(feats, axis=0)
-                    #     # If sequence is the same length as Entity/Pose, then 'residue_index' should be correct and
-                    #     # increasing for each sequence position, restarting at the beginning of a chain
-                    # Make the atom positions according to the sequence
-                    # Add all_atom_mask and dummy all_atom_positions based on aatype.
-                    all_atom_mask = residue_constants.STANDARD_ATOM_MASK[this_seq_features['aatype']]
-                    this_seq_features['all_atom_mask'] = all_atom_mask
-                    this_seq_features['all_atom_positions'] = np.zeros(list(all_atom_mask.shape) + [3])
-                    # Todo check on 'seq_mask' introduction point for multimer...
-                    # elif feature_name_split in TEMPLATE_FEATURES:
-                    # DONT WORRY ABOUT THESE
-                    #     merged_example[feature_name] = np.concatenate(feats, axis=1)
-                    # elif feature_name_split in CHAIN_FEATURES:
-                    #     merged_example[feature_name] = np.sum(x for x in feats).astype(np.int32)
-                    # 'num_alignments' should be fine as msa incorporation has happened prior
-                    this_seq_features['seq_length'] = np.asarray(len(sequence), dtype=np.int32)
-                    # else:
-                    #     # NO use at this time, these take the value of the first chain and eventually get thrown out
-                    #     # 'domain_name', 'sequence', 'between_segment_residues'
-                    #     merged_example[feature_name] = feats[0]
-                    # Todo merge_and_pair end
-
-                    # self.log.critical(f'Found this_seq_features:\n\t%s'
-                    #                   % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
-                    features.update(this_seq_features)
                     model_random_seed = model_index + random_seed*num_models
-                    processed_feature_dict = model_runner.process_features(features,
-                                                                           random_seed=model_random_seed)
+                    processed_feature_dict = \
+                        model_runner.process_features(features, random_seed=model_random_seed)
                     # timings[f'process_features_{design_model_name}'] = time.time() - t_0
 
                     t_0 = time.time()
@@ -1942,27 +1943,25 @@ class PoseProtocol(PoseData):
                                                              random_seed=model_random_seed)
                     t_diff = time.time() - t_0
                     # timings[f'predict_and_compile_{design_model_name}'] = t_diff
-                    self.log.info(
-                        f'Total JAX model {design_model_name} on {sequence} predict time (includes compilation time): '
-                        # ', see --benchmark'
-                        f'{t_diff:.1f}s')
+                    self.log.info(f'Total JAX model {design_model_name} on {sequence} predict time (includes '
+                                  f'compilation time): {t_diff:.1f}s')
                     # Monomer?
                     #  Should take about 96 secs on a 1000 residue protein using 3 recycles...
 
-                    # if benchmark:
-                    #     t_0 = time.time()
-                    #     model_runner.predict(processed_feature_dict,
-                    #                          random_seed=model_random_seed)
-                    #     t_diff = time.time() - t_0
-                    #     timings[f'predict_benchmark_{design_model_name}'] = t_diff
-                    #     self.log.info(f'Total JAX model {design_model_name} on {sequence} predict time (excludes compilation '
-                    #                   f'time): {t_diff:.1fs}')
                     # Remove jax dependency from results.
                     np_prediction_result = run_alphafold._jnp_to_np(dict(prediction_result))
-                    self.log.critical(f'Found the prediction_result keys: {list(np_prediction_result.keys())}')
+                    # self.log.critical(f'Found the prediction_result keys: {list(np_prediction_result.keys())}')
+                    # ['distogram', 'experimentally_resolved', 'masked_msa', 'num_recycles', 'predicted_aligned_error',
+                    #  'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs',
+                    #  'max_predicted_aligned_error', 'ptm', 'iptm', 'ranking_confidence']
+                    self.log.critical(f'Found the prediction_result keys: shapes: '
+                                      f'{dict((type_, res.shape) for type_, res in np_prediction_result.items())}')
+                    # Process incoming scores to be returned. If multimer, we need to clean up to ASU at some point
                     # This is a 2d array
-                    scores['pae'][model_index, :] = np_prediction_result['predicted_aligned_error']
-                    scores['plddt'][model_index, :] = plddt = np_prediction_result['plddt']
+                    scores['pae'][model_index, :] = \
+                        np_prediction_result['predicted_aligned_error'][:sequence_length, :sequence_length]
+                    plddt = np_prediction_result['plddt']
+                    scores['plddt'][model_index, :] = plddt[:sequence_length]
                     # scores['ptm'][model_index] = prediction_result['ptm']
                     if run_multimer_system:
                         scores['iptm'][model_index] = np_prediction_result['iptm']
