@@ -2,9 +2,9 @@ import os
 from shutil import copy, move
 from typing import AnyStr
 
-from symdesign.structure import base, model
-from symdesign.structure.fragment.db import FragmentDatabase, Representative, RELOAD_DB
-from symdesign import utils
+from ..structure import base, model
+from ..structure.fragment.db import FragmentDatabase, Representative, RELOAD_DB
+from .. import utils
 putils = utils.path
 logger = utils.start_log(name=__name__, no_log_name=True)
 

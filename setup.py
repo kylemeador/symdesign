@@ -430,9 +430,9 @@ if __name__ == '__main__':
     else:  # _input = 'y'
         config['uniclust_db'] = download_hhblits_latest_database(dry_run=dry_run)
 
-    # Get alphafold database
+    # Get alphafold database. 5.3 is for params only
     _input = utils.validate_input('Finally, Alphafold databases need to be available for alphafold structure '
-                                  'prediction. The download will take ??>50?? GB of hard drive space. Ensure that you '
+                                  'prediction. The download will take 5.3 GB of hard drive space. Ensure that you '
                                   'have the capacity for this operation. '
                                   'This will automatically be downloaded for you in the directory '
                                   f'"{putils.alphafold_db_dir}" if you consent.', ['Y', 'n'])
