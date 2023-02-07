@@ -42,7 +42,7 @@ class SymmetryError(DesignError):
 # 0 indexed, 1 letter aa, alphabetically sorted at the origin
 try:
     reference_residues = utils.unpickle(putils.reference_residues_pkl)
-except (_pickle.UnpicklingError, ImportError) as error:
+except (_pickle.UnpicklingError, ImportError, SyntaxError) as error:
     logger.error(f'The reference_residues ran into an error upon load. You need to regenerate the serialized version!')
     logger.error(str(error))
     reference_residues = None
