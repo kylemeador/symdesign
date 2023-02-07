@@ -880,8 +880,8 @@ class ContainsChainsMixin:
                 try:
                     return self.chains[idx]
                 except IndexError:
-                    raise IndexError(f'The number of chains ({len(self.chains)}) in the {self.__class__.__name__} != '
-                                     f'number of chain_ids ({len(self.chain_ids)})')
+                    raise IndexError(f'The number of chains ({self.number_of_chains}) in the {self.__class__.__name__} '
+                                     f'!= number of chain_ids ({len(self.chain_ids)})')
         return None
 
     @staticmethod
@@ -3498,18 +3498,22 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             # Set up a new dictionary with the modified keyword 'chains' which refers to Chain instances
             # data_chains = data.get('chains', [])
             data_chains = set(data.get('chains', []))
-            chains = [self.chain(chain) if isinstance(chain, str) else chain for chain in data_chains]
+            print('data_chains', data_chains)
+            chains = [self.chain(chain_id) if isinstance(chain_id, str) else chain_id
+                      for chain_id in data_chains]
             entity_chains = [chain for chain in chains if chain]
+            print('entity_chains names', [ch.name for ch in entity_chains])
             entity_data = {
                 **data,  # Place the original data in the new dictionary
+                'chains': entity_chains,  # Overwrite chains in data dictionary
                 'uniprot_ids': uniprot_ids,
-                'chains': entity_chains}  # Remove any missing chains
+            }
             if len(entity_data['chains']) == 0:
                 if self.nucleotides_present:
                     self.log.warning(f"Nucleotide chain was removed from Structure")
                 else:
                     self.log.warning(f'Missing associated chains for the Entity {entity_name} with data: '
-                                     f"self.chain_ids={self.chain_ids}, entity_data['chains']={entity_data['chains']}, "
+                                     f"self.chain_ids={self.chain_ids}, entity_data['chains']={entity_chains}, "
                                      f"data['chains']={data_chains}, "
                                      f'{", ".join(f"{k}={v}" for k, v in data.items())}')
                     raise DesignError(f"The Entity couldn't be processed as currently configured")
