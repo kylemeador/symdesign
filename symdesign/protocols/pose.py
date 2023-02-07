@@ -1880,7 +1880,7 @@ class PoseProtocol(PoseData):
                     if multimer:
                         # Remove "object" dtype arrays. These may be required
                         this_seq_features.pop('domain_name')
-                        this_seq_features.pop('between_residue_segments')
+                        this_seq_features.pop('between_segment_residues')
                         this_seq_features.pop('sequence')
                         this_seq_features.pop('seq_length')
                         # The multimer model performs the one-hot operation itself. So processing gets the sequence as
