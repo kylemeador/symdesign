@@ -1,10 +1,13 @@
 import os
+import sys
 from shutil import copy, move
 from typing import AnyStr
-
-from ..structure import base, model
-from ..structure.fragment.db import FragmentDatabase, Representative, RELOAD_DB
-from .. import utils
+# Insert the local symdesign directory at the front of the PYTHONPATH
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+input(sys.path)
+from symdesign.structure import base, model
+from symdesign.structure.fragment.db import FragmentDatabase, Representative, RELOAD_DB
+from symdesign import utils
 putils = utils.path
 logger = utils.start_log(name=__name__, no_log_name=True)
 
@@ -34,7 +37,7 @@ def create_fragment_db_from_raw_files(source: AnyStr) -> FragmentDatabase:
 
 
 def load_paired_fragment_representatives(cluster_representatives_path) \
-        -> dict[tuple[int, int, int], tuple['structure.model.Model', str]]:
+        -> dict[tuple[int, int, int], tuple[model.Model, str]]:
     """From a directory containing cluster representatives, load the representatives to a dictionary
 
     Args:
