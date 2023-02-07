@@ -9,6 +9,7 @@ import traceback
 from math import ceil
 from typing import Annotated, Iterable, Container, Type, Callable, Sequence, Any
 
+import jax.numpy as jnp
 import numpy as np
 import torch
 
@@ -898,3 +899,28 @@ def sequence_nllloss(sequence: torch.Tensor, log_probs: torch.Tensor,
         return torch.sum(loss, dim=-1)
     else:
         return torch.sum(loss*mask, dim=-1) / torch.sum(mask, dim=-1)
+
+
+# Alphafold variables and helpers
+MAX_TEMPLATE_HITS = 20
+RELAX_MAX_ITERATIONS = 0
+RELAX_ENERGY_TOLERANCE = 2.39
+RELAX_STIFFNESS = 10.0
+RELAX_EXCLUDE_RESIDUES = []
+RELAX_MAX_OUTER_ITERATIONS = 3
+
+
+def jnp_to_np(jax_dict: dict[str, Any]) -> dict[str, Any]:
+    """Recursively changes jax arrays to numpy arrays
+
+    Args:
+        jax_dict: A dictionary with the keys mapped to jax.numpy.array types
+    Returns:
+        The input dictionary modified with the keys mapped to np.array type
+    """
+    for k, v in jax_dict.items():
+        if isinstance(v, dict):
+            jax_dict[k] = jnp_to_np(v)
+        elif isinstance(v, jnp.ndarray):
+            jax_dict[k] = np.array(v)
+    return jax_dict

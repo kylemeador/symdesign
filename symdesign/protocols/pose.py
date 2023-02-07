@@ -42,8 +42,6 @@ from symdesign.third_party.alphafold.alphafold.data.pipeline import FeatureDict,
 from symdesign.third_party.alphafold.alphafold.model import config as afconfig, model as afmodel
 from symdesign.third_party.alphafold.alphafold.model.data import get_model_haiku_params
 from symdesign.third_party.alphafold.alphafold.relax import relax
-# from symdesign.third_party.alphafold.run_alphafold import _jnp_to_np
-from symdesign.third_party.alphafold import run_alphafold
 from symdesign.utils import large_color_array, start_log, pickle_object, write_shell_script, \
     all_vs_all, condensed_to_square, rosetta, InputError, path as putils, starttime
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
@@ -1830,11 +1828,11 @@ class PoseProtocol(PoseData):
 
         # Set up relax process
         amber_relaxer = relax.AmberRelaxation(
-            max_iterations=run_alphafold.RELAX_MAX_ITERATIONS,
-            tolerance=run_alphafold.RELAX_ENERGY_TOLERANCE,
-            stiffness=run_alphafold.RELAX_STIFFNESS,
-            exclude_residues=run_alphafold.RELAX_EXCLUDE_RESIDUES,
-            max_outer_iterations=run_alphafold.RELAX_MAX_OUTER_ITERATIONS,
+            max_iterations=resources.ml.RELAX_MAX_ITERATIONS,
+            tolerance=resources.ml.RELAX_ENERGY_TOLERANCE,
+            stiffness=resources.ml.RELAX_STIFFNESS,
+            exclude_residues=resources.ml.RELAX_EXCLUDE_RESIDUES,
+            max_outer_iterations=resources.ml.RELAX_MAX_OUTER_ITERATIONS,
             use_gpu=self.job.predict.use_gpu_relax)  # --enable_gpu_relax=true Less stable results, but much quicker
 
         # # Turn my input into a feature dict generation. Rely on alphafold.run_alphafold.predict_structure()
@@ -1943,19 +1941,31 @@ class PoseProtocol(PoseData):
                                                              random_seed=model_random_seed)
                     t_diff = time.time() - t_0
                     # timings[f'predict_and_compile_{design_model_name}'] = t_diff
-                    self.log.info(f'Total JAX model {design_model_name} on {sequence} predict time (includes '
-                                  f'compilation time): {t_diff:.1f}s')
+                    self.log.info(f'Total JAX model {design_model_name} structure prediction took {t_diff:.1f}s')
+                    # if this is the first go in the model_runner, then f'(includes compilation time)' would be accurate
                     # Monomer?
                     #  Should take about 96 secs on a 1000 residue protein using 3 recycles...
 
                     # Remove jax dependency from results.
-                    np_prediction_result = run_alphafold._jnp_to_np(dict(prediction_result))
+                    np_prediction_result = resources.ml.jnp_to_np(dict(prediction_result))
+                    # {'distogram': {'bin_edges': (63,), 'logits': (774, 774, 64)},
+                    #  'experimentally_resolved': {'logits': (774, 37)}, 'masked_msa': {'logits': (508, 774, 22)},
+                    #  'predicted_aligned_error': (774, 774),
+                    #  'predicted_lddt': {'logits': (774, 50)},
+                    #  'structure_module': {'final_atom_mask': (774, 37), 'final_atom_positions': (774, 37, 3)},
+                    #  'plddt': (774,), 'aligned_confidence_probs': (774, 774, 64),
+                    #  'max_predicted_aligned_error': (),
+                    #  'ptm': (), 'iptm': (),
+                    #  'ranking_confidence': (),
+                    #  'num_recycles': (),
+                    #  }
                     # self.log.critical(f'Found the prediction_result keys: {list(np_prediction_result.keys())}')
                     # ['distogram', 'experimentally_resolved', 'masked_msa', 'num_recycles', 'predicted_aligned_error',
                     #  'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs',
                     #  'max_predicted_aligned_error', 'ptm', 'iptm', 'ranking_confidence']
-                    self.log.critical(f'Found the prediction_result keys: shapes: '
-                                      f'{dict((type_, res.shape) for type_, res in np_prediction_result.items())}')
+                    # self.log.critical(f'Found the prediction_result keys: shapes: '
+                    #                   f'{dict((type_, res.shape) if isinstance(res, np.ndarray)
+                    #                      for type_, res in np_prediction_result.items())}')
                     # Process incoming scores to be returned. If multimer, we need to clean up to ASU at some point
                     # This is a 2d array
                     scores['pae'][model_index, :] = \
