@@ -1827,7 +1827,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             num_alignments = 1
             species_ids = ['human']
             msa_features = {
-                'deletion_matrix_int': np.zeros(number_of_residues, dtype=np.int32),
+                'deletion_matrix_int': np.zeros((num_alignments, number_of_residues), dtype=np.int32),
                 # When not single sequence, GET THIS FROM THE MATRIX PROBABLY USING CODE IN COLLAPSE PROFILE cumcount...
                 # 'msa': sequences_to_numeric([sequence], translation_table=HHBLITS_AA_TO_ID).astype(dtype=np.int32),
                 'msa': sequences_to_numeric([sequence],
