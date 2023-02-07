@@ -1846,7 +1846,7 @@ class PoseProtocol(PoseData):
         def predict(sequences: dict[str, str], features: FeatureDict):
             # Iterate over provided sequences
             structures_and_scores = {}
-            for design, sequence in enumerate(sequences):
+            for design, sequence in sequences.items():
                 # Set up scores for each model
                 sequence_length = len(sequence)
                 max_sequence_length = sequence_length
