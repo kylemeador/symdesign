@@ -2048,7 +2048,9 @@ class PoseProtocol(PoseData):
                 # Fold with symmetry True. If it isn't symmetric, symmetry won't be used
                 features = entity.get_alphafold_features(symmetric=True, no_msa=no_msa)
                 entity_slice = slice(entity.n_terminal_residue.index, entity.c_terminal_residue.index)
-                entity_scores = predict([sequence[entity_slice] for sequence in sequences], features)
+                entity_scores = predict({design: sequence[entity_slice]
+                                         for design, sequence in sequences.items()},
+                                        features)
                 output_alphafold_structures(entity_scores, entity_info=self.pose.entity_info[entity.name])
 
             # Get the features for the ASU
