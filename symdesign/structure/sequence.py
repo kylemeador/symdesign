@@ -1158,12 +1158,10 @@ class SequenceProfile(ABC):
             match = fragment['match']
             # Retrieve the amino acid frequencies for this fragment cluster, for this alignment side
             aa_freq = getattr(self._fragment_db.info[cluster], alignment_type)
-            print('aa_freq', aa_freq)
             for frag_idx, frequencies in aa_freq.items():  # (lower_bound - upper_bound), [freqs]
                 # observation = dict(match=fragment['match'], **frequencies)
                 # frag_info_dict = {'source': alignment_type, 'cluster': cluster, 'match': match}
                 _frequencies = frequencies.copy()
-                print('_frequencies', _frequencies)
                 _frag_info = FragObservation(source=alignment_type, cluster=cluster, match=match,
                                              weight=_frequencies.pop('weight'), frequencies=_frequencies)
                 self.fragment_map[residue_index + frag_idx][frag_idx].add(_frag_info)  # .append(frag_info_dict)
