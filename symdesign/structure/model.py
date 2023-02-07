@@ -1882,20 +1882,19 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             entity_features = pipeline_multimer.convert_monomer_features(entity_features, chain_id=chain_id)
 
             chain_count = count(1)
-            entity_length = entity.number_of_residues
-            entity_integer = entity_idx + 1
+            entity_integer = 1
             entity_id = pipeline_multimer.int_id_to_str_id(entity_integer)
             all_chain_features = {}
-            for sym_idx in range(1, self.number_of_symmetry_mates):
+            for sym_idx in range(1, 1 + self.number_of_symmetry_mates):
                 # chain_id = next(available_chain_ids_iter)  # The mmCIF formatted chainID with 'AB' type notation
                 this_entity_features = deepcopy(entity_features)
                 # Where chain_id increments for each new chain instance i.e. A_1 is 1, A_2 is 2, ...
                 # Where entity_id increments for each new Entity instance i.e. A_1 is 1, A_2 is 1, ...
                 # Where sym_id increments for each new Entity instance regardless of chain i.e. A_1 is 1, A_2 is 2, ...,
                 # B_1 is 1, B2 is 2
-                this_entity_features.update({'asym_id': next(chain_count) * np.ones(entity_length),
-                                             'sym_id': sym_idx * np.ones(entity_length),
-                                             'entity_id': entity_integer * np.ones(entity_length)})
+                this_entity_features.update({'asym_id': next(chain_count) * np.ones(number_of_residues),
+                                             'sym_id': sym_idx * np.ones(number_of_residues),
+                                             'entity_id': entity_integer * np.ones(number_of_residues)})
                 chain_name = f'{entity_id}_{sym_idx}'
                 all_chain_features[chain_name] = this_entity_features
 
@@ -6241,12 +6240,12 @@ class Pose(SymmetricModel, Metrics):
                 chain_id = available_chain_ids[self.number_of_symmetry_mates * entity_idx]
                 entity_features = pipeline_multimer.convert_monomer_features(entity_features, chain_id=chain_id)
 
-                entity_length = entity.number_of_residues
                 entity_integer = entity_idx + 1
                 entity_id = pipeline_multimer.int_id_to_str_id(entity_integer)
 
+            entity_length = entity.number_of_residues
             # for _ in range(self.number_of_symmetry_mates):
-            for sym_idx in range(1, number_of_symmetry_mates):
+            for sym_idx in range(1, 1 + number_of_symmetry_mates):
                 # chain_id = next(available_chain_ids_iter)  # The mmCIF formatted chainID with 'AB' type notation
                 this_entity_features = deepcopy(entity_features)
                 # Where chain_id increments for each new chain instance i.e. A_1 is 1, A_2 is 2, ...
