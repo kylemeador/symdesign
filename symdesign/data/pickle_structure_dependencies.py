@@ -4,7 +4,6 @@ from shutil import copy, move
 from typing import AnyStr
 # Insert the local symdesign directory at the front of the PYTHONPATH
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-input(sys.path)
 from symdesign.structure import base, model
 from symdesign.structure.fragment.db import FragmentDatabase, Representative, RELOAD_DB
 from symdesign import utils
