@@ -3383,7 +3383,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self.log.debug(f"Integration of nucleotides hasn't been worked out yet, API information not useful")
 
             max_reference_sequence = 0
-            # Remove all previously found chains
+            # Remove all previously found chains. This is also done in _get_entity_info_from_atoms
             for data in self.entity_info.values():
                 data['chains'] = []
                 reference_sequence_length = len(data['reference_sequence'])
@@ -3497,12 +3497,10 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
             # Set up a new dictionary with the modified keyword 'chains' which refers to Chain instances
             # data_chains = data.get('chains', [])
-            data_chains = set(data.get('chains', []))
-            print('data_chains', data_chains)
+            data_chains = utils.remove_duplicates(data.get('chains', []))
             chains = [self.chain(chain_id) if isinstance(chain_id, str) else chain_id
                       for chain_id in data_chains]
             entity_chains = [chain for chain in chains if chain]
-            print('entity_chains names', [ch.name for ch in entity_chains])
             entity_data = {
                 **data,  # Place the original data in the new dictionary
                 'chains': entity_chains,  # Overwrite chains in data dictionary
@@ -3654,7 +3652,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 else:  # No existing entity matches, add new entity
                     entity_name = f'{self.name}_{next(entity_idx)}'
                     self.log.debug(f'Chain {chain_id} is a new Entity "{entity_name}"')
-                    self.entity_info[entity_name] = dict(chains=[chain], sequence=chain.sequence)
+                    self.entity_info[entity_name] = dict(chains=[chain_id], sequence=chain_sequence)
 
         self.log.debug(f'Entity information was solved by {method} match')
 

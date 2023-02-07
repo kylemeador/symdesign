@@ -546,7 +546,7 @@ def to_iterable(obj: str | bytes | list, ensure_file: bool = False, skip_comma: 
 
 
 def remove_duplicates(iter_: Iterable[Any]) -> list[Any]:
-    """An efficient, order maintaining, and set function to remove duplicates"""
+    """An efficient, order maintaining, set function to remove duplicates"""
     seen = set()
     seen_add = seen.add
     return [x for x in iter_ if not (x in seen or seen_add(x))]
