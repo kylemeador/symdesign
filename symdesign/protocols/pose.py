@@ -1878,10 +1878,16 @@ class PoseProtocol(PoseData):
                     #     mapping=residue_constants.restype_order_with_x,
                     #     map_unknown_to_x=True)
                     if multimer:
+                        multimer_sequence_length = features['seq_length']
                         # The multimer model performs the one-hot operation itself. So processing gets the sequence as
                         # the idx encoded by this v argmax on the one-hot
                         this_seq_features['aatype'] = np.argmax(this_seq_features['aatype'], axis=-1).astype(np.int32)
+                        # Ensure that new sequence_features are multimerized
+                        for key in ['aatype', 'residue_index']:
+                            this_seq_features[key] = np.tile(this_seq_features[key], multimer_sequence_length)
                         # For 'domain_name' and 'sequence'
+                        for key in ['domain_name', 'sequence']:
+                            this_seq_features[key] = np.asarray(this_seq_features[key][0], dtype=np.object_)
                         # np.asarray(np.array(['pope'.encode('utf-8')], dtype=np.object_)[0], dtype=np.object_)
                         # Not sure why this transformation happens... as the multimer gets rid of them, but they are
                         # ready for the monomer pipeline
