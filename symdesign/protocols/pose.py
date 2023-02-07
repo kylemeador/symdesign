@@ -1929,8 +1929,8 @@ class PoseProtocol(PoseData):
                     #     merged_example[feature_name] = feats[0]
                     # Todo merge_and_pair end
 
-                    self.log.critical(f'Found this_seq_features:\n\t%s'
-                                      % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
+                    # self.log.critical(f'Found this_seq_features:\n\t%s'
+                    #                   % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
                     features.update(this_seq_features)
                     model_random_seed = model_index + random_seed*num_models
                     processed_feature_dict = model_runner.process_features(features,

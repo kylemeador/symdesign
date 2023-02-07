@@ -9,7 +9,9 @@ from dataclasses import make_dataclass, field
 from subprocess import list2cmdline
 from typing import Annotated, AnyStr, Any, Iterable
 
+import jax
 import psutil
+import tensorflow as tf
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
@@ -685,6 +687,24 @@ class JobResources:
         nanohedra_prior = False
         for idx, module in enumerate(self.modules):
             if module in protocol_module_allowed_modules:
+                if module == flags.predict_structure:
+                    # Check for GPU access
+                    available_devices = jax.local_devices()
+                    for idx, device in enumerate(available_devices):
+                        if device.platform == 'gpu':
+                            device_kind = device.device_kind
+                            device_id = idx
+                            gpu = True
+
+                    if gpu:
+                        logger.info(f'Running on {device_kind} GPU')
+                        DEVICE = 'gpu'
+                        # disable GPU on tensorflow
+                        tf.config.set_visible_devices([], 'GPU')
+                    else:  # device.platform == 'cpu':
+                        logger.warning(f'No GPU detected, will {flags.predict_structure} using CPU')
+                        DEVICE = 'cpu'
+
                 if module == flags.nanohedra:
                     if idx > 0:
                         raise InputError(f"For {flags.protocol} module, {flags.nanohedra} can currently only be run as "
