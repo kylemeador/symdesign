@@ -1945,7 +1945,7 @@ class PoseProtocol(PoseData):
                     self.log.info(
                         f'Total JAX model {design_model_name} on {sequence} predict time (includes compilation time): '
                         # ', see --benchmark'
-                        f'{t_diff:.1fs}')
+                        f'{t_diff:.1f}s')
                     # Monomer?
                     #  Should take about 96 secs on a 1000 residue protein using 3 recycles...
 
