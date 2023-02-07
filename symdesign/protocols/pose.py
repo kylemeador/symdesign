@@ -1878,19 +1878,21 @@ class PoseProtocol(PoseData):
                     #     mapping=residue_constants.restype_order_with_x,
                     #     map_unknown_to_x=True)
                     if multimer:
-                        multimer_sequence_length = features['seq_length']
                         # The multimer model performs the one-hot operation itself. So processing gets the sequence as
                         # the idx encoded by this v argmax on the one-hot
                         this_seq_features['aatype'] = np.argmax(this_seq_features['aatype'], axis=-1).astype(np.int32)
+
                         # Ensure that new sequence_features are multimerized
+                        multimer_sequence_length = features['seq_length']
                         for key in ['aatype', 'residue_index']:
                             this_seq_features[key] = np.tile(this_seq_features[key], multimer_sequence_length)
-                        # For 'domain_name' and 'sequence'
+                        # For 'domain_name' and 'sequence', transform the 1-D array to a scaler
+                        # np.asarray(np.array(['pope'.encode('utf-8')], dtype=np.object_)[0], dtype=np.object_)
+                        # Not sure why this transformation happens for multimer... as the multimer gets rid of them,
+                        # but they are ready for the monomer pipeline
                         for key in ['domain_name', 'sequence']:
                             this_seq_features[key] = np.asarray(this_seq_features[key][0], dtype=np.object_)
-                        # np.asarray(np.array(['pope'.encode('utf-8')], dtype=np.object_)[0], dtype=np.object_)
-                        # Not sure why this transformation happens... as the multimer gets rid of them, but they are
-                        # ready for the monomer pipeline
+
                     # Todo ensure that the sequence is merged such as in the merge_and_pair subroutine
                     #  a good portion of which is below
                     # if feature_name_split in SEQ_FEATURES:
@@ -2055,7 +2057,7 @@ class PoseProtocol(PoseData):
             for entity in self.pose.entities:
                 # Fold with symmetry True. If it isn't symmetric, symmetry won't be used
                 features = entity.get_alphafold_features(symmetric=True, no_msa=no_msa)
-                entity_slice = slice(entity.n_terminal_residue.index, entity.c_terminal_residue.index)
+                entity_slice = slice(entity.n_terminal_residue.index, 1 + entity.c_terminal_residue.index)
                 entity_scores = predict({design: sequence[entity_slice]
                                          for design, sequence in sequences.items()},
                                         features)
