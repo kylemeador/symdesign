@@ -1894,7 +1894,7 @@ class PoseProtocol(PoseData):
                     #     # increasing for each sequence position, restarting at the beginning of a chain
                     # Make the atom positions according to the sequence
                     # Add all_atom_mask and dummy all_atom_positions based on aatype.
-                    all_atom_mask = residue_constants.STANDARD_ATOM_MASK[sequence['aatype']]
+                    all_atom_mask = residue_constants.STANDARD_ATOM_MASK[this_seq_features['aatype']]
                     this_seq_features['all_atom_mask'] = all_atom_mask
                     this_seq_features['all_atom_positions'] = np.zeros(list(all_atom_mask.shape) + [3])
                     # Todo check on 'seq_mask' introduction point for multimer...
@@ -1911,8 +1911,10 @@ class PoseProtocol(PoseData):
                     #     merged_example[feature_name] = feats[0]
                     # Todo merge_and_pair end
 
+                    self.log.critical(f'Found this_seq_features:\n\t%s'
+                                      % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
                     features.update(this_seq_features)
-                    model_random_seed = model_index + random_seed * num_models
+                    model_random_seed = model_index + random_seed*num_models
                     processed_feature_dict = model_runner.process_features(features,
                                                                            random_seed=model_random_seed)
                     # timings[f'process_features_{design_model_name}'] = time.time() - t_0
