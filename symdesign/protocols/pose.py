@@ -2169,7 +2169,7 @@ class PoseProtocol(PoseData):
                     # structures_and_scores[design] = entity_scores = \
                     entity_structures, entity_scores = \
                         predict(sequence_length, {**features, **this_seq_features})
-                    # output_alphafold_structures(entity_scores, entity_info=self.pose.entity_info[entity.name])
+                    output_alphafold_structures(entity_structures)
                     # design_model_models = \
                     if relaxed:
                         structures_to_load = entity_structures.get('relaxed', [])
