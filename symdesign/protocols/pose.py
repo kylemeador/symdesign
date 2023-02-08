@@ -2093,8 +2093,8 @@ class PoseProtocol(PoseData):
             number_of_entities = self.pose.number_of_entities
             # Get the features for each oligomeric Entity
             # The scores will all be the length of the gene Entity, not oligomer
-            entity_scores_by_design = {str(design): [] for design in sequences}
-            entity_structure_by_design = {str(design): [] for design in sequences}
+            entity_scores_by_design = {design: [] for design in sequences}
+            entity_structure_by_design = {design: [] for design in sequences}
             for entity in self.pose.entities:
                 # Fold with symmetry True. If it isn't symmetric, symmetry won't be used
                 features = entity.get_alphafold_features(symmetric=True, no_msa=no_msa)
