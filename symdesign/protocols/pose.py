@@ -34,6 +34,7 @@ from symdesign.resources import sql
 from symdesign.sequence import MultipleSequenceAlignment, read_fasta_file, write_sequences
 from symdesign.structure import fragment
 from symdesign.structure.base import Structure
+from symdesign.structure.coords import superposition3d
 from symdesign.structure.model import Pose, Models, Model, Entity
 from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
 from symdesign.structure.utils import DesignError, ClashError
@@ -41,9 +42,9 @@ from symdesign.third_party.alphafold.alphafold.common import protein, residue_co
 from symdesign.third_party.alphafold.alphafold.data.pipeline import FeatureDict, make_sequence_features
 from symdesign.third_party.alphafold.alphafold.model import config as afconfig, model as afmodel
 from symdesign.third_party.alphafold.alphafold.model.data import get_model_haiku_params
-from symdesign.third_party.alphafold.alphafold.relax import relax
-from symdesign.utils import large_color_array, start_log, pickle_object, write_shell_script, \
-    all_vs_all, condensed_to_square, rosetta, InputError, path as putils, starttime
+from symdesign.third_party.alphafold.alphafold.relax import amber_minimize, utils as relax_utils  # relax
+from symdesign.utils import all_vs_all, condensed_to_square, InputError, large_color_array, start_log, path as putils, \
+    pickle_object, rosetta, starttime, write_json, write_shell_script
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
 # from symdesign.utils.nanohedra.general import get_components_from_nanohedra_docking
 
@@ -1835,234 +1836,302 @@ class PoseProtocol(PoseData):
             max_outer_iterations=resources.ml.RELAX_MAX_OUTER_ITERATIONS,
             use_gpu=self.job.predict.use_gpu_relax)  # --enable_gpu_relax=true Less stable results, but much quicker
 
-        # # Turn my input into a feature dict generation. Rely on alphafold.run_alphafold.predict_structure()
-        # # Is this a good idea?
-        # DataPipeline:
-        #     def process(self, input_fasta_path=fasta_path, msa_output_dir=msa_output_dir) -> FeatureDict:
-        #
-        #         return features
-        def predict(sequences: dict[str, str], features: FeatureDict):
-            # Iterate over provided sequences
-            structures_and_scores = {}
-            for design, sequence in sequences.items():
-                # Set up scores for each model
-                sequence_length = len(sequence)
-                max_sequence_length = sequence_length
-                # Set the sequence up in the FeatureDict
-                # Todo the way that I am adding this here instead of during construction, seems that I should
-                #  symmetrize the sequence before passing to predict(). This would occur by entity, where the first
-                #  entity is combined, then the second entity is combined, etc. Any entity agnostic features such
-                #  as all_atom_mask would be able to be made here
-                this_seq_features = make_sequence_features(sequence=sequence, description=str(design),
-                                                           num_res=sequence_length)
-                # This v happens ^
-                # residue_constants.sequence_to_onehot(
-                #     sequence=sequence,
-                #     mapping=residue_constants.restype_order_with_x,
-                #     map_unknown_to_x=True)
-                if multimer:
-                    # Remove "object" dtype arrays. These may be required
-                    this_seq_features.pop('domain_name')
-                    this_seq_features.pop('between_segment_residues')
-                    this_seq_features.pop('sequence')
-                    this_seq_features.pop('seq_length')
-                    # The multimer model performs the one-hot operation itself. So processing gets the sequence as
-                    # the idx encoded by this v argmax on the one-hot
-                    this_seq_features['aatype'] = np.argmax(this_seq_features['aatype'], axis=-1).astype(np.int32)
+        def amber_relax(prot):
+            out = amber_minimize.run_pipeline(
+                prot=prot,
+                max_iterations=resources.ml.RELAX_MAX_ITERATIONS,
+                tolerance=resources.ml.RELAX_ENERGY_TOLERANCE,
+                stiffness=resources.ml.RELAX_STIFFNESS,
+                exclude_residues=resources.ml.RELAX_EXCLUDE_RESIDUES,
+                max_outer_iterations=resources.ml.RELAX_MAX_OUTER_ITERATIONS,
+                use_gpu=self.job.predict.use_gpu_relax)
+            # min_pos = out['pos']
+            # start_pos = out['posinit']
+            # rmsd = np.sqrt(np.sum((start_pos - min_pos) ** 2) / start_pos.shape[0])
+            # debug_data = {
+            #     'initial_energy': out['einit'],
+            #     'final_energy': out['efinal'],
+            #     'attempts': out['min_attempts'],
+            #     'rmsd': rmsd
+            # }
+            min_pdb = out['min_pdb']
+            # min_pdb = utils.overwrite_b_factors(min_pdb, prot.b_factors)
+            relax_utils.assert_equal_nonterminal_atom_types(
+                protein.from_pdb_string(min_pdb).atom_mask,
+                prot.atom_mask)
+            violations = out['structural_violations'][
+                'total_per_residue_violations_mask'].tolist()
 
-                    # Ensure that new sequence_features are multimerized
-                    multimer_sequence_length = features['seq_length']
-                    multimer_number, remainder = divmod(multimer_sequence_length, sequence_length)
-                    if remainder:
-                        raise ValueError('The multimer_sequence_length and the sequence_length must differ by an '
-                                         f'integer number. Found multimer ({multimer_sequence_length}) /'
-                                         f' monomer ({sequence_length}) with remainder {remainder}')
-                    for key in ['aatype', 'residue_index']:
-                        this_seq_features[key] = np.tile(this_seq_features[key], multimer_number)
-                    # # For 'domain_name', 'sequence', and 'seq_length', transform the 1-D array to a scaler
-                    # # np.asarray(np.array(['pope'.encode('utf-8')], dtype=np.object_)[0], dtype=np.object_)
-                    # # Not sure why this transformation happens for multimer... as the multimer gets rid of them,
-                    # # but they are ready for the monomer pipeline
-                    # for key in ['domain_name', 'sequence']:
-                    #     this_seq_features[key] = np.asarray(this_seq_features[key][0], dtype=np.object_)
+            # return min_pdb, debug_data, violations
+            return min_pdb, violations
 
-                # Todo ensure that the sequence is merged such as in the merge_and_pair subroutine
-                #  a good portion of which is below
-                # if feature_name_split in SEQ_FEATURES:
-                #     # Merges features along their length [MLKF...], [MLKF...] -> [MLKF...MLKF...]
-                #     merged_example[feature_name] = np.concatenate(feats, axis=0)
-                #     # If sequence is the same length as Entity/Pose, then 'residue_index' should be correct and
-                #     # increasing for each sequence position, restarting at the beginning of a chain
-                # Make the atom positions according to the sequence
-                # Add all_atom_mask and dummy all_atom_positions based on aatype.
-                all_atom_mask = residue_constants.STANDARD_ATOM_MASK[this_seq_features['aatype']]
-                this_seq_features['all_atom_mask'] = all_atom_mask
-                this_seq_features['all_atom_positions'] = np.zeros(list(all_atom_mask.shape) + [3])
-                # Todo check on 'seq_mask' introduction point for multimer...
-                # elif feature_name_split in TEMPLATE_FEATURES:
-                # DONT WORRY ABOUT THESE
-                #     merged_example[feature_name] = np.concatenate(feats, axis=1)
-                # elif feature_name_split in CHAIN_FEATURES:
-                #     merged_example[feature_name] = np.sum(x for x in feats).astype(np.int32)
-                # 'num_alignments' should be fine as msa incorporation has happened prior
-                this_seq_features['seq_length'] = np.asarray(len(sequence), dtype=np.int32)
-                # else:
-                #     # NO use at this time, these take the value of the first chain and eventually get thrown out
-                #     # 'domain_name', 'sequence', 'between_segment_residues'
-                #     merged_example[feature_name] = feats[0]
-                # Todo merge_and_pair end
+        def get_sequence_features_to_merge(seq_of_interest: str) -> FeatureDict:
+            """Set up a sequence that has similar features to the Pose, but different sequence, say from design output
 
-                # self.log.critical(f'Found this_seq_features:\n\t%s'
-                #                   % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
-                features.update(this_seq_features)
+            Args:
+                seq_of_interest: The sequence of interest
+            Returns:
+                The Alphafold FeatureDict which is essentially a dictionary with dict[str, np.ndarray]
+            """
+            # Set up scores for each model
+            sequence_length = len(seq_of_interest)
+            # Set the sequence up in the FeatureDict
+            # Todo the way that I am adding this here instead of during construction, seems that I should
+            #  symmetrize the sequence before passing to predict(). This would occur by entity, where the first
+            #  entity is combined, then the second entity is combined, etc. Any entity agnostic features such
+            #  as all_atom_mask would be able to be made here
+            _seq_features = make_sequence_features(sequence=seq_of_interest, description='',
+                                                   num_res=sequence_length)
+            # Always use the outer "domain_name" feature if there is one
+            _seq_features.pop('domain_name')
+            if multimer:
+                # Remove "object" dtype arrays. This may be required for "monomer" runs too
+                # _seq_features.pop('domain_name')
+                _seq_features.pop('between_segment_residues')
+                _seq_features.pop('sequence')
+                _seq_features.pop('seq_length')
+                # The multimer model performs the one-hot operation itself. So processing gets the sequence as
+                # the idx encoded by this v argmax on the one-hot
+                _seq_features['aatype'] = np.argmax(_seq_features['aatype'], axis=-1).astype(np.int32)
 
-                scores = {
-                    'pae': np.zeros((num_models, max_sequence_length, max_sequence_length), dtype=np.float32),
-                    'plddt': np.zeros((num_models, max_sequence_length), dtype=np.float32),
-                    'ptm': np.zeros(num_models, dtype=np.float32),
-                    'iptm': np.zeros(num_models, dtype=np.float32)
-                }
-                ranking_confidences = {}
-                unrelaxed_proteins = {}
-                unrelaxed_pdbs_ = {}
-                relax_metrics = {}
-                # Run the models.
-                for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-                    self.log.info(f'Running model {model_name} on {design}')
-                    design_model_name = f'{design}-{model_name}'
+                multimer_number, remainder = divmod(multimer_sequence_length, sequence_length)
+                if remainder:
+                    raise ValueError('The multimer_sequence_length and the sequence_length must differ by an '
+                                     f'integer number. Found multimer ({multimer_sequence_length}) /'
+                                     f' monomer ({sequence_length}) with remainder {remainder}')
+                for key in ['aatype', 'residue_index']:
+                    _seq_features[key] = np.tile(_seq_features[key], multimer_number)
+                # # For 'domain_name', 'sequence', and 'seq_length', transform the 1-D array to a scaler
+                # # np.asarray(np.array(['pope'.encode('utf-8')], dtype=np.object_)[0], dtype=np.object_)
+                # # Not sure why this transformation happens for multimer... as the multimer gets rid of them,
+                # # but they are ready for the monomer pipeline
+                # for key in ['domain_name', 'sequence']:
+                #     _seq_features[key] = np.asarray(_seq_features[key][0], dtype=np.object_)
+                # _seq_features['seq_length'] = np.asarray(sequence_length, dtype=np.int32)
+
+            # Todo ensure that the sequence is merged such as in the merge_and_pair subroutine
+            #  a good portion of which is below
+            # if feature_name_split in SEQ_FEATURES:
+            #     # Merges features along their length [MLKF...], [MLKF...] -> [MLKF...MLKF...]
+            #     merged_example[feature_name] = np.concatenate(feats, axis=0)
+            #     # If sequence is the same length as Entity/Pose, then 'residue_index' should be correct and
+            #     # increasing for each sequence position, restarting at the beginning of a chain
+            # Make the atom positions according to the sequence
+            # Add all_atom_mask and dummy all_atom_positions based on aatype.
+            all_atom_mask = residue_constants.STANDARD_ATOM_MASK[_seq_features['aatype']]
+            _seq_features['all_atom_mask'] = all_atom_mask
+            _seq_features['all_atom_positions'] = np.zeros(list(all_atom_mask.shape) + [3])
+
+            # Todo check on 'seq_mask' introduction point for multimer...
+            # elif feature_name_split in TEMPLATE_FEATURES:
+            # DONT WORRY ABOUT THESE
+            #     merged_example[feature_name] = np.concatenate(feats, axis=1)
+            # elif feature_name_split in CHAIN_FEATURES:
+            #     merged_example[feature_name] = np.sum(x for x in feats).astype(np.int32)
+            # 'num_alignments' should be fine as msa incorporation has happened prior
+            # else:
+            #     # NO use at this time, these take the value of the first chain and eventually get thrown out
+            #     # 'domain_name', 'sequence', 'between_segment_residues'
+            #     merged_example[feature_name] = feats[0]
+            return _seq_features
+
+        # def predict(sequences: dict[str, str], features: FeatureDict):
+        def predict(length: int, features: FeatureDict) -> tuple[dict[str, dict[str, str]], FeatureDict]:
+            """Run Alphafold to predict a structure from sequence/msa/template features
+
+            Args:
+                length: The length of the desired output for prediction metrics
+                features: The sequence/msa/template feature parameters to populate the jax model
+            Returns:
+                The tuple of structure and score dictionaries. Where structures contains the keys 'relaxed' and
+                'unrelaxed' and scores contain the score types 'pae' (length, length), 'plddt' (length), 'ptm' (1),
+                and 'iptm' (1)
+            """
+            # _scores = {
+            #     'pae': np.zeros((num_models, length, length), dtype=np.float32),
+            #     'plddt': np.zeros((num_models, length), dtype=np.float32),
+            #     'ptm': np.zeros(num_models, dtype=np.float32),
+            #     'iptm': np.zeros(num_models, dtype=np.float32)
+            # }
+            _scores = {model_name: {'ptm': [], 'iptm': []} for model_name in model_runners}
+            ranking_confidences = {}
+            unrelaxed_proteins = {}
+            unrelaxed_pdbs_ = {}
+            relax_metrics = {}
+            # Run the models.
+            for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
+                # self.log.info(f'Running model {model_name} on {design}')
+                # design_model_name = f'{design}-{model_name}'
+                self.log.info(f'Running model {model_name}')
+                # t_0 = time.time()
+                model_random_seed = model_index + random_seed*num_models
+                processed_feature_dict = \
+                    model_runner.process_features(features, random_seed=model_random_seed)
+                # timings[f'process_features_{model_name}'] = time.time() - t_0
+
+                t_0 = time.time()
+                prediction_result = model_runner.predict(processed_feature_dict,
+                                                         random_seed=model_random_seed)
+                t_diff = time.time() - t_0
+                # timings[f'predict_and_compile_{model_name}'] = t_diff
+                self.log.info(f'Total JAX model {model_name} structure prediction took {t_diff:.1f}s')
+                # if this is the first go in the model_runner, then f'(includes compilation time)' would be accurate
+                # Monomer?
+                #  Should take about 96 secs on a 1000 residue protein using 3 recycles...
+
+                # Remove jax dependency from results.
+                np_prediction_result = resources.ml.jnp_to_np(dict(prediction_result))
+                # {'distogram': {'bin_edges': (63,), 'logits': (774, 774, 64)},
+                #  'experimentally_resolved': {'logits': (774, 37)}, 'masked_msa': {'logits': (508, 774, 22)},
+                #  'predicted_aligned_error': (774, 774),
+                #  'predicted_lddt': {'logits': (774, 50)},
+                #  'structure_module': {'final_atom_mask': (774, 37), 'final_atom_positions': (774, 37, 3)},
+                #  'plddt': (774,), 'aligned_confidence_probs': (774, 774, 64),
+                #  'max_predicted_aligned_error': (),
+                #  'ptm': (), 'iptm': (),
+                #  'ranking_confidence': (),
+                #  'num_recycles': (),
+                #  }
+                # self.log.critical(f'Found the prediction_result keys: {list(np_prediction_result.keys())}')
+                # ['distogram', 'experimentally_resolved', 'masked_msa', 'num_recycles', 'predicted_aligned_error',
+                #  'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs',
+                #  'max_predicted_aligned_error', 'ptm', 'iptm', 'ranking_confidence']
+                # self.log.critical(f'Found the prediction_result keys: shapes: '
+                #                   f'{dict((type_, res.shape) if isinstance(res, np.ndarray)
+                #                      for type_, res in np_prediction_result.items())}')
+                # Process incoming scores to be returned. If multimer, we need to clean up to ASU at some point
+                # This is a 2d array
+                # _scores['pae'][model_index, :] = np_prediction_result['predicted_aligned_error'][:length, :length]
+                _scores[model_name]['pae'] = \
+                    np_prediction_result['predicted_aligned_error'][:length, :length]
+                plddt = np_prediction_result['plddt']
+                _scores[model_name]['plddt'] = plddt[:length]
+                # scores['ptm'][model_index] = prediction_result['ptm']
+                if run_multimer_system:
+                    # _scores['iptm'][model_index] = np_prediction_result['iptm']
+                    _scores[model_name]['iptm'].append(np_prediction_result['iptm'])
+                ranking_confidences[model_name] = np_prediction_result['ranking_confidence']
+
+                # Add the predicted LDDT in the b-factor column.
+                # Note that higher predicted LDDT value means higher model confidence.
+                plddt_b_factors = np.repeat(plddt[:, None], residue_constants.atom_type_num, axis=-1)
+                unrelaxed_protein = protein.from_prediction(
+                    features=processed_feature_dict,
+                    result=prediction_result,
+                    b_factors=plddt_b_factors,
+                    remove_leading_feature_dimension=not model_runner.multimer_mode)
+                unrelaxed_proteins[model_name] = unrelaxed_protein
+                unrelaxed_pdbs_[model_name] = protein.to_pdb(unrelaxed_protein)
+
+            # Rank by model confidence.
+            ranked_order = [design_model_name for design_model_name, confidence in
+                            sorted(ranking_confidences.items(), key=lambda x: x[1], reverse=True)]
+            # Sort the unrelaxed_pdbs accordingly
+            unrelaxed_pdbs = {name: unrelaxed_pdbs_.pop(name) for name in ranked_order}
+
+            # Relax predictions.
+            relaxed_pdbs = {}
+            if models_to_relax is None:
+                pass  # to_relax = []
+            else:
+                if models_to_relax == 'best':
+                    to_relax = [ranked_order[0]]
+                else:  # if models_to_relax == 'all':
+                    to_relax = ranked_order
+
+                self.log.critical(f'Starting Amber relaxation')
+                for model_name in to_relax:
+                    self.log.critical(f'Relaxing {model_name}')
                     # t_0 = time.time()
-                    model_random_seed = model_index + random_seed*num_models
-                    processed_feature_dict = \
-                        model_runner.process_features(features, random_seed=model_random_seed)
-                    # timings[f'process_features_{design_model_name}'] = time.time() - t_0
+                    # relaxed_pdb_str, _, violations = amber_relaxer.process(prot=unrelaxed_proteins[model_name])
+                    relaxed_pdb_str, violations = amber_relax(prot=unrelaxed_proteins[model_name])
+                    relax_metrics[model_name] = {
+                        'remaining_violations': violations,
+                        'remaining_violations_count': sum(violations)
+                    }
+                    # timings[f'relax_{model_name}'] = time.time() - t_0
 
-                    t_0 = time.time()
-                    prediction_result = model_runner.predict(processed_feature_dict,
-                                                             random_seed=model_random_seed)
-                    t_diff = time.time() - t_0
-                    # timings[f'predict_and_compile_{design_model_name}'] = t_diff
-                    self.log.info(f'Total JAX model {design_model_name} structure prediction took {t_diff:.1f}s')
-                    # if this is the first go in the model_runner, then f'(includes compilation time)' would be accurate
-                    # Monomer?
-                    #  Should take about 96 secs on a 1000 residue protein using 3 recycles...
+                    relaxed_pdbs[model_name] = relaxed_pdb_str
 
-                    # Remove jax dependency from results.
-                    np_prediction_result = resources.ml.jnp_to_np(dict(prediction_result))
-                    # {'distogram': {'bin_edges': (63,), 'logits': (774, 774, 64)},
-                    #  'experimentally_resolved': {'logits': (774, 37)}, 'masked_msa': {'logits': (508, 774, 22)},
-                    #  'predicted_aligned_error': (774, 774),
-                    #  'predicted_lddt': {'logits': (774, 50)},
-                    #  'structure_module': {'final_atom_mask': (774, 37), 'final_atom_positions': (774, 37, 3)},
-                    #  'plddt': (774,), 'aligned_confidence_probs': (774, 774, 64),
-                    #  'max_predicted_aligned_error': (),
-                    #  'ptm': (), 'iptm': (),
-                    #  'ranking_confidence': (),
-                    #  'num_recycles': (),
-                    #  }
-                    # self.log.critical(f'Found the prediction_result keys: {list(np_prediction_result.keys())}')
-                    # ['distogram', 'experimentally_resolved', 'masked_msa', 'num_recycles', 'predicted_aligned_error',
-                    #  'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs',
-                    #  'max_predicted_aligned_error', 'ptm', 'iptm', 'ranking_confidence']
-                    # self.log.critical(f'Found the prediction_result keys: shapes: '
-                    #                   f'{dict((type_, res.shape) if isinstance(res, np.ndarray)
-                    #                      for type_, res in np_prediction_result.items())}')
-                    # Process incoming scores to be returned. If multimer, we need to clean up to ASU at some point
-                    # This is a 2d array
-                    scores['pae'][model_index, :] = \
-                        np_prediction_result['predicted_aligned_error'][:sequence_length, :sequence_length]
-                    plddt = np_prediction_result['plddt']
-                    scores['plddt'][model_index, :] = plddt[:sequence_length]
-                    # scores['ptm'][model_index] = prediction_result['ptm']
-                    if run_multimer_system:
-                        scores['iptm'][model_index] = np_prediction_result['iptm']
-                    ranking_confidences[design_model_name] = np_prediction_result['ranking_confidence']
+            return {'relaxed': relaxed_pdbs, 'unrelaxed': unrelaxed_pdbs}, _scores
 
-                    # Add the predicted LDDT in the b-factor column.
-                    # Note that higher predicted LDDT value means higher model confidence.
-                    plddt_b_factors = np.repeat(plddt[:, None], residue_constants.atom_type_num, axis=-1)
-                    unrelaxed_protein = protein.from_prediction(
-                        features=processed_feature_dict,
-                        result=prediction_result,
-                        b_factors=plddt_b_factors,
-                        remove_leading_feature_dimension=not model_runner.multimer_mode)
-                    unrelaxed_proteins[design_model_name] = unrelaxed_protein
-                    unrelaxed_pdbs_[design_model_name] = protein.to_pdb(unrelaxed_protein)
+            #     structures_and_scores[design] = {
+            #         **scores,
+            #         'structures': relaxed_pdbs,
+            #         'structures_unrelaxed': unrelaxed_pdbs
+            #     }
+            #
+            # return structures_and_scores
 
-                # Rank by model confidence.
-                ranked_order = [design_model_name for design_model_name, confidence in
-                                sorted(ranking_confidences.items(), key=lambda x: x[1], reverse=True)]
-                # Sort the unrelaxed_pdbs accordingly
-                unrelaxed_pdbs = {}
-                for name in ranked_order:
-                    unrelaxed_pdbs[name] = unrelaxed_pdbs_.pop(name)
-
-                # Relax predictions.
-                relaxed_pdbs = {}
-                if models_to_relax is None:
-                    pass  # to_relax = []
-                else:
-                    if models_to_relax == 'best':
-                        to_relax = [ranked_order[0]]
-                    else:  # if models_to_relax == 'all':
-                        to_relax = ranked_order
-
-                    self.log.critical(f'Starting Amber relaxation')
-                    for design_model_name in to_relax:
-                        self.log.critical(f'Relaxing {design_model_name}')
-                        t_0 = time.time()
-                        relaxed_pdb_str, _, violations = amber_relaxer.process(prot=unrelaxed_proteins[design_model_name])
-                        relax_metrics[design_model_name] = {
-                            'remaining_violations': violations,
-                            'remaining_violations_count': sum(violations)
-                        }
-                        # timings[f'relax_{design_model_name}'] = time.time() - t_0
-
-                        relaxed_pdbs[design_model_name] = relaxed_pdb_str
-
-                # structures_and_scores = {
-                structures_and_scores[design] = {
-                    **scores,
-                    'structures': relaxed_pdbs,
-                    'structures_unrelaxed': unrelaxed_pdbs
-                }
-
-            return structures_and_scores
-
-        def output_alphafold_structures(structures_and_scores: dict[str, dict[str, dict[str, str]]],
-                                        entity_info: dict = None):
-            for design, design_scores in structures_and_scores.items():
-                # Output unrelaxed
-                structures = design_scores['structures_unrelaxed']
+        def output_alphafold_structures(structure_types: dict[str, dict[str, str]]):
+            # for design, design_scores in structures.items():
+            #     # # Output unrelaxed
+            #     # structures = design_scores['structures_unrelaxed']
+            for type_str in ['', 'un']:
+                structures = structure_types.get(f'{type_str}relaxed', [])
                 idx = count(1)
                 for model_name, structure in structures.items():
-                    path = os.path.join(self.designs_path, f'{model_name}_rank{next(idx)}_unrelaxed.pdb')
+                    path = os.path.join(self.designs_path, f'{model_name}_rank{next(idx)}{type_str}.pdb')
                     with open(path, 'w') as f:
                         f.write(structure)
+                # # Repeat for relaxed
+                # structures = design_scores['structures']
+                # idx = count(1)
+                # for model_name, structure in structures.items():
+                #     path = os.path.join(self.designs_path, f'{model_name}_rank{next(idx)}.pdb')
+                #     with open(path, 'w') as f:
+                #         f.write(structure)
 
-                # Repeat for relaxed
-                structures = design_scores['structures']
-                idx = count(1)
-                for model_name, structure in structures.items():
-                    path = os.path.join(self.designs_path, f'{model_name}_rank{next(idx)}.pdb')
-                    with open(path, 'w') as f:
-                        f.write(structure)
-
-        def load_alphafold_structures(structures: dict[str, str], entity_info: dict = None):
+        def load_alphafold_structures(structures: dict[str, str], **model_kwargs) -> dict[str, Model]:
             """
 
             Args:
                 structures: The PDB formatted strings for each input Structure
+            Keyword Args:
+                entity_info:
+                name:
             Returns:
-
+                A list of Model instances as calculated by Alphafold
             """
-            if entity_info:
-                model_kwargs = dict(entity_info=entity_info)
-            else:
-                model_kwargs = {}
+            # if entity_info:
+            #     # model_kwargs = kwargs
+            #     model_kwargs = dict(entity_info=entity_info)
+            # else:
+            #     model_kwargs = {}
 
+            # design_models = {}
+            # for design, design_scores in structures_and_scores.items():
+                # # Output unrelaxed
+                # structures = design_scores['structures_unrelaxed']
+            # models = []
+            # for type_str in ['', 'un']:
+            #     structures = design_scores.get(f'{type_str}relaxed', [])
+            model_name_to_design = {}
             for model_name, structure in structures.items():
-                Model.from_pdb_lines(structure.splitlines(), name=model_name,
-                                     **model_kwargs)
+                model = Model.from_pdb_lines(structure.splitlines(), **model_kwargs)
+                # models.append(model)
+                model_name_to_design[model_name] = model
+
+            return model_name_to_design
+            # return models
+            # design_models[design] = models
+            # return design_models
+
+        def find_model_with_minimal_rmsd(models: dict[str, Structure], template_bb_cb_coords) -> str | None:
+            """Use the backbone and CB RMSD metric to find the best Structure instance from a group of Alphafold models
+            and transform that model to the Pose coordinates
+            """
+            min_rmsd = float('inf')
+            minimum_model = None
+            for af_model_name, model in models.items():
+                rmsd, rot, tx = superposition3d(template_bb_cb_coords, model.backbone_and_cb_coords)
+                if rmsd < min_rmsd:
+                    min_rmsd = rmsd
+                    # Move the Alphafold model into the Pose reference frame
+                    model.transform(rotation=rot, translation=tx)
+                    minimum_model = af_model_name  # model
+
+            return minimum_model
 
         # Hard code in the use of only design based single sequence models
         # if self.job.design:
@@ -2070,25 +2139,121 @@ class PoseProtocol(PoseData):
         # else:
         #     no_msa = False
         no_msa = True
+        relaxed = True
         # Prepare the features to feed to the model
         if self.job.predict.run_entities_and_interfaces and self.number_of_entities > 1:
+            number_of_entities = self.pose.number_of_entities
             # Get the features for each oligomeric Entity
+            # The scores will all be the length of the gene Entity, not oligomer
+            entity_scores_by_design = {str(design): [] for design in sequences}
+            entity_structure_by_design = {str(design): [] for design in sequences}
             for entity in self.pose.entities:
                 # Fold with symmetry True. If it isn't symmetric, symmetry won't be used
                 features = entity.get_alphafold_features(symmetric=True, no_msa=no_msa)
+                if multimer:  # Get the length
+                    multimer_sequence_length = features['seq_length']
                 entity_slice = slice(entity.n_terminal_residue.index, 1 + entity.c_terminal_residue.index)
-                entity_scores = predict({design: sequence[entity_slice]
-                                         for design, sequence in sequences.items()},
-                                        features)
-                output_alphafold_structures(entity_scores, entity_info=self.pose.entity_info[entity.name])
+                # entity_scores = predict({design: sequence[entity_slice]
+                #                          for design, sequence in sequences.items()},
+                #                         features)
 
-            # Get the features for the ASU
+                # Iterate over provided sequences. For each one, find the structure with the best model and it's scores
+                for design, sequence in sequences.items():
+                    sequence = sequence[entity_slice]
+                    sequence_length = len(sequence)
+                    this_seq_features = get_sequence_features_to_merge(sequence)
+                    # self.log.critical(f'Found this_seq_features:\n\t%s'
+                    #                   % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
+                    # features.update(this_seq_features)
+
+                    # structures_and_scores[design] = entity_scores = \
+                    entity_structures, entity_scores = \
+                        predict(sequence_length, {**features, **this_seq_features})
+                    # output_alphafold_structures(entity_scores, entity_info=self.pose.entity_info[entity.name])
+                    # design_model_models = \
+                    if relaxed:
+                        structures_to_load = entity_structures.get('relaxed', [])
+                    else:
+                        structures_to_load = entity_structures.get('unrelaxed', [])
+                    design_models = \
+                        load_alphafold_structures(structures_to_load, name=entity.name,
+                                                  entity_info=self.pose.entity_info[entity.name])
+
+                    # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
+                    entity_backbone_and_cb_coords = \
+                        np.concatenate([mate.backbone_and_cb_coords for mate in entity.chains])
+                    # Todo
+                    #  entity_backbone_and_cb_coords = entity.oligomer.backbone_and_cb_coords
+
+                    minimum_model = find_model_with_minimal_rmsd(design_models, entity_backbone_and_cb_coords)
+                    if minimum_model is None:
+                        self.log.critical(f"Couldn't find the Entity {entity.name} model with the minimal rmsd for "
+                                          f"Design {design}")
+                    # Append each Entity result to the full return
+                    entity_structure_by_design[design].append(design_models[minimum_model])
+                    entity_scores_by_design[design].append(entity_scores[minimum_model])
+
+            # Combine Entity structure and scores
+            score_types_mean = ['ptm', 'iptm']
+            # score_types_concat = ['pae', 'plddt']  # 'pae' won't concat correctly. Do we want it?
+            score_types_concat = ['plddt']
+            structures_and_scores = {}
+            entity_design_structures = []
+            entity_design_scores = []
+            for design in sequences:
+                design_pose = Pose.from_entities([entity for model in entity_structure_by_design[design]
+                                                  for entity in model.entities], **self.pose_kwargs)
+                entity_scores = entity_scores_by_design[design]
+                scalar_scores = {score_type: sum([scores[score_type] for scores in entity_scores]) / number_of_entities
+                                 for score_type in score_types_mean}
+                array_scores = {score_type: np.concatenate([scores[score_type] for scores in entity_scores])
+                                for score_type in score_types_concat}
+                scalar_scores.update(array_scores)
+                entity_design_structures.append(design_pose)
+                entity_design_scores.append(scalar_scores)
+
+            # Get features for the ASU and predict
             features = self.pose.get_alphafold_features(symmetric=False, no_msa=no_msa)
-            interface_scores = predict(sequences, features)
-            output_alphafold_structures(interface_scores, entity_info=self.pose.entity_info)
+            asu_design_structures = []  # structure_by_design = {}
+            asu_design_scores = []  # scores_by_design = {}
+            for design, sequence in sequences.items():
+                this_seq_features = get_sequence_features_to_merge(sequence)
+                self.log.critical(f'Found this_seq_features:\n\t%s'
+                                  % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
+                asu_structures, asu_scores = predict(number_of_residues, {**features, **this_seq_features})
+                if relaxed:
+                    structures_to_load = asu_structures.get('relaxed', [])
+                else:
+                    structures_to_load = asu_structures.get('unrelaxed', [])
+                output_alphafold_structures(asu_structures)
+                asu_models = load_alphafold_structures(structures_to_load, name=str(design),  # Get '.name'
+                                                       entity_info=self.pose.entity_info)
+                # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
+                minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
+                if minimum_model is None:
+                    self.log.critical(f"Couldn't find the asu model with the minimal rmsd for Design {design}")
+                # Append each ASU result to the full return
+                asu_design_structures.append(asu_models[minimum_model])
+                # structure_by_design[design].append(asu_models[minimum_model])
+                asu_design_scores.append(asu_scores[minimum_model])
+                # scores_by_design[design].append(asu_models[minimum_model])
+
+            # Compare all scores
+            scores = {}
+            for idx, design in enumerate(sequences):
+                separate_scores = entity_design_scores[idx]
+                combined_scores = asu_design_scores[idx]
+                write_json(separate_scores, os.path.join(self.data_path, f'af_separate_scores-{design}.json'))
+                write_json(combined_scores, os.path.join(self.data_path, f'af_combined_scores-{design}.json'))
+                entity_pose = entity_design_structures[idx]
+                asu_model = asu_design_structures[idx]
+                # Find the RMSD between each type
+                rmsd, rot, tx = superposition3d(asu_model.backbone_and_cb_coords, entity_pose.backbone_and_cb_coords)
+                self.log.critical(f'Found rmsd between separated entities and combined pose: {rmsd}')
+
         else:
             features = self.pose.get_alphafold_features(symmetric=True, no_msa=no_msa)
-            pose_scores = predict(sequences, features)
+            scores = predict(sequences, features)
 
         # Todo output the data as I see fit in
         #  self.analyze_predict_structure_metrics()
