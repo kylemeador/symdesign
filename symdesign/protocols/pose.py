@@ -2073,14 +2073,15 @@ class PoseProtocol(PoseData):
             # design_models[design] = models
             # return design_models
 
-        def find_model_with_minimal_rmsd(models: dict[str, Structure], template_bb_cb_coords) -> str | None:
+        def find_model_with_minimal_rmsd(models: dict[str, Structure], template_cb_coords) -> str | None:
             """Use the backbone and CB RMSD metric to find the best Structure instance from a group of Alphafold models
             and transform that model to the Pose coordinates
             """
             min_rmsd = float('inf')
             minimum_model = None
             for af_model_name, model in models.items():
-                rmsd, rot, tx = superposition3d(template_bb_cb_coords, model.backbone_and_cb_coords)
+                rmsd, rot, tx = superposition3d(template_cb_coords, model.cb_coords)
+                # rmsd, rot, tx = superposition3d(template_bb_cb_coords, model.backbone_and_cb_coords)
                 if rmsd < min_rmsd:
                     min_rmsd = rmsd
                     # Move the Alphafold model into the Pose reference frame
@@ -2136,12 +2137,14 @@ class PoseProtocol(PoseData):
                                                   entity_info={entity.name: self.pose.entity_info[entity.name]})
 
                     # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
-                    entity_backbone_and_cb_coords = \
-                        np.concatenate([mate.backbone_and_cb_coords for mate in entity.chains])
+                    entity_cb_coords = np.concatenate([mate.cb_coords for mate in entity.chains])
+                    # entity_backbone_and_cb_coords = \
+                    #     np.concatenate([mate.backbone_and_cb_coords for mate in entity.chains])
                     # Todo
                     #  entity_backbone_and_cb_coords = entity.oligomer.backbone_and_cb_coords
 
-                    minimum_model = find_model_with_minimal_rmsd(design_models, entity_backbone_and_cb_coords)
+                    minimum_model = find_model_with_minimal_rmsd(design_models, entity_cb_coords)
+                    # minimum_model = find_model_with_minimal_rmsd(design_models, entity_backbone_and_cb_coords)
                     if minimum_model is None:
                         self.log.critical(f"Couldn't find the Entity {entity.name} model with the minimal rmsd for "
                                           f"Design {design}")
@@ -2185,7 +2188,8 @@ class PoseProtocol(PoseData):
                 asu_models = load_alphafold_structures(structures_to_load, name=str(design),  # Get '.name'
                                                        entity_info=self.pose.entity_info)
                 # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
-                minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
+                minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.cb_coords)
+                # minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
                 if minimum_model is None:
                     self.log.critical(f"Couldn't find the asu model with the minimal rmsd for Design {design}")
                 # Append each ASU result to the full return
