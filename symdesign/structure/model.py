@@ -1825,7 +1825,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         # When no msa_used, construct our own
         if no_msa or not self.msa_file:
             num_alignments = 1
-            species_ids = ['human']
+            species_ids = ['']  # Must include an empty '' as the first "reference" sequence
             msa_features = {
                 'deletion_matrix_int': np.zeros((num_alignments, number_of_residues), dtype=np.int32),
                 # When not single sequence, GET THIS FROM THE MATRIX PROBABLY USING CODE IN COLLAPSE PROFILE cumcount...
