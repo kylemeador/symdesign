@@ -2227,6 +2227,11 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             return [self]
         #     return self._neighbors
 
+    def _warn_missing_attribute(self, attribute_name: str, func: str = None) -> str:
+        return f'Residue {self.number}{self.chain_id} has no ".{attribute_name}" attribute! Ensure you call ' \
+               f'{getattr(Structure, attribute_name if func is None else func)} before you request Residue ' \
+               f'{" ".join(attribute_name.split("_"))} information'
+
     # Below properties are considered part of the Residue state
     @property
     def local_density(self) -> float:
@@ -2239,9 +2244,10 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                 self.parent.local_density()
                 return self._local_density
             except AttributeError:
-                raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.local_density.__name__}" '
-                                     f'attribute! Ensure you call {Structure.local_density.__name__} before you request'
-                                     f' Residue local density information')
+                raise AttributeError(self._warn_missing_attribute(self.local_density.__name__))
+                # raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.local_density.__name__}" '
+                #                      f'attribute! Ensure you call {Structure.local_density.__name__} before you request'
+                #                      f' Residue local density information')
 
     @local_density.setter
     def local_density(self, local_density: float):
@@ -2257,9 +2263,10 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             # try:
             #     return self._secondary_structure
             # except AttributeError:
-            raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".secondary_structure" attribute. '
-                                 'Ensure you set the "parent".secondary_structure before you '
-                                 'request Residue.secondary_structure information')
+            raise AttributeError(self._warn_missing_attribute(self.secondary_structure.__name__))
+            # raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".secondary_structure" attribute. '
+            #                      'Ensure you set the "parent".secondary_structure before you '
+            #                      'request Residue.secondary_structure information')
 
     @secondary_structure.setter
     def secondary_structure(self, ss_code: str):
@@ -2295,9 +2302,10 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             try:  # let _segregate_sasa() call get_sasa() from the .parent if sasa is missing
                 self._sasa = self.sasa_apolar + self.sasa_polar
             except AttributeError:
-                raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.sasa.__name__}" attribute! '
-                                     f'Ensure you call {Structure.get_sasa.__name__} before you request Residue SASA '
-                                     f'information')
+                raise AttributeError(self._warn_missing_attribute(self.sasa.__name__, 'get_sasa'))
+                # raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.sasa.__name__}" attribute! '
+                #                      f'Ensure you call {Structure.get_sasa.__name__} before you request Residue SASA '
+                #                      f'information')
             return self._sasa
 
     @sasa.setter
@@ -2315,9 +2323,10 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             try:
                 self._segregate_sasa()
             except AttributeError:
-                raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.sasa_apolar.__name__}" '
-                                     f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
-                                     f'Residue SASA information')
+                raise AttributeError(self._warn_missing_attribute(self.sasa_apolar.__name__, 'get_sasa'))
+                # raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.sasa_apolar.__name__}" '
+                #                      f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
+                #                      f'Residue SASA information')
             return self._sasa_apolar
 
     @sasa_apolar.setter
@@ -2335,9 +2344,10 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             try:
                 self._segregate_sasa()
             except AttributeError:
-                raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.sasa_polar.__name__}" '
-                                     f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
-                                     f'Residue SASA information')
+                raise AttributeError(self._warn_missing_attribute(self.sasa_polar.__name__, 'get_sasa'))
+                # raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.sasa_polar.__name__}" '
+                #                      f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
+                #                      f'Residue SASA information')
             return self._sasa_polar
 
     @sasa_polar.setter
@@ -2372,14 +2382,11 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         try:
             return self._contact_order
         except AttributeError:
-            # self._contact_order = 0.  # Set to 0 so summation can occur
             try:
                 self.parent.contact_order_per_residue()
                 return self._contact_order
             except AttributeError:
-                raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.contact_order.__name__}" '
-                                     f'attribute! Ensure you call {Structure.contact_order.__name__} before you request'
-                                     f' Residue contact order information')
+                raise AttributeError(self._warn_missing_attribute(self.contact_order.__name__))
 
     @contact_order.setter
     def contact_order(self, contact_order: float):
@@ -2410,8 +2417,8 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             for atom in self.atoms:
                 atom.b_factor = getattr(self, dtype)
         except AttributeError:
-            raise AttributeError(f'The attribute {dtype} was not found in the Residue {self.number}{self.chain_id}. Are '
-                                 f'you sure this is the attribute you want?')
+            raise AttributeError(f'The attribute {dtype} was not found in the Residue {self.number}{self.chain_id}. Are'
+                                 ' you sure this is the attribute you want?')
         except TypeError:
             # raise TypeError(f'{type(dtype)} is not a string. To set b_factor, you must provide the dtype as a string')
             try:
