@@ -2019,7 +2019,7 @@ class PoseProtocol(PoseData):
                 structures = structure_types.get(f'{type_str}relaxed', [])
                 idx = count(1)
                 for model_name, structure in structures.items():
-                    path = os.path.join(self.designs_path, f'{model_name}_rank{next(idx)}{type_str}.pdb')
+                    path = os.path.join(self.designs_path, f'{model_name}_rank{next(idx)}-{type_str}relaxed.pdb')
                     with open(path, 'w') as f:
                         f.write(structure)
                 # # Repeat for relaxed
