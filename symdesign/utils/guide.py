@@ -65,9 +65,9 @@ select_sequences = \
     f' sequences become available.{module_help_string}'
 expand_asu = f'Simply outputs each design as the fully expanded assembly from the ASU.{module_help_string}'
 interface_metrics = \
-    f'Gathering accurate interface_metrics is the most critical part of the interface design process. As such, ' \
-    f'{program_name} calculates interface_metrics after each design is processed from an interface_design job. This ' \
-    f'module is simply a helper module which instructs the program to take metrics for any interface that was' \
+    f'Gathering accurate {flags.interface_metrics} is the most critical part of the interface design process. As such, ' \
+    f'{program_name} calculates interface_metrics after each design is processed from an {flags.interface_design} job.'\
+    f' This module is simply a helper module which instructs the program to take metrics for any interface that was' \
     f' generated from a design step or any design protocol that you are particularly interested in. In particular the' \
     f' {flags.interface_metrics} protocol describes the interface with a few key metrics that are collected from Rosetta ' \
     f'Filters and SimpleMetrics. These include necessary energetic measurements of the interface in the complexed, ' \
@@ -186,10 +186,11 @@ interface_design = \
     f'"--{flags.scout}" which greatly expedites interface design at a sacrifice for ultimate sampling depth and therefore ' \
     f'accuracy. It is not recommended to use any of the designs produced by the scout procedure, however. Instead, ' \
     f'they should be immediately followed by the analysis module to understand which out of a handful of input poses ' \
-    f'are the most advantageous to the design task. After interface_design is completed, use the {flags.analysis} ' \
-    f'module to prepare metrics for the modules {select_modules_str}. Importantly, ' \
-    f'{flags.interface_design} can be undertaken multiple times with different protocols to sample different ' \
-    f'interface characteristics.{protocol_usage_in_select}.{module_help_string}'
+    f'are the most advantageous to the design task. ' \
+    f'Importantly, {flags.interface_design} can be undertaken multiple times with different protocols to sample ' \
+    f'different interface characteristics.{protocol_usage_in_select}.{module_help_string}'
+#     f'After {flags.interface_design} is completed, use the {flags.analysis} module to prepare metrics for the modules'
+#     ' {select_modules_str}. '
 formatted_metrics = \
     pretty_format_table([(metric, attributes['description']) for metric, attributes in sorted(config.metrics.items())])
 analysis = \

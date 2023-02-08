@@ -3371,6 +3371,7 @@ class PoseProtocol(PoseData):
             # Create file output
             designed_files_file = os.path.join(self.scripts_path, f'{starttime}_{switch}_files_output.txt')
             if in_file_list:
+                design_files_file = in_file_list
                 generate_files_cmd = \
                     ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', designed_files_file, '-e', '.pdb',
                      '-s', f'_{switch}']
@@ -3381,14 +3382,14 @@ class PoseProtocol(PoseData):
                     f.write('%s\n' % '\n'.join(design_files))
                 # Write the designed_files_file with all "tentatively" designed file paths
                 out_file_string = f'%s{os.sep}{pdb_out_path}{os.sep}%s'
-                with open(design_files_file, 'w') as f:
+                with open(designed_files_file, 'w') as f:
                     f.write('%s\n' % '\n'.join(out_file_string % os.path.split(file) for file in design_files))
             else:
                 raise ValueError(f"Couldn't run {self.refine.__name__} without passing parameter 'design_files' as an "
                                  f"iterable of files")
 
             # -in:file:native is here to block flag file version, not actually useful for refine
-            infile.extend(['-in:file:l', in_file_list, '-in:file:native', self.source_path])
+            infile.extend(['-in:file:l', design_files_file, '-in:file:native', self.source_path])
             metrics_pdb = ['-in:file:l', designed_files_file, '-in:file:native', self.source_path]
             # generate_files_cmdline = [list2cmdline(generate_files_cmd)]
         else:
@@ -4488,7 +4489,6 @@ class PoseProtocol(PoseData):
             return
 
         # Find all designs files
-        # if designs is None:
         design_names = self.design_names
         design_files = self.get_design_files()  # Todo PoseJob(.path)
         scored_design_names = design_scores.keys()

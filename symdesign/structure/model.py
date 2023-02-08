@@ -1876,8 +1876,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             **sequence_features,
             **template_features
         }
-        if symmetric and self.is_oligomeric():
-            # Hard code in as we are using a multimeric predict on the oligomeric version
+        if symmetric and self.is_symmetric():  # is_oligomeric():
+            # Hard code in chain_id as we are using a multimeric predict on the oligomeric version
             chain_id = 'A'
             entity_features = pipeline_multimer.convert_monomer_features(entity_features, chain_id=chain_id)
 
@@ -3079,8 +3079,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         Keyword Args:
             residue: Residue = None - A Residue object to mutate
-            index: int = None - A Residue index to select the Residue instance of interest by
-            number: int = None - A Residue number to select the Residue instance of interest by
+            index: int = None - A Residue index to select the Residue instance of interest
+            number: int = None - A Residue number to select the Residue instance of interest
             to: str = 'ALA' - The type of amino acid to mutate to
             pdb: bool = False - Whether to pull the Residue by PDB number
         """

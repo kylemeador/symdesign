@@ -326,6 +326,8 @@ class JobResources:
         self.design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict = \
             process_design_selector_flags(**kwargs)
         # self.design_selector = kwargs.get('design_selector', {})
+
+        # Docking flags
         self.dock = Dock.from_flags(**kwargs)
         if self.development:
             self.dock.quick = True
@@ -373,6 +375,8 @@ class JobResources:
         # self.initial_z_value: bool = kwargs.get('initial_z_value', False)
 
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
+
+        # Design flags
         self.design = Design.from_flags(**kwargs)
         # Alias number_of_designs
         self.design.number = self.design.number_of_designs
@@ -690,8 +694,15 @@ class JobResources:
         nanohedra_prior = False
         for idx, module in enumerate(self.modules):
             if module in protocol_module_allowed_modules:
-                if module == flags.predict_structure:
+                if module == flags.nanohedra:
+                    if idx > 0:
+                        raise InputError(f"For {flags.protocol} module, {flags.nanohedra} can currently only be run as "
+                                         f"module position #1")
+                    nanohedra_prior = True
+                    continue
+                elif module == flags.predict_structure:
                     # Check for GPU access
+                    gpu = False
                     available_devices = jax.local_devices()
                     for idx, device in enumerate(available_devices):
                         if device.platform == 'gpu':
@@ -708,12 +719,6 @@ class JobResources:
                         logger.warning(f'No GPU detected, will {flags.predict_structure} using CPU')
                         DEVICE = 'cpu'
 
-                if module == flags.nanohedra:
-                    if idx > 0:
-                        raise InputError(f"For {flags.protocol} module, {flags.nanohedra} can currently only be run as "
-                                         f"module position #1")
-                    nanohedra_prior = True
-                    continue
                 if nanohedra_prior:
                     if module in flags.select_modules:
                         # We only should allow select-poses after nanohedra
@@ -825,16 +830,16 @@ class JobResources:
             self.reduce_memory = True
         logger.debug(f'Reduce job memory?: {self.reduce_memory}')
 
-        # Run specific checks
-        if self.module == flags.interface_design and self.design.evolution_constraint:  # hhblits to run
-            if psutil.virtual_memory().available <= required_memory + CommandDistributer.hhblits_memory_threshold:
-                logger.critical(f'The available memory (RAM) is insufficient to run {putils.hhblits}, (needs '
-                                f'{round(required_memory + CommandDistributer.hhblits_memory_threshold / 10e9, 2)} Gb)'
-                                ' Please allocate the job to a computer with more memory or the process will fail, '
-                                f'otherwise, submit the job with --no-{flags.evolution_constraint}')
-                exit(1)
-            putils.make_path(self.sequences)
-            putils.make_path(self.profiles)
+        # # Run specific checks
+        # if self.design.evolution_constraint:  # hhblits to run
+        #     if psutil.virtual_memory().available <= required_memory + CommandDistributer.hhblits_memory_threshold:
+        #         logger.critical(f'The available memory (RAM) is insufficient to run {putils.hhblits}, (needs '
+        #                         f'{round(required_memory + CommandDistributer.hhblits_memory_threshold / 10e9, 2)} Gb)'
+        #                         ' Please allocate the job to a computer with more memory or the process will fail, '
+        #                         f'otherwise, submit the job with --no-{flags.evolution_constraint}')
+        #         exit(1)
+        #     putils.make_path(self.sequences)
+        #     putils.make_path(self.profiles)
 
     def setup_evolution_constraint(self, uniprot_entities: Iterable[wrapapi.UniProtEntity] = None,
                                    entities: Iterable[structure.sequence.SequenceProfile] = None) -> list[str]:

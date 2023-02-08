@@ -1712,7 +1712,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                 raise ValueError(f"{self.is_residue_valid.__name__}: The Atom at index {idx} doesn't have the "
                                  f'same properties as all previous Atoms')
 
-        if protein_backbone_atom_types.difference(found_types):  # modify if building NucleotideResidue
+        if protein_backbone_atom_types.difference(found_types):  # Todo Modify if building NucleotideResidue
             raise ValueError(f"{self.is_residue_valid.__name__}: The provided Atoms don't contain the required "
                              f'types ({", ".join(protein_backbone_atom_types)}) to build a {self.__class__.__name__}')
 
@@ -1805,8 +1805,14 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                 self._c_index = idx
             elif atom.type == 'O':
                 self._o_index = idx
-            elif atom.type == 'H':
+            elif atom.type == 'H':  # 1H or H1
                 self._h_index = idx
+            # elif atom.type == 'OXT':
+            #     self._oxt_index = idx
+            # elif atom.type == 'H2':
+            #     self._h2_index = idx
+            # elif atom.type == 'H3':
+            #     self._h3_index = idx
             else:
                 side_chain_indices.append(idx)
                 if 'H' not in atom.type:
@@ -1819,11 +1825,11 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         if cb_index:
             cb_indices = [cb_index]
         else:
-            if self.type == 'GLY':
+            if self.type == 'GLY':  # Set _cb_index, but don't include in backbone_and_cb_indices
                 self._cb_index = getattr(self, '_ca_index')
             cb_indices = []
 
-        # By using private variables, None is removed v
+        # By using private backbone_indices variable v, None is removed
         self.backbone_and_cb_indices = self._bb_indices + cb_indices
         self.heavy_indices = self._bb_and_cb_indices + heavy_indices
         self.side_chain_indices = side_chain_indices
@@ -1870,7 +1876,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
 
     @property
     def cb_indices(self) -> list[int]:  # This is for compatibility with ContainsAtomsMixin
-        """Return the index of the CB Atom as a list in the Residue Atoms/Coords"""
+        """Return the index of the CB Atom as a list in the Residue Atoms/Coords. Will return CA index if Glycine"""
         try:
             return self._cb_indices
         except AttributeError:
@@ -3540,7 +3546,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                     if dna_sugar_atom_types.intersection(found_types):
                         self.nucleotides_present = True
                     remove_atom_indices.extend(range(start_atom_index, idx))
-                else:  # proper format
+                else:  # Proper format
                     new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx)), parent=self))
                 start_atom_index = idx
                 found_types = {atom.type}  # atom_indices = [idx]
@@ -3549,7 +3555,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # ensure last residue is added after stop iteration
         if protein_backbone_atom_types.difference(found_types):  # Not an empty set, remove indices [start_idx:idx]
             remove_atom_indices.extend(range(start_atom_index, idx + 1))
-        else:  # proper format. For each need to increment one higher than the last v
+        else:  # Proper format. For each need to increment one higher than the last v
             new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx + 1)), parent=self))
 
         self._residue_indices = list(range(len(new_residues)))
@@ -3558,15 +3564,15 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self._residues.find_prev_and_next()
         self._residues.set_index()
 
-        # remove bad atom_indices
+        # Remove bad atom_indices
         atom_indices = self._atom_indices
-        for index in remove_atom_indices[::-1]:  # ensure popping happens in reverse
+        for index in remove_atom_indices[::-1]:  # Ensure popping happens in reverse
             atom_indices.pop(index)
         self._atom_indices = atom_indices
         # Todo remove bad atoms
         # self._atoms.remove()
 
-    # when alt_location parsing allowed, there may be some use to this, however above works great without alt location
+    # when alt_location parsing allowed, there may be some use to this, however above works without alt location
     # def _create_residues(self):
     #     """For the Structure, create all possible Residue instances. Doesn't allow for alternative atom locations"""
     #     start_indices, residue_ranges = [], []
