@@ -2166,16 +2166,16 @@ class PoseProtocol(PoseData):
             for design in sequences:
                 design_pose = Pose.from_entities([entity for model in entity_structure_by_design[design]
                                                   for entity in model.entities], **self.pose_kwargs)
+                entity_design_structures.append(design_pose)
                 entity_scores = entity_scores_by_design[design]
-                logger.critical(f'Found entity_scores with contents:\n{entity_scores}')
+                logger.debug(f'Found entity_scores with contents:\n{entity_scores}')
                 scalar_scores = {score_type: sum([sum(scores[score_type]) for scores in entity_scores])
                                  / number_of_entities
                                  for score_type in score_types_mean}
                 array_scores = {score_type: np.concatenate([scores[score_type] for scores in entity_scores])
                                 for score_type in score_types_concat}
                 scalar_scores.update(array_scores)
-                logger.critical(f'Found scalar_scores with contents:\n{scalar_scores}')
-                entity_design_structures.append(design_pose)
+                logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
                 entity_design_scores.append(scalar_scores)
 
             # Get features for the ASU and predict
@@ -2219,6 +2219,35 @@ class PoseProtocol(PoseData):
                 self.log.critical(f'Found rmsd between separated entities and combined pose: {rmsd}')
 
         else:
+            # Todo remove this from here and use symmetric=True
+            # Get features for the ASU and predict
+            features = self.pose.get_alphafold_features(symmetric=False, no_msa=no_msa)
+            asu_design_structures = []  # structure_by_design = {}
+            asu_design_scores = []  # scores_by_design = {}
+            for design, sequence in sequences.items():
+                this_seq_features = get_sequence_features_to_merge(sequence)
+                self.log.critical(f'Found this_seq_features:\n\t%s'
+                                  % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
+                asu_structures, asu_scores = predict(number_of_residues, {**features, **this_seq_features})
+                if relaxed:
+                    structures_to_load = asu_structures.get('relaxed', [])
+                else:
+                    structures_to_load = asu_structures.get('unrelaxed', [])
+                output_alphafold_structures(asu_structures, design_name=f'{design}-asu')
+                asu_models = load_alphafold_structures(structures_to_load, name=str(design),  # Get '.name'
+                                                       entity_info=self.pose.entity_info)
+                # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
+                minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.cb_coords)
+                # minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
+                if minimum_model is None:
+                    self.log.critical(f"Couldn't find the asu model with the minimal rmsd for Design {design}")
+                # Append each ASU result to the full return
+                asu_design_structures.append(asu_models[minimum_model])
+                # structure_by_design[design].append(asu_models[minimum_model])
+                asu_design_scores.append(asu_scores[minimum_model])
+                # scores_by_design[design].append(asu_models[minimum_model])
+            raise NotImplementedError(f"Predicting on a single symmetric input isn't recommended due to "
+                                      'size limitations')
             features = self.pose.get_alphafold_features(symmetric=True, no_msa=no_msa)
             scores = predict(sequences, features)
 
