@@ -301,8 +301,8 @@ class JobResources:
             # self.db: Engine = create_engine(f'sqlite:///{self.internal_db}', echo=True, future=True)
         else:  # When --no-database is provided as a flag
             self.db = None
-
-        if self.development:
+        self.reset_db = kwargs.get('reset_db')
+        if self.reset_db:
             # All tables are deleted
             sql.Base.metadata.drop_all(self.db.engine)
             # Emit CREATE TABLE DDL

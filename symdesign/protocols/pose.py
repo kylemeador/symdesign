@@ -1761,7 +1761,7 @@ class PoseProtocol(PoseData):
         model_runners = {}
         model_names = afconfig.MODEL_PRESETS[model_name]  # FLAGS.model_preset]
         for model_name in model_names:
-            if model_name != 'model_2_multimer_v3':  # Tod remove after debug
+            if self.job.development and model_name != 'model_2_multimer_v3':
                 continue
             model_config = afconfig.model_config(model_name)
             if run_multimer_system:

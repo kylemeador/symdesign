@@ -78,6 +78,7 @@ project_name = 'project_name'
 profile_memory = 'profile_memory'
 preprocessed = 'preprocessed'
 quick = 'quick'
+reset_db = 'reset_db'
 pose_format = 'pose_format'
 use_gpu_relax = 'use_gpu_relax'
 # Set up JobResources namespaces for different categories of flags
@@ -209,6 +210,7 @@ profile_memory = format_for_cmdline(profile_memory)
 process_rosetta_metrics = format_for_cmdline(process_rosetta_metrics)
 pose_format = format_for_cmdline(pose_format)
 use_gpu_relax = format_for_cmdline(use_gpu_relax)
+reset_db = format_for_cmdline(reset_db)
 
 select_modules = (
     select_poses,
@@ -676,8 +678,7 @@ options_arguments = {
                                            '\nthan 0, to use when performing design. In the form:'
                                            '\nexp(G/T), where G = energy and T = temperature'
                                            '\nHigher temperatures result in more diversity'),
-    # ('-U', '--update-database'): dict(action='store_true',
-    #                                   help='Whether to update resources for each Structure in the database')
+    (f'--{reset_db}',): dict(action='store_true', help='Whether to reset the database for development')
 }
 # ---------------------------------------------------
 residue_selector_help = 'Residue selectors control which parts of the Pose are included during protocols'
