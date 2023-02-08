@@ -1818,11 +1818,12 @@ class PoseProtocol(PoseData):
             # return min_pdb, debug_data, violations
             return min_pdb, violations
 
-        def get_sequence_features_to_merge(seq_of_interest: str) -> FeatureDict:
+        def get_sequence_features_to_merge(seq_of_interest: str, multimer_length: int = None) -> FeatureDict:
             """Set up a sequence that has similar features to the Pose, but different sequence, say from design output
 
             Args:
                 seq_of_interest: The sequence of interest
+                multimer_length: The length of the multimer features, if the features are multimeric
             Returns:
                 The Alphafold FeatureDict which is essentially a dictionary with dict[str, np.ndarray]
             """
@@ -1837,7 +1838,7 @@ class PoseProtocol(PoseData):
                                                    num_res=sequence_length)
             # Always use the outer "domain_name" feature if there is one
             _seq_features.pop('domain_name')
-            if multimer:
+            if multimer_length is not None:
                 # Remove "object" dtype arrays. This may be required for "monomer" runs too
                 # _seq_features.pop('domain_name')
                 _seq_features.pop('between_segment_residues')
@@ -1847,7 +1848,7 @@ class PoseProtocol(PoseData):
                 # the idx encoded by this v argmax on the one-hot
                 _seq_features['aatype'] = np.argmax(_seq_features['aatype'], axis=-1).astype(np.int32)
 
-                multimer_number, remainder = divmod(multimer_sequence_length, sequence_length)
+                multimer_number, remainder = divmod(multimer_length, sequence_length)
                 if remainder:
                     raise ValueError('The multimer_sequence_length and the sequence_length must differ by an '
                                      f'integer number. Found multimer ({multimer_sequence_length}) /'
@@ -2122,7 +2123,8 @@ class PoseProtocol(PoseData):
                 for design, sequence in sequences.items():
                     sequence = sequence[entity_slice]
                     sequence_length = len(sequence)
-                    this_seq_features = get_sequence_features_to_merge(sequence)
+                    this_seq_features = \
+                        get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
                     # self.log.critical(f'Found this_seq_features:\n\t%s'
                     #                   % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
                     # features.update(this_seq_features)
@@ -2180,10 +2182,12 @@ class PoseProtocol(PoseData):
 
             # Get features for the ASU and predict
             features = self.pose.get_alphafold_features(symmetric=False, no_msa=no_msa)
+            if multimer:  # Get the length
+                multimer_sequence_length = features['seq_length']
             asu_design_structures = []  # structure_by_design = {}
             asu_design_scores = []  # scores_by_design = {}
             for design, sequence in sequences.items():
-                this_seq_features = get_sequence_features_to_merge(sequence)
+                this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
                 self.log.critical(f'Found this_seq_features:\n\t%s'
                                   % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
                 asu_structures, asu_scores = predict(number_of_residues, {**features, **this_seq_features})
@@ -2222,10 +2226,12 @@ class PoseProtocol(PoseData):
             # Todo remove this from here and use symmetric=True
             # Get features for the ASU and predict
             features = self.pose.get_alphafold_features(symmetric=False, no_msa=no_msa)
+            if multimer:  # Get the length
+                multimer_sequence_length = features['seq_length']
             asu_design_structures = []  # structure_by_design = {}
             asu_design_scores = []  # scores_by_design = {}
             for design, sequence in sequences.items():
-                this_seq_features = get_sequence_features_to_merge(sequence)
+                this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
                 self.log.critical(f'Found this_seq_features:\n\t%s'
                                   % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
                 asu_structures, asu_scores = predict(number_of_residues, {**features, **this_seq_features})
