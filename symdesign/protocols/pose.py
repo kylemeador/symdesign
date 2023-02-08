@@ -397,7 +397,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     # """The database row id for the 'pose_data' table"""
     _source: AnyStr
     _directives: list[dict[int, str]]
-    _specific_designs: Sequence[str]
+    _specific_designs: list | list[sql.DesignData]
     current_designs: list | list[sql.DesignData]
     """Hold DesignData that has been generated in the scope of this job"""
     initial_model: Model | None
@@ -552,6 +552,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     @reconstructor
     def __init_from_db__(self):
         """Initialize PoseData after the instance is "initialized", i.e. loaded from the database"""
+        # Design attributes
         self.current_designs = []
         self.measure_evolution = self.measure_alignment = False
         self.pose = self.initial_model = self.protocol = None
@@ -562,15 +563,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if self.job.sym_entry is not None:
             self.sym_entry = self.job.sym_entry
 
-        # Design attributes
-        # self.protocol = None
-        # """The name of the currently utilized protocol for file naming and metric results"""
-        # self.measure_evolution = self.measure_alignment = False
-        # # self.entities = []
-        # self.initial_model = None
-        # """Used if the pose structure has never been initialized previously"""
-        # self.pose = None
-        # """Contains the Pose object"""
         # self.specific_designs_file_paths = []
         # """Contains the various file paths for each design of interest according to self.specific_designs"""
 
@@ -696,59 +688,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #     #     # self.job.projects = os.path.dirname(self.project_path)
         #     # self.project = os.path.basename(self.project_path)
 
-        # # if self.specific_designs:
-        # #     # Introduce flag handling current inability of specific_designs to handle iteration
-        # #     self._lock_optimize_designs = True
-        # #     # self.specific_designs_file_paths = []
-        # #     for design in self.specific_designs:
-        # #         matching_path = os.path.join(self.designs_path, f'*{design}.pdb')
-        # #         matching_designs = sorted(glob(matching_path))
-        # #         if matching_designs:
-        # #             if len(matching_designs) > 1:
-        # #                 self.log.warning(f'Found {len(matching_designs)} matching designs to your specified design '
-        # #                                  f'using {matching_path}. Choosing the first {matching_designs[0]}')
-        # #             for matching_design in matching_designs:
-        # #                 if os.path.exists(matching_design):  # Shouldn't be necessary from glob
-        # #                     self.specific_designs_file_paths.append(matching_design)
-        # #                     break
-        # #         else:
-        # #             raise DesignError(f"Couldn't locate a specific_design matching the name '{matching_path}'")
-        # #     # Format specific_designs to a pose ID compatible format
-        # #     self.specific_designs = [f'{self.name}_{design}' for design in self.specific_designs]
-        # #     # self.source_path = specific_designs_file_paths  # Todo?
-        # #     # self.source_path = self.specific_design_path
-        # # elif self.source_path is None:
-        # # Configure standard pose loading mechanism with self.source_path
-        # if self.source_path is None:
-        #     if os.path.exists(self.asu_path):  # Standard mechanism of loading the pose
-        #         self.source_path = self.asu_path
-        #     else:
-        #         glob_target = os.path.join(self.pose_directory, f'{self.name}*.pdb')
-        #         source = sorted(glob(glob_target))
-        #         if len(source) > 1:
-        #             raise ValueError(f'Found {len(source)} files matching the path "{glob_target}". '
-        #                              'No more than one expected')
-        #         else:
-        #             try:
-        #                 self.source_path = source[0]
-        #             except IndexError:  # glob found no files
-        #                 self.source_path = None
-        # # else:  # If the PoseJob was loaded as .pdb/mmCIF, the structure_source should be the self.initial_model
-        # #     pass
-
-        # # Set up specific_design mechanisms
-        # if specific_designs:
-        #     self.specific_designs = specific_designs
-        # # else:
-        # #     self.specific_designs = []
-        # if directives:
-        #     self.directives = directives
-        # # else:
-        # #     self.directives = []
-
-        # # Mark that this has been initialized if it has
-        # self.pickle_info()
-
     def use_specific_designs(self, specific_designs: Sequence[str] = None, directives: list[dict[int, str]] = None,
                              **kwargs):
         """Set up the instance with the names and instructions to perform further sequence design
@@ -795,8 +734,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             self._directives = directives
 
     @property
-    def specific_designs(self) -> Sequence[str]:
-        """The names of designs which to include in modules that support PoseJob designs"""
+    def specific_designs(self) -> list[sql.DesignData] | list:
+        """The DesignData instances which should be used during additional PoseJob design methods"""
         try:
             return self._specific_designs
         except AttributeError:
@@ -807,25 +746,30 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     def specific_designs(self, specific_designs: Iterable[str]):
         """Configure the specific_designs"""
         if specific_designs:
-            # Introduce flag handling current inability of specific_designs to handle iteration
-            self._lock_optimize_designs = True
-            # self.specific_designs_file_paths = []
-            for design in specific_designs:
-                # Todo update this to use DesignData, maybe DesignProtocol.file ...
-                matching_path = os.path.join(self.designs_path, f'*{design}.pdb')
-                matching_designs = sorted(glob(matching_path))
-                if matching_designs:
-                    if len(matching_designs) > 1:
-                        self.log.warning(f'Found {len(matching_designs)} matching designs to your specified design '
-                                         f'using {matching_path}. Choosing the first {matching_designs[0]}')
-                    for matching_design in matching_designs:
-                        if os.path.exists(matching_design):  # Shouldn't be necessary from glob
-                            self.specific_designs_file_paths.append(matching_design)
-                            break
+            specific_design_data_instances = []
+            for design_name in specific_designs:
+                for design in self.designs:
+                    if design.name == design_name:
+                        specific_design_data_instances.append(design)
+                        break
                 else:
-                    raise DesignError(f"Couldn't locate a specific_design matching the name '{matching_path}'")
-            # Format specific_designs to a pose ID compatible format
-            self.specific_designs = [f'{self.name}_{design}' for design in self.specific_designs]
+                    raise DesignError(f"Couldn't locate a specific_design matching the name '{design_name}'")
+
+                # matching_path = os.path.join(self.designs_path, f'*{design}.pdb')
+                # matching_designs = sorted(glob(matching_path))
+                # if matching_designs:
+                #     if len(matching_designs) > 1:
+                #         self.log.warning(f'Found {len(matching_designs)} matching designs to your specified design '
+                #                          f'using {matching_path}. Choosing the first {matching_designs[0]}')
+                #     for matching_design in matching_designs:
+                #         if os.path.exists(matching_design):  # Shouldn't be necessary from glob
+                #             self.specific_designs_file_paths.append(matching_design)
+                #             break
+                # else:
+                #     raise DesignError(f"Couldn't locate a specific_design matching the name '{matching_path}'")
+            self.specific_designs = specific_design_data_instances
+            # # Format specific_designs to a pose ID compatible format
+            # self.specific_designs = [f'{self.name}_{design}' for design in self.specific_designs]
 
     @property
     def structure_source(self) -> AnyStr:

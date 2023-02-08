@@ -627,6 +627,8 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
         # design_file=None (str): The name of a particular design file present in the designs output
         threshold: The threshold above which background amino acid frequencies are allowed for mutation
     """
+    job.protocol = protocol_xml1 = putils.optimize_designs
+    # job.protocol = putils.pross
     # Todo Notes for PROSS implementation
     #  I need to use a mover like FilterScan to measure all the energies for a particular residue and it's possible
     #  mutational space. Using these measurements, I then need to choose only those ones which make a particular
@@ -634,15 +636,26 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     #  This will likely utilize a resfile as in PROSS implementation and here as creating a PSSM could work but is a
     #  bit convoluted. I think finding the energy threshold to use as a filter cut off is going to be a bit
     #  heuristic as the REF2015 scorefunction wasn't used in PROSS publication.
-    if job._lock_optimize_designs:
-        job.log.critical('Need to resolve the differences between multiple specified_designs and a single '
-                         'specified_design. Only using the first design')
-        specific_design = job.specific_designs_file_paths[0]
-        # raise NotImplemented('Need to resolve the differences between multiple specified_designs and a single '
-        #                      'specified_design')
+
+    generate_files_cmd = pose.null_cmd
+
+    # Create file output
+    designed_files_file = os.path.join(job.scripts_path, f'{starttime}_{job.protocol}_files_output.txt')
+    if job.specific_designs:
+        design_files = [design_.structure_file for design_ in job.specific_designs]
+        design_files_file = os.path.join(job.scripts_path, f'{starttime}_{job.protocol}_files.txt')
+        with open(design_files_file, 'w') as f:
+            f.write('%s\n' % '\n'.join(design_files))
+        # Write the designed_files_file with all "tentatively" designed file paths
+        pdb_out_path = job.designs_path
+        out_file_string = f'%s{os.sep}{pdb_out_path}{os.sep}%s'
+        with open(design_files_file, 'w') as f:
+            f.write('%s\n' % '\n'.join(out_file_string % os.path.split(file) for file in design_files))
+        # -in:file:native is here to block flag file version, not actually useful for refine
+        infile = ['-in:file:l', design_files_file, '-in:file:native', job.source_path]
+        metrics_pdb = ['-in:file:l', designed_files_file, '-in:file:native', job.source_path]
     else:
-        raise RuntimeError('IMPOSSIBLE')
-        specific_design = job.specific_design_path
+        infile = ['-in:file:s', job.refined_pdb]
 
     job.identify_interface()  # job.load_pose()
     # for design_path in job.specific_designs_file_paths
@@ -673,12 +686,10 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
 
     res_file = job.pose.make_resfile(directives, out_path=job.data_path, include=wt, background=background)
 
-    job.protocol = protocol_xml1 = putils.optimize_designs
     # nstruct_instruct = ['-no_nstruct_label', 'true']
     nstruct_instruct = ['-nstruct', str(job.job.design.number)]
-    design_list_file = os.path.join(job.scripts_path, f'design_files_{job.protocol}.txt')
     generate_files_cmd = \
-        ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', design_list_file,  '-e', '.pdb',
+        ['python', putils.list_pdb_files, '-d', job.designs_path, '-o', designed_files_file,  '-e', '.pdb',
          '-s', f'_{job.protocol}']
 
     main_cmd = rosetta.script_cmd.copy()
@@ -692,16 +703,15 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     #  must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
     profile_cmd = ['-in:file:pssm', job.evolutionary_profile_file] \
         if os.path.exists(job.evolutionary_profile_file) else []
-    design_cmd = main_cmd + profile_cmd \
-        + ['-in:file:s', specific_design if specific_design else job.refined_pdb,
-           f'@{job.flags}', '-out:suffix', f'_{job.protocol}', '-packing:resfile', res_file,
+    design_cmd = main_cmd + profile_cmd + infile \
+        + [f'@{job.flags}', '-out:suffix', f'_{job.protocol}', '-packing:resfile', res_file,
            '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml')] + nstruct_instruct
 
-    # metrics_pdb = ['-in:file:l', design_list_file]  # job.pdb_list]
+    # metrics_pdb = ['-in:file:l', designed_files_file]  # job.pdb_list]
     # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
     # Assumes all entity chains are renamed from A to Z for entities (1 to n)
     # metric_cmd = main_cmd + ['-in:file:s', job.specific_design if job.specific_design else job.refined_pdb] + \
-    entity_cmd = main_cmd + ['-in:file:l', design_list_file] + \
+    entity_cmd = main_cmd + ['-in:file:l', designed_files_file] + \
         [f'@{job.flags}', '-out:file:score_only', job.scores_file, '-no_nstruct_label', 'true',
          '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, 'metrics_entity.xml')]
 
