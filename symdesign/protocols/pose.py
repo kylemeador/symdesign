@@ -1172,7 +1172,12 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # name = self.name  # Ensure this name is the tracked across Pose init from fragdock() to _design() methods
         if entities:
             self.structure_source = 'Database'
-            self.pose = Pose.from_entities(entities, name=self.name, **self.pose_kwargs)
+            # Because entities were passed we should rename_chains if the chain_id's are the same
+            if len(set([entity.chain_id for entity in entities])) != len(entities):
+                rename = True
+            else:
+                rename = False
+            self.pose = Pose.from_entities(entities, name=self.name, rename_chains=rename, **self.pose_kwargs)
         elif self.initial_model:  # This is a fresh Model, and we already loaded so reuse
             self.structure_source = self.source_path
             # Careful, if processing has occurred to the initial_model, then this may be wrong!
