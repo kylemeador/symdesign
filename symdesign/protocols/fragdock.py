@@ -2343,24 +2343,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
             mpnn_sample = mpnn_model.sample
             number_of_residues = pose_length
 
-        if job.design.ca_only:
-            coords_type = 'ca_coords'
-            num_model_residues = 1
-        else:
-            coords_type = 'backbone_coords'
-            num_model_residues = 4
-
-        # Translate the coordinates along z in increments of 1000 to separate coordinates
-        entity_unbound_coords = [getattr(entity, coords_type) for model in models for entity in model.entities]
-        unbound_transform = np.array([0, 0, 1000])
-        if pose.is_symmetric():
-            coord_func = pose.return_symmetric_coords
-        else:
-            def coord_func(coords): return coords
-
-        for idx, coords in enumerate(entity_unbound_coords):
-            entity_unbound_coords[idx] = coord_func(coords + unbound_transform*idx)
-
         device = mpnn_model.device
         if device.type == 'cpu':
             mpnn_memory_constraint = psutil.virtual_memory().available
@@ -2378,6 +2360,13 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         batch_length = ml.PROTEINMPNN_DESIGN_BATCH_LEN
         # once, twice = False, False
 
+        if job.design.ca_only:
+            coords_type = 'ca_coords'
+            num_model_residues = 1
+        else:
+            coords_type = 'backbone_coords'
+            num_model_residues = 4
+
         # Set up Pose parameters
         parameters = pose.get_proteinmpnn_params(ca_only=job.design.ca_only, interface=measure_interface_during_dock)
         # Todo reinstate if conditional_log_probs
@@ -2385,35 +2374,52 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         # #  Must calculate randn individually if using some feature to describe order
         # parameters['randn'] = pose.generate_proteinmpnn_decode_order()  # to_device=device)
 
-        # Add a parameter for the unbound version of X to X
-        X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
-        # extra_batch_parameters = ml.proteinmpnn_to_device(device, **ml.batch_proteinmpnn_input(size=batch_length,
-        #                                                                                        X=X_unbound))
-        # parameters['X_unbound'] = X_unbound
-        mask = parameters['mask']
-        residue_idx = parameters['residue_idx']
-        chain_encoding = parameters['chain_encoding']
-        unbound_batch = ml.proteinmpnn_to_device(
-            device=device,
-            **ml.batch_proteinmpnn_input(size=1, X_unbound=X_unbound, mask=mask,
-                                         residue_idx=residue_idx, chain_encoding=chain_encoding)
-        )
+        # Set up interface unbound coordinates
+        if measure_interface_during_dock:
+            # Translate the coordinates along z in increments of 1000 to separate coordinates
+            entity_unbound_coords = [getattr(entity, coords_type) for model in models for entity in model.entities]
+            unbound_transform = np.array([0, 0, 1000])
+            if pose.is_symmetric():
+                coord_func = pose.return_symmetric_coords
+            else:
+                def coord_func(coords): return coords
 
-        # X_unbound = torch.from_numpy(unbound_batch['X_unbound']).to(device=device)
-        # mask = torch.from_numpy(unbound_batch['mask']).to(device=device)
-        # residue_idx = torch.from_numpy(unbound_batch['residue_idx']).to(device=device)
-        # chain_encoding = torch.from_numpy(unbound_batch['chain_encoding']).to(device=device)
+            for idx, coords in enumerate(entity_unbound_coords):
+                entity_unbound_coords[idx] = coord_func(coords + unbound_transform*idx)
+            X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
 
-        X_unbound = unbound_batch['X_unbound']
-        mask = unbound_batch['mask']
-        residue_idx = unbound_batch['residue_idx']
-        chain_encoding = unbound_batch['chain_encoding']
-        with torch.no_grad():
-            unconditional_log_probs_unbound = \
-                mpnn_model.unconditional_probs(X_unbound, mask, residue_idx, chain_encoding).cpu()
-            mpnn_null_idx = resources.ml.MPNN_NULL_IDX
-            asu_conditional_softmax_seq_unbound = \
-                np.exp(unconditional_log_probs_unbound[:, :pose_length, :mpnn_null_idx])
+        if measure_interface_during_dock:
+            # Add a parameter for the unbound version of X to X
+            # extra_batch_parameters = ml.proteinmpnn_to_device(device, **ml.batch_proteinmpnn_input(size=batch_length,
+            #                                                                                        X=X_unbound))
+            # parameters['X_unbound'] = X_unbound
+            mask = parameters['mask']
+            residue_idx = parameters['residue_idx']
+            chain_encoding = parameters['chain_encoding']
+            unbound_batch = ml.proteinmpnn_to_device(
+                device=device,
+                **ml.batch_proteinmpnn_input(size=1, X_unbound=X_unbound, mask=mask,
+                                             residue_idx=residue_idx, chain_encoding=chain_encoding)
+            )
+
+            # X_unbound = torch.from_numpy(unbound_batch['X_unbound']).to(device=device)
+            # mask = torch.from_numpy(unbound_batch['mask']).to(device=device)
+            # residue_idx = torch.from_numpy(unbound_batch['residue_idx']).to(device=device)
+            # chain_encoding = torch.from_numpy(unbound_batch['chain_encoding']).to(device=device)
+
+            X_unbound = unbound_batch['X_unbound']
+            mask = unbound_batch['mask']
+            residue_idx = unbound_batch['residue_idx']
+            chain_encoding = unbound_batch['chain_encoding']
+            with torch.no_grad():
+                unconditional_log_probs_unbound = \
+                    mpnn_model.unconditional_probs(X_unbound, mask, residue_idx, chain_encoding).cpu()
+                mpnn_null_idx = resources.ml.MPNN_NULL_IDX
+                asu_conditional_softmax_seq_unbound = \
+                    np.exp(unconditional_log_probs_unbound[:, :pose_length, :mpnn_null_idx])
+        else:
+            raise NotImplementedError(f"{fragment_dock.__name__} isn't written to only measure the complexed state")
+            asu_conditional_softmax_seq_unbound = None
         # Disregard X, chain_M_pos, and bias_by_res parameters return and use the pose specific data from below
         # parameters.pop('X')  # overwritten by X_unbound
         parameters.pop('chain_M_pos')
