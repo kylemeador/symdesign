@@ -4012,21 +4012,25 @@ class Models(Model):
     models: list[Model]  # Could be SymmetricModel/Pose
     # state_attributes: set[str] = Model.state_attributes | {'_models_coords'}
 
-    def __init__(self, models: Iterable[Model] = None, **kwargs):
-        if models is not None:
-            for model in models:
-                if not isinstance(model, Model):
-                    raise TypeError(f"Can't initialize {self.__class__.__name__} with a {type(model).__name__}. Must be"
-                                    ' an iterable of Model')
-            self.models = [model for model in models]
-        else:
-            super().__init__(**kwargs)
-            self.models = []
-
     @classmethod
     def from_models(cls, models: Iterable[Model], **kwargs):
-        """Initialize from an iterable of Model"""
+        """Initialize from an iterable of Model instances"""
         return cls(models=models, **kwargs)
+
+    def __init__(self, models: Iterable[Model] = None, **kwargs):
+        if models is None:
+            super().__init__(**kwargs)
+            self.models = []
+        else:
+            for model in models:
+                if not isinstance(model, Model):
+                    raise TypeError(f"Can't initialize {self.__class__.__name__} with a {type(model).__name__}. "
+                                    f'Must be an iterable of {Model.__name__}')
+            raise NotImplementedError("This method hasn't been solved logically... Current thinking is to take the "
+                                      "input models and combine into a single model. If one wanted to maintain model "
+                                      "independence, {MultiModel.__name__} is drafted better to suit that feature")
+            super().__init__(**kwargs)
+            self.models = list(models)
 
     @property
     def number_of_models(self) -> int:

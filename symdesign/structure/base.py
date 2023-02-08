@@ -3762,8 +3762,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """Mutate a specific Residue to a new residue type. Type can be 1 or 3 letter format
         Args:
             residue: A Residue object to mutate
-            index: A Residue index to select the Residue instance of interest by
-            number: A Residue number to select the Residue instance of interest by
+            index: A Residue index to select the Residue instance of interest
+            number: A Residue number to select the Residue instance of interest
             to: The type of amino acid to mutate to
         Keyword Args:
             pdb: bool = False - Whether to pull the Residue by PDB number
@@ -3803,7 +3803,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         for atom in residue.atoms:
             atom.residue_type = to
 
-        # Find the corresponding Residue Atom indices to delete. Currently, using side-chain and letting Rosetta handle
+        # Todo Currently, deleting side-chain indices and letting Rosetta handle building
+        # Find the corresponding Residue Atom indices to delete
         delete_indices = residue.side_chain_indices
         if not delete_indices:  # There are no indices
             return []

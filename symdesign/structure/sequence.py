@@ -1564,8 +1564,8 @@ class SequenceProfile(ABC):
         frag_overlap = fragment_overlap(final_issm, interface_residue_edges, residue_freq_map)  # all one-indexed
 
         # consensus = SDUtils.consensus_sequence(dssm)
-        self.log.debug('Consensus Residues only:\n%s' % consensus_residues)
-        self.log.debug('Consensus:\n%s' % consensus)
+        self.log.debug(f'Consensus Residues only:\n{consensus_residues}')
+        self.log.debug(f'Consensus:\n{consensus}')
         for n, name in enumerate(names):
             for residue in int_res_numbers[name]:  # one-indexed
                 mutated_pdb.mutate_residue(number=residue)

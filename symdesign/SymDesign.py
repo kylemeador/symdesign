@@ -48,56 +48,6 @@ from symdesign.structure.model import Entity, Model
 from symdesign.sequence import create_mulitcistronic_sequences
 from symdesign.utils import guide, nanohedra
 
-# def format_additional_flags(flags):
-#     """Takes non-argparse specified flags and returns them into a dictionary compatible with argparse style.
-#     This is useful for handling general program flags that apply to many modules, would be tedious to hard code and
-#     request from the user
-#
-#     Returns:
-#         (dict)
-#     """
-#     # combines ['-symmetry', 'O', '-nanohedra_output', True', ...]
-#     combined_extra_flags = []
-#     for idx, flag in enumerate(flags):
-#         if flag[0] == '-' and flag[1] == '-':  # format flags by removing extra '-'. Issue with PyMol command in future?
-#             flags[idx] = flag[1:]
-#
-#         if flag.startswith('-'):  # this is a real flag
-#             extra_arguments = ''
-#             # iterate over arguments after the flag until a flag with "-" is reached. This is a new flag
-#             increment = 1
-#             while (idx + increment) != len(flags) and not flags[idx + increment].startswith('-'):  # we have an argument
-#                 extra_arguments += ' %s' % flags[idx + increment]
-#                 increment += 1
-#             # remove - from the front and add all arguments to single flag argument list item
-#             combined_extra_flags.append('%s%s' % (flag.lstrip('-'), extra_arguments))  # extra_flags[idx + 1]))
-#     # logger.debug('Combined flags: %s' % combined_extra_flags)
-#
-#     # parse the combined flags ['-nanohedra_output True', ...]
-#     final_flags = {}
-#     for flag_arg in combined_extra_flags:
-#         if ' ' in flag_arg:
-#             flag, *args = flag_arg.split()  #[0]
-#             # flag = flag.lstrip('-')
-#             # final_flags[flag] = flag_arg.split()[1]
-#             if len(args) > 1:  # we have multiple arguments, set all to the flag
-#                 final_flags[flag] = args
-#
-#             # check for specific strings and set to corresponding python values
-#             elif args[0].lower() == 'true':
-#                 # final_flags[flag] = eval(final_flags[flag].title())
-#                 final_flags[flag] = True
-#             elif args[0].lower() == 'false':
-#                 final_flags[flag] = False
-#             elif args[0].lower() == 'none':
-#                 final_flags[flag] = None
-#             else:
-#                 final_flags[flag] = args[0]
-#         else:  # add to the dictionary with default argument of True
-#             final_flags[flag_arg] = True
-#
-#     return final_flags
-
 
 sbatch_warning = 'Ensure the SBATCH script(s) below are correct. Specifically, check that the job array and any '\
                  'node specifications are accurate. You can look at the SBATCH manual (man sbatch or sbatch --help) to'\
