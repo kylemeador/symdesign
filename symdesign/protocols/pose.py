@@ -1718,10 +1718,10 @@ class PoseProtocol(PoseData):
         """
         self.load_pose()
         number_of_residues = self.pose.number_of_residues
-        self.log.critical(f'Starting prediction with {len(sequences)} sequences')
+        protocol_logger.info(f'Starting prediction with {len(sequences)} sequences')
         for design, sequence in sequences.items():
             # Todo if differentially sized sequence inputs
-            self.log.critical(f'Found sequence {sequence}')
+            self.log.debug(f'Found sequence {sequence}')
             # max_sequence_length = max([len(sequence) for sequence in sequences.values()])
             if len(sequence) != number_of_residues:
                 raise DesignError(f'The length of the sequence {len(sequence)} != {number_of_residues}, '
@@ -1739,7 +1739,7 @@ class PoseProtocol(PoseData):
         if run_multimer_system:
             # multimer = True
             model_name = 'multimer'
-            self.log.info(f'The model was automatically set to {model_name} due to detected multimeric pose')
+            self.log.info(f'The alphafold model was automatically set to {model_name} due to detected multimeric pose')
         # else:
         #     multimer = False
 
@@ -1775,7 +1775,7 @@ class PoseProtocol(PoseData):
                 model_runners[f'{model_name}_pred_{i}'] = model_runner
 
         num_models = len(model_runners)
-        self.log.info(f'Have {num_models} models: {list(model_runners.keys())}')
+        protocol_logger.info(f'Predicting with {num_models} models: {list(model_runners.keys())}')
         if random_seed is None:  # Make one
             random_seed = random.randrange(sys.maxsize // num_models)
 

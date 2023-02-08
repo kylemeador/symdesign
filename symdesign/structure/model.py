@@ -7267,18 +7267,18 @@ class Pose(SymmetricModel, Metrics):
     def per_residue_interface_surface_area(self) -> dict[str, list[float]]:
         """Return per-residue metrics for the interface surface area
 
-        Metrics include sasa_hydrophobic_complex, sasa_polar_complex, sasa_relative_complex, sasa_hydrophobic_bound,
-            sasa_polar_bound, sasa_relative_bound
-
         Returns:
             The dictionary of metrics mapped to arrays of values with shape (number_of_residues,)
+                Metrics include sasa_hydrophobic_complex, sasa_polar_complex, sasa_relative_complex,
+                sasa_hydrophobic_bound, sasa_polar_bound, sasa_relative_bound
         """
         per_residue_data = {}
         pose_length = self.number_of_residues
         assembly_minimally_contacting = self.assembly_minimally_contacting
 
         # Perform SASA measurements
-        assembly_minimally_contacting.get_sasa()
+        if not assembly_minimally_contacting.sasa:
+            assembly_minimally_contacting.get_sasa()
         assembly_asu_residues = assembly_minimally_contacting.residues[:pose_length]
         per_residue_data['sasa_hydrophobic_complex'] = [residue.sasa_apolar for residue in assembly_asu_residues]
         per_residue_data['sasa_polar_complex'] = [residue.sasa_polar for residue in assembly_asu_residues]

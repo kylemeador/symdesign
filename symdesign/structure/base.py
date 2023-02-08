@@ -193,7 +193,7 @@ hydrogens = {   # the doubled up numbers (and single number second) are from PDB
             '2HD': 0, '1HE': 0, '2HE': 0, 'HH': 1},
     'VAL': {'H': 1, 'HA': 0, 'HB': 0, '1HG1': 0, '2HG1': 0, '3HG1': 0, '1HG2': 0, '2HG2': 0, '3HG2': 0, 'HG11': 0,
             'HG12': 0, 'HG13': 0, 'HG21': 0, 'HG22': 0, 'HG23': 0}}
-termini_polarity = {'1H': 1, '2H': 1, '3H': 1, 'OXT': 1}
+termini_polarity = {'1H': 1, '2H': 1, '3H': 1, 'H': 1, 'H1': 1, 'H2': 1, 'H3': 1, 'OXT': 1}
 for res_type, residue_atoms in atomic_polarity_table.items():
     residue_atoms.update(termini_polarity)
     residue_atoms.update(hydrogens[res_type])
@@ -4998,15 +4998,15 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         Args:
             sequence_distance_cutoff: The residue spacing required to count a contact as a true contact
-            distance: The distance in angstroms to measure atomic contact distances in contact
+            distance: The distance in angstroms to measure Atom instances in contact
         Returns:
             The floats representing the contact order for each Residue in the Structure
         """
         # Get heavy Atom coordinates
-        coords = self.heavy_coords
+        heavy_coords = self.heavy_coords
         # Make and query a tree
-        tree = BallTree(coords)
-        query = tree.query_radius(coords, distance)
+        tree = BallTree(heavy_coords)
+        query = tree.query_radius(heavy_coords, distance)
 
         residues = self.residues
         # In case this was already called, we should set all to 0.0
@@ -5018,8 +5018,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                                for idx2, contacts in enumerate(query.tolist()) for idx1 in contacts.tolist())
         # Residue.contact_order starts as 0., so we are adding any observation to that attribute
         for residue1, residue2 in contacting_pairs:
+            # Calculate using number since index might not actually specify the intended distance
             residue_sequence_distance = abs(residue1.number - residue2.number)
             if residue_sequence_distance >= sequence_distance_cutoff:
+                # Only set on residue1 so that we don't overcount
                 residue1.contact_order += residue_sequence_distance
 
         number_residues = len(residues)
@@ -5034,7 +5036,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #
     #     Args:
     #         sequence_distance_cutoff: The residue spacing required to count a contact as a true contact
-    #         distance: The distance in angstroms to measure atomic contact distances in contact
+    #         distance: The distance in angstroms to measure Atom instances in contact
     #     Returns:
     #         The floats representing the contact order for each Residue in the Structure
     #     """
@@ -5051,7 +5053,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #             residue.contact_order = 0.
     #
     #     contacting_pairs = \
-    #         [(residues[idx1], residues[idx2]) for idx2, contacts in enumerate(query) for idx1 in contacts]
+    #         [(residues[idx1], residues[idx2]) for idx2, contacts in enumerate(query.tolist())
+    #          for idx1 in contacts.tolist()]
     #
     #     # Residue.contact_order starts as 0., so we are adding any observation to that attribute
     #     for residue1, residue2 in contacting_pairs:
