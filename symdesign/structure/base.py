@@ -252,16 +252,24 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
     #  and only like the head from any line before an ATOM record. The modification of any of the coordinates or Atoms
     #  would cause the header information to be invalidated as it would then become a "SymDesign Model"
     if pdb_lines:
-        path, extension = None, None
+        # path, extension = None, None
+        assembly: str | None = None
+        name = None
     elif file is not None:
         with open(file, 'r') as f:
             pdb_lines = f.readlines()
         path, extension = os.path.splitext(file)
+        name = os.path.basename(path)  # .replace('pdb', '')
+
+        if extension[-1].isdigit():
+            # If last character is not a letter, then the file is an assembly, or the extension was provided weird
+            assembly: str | None = extension.translate(utils.keep_digit_table)
+        else:
+            assembly = None
     else:
         raise ValueError(f'{read_pdb_file.__name__}: Must provide the argument "file" or "pdb_lines"')
 
     # PDB
-    assembly: str | None = None
     # type to info index:   1    2    3    4    5    6    7     11     12   13   14
     temp_info: list[tuple[int, str, str, str, str, int, str, float, float, str, str]] = []
     # if separate_coords:
@@ -278,7 +286,6 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
     cryst_record: str = None
     dbref: dict[str, dict[str, str]] = {}
     entity_info: dict[str, dict[dict | list | str]] = {}
-    name = os.path.basename(path) if path else None  # .replace('pdb', '')
     header: list = []
     multimodel: bool = False
     resolution: float | None = None
@@ -288,10 +295,6 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
     # Structure
     biomt: list = []
     biomt_header: str = ''
-
-    if extension[-1].isdigit():
-        # If last character is not a letter, then the file is an assembly, or the extension was provided weird
-        assembly = extension.translate(utils.keep_digit_table)
 
     entity = None
     current_operation = -1
