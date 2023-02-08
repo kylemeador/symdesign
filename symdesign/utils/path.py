@@ -398,7 +398,8 @@ logging_cfg = {
     },
     'root': {
         'level': 'INFO',
-        # 'handlers': ['console'],  # Can't include this and any above as the handlers get added twice
+        'handlers': ['null'],
+        # Can't include any stream or file handlers from above as the handlers get added to configuration twice
     },
 }
 default_logging_level = 2
