@@ -1681,19 +1681,21 @@ class PoseProtocol(PoseData):
 
         # Write each "threaded" structure out for further processing
         number_of_residues = self.pose.number_of_residues
+        # Ensure that mutations to the Pose aren't saved to state
+        pose_copy = self.pose.copy()
+        self.log.critical(f'In {self.thread_sequences_to_backbone__name__}, ensure that the pose was copied correctly '
+                          f'before trusting output. The residue in mutate_residue() should be equal after the copy... '
+                          'Delete this log if everything checks out')
         design_files = []
         for sequence_id, sequence in sequences.items():
             if len(sequence) != number_of_residues:
                 raise DesignError(f'The length of the sequence {len(sequence)} != {number_of_residues}, '
                                   f'the number of residues in the pose')
             for res_idx, residue_type in enumerate(sequence):
-                self.pose.mutate_residue(index=res_idx, to=residue_type)
+                pose_copy.mutate_residue(index=res_idx, to=residue_type)
             # pre_threaded_file = os.path.join(self.data_path, f'{self.name}_{self.protocol}{seq_idx:04d}.pdb')
             pre_threaded_file = os.path.join(self.data_path, f'{sequence_id}.pdb')
-            design_files.append(self.pose.write(out_path=pre_threaded_file))
-
-        # Ensure that mutations to the Pose are wiped. We can reload if continuing to use
-        self.pose = None
+            design_files.append(pose_copy.write(out_path=pre_threaded_file))
 
         # if self.protocol is not None:  # This hasn't been set yet
         self.protocol = 'thread'
@@ -3393,6 +3395,11 @@ class PoseProtocol(PoseData):
         else:
             self.protocol = switch = putils.refine
             if self.job.interface_to_alanine:  # Mutate all design positions to Ala before the Refinement
+                # Ensure the mutations to the pose are wiped
+                pose_copy = self.pose.copy()
+                self.log.critical(f'In {self.refine.__name__}, ensure that the pose was copied correctly before '
+                                  'trusting output. The residue in mutate_residue() should be equal after the copy... '
+                                  'Delete this log if everything checks out')
                 for entity_pair, interface_residues_pair in self.pose.interface_residues_by_entity_pair.items():
                     # if interface_residues_pair[0]:  # Check that there are residues present
                     for entity, interface_residues in zip(entity_pair, interface_residues_pair):
@@ -3400,7 +3407,7 @@ class PoseProtocol(PoseData):
                         for residue in interface_residues:
                             self.log.debug(f'Mutating Entity {entity_name}, {residue.number}{residue.type}')
                             if residue.type != 'GLY':  # No mutation from GLY to ALA as Rosetta would build a CB
-                                self.pose.mutate_residue(residue=residue, to='A')
+                                pose_copy.mutate_residue(residue=residue, to='A')
                 # Change the name to reflect mutation so we don't overwrite the self.source_path
                 refine_pdb = f'{os.path.splitext(refine_pdb)[0]}_ala_mutant.pdb'
             # else:  # Do dothing and refine the source
@@ -3408,8 +3415,6 @@ class PoseProtocol(PoseData):
             #     # raise ValueError(f"For {self.refine.__name__}, must pass interface_to_alanine")
 
             self.pose.write(out_path=refine_pdb)
-            # Ensure the mutations to the pose are wiped
-            self.pose = None
             self.log.debug(f'Cleaned PDB for {switch}: "{refine_pdb}"')
             # -in:file:native is here to block flag file version, not actually useful for refine
             infile.extend(['-in:file:s', refine_pdb, '-in:file:native', refine_pdb])
