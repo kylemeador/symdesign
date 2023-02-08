@@ -50,7 +50,7 @@ from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_
 
 # Globals
 transformation_mapping: dict[str, list[float] | list[list[float]] | np.ndarray]
-logger = logging.getLogger(__name__)
+protocol_logger = logging.getLogger(__name__)
 pose_logger = start_log(name='pose', handler_level=3, propagate=True)
 zero_offset = 1
 idx_slice = pd.IndexSlice
@@ -153,7 +153,7 @@ class PoseDirectory:
         #                     serial_info.update(self.info)
         #                     self.info = serial_info
         #             except pickle.UnpicklingError as error:
-        #                 logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
+        #                 protocol_logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
         #                 raise error
         #
         #             # # Make a copy to check for changes to the current state
@@ -671,7 +671,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #             serial_info.update(self.info)
         #             self.info = serial_info
         #     except pickle.UnpicklingError as error:
-        #         logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
+        #         protocol_logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
         #         raise error
         #
         #     # Make a copy to check for changes to the current state
@@ -1919,7 +1919,7 @@ class PoseProtocol(PoseData):
             for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
                 # self.log.info(f'Running model {model_name} on {design}')
                 # design_model_name = f'{design}-{model_name}'
-                self.log.info(f'Running model {model_name}')
+                protocol_logger.info(f'Running model {model_name}')
                 # t_0 = time.time()
                 model_random_seed = model_index + random_seed*num_models
                 processed_feature_dict = \
@@ -1931,7 +1931,7 @@ class PoseProtocol(PoseData):
                                                          random_seed=model_random_seed)
                 t_diff = time.time() - t_0
                 # timings[f'predict_and_compile_{model_name}'] = t_diff
-                self.log.info(f'Total JAX model {model_name} structure prediction took {t_diff:.1f}s')
+                protocol_logger.info(f'Total JAX model {model_name} structure prediction took {t_diff:.1f}s')
                 # if this is the first go in the model_runner, then f'(includes compilation time)' would be accurate
                 # Monomer?
                 #  Should take about 96 secs on a 1000 residue protein using 3 recycles...
@@ -1997,9 +1997,9 @@ class PoseProtocol(PoseData):
                 else:  # if models_to_relax == 'all':
                     to_relax = ranked_order
 
-                self.log.critical(f'Starting Amber relaxation')
+                protocol_logger.info(f'Starting Amber relaxation')
                 for model_name in to_relax:
-                    self.log.critical(f'Relaxing {model_name}')
+                    protocol_logger.info(f'Relaxing {model_name}')
                     # t_0 = time.time()
                     # relaxed_pdb_str, _, violations = amber_relaxer.process(prot=unrelaxed_proteins[model_name])
                     relaxed_pdb_str, violations = amber_relax(prot=unrelaxed_proteins[model_name])
@@ -2125,10 +2125,8 @@ class PoseProtocol(PoseData):
                     sequence_length = len(sequence)
                     this_seq_features = \
                         get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
-                    # self.log.critical(f'Found this_seq_features:\n\t%s'
-                    #                   % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
-                    # features.update(this_seq_features)
-
+                    protocol_logger.debug(f'Found this_seq_features:\n\t%s'
+                                          % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
                     # structures_and_scores[design] = entity_scores = \
                     entity_structures, entity_scores = \
                         predict(sequence_length, {**features, **this_seq_features})
@@ -2170,14 +2168,14 @@ class PoseProtocol(PoseData):
                                                   for entity in model.entities], **self.pose_kwargs)
                 entity_design_structures.append(design_pose)
                 entity_scores = entity_scores_by_design[design]
-                logger.debug(f'Found entity_scores with contents:\n{entity_scores}')
+                protocol_logger.debug(f'Found entity_scores with contents:\n{entity_scores}')
                 scalar_scores = {score_type: sum([sum(scores[score_type]) for scores in entity_scores])
                                  / number_of_entities
                                  for score_type in score_types_mean}
                 array_scores = {score_type: np.concatenate([scores[score_type] for scores in entity_scores])
                                 for score_type in score_types_concat}
                 scalar_scores.update(array_scores)
-                logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
+                protocol_logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
                 entity_design_scores.append(scalar_scores)
 
             # Get features for the ASU and predict
@@ -2188,8 +2186,8 @@ class PoseProtocol(PoseData):
             asu_design_scores = []  # scores_by_design = {}
             for design, sequence in sequences.items():
                 this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
-                self.log.critical(f'Found this_seq_features:\n\t%s'
-                                  % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
+                protocol_logger.debug(f'Found this_seq_features:\n\t%s'
+                                      % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
                 asu_structures, asu_scores = predict(number_of_residues, {**features, **this_seq_features})
                 if relaxed:
                     structures_to_load = asu_structures.get('relaxed', [])
@@ -2232,8 +2230,8 @@ class PoseProtocol(PoseData):
             asu_design_scores = []  # scores_by_design = {}
             for design, sequence in sequences.items():
                 this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
-                self.log.critical(f'Found this_seq_features:\n\t%s'
-                                  % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
+                protocol_logger.debug(f'Found this_seq_features:\n\t%s'
+                                      % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
                 asu_structures, asu_scores = predict(number_of_residues, {**features, **this_seq_features})
                 if relaxed:
                     structures_to_load = asu_structures.get('relaxed', [])
