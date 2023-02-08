@@ -1757,6 +1757,8 @@ class PoseProtocol(PoseData):
         model_runners = {}
         model_names = afconfig.MODEL_PRESETS[model_name]  # FLAGS.model_preset]
         for model_name in model_names:
+            if model_name != 'model_2_multimer_v3':  # Tod remove after debug
+                continue
             model_config = afconfig.model_config(model_name)
             if run_multimer_system:
                 model_config.model.num_ensemble_eval = num_ensemble
@@ -2123,7 +2125,7 @@ class PoseProtocol(PoseData):
                         structures_to_load = entity_structures.get('unrelaxed', [])
                     design_models = \
                         load_alphafold_structures(structures_to_load, name=entity.name,
-                                                  entity_info=self.pose.entity_info[entity.name])
+                                                  entity_info={entity.name: self.pose.entity_info[entity.name]})
 
                     # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
                     entity_backbone_and_cb_coords = \
