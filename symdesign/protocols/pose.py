@@ -2016,7 +2016,9 @@ class PoseProtocol(PoseData):
             #
             # return structures_and_scores
 
-        def output_alphafold_structures(structure_types: dict[str, dict[str, str]]):
+        def output_alphafold_structures(structure_types: dict[str, dict[str, str]], design_name: str = None):
+            if design_name is None:
+                design_name = ''
             # for design, design_scores in structures.items():
             #     # # Output unrelaxed
             #     # structures = design_scores['structures_unrelaxed']
@@ -2024,7 +2026,8 @@ class PoseProtocol(PoseData):
                 structures = structure_types.get(f'{type_str}relaxed', [])
                 idx = count(1)
                 for model_name, structure in structures.items():
-                    path = os.path.join(self.designs_path, f'{model_name}_rank{next(idx)}-{type_str}relaxed.pdb')
+                    path = os.path.join(self.designs_path, f'{design_name}-{model_name}_rank{next(idx)}'
+                                                           f'-{type_str}relaxed.pdb')
                     with open(path, 'w') as f:
                         f.write(structure)
                 # # Repeat for relaxed
@@ -2122,7 +2125,7 @@ class PoseProtocol(PoseData):
                     # structures_and_scores[design] = entity_scores = \
                     entity_structures, entity_scores = \
                         predict(sequence_length, {**features, **this_seq_features})
-                    output_alphafold_structures(entity_structures)
+                    output_alphafold_structures(entity_structures, design_name=f'{design}-{entity.name}')
                     # design_model_models = \
                     if relaxed:
                         structures_to_load = entity_structures.get('relaxed', [])
@@ -2178,7 +2181,7 @@ class PoseProtocol(PoseData):
                     structures_to_load = asu_structures.get('relaxed', [])
                 else:
                     structures_to_load = asu_structures.get('unrelaxed', [])
-                output_alphafold_structures(asu_structures)
+                output_alphafold_structures(asu_structures, design_name=f'{design}-asu')
                 asu_models = load_alphafold_structures(structures_to_load, name=str(design),  # Get '.name'
                                                        entity_info=self.pose.entity_info)
                 # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
