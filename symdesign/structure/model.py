@@ -5660,6 +5660,11 @@ class SymmetricModel(Models):
             # The SymmetricModel was probably set without them. Create them, then try to find the asu
             self._create_entities()
 
+        # Todo this takes short cuts with the assumption that the self.entities are
+        #  1) oligomeric,
+        #  2) when oligomeric, they are in contact
+        #  A fix would ensure that all symmetric models are created (similar to _assign_pose_transformation COM routine)
+        #  Finding those models where they contact
         entities = self.entities
         number_of_entities = self.number_of_entities
         if number_of_entities != 1:

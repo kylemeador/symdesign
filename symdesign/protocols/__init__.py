@@ -398,9 +398,9 @@ def find_asu(job: pose.PoseJob):
         else:
             job.load_pose()
     else:
-        raise NotImplementedError('Not sure if asu format matches pose.get_contacting_asu standard with no symmetry'
+        raise NotImplementedError('Not sure if asu format matches pose.get_contacting_asu() standard with no symmetry'
                                   '. This might cause issues')
-        # Todo ensure asu format matches pose.get_contacting_asu standard
+        # Todo ensure asu format matches pose.get_contacting_asu() standard
         # pdb = Model.from_file(job.structure_source, log=job.log)
         # asu = pdb.return_asu()
         job.load_pose()
