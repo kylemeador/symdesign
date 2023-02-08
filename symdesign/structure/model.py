@@ -7303,6 +7303,35 @@ class Pose(SymmetricModel, Metrics):
 
         return per_residue_data
 
+    def per_residue_spatial_aggregation_propensity(self, distance: float = 5.0) -> dict[str, list[float]]:
+        """Return per-residue spatial_aggregation for the complexed and unbound states
+
+        Args:
+            distance: The distance in angstroms to measure Atom instances in contact
+        Returns:
+            The dictionary of metrics mapped to arrays of values with shape (number_of_residues,)
+            Metrics include spatial_aggregation_propensity and spatial_aggregation_propensity_bound
+        """
+        per_residue_sap = {}
+        pose_length = self.number_of_residues
+        assembly_minimally_contacting = self.assembly_minimally_contacting
+        assembly_minimally_contacting.spatial_aggregation_propensity_per_residue(distance=distance)
+        assembly_asu_residues = assembly_minimally_contacting.residues[:pose_length]
+        per_residue_sap['spatial_aggregation_propensity'] = \
+            [residue.spatial_aggregation_propensity for residue in assembly_asu_residues]
+        # Calculate sap for each Entity
+        per_residue_sap_unbound = []
+        for entity in self.entities:
+            entity.oligomer.spatial_aggregation_propensity_per_residue(distance=distance)
+            oligomer_asu_residues = entity.oligomer.residues[:entity.number_of_residues]
+            # per_residue_sap_unbound.extend(entity.oligomer.spatial_aggregation_propensity[:entity.number_of_residues])
+            per_residue_sap_unbound.extend([residue.spatial_aggregation_propensity
+                                            for residue in oligomer_asu_residues])
+
+        per_residue_sap['spatial_aggregation_propensity_unbound'] = per_residue_sap_unbound
+
+        return per_residue_sap
+
     def get_interface(self, distance: float = 8.) -> Structure:
         """Provide a view of the Pose interface by generating a Structure containing only interface Residues
 

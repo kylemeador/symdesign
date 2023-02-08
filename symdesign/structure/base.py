@@ -103,8 +103,19 @@ gxg_sasa = {'A': 129, 'R': 274, 'N': 195, 'D': 193, 'C': 167, 'E': 223, 'Q': 225
             'L': 201, 'K': 236, 'M': 224, 'F': 240, 'P': 159, 'S': 155, 'T': 172, 'W': 285, 'Y': 263, 'V': 174,
             'ALA': 129, 'ARG': 274, 'ASN': 195, 'ASP': 193, 'CYS': 167, 'GLU': 223, 'GLN': 225, 'GLY': 104, 'HIS': 224,
             'ILE': 197, 'LEU': 201, 'LYS': 236, 'MET': 224, 'PHE': 240, 'PRO': 159, 'SER': 155, 'THR': 172, 'TRP': 285,
-            'TYR': 263, 'VAL': 174}  # from table 1, theoretical values of Tien et al. 2013
+            'TYR': 263, 'VAL': 174}  # From table 1, theoretical values of Tien et al. 2013, pmid:24278298
 sasa_burial_threshold = 0.25  # Default relative_sasa amount from Levy 2010
+# Set up hydrophobicity values for various calculations
+black_and_mould = [
+    0.702, 0.987, -1.935, -1.868, 2.423, 0.184, -1.321, 2.167, -0.790, 2.167, 1.246, -1.003, 1.128, -0.936, -2.061,
+    -0.453, -0.042, 1.640, 1.878, 1.887
+]
+hydrophobicity_values = \
+    dict(black_and_mould=dict(zip(protein_letters_alph1, black_and_mould)))
+glycine_val = black_and_mould[5]
+# This is used for the SAP calculation. See pmid:19571001
+hydrophobicity_values_glycine_centered = {value_name: {aa: value - glycine_val for aa, value in values.items()}
+                                          for value_name, values in hydrophobicity_values.items()}
 
 
 def unknown_index():
@@ -1590,6 +1601,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     _local_density: float
     _next_residue: Residue
     _prev_residue: Residue
+    _sap: float
     _sasa: float
     _sasa_apolar: float
     _sasa_polar: float
@@ -2339,6 +2351,22 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         return self.sasa / gxg_sasa[self.type]  # May cause problems if self.type attribute can be non-cannonical AA
 
     @property
+    def spatial_aggregation_propensity(self) -> float:
+        """The Residue contact order, which describes how far away each Residue makes contacts in the polymer chain"""
+        try:
+            return self._sap
+        except AttributeError:
+            try:
+                self.parent.spatial_aggregation_propensity_per_residue()
+                return self._sap
+            except AttributeError:
+                raise AttributeError(self._warn_missing_attribute(self.spatial_aggregation_propensity.__name__))
+
+    @spatial_aggregation_propensity.setter
+    def spatial_aggregation_propensity(self, sap: float):
+        self._sap = sap
+
+    @property
     def contact_order(self) -> float:
         """The Residue contact order, which describes how far away each Residue makes contacts in the polymer chain"""
         try:
@@ -2733,6 +2761,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     _coords_indexed_residue_atoms: np.ndarray  # list[int]  # Todo ContainsResiduesMixin
     _residues: Residues | None  # Todo ContainsResiduesMixin
     _residue_indices: list[int] | None  # Todo ContainsResiduesMixin
+    _sap: float  # Todo ContainsResiduesMixin
     _secondary_structure: str  # Todo ContainsResiduesMixin
     _sequence: str  # Todo ContainsResiduesMixin
     biomt: list
@@ -4867,6 +4896,64 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         self.log.debug(f'Took {time.time() - fragment_time_start:.8f}s')
         return all_fragment_pairs
+
+    @property
+    def spatial_aggregation_propensity(self) -> np.ndarray:
+        """Return the spatial aggregation propensity on a per-residue basis
+
+        Returns:
+            The array of floats representing the spatial aggregation propensity for each Residue in the Structure
+        """
+        try:
+            return self._sap
+        except AttributeError:
+            self._sap = np.array(self.spatial_aggregation_propensity_per_residue())
+            return self._sap
+
+    def spatial_aggregation_propensity_per_residue(self, distance: float = 5., **kwargs) -> list[float]:
+        """Calculate the spatial aggregation propensity on a per-residue basis using calculated heavy atom contacts to
+        define which Residue instances are in contact.
+
+        Caution: Contrasts with published method due to use of relative sasa for each Residue instance instead of
+        relative sasa for each Atom instance
+
+        Args:
+            distance: The distance in angstroms to measure Atom instances in contact
+        Keyword Args:
+            probe_radius: float = 1.4 - The radius which surface area should be generated
+        Returns:
+            The floats representing the spatial aggregation propensity for each Residue in the Structure
+        """
+        # SASA Keyword args that are not reported as available
+        # atom: bool = True - Whether the output should be generated for each atom.
+        #     If False, will be generated for each Residue
+        if not self.sasa:
+            self.get_sasa(**kwargs)
+        # Set up the hydrophobicity parameters
+        hydrophobicity_ = hydrophobicity_values_glycine_centered['black_and_mould']
+        # Get heavy Atom coordinates
+        heavy_coords = self.heavy_coords
+        # Make and query a tree
+        tree = BallTree(heavy_coords)
+        query = tree.query_radius(heavy_coords, distance)
+
+        residues = self.residues
+        # In case this was already called, we should set all to 0.0
+        for residue in residues:
+            residue.spatial_aggregation_propensity = 0.
+            # Set the hydrophobicity_ attribute in a first pass to reduce repetitive lookups
+            residue.hydrophobicity_ = hydrophobicity_[residue.type]
+
+        heavy_atom_coords_indexed_residues = self.heavy_coords_indexed_residues
+        contacting_pairs = set((heavy_atom_coords_indexed_residues[idx1], heavy_atom_coords_indexed_residues[idx2])
+                               for idx2, contacts in enumerate(query.tolist()) for idx1 in contacts.tolist())
+        # Residue.spatial_aggregation_propensity starts as 0., so we are adding any observation to that attribute
+        for residue1, residue2 in contacting_pairs:
+            # Multiply suggested hydrophobicity value by the Residue.relative_sasa
+            # Only set on residue1 as this is the "center" of the calculation
+            residue1.spatial_aggregation_propensity = residue2.hydrophobicity_ * residue2.relative_sasa
+
+        return [residue.spatial_aggregation_propensity for residue in residues]
 
     @property
     def contact_order(self) -> np.ndarray:

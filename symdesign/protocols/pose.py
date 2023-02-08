@@ -4915,6 +4915,7 @@ class PoseProtocol(PoseData):
                 **pose.per_residue_interface_surface_area(),
                 **pose.per_residue_contact_order(),
                 # **pose.per_residue_interface_errat()
+                **pose.per_residue_spatial_aggregation_propensity()
             }
 
         # Convert per_residue_data into a dataframe matching residues_df orientation

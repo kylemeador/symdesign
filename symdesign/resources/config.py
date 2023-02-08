@@ -605,27 +605,14 @@ metrics = {
         dict(description='Measure of fit between two surfaces from Lawrence and Colman 1993 at interface core '
                          'fragment positions',
              direction=max_, function=normalize, filter=True),
-    'interface_solvation_energy':  # free_energy of desolvation is positive for bound interfaces. unbound - complex
-        dict(description='The free energy resulting from hydration of the separated interface surfaces. '
-                         'Positive values indicate poorly soluble surfaces upon dissociation',
-             direction=min_, function=rank, filter=True),
-    'interface_solvation_energy_activation':  # unbound - bound
-        dict(description='The free energy of solvation resulting from packing the bound, uncomplexed state to '
-                         'an unbound, uncomplexed state. Positive values indicate a tendency towards the bound'
-                         ' configuration',
-             direction=min_, function=rank, filter=True),
-    'interface_solvation_energy_bound':
-        dict(description='The desolvation free energy of the separated interface surfaces. Positive values '
-                         'indicate energy is required to desolvate',
-             direction=min_, function=rank, filter=True),
-    'interface_solvation_energy_complex':
-        dict(description='The desolvation free energy of the complexed interface. Positive values indicate '
-                         'energy is required to desolvate',
-             direction=min_, function=rank, filter=True),
-    'interface_solvation_energy_unbound':
-        dict(description='The desolvation free energy of the separated, repacked, interface surfaces. Positive'
-                         ' values indicate energy is required to desolvate',
-             direction=min_, function=rank, filter=True),
+    'spatial_aggregation_propensity':
+        dict(description='A measure of the aggregation propensity of exposed hydrophobic surface patches. '
+                         'See pmid:19571001',
+             direction=min_, function=normalize, filter=True),
+    'spatial_aggregation_propensity_unbound':
+        dict(description='A measure of the aggregation propensity of exposed hydrophobic surface patches. '
+                         'See pmid:19571001',
+             direction=min_, function=normalize, filter=True),
     'support':
         dict(description='The number of "support" residues as classified by E. Levy 2010',
              direction=max_, function=rank, filter=True),
