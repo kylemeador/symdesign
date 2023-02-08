@@ -3823,7 +3823,8 @@ class PoseProtocol(PoseData):
         sequences_and_scores: dict[str, np.ndarray | list] = \
             self.pose.design_sequences(number=self.job.design.number,
                                        temperatures=self.job.design.temperatures,
-                                       interface=interface, neighbors=neighbors,
+                                       # interface=interface, neighbors=neighbors,
+                                       interface=self.job.design.interface, neighbors=self.job.design.neighbors,
                                        ca_only=self.job.design.ca_only
                                        )
         # self.log.debug(f"Took {time.time() - design_start:8f}s for design_sequences")

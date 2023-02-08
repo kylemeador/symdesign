@@ -459,6 +459,13 @@ def interface_design(job: pose.PoseJob):
     Args:
         job: The PoseJob for which the protocol should be performed on
     """
+    # Save the prior value then set after the protocol completes
+    prior_value = job.job.design.interface
+    job.job.design.interface = True
+    design_return = design(job)
+    job.job.design.interface = prior_value
+    return design_return
+    raise NotImplementedError('This protocol has been depreciated in favor of design() with job.design.interface=True')
     job.identify_interface()
 
     putils.make_path(job.data_path)  # Todo consolidate this check with pickle_info()
@@ -529,7 +536,6 @@ def interface_design(job: pose.PoseJob):
         job.proteinmpnn_design(interface=True, neighbors=job.job.design.neighbors)  # Sets job.protocol
     else:
         raise ValueError(f"The method '{job.job.design.design_method}' isn't available")
-    # job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
 
 
 @protocol_decorator()
@@ -546,7 +552,14 @@ def design(job: pose.PoseJob):
     putils.make_path(job.data_path)  # Todo consolidate this check with pickle_info()
     # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
     if job.job.design.design_method == putils.rosetta_str:
-        raise NotImplementedError(f"Can't perform design using Rosetta just yet. Try {flags.interface_design}...")
+        # Update upon completion given results of designs list file...
+        # NOT # Update the Pose with the number of designs
+        # raise NotImplementedError('Need to generate number_of_designs matching job.proteinmpnn_design()...')
+        # job.update_design_data(design_parent=job.pose_source, number=job.job.design.number)
+        if job.job.design.interface:
+            pass
+        else:
+            raise NotImplementedError(f"Can't perform design using Rosetta just yet. Try {flags.interface_design}...")
         favor_fragments = evo_fill = True
     else:
         favor_fragments = evo_fill = False
@@ -555,7 +568,7 @@ def design(job: pose.PoseJob):
         # if not job.pose.fragment_queries:
         # Todo this is working but the information isn't really used...
         #  ALSO Need to get oligomeric type frags
-        job.generate_fragments(interface=True)
+        job.generate_fragments(interface=True)  # job.job.design.interface
         job.pose.calculate_fragment_profile(evo_fill=evo_fill)
     # elif isinstance(job.fragment_observations, list):
     #     raise NotImplementedError(f"Can't put fragment observations taken away from the pose onto the pose due to "
@@ -594,8 +607,11 @@ def design(job: pose.PoseJob):
     #             write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
     #         write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
     #         job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
-    #         raise NotImplementedError(f'No function for all residue Rosetta design yet')
-    #         job.rosetta_design()  # Sets job.protocol
+    #         if job.job.design.interface:
+    #             job.rosetta_interface_design()  # Sets job.protocol
+    #         else:
+    #             raise NotImplementedError(f'No function for all residue Rosetta design yet')
+    #             job.rosetta_design()  # Sets job.protocol
     #     case putils.proteinmpnn:
     #         job.proteinmpnn_design()  # Sets job.protocol
     #     case _:
@@ -606,13 +622,16 @@ def design(job: pose.PoseJob):
             write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
         write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
         job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
-        raise NotImplementedError(f'No function for all residue Rosetta design yet')
-        job.rosetta_design()  # Sets job.protocol
+        if job.job.design.interface:
+            job.rosetta_interface_design()  # Sets job.protocol
+        else:
+            raise NotImplementedError(f'No function for all residue Rosetta design yet')
+            job.rosetta_design()  # Sets job.protocol
     elif job.job.design.design_method == putils.proteinmpnn:
-        job.proteinmpnn_design(interface=True, neighbors=job.job.design.neighbors)  # Sets job.protocol
+        # Sets job.protocol
+        job.proteinmpnn_design()  # interface=job.job.design.interface, neighbors=job.job.design.neighbors
     else:
         raise ValueError(f"The method '{job.job.design.design_method}' isn't available")
-    # job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
 
 
 @protocol_decorator()

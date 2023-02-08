@@ -196,26 +196,27 @@ def main():
             #         logger.info(f'Analysis of all Trajectories and Residues written to {job.all_scores}')
 
             # Set up sbatch scripts for processed Poses
-            if job.module == flags.interface_design:
-                if job.design.design_method == putils.consensus:
-                    # Todo ensure consensus sbatch generator working
-                    design_stage = flags.refine
-                elif job.design.design_method == putils.proteinmpnn:
-                    design_stage = putils.proteinmpnn
-                else:  # if job.design.design_method == putils.rosetta_str:
-                    design_stage = putils.scout if job.design.scout \
-                        else (putils.hbnet_design_profile if job.design.hbnet
-                              else (putils.structure_background if job.design.structure_background
-                                    else putils.interface_design))
-            elif job.module == flags.design:
-                # Todo make viable rosettascripts
-                design_stage = flags.design
+            if job.module == flags.design:
+                if job.design.interface:
+                    if job.design.design_method == putils.consensus:
+                        # Todo ensure consensus sbatch generator working
+                        design_stage = flags.refine
+                    elif job.design.design_method == putils.proteinmpnn:
+                        design_stage = putils.proteinmpnn
+                    else:  # if job.design.design_method == putils.rosetta_str:
+                        design_stage = putils.scout if job.design.scout \
+                            else (putils.hbnet_design_profile if job.design.hbnet
+                                  else (putils.structure_background if job.design.structure_background
+                                        else putils.interface_design))
+                else:
+                    # Todo make viable rosettascripts
+                    design_stage = flags.design
             else:
                 design_stage = None
 
             module_files = {
                 flags.design: design_stage,
-                flags.interface_design: design_stage,
+                # flags.interface_design: design_stage,
                 flags.nanohedra: flags.nanohedra,
                 flags.refine: flags.refine,
                 flags.interface_metrics: putils.interface_metrics,
@@ -248,7 +249,7 @@ def main():
                                                                       out_path=job.sbatch_scripts)
                 logger.critical(sbatch_warning)
 
-                if job.module in [flags.interface_design, flags.design] and job.initial_refinement:
+                if job.module == flags.design and job.initial_refinement:
                     # We should refine before design
                     refine_file = utils.write_commands([os.path.join(design.scripts_path, f'{flags.refine}.sh')
                                                         for design in success], out_path=job_paths,
@@ -756,6 +757,7 @@ def main():
                                    'required')
     elif job.module == flags.generate_fragments:  # Ensure we write fragments out
         job.write_fragments = True
+    # elif job.module == flags.interface_design:
     else:
         pass
         # if job.module not in [flags.interface_design, flags.design, flags.refine, flags.optimize_designs,
@@ -776,7 +778,7 @@ def main():
     logger.info('Starting with options:\n\t%s' % '\n\t'.join(utils.pretty_format_table(reported_args.items())))
 
     logger.info(f'Using resources in Database located at "{job.data}"')
-    if job.module in [flags.nanohedra, flags.generate_fragments, flags.interface_design, flags.design, flags.analysis]:
+    if job.module in [flags.nanohedra, flags.generate_fragments, flags.design, flags.analysis]:  # interface_design
         if job.design.term_constraint:
             job.fragment_db = fragment_factory(source=args.fragment_database)
             # Initialize EulerLookup class
@@ -1297,9 +1299,8 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
         # Format computational requirements
         distribute_modules = [
-            flags.nanohedra, flags.refine, flags.interface_design, flags.design, flags.interface_metrics,
-            flags.optimize_designs
-        ]
+            flags.nanohedra, flags.refine, flags.design, flags.interface_metrics, flags.optimize_designs
+        ]  # flags.interface_design,
         if job.module in distribute_modules:
             if job.distribute_work:
                 logger.info('Writing modeling commands out to file, no modeling will occur until commands are executed')

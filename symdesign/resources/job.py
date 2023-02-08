@@ -380,6 +380,9 @@ class JobResources:
         if self.design.ignore_clashes:
             self.design.ignore_pose_clashes = self.design.ignore_symmetric_clashes = True
         # Handle protocol specific flags
+        if self.module == flags.interface_design:  # or self.design.neighbors:
+            self.module = flags.design
+            self.design.interface = True
         if self.design.design_method == putils.consensus:
             self.design.term_constraint = True
         if self.design.term_constraint:

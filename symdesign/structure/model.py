@@ -6284,7 +6284,7 @@ class Pose(SymmetricModel, Metrics):
 
     def get_proteinmpnn_params(self, ca_only: bool = False, pssm_multi: float = 0., pssm_log_odds_flag: bool = False,
                                pssm_bias_flag: bool = False, bias_profile_by_probabilities: bool = False,
-                               interface: bool = True, neighbors: bool = False, **kwargs) -> dict[str, np.ndarray]:
+                               interface: bool = False, neighbors: bool = False, **kwargs) -> dict[str, np.ndarray]:
         # decode_core_first: bool = False
         """
 
@@ -6609,7 +6609,7 @@ class Pose(SymmetricModel, Metrics):
             per_residue_unbound_sequence_loss = np.empty_like(per_residue_complex_sequence_loss)
 
             # Set up parameters for the scoring task, including scoring all positions
-            parameters.update(**self.get_proteinmpnn_params(ca_only=ca_only, interface=False, **kwargs))
+            parameters.update(**self.get_proteinmpnn_params(ca_only=ca_only, **kwargs))
 
             # Remove the precalculated sequence array to add our own
             parameters.pop('S')
@@ -6658,8 +6658,8 @@ class Pose(SymmetricModel, Metrics):
 
     @torch.no_grad()  # Ensure no gradients are produced
     def design_sequences(self, method: flags.design_programs_literal = putils.proteinmpnn, number: int = flags.nstruct,
-                         temperatures: Sequence[float] = (0.1,), interface: bool = True, measure_unbound: bool = True,
-                         ca_only: bool = False, **kwargs) -> dict[str, np.ndarray]:
+                         temperatures: Sequence[float] = (0.1,), interface: bool = False, neighbors: bool = False,
+                         measure_unbound: bool = True, ca_only: bool = False, **kwargs) -> dict[str, np.ndarray]:
         """Perform sequence design on the Pose
 
         Args:
@@ -6667,6 +6667,7 @@ class Pose(SymmetricModel, Metrics):
             number: The number of sequences to design
             temperatures: The temperatures to perform design at
             interface: Whether to design the interface
+            neighbors: Whether to design interface neighbors
             measure_unbound: Whether the protein should be designed with concern for the unbound state
             ca_only: Whether a minimal CA variant of the protein should be used for design calculations
         Keyword Args:
@@ -6707,7 +6708,7 @@ class Pose(SymmetricModel, Metrics):
                 # mpnn_sample = proteinmpnn_model.sample
                 number_of_residues = pose_length
 
-            if interface and measure_unbound:
+            if measure_unbound:
                 if ca_only:  # self.job.design.ca_only:
                     coords_type = 'ca_coords'
                     num_model_residues = 1
@@ -6735,7 +6736,8 @@ class Pose(SymmetricModel, Metrics):
                 parameters = {}
 
             # Set up the inference task
-            parameters.update(**self.get_proteinmpnn_params(ca_only=ca_only, interface=interface, **kwargs))
+            parameters.update(**self.get_proteinmpnn_params(interface=interface, neighbors=neighbors,
+                                                            ca_only=ca_only, **kwargs))
             # Solve decoding order
             parameters['randn'] = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
 

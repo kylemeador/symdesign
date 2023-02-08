@@ -313,6 +313,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     rotation_step1 = job.dock.rotation_step1
     rotation_step2 = job.dock.rotation_step2
     # Todo set below as parameters?
+    measure_interface_during_dock = True
     low_quality_match_value = .2
     """The lower bounds on an acceptable match. Was upper bound of 2 using z-score"""
     clash_dist: float = 2.2
@@ -2378,8 +2379,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         # once, twice = False, False
 
         # Set up Pose parameters
-        measure_interface_during_dock = True
-        parameters = pose.get_proteinmpnn_params(ca_only=job.design.ca_only)
+        parameters = pose.get_proteinmpnn_params(ca_only=job.design.ca_only, interface=measure_interface_during_dock)
         # Todo reinstate if conditional_log_probs
         # # Todo
         # #  Must calculate randn individually if using some feature to describe order

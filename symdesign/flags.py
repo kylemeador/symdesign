@@ -44,6 +44,7 @@ module = 'module'
 method = 'method'
 num_predictions_per_model = 'num_predictions_per_model'
 run_entities_and_interfaces = 'run_entities_and_interfaces'
+interface = 'interface'
 neighbors = 'neighbors'
 # dock_only = 'dock_only'
 rotation_step1 = 'rotation_step1'
@@ -83,7 +84,7 @@ use_gpu_relax = 'use_gpu_relax'
 design_namespace = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, 'design_method', method, evolution_constraint,
     hbnet, number_of_designs, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
-    sequences, structures, neighbors
+    sequences, structures, interface, neighbors
 }
 dock_namespace = {
     proteinmpnn_score, contiguous_ghosts, perturb_dof, perturb_dof_rot, perturb_dof_tx,
@@ -925,20 +926,13 @@ design_arguments = {
     scout_args: scout_kwargs,
     term_constraint_args: term_constraint_kwargs
 }
-interface_design_help = 'Gather poses of interest and format for interface specific sequence design using' \
-                        '\nRosetta/ProteinMPNN. Constrain using evolutionary profiles of homologous' \
-                        '\nsequences and/or fragment profiles extracted from the PDB, or neither'
+interface_design_help = 'Gather poses of interest and format for interface specific sequence design using\n' \
+                        'ProteinMPNN/Rosetta. Constrain using evolutionary profiles of homologous\n' \
+                        'sequences and/or fragment profiles extracted from the PDB, or neither'
 parser_interface_design = {interface_design: dict(description=interface_design_help, help=interface_design_help)}
 interface_design_arguments = {
-    ca_only_args: ca_only_kwargs,
-    design_method_args: design_method_kwargs,
-    evolution_constraint_args: evolution_constraint_kwargs,
-    hbnet_args: hbnet_kwargs,
+    **design_arguments,
     neighbors_args: neighbors_kwargs,
-    design_number_args: design_number_kwargs,
-    structure_background_args: structure_background_kwargs,
-    scout_args: scout_kwargs,
-    term_constraint_args: term_constraint_kwargs
 }
 # ---------------------------------------------------
 interface_metrics_help = 'Analyze interface metrics from a pose'
@@ -1589,4 +1583,6 @@ for group in parser._action_groups:
         elif arg.dest in cluster_namespace:
             cluster_defaults[arg.dest] = arg.default
 
+# Add orphaned 'interface', i.e. interface-design module alias for design with interface=True to design_defaults
+design_defaults[interface] = False
 # predict_defaults[method] = design_defaults[method]  # Also in design...

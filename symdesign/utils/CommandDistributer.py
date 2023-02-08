@@ -58,6 +58,7 @@ def is_sbatch_available() -> bool:
 protocols_literal = Literal[
     'refine',
     'interface-design',
+    'design',
     'consensus',
     'nanohedra',
     'rmsd_calculation',
@@ -73,7 +74,7 @@ protocols_literal = Literal[
 ]
 protocols: tuple[str, ...] = get_args(protocols_literal)
 # Cluster Dependencies and Multiprocessing
-processes = (2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 2)
+processes = (2, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 2)
 process_scale = dict(zip(protocols, processes))
 
 # process_scale = {
@@ -95,6 +96,7 @@ process_scale = dict(zip(protocols, processes))
 sbatch_templates_tuple = (
     os.path.join(sbatch_template_dir, flags.refine),
     os.path.join(sbatch_template_dir, flags.interface_design),
+    os.path.join(sbatch_template_dir, flags.design),
     os.path.join(sbatch_template_dir, flags.refine),
     os.path.join(sbatch_template_dir, flags.nanohedra),
     os.path.join(sbatch_template_dir, 'rmsd_calculation'),
