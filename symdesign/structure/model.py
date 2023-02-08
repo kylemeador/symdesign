@@ -992,7 +992,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     _chain_transforms: list[transformation_mapping] | list
     """The specific transformation operators to generate all mate chains of the Oligomer"""
     _chains: list | list[Entity]
-    _oligomer: Structures  # list[Entity]
+    _oligomer: Model  # Todo list[Entity] | Structures:
     _is_captain: bool
     _is_oligomeric: bool
     _number_of_symmetry_mates: int
@@ -1471,7 +1471,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         return self._chains
 
     @property
-    def oligomer(self) -> list[Entity] | Structures:
+    def oligomer(self) -> Model:  # Todo list[Entity] | Structures:
         """Access the oligomeric Structure which is a copy of the Entity plus any additional symmetric mate chains
 
         Returns:
@@ -1483,9 +1483,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # if not self._is_oligomeric:
             #     self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
             #                      'instead' % self.name)
-            # self._oligomer = self.chains  # OLD WAY
-            self._oligomer = Structures(self.chains, parent=self)  # NEW WAY
-            # self._oligomer = Structures(self.chains)
+            self._oligomer = Model.from_chains(self.chains, entities=False, log=self.log)
+            # self._oligomer = Structures(self.chains, parent=self)  # NEW WAY Todo
             return self._oligomer
 
     def remove_mate_chains(self):
@@ -6093,11 +6092,9 @@ class Pose(SymmetricModel, Metrics):
         # This finds only those residues actively contributing to the interface
         # self._interface_residues_only = set()
         # for entity in self.pose.entities:
-        #     # Todo v clean as it is expensive
-        #     entity_oligomer = Model.from_chains(entity.chains, log=entity.log, entities=False)
         #     # entity.oligomer.get_sasa()
         #     # Must get_residues by number as the Residue instance will be different in entity_oligomer
-        #     for residue in entity_oligomer.get_residues(self._interface_residues):
+        #     for residue in entity.oligomer.get_residues(self._interface_residues):
         #         if residue.sasa > 0:
         #             # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
         #             self._interface_residues_only.add(residue)
@@ -7288,11 +7285,9 @@ class Pose(SymmetricModel, Metrics):
         per_residue_data['sasa_relative_complex'] = [residue.relative_sasa for residue in assembly_asu_residues]
         per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = [], [], []
         for entity in self.entities:
-            # Todo when Entity.oligomer works
-            #  entity.oligomer.get_sasa()
-            entity_oligomer = Model.from_chains(entity.chains, entities=False, log=self.log)
-            entity_oligomer.get_sasa()
-            oligomer_asu_residues = entity_oligomer.residues[:entity.number_of_residues]
+            if not entity.oligomer.sasa:
+                entity.oligomer.get_sasa()
+            oligomer_asu_residues = entity.oligomer.residues[:entity.number_of_residues]
             per_residue_sasa_unbound_apolar.extend([residue.sasa_apolar for residue in oligomer_asu_residues])
             per_residue_sasa_unbound_polar.extend([residue.sasa_polar for residue in oligomer_asu_residues])
             per_residue_sasa_unbound_relative.extend([residue.relative_sasa for residue in oligomer_asu_residues])

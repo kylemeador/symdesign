@@ -3780,10 +3780,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
             # nan_blank_data = list(repeat(np.nan, pose_length))
             # unbound_errat = []
             # for idx, entity in enumerate(pose.entities):
-            #     # Todo when Entity.oligomer works
-            #     #  _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
-            #     entity_oligomer = Model.from_chains(entity.chains, entities=False)
-            #     _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
+            #     _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
             #     unbound_errat.append(oligomeric_errat[:entity.number_of_residues])
 
             torch_numeric_sequence = torch.from_numpy(pose.sequence_numeric)
