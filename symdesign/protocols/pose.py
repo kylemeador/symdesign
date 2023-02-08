@@ -1906,7 +1906,10 @@ class PoseProtocol(PoseData):
             #     'ptm': np.zeros(num_models, dtype=np.float32),
             #     'iptm': np.zeros(num_models, dtype=np.float32)
             # }
-            _scores = {model_name: {'ptm': [], 'iptm': []} for model_name in model_runners}
+            if run_multimer_system:
+                _scores = {model_name: {'ptm': [], 'iptm': []} for model_name in model_runners}
+            else:
+                _scores = {model_name: {} for model_name in model_runners}
             ranking_confidences = {}
             unrelaxed_proteins = {}
             unrelaxed_pdbs_ = {}
@@ -1963,6 +1966,7 @@ class PoseProtocol(PoseData):
                 if run_multimer_system:
                     # _scores['iptm'][model_index] = np_prediction_result['iptm']
                     _scores[model_name]['iptm'].append(np_prediction_result['iptm'])
+                    _scores[model_name]['ptm'].append(np_prediction_result['ptm'])
                 ranking_confidences[model_name] = np_prediction_result['ranking_confidence']
 
                 # Add the predicted LDDT in the b-factor column.
@@ -2153,21 +2157,24 @@ class PoseProtocol(PoseData):
                     entity_scores_by_design[design].append(entity_scores[minimum_model])
 
             # Combine Entity structure and scores
-            score_types_mean = ['ptm', 'iptm']
+            score_types_mean = ['ptm', 'iptm'] if run_multimer_system else []
             # score_types_concat = ['pae', 'plddt']  # 'pae' won't concat correctly. Do we want it?
             score_types_concat = ['plddt']
-            structures_and_scores = {}
+            # structures_and_scores = {}
             entity_design_structures = []
             entity_design_scores = []
             for design in sequences:
                 design_pose = Pose.from_entities([entity for model in entity_structure_by_design[design]
                                                   for entity in model.entities], **self.pose_kwargs)
                 entity_scores = entity_scores_by_design[design]
-                scalar_scores = {score_type: sum([scores[score_type] for scores in entity_scores]) / number_of_entities
+                logger.critical(f'Found entity_scores with contents:\n{entity_scores}')
+                scalar_scores = {score_type: sum([sum(scores[score_type]) for scores in entity_scores])
+                                 / number_of_entities
                                  for score_type in score_types_mean}
                 array_scores = {score_type: np.concatenate([scores[score_type] for scores in entity_scores])
                                 for score_type in score_types_concat}
                 scalar_scores.update(array_scores)
+                logger.critical(f'Found scalar_scores with contents:\n{scalar_scores}')
                 entity_design_structures.append(design_pose)
                 entity_design_scores.append(scalar_scores)
 
