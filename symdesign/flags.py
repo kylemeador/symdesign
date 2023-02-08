@@ -747,7 +747,7 @@ predict_structure_arguments = {
     ('-m', f'--predict-{method}'):  # f'--{method}',
         dict(choices={'alphafold', 'thread'}, default='alphafold',  # 'thread',
              help=f'The method utilized to {predict_structure}\nChoices=%(choices)s\nDefault=%(default)s'),
-    (f'--{num_predictions_per_model}',):  # '-n',
+    (f'--{num_predictions_per_model}', '--number-predictions-per-model'):  # '-n',
         dict(type=int,  # default=5,
              help=f'How many iterations of prediction should be used\nfor each individual Alphafold model.\n'
                   'Default=5(multimer mode),1(monomer mode)'),

@@ -1800,7 +1800,7 @@ class PoseProtocol(PoseData):
             else:
                 num_predictions_per_model = 1
         else:
-            num_predictions_per_model = self.predict.num_predictions_per_model
+            num_predictions_per_model = self.job.predict.num_predictions_per_model
 
         if models_to_relax is not None:
             if models_to_relax not in ['all', 'best']:
@@ -1828,13 +1828,13 @@ class PoseProtocol(PoseData):
             random_seed = random.randrange(sys.maxsize // num_models)
 
         # Set up relax process
-        amber_relaxer = relax.AmberRelaxation(
-            max_iterations=resources.ml.RELAX_MAX_ITERATIONS,
-            tolerance=resources.ml.RELAX_ENERGY_TOLERANCE,
-            stiffness=resources.ml.RELAX_STIFFNESS,
-            exclude_residues=resources.ml.RELAX_EXCLUDE_RESIDUES,
-            max_outer_iterations=resources.ml.RELAX_MAX_OUTER_ITERATIONS,
-            use_gpu=self.job.predict.use_gpu_relax)  # --enable_gpu_relax=true Less stable results, but much quicker
+        # amber_relaxer = relax.AmberRelaxation(
+        #     max_iterations=resources.ml.RELAX_MAX_ITERATIONS,
+        #     tolerance=resources.ml.RELAX_ENERGY_TOLERANCE,
+        #     stiffness=resources.ml.RELAX_STIFFNESS,
+        #     exclude_residues=resources.ml.RELAX_EXCLUDE_RESIDUES,
+        #     max_outer_iterations=resources.ml.RELAX_MAX_OUTER_ITERATIONS,
+        #     use_gpu=self.job.predict.use_gpu_relax)  # --enable_gpu_relax=true Less stable results, but much quicker
 
         def amber_relax(prot):
             out = amber_minimize.run_pipeline(
