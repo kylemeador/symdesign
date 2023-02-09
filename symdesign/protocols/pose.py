@@ -1717,6 +1717,13 @@ class PoseProtocol(PoseData):
         Returns:
 
         """
+        # Hard code in the use of only design based single sequence models
+        # if self.job.design:
+        #     no_msa = True
+        # else:
+        #     no_msa = False
+        no_msa = True
+
         self.load_pose()
         number_of_residues = self.pose.number_of_residues
         protocol_logger.info(f'Starting prediction with {len(sequences)} sequences')
@@ -1754,9 +1761,12 @@ class PoseProtocol(PoseData):
             num_predictions_per_model = self.job.predict.num_predictions_per_model
 
         if models_to_relax is not None:
+            relaxed = True
             if models_to_relax not in ['all', 'best']:
                 raise ValueError(f"Can't use the models_to_relax value {models_to_relax}. Must be either "
                                  f"'all', 'best' or NoneType")
+        else:
+            relaxed = False
 
         # Set up the various model_runners to supervise the prediction task for each sequence
         model_runners = {}
@@ -1892,8 +1902,7 @@ class PoseProtocol(PoseData):
             #     merged_example[feature_name] = feats[0]
             return _seq_features
 
-        # def predict(sequences: dict[str, str], features: FeatureDict):
-        def predict(length: int, features: FeatureDict) -> tuple[dict[str, dict[str, str]], FeatureDict]:
+        def predict(length: int, features: FeatureDict) -> tuple[dict[str, dict[str, str]], dict[str, FeatureDict]]:
             """Run Alphafold to predict a structure from sequence/msa/template features
 
             Args:
@@ -1901,17 +1910,21 @@ class PoseProtocol(PoseData):
                 features: The sequence/msa/template feature parameters to populate the jax model
             Returns:
                 The tuple of structure and score dictionaries. Where structures contains the keys 'relaxed' and
-                'unrelaxed' and scores contain the score types 'pae' (length, length), 'plddt' (length), 'ptm' (1),
-                and 'iptm' (1)
+                'unrelaxed' mapped to the model name and the model PDB string and scores contain the model name
+                mapped to each of the score types 'predicted_aligned_error' (length, length), 'plddt' (length),
+                'predicted_template_modeling_score' (1), and 'predicted_interface_template_modeling_score' (1)
             """
             # _scores = {
-            #     'pae': np.zeros((num_models, length, length), dtype=np.float32),
+            #     'predicted_aligned_error': np.zeros((num_models, length, length), dtype=np.float32),
             #     'plddt': np.zeros((num_models, length), dtype=np.float32),
-            #     'ptm': np.zeros(num_models, dtype=np.float32),
-            #     'iptm': np.zeros(num_models, dtype=np.float32)
+            #     'predicted_template_modeling_score': np.zeros(num_models, dtype=np.float32),
+            #     'predicted_interface_template_modeling_score': np.zeros(num_models, dtype=np.float32)
             # }
             if run_multimer_system:
-                _scores = {model_name: {'ptm': [], 'iptm': []} for model_name in model_runners}
+                _scores = {model_name: {'predicted_template_modeling_score': [],
+                                        'predicted_interface_template_modeling_score': []}
+                           for model_name in model_runners}
+            # elif 'monomer_ptm':
             else:
                 _scores = {model_name: {} for model_name in model_runners}
             ranking_confidences = {}
@@ -1961,16 +1974,17 @@ class PoseProtocol(PoseData):
                 #                      for type_, res in np_prediction_result.items())}')
                 # Process incoming scores to be returned. If multimer, we need to clean up to ASU at some point
                 # This is a 2d array
-                # _scores['pae'][model_index, :] = np_prediction_result['predicted_aligned_error'][:length, :length]
-                _scores[model_name]['pae'] = \
+                # _scores['predicted_aligned_error'][model_index, :] = \
+                #     np_prediction_result['predicted_aligned_error'][:length, :length]
+                _scores[model_name]['predicted_aligned_error'] = \
                     np_prediction_result['predicted_aligned_error'][:length, :length]
                 plddt = np_prediction_result['plddt']
                 _scores[model_name]['plddt'] = plddt[:length]
-                # scores['ptm'][model_index] = prediction_result['ptm']
+                # scores['predicted_template_modeling_score'][model_index] = prediction_result['ptm']
                 if run_multimer_system:
-                    # _scores['iptm'][model_index] = np_prediction_result['iptm']
-                    _scores[model_name]['iptm'].append(np_prediction_result['iptm'])
-                    _scores[model_name]['ptm'].append(np_prediction_result['ptm'])
+                    # _scores['predicted_interface_template_modeling_score'][model_index] = np_prediction_result['iptm']
+                    _scores[model_name]['predicted_interface_template_modeling_score'].append(np_prediction_result['iptm'])
+                    _scores[model_name]['predicted_template_modeling_score'].append(np_prediction_result['ptm'])
                 ranking_confidences[model_name] = np_prediction_result['ranking_confidence']
 
                 # Add the predicted LDDT in the b-factor column.
@@ -2081,30 +2095,43 @@ class PoseProtocol(PoseData):
             # design_models[design] = models
             # return design_models
 
-        def find_model_with_minimal_rmsd(models: dict[str, Structure], template_cb_coords) -> tuple[float, str]:
-            """Use the backbone and CB RMSD metric to find the best Structure instance from a group of Alphafold models
-            and transform that model to the Pose coordinates
+        def find_model_with_minimal_rmsd(models: dict[str, Structure], template_cb_coords) -> tuple[list[float], str]:
+            """Use the CB coords to calculate the RMSD and find the best Structure instance from a group of Alphafold
+            models and transform that model to the Pose coordinates
+
+            Returns:
+                The calculated rmsds, and the name of the model with the minimal rmsd
             """
             min_rmsd = float('inf')
             minimum_model = None
+            rmsds = []
             for af_model_name, model in models.items():
                 rmsd, rot, tx = superposition3d(template_cb_coords, model.cb_coords)
                 # rmsd, rot, tx = superposition3d(template_bb_cb_coords, model.backbone_and_cb_coords)
+                rmsds.append(rmsd)
                 if rmsd < min_rmsd:
                     min_rmsd = rmsd
                     # Move the Alphafold model into the Pose reference frame
                     model.transform(rotation=rot, translation=tx)
                     minimum_model = af_model_name  # model
 
-            return min_rmsd, minimum_model
+            return rmsds, minimum_model
 
-        # Hard code in the use of only design based single sequence models
-        # if self.job.design:
-        #     no_msa = True
-        # else:
-        #     no_msa = False
-        no_msa = True
-        relaxed = True
+        def combine_model_scores(entity_scores: Iterable[dict[str, np.ndarray | float]]) \
+                -> dict[str, list[int | np.ndarray]]:
+            """Add each of the different score types produced by each model to a dictionary with a list of model
+            scores in each category in the order the models appear
+
+            Returns:
+                The scores dictionary with {'score_type': [score1, score2, ...], }
+            """
+            total_scores = {score_type: [] for score_type in entity_scores[0].keys()}
+            for score_type, container in total_scores.items():
+                for scores in entity_scores:
+                    container.append(scores[score_type])
+
+            return total_scores
+
         # Prepare the features to feed to the model
         if self.job.predict.run_entities_and_interfaces and self.number_of_entities > 1:
             number_of_entities = self.pose.number_of_entities
@@ -2156,24 +2183,30 @@ class PoseProtocol(PoseData):
                     # Todo
                     #  entity_backbone_and_cb_coords = entity.oligomer.backbone_and_cb_coords
 
-                    rmsd, minimum_model = find_model_with_minimal_rmsd(design_models, entity_cb_coords)
-                    # rmsd, minimum_model = find_model_with_minimal_rmsd(design_models, entity_backbone_and_cb_coords)
+                    rmsds, minimum_model = find_model_with_minimal_rmsd(design_models, entity_cb_coords)
+                    # rmsds, minimum_model = find_model_with_minimal_rmsd(design_models, entity_backbone_and_cb_coords)
                     if minimum_model is None:
                         self.log.critical(f"Couldn't find the Entity {entity.name} model with the minimal rmsd for "
                                           f"Design {design}")
                     # Append each Entity result to the full return
                     entity_structure_by_design[design].append(design_models[minimum_model])
-                    entity_scores_by_design[design].append({'rmsd': rmsd, **entity_scores[minimum_model]})
+                    combined_scores = combine_model_scores([entity_scores[model_name] for model_name in design_models])
+
+                    # entity_scores_by_design[design].append({'rmsds': rmsds, **entity_scores[minimum_model]})
+                    entity_scores_by_design[design].append({'rmsds': rmsds, **combined_scores})
 
             """each entity in entity_scores_by_design contains the following features
-            {'iptm': float
-             'pae': (n_residues, n_residues)
+            {'predicted_aligned_error': (n_residues, n_residues)
              'plddt': (n_residues,)
-             'ptm': float}
+             'predicted_interface_template_modeling_score': float
+             'predicted_template_modeling_score': float
+             'rmsds: (number_of_models)}
             """
             # Combine Entity structure and scores
-            score_types_mean = ['iptm', 'ptm', 'rmsd'] if run_multimer_system else ['rmsd']
-            score_types_concat = ['pae', 'plddt']
+            score_types_mean = ['predicted_interface_template_modeling_score',
+                                'predicted_template_modeling_score', 'rmsd'] \
+                if run_multimer_system else ['rmsd']
+            score_types_concat = ['predicted_aligned_error', 'plddt']
             # score_types_concat = ['plddt']
             # structures_and_scores = {}
             entity_design_structures = []
@@ -2187,9 +2220,9 @@ class PoseProtocol(PoseData):
                 scalar_scores = {score_type: sum([sum(scores[score_type]) for scores in entity_scores])
                                  / number_of_entities
                                  for score_type in score_types_mean}
-                # 'pae' won't concat correctly, so we must transform first by averaging over each residue
+                # 'predicted_aligned_error' won't concat correctly, so we average over each residue first
                 for scores in entity_scores:
-                    scores['pae'] = scores['pae'].mean(axis=-1)
+                    scores['predicted_aligned_error'] = scores['predicted_aligned_error'].mean(axis=-1)
                 array_scores = {score_type: np.concatenate([scores[score_type] for scores in entity_scores])
                                 for score_type in score_types_concat}
                 scalar_scores.update(array_scores)
@@ -2222,25 +2255,25 @@ class PoseProtocol(PoseData):
                 asu_models = load_alphafold_structures(structures_to_load, name=str(design),  # Get '.name'
                                                        entity_info=self.pose.entity_info)
                 # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
-                rmsd, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.cb_coords)
-                # rmsd, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
+                rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.cb_coords)
+                # rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
                 if minimum_model is None:
                     self.log.critical(f"Couldn't find the asu model with the minimal rmsd for Design {design}")
                 # Append each ASU result to the full return
                 asu_design_structures.append(asu_models[minimum_model])
                 # structure_by_design[design].append(asu_models[minimum_model])
-                asu_design_scores.append({'rmsd': rmsd, **asu_scores[minimum_model]})
+                asu_design_scores.append({'rmsds': rmsds, **asu_scores[minimum_model]})
                 # scores_by_design[design].append(asu_models[minimum_model])
-            # 'pae' isn't an array, so we transform by averaging over each residue
+            # predicted_aligned_error isn't an 1D array, so we transform by averaging over each residue
             for scores in asu_design_scores:
-                scores['pae'] = scores['pae'].mean(axis=-1)
+                scores['predicted_aligned_error'] = scores['predicted_aligned_error'].mean(axis=-1)
 
             """Design scores (entity_/asu_design_scores) contain the following features
-            {'iptm': float
-             'pae': (n_residues,)
+            {'predicted_aligned_error': (n_residues,)
              'plddt': (n_residues,)
-             'ptm': float
-             'rmsd': float}
+             'predicted_interface_template_modeling_score': float
+             'predicted_template_modeling_score': float
+             'rmsds: (number_of_models)}
             """
             # Compare all scores
             scores = {}
@@ -2261,42 +2294,12 @@ class PoseProtocol(PoseData):
                 self.log.critical(f'Found rmsd between separated entities and combined pose: {rmsd}')
 
         else:
-            # Todo remove this from here and use symmetric=True
-            # Get features for the ASU and predict
-            features = self.pose.get_alphafold_features(symmetric=False, no_msa=no_msa)
-            if multimer:  # Get the length
-                multimer_sequence_length = features['seq_length']
-            asu_design_structures = []  # structure_by_design = {}
-            asu_design_scores = []  # scores_by_design = {}
-            for design, sequence in sequences.items():
-                this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
-                protocol_logger.debug(f'Found this_seq_features:\n\t%s'
-                                      % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
-                asu_structures, asu_scores = predict(number_of_residues, {**features, **this_seq_features})
-                if relaxed:
-                    structures_to_load = asu_structures.get('relaxed', [])
-                else:
-                    structures_to_load = asu_structures.get('unrelaxed', [])
-                output_alphafold_structures(asu_structures, design_name=f'{design}-asu')
-                asu_models = load_alphafold_structures(structures_to_load, name=str(design),  # Get '.name'
-                                                       entity_info=self.pose.entity_info)
-                # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
-                minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.cb_coords)
-                # minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
-                if minimum_model is None:
-                    self.log.critical(f"Couldn't find the asu model with the minimal rmsd for Design {design}")
-                # Append each ASU result to the full return
-                asu_design_structures.append(asu_models[minimum_model])
-                # structure_by_design[design].append(asu_models[minimum_model])
-                asu_design_scores.append(asu_scores[minimum_model])
-                # scores_by_design[design].append(asu_models[minimum_model])
             raise NotImplementedError(f"Predicting on a single symmetric input isn't recommended due to "
                                       'size limitations')
             features = self.pose.get_alphafold_features(symmetric=True, no_msa=no_msa)
             scores = predict(sequences, features)
 
-        # Todo output the data as I see fit in
-        #  self.analyze_predict_structure_metrics()
+        self.analyze_predict_structure_metrics(scores)
         raise NotImplementedError("Can't analyze alphafold_predict_structure results yet")
 
     def interface_design_analysis(self, designs: Iterable[Pose] | Iterable[AnyStr] = None) -> pd.Series:

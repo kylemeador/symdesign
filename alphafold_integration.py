@@ -266,7 +266,7 @@ species_ids.append(identifiers.species_id.encode('utf-8'))
 # msa type object that has the occurances of the fragments. 
 To run without use of msa I need to adjust the following parameters
 
-cfg = config.model_config('model_3_ptm')  # <- replace with multimer_3_ptm
+cfg = config.model_config('model_3_ptm')  # <- replace with model_3_multimer_v3
 # NONE OF THESE PARAMETERS ARE AVAILABLE WITH MULTIMER. HAVE TO CONSTRUCT A "PSEUDO MSA"
 cfg.model.num_recycle = 0  # Set because the num_recycle are controlled through .ipynb
 cfg.data.common.num_recycle = 0  # Set because the num_recycle are controlled through .ipynb
