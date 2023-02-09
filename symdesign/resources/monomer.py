@@ -86,11 +86,11 @@ class AlphaFoldInitialGuess(hk.Module):
     emb_config = self.config.embeddings_and_evoformer
     if emb_config.recycle_pos:
       # SYMDESIGN
-      if prev_pos:
-        prev['prev_pos'] = prev_pos
-      else:
+      if prev_pos is None:
         prev['prev_pos'] = jnp.zeros(
           [num_residues, residue_constants.atom_type_num, 3])
+      else:
+        prev['prev_pos'] = prev_pos
       # SYMDESIGN
     if emb_config.recycle_features:
       prev['prev_msa_first_row'] = jnp.zeros(
