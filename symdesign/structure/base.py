@@ -1200,6 +1200,20 @@ class Atoms:
     def __iter__(self) -> Atom:
         yield from self.atoms.tolist()
 
+# These was pulled directly from alphafold and violates DRY
+# This is at the expense of working through import issues (they may not exist)
+# This mapping is used when we need to store atom data in a format that requires
+# fixed atom data size for every residue (e.g. a numpy array).
+atom_types = [
+    'N', 'CA', 'C', 'CB', 'O', 'CG', 'CG1', 'CG2', 'OG', 'OG1', 'SG', 'CD',
+    'CD1', 'CD2', 'ND1', 'ND2', 'OD1', 'OD2', 'SD', 'CE', 'CE1', 'CE2', 'CE3',
+    'NE', 'NE1', 'NE2', 'OE1', 'OE2', 'CH2', 'NH1', 'NH2', 'OH', 'CZ', 'CZ2',
+    'CZ3', 'NZ', 'OXT'
+]
+atom_order = {atom_type: i for i, atom_type in enumerate(atom_types)}
+atom_type_num = len(atom_order)
+# END DRY violation
+
 
 class ContainsResiduesMixin(StructureBase, ABC):
     ss_sequence_indices: list[int]
@@ -3203,6 +3217,19 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         if len(self._coords_indexed_residues) != len(self._atom_indices):
             raise ValueError(f'The length of _coords_indexed_residues {len(self._coords_indexed_residues)} '
                              f'!= _atom_indices {len(self._atom_indices)}')
+
+    @property
+    def alphafold_coords(self) -> np.ndarray:  # Todo ContainsResiduesMixin
+        """Return a view of the Coords from the StructureBase in Alphafold coordinate format"""
+        af_coords = np.zeros((self.number_of_residues, atom_type_num, 3), dtype=np.float32)
+        # for atom, coords in zip(self.atoms, self.coords):
+        for idx, residue in enumerate(self.residues):
+            residue_array = np.zeros((atom_type_num, 3), dtype=np.float32)
+            for atom, xyz_coord in zip(residue.atoms, residue.coords.tolist()):
+                residue_array[atom_order[atom.type]] = xyz_coord
+            af_coords[idx] = residue_array
+
+        return af_coords
 
     @property
     def coords_indexed_residues(self) -> list[Residue]:  # Todo ContainsResiduesMixin

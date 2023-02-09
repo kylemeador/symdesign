@@ -1769,7 +1769,10 @@ class PoseProtocol(PoseData):
             else:
                 model_config.data.eval.num_ensemble = num_ensemble
             model_params = get_model_haiku_params(model_name=model_name, data_dir=putils.alphafold_db_dir)  # FLAGS.data_dir)
-            model_runner = afmodel.RunModel(model_config, model_params)
+            # This is using prev_pos init
+            model_runner = resources.ml.RunModel(model_config, model_params)
+            # This should be used if the prediction is not for a design and we have an msa
+            # model_runner = afmodel.RunModel(model_config, model_params)
 
             for i in range(num_predictions_per_model):
                 model_runners[f'{model_name}_pred_{i}'] = model_runner
