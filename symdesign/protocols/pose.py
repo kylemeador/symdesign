@@ -2081,7 +2081,7 @@ class PoseProtocol(PoseData):
             # design_models[design] = models
             # return design_models
 
-        def find_model_with_minimal_rmsd(models: dict[str, Structure], template_cb_coords) -> str | None:
+        def find_model_with_minimal_rmsd(models: dict[str, Structure], template_cb_coords) -> tuple[float, str]:
             """Use the backbone and CB RMSD metric to find the best Structure instance from a group of Alphafold models
             and transform that model to the Pose coordinates
             """
@@ -2096,7 +2096,7 @@ class PoseProtocol(PoseData):
                     model.transform(rotation=rot, translation=tx)
                     minimum_model = af_model_name  # model
 
-            return minimum_model
+            return min_rmsd, minimum_model
 
         # Hard code in the use of only design based single sequence models
         # if self.job.design:
@@ -2156,14 +2156,14 @@ class PoseProtocol(PoseData):
                     # Todo
                     #  entity_backbone_and_cb_coords = entity.oligomer.backbone_and_cb_coords
 
-                    minimum_model = find_model_with_minimal_rmsd(design_models, entity_cb_coords)
-                    # minimum_model = find_model_with_minimal_rmsd(design_models, entity_backbone_and_cb_coords)
+                    rmsd, minimum_model = find_model_with_minimal_rmsd(design_models, entity_cb_coords)
+                    # rmsd, minimum_model = find_model_with_minimal_rmsd(design_models, entity_backbone_and_cb_coords)
                     if minimum_model is None:
                         self.log.critical(f"Couldn't find the Entity {entity.name} model with the minimal rmsd for "
                                           f"Design {design}")
                     # Append each Entity result to the full return
                     entity_structure_by_design[design].append(design_models[minimum_model])
-                    entity_scores_by_design[design].append(entity_scores[minimum_model])
+                    entity_scores_by_design[design].append({'rmsd': rmsd, **entity_scores[minimum_model]})
 
             # Combine Entity structure and scores
             score_types_mean = ['ptm', 'iptm'] if run_multimer_system else []
@@ -2213,14 +2213,14 @@ class PoseProtocol(PoseData):
                 asu_models = load_alphafold_structures(structures_to_load, name=str(design),  # Get '.name'
                                                        entity_info=self.pose.entity_info)
                 # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
-                minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.cb_coords)
-                # minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
+                rmsd, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.cb_coords)
+                # rmsd, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
                 if minimum_model is None:
                     self.log.critical(f"Couldn't find the asu model with the minimal rmsd for Design {design}")
                 # Append each ASU result to the full return
                 asu_design_structures.append(asu_models[minimum_model])
                 # structure_by_design[design].append(asu_models[minimum_model])
-                asu_design_scores.append(asu_scores[minimum_model])
+                asu_design_scores.append({'rmsd': rmsd, **asu_scores[minimum_model]})
                 # scores_by_design[design].append(asu_models[minimum_model])
 
             # Compare all scores
