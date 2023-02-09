@@ -19,6 +19,7 @@ from matplotlib import pyplot as plt
 # from matplotlib.axes import Axes
 from matplotlib.ticker import MultipleLocator
 # from mpl_toolkits.mplot3d import Axes3D
+import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 # import seaborn as sns
@@ -2116,6 +2117,12 @@ class PoseProtocol(PoseData):
                 features = entity.get_alphafold_features(symmetric=True, no_msa=no_msa)
                 if multimer:  # Get the length
                     multimer_sequence_length = features['seq_length']
+
+                oligomer_atom_positions = jnp.asarray(entity.oligomer.alphafold_coords)
+                protocol_logger.debug(f'Found oligomer_atom_positions with shape: {oligomer_atom_positions.shape}')
+                protocol_logger.debug(f'Found oligomer with length: {entity.oligomer.number_of_residues}')
+                model_features = {'prev_pos': oligomer_atom_positions}
+                # model_features = {'prev_pos': jnp.asarray(entity.oligomer.alphafold_coords)}
                 entity_slice = slice(entity.n_terminal_residue.index, 1 + entity.c_terminal_residue.index)
                 # entity_scores = predict({design: sequence[entity_slice]
                 #                          for design, sequence in sequences.items()},
@@ -2131,7 +2138,7 @@ class PoseProtocol(PoseData):
                                           % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
                     # structures_and_scores[design] = entity_scores = \
                     entity_structures, entity_scores = \
-                        predict(sequence_length, {**features, **this_seq_features})
+                        predict(sequence_length, {**features, **this_seq_features, **model_features})
                     output_alphafold_structures(entity_structures, design_name=f'{design}-{entity.name}')
                     # design_model_models = \
                     if relaxed:
@@ -2184,13 +2191,20 @@ class PoseProtocol(PoseData):
             features = self.pose.get_alphafold_features(symmetric=False, no_msa=no_msa)
             if multimer:  # Get the length
                 multimer_sequence_length = features['seq_length']
+
+            asu_atom_positions = jnp.asarray(self.pose.alphafold_coords)
+            protocol_logger.debug(f'Found asu_atom_positions with shape: {asu_atom_positions.shape}')
+            protocol_logger.debug(f'Found asu with length: {self.pose.number_of_residues}')
+            model_features = {'prev_pos': asu_atom_positions}
+            # model_features = {'prev_pos': jnp.asarray(self.pose.alphafold_coords)}
             asu_design_structures = []  # structure_by_design = {}
             asu_design_scores = []  # scores_by_design = {}
             for design, sequence in sequences.items():
                 this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
                 protocol_logger.debug(f'Found this_seq_features:\n\t%s'
                                       % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
-                asu_structures, asu_scores = predict(number_of_residues, {**features, **this_seq_features})
+                asu_structures, asu_scores = \
+                    predict(number_of_residues, {**features, **this_seq_features, **model_features})
                 if relaxed:
                     structures_to_load = asu_structures.get('relaxed', [])
                 else:
