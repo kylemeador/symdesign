@@ -2165,10 +2165,16 @@ class PoseProtocol(PoseData):
                     entity_structure_by_design[design].append(design_models[minimum_model])
                     entity_scores_by_design[design].append({'rmsd': rmsd, **entity_scores[minimum_model]})
 
+            """each entity in entity_scores_by_design contains the following features
+            {'iptm': float
+             'pae': (n_residues, n_residues)
+             'plddt': (n_residues,)
+             'ptm': float}
+            """
             # Combine Entity structure and scores
-            score_types_mean = ['ptm', 'iptm'] if run_multimer_system else []
-            # score_types_concat = ['pae', 'plddt']  # 'pae' won't concat correctly. Do we want it?
-            score_types_concat = ['plddt']
+            score_types_mean = ['iptm', 'ptm', 'rmsd'] if run_multimer_system else ['rmsd']
+            score_types_concat = ['pae', 'plddt']
+            # score_types_concat = ['plddt']
             # structures_and_scores = {}
             entity_design_structures = []
             entity_design_scores = []
@@ -2181,6 +2187,9 @@ class PoseProtocol(PoseData):
                 scalar_scores = {score_type: sum([sum(scores[score_type]) for scores in entity_scores])
                                  / number_of_entities
                                  for score_type in score_types_mean}
+                # 'pae' won't concat correctly, so we must transform first by averaging over each residue
+                for scores in entity_scores:
+                    scores['pae'] = scores['pae'].mean(axis=-1)
                 array_scores = {score_type: np.concatenate([scores[score_type] for scores in entity_scores])
                                 for score_type in score_types_concat}
                 scalar_scores.update(array_scores)
@@ -2222,18 +2231,33 @@ class PoseProtocol(PoseData):
                 # structure_by_design[design].append(asu_models[minimum_model])
                 asu_design_scores.append({'rmsd': rmsd, **asu_scores[minimum_model]})
                 # scores_by_design[design].append(asu_models[minimum_model])
+            # 'pae' isn't an array, so we transform by averaging over each residue
+            for scores in asu_design_scores:
+                scores['pae'] = scores['pae'].mean(axis=-1)
 
+            """Design scores (entity_/asu_design_scores) contain the following features
+            {'iptm': float
+             'pae': (n_residues,)
+             'plddt': (n_residues,)
+             'ptm': float
+             'rmsd': float}
+            """
             # Compare all scores
             scores = {}
             for idx, design in enumerate(sequences):
                 separate_scores = entity_design_scores[idx]
                 combined_scores = asu_design_scores[idx]
-                write_json(separate_scores, os.path.join(self.data_path, f'af_separate_scores-{design}.json'))
-                write_json(combined_scores, os.path.join(self.data_path, f'af_combined_scores-{design}.json'))
+                score_deviation = {score_name: abs(score - separate_scores[score_name])
+                                   for score_name, score in combined_scores.items()}
+
+                # write_json(separate_scores, os.path.join(self.data_path, f'af_separate_scores-{design}.json'))
+                # write_json(combined_scores, os.path.join(self.data_path, f'af_combined_scores-{design}.json'))
                 entity_pose = entity_design_structures[idx]
                 asu_model = asu_design_structures[idx]
                 # Find the RMSD between each type
                 rmsd, rot, tx = superposition3d(asu_model.backbone_and_cb_coords, entity_pose.backbone_and_cb_coords)
+                score_deviation['rmsd'] = rmsd
+                scores[design] = score_deviation
                 self.log.critical(f'Found rmsd between separated entities and combined pose: {rmsd}')
 
         else:
