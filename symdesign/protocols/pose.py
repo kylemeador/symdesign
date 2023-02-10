@@ -2132,6 +2132,83 @@ class PoseProtocol(PoseData):
 
             return total_scores
 
+        # Get features for the Pose and predict
+        if self.job.predict.assembly:
+            if self.pose.number_of_symmetric_residues > resources.ml.MULTIMER_RESIDUE_LIMIT:
+                protocol_logger.critical(f"Predicting on a single symmetric input isn't recommended due to "
+                                         'size limitations')
+            features = self.pose.get_alphafold_features(symmetric=True, no_msa=no_msa)
+        else:
+            features = self.pose.get_alphafold_features(symmetric=False, no_msa=no_msa)
+
+        if multimer:  # Get the length
+            multimer_sequence_length = features['seq_length']
+        else:
+            multimer_sequence_length = None
+
+        asu_atom_positions = jnp.asarray(self.pose.alphafold_coords)
+        protocol_logger.debug(f'Found asu_atom_positions with shape: {asu_atom_positions.shape}')
+        protocol_logger.debug(f'Found asu with length: {self.pose.number_of_residues}')
+        model_features = {'prev_pos': asu_atom_positions}
+        # model_features = {'prev_pos': jnp.asarray(self.pose.alphafold_coords)}
+        asu_design_structures = []  # structure_by_design = {}
+        asu_design_scores = {}  # []  # scores_by_design = {}
+        for design, sequence in sequences.items():
+            this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
+            protocol_logger.debug(f'Found this_seq_features:\n\t%s'
+                                  % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
+            asu_structures, asu_scores = \
+                predict(number_of_residues, {**features, **this_seq_features, **model_features})
+            if relaxed:
+                structures_to_load = asu_structures.get('relaxed', [])
+            else:
+                structures_to_load = asu_structures.get('unrelaxed', [])
+            # Todo remove this after debug is done
+            output_alphafold_structures(asu_structures, design_name=f'{design}-asu')
+            # asu_models = load_alphafold_structures(structures_to_load, name=str(design),  # Get '.name'
+            #                                        entity_info=self.pose.entity_info)
+            asu_models = {model_name: Pose.from_pdb_lines(structure.splitlines(), name=str(design), **self.pose_kwargs)
+                          for model_name, structure in structures_to_load.items()}
+            # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
+            rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.cb_coords)
+            # rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
+            if minimum_model is None:
+                self.log.critical(f"Couldn't find the asu model with the minimal rmsd for Design {design}")
+            # Append each ASU result to the full return
+            asu_design_structures.append(asu_models[minimum_model])
+            # structure_by_design[design].append(asu_models[minimum_model])
+            # asu_design_scores.append({'rmsd': rmsds, **asu_scores[minimum_model]})
+            asu_design_scores[str(design)] = {'rmsd': rmsds, **asu_scores[minimum_model]}
+            # scores_by_design[design].append(asu_models[minimum_model])
+        # # predicted_aligned_error isn't an 1D array, so we transform by averaging over each residue
+        # for scores in asu_design_scores:
+        #     scores['predicted_aligned_error'] = scores['predicted_aligned_error'].mean(axis=-1)
+
+        # Write the folded structure to designs_path and update DesignProtocols
+        for data, structure in zip(self.current_designs, asu_design_structures):
+            data.structure_path = structure.write(out_path=os.path.join(self.designs_path, f'{data.name}.pdb'))
+            data.protocols.append(sql.DesignProtocol(design_id=data.id,
+                                                     protocol=self.protocol,
+                                                     file=data.structure_path))
+
+        residues_df = self.analyze_residue_metrics_per_design(asu_design_structures)
+        designs_df = self.analyze_design_metrics_per_design(residues_df, asu_design_structures)
+        # Use the .interface_residues attribute to discern whether the interface should be examined
+        predict_designs_df, predict_residues_df = \
+            self.analyze_predict_structure_metrics(asu_design_scores, model_type=model_type,
+                                                   interface=self.pose.interface_residues)
+        residues_df = residues_df.join(predict_residues_df)
+        designs_df = designs_df.join(predict_designs_df)
+        self.output_metrics(designs=designs_df, residues=residues_df)
+        # Commit the newly acquired metrics
+        self.job.current_session.commit()
+        """Design scores (entity_/asu_design_scores) contain the following features
+        {'predicted_aligned_error': (n_residues,)
+         'plddt': (n_residues,)
+         'predicted_interface_template_modeling_score': float
+         'predicted_template_modeling_score': float
+         'rmsd: (number_of_models)}
+        """
         # Prepare the features to feed to the model
         if self.job.predict.entities:  # and self.number_of_entities > 1:
             number_of_entities = self.pose.number_of_entities
@@ -2171,6 +2248,7 @@ class PoseProtocol(PoseData):
                     # structures_and_scores[design] = entity_scores = \
                     entity_structures, entity_scores = \
                         predict(sequence_length, {**features, **this_seq_features, **model_features})
+                    # Todo remove this after debug is done
                     output_alphafold_structures(entity_structures, design_name=f'{design}-{entity.name}')
                     # design_model_models = \
                     if relaxed:
@@ -2266,100 +2344,35 @@ class PoseProtocol(PoseData):
             #     protocol_logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
             #     entity_design_scores.append(scalar_scores)
 
-        # Get features for the Pose and predict
-        if self.job.predict.assembly:
-            if self.pose.number_of_symmetric_residues > resources.ml.MULTIMER_RESIDUE_LIMIT:
-                protocol_logger.critical(f"Predicting on a single symmetric input isn't recommended due to "
-                                         'size limitations')
-            features = self.pose.get_alphafold_features(symmetric=True, no_msa=no_msa)
-        else:
-            features = self.pose.get_alphafold_features(symmetric=False, no_msa=no_msa)
+            # Compare all scores
+            design_deviation_df = (predict_designs_df - entity_designs_df).abs()
+            # scores = {}
+            rmsds = []
+            for idx, design in enumerate(sequences):
+                # separate_scores = entity_design_scores[idx]
+                # combined_scores = asu_design_scores[idx]
+                # score_deviation = {score_name: abs(score - separate_scores[score_name])
+                #                    for score_name, score in combined_scores.items()}
+                # # write_json(separate_scores, os.path.join(self.data_path, f'af_separate_scores-{design}.json'))
+                # # write_json(combined_scores, os.path.join(self.data_path, f'af_combined_scores-{design}.json'))
+                entity_pose = entity_design_structures[idx]
+                asu_model = asu_design_structures[idx]
+                # Find the RMSD between each type
+                rmsd, rot, tx = superposition3d(asu_model.backbone_and_cb_coords, entity_pose.backbone_and_cb_coords)
+                # score_deviation['rmsd'] = rmsd
+                # scores[design] = score_deviation
+                # self.log.critical(f'Found rmsd between separated entities and combined pose: {rmsd}')
+                rmsds.append(rmsd)
 
-        if multimer:  # Get the length
-            multimer_sequence_length = features['seq_length']
-        else:
-            multimer_sequence_length = None
-
-        asu_atom_positions = jnp.asarray(self.pose.alphafold_coords)
-        protocol_logger.debug(f'Found asu_atom_positions with shape: {asu_atom_positions.shape}')
-        protocol_logger.debug(f'Found asu with length: {self.pose.number_of_residues}')
-        model_features = {'prev_pos': asu_atom_positions}
-        # model_features = {'prev_pos': jnp.asarray(self.pose.alphafold_coords)}
-        asu_design_structures = []  # structure_by_design = {}
-        asu_design_scores = {}  # []  # scores_by_design = {}
-        for design, sequence in sequences.items():
-            this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
-            protocol_logger.debug(f'Found this_seq_features:\n\t%s'
-                                  % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
-            asu_structures, asu_scores = \
-                predict(number_of_residues, {**features, **this_seq_features, **model_features})
-            if relaxed:
-                structures_to_load = asu_structures.get('relaxed', [])
-            else:
-                structures_to_load = asu_structures.get('unrelaxed', [])
-            # Todo remove this after debug is done
-            output_alphafold_structures(asu_structures, design_name=f'{design}-asu')
-            # asu_models = load_alphafold_structures(structures_to_load, name=str(design),  # Get '.name'
-            #                                        entity_info=self.pose.entity_info)
-            asu_models = {model_name: Pose.from_pdb_lines(structure.splitlines(), name=str(design), **self.pose_kwargs)
-                          for model_name, structure in structures_to_load.items()}
-            # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
-            rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.cb_coords)
-            # rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
-            if minimum_model is None:
-                self.log.critical(f"Couldn't find the asu model with the minimal rmsd for Design {design}")
-            # Append each ASU result to the full return
-            asu_design_structures.append(asu_models[minimum_model])
-            # structure_by_design[design].append(asu_models[minimum_model])
-            # asu_design_scores.append({'rmsd': rmsds, **asu_scores[minimum_model]})
-            asu_design_scores[str(design)] = {'rmsd': rmsds, **asu_scores[minimum_model]}
-            # scores_by_design[design].append(asu_models[minimum_model])
-        # # predicted_aligned_error isn't an 1D array, so we transform by averaging over each residue
-        # for scores in asu_design_scores:
-        #     scores['predicted_aligned_error'] = scores['predicted_aligned_error'].mean(axis=-1)
-
-        # Write the folded structure to designs_path and update DesignProtocols
-        for data, structure in zip(self.current_designs, asu_design_structures):
-            data.structure_path = structure.write(out_path=os.path.join(self.designs_path, f'{data.name}.pdb'))
-            data.protocols.append(sql.DesignProtocol(design_id=data.id,
-                                                     protocol=self.protocol,
-                                                     file=data.structure_path))
-
-        residues_df = self.analyze_residue_metrics_per_design(asu_design_structures)
-        designs_df = self.analyze_design_metrics_per_design(residues_df, asu_design_structures)
-        # Use the .interface_residues attribute to discern whether the interface should be examined
-        predict_designs_df, predict_residues_df = \
-            self.analyze_predict_structure_metrics(asu_design_scores, model_type=model_type,
-                                                   interface=self.pose.interface_residues)
-        residues_df = residues_df.join(predict_residues_df)
-        designs_df = designs_df.join(predict_designs_df)
-        self.output_metrics(designs=designs_df, residues=residues_df)
-        # Commit the newly acquired metrics
-        self.job.current_session.commit()
-        """Design scores (entity_/asu_design_scores) contain the following features
-        {'predicted_aligned_error': (n_residues,)
-         'plddt': (n_residues,)
-         'predicted_interface_template_modeling_score': float
-         'predicted_template_modeling_score': float
-         'rmsd: (number_of_models)}
-        """
-        # Compare all scores
-        scores = {}
-        for idx, design in enumerate(sequences):
-            separate_scores = entity_design_scores[idx]
-            combined_scores = asu_design_scores[idx]
-            score_deviation = {score_name: abs(score - separate_scores[score_name])
-                               for score_name, score in combined_scores.items()}
-
-            # write_json(separate_scores, os.path.join(self.data_path, f'af_separate_scores-{design}.json'))
-            # write_json(combined_scores, os.path.join(self.data_path, f'af_combined_scores-{design}.json'))
-            entity_pose = entity_design_structures[idx]
-            asu_model = asu_design_structures[idx]
-            # Find the RMSD between each type
-            rmsd, rot, tx = superposition3d(asu_model.backbone_and_cb_coords, entity_pose.backbone_and_cb_coords)
-            score_deviation['rmsd'] = rmsd
-            scores[design] = score_deviation
-            self.log.critical(f'Found rmsd between separated entities and combined pose: {rmsd}')
+            design_deviation_df['deviation_rmsd'] = rmsds
+            design_deviation_file = \
+                os.path.join(self.data_path, f'{starttime}-af_pose-entity-designs-deviation_scores.csv')
+            design_deviation_df.to_csv(design_deviation_file)
+            protocol_logger.info(f'Wrote the design deviation file (bewteen separate Entity instances and Pose) to: '
+                                 f'{design_deviation_file}')
+            residue_deviation_df = (predict_residues_df - entity_residues_df).abs()
+            deviation_file = os.path.join(self.data_path, f'{starttime}-af_pose-entity-residues-deviation_scores.csv')
+            residue_deviation_df.to_csv(deviation_file)
 
     def interface_design_analysis(self, designs: Iterable[Pose] | Iterable[AnyStr] = None) -> pd.Series:
         """Retrieve all score information from a PoseJob and write results to .csv file
