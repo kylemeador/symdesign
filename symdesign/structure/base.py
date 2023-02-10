@@ -1200,7 +1200,8 @@ class Atoms:
     def __iter__(self) -> Atom:
         yield from self.atoms.tolist()
 
-# These was pulled directly from alphafold and violates DRY
+
+# These were pulled directly from alphafold and violates DRY
 # This is at the expense of working through import issues (they may not exist)
 # This mapping is used when we need to store atom data in a format that requires
 # fixed atom data size for every residue (e.g. a numpy array).
@@ -3225,7 +3226,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # for atom, coords in zip(self.atoms, self.coords):
         for idx, residue in enumerate(self.residues):
             residue_array = np.zeros((atom_type_num, 3), dtype=np.float32)
-            for atom, xyz_coord in zip(residue.atoms, residue.coords.tolist()):
+            # Don't include any hydrogens
+            for atom, xyz_coord in zip(residue.heavy_atoms, residue.heavy_coords.tolist()):
                 residue_array[atom_order[atom.type]] = xyz_coord
             af_coords[idx] = residue_array
 
