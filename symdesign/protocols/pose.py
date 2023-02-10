@@ -1621,7 +1621,7 @@ class PoseProtocol(PoseData):
         Pose and build/pack using Rosetta FastRelax. If no sequences are provided, will use self.designed_sequences
 
         Args:
-            sequences: A mapping of sequence alias to it's sequence. These will be used for producing outputs and as
+            sequences: A mapping of sequence alias to its sequence. These will be used for producing outputs and as
                 the input sequence
         """
         if sequences is None:  # Gather all already designed sequences
@@ -1646,8 +1646,6 @@ class PoseProtocol(PoseData):
             pre_threaded_file = os.path.join(self.data_path, f'{sequence_id}.pdb')
             design_files.append(pose_copy.write(out_path=pre_threaded_file))
 
-        # if self.protocol is not None:  # This hasn't been set yet
-        self.protocol = 'thread'
         design_files_file = os.path.join(self.scripts_path, f'{starttime}_{self.protocol}_files.txt')
         putils.make_path(self.scripts_path)
 
@@ -1682,7 +1680,7 @@ class PoseProtocol(PoseData):
             sequences = {design: design.sequence for design in self.get_designs_without_structure()}
 
         # match self.job.predict.method:  # Todo python 3.10
-        #     case ['thread', 'proteinmpnn']:
+        #     case 'thread':  # , 'proteinmpnn']:
         #         self.thread_sequences_to_backbone(sequences)
         #     case 'alphafold':
         #         # Sequences use within alphafold requires .fasta...
@@ -1691,10 +1689,10 @@ class PoseProtocol(PoseData):
         #         raise NotImplementedError(f"For {self.predict_structure.__name__}, the method '
         #                                   f"{self.job.predict.method} isn't implemented yet")
 
-        if self.job.predict.method in ['thread', 'proteinmpnn']:
+        self.protocol = self.job.predict.method
+        if self.job.predict.method == 'thread':  # , 'proteinmpnn']:
             self.thread_sequences_to_backbone(sequences)
         elif self.job.predict.method == 'alphafold':
-            # Sequences use within alphafold requires .fasta...
             self.alphafold_predict_structure(sequences)
         else:
             raise NotImplementedError(f"For {self.predict_structure.__name__}, the method "
@@ -4744,9 +4742,8 @@ class PoseProtocol(PoseData):
             design_data.provided_name = provided_name
 
         designs_path = self.designs_path
-        new_design_new_filenames = {design_data.provided_name:
-                                    os.path.join(designs_path, f'{design_data.name}.pdb')
-                                    for design_data in new_designs_data}
+        new_design_new_filenames = {data.provided_name: os.path.join(designs_path, f'{data.name}.pdb')
+                                    for data in new_designs_data}
         # Find protocol info and remove from scores_df
         if putils.protocol in scores_df:
             # Replace missing values with the pose_source DesignData
@@ -5081,16 +5078,16 @@ class PoseProtocol(PoseData):
         # for pose in [self.pose] + designs:  # Takes 1-2 seconds for Structure -> assembly -> errat
         for pose in designs:  # Takes 1-2 seconds for Structure -> assembly -> errat
             try:
-                pose_name = pose.name
+                name = pose.name
             except AttributeError:  # This is likely a filepath
                 pose = Pose.from_file(pose, **self.pose_kwargs)
-                pose_name = pose.name
+                name = pose.name
             # # Must find interface residues before measure local_density
             # pose.find_and_split_interface()
             # per_residue_data[pose_name] = pose.per_residue_interface_surface_area()
             # # Get errat measurement
             # per_residue_data[pose_name].update(pose.per_residue_interface_errat())
-            per_residue_data[pose_name] = {
+            per_residue_data[name] = {
                 **pose.per_residue_interface_surface_area(),
                 **pose.per_residue_contact_order(),
                 # **pose.per_residue_interface_errat()
@@ -5098,8 +5095,8 @@ class PoseProtocol(PoseData):
             }
 
         # Convert per_residue_data into a dataframe matching residues_df orientation
-        residues_df = pd.concat({design_name: pd.DataFrame(data, index=residue_indices)
-                                for design_name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
+        residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
+                                for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
 
         # Make buried surface area (bsa) columns, and residue classification
         residues_df = metrics.calculate_residue_surface_area(residues_df)

@@ -321,9 +321,9 @@ class ProteinMPNNFactory:
         """Return the specified ProteinMPNN object singleton
 
         Keyword Args:
-            model_name - (str) = 'v_48_020' - The name of the model to use from ProteinMPNN.
+            model_name - str = 'v_48_020' - The name of the model to use from ProteinMPNN.
                 v_X_Y where X is neighbor distance, and Y is noise
-            backbone_noise - (float) = 0.0 - The amount of backbone noise to add to the pose during design
+            backbone_noise - float = 0.0 - The amount of backbone noise to add to the pose during design
         Returns:
             The instance of the initialized ProteinMPNN model
         """
