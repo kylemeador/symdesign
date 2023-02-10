@@ -381,6 +381,27 @@ metrics = {
     'interface_local_density':
         dict(description='A measure of the average number of atom neighbors for each atom in the interface',
              direction=max_, function=rank, filter=True),
+    'interface_solvation_energy':  # free_energy of desolvation is positive for bound interfaces. unbound - complex
+        dict(description='The free energy resulting from hydration of the separated interface surfaces. '
+                         'Positive values indicate poorly soluble surfaces upon dissociation',
+             direction=min_, function=rank, filter=True),
+    'interface_solvation_energy_activation':  # unbound - bound
+        dict(description='The free energy of solvation resulting from packing the bound, uncomplexed state to '
+                         'an unbound, uncomplexed state. Positive values indicate a tendency towards the bound'
+                         ' configuration',
+             direction=min_, function=rank, filter=True),
+    'interface_solvation_energy_bound':
+        dict(description='The desolvation free energy of the separated interface surfaces. Positive values '
+                         'indicate energy is required to desolvate',
+             direction=min_, function=rank, filter=True),
+    'interface_solvation_energy_complex':
+        dict(description='The desolvation free energy of the complexed interface. Positive values indicate '
+                         'energy is required to desolvate',
+             direction=min_, function=rank, filter=True),
+    'interface_solvation_energy_unbound':
+        dict(description='The desolvation free energy of the separated, repacked, interface surfaces. Positive'
+                         ' values indicate energy is required to desolvate',
+             direction=min_, function=rank, filter=True),
     'maximum_radius':
         dict(description='The maximum radius any entity extends from the assembly core',
              direction=min_, function=rank, filter=True),
@@ -566,27 +587,6 @@ metrics = {
     'proteinmpnn_loss_unbound':
         dict(description='The magnitude of information missing from the sequence in the unbound state',
              direction=min_, function=normalize, filter=True),
-    'sequence_loss_design':
-        dict(description='The magnitude of information missing from the sequence compared to the design profile',
-             direction=min_, function=normalize, filter=True),
-    'sequence_loss_design_per_residue':
-        dict(description='The magnitude of information missing from the sequence compared to the design profile on a '
-                         'per-residue basis',
-             direction=min_, function=normalize, filter=True),
-    'sequence_loss_evolution':
-        dict(description='The magnitude of information missing from the sequence compared to the evolution profile',
-             direction=min_, function=normalize, filter=True),
-    'sequence_loss_evolution_per_residue':
-        dict(description='The magnitude of information missing from the sequence compared to the evolution profile on a'
-                         ' per-residue basis',
-             direction=min_, function=normalize, filter=True),
-    'sequence_loss_fragment':
-        dict(description='The magnitude of information missing from the sequence compared to the fragment profile',
-             direction=min_, function=normalize, filter=True),
-    'sequence_loss_fragment_per_residue':
-        dict(description='The magnitude of information missing from the sequence compared to the fragment profile on a '
-                         'per-residue basis. Only counts residues with fragment information',
-             direction=min_, function=normalize, filter=True),
     putils.protocol:
         dict(description='Protocols utilized to search sequence space given fragment and/or evolutionary '
                          'constraint information',
@@ -626,6 +626,27 @@ metrics = {
         dict(description='Rosetta Energy Term - A metric for the unfolded energy of the protein along with '
                          'sequence fitting corrections',
              direction=max_, function=rank, filter=True),
+    'sequence_loss_design':
+        dict(description='The magnitude of information missing from the sequence compared to the design profile',
+             direction=min_, function=normalize, filter=True),
+    'sequence_loss_design_per_residue':
+        dict(description='The magnitude of information missing from the sequence compared to the design profile on a '
+                         'per-residue basis',
+             direction=min_, function=normalize, filter=True),
+    'sequence_loss_evolution':
+        dict(description='The magnitude of information missing from the sequence compared to the evolution profile',
+             direction=min_, function=normalize, filter=True),
+    'sequence_loss_evolution_per_residue':
+        dict(description='The magnitude of information missing from the sequence compared to the evolution profile on a'
+                         ' per-residue basis',
+             direction=min_, function=normalize, filter=True),
+    'sequence_loss_fragment':
+        dict(description='The magnitude of information missing from the sequence compared to the fragment profile',
+             direction=min_, function=normalize, filter=True),
+    'sequence_loss_fragment_per_residue':
+        dict(description='The magnitude of information missing from the sequence compared to the fragment profile on a '
+                         'per-residue basis. Only counts residues with fragment information',
+             direction=min_, function=normalize, filter=True),
     'sequence':
         dict(description='The amino acid sequence of the design',
              direction=None, function=None, filter=False),
@@ -657,6 +678,7 @@ metrics = {
     'symmetry_dimension':  # 'design_dimension':
         dict(description='The underlying dimension of the design. 0 - point, 2 - layer, 3 - space group',
              direction=None, function=None, filter=True),
+    # Rosetta based scores
     'REU':
         dict(description='Rosetta Energy Units. Always 0. We can disregard',
              direction=min_, function=rank, filter=True),
@@ -709,7 +731,7 @@ metrics = {
         dict(description='Rosetta Energy Term - Lazaris-Karplus weighted anisotropic solvation energy?',
              direction=None, function=None, filter=None),
     'omega':
-        dict(description='Rosetta Energy Term - Lazaris-Karplus weighted anisotropic solvation energy?',
+        dict(description='Rosetta Energy Term - Energy term for omega angle?',
              direction=None, function=None, filter=None),
     'p_aa_pp':
         dict(description='"Rosetta Energy Term - statistical probability of an amino acid given angles phi',
