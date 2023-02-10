@@ -902,6 +902,9 @@ def sequence_nllloss(sequence: torch.Tensor, log_probs: torch.Tensor,
 
 
 # Alphafold variables and helpers
+MULTIMER_RESIDUE_LIMIT = 4000
+MONOMER_RESIDUE_LIMIT = 2500
+# Relax
 MAX_TEMPLATE_HITS = 20
 RELAX_MAX_ITERATIONS = 0
 RELAX_ENERGY_TOLERANCE = 2.39
