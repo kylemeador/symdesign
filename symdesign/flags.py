@@ -86,6 +86,7 @@ pose_format = 'pose_format'
 use_gpu_relax = 'use_gpu_relax'
 design_method = 'design_method'
 predict_method = 'predict_method'
+predict_assembly = 'predict_assembly'
 # Set up JobResources namespaces for different categories of flags
 design_namespace = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, design_method, evolution_constraint,
@@ -98,7 +99,7 @@ dock_namespace = {
     rotation_step1, rotation_step2, score, quick
 }
 predict_namespace = {
-    predict_method, num_predictions_per_model, predict_entities, use_gpu_relax
+    predict_assembly, predict_entities, predict_method, num_predictions_per_model, use_gpu_relax
 }
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -111,7 +112,7 @@ namespaces = dict(design=design_namespace,
 # Modify specific flags from their prefix to their suffix
 modify_options = {
     'design': [design_method, design_number],
-    'predict': [predict_entities, predict_method],  # entities{predict_entities, 'entities'}],
+    'predict': [predict_assembly, predict_entities, predict_method],  # entities{predict_entities, 'entities'}],
     'cluster': [cluster_map, cluster_mode, cluster_number],
 }
 
@@ -154,6 +155,7 @@ query_codes1 = format_for_cmdline(query_codes1)
 query_codes2 = format_for_cmdline(query_codes2)
 predict_structure = format_for_cmdline(predict_structure)
 num_predictions_per_model = format_for_cmdline(num_predictions_per_model)
+predict_assembly = format_for_cmdline(predict_assembly)
 predict_entities = format_for_cmdline(predict_entities)
 cluster_poses = format_for_cmdline(cluster_poses)
 generate_fragments = format_for_cmdline(generate_fragments)
@@ -772,6 +774,8 @@ predict_structure_arguments = {
         dict(type=int,  # default=5,
              help=f'How many iterations of prediction should be used\nfor each individual Alphafold model.\n'
                   'Default=5(multimer mode),1(monomer mode)'),
+    ('-A', f'--{predict_assembly}'):
+        dict(action='store_true', help='Whether the assembly state should be predicted\ninstead of the ASU'),
     ('-E', f'--{predict_entities}'):
         dict(action='store_true', help='Whether individual entities should be predicted\ninstead of the entire Pose'),
     (f'--{use_gpu_relax}',):
