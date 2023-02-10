@@ -116,9 +116,9 @@ def process_design_selector_flags(
                               pdb_residues=residues_pdb_req))
 
 
-def format_args_for_namespace(args_: dict[str, Any], namespace: str, flags: Iterable[str]) -> dict[str, Any]:
+def format_args_for_namespace(args_: dict[str, Any], namespace: str, flags_: Iterable[str]) -> dict[str, Any]:
     namespace_args = {}
-    for flag in flags:
+    for flag in flags_:
         try:
             arg_ = args_[flag]  # .pop(flag)  # , None)  # get(flag)
         except KeyError:  # No flag is here
@@ -137,10 +137,10 @@ class FlagsBase:
 
     @classmethod
     def from_flags(cls, **kwargs):
-        format_args_for_namespace(kwargs, cls.namespace, flags.namespaces[cls.namespace])
-        cls_parameters = inspect.signature(cls).parameters
-        return cls(**{key: value for key, value in kwargs.items()
-                      if key in cls_parameters})
+        return cls(**format_args_for_namespace(kwargs, cls.namespace, flags.namespaces[cls.namespace]))
+        # cls_parameters = inspect.signature(cls).parameters
+        # return cls(**{key: value for key, value in kwargs.items()
+        #               if key in cls_parameters})
 # def from_flags(cls, **kwargs):
 #     return cls(**{key: value for key, value in kwargs.items()
 #                   if key in inspect.signature(cls).parameters})
