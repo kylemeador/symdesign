@@ -1703,7 +1703,7 @@ class PoseProtocol(PoseData):
     af_model_literal = Literal['monomer', 'monomer_casp14', 'monomer_ptm', 'multimer']
 
     def alphafold_predict_structure(self, sequences: dict[str, str], random_seed: int = None,
-                                    models_to_relax: str = 'best', model_name: af_model_literal = 'monomer', **kwargs):
+                                    models_to_relax: str = 'best', model_type: af_model_literal = 'monomer', **kwargs):
         """
         According to Deepmind Alphafold.ipynb (2/3/23), the usage of multimer with > 3000 residues isn't validated.
         while a memory requirement of 4000 is the theoretical limit. I think it depends on the available memory
@@ -1711,7 +1711,7 @@ class PoseProtocol(PoseData):
             sequences:
             random_seed:
             models_to_relax:
-            model_name:
+            model_type:
             **kwargs:
 
         Returns:
@@ -1736,7 +1736,7 @@ class PoseProtocol(PoseData):
                                   f'the number of residues in the pose')
 
         # Hardcode parameters
-        if model_name == 'monomer_casp14':
+        if model_type == 'monomer_casp14':
             num_ensemble = 8
         else:
             num_ensemble = 1
@@ -1746,8 +1746,8 @@ class PoseProtocol(PoseData):
         run_multimer_system = self.pose.number_of_entities > 1 or self.pose.number_of_chains > 1
         if run_multimer_system:
             # multimer = True
-            model_name = 'multimer'
-            self.log.info(f'The alphafold model was automatically set to {model_name} due to detected multimeric pose')
+            model_type = 'multimer'
+            self.log.info(f'The alphafold model was automatically set to {model_type} due to detected multimeric pose')
         # else:
         #     multimer = False
 
@@ -1770,7 +1770,7 @@ class PoseProtocol(PoseData):
 
         # Set up the various model_runners to supervise the prediction task for each sequence
         model_runners = {}
-        model_names = afconfig.MODEL_PRESETS[model_name]  # FLAGS.model_preset]
+        model_names = afconfig.MODEL_PRESETS[model_type]  # FLAGS.model_preset]
         for model_name in model_names:
             if self.job.development and model_name != 'model_2_multimer_v3':
                 continue
@@ -2079,8 +2079,8 @@ class PoseProtocol(PoseData):
 
             # design_models = {}
             # for design, design_scores in structures_and_scores.items():
-                # # Output unrelaxed
-                # structures = design_scores['structures_unrelaxed']
+            #     # Output unrelaxed
+            #     structures = design_scores['structures_unrelaxed']
             # models = []
             # for type_str in ['', 'un']:
             #     structures = design_scores.get(f'{type_str}relaxed', [])
@@ -2133,17 +2133,21 @@ class PoseProtocol(PoseData):
             return total_scores
 
         # Prepare the features to feed to the model
-        if self.job.predict.entities and self.number_of_entities > 1:
+        if self.job.predict.entities:  # and self.number_of_entities > 1:
             number_of_entities = self.pose.number_of_entities
             # Get the features for each oligomeric Entity
             # The scores will all be the length of the gene Entity, not oligomer
-            entity_scores_by_design = {design: [] for design in sequences}
+            # entity_scores_by_design = {design: [] for design in sequences}
             entity_structure_by_design = {design: [] for design in sequences}
+            entity_design_dfs = []
+            entity_residue_dfs = []
             for entity in self.pose.entities:
                 # Fold with symmetry True. If it isn't symmetric, symmetry won't be used
                 features = entity.get_alphafold_features(symmetric=True, no_msa=no_msa)
                 if multimer:  # Get the length
                     multimer_sequence_length = features['seq_length']
+                else:
+                    multimer_sequence_length = None
 
                 oligomer_atom_positions = jnp.asarray(entity.oligomer.alphafold_coords)
                 protocol_logger.debug(f'Found oligomer_atom_positions with shape: {oligomer_atom_positions.shape}')
@@ -2155,6 +2159,7 @@ class PoseProtocol(PoseData):
                 #                          for design, sequence in sequences.items()},
                 #                         features)
 
+                entity_scores_by_design = {}  # []
                 # Iterate over provided sequences. For each one, find the structure with the best model and it's scores
                 for design, sequence in sequences.items():
                     sequence = sequence[entity_slice]
@@ -2192,115 +2197,169 @@ class PoseProtocol(PoseData):
                     entity_structure_by_design[design].append(design_models[minimum_model])
                     combined_scores = combine_model_scores([entity_scores[model_name] for model_name in design_models])
 
-                    # entity_scores_by_design[design].append({'rmsds': rmsds, **entity_scores[minimum_model]})
-                    entity_scores_by_design[design].append({'rmsds': rmsds, **combined_scores})
+                    # entity_scores_by_design[design].append({'rmsd': rmsds, **entity_scores[minimum_model]})
+                    # entity_scores_by_design.append({'rmsd': rmsds, **combined_scores})
+                    entity_scores_by_design[str(design)].append({'rmsd': rmsds, **combined_scores})
 
-            """each entity in entity_scores_by_design contains the following features
-            {'predicted_aligned_error': (n_residues, n_residues)
-             'plddt': (n_residues,)
-             'predicted_interface_template_modeling_score': float
-             'predicted_template_modeling_score': float
-             'rmsds: (number_of_models)}
-            """
-            # Combine Entity structure and scores
-            score_types_mean = ['predicted_interface_template_modeling_score',
-                                'predicted_template_modeling_score', 'rmsd'] \
-                if run_multimer_system else ['rmsd']
-            score_types_concat = ['predicted_aligned_error', 'plddt']
-            # score_types_concat = ['plddt']
-            # structures_and_scores = {}
-            entity_design_structures = []
-            entity_design_scores = []
-            for design in sequences:
-                design_pose = Pose.from_entities([entity for model in entity_structure_by_design[design]
-                                                  for entity in model.entities], **self.pose_kwargs)
-                entity_design_structures.append(design_pose)
-                entity_scores = entity_scores_by_design[design]
-                protocol_logger.debug(f'Found entity_scores with contents:\n{entity_scores}')
-                scalar_scores = {score_type: sum([sum(scores[score_type]) for scores in entity_scores])
-                                 / number_of_entities
-                                 for score_type in score_types_mean}
-                # 'predicted_aligned_error' won't concat correctly, so we average over each residue first
-                for scores in entity_scores:
-                    scores['predicted_aligned_error'] = scores['predicted_aligned_error'].mean(axis=-1)
-                array_scores = {score_type: np.concatenate([scores[score_type] for scores in entity_scores])
-                                for score_type in score_types_concat}
-                scalar_scores.update(array_scores)
-                protocol_logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
-                entity_design_scores.append(scalar_scores)
+                """Each design in entity_scores_by_design contains the following features
+                {'predicted_aligned_error': (n_residues, n_residues)
+                 'plddt': (n_residues,)
+                 'predicted_interface_template_modeling_score': float
+                 'predicted_template_modeling_score': float
+                 'rmsd: (number_of_models)}
+                """
+                designs_df, residues_df = \
+                    self.analyze_predict_structure_metrics(entity_scores_by_design, model_type=model_type)
+                entity_residue_dfs.append(residues_df)
+                entity_design_dfs.append(designs_df)
+                # raise NotImplementedError('Metrics are not implemented yet')
+                # # Todo refactor dataframe names to use EntityData.id...
+                # # Todo Set up SQL table to use EntityData.id
+                # self.output_metrics(designs=designs_df, residues=residues_df, entity_metrics=True)
 
-            # Get features for the ASU and predict
-            features = self.pose.get_alphafold_features(symmetric=False, no_msa=no_msa)
-            if multimer:  # Get the length
-                multimer_sequence_length = features['seq_length']
+            # Combine Entity structure to compare with the Pose prediction
+            entity_design_structures = [
+                Pose.from_entities([entity for model in entity_models for entity in model.entities],
+                                   name=str(design), **self.pose_kwargs)
+                for design, entity_models in entity_structure_by_design.items()
+            ]
+            # Combine Entity scores to compare with the Pose prediction
+            for residue_df, entity in zip(entity_residue_dfs, self.pose.entities):
+                # Rename the residue_indices along the top most column of DataFrame
+                residue_df.columns = \
+                    residue_df.columns.set_levels(list(range(entity.n_terminal_residue.index,
+                                                             entity.c_terminal_residue.index)),
+                                                  level=0)
+                # residue_df.rename(columns=dict(zip(range(entity.number_of_residues),
+                #                                    range(entity.n_terminal_residue.index,
+                #                                          entity.c_terminal_residue.index)
+                #                                    )))
+            entity_residues_df = pd.concat(entity_residue_dfs, axis=1)
+            entity_designs_df = entity_design_dfs[0]
+            for df in entity_design_dfs[1:]:
+                entity_designs_df += df
 
-            asu_atom_positions = jnp.asarray(self.pose.alphafold_coords)
-            protocol_logger.debug(f'Found asu_atom_positions with shape: {asu_atom_positions.shape}')
-            protocol_logger.debug(f'Found asu with length: {self.pose.number_of_residues}')
-            model_features = {'prev_pos': asu_atom_positions}
-            # model_features = {'prev_pos': jnp.asarray(self.pose.alphafold_coords)}
-            asu_design_structures = []  # structure_by_design = {}
-            asu_design_scores = []  # scores_by_design = {}
-            for design, sequence in sequences.items():
-                this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
-                protocol_logger.debug(f'Found this_seq_features:\n\t%s'
-                                      % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
-                asu_structures, asu_scores = \
-                    predict(number_of_residues, {**features, **this_seq_features, **model_features})
-                if relaxed:
-                    structures_to_load = asu_structures.get('relaxed', [])
-                else:
-                    structures_to_load = asu_structures.get('unrelaxed', [])
-                output_alphafold_structures(asu_structures, design_name=f'{design}-asu')
-                asu_models = load_alphafold_structures(structures_to_load, name=str(design),  # Get '.name'
-                                                       entity_info=self.pose.entity_info)
-                # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
-                rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.cb_coords)
-                # rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
-                if minimum_model is None:
-                    self.log.critical(f"Couldn't find the asu model with the minimal rmsd for Design {design}")
-                # Append each ASU result to the full return
-                asu_design_structures.append(asu_models[minimum_model])
-                # structure_by_design[design].append(asu_models[minimum_model])
-                asu_design_scores.append({'rmsds': rmsds, **asu_scores[minimum_model]})
-                # scores_by_design[design].append(asu_models[minimum_model])
-            # predicted_aligned_error isn't an 1D array, so we transform by averaging over each residue
-            for scores in asu_design_scores:
-                scores['predicted_aligned_error'] = scores['predicted_aligned_error'].mean(axis=-1)
+            entity_designs_df /= number_of_entities
+            # entity_designs_df = pd.concat(entity_design_dfs, axis=0)
+            # score_types_mean = ['rmsd']
+            # if 'multimer' in model_type:
+            #     score_types_mean += ['predicted_interface_template_modeling_score',
+            #                          'predicted_template_modeling_score']
+            # elif 'ptm' in model_type:
+            #     score_types_mean += ['predicted_template_modeling_score']
+            #
+            # score_types_concat = ['predicted_aligned_error', 'plddt']
+            #
+            # entity_design_scores = []
+            # for design in sequences:
+            #     entity_scores = entity_scores_by_design[design]
+            #     protocol_logger.debug(f'Found entity_scores with contents:\n{entity_scores}')
+            #     scalar_scores = {score_type: sum([sum(scores[score_type]) for scores in entity_scores])
+            #                      / number_of_entities
+            #                      for score_type in score_types_mean}
+            #     # 'predicted_aligned_error' won't concat correctly, so we average over each residue first
+            #     for scores in entity_scores:
+            #         scores['predicted_aligned_error'] = scores['predicted_aligned_error'].mean(axis=-1)
+            #     array_scores = {score_type: np.concatenate([scores[score_type] for scores in entity_scores])
+            #                     for score_type in score_types_concat}
+            #     scalar_scores.update(array_scores)
+            #     protocol_logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
+            #     entity_design_scores.append(scalar_scores)
 
-            """Design scores (entity_/asu_design_scores) contain the following features
-            {'predicted_aligned_error': (n_residues,)
-             'plddt': (n_residues,)
-             'predicted_interface_template_modeling_score': float
-             'predicted_template_modeling_score': float
-             'rmsds: (number_of_models)}
-            """
-            # Compare all scores
-            scores = {}
-            for idx, design in enumerate(sequences):
-                separate_scores = entity_design_scores[idx]
-                combined_scores = asu_design_scores[idx]
-                score_deviation = {score_name: abs(score - separate_scores[score_name])
-                                   for score_name, score in combined_scores.items()}
-
-                # write_json(separate_scores, os.path.join(self.data_path, f'af_separate_scores-{design}.json'))
-                # write_json(combined_scores, os.path.join(self.data_path, f'af_combined_scores-{design}.json'))
-                entity_pose = entity_design_structures[idx]
-                asu_model = asu_design_structures[idx]
-                # Find the RMSD between each type
-                rmsd, rot, tx = superposition3d(asu_model.backbone_and_cb_coords, entity_pose.backbone_and_cb_coords)
-                score_deviation['rmsd'] = rmsd
-                scores[design] = score_deviation
-                self.log.critical(f'Found rmsd between separated entities and combined pose: {rmsd}')
-
-        else:
-            raise NotImplementedError(f"Predicting on a single symmetric input isn't recommended due to "
-                                      'size limitations')
+        # Get features for the Pose and predict
+        if self.job.predict.assembly:
+            if self.pose.number_of_symmetric_residues > resources.ml.MULTIMER_RESIDUE_LIMIT:
+                protocol_logger.critical(f"Predicting on a single symmetric input isn't recommended due to "
+                                         'size limitations')
             features = self.pose.get_alphafold_features(symmetric=True, no_msa=no_msa)
-            scores = predict(sequences, features)
+        else:
+            features = self.pose.get_alphafold_features(symmetric=False, no_msa=no_msa)
 
-        self.analyze_predict_structure_metrics(scores)
-        raise NotImplementedError("Can't analyze alphafold_predict_structure results yet")
+        if multimer:  # Get the length
+            multimer_sequence_length = features['seq_length']
+        else:
+            multimer_sequence_length = None
+
+        asu_atom_positions = jnp.asarray(self.pose.alphafold_coords)
+        protocol_logger.debug(f'Found asu_atom_positions with shape: {asu_atom_positions.shape}')
+        protocol_logger.debug(f'Found asu with length: {self.pose.number_of_residues}')
+        model_features = {'prev_pos': asu_atom_positions}
+        # model_features = {'prev_pos': jnp.asarray(self.pose.alphafold_coords)}
+        asu_design_structures = []  # structure_by_design = {}
+        asu_design_scores = {}  # []  # scores_by_design = {}
+        for design, sequence in sequences.items():
+            this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
+            protocol_logger.debug(f'Found this_seq_features:\n\t%s'
+                                  % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
+            asu_structures, asu_scores = \
+                predict(number_of_residues, {**features, **this_seq_features, **model_features})
+            if relaxed:
+                structures_to_load = asu_structures.get('relaxed', [])
+            else:
+                structures_to_load = asu_structures.get('unrelaxed', [])
+            # Todo remove this after debug is done
+            output_alphafold_structures(asu_structures, design_name=f'{design}-asu')
+            # asu_models = load_alphafold_structures(structures_to_load, name=str(design),  # Get '.name'
+            #                                        entity_info=self.pose.entity_info)
+            asu_models = {model_name: Pose.from_pdb_lines(structure.splitlines(), name=str(design), **self.pose_kwargs)
+                          for model_name, structure in structures_to_load.items()}
+            # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
+            rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.cb_coords)
+            # rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
+            if minimum_model is None:
+                self.log.critical(f"Couldn't find the asu model with the minimal rmsd for Design {design}")
+            # Append each ASU result to the full return
+            asu_design_structures.append(asu_models[minimum_model])
+            # structure_by_design[design].append(asu_models[minimum_model])
+            # asu_design_scores.append({'rmsd': rmsds, **asu_scores[minimum_model]})
+            asu_design_scores[str(design)] = {'rmsd': rmsds, **asu_scores[minimum_model]}
+            # scores_by_design[design].append(asu_models[minimum_model])
+        # # predicted_aligned_error isn't an 1D array, so we transform by averaging over each residue
+        # for scores in asu_design_scores:
+        #     scores['predicted_aligned_error'] = scores['predicted_aligned_error'].mean(axis=-1)
+
+        # Write the folded structure to designs_path and update DesignProtocols
+        for data, structure in zip(self.current_designs, asu_design_structures):
+            data.structure_path = structure.write(out_path=os.path.join(self.designs_path, f'{data.name}.pdb'))
+            data.protocols.append(sql.DesignProtocol(design_id=data.id,
+                                                     protocol=self.protocol,
+                                                     file=data.structure_path))
+
+        residues_df = self.analyze_residue_metrics_per_design(asu_design_structures)
+        designs_df = self.analyze_design_metrics_per_design(residues_df, asu_design_structures)
+        # Use the .interface_residues attribute to discern whether the interface should be examined
+        predict_designs_df, predict_residues_df = \
+            self.analyze_predict_structure_metrics(asu_design_scores, model_type=model_type,
+                                                   interface=self.pose.interface_residues)
+        residues_df = residues_df.join(predict_residues_df)
+        designs_df = designs_df.join(predict_designs_df)
+        self.output_metrics(designs=designs_df, residues=residues_df)
+        # Commit the newly acquired metrics
+        self.job.current_session.commit()
+        """Design scores (entity_/asu_design_scores) contain the following features
+        {'predicted_aligned_error': (n_residues,)
+         'plddt': (n_residues,)
+         'predicted_interface_template_modeling_score': float
+         'predicted_template_modeling_score': float
+         'rmsd: (number_of_models)}
+        """
+        # Compare all scores
+        scores = {}
+        for idx, design in enumerate(sequences):
+            separate_scores = entity_design_scores[idx]
+            combined_scores = asu_design_scores[idx]
+            score_deviation = {score_name: abs(score - separate_scores[score_name])
+                               for score_name, score in combined_scores.items()}
+
+            # write_json(separate_scores, os.path.join(self.data_path, f'af_separate_scores-{design}.json'))
+            # write_json(combined_scores, os.path.join(self.data_path, f'af_combined_scores-{design}.json'))
+            entity_pose = entity_design_structures[idx]
+            asu_model = asu_design_structures[idx]
+            # Find the RMSD between each type
+            rmsd, rot, tx = superposition3d(asu_model.backbone_and_cb_coords, entity_pose.backbone_and_cb_coords)
+            score_deviation['rmsd'] = rmsd
+            scores[design] = score_deviation
+            self.log.critical(f'Found rmsd between separated entities and combined pose: {rmsd}')
 
     def interface_design_analysis(self, designs: Iterable[Pose] | Iterable[AnyStr] = None) -> pd.Series:
         """Retrieve all score information from a PoseJob and write results to .csv file
@@ -4116,16 +4175,87 @@ class PoseProtocol(PoseData):
         # self.job.dataframe = self.designs_metrics_csv
         # pose_df.to_csv(self.designs_metrics_csv)
 
-    def analyze_predict_structure_metrics(self, design_ids: Sequence[str], designs: Iterable[Pose] | Iterable[AnyStr]):
-        """"""
-        raise NotImplementedError('Please copy the method used for structural analysis from '
-                                  f'{self.process_rosetta_metrics.__name__} except removing the .scores_file attr')
+    def analyze_predict_structure_metrics(self, scores: dict[str, [dict[str, np.ndarray]]],
+                                          # design_ids: Iterable[str],  # Iterable[Pose] | Iterable[AnyStr],
+                                          # designs: Iterable[Pose] | Iterable[AnyStr],
+                                          model_type: str = None, interface: bool = False,
+                                          ) -> tuple[pd.DataFrame, pd.DataFrame] | tuple[None, None]:
+        """From a set of metrics output by Alphafold"""
+        if not scores:
+            return None, None
 
-        residues_df = self.analyze_residue_metrics_per_design(designs)
-        designs_df = self.analyze_design_metrics_per_design(residues_df, designs)
-        self.output_metrics(residues=residues_df, designs=designs_df, update=True)
-        # Commit the newly acquired metrics
-        self.job.current_session.commit()
+        if interface:
+            interface_indices = [[residue.index for residue in residues]
+                                 for number, residues in self.pose.interface_residues_by_interface.items()]
+        else:
+            interface_indices = []
+
+        def describe_metrics(array_like: Iterable[int] | np.ndarray) -> dict[str, float]:
+            length = len(array_like)
+            middle, remain = divmod(length, 2)
+            if remain:  # Odd
+                median_div = 1
+            else:
+                middle = slice(middle, 1 + middle)
+                median_div = 2
+
+            return dict(
+                min=min(array_like),
+                max=max(array_like),
+                mean=sum(array_like) / length,
+                median=sum(list(sorted(array_like))[middle]) / median_div
+            )
+
+        score_types_mean = ['rmsd']
+        if 'multimer' in model_type:
+            score_types_mean += ['predicted_interface_template_modeling_score',
+                                 'predicted_template_modeling_score']
+        elif 'ptm' in model_type:
+            score_types_mean += ['predicted_template_modeling_score']
+
+        representative_plddt_per_model = scores[0]['plddt']  # This shouldn't fail as we always collect
+        number_models = len(representative_plddt_per_model)
+        number_of_residues = len(representative_plddt_per_model[0])
+        pae_container = np.zeros((number_models, number_of_residues), dtype=np.int32)
+        residue_scores = {}  # []
+        design_scores = {}  # []
+        for design_name, metrics_ in scores.items():
+            protocol_logger.debug(f'Found metrics with contents:\n{metrics_}')
+            # rmsd_metrics = describe_metrics(rmsds)
+            scalar_scores = {score_type: sum(metrics_[score_type]) / number_models
+                             for score_type in score_types_mean}
+            if interface_indices:
+                # Index the resulting pae to get the error at the interface residues in particular
+                indices1, indices2 = interface_indices
+                interface_pae_means = [model_pae[indices1][:, indices2].mean()
+                                       for model_pae in metrics_['predicted_aligned_error']]
+                scalar_scores['predicted_aligned_error_interface'] = sum(interface_pae_means) / number_models
+            protocol_logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
+
+            # Process 'predicted_aligned_error'. Input is 2D, so we average over each residue first then add to
+            # the container and take the average over each model
+            for idx, model_pae in enumerate(metrics_['predicted_aligned_error']):
+                pae_container[idx, :] = model_pae.mean(axis=0)
+            # Next, average pae over each model
+            array_scores = {
+                'predicted_aligned_error': pae_container.mean(axis=0),
+                'plddt': metrics_['plddt']
+            }
+            protocol_logger.debug(f'Found array_scores with contents:\n{array_scores}')
+            # residue_scores.append(array_scores)
+            # design_scores.append(scalar_scores)
+            residue_scores[design_name] = array_scores
+            design_scores[design_name] = scalar_scores
+
+        # designs_df = pd.DataFrame.from_dict(dict(zip(designs, design_scores)), orient='index')
+        # residues_df = pd.DataFrame.from_dict(dict(zip(designs, residue_scores)), orient='index')
+        designs_df = pd.DataFrame.from_dict(design_scores, orient='index')
+        # residues_df = pd.DataFrame.from_dict(residue_scores, orient='index')
+        residue_indices = range(number_of_residues)
+        residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
+                                 for name, data in residue_scores.items()}).unstack().swaplevel(0, 1, axis=1)
+
+        return designs_df, residues_df
 
     def analyze_sequence_metrics_per_design(self, sequences: dict[str, Sequence[str]] | Sequence[Sequence[str]] = None,
                                             design_ids: Sequence[str] = None) -> pd.DataFrame:
