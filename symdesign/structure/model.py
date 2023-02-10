@@ -1382,9 +1382,13 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     # @chain_ids.setter
     # def chain_ids(self, chain_ids: list[str]):
     #     self._chain_ids = chain_ids
+    @property
+    def number_of_symmetric_residues(self) -> int:  # Todo present in SymmetricModel
+        """Describes the number of Residues when accounting for symmetry mates"""
+        return self.number_of_symmetry_mates * len(self._residue_indices)  # <- same as self.number_of_residues
 
     @property
-    def number_of_symmetry_mates(self) -> int:  # Todo in SymmetricModel as well
+    def number_of_symmetry_mates(self) -> int:  # Todo in SymmetricModel
         """The number of copies of the Entity in the Oligomer including the captain Entity"""
         try:
             return self._number_of_symmetry_mates
@@ -4480,6 +4484,11 @@ class SymmetricModel(Models):
     @cryst_record.setter
     def cryst_record(self, cryst_record: str | None):
         self._cryst_record = cryst_record
+
+    @property
+    def number_of_symmetric_residues(self) -> int:  # Todo present in Entity
+        """Describes the number of Residues when accounting for symmetry mates"""
+        return self.number_of_symmetry_mates * len(self._residue_indices)  # <- same as self.number_of_residues
 
     @property
     def number_of_symmetry_mates(self) -> int:  # Todo present in Entity but set using valid_subunit_number not SymEntry
