@@ -2123,7 +2123,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     pose_length = pose.number_of_residues
     residue_indices = list(range(pose_length))
     # residue_numbers = [residue.number for residue in pose.residues]
-    entity_tuple = tuple(pose.entities)
+    # entity_tuple = tuple(pose.entities)
     # model_tuple = tuple(models)
 
     def add_fragments_to_pose(overlap_ghosts: list[int] = None, overlap_surf: list[int] = None,
@@ -2133,43 +2133,43 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         If no arguments are passed, the fragment observations will be generated new
         """
         # First, clear any pose information and force identification of the interface
-        del pose._interface_residues
-        pose._interface_residues = {}
+        # del pose._interface_residues
+        pose.residues_by_interface = {}
         pose.find_and_split_interface(distance=cb_distance)
 
-        # Next, set the interface fragment info for gathering of interface metrics
-        if overlap_ghosts is None or overlap_surf is None or sorted_z_scores is None:
-            # Remove old fragments
-            pose.fragment_queries = {}
-            # Query fragments
-            pose.generate_interface_fragments()
-        else:  # Process with provided data
-            # Return the indices sorted by z_value in ascending order, truncated at the number of passing
-            sorted_match_scores = match_score_from_z_value(sorted_z_scores)
-
-            # These are indexed outside this function
-            # overlap_ghosts = passing_ghost_indices[sorted_fragment_indices]
-            # overlap_surf = passing_surf_indices[sorted_fragment_indices]
-
-            sorted_int_ghostfrags: list[GhostFragment] = [complete_ghost_frags1[idx] for idx in overlap_ghosts]
-            sorted_int_surffrags2: list[Residue] = [complete_surf_frags2[idx] for idx in overlap_surf]
-            # For all matched interface fragments
-            # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
-            # Values are lists containing 1 / (1 + z^2) values for every (chain_id, res_num) residue fragment match
-            # chid_resnum_scores_dict_model1, chid_resnum_scores_dict_model2 = {}, {}
-            # Number of unique interface mono fragments matched
-            # unique_frags_info1, unique_frags_info2 = set(), set()
-            # res_pair_freq_info_list = []
-            fragment_pairs = list(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores))
-            frag_match_info = get_matching_fragment_pairs_info(fragment_pairs)
-            # pose.fragment_queries = {(model1, model2): frag_match_info}
-            fragment_metrics = pose.fragment_db.calculate_match_metrics(frag_match_info)
-            # Todo when able to take more than 2 Entity
-            #  The entity_tuple must contain the same Entity instances as in the Pose!
-            # entity_tuple = models_tuple
-            # These two pose attributes must be set
-            pose.fragment_queries = {entity_tuple: frag_match_info}
-            pose.fragment_metrics = {entity_tuple: fragment_metrics}
+        # # Next, set the interface fragment info for gathering of interface metrics
+        # if overlap_ghosts is None or overlap_surf is None or sorted_z_scores is None:
+        # Remove old fragments
+        pose.fragment_queries = {}
+        # Query fragments
+        pose.generate_interface_fragments()
+        # else:  # Process with provided data
+        #     # Return the indices sorted by z_value in ascending order, truncated at the number of passing
+        #     sorted_match_scores = match_score_from_z_value(sorted_z_scores)
+        #
+        #     # These are indexed outside this function
+        #     # overlap_ghosts = passing_ghost_indices[sorted_fragment_indices]
+        #     # overlap_surf = passing_surf_indices[sorted_fragment_indices]
+        #
+        #     sorted_int_ghostfrags: list[GhostFragment] = [complete_ghost_frags1[idx] for idx in overlap_ghosts]
+        #     sorted_int_surffrags2: list[Residue] = [complete_surf_frags2[idx] for idx in overlap_surf]
+        #     # For all matched interface fragments
+        #     # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
+        #     # Values are lists containing 1 / (1 + z^2) values for every (chain_id, res_num) residue fragment match
+        #     # chid_resnum_scores_dict_model1, chid_resnum_scores_dict_model2 = {}, {}
+        #     # Number of unique interface mono fragments matched
+        #     # unique_frags_info1, unique_frags_info2 = set(), set()
+        #     # res_pair_freq_info_list = []
+        #     fragment_pairs = list(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores))
+        #     frag_match_info = get_matching_fragment_pairs_info(fragment_pairs)
+        #     # pose.fragment_queries = {(model1, model2): frag_match_info}
+        #     fragment_metrics = pose.fragment_db.calculate_match_metrics(frag_match_info)
+        #     # Todo when able to take more than 2 Entity
+        #     #  The entity_tuple must contain the same Entity instances as in the Pose!
+        #     # entity_tuple = models_tuple
+        #     # These two pose attributes must be set
+        #     pose.fragment_queries = {entity_tuple: frag_match_info}
+        #     pose.fragment_metrics = {entity_tuple: fragment_metrics}
 
     # Sort cluster members by the highest metric and take some highest number of members
     # Todo filter by score for the best then repeat perturbation
@@ -2510,8 +2510,10 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 design_profiles.append(pssm_as_array(pose.profile))
 
                 # Add all interface residues
-                if measure_interface_during_dock:
-                    design_residues = [residue.index for residue in pose.interface_residues]
+                if measure_interface_during_dock:  # job.design.interface:
+                    design_residues = []
+                    for number, residues in pose.residues_by_interface.items():
+                        design_residues.extend([residue.index for residue in residues])
                 else:
                     design_residues = list(range(pose_length))
 
@@ -2898,7 +2900,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
 
                 # Add all interface residues
                 if job.design.interface:
-                    design_residues = [residue.index for residue in pose.interface_residues]
+                    design_residues = []
+                    for number, residues in pose.residues_by_interface.items():
+                        design_residues.extend([residue.index for residue in residues])
                 else:
                     design_residues = list(range(pose_length))
                 # Residues to design are 1, others are 0
@@ -3030,7 +3034,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
 
                 # Add all interface residues
                 if job.design.interface:
-                    design_residues = [residue.index for residue in pose.interface_residues]
+                    design_residues = []
+                    for number, residues in pose.residues_by_interface.items():
+                        design_residues.extend([residue.index for residue in residues])
                 else:
                     design_residues = list(range(pose_length))
                 # Residues to design are 1, others are 0
@@ -3807,13 +3813,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 update_pose_coords(idx)
 
                 # if total_perturbation_size > 1:
-                add_fragments_to_pose()  # <- here generating fresh
-                # else:
-                #     # Here, loading fragments. No self-symmetric interactions will be generated!
-                #     # where idx is the actual transform idx
-                #     add_fragments_to_pose(all_passing_ghost_indices[idx],
-                #                           all_passing_surf_indices[idx],
-                #                           all_passing_z_scores[idx])
+                add_fragments_to_pose()  # <- here generating fragments fresh
 
                 if job.output:
                     if job.write_trajectory:
@@ -4255,13 +4255,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         # if job.dock.metrics:
         # Format Nanohedra specific metrics for each pose
         nanohedra_metrics()
-        # else:
-        #     for idx, pose_name in enumerate(pose_names):
-        #         # Add the next set of coordinates
-        #         update_pose_coords(idx)
-        #         add_fragments_to_pose()  # <- here generating fresh
-        #         if job.output:
-        #             output_pose(pose_name.replace(project_str, ''))
 
         # Write trajectory if specified
         if job.write_trajectory:
