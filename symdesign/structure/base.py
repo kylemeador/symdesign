@@ -2258,7 +2258,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                 self.parent.local_density()
                 return self._local_density
             except AttributeError:
-                raise AttributeError(self._warn_missing_attribute(self.local_density.__name__))
+                raise AttributeError(self._warn_missing_attribute(self.local_density.fget.__name__))
                 # raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.local_density.__name__}" '
                 #                      f'attribute! Ensure you call {Structure.local_density.__name__} before you request'
                 #                      f' Residue local density information')
@@ -2277,7 +2277,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             # try:
             #     return self._secondary_structure
             # except AttributeError:
-            raise AttributeError(self._warn_missing_attribute(self.secondary_structure.__name__))
+            raise AttributeError(self._warn_missing_attribute(self.secondary_structure.fget.__name__))
             # raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".secondary_structure" attribute. '
             #                      'Ensure you set the "parent".secondary_structure before you '
             #                      'request Residue.secondary_structure information')
@@ -2316,7 +2316,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             try:  # let _segregate_sasa() call get_sasa() from the .parent if sasa is missing
                 self._sasa = self.sasa_apolar + self.sasa_polar
             except AttributeError:
-                raise AttributeError(self._warn_missing_attribute(self.sasa.__name__, 'get_sasa'))
+                raise AttributeError(self._warn_missing_attribute(self.sasa.fget.__name__, 'get_sasa'))
                 # raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.sasa.__name__}" attribute! '
                 #                      f'Ensure you call {Structure.get_sasa.__name__} before you request Residue SASA '
                 #                      f'information')
@@ -2337,7 +2337,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             try:
                 self._segregate_sasa()
             except AttributeError:
-                raise AttributeError(self._warn_missing_attribute(self.sasa_apolar.__name__, 'get_sasa'))
+                raise AttributeError(self._warn_missing_attribute(self.sasa_apolar.fget.__name__, 'get_sasa'))
                 # raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.sasa_apolar.__name__}" '
                 #                      f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
                 #                      f'Residue SASA information')
@@ -2358,7 +2358,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             try:
                 self._segregate_sasa()
             except AttributeError:
-                raise AttributeError(self._warn_missing_attribute(self.sasa_polar.__name__, 'get_sasa'))
+                raise AttributeError(self._warn_missing_attribute(self.sasa_polar.fget.__name__, 'get_sasa'))
                 # raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.sasa_polar.__name__}" '
                 #                      f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
                 #                      f'Residue SASA information')
@@ -2384,7 +2384,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                 self.parent.spatial_aggregation_propensity_per_residue()
                 return self._sap
             except AttributeError:
-                raise AttributeError(self._warn_missing_attribute(self.spatial_aggregation_propensity.__name__))
+                raise AttributeError(self._warn_missing_attribute(self.spatial_aggregation_propensity.fget.__name__))
 
     @spatial_aggregation_propensity.setter
     def spatial_aggregation_propensity(self, sap: float):
@@ -2400,7 +2400,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                 self.parent.contact_order_per_residue()
                 return self._contact_order
             except AttributeError:
-                raise AttributeError(self._warn_missing_attribute(self.contact_order.__name__))
+                raise AttributeError(self._warn_missing_attribute(self.contact_order.fget.__name__))
 
     @contact_order.setter
     def contact_order(self, contact_order: float):
