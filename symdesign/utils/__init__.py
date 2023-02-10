@@ -1091,7 +1091,7 @@ class PoseSpecification:
         else:
             design_names = list(repeat(None, number_pose_identifiers))
 
-        # Group the pose_identifiers with the specific_designs and directives
+        # Group the pose_identifiers with the design_names and directives
         if len(found_poses) == number_pose_identifiers:  # There is one design per pose
             if self.directives:
                 directives = [[directive] for directive in self.directives]

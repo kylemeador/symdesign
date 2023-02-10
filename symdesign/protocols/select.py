@@ -293,7 +293,7 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
 
     if job.specification_file:  # Figure out poses from a specification file, filters, and weights
         loc_result = [(pose_job, design) for pose_job in pose_jobs
-                      for design in pose_job.specific_designs]
+                      for design in pose_job.current_designs]
         total_df = load_total_dataframe(pose_jobs, pose=True)
         selected_poses_df = \
             metrics.prioritize_design_indices(total_df.loc[loc_result, :], filter=job.filter, weight=job.weight,
@@ -528,7 +528,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     default_weight_metric = config.default_weight_parameter[job.design.method]
     if job.specification_file:  # Figure out designs from a specification file, filters, and weights
         loc_result = [(pose_job, design) for pose_job in pose_jobs
-                      for design in pose_job.specific_designs]
+                      for design in pose_job.current_designs]
         total_df = load_total_dataframe(pose_jobs)
         selected_poses_df = \
             metrics.prioritize_design_indices(total_df.loc[loc_result, :], filter=job.filter, weight=job.weight,
@@ -1140,7 +1140,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # Figure out poses from a specification file, filters, and weights
     # if job.specification_file:
     pose_ids = [pose_job.id for pose_job in pose_jobs]
-    # design_ids = [design.id for pose_job in pose_jobs for design in pose_job.specific_designs]
+    # design_ids = [design.id for pose_job in pose_jobs for design in pose_job.current_designs]
     #     total_df = load_sql_poses_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
     #     selected_poses_df = \
     #         metrics.prioritize_design_indices_sql(total_df, filter=job.filter, weight=job.weight,
@@ -1268,7 +1268,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # Figure out poses from a specification file, filters, and weights
     # if job.specification_file:
     pose_ids = [pose_job.id for pose_job in pose_jobs]
-    design_ids = [design.id for pose_job in pose_jobs for design in pose_job.specific_designs]
+    design_ids = [design.id for pose_job in pose_jobs for design in pose_job.current_designs]
     #     total_df = load_sql_designs_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
     #     selected_poses_df = \
     #         metrics.prioritize_design_indices_sql(total_df, filter=job.filter, weight=job.weight,

@@ -398,8 +398,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     # """The database row id for the 'pose_data' table"""
     _source: AnyStr
     _directives: list[dict[int, str]]
-    _specific_designs: list | list[sql.DesignData]
-    current_designs: list | list[sql.DesignData]
+    _current_designs: list | list[sql.DesignData]
+    # current_designs: list | list[sql.DesignData]
     """Hold DesignData that has been generated in the scope of this job"""
     initial_model: Model | None
     """Used if the pose structure has never been initialized previously"""
@@ -554,7 +554,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     def __init_from_db__(self):
         """Initialize PoseData after the instance is "initialized", i.e. loaded from the database"""
         # Design attributes
-        self.current_designs = []
+        # self.current_designs = []
         self.measure_evolution = self.measure_alignment = False
         self.pose = self.initial_model = self.protocol = None
         # Get the main program options
@@ -689,22 +689,30 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #     #     # self.job.projects = os.path.dirname(self.project_path)
         #     # self.project = os.path.basename(self.project_path)
 
-    def use_specific_designs(self, specific_designs: Sequence[str] = None, directives: list[dict[int, str]] = None,
+    def use_specific_designs(self, designs: Sequence[str] = None, directives: list[dict[int, str]] = None,
                              **kwargs):
         """Set up the instance with the names and instructions to perform further sequence design
 
         Args:
-            specific_designs: The names of designs which to include in modules that support PoseJob designs
-            directives: Instructions to guide further sampling of specific_designs
+            designs: The names of designs which to include in modules that support PoseJob designs
+            directives: Instructions to guide further sampling of designs
         """
-        if specific_designs:
-            self.specific_designs = specific_designs
-        # else:
-        #     self.specific_designs = []
+        if designs:
+            self.current_designs = designs
+            # Which performs the function of setting as below
+            # specific_design_data_instances = []
+            # for design_name in designs:
+            #     for design in self.designs:
+            #         if design.name == design_name:
+            #             specific_design_data_instances.append(design)
+            #             break
+            #     else:
+            #         raise DesignError(f"Couldn't locate a specific_design matching the name '{design_name}'")
+            #
+            # self.current_designs = specific_design_data_instances
+
         if directives:
             self.directives = directives
-        # else:
-        #     self.directives = []
 
     def load_initial_model(self):
         """Parse the Structure at the source_path attribute"""
@@ -721,7 +729,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
     @property
     def directives(self) -> list[dict[int, str]]:
-        """The design directives given to each design in specific_designs to guide further sampling"""
+        """The design directives given to each design in current_designs to guide further sampling"""
         try:
             return self._directives
         except AttributeError:
@@ -735,42 +743,28 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             self._directives = directives
 
     @property
-    def specific_designs(self) -> list[sql.DesignData] | list:
-        """The DesignData instances which should be used during additional PoseJob design methods"""
+    def current_designs(self) -> list[sql.DesignData] | list:
+        """DesignData instances which were generated in the scope of this job and serve as a pool for additional work"""
         try:
-            return self._specific_designs
+            return self._current_designs
         except AttributeError:
-            self._specific_designs = []
-            return self._specific_designs
+            self._current_designs = []
+            return self._current_designs
 
-    @specific_designs.setter
-    def specific_designs(self, specific_designs: Iterable[str]):
-        """Configure the specific_designs"""
-        if specific_designs:
+    @current_designs.setter
+    def current_designs(self, designs: Iterable[str]):
+        """Configure the current_designs"""
+        if designs:
             specific_design_data_instances = []
-            for design_name in specific_designs:
+            for design_name in designs:
                 for design in self.designs:
                     if design.name == design_name:
                         specific_design_data_instances.append(design)
                         break
                 else:
-                    raise DesignError(f"Couldn't locate a specific_design matching the name '{design_name}'")
+                    raise DesignError(f"Couldn't locate DesignData matching the name '{design_name}'")
 
-                # matching_path = os.path.join(self.designs_path, f'*{design}.pdb')
-                # matching_designs = sorted(glob(matching_path))
-                # if matching_designs:
-                #     if len(matching_designs) > 1:
-                #         self.log.warning(f'Found {len(matching_designs)} matching designs to your specified design '
-                #                          f'using {matching_path}. Choosing the first {matching_designs[0]}')
-                #     for matching_design in matching_designs:
-                #         if os.path.exists(matching_design):  # Shouldn't be necessary from glob
-                #             self.specific_designs_file_paths.append(matching_design)
-                #             break
-                # else:
-                #     raise DesignError(f"Couldn't locate a specific_design matching the name '{matching_path}'")
-            self.specific_designs = specific_design_data_instances
-            # # Format specific_designs to a pose ID compatible format
-            # self.specific_designs = [f'{self.name}_{design}' for design in self.specific_designs]
+            self.current_designs = specific_design_data_instances
 
     @property
     def structure_source(self) -> AnyStr:
@@ -1678,6 +1672,7 @@ class PoseProtocol(PoseData):
             sequences = {design: design.sequence for design in self.current_designs}
         else:
             sequences = {design: design.sequence for design in self.get_designs_without_structure()}
+            self.current_designs.extend(sequences.keys())
 
         # match self.job.predict.method:  # Todo python 3.10
         #     case 'thread':  # , 'proteinmpnn']:
@@ -4711,7 +4706,8 @@ class PoseProtocol(PoseData):
         # Format DesignData
         # Get all existing
         design_data = self.designs
-        self.current_designs = [design_data[idx] for idx in existing_design_indices]
+        # Set current_designs to a fresh list
+        self._current_designs = [design_data[idx] for idx in existing_design_indices]
         # Update the Pose.designs with DesignData for each of the new designs
         new_designs_data = self.update_design_data(number=len(new_design_paths))  # design_parent=design_parent
         # Extend current_designs with new DesignData instances
@@ -4749,20 +4745,20 @@ class PoseProtocol(PoseData):
             protocol_s = scores_df.pop(putils.protocol).fillna('metrics')
             self.log.critical(f'Found "protocol_s" variable with dtype: {protocol_s.dtype}')
             # Update the Pose with the design protocols
-            for data in self.current_designs:
-                name_or_provided_name = getattr(data, 'provided_name', getattr(data, 'name'))
-                protocol_kwargs = dict(design_id=data.id,
+            for design in self.current_designs:
+                name_or_provided_name = getattr(design, 'provided_name', getattr(design, 'name'))
+                protocol_kwargs = dict(design_id=design.id,
                                        protocol=protocol_s[name_or_provided_name],
-                                       # temperature=temperatures[idx],)
+                                       # temperature=temperatures[idx],)  # Todo from Rosetta?
                                        )
                 new_filename = new_design_new_filenames.get(name_or_provided_name)
                 if new_filename:
                     protocol_kwargs['file'] = new_filename
                     # Set the structure_path for this DesignData
-                    data.structure_path = new_filename
+                    design.structure_path = new_filename
                 else:
                     protocol_kwargs['file'] = os.path.join(designs_path, f'{name_or_provided_name}.pdb')
-                data.protocols.append(sql.DesignProtocol(**protocol_kwargs))
+                design.protocols.append(sql.DesignProtocol(**protocol_kwargs))
         # else:  # Assume that no design was done and only metrics were acquired
         #     pass
 
@@ -4837,9 +4833,9 @@ class PoseProtocol(PoseData):
         # Rename all designs and clean up resulting metrics for storage
         # Get the name/provided_name to design_id mapping
         design_name_to_id_map = \
-            dict((getattr(design_data, 'provided_name',
-                          getattr(design_data, 'name')),
-                  design_data.id) for design_data in self.current_designs)
+            dict((getattr(design, 'provided_name',
+                          getattr(design, 'name')),
+                  design.id) for design in self.current_designs)
         # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
         # input(f'BEFORE MAP: {designs_df.index.tolist()}')
         designs_df.index = designs_df.index.map(design_name_to_id_map)

@@ -664,8 +664,8 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
 
     # Create file output
     designed_files_file = os.path.join(job.scripts_path, f'{starttime}_{job.protocol}_files_output.txt')
-    if job.specific_designs:
-        design_files = [design_.structure_file for design_ in job.specific_designs]
+    if job.current_designs:
+        design_files = [design_.structure_file for design_ in job.current_designs]
         design_files_file = os.path.join(job.scripts_path, f'{starttime}_{job.protocol}_files.txt')
         with open(design_files_file, 'w') as f:
             f.write('%s\n' % '\n'.join(design_files))
@@ -681,8 +681,8 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
         infile = ['-in:file:s', job.refined_pdb]
 
     job.identify_interface()  # job.load_pose()
-    # for design_path in job.specific_designs_file_paths
-    #     job.load_pose(structure_source=design_path)
+    # for design in job.current_designs:
+    #     job.load_pose(structure_source=design.structure_path)
     #     job.identify_interface()
 
     # Now acquiring in process_rosetta_metrics()
