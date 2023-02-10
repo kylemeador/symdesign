@@ -979,7 +979,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             Each instance of the DesignData that is missing a structure
         """
         missing = []
-        for design in self.designs:
+        for design in self.designs[1:]:  # Slice only real designs, not the pose_source
             if design.structure_path and os.path.exists(design.structure_path):
                 continue
             else:
@@ -4068,7 +4068,7 @@ class PoseProtocol(PoseData):
 
         # self.number_of_designs += number_of_new_designs  # Now done with self.number_of_designs in SQL
         # with self.job.db.session(expire_on_commit=False) as session:
-        first_new_design_idx = self.number_of_designs + 1
+        first_new_design_idx = self.number_of_designs  # + 1 <- don't add 1 since the first design is .pose_source
         # design_names = [f'{self.protocol}{seq_idx:04d}'  # f'{self.name}_{self.protocol}{seq_idx:04d}'
         design_names = [f'{self.name}-{design_idx:04d}'  # f'{self.name}_{self.protocol}{seq_idx:04d}'
                         for design_idx in range(first_new_design_idx,
