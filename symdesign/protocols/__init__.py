@@ -163,7 +163,8 @@ def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None
         job.prepare_rosetta_flags(out_dir=job.scripts_path)
         job.log.debug(f'Pose flags written to: {job.flags}')
 
-    cmd += ['-symmetry_definition', 'CRYST1'] if job.symmetry_dimension > 0 else []
+    if job.symmetry_dimension is not None and job.symmetry_dimension > 0:
+        cmd += ['-symmetry_definition', 'CRYST1']
 
     if file_list:
         pdb_input = os.path.join(job.scripts_path, 'design_files.txt')
@@ -268,7 +269,10 @@ def interface_metrics(job: pose.PoseJob):
     if job.job.mpi > 0:
         main_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(job.job.mpi)] + main_cmd
 
-    metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if job.symmetry_dimension > 0 else []) + \
+    metric_cmd_bound = main_cmd.copy()
+    if job.symmetry_dimension is not None and job.symmetry_dimension > 0:
+        metric_cmd_bound += ['-symmetry_definition', 'CRYST1']
+    metric_cmd_bound += \
         [os.path.join(putils.rosetta_scripts_dir, f'{job.protocol}{"_DEV" if job.job.development else ""}.xml')]
     job.log.info(f'Metrics command for Pose: {list2cmdline(metric_cmd_bound)}')
     entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
@@ -712,7 +716,8 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
          '-s', f'_{job.protocol}']
 
     main_cmd = rosetta.script_cmd.copy()
-    main_cmd += ['-symmetry_definition', 'CRYST1'] if job.symmetry_dimension > 0 else []
+    if job.symmetry_dimension is not None and job.symmetry_dimension > 0:
+        main_cmd += ['-symmetry_definition', 'CRYST1']
     if not os.path.exists(job.flags) or job.job.force:
         job.prepare_rosetta_flags(out_dir=job.scripts_path)
         job.log.debug(f'Pose flags written to: {job.flags}')

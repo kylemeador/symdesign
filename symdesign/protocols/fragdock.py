@@ -25,16 +25,16 @@ from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, job as symjob
 from symdesign.resources.sql import EntityData, EntityTransform, PoseResidueMetrics, PoseMetrics
 from symdesign.sequence import protein_letters_alph1
-from symdesign.structure.base import Structure, Residue
+from symdesign.structure.base import Structure
 from symdesign.structure.coords import transform_coordinate_sets
 from symdesign.structure.fragment import GhostFragment
-from symdesign.structure.fragment.metrics import rmsd_z_score, z_value_from_match_score, match_score_from_z_value
+from symdesign.structure.fragment.metrics import rmsd_z_score, z_value_from_match_score
 from symdesign.structure.fragment.visuals import write_fragment_pairs_as_accumulating_states
-from symdesign.structure.model import Pose, Model, get_matching_fragment_pairs_info, Models
+from symdesign.structure.model import Pose, Model, Models
 from symdesign.structure.sequence import concatenate_profile, pssm_as_array
 from symdesign.structure.utils import chain_id_generator
 from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
-from symdesign.utils.symmetry import generate_cryst1_record, identity_matrix
+from symdesign.utils.symmetry import identity_matrix
 putils = utils.path
 
 # Globals
