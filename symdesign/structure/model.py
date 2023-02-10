@@ -4132,7 +4132,7 @@ class SymmetricModel(Models):
     _assembly_tree: BinaryTree  # stores a sklearn tree for coordinate searching
     _asu_indices: slice  # list[int]
     _asu_model_idx: int
-    _center_of_mass_symmetric_entities: list[np.ndarray]
+    _center_of_mass_symmetric_entities: list[list[np.ndarray]]  # list[np.ndarray]
     _center_of_mass_symmetric_models: np.ndarray
     _cryst_record: str
     _dimension: int
@@ -4648,7 +4648,7 @@ class SymmetricModel(Models):
             return self._center_of_mass_symmetric_models
 
     @property
-    def center_of_mass_symmetric_entities(self) -> list[np.ndarray]:
+    def center_of_mass_symmetric_entities(self) -> list[list[np.ndarray]]:
         """The set of center of mass points for each Entity instance in the symmetric system for each symmetry mate"""
         # if self.symmetry:
         # self._center_of_mass_symmetric_entities = []
@@ -4661,7 +4661,7 @@ class SymmetricModel(Models):
             return self._center_of_mass_symmetric_entities
         except AttributeError:
             # self.log.debug(f"Creating _center_of_mass_symmetric_entities")
-            self._center_of_mass_symmetric_entities = [self.return_symmetric_coords(entity.center_of_mass)
+            self._center_of_mass_symmetric_entities = [list(self.return_symmetric_coords(entity.center_of_mass))
                                                        for entity in self.entities]
             return self._center_of_mass_symmetric_entities
 
@@ -4959,9 +4959,10 @@ class SymmetricModel(Models):
                                        f'\tEntity.chain com: {np.array_str(chain_center_of_mass, precision=2)} | '
                                        f'Sym-model com: {np.array_str(sym_model_center_of_mass, precision=2)}')
 
-            if len(equivalent_models) != len(entity.chains):
-                raise SymmetryError(f'The number of equivalent models ({len(equivalent_models)}) '
-                                    f'!= the number of chains ({len(entity.chains)})')
+            if len(equivalent_models) != entity.number_of_chains:
+                raise SymmetryError(f'For Entity {entity.name}, the number of symmetry mates, {entity.number_of_chains}'
+                                    f' != {len(equivalent_models)}, the number of {self.__class__.__name__} equivalent '
+                                    'symmetric models')
 
             self._oligomeric_model_indices[entity] = equivalent_models
             self.log.info(f'Masking {entity.name} coordinates from models '
