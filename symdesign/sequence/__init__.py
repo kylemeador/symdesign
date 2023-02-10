@@ -28,7 +28,7 @@ putils = utils.path
 zero_offset = 1
 logger = logging.getLogger(__name__)
 # Types
-protein_letters3: tuple[str, ...] = \
+protein_letters3_alph1: tuple[str, ...] = \
     ('ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE', 'LYS', 'LEU', 'MET', 'ASN',
      'PRO', 'GLN', 'ARG', 'SER', 'THR', 'VAL', 'TRP', 'TYR')
 protein_letters3_extended: tuple[str, ...] = \
@@ -36,8 +36,8 @@ protein_letters3_extended: tuple[str, ...] = \
      'PRO', 'GLN', 'ARG', 'SER', 'THR', 'VAL', 'TRP', 'TYR', 'ASX', 'XAA', 'GLX', 'XLE', 'SEC', 'PYL')
 protein_letters_alph1: str = 'ACDEFGHIKLMNPQRSTVWY'
 protein_letters_alph1_extended: str = 'ACDEFGHIKLMNPQRSTVWYBXZJUO'
-protein_letters_3to1: dict[str, str] = dict(zip(protein_letters3, protein_letters_alph1))
-protein_letters_1to3: dict[str, str] = dict(zip(protein_letters_alph1, protein_letters3))
+protein_letters_3to1: dict[str, str] = dict(zip(protein_letters3_alph1, protein_letters_alph1))
+protein_letters_1to3: dict[str, str] = dict(zip(protein_letters_alph1, protein_letters3_alph1))
 protein_letters_3to1_extended: dict[str, str] = dict(zip(protein_letters3_extended, protein_letters_alph1_extended))
 protein_letters_1to3_extended: dict[str, str] = dict(zip(protein_letters_alph1_extended, protein_letters3_extended))
 protein_letters_literal = \
