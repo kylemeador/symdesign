@@ -17,7 +17,8 @@ from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 # from ..structure import coords, fragment, utils
 from .coords import Coords, superposition3d
 from . import fragment, utils as stutils
-from symdesign.sequence import protein_letters_alph1, protein_letters_1to3, protein_letters_3to1_extended
+from symdesign.sequence import protein_letters3_alph1, protein_letters_alph1, protein_letters_1to3, \
+    protein_letters_3to1_extended
 from symdesign import utils
 # from symdesign.third_party.pdbecif.src.pdbecif.mmcif_io import CifFileReader
 # Before use, need to fix the issue with pdbecif not referring to itself within symdesign.third_party....
@@ -111,7 +112,7 @@ black_and_mould = [
     -0.453, -0.042, 1.640, 1.878, 1.887
 ]
 hydrophobicity_values = \
-    dict(black_and_mould=dict(zip(protein_letters_alph1, black_and_mould)))
+    dict(black_and_mould=dict(zip(protein_letters3_alph1, black_and_mould)))
 glycine_val = black_and_mould[5]
 # This is used for the SAP calculation. See pmid:19571001
 hydrophobicity_values_glycine_centered = {value_name: {aa: value - glycine_val for aa, value in values.items()}
