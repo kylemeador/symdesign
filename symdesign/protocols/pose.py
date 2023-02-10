@@ -2175,8 +2175,8 @@ class PoseProtocol(PoseData):
             # Append each ASU result to the full return
             asu_design_structures.append(asu_models[minimum_model])
             # structure_by_design[design].append(asu_models[minimum_model])
-            # asu_design_scores.append({'rmsd': rmsds, **asu_scores[minimum_model]})
-            asu_design_scores[str(design)] = {'rmsd': rmsds, **asu_scores[minimum_model]}
+            # asu_design_scores.append({'rmsd_prediction_ensemble': rmsds, **asu_scores[minimum_model]})
+            asu_design_scores[str(design)] = {'rmsd_prediction_ensemble': rmsds, **asu_scores[minimum_model]}
             # scores_by_design[design].append(asu_models[minimum_model])
         # # predicted_aligned_error isn't an 1D array, so we transform by averaging over each residue
         # for scores in asu_design_scores:
@@ -2205,7 +2205,7 @@ class PoseProtocol(PoseData):
          'plddt': (n_residues,)
          'predicted_interface_template_modeling_score': float
          'predicted_template_modeling_score': float
-         'rmsd: (number_of_models)}
+         'rmsd_prediction_ensemble: (number_of_models)}
         """
         # Prepare the features to feed to the model
         if self.job.predict.entities:  # and self.number_of_entities > 1:
@@ -2273,16 +2273,15 @@ class PoseProtocol(PoseData):
                     entity_structure_by_design[design].append(design_models[minimum_model])
                     combined_scores = combine_model_scores([entity_scores[model_name] for model_name in design_models])
 
-                    # entity_scores_by_design[design].append({'rmsd': rmsds, **entity_scores[minimum_model]})
-                    # entity_scores_by_design.append({'rmsd': rmsds, **combined_scores})
-                    entity_scores_by_design[str(design)].append({'rmsd': rmsds, **combined_scores})
+                    # entity_scores_by_design.append({'rmsd_prediction_ensemble': rmsds, **combined_scores})
+                    entity_scores_by_design[str(design)].append({'rmsd_prediction_ensemble': rmsds, **combined_scores})
 
                 """Each design in entity_scores_by_design contains the following features
                 {'predicted_aligned_error': (n_residues, n_residues)
                  'plddt': (n_residues,)
                  'predicted_interface_template_modeling_score': float
                  'predicted_template_modeling_score': float
-                 'rmsd: (number_of_models)}
+                 'rmsd_prediction_ensemble: (number_of_models)}
                 """
                 designs_df, residues_df = \
                     self.analyze_predict_structure_metrics(entity_scores_by_design, model_type=model_type)
@@ -2317,7 +2316,7 @@ class PoseProtocol(PoseData):
 
             entity_designs_df /= number_of_entities
             # entity_designs_df = pd.concat(entity_design_dfs, axis=0)
-            # score_types_mean = ['rmsd']
+            # score_types_mean = ['rmsd_prediction_ensemble']
             # if 'multimer' in model_type:
             #     score_types_mean += ['predicted_interface_template_modeling_score',
             #                          'predicted_template_modeling_score']
@@ -2362,7 +2361,7 @@ class PoseProtocol(PoseData):
                 # self.log.critical(f'Found rmsd between separated entities and combined pose: {rmsd}')
                 rmsds.append(rmsd)
 
-            design_deviation_df['deviation_rmsd'] = rmsds
+            design_deviation_df['rmsd_prediction_deviation'] = rmsds
             design_deviation_file = \
                 os.path.join(self.data_path, f'{starttime}-af_pose-entity-designs-deviation_scores.csv')
             design_deviation_df.to_csv(design_deviation_file)
@@ -4217,7 +4216,7 @@ class PoseProtocol(PoseData):
                 median=sum(list(sorted(array_like))[middle]) / median_div
             )
 
-        score_types_mean = ['rmsd']
+        score_types_mean = ['rmsd_prediction_ensemble']
         if 'multimer' in model_type:
             score_types_mean += ['predicted_interface_template_modeling_score',
                                  'predicted_template_modeling_score']

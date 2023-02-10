@@ -736,7 +736,13 @@ class DesignMetrics(Base):
     # Direct coupling analysis energy
     dca_energy = Column(Float)  # , nullable=False)
     # -----------------------
-
+    # # Alphafold metrics
+    plddt = Column(Float)
+    predicted_aligned_error = Column(Float)
+    predicted_aligned_interface = Column(Float)
+    predicted_interface_template_modeling_score = Column(Float)
+    predicted_template_modeling_score = Column(Float)
+    rmsd_predicted_models = Column(Float)
     # def __repr__(self):
     #     return f"Trajectory(id={self.id!r}, pose={self.pose!r}, name={self.name!r})"
 
