@@ -1901,6 +1901,11 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 chain_name = f'{entity_id}_{sym_idx}'
                 all_chain_features[chain_name] = this_entity_features
 
+            # Alternative to pair_and_merge using hhblits a3m output
+            # See pmid:36224222 "Structural predictions of dimeric and trimeric subcomponents" methods section
+            # The first of the two MSAs is constructed by extracting the organism identifiers (OX) from the resulting
+            # a3m file and pairing sequences using the top hit from each OX. The second is constructed by block
+            # diagonalizing the resulting a3m file.
             np_example = feature_processing.pair_and_merge(all_chain_features=all_chain_features)
             # Pad MSA to avoid zero-sized extra_msa.
             np_example = pipeline_multimer.pad_msa(np_example, 512)
