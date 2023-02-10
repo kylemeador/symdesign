@@ -1451,7 +1451,7 @@ class PoseProtocol(PoseData):
         self.pose.find_and_split_interface()
 
         # self.interface_design_residue_numbers = set()  # Replace set(). Add new residues
-        # for number, residues_entities in self.pose.residues_by_interface.items():
+        # for number, residues_entities in self.pose.interface_residues_by_interface.items():
         #     self.interface_design_residue_numbers.update([residue.number for residue, _ in residues_entities])
         # self.log.debug(f'Found interface design residues: '
         #                f'{", ".join(map(str, sorted(self.interface_design_residue_numbers)))}')
@@ -1466,7 +1466,7 @@ class PoseProtocol(PoseData):
         #             self.interface_residue_numbers.add(residue.number)
         # self.log.debug(f'Found interface residues: {", ".join(map(str, sorted(self.interface_residue_numbers)))}')
 
-        # for number, residues in self.pose.residues_by_interface.items():
+        # for number, residues in self.pose.interface_residues_by_interface.items():
         #     self.interface_residue_ids[f'interface{number}'] = \
         #         ','.join(f'{residue.number}{residue.chain_id}' for residue in residues)
 
@@ -1537,7 +1537,7 @@ class PoseProtocol(PoseData):
             out_of_bounds_residue = number_of_residues + 1
 
         interface_residue_ids = {}
-        for number, residues in self.pose.residues_by_interface.items():
+        for number, residues in self.pose.interface_residues_by_interface.items():
             interface_residue_ids[f'interface{number}'] = \
                 ','.join(f'{residue.number}{residue.chain_id}' for residue in residues)
         # self.info['interface_residue_ids'] = self.interface_residue_ids

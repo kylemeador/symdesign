@@ -2133,7 +2133,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         If no arguments are passed, the fragment observations will be generated new
         """
         # First, clear any pose information and force identification of the interface
-        pose.residues_by_interface = {}
+        del pose._interface_residues
+        pose._interface_residues = {}
         pose.find_and_split_interface(distance=cb_distance)
 
         # Next, set the interface fragment info for gathering of interface metrics
@@ -2510,9 +2511,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
 
                 # Add all interface residues
                 if measure_interface_during_dock:
-                    design_residues = []
-                    for number, residues in pose.residues_by_interface.items():
-                        design_residues.extend([residue.index for residue in residues])
+                    design_residues = [residue.index for residue in pose.interface_residues]
                 else:
                     design_residues = list(range(pose_length))
 
@@ -2899,9 +2898,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
 
                 # Add all interface residues
                 if job.design.interface:
-                    design_residues = []
-                    for number, residues in pose.residues_by_interface.items():
-                        design_residues.extend([residue.index for residue in residues])
+                    design_residues = [residue.index for residue in pose.interface_residues]
                 else:
                     design_residues = list(range(pose_length))
                 # Residues to design are 1, others are 0
@@ -3033,9 +3030,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
 
                 # Add all interface residues
                 if job.design.interface:
-                    design_residues = []
-                    for number, residues in pose.residues_by_interface.items():
-                        design_residues.extend([residue.index for residue in residues])
+                    design_residues = [residue.index for residue in pose.interface_residues]
                 else:
                     design_residues = list(range(pose_length))
                 # Residues to design are 1, others are 0

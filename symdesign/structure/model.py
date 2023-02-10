@@ -5953,7 +5953,7 @@ class Pose(SymmetricModel, Metrics):
     interface_residues_by_entity_pair: dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]
     required_indices: set[int]
     required_residues: list[Residue]
-    residues_by_interface: dict[int, list[Residue]]
+    interface_residues_by_interface: dict[int, list[Residue]]
     """Keeps the Residue instances grouped by membership to each side of the interface
     Ex: {1: [Residue, ...], 2: [Residue, ...]}
     """
@@ -5969,7 +5969,7 @@ class Pose(SymmetricModel, Metrics):
     #     {'ss_sequence_indices', 'ss_type_sequence',  # These should be .clear()
     #      'fragment_metrics', 'fragment_pairs', 'fragment_queries',
     #      'interface_design_residue_numbers', 'interface_residue_numbers', 'interface_residues_by_entity_pair',
-    #      'residues_by_interface', 'split_interface_ss_elements'
+    #      'interface_residues_by_interface', 'split_interface_ss_elements'
     #      }
 
     def __init__(self, ignore_clashes: bool = False,
@@ -5992,7 +5992,7 @@ class Pose(SymmetricModel, Metrics):
         self.interface_residues_by_entity_pair = {}
         self.required_indices = set()
         self.required_residues = []
-        self.residues_by_interface = {}
+        self.interface_residues_by_interface = {}
         self.split_interface_ss_elements = {}
         self.ss_sequence_indices = []
         self.ss_type_sequence = []
@@ -6069,11 +6069,11 @@ class Pose(SymmetricModel, Metrics):
         try:
             return self._interface_residues
         except AttributeError:
-            if not self.residues_by_interface:
+            if not self.interface_residues_by_interface:
                 self.find_and_split_interface()
 
             self._interface_residues = []
-            for number, residues in self.residues_by_interface.items():
+            for number, residues in self.interface_residues_by_interface.items():
                 self._interface_residues.extend(residues)
             return self._interface_residues
 
@@ -7107,7 +7107,7 @@ class Pose(SymmetricModel, Metrics):
         ss_type_array = self.ss_type_sequence
         total_interface_ss_topology = total_interface_ss_fragment_topology = ''
         for number, elements in self.split_interface_ss_elements.items():
-            fragment_elements = {element for residue, element in zip(self.residues_by_interface[number], elements)
+            fragment_elements = {element for residue, element in zip(self.interface_residues_by_interface[number], elements)
                                  if residue.index in center_residue_indices}
             # Take the set of elements as there are element repeats if SS is continuous over residues
             interface_ss_topology = ''.join(ss_type_array[element] for element in set(elements))
@@ -7831,10 +7831,10 @@ class Pose(SymmetricModel, Metrics):
             distance: float = 8. - The distance to measure Residues across an interface
             oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
         Sets:
-            self.residues_by_interface (dict[int, list[Residue]]): Residue instances at each interface
+            self.interface_residues_by_interface (dict[int, list[Residue]]): Residue instances at each interface
             at the interface identified by interface id as split by topology
         """
-        if self.residues_by_interface:
+        if self.interface_residues_by_interface:
             # Todo this needs to be removed if they have been set and modified. reset_state()
             return
 
@@ -7851,7 +7851,7 @@ class Pose(SymmetricModel, Metrics):
         If an interface can't be composed into two distinct groups, raise DesignError
 
         Sets:
-            self.residues_by_interface (dict[int, list[Residue]]): Residue instances at each interface
+            self.interface_residues_by_interface (dict[int, list[Residue]]): Residue instances at each interface
             at the interface identified by interface id as split by topology
         """
         first_side, second_side = 0, 1
@@ -7949,16 +7949,16 @@ class Pose(SymmetricModel, Metrics):
 
         for key, entity_residues in interface.items():
             all_residues = [residue for entity, residues in entity_residues.items() for residue in residues]
-            self.residues_by_interface[key + 1] = sorted(all_residues, key=lambda residue: residue.index)
+            self.interface_residues_by_interface[key + 1] = sorted(all_residues, key=lambda residue: residue.index)
 
-        if not self.residues_by_interface[1]:
+        if not self.interface_residues_by_interface[1]:
             # raise utils.DesignError('Interface was unable to be split because no residues were found on one side of '
             self.log.warning("The interface wasn't able to be split because no residues were found on one side. "
                              "Check that your input has an interface or your flags aren't too stringent")
         else:
             self.log.debug('The interface is split as:\n\tInterface 1: %s\n\tInterface 2: %s'
                            % tuple(','.join(f'{residue.number}{residue.chain_id}' for residue in residues)
-                                   for residues in self.residues_by_interface.values()))
+                                   for residues in self.interface_residues_by_interface.values()))
 
     def calculate_secondary_structure(self):
         """Curate the secondary structure topology for each Entity
@@ -7994,7 +7994,7 @@ class Pose(SymmetricModel, Metrics):
         self.ss_type_sequence.extend(ss_type_sequence)
 
         # ss_sequence_indices = self.ss_sequence_indices
-        for number, residues in self.residues_by_interface.items():
+        for number, residues in self.interface_residues_by_interface.items():
             interface_number_elements = [ss_sequence_indices[residue.index] for residue in residues]
             # interface_number_elements = []
             # for residue, entity in residues_entities:
