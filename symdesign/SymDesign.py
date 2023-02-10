@@ -52,6 +52,7 @@ from symdesign.utils import guide, nanohedra
 sbatch_warning = 'Ensure the SBATCH script(s) below are correct. Specifically, check that the job array and any '\
                  'node specifications are accurate. You can look at the SBATCH manual (man sbatch or sbatch --help) to'\
                  ' understand the variables or ask for help if you are still unsure.'
+script_warning = 'Ensure the script(s) below are correct.'
 
 
 def main():
@@ -198,12 +199,12 @@ def main():
             # Set up sbatch scripts for processed Poses
             if job.module == flags.design:
                 if job.design.interface:
-                    if job.design.design_method == putils.consensus:
+                    if job.design.method == putils.consensus:
                         # Todo ensure consensus sbatch generator working
                         design_stage = flags.refine
-                    elif job.design.design_method == putils.proteinmpnn:
+                    elif job.design.method == putils.proteinmpnn:
                         design_stage = putils.proteinmpnn
-                    else:  # if job.design.design_method == putils.rosetta_str:
+                    else:  # if job.design.method == putils.rosetta_str:
                         design_stage = putils.scout if job.design.scout \
                             else (putils.hbnet_design_profile if job.design.hbnet
                                   else (putils.structure_background if job.design.structure_background
@@ -231,8 +232,10 @@ def main():
 
                 if utils.CommandDistributer.is_sbatch_available():
                     shell = utils.CommandDistributer.sbatch
+                    logger.critical(sbatch_warning)
                 else:
                     shell = utils.CommandDistributer.default_shell
+                    logger.critical(script_warning)
 
                 putils.make_path(job_paths)
                 putils.make_path(job.sbatch_scripts)
@@ -247,7 +250,6 @@ def main():
                                                         out_path=job_paths, name='_'.join(default_output_tuple))
                     script_file = utils.CommandDistributer.distribute(command_file, job.module,
                                                                       out_path=job.sbatch_scripts)
-                logger.critical(sbatch_warning)
 
                 if job.module == flags.design and job.initial_refinement:
                     # We should refine before design
@@ -472,7 +474,11 @@ def main():
 
         if info_messages:
             # Entity processing commands are needed
-            logger.critical(sbatch_warning)
+            if utils.CommandDistributer.is_sbatch_available():
+                logger.critical(sbatch_warning)
+            else:
+                logger.critical(script_warning)
+
             for message in info_messages:
                 logger.info(message)
             print('\n')
@@ -745,12 +751,12 @@ def main():
         # if job.dataframe:  # or job.metric:
         #     initialize = False
     # elif job.module in [flags.select_designs, flags.select_sequences] \
-    #         and job.number == sys.maxsize and not args.total:
+    #         and job.select_number == sys.maxsize and not args.total:
     #     # Change default number to a single sequence/pose when not doing a total selection
+    #     job.select_number = 1
+    # elif job.module in flags.cluster_poses and job.number == sys.maxsize:
+    #     # Change default number to a single pose
     #     job.number = 1
-    elif job.module in flags.cluster_poses and job.number == sys.maxsize:
-        # Change default number to a single pose
-        job.number = 1
     elif job.module == flags.nanohedra:
         if not job.sym_entry:
             raise utils.InputError(f'When running {flags.nanohedra}, the argument -e/--entry/--{flags.sym_entry} is '
@@ -1388,7 +1394,7 @@ def main():
             #             update_status(pose_job.serialized_info, args.stage, mode=args.update)
             #     else:
             #         if job.design.number:
-            #             logger.info('Checking for %d files based on --number_of_designs flag' % args.number_of_designs)
+            #             logger.info('Checking for %d files based on --{flags.design_number}' % args.design_number)
             #         if args.stage:
             #             status(pose_jobs, args.stage, number=job.design.number)
             #         else:

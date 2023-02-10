@@ -3664,7 +3664,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
             #     seed_transform, *perturbation = pose_name.split(perturbation_identifier)
             #     clustered_transformations[seed_transform].append(pose_name)
 
-            # Set the number of poses to cluster equal to the sqrt of the serach area
+            # Set the number of poses to cluster equal to the sqrt of the search area
             job.cluster.number = math.sqrt(total_perturbation_size)
         else:
             cluster_type_str = 'ByTransformation'

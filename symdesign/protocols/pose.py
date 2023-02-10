@@ -1681,7 +1681,7 @@ class PoseProtocol(PoseData):
         else:
             sequences = {design: design.sequence for design in self.get_designs_without_structure()}
 
-        # match self.job.predict.predict_method:  # Todo python 3.10
+        # match self.job.predict.method:  # Todo python 3.10
         #     case ['thread', 'proteinmpnn']:
         #         self.thread_sequences_to_backbone(sequences)
         #     case 'alphafold':
@@ -1689,16 +1689,16 @@ class PoseProtocol(PoseData):
         #         self.alphafold_predict_structure(sequences)
         #     case _:
         #         raise NotImplementedError(f"For {self.predict_structure.__name__}, the method '
-        #                                   f"{self.job.predict.predict_method} isn't implemented yet")
+        #                                   f"{self.job.predict.method} isn't implemented yet")
 
-        if self.job.predict.predict_method in ['thread', 'proteinmpnn']:
+        if self.job.predict.method in ['thread', 'proteinmpnn']:
             self.thread_sequences_to_backbone(sequences)
-        elif self.job.predict.predict_method == 'alphafold':
+        elif self.job.predict.method == 'alphafold':
             # Sequences use within alphafold requires .fasta...
             self.alphafold_predict_structure(sequences)
         else:
             raise NotImplementedError(f"For {self.predict_structure.__name__}, the method "
-                                      f"{self.job.predict.predict_method} isn't implemented yet")
+                                      f"{self.job.predict.method} isn't implemented yet")
 
     af_model_literal = Literal['monomer', 'monomer_casp14', 'monomer_ptm', 'multimer']
 
@@ -2133,7 +2133,7 @@ class PoseProtocol(PoseData):
             return total_scores
 
         # Prepare the features to feed to the model
-        if self.job.predict.run_entities_and_interfaces and self.number_of_entities > 1:
+        if self.job.predict.entities and self.number_of_entities > 1:
             number_of_entities = self.pose.number_of_entities
             # Get the features for each oligomeric Entity
             # The scores will all be the length of the gene Entity, not oligomer
@@ -3578,7 +3578,7 @@ class PoseProtocol(PoseData):
             self.prepare_rosetta_flags(out_dir=self.scripts_path)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
-        if self.job.design.design_method == putils.consensus:
+        if self.job.design.method == putils.consensus:
             self.protocol = putils.consensus
             consensus_cmd = main_cmd + rosetta.relax_flags_cmdline \
                 + [f'@{self.flags}', '-in:file:s', self.consensus_pdb,

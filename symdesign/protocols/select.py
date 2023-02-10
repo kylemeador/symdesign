@@ -289,7 +289,7 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         The matching PoseJob instances
     """
     job = job_resources_factory.get()
-    default_weight_metric = config.default_weight_parameter[job.design.design_method]
+    default_weight_metric = config.default_weight_parameter[job.design.method]
 
     if job.specification_file:  # Figure out poses from a specification file, filters, and weights
         loc_result = [(pose_job, design) for pose_job in pose_jobs
@@ -307,7 +307,7 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                 selected_poses.add(pose_job)
                 selected_indices.append((pose_job, design))
                 number_chosen += 1
-                if number_chosen == job.number:
+                if number_chosen == job.select_number:
                     break
 
         # Specify the result order according to any filtering and weighting
@@ -336,7 +336,7 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                 selected_poses.add(pose_job)
                 selected_indices.append((pose_job, design))
                 number_chosen += 1
-                if number_chosen == job.number:
+                if number_chosen == job.select_number:
                     break
 
         # Specify the result order according to any filtering and weighting
@@ -468,9 +468,9 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #     logger.info('Grabbing all selected poses')
     #     final_poses = selected_poses
 
-    if len(final_poses) > job.number:
-        final_poses = final_poses[:job.number]
-        logger.info(f'Found {len(final_poses)} poses after applying your number selection criteria')
+    if len(final_poses) > job.select_number:
+        final_poses = final_poses[:job.select_number]
+        logger.info(f'Found {len(final_poses)} poses after applying your select-number criteria')
 
     return final_poses
 
@@ -525,7 +525,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         The matching PoseJob instances mapped to design name
     """
     job = job_resources_factory.get()
-    default_weight_metric = config.default_weight_parameter[job.design.design_method]
+    default_weight_metric = config.default_weight_parameter[job.design.method]
     if job.specification_file:  # Figure out designs from a specification file, filters, and weights
         loc_result = [(pose_job, design) for pose_job in pose_jobs
                       for design in pose_job.specific_designs]
@@ -536,7 +536,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                                               default_weight=default_weight_metric)
         # Specify the result order according to any filtering, weighting, and number
         selected_poses = {}
-        for pose_job, design in selected_poses_df.index.to_list()[:job.number]:
+        for pose_job, design in selected_poses_df.index.to_list()[:job.select_number]:
             _designs = selected_poses.get(pose_job, None)
             if _designs:
                 _designs.append(design)
@@ -561,15 +561,15 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                                                               protocol=job.protocol, function=job.weight_function,
                                                               default_weight=default_weight_metric)
         selected_designs = selected_poses_df.index.to_list()
-        job.number = \
-            len(selected_designs) if len(selected_designs) < job.number else job.number
+        job.select_number = \
+            len(selected_designs) if len(selected_designs) < job.select_number else job.select_number
         # if job.allow_multiple_poses:
-        #     logger.info(f'Choosing {job.number} designs, from the top ranked designs regardless of pose')
-        #     loc_result = selected_designs[:job.number]
+        #     logger.info(f'Choosing {job.select_number} designs, from the top ranked designs regardless of pose')
+        #     loc_result = selected_designs[:job.select_number]
         #     results = {pose_job: design for pose_job, design in loc_result}
         # else:  # elif job.designs_per_pose:
         designs_per_pose = job.designs_per_pose
-        logger.info(f'Choosing up to {job.number} designs, with {designs_per_pose} designs per pose')
+        logger.info(f'Choosing up to {job.select_number} designs, with {designs_per_pose} designs per pose')
         number_chosen = count(1)
         selected_poses = {}
         for pose_job, design in selected_designs:
@@ -582,7 +582,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             else:
                 selected_poses[pose_job] = [design]
 
-            if next(number_chosen) == job.number:
+            if next(number_chosen) == job.select_number:
                 break
 
         # results = selected_poses
@@ -629,7 +629,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #                    for pose_job in pose_jobs}
     #
     #     # Todo there is no sort here so the number isn't really doing anything
-    #     results = dict(list(results.items())[:job.number])
+    #     results = dict(list(results.items())[:job.select_number])
     #     loc_result = [(pose_job, design) for pose_job, _designs in results.items() for design in _designs]
     #     total_df = load_total_dataframe(pose_jobs)
     #     save_poses_df = total_df.loc[loc_result, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
@@ -1135,7 +1135,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         The selected PoseJob instances
     """
     job = job_resources_factory.get()
-    default_weight_metric = config.default_weight_parameter[job.design.design_method]
+    default_weight_metric = config.default_weight_parameter[job.design.method]
     session = job.current_session
     # Figure out poses from a specification file, filters, and weights
     # if job.specification_file:
@@ -1153,7 +1153,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #             selected_poses.add(pose_job)
     #             selected_indices.append((pose_job, design))
     #             number_chosen += 1
-    #             if number_chosen == job.number:
+    #             if number_chosen == job.select_number:
     #                 break
     #
     #     # Specify the result order according to any filtering and weighting
@@ -1185,7 +1185,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                                               protocol=job.protocol, function=job.weight_function,
                                               default_weight=default_weight_metric)
     # Remove excess pose instances
-    selected_pose_ids = utils.remove_duplicates(selected_poses_df['pose_id'].tolist())[:job.number]
+    selected_pose_ids = utils.remove_duplicates(selected_poses_df['pose_id'].tolist())[:job.select_number]
     selected_poses = [session.get(PoseJob, id_) for id_ in selected_pose_ids]
 
     # # Select by clustering analysis
@@ -1220,11 +1220,11 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         logger.info('Grabbing all selected poses')
         final_poses = selected_poses
 
-    if len(final_poses) > job.number:
-        final_poses = final_poses[:job.number]
-        logger.info(f'Found {len(final_poses)} Poses after applying your number selection criteria')
+    if len(final_poses) > job.select_number:
+        final_poses = final_poses[:job.select_number]
+        logger.info(f'Found {len(final_poses)} Poses after applying your select-number criteria')
 
-    final_pose_id_to_identifier = {pose_job.id: pose_job.pose_identifier for pose_job in final_poses}
+        final_pose_id_to_identifier = {pose_job.id: pose_job.pose_identifier for pose_job in final_poses}
 
     # Format selected PoseJob with metrics for output
     # save_poses_df = format_save_df(session, selected_pose_ids, pose_designs_mean_df)
@@ -1262,7 +1262,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     """
     # global exceptions  # nonlocal exceptions
     job = job_resources_factory.get()
-    default_weight_metric = config.default_weight_parameter[job.design.design_method]
+    default_weight_metric = config.default_weight_parameter[job.design.method]
     session = job.current_session
 
     # Figure out poses from a specification file, filters, and weights
@@ -1275,7 +1275,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #                                               protocol=job.protocol, function=job.weight_function)
     #     # Specify the result order according to any filtering, weighting, and number
     #     results = {}
-    #     for pose_id, design in selected_poses_df.index.to_list()[:job.number]:
+    #     for pose_id, design in selected_poses_df.index.to_list()[:job.select_number]:
     #         if pose_id in results:
     #             results[pose_id].append(design)
     #         else:
@@ -1299,8 +1299,8 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #     selected_poses_df = metrics.prioritize_design_indices_sql(df, filter=job.filter, weight=job.weight,
     #                                                               protocol=job.protocol, function=job.weight_function)
     #     selected_designs = selected_poses_df.index.to_list()
-    #     job.number = \
-    #         len(selected_designs) if len(selected_designs) < job.number else job.number
+    #     job.select_number = \
+    #         len(selected_designs) if len(selected_designs) < job.select_number else job.select_number
     #
     #     # Include only the found index names to the saved dataframe
     #     save_poses_df = selected_poses_df.loc[loc_result, :]  # .droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
@@ -1333,14 +1333,14 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
 
     # Specify the result order according to any filtering, weighting, and number
     number_selected = len(selected_designs_df)
-    job.number = number_selected if number_selected < job.number else job.number
+    job.select_number = number_selected if number_selected < job.select_number else job.select_number
     designs_per_pose = job.designs_per_pose
-    logger.info(f'Choosing up to {job.number} Designs, with {designs_per_pose} Design(s) per Pose')
+    logger.info(f'Choosing up to {job.select_number} Designs, with {designs_per_pose} Design(s) per Pose')
     selected_designs_iter = iter(selected_designs)
     number_chosen = count(0)
     selected_pose_id_to_design_ids = {}
     try:
-        while next(number_chosen) <= job.number:
+        while next(number_chosen) <= job.select_number:
             pose_id, design_id = next(selected_designs_iter)
             _designs = selected_pose_id_to_design_ids.get(pose_id, None)
             if _designs:

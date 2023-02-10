@@ -21,7 +21,7 @@ from symdesign.utils.path import biological_interfaces, default_logging_level, e
 from symdesign.utils.path import submodule_guide, submodule_help, force, sym_entry, program_output, projects, \
     interface_metrics, nano_entity_flag1, nano_entity_flag2, data, multi_processing, residue_selector, options, \
     cluster_poses, orient, default_clustered_pose_file, interface_design, evolution_constraint, hbnet, term_constraint,\
-    number_of_designs, refine, structure_background, scout, design_profile, evolutionary_profile, \
+    design_number, refine, structure_background, scout, design_profile, evolutionary_profile, \
     fragment_profile, select_sequences, program_name, nanohedra, predict_structure, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, proteinmpnn, \
@@ -43,7 +43,7 @@ score = 'score'
 module = 'module'
 method = 'method'
 num_predictions_per_model = 'num_predictions_per_model'
-run_entities_and_interfaces = 'run_entities_and_interfaces'
+predict_entities = 'predict_entities'
 interface = 'interface'
 neighbors = 'neighbors'
 # dock_only = 'dock_only'
@@ -61,6 +61,8 @@ perturb_dof_tx = 'perturb_dof_tx'
 perturb_dof_steps_rot = 'perturb_dof_steps_rot'
 perturb_dof_steps_tx = 'perturb_dof_steps_tx'
 cluster_map = 'cluster_map'
+cluster_mode = 'cluster_mode'
+cluster_number = 'cluster_number'
 poses = 'poses'
 specific_protocol = 'specific_protocol'
 directory = 'directory'
@@ -70,6 +72,7 @@ interface_to_alanine = 'interface_to_alanine'
 _metrics = 'metrics'
 increment_chains = 'increment_chains'
 number = 'number'
+select_number = 'select_number'
 nucleotide = 'nucleotide'
 as_objects = 'as_objects'
 # allow_multiple_poses = 'allow_multiple_poses'
@@ -81,10 +84,12 @@ quick = 'quick'
 reset_db = 'reset_db'
 pose_format = 'pose_format'
 use_gpu_relax = 'use_gpu_relax'
+design_method = 'design_method'
+predict_method = 'predict_method'
 # Set up JobResources namespaces for different categories of flags
 design_namespace = {
-    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, 'design_method', method, evolution_constraint,
-    hbnet, number_of_designs, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
+    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, design_method, evolution_constraint,
+    hbnet, design_number, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
     sequences, structures, interface, neighbors
 }
 dock_namespace = {
@@ -93,10 +98,21 @@ dock_namespace = {
     rotation_step1, rotation_step2, score, quick
 }
 predict_namespace = {
-    'predict_method', method, num_predictions_per_model, run_entities_and_interfaces, use_gpu_relax
+    predict_method, num_predictions_per_model, predict_entities, use_gpu_relax
 }
 cluster_namespace = {
-    as_objects, 'map', 'mode', number
+    as_objects, cluster_map, cluster_mode, cluster_number
+}
+namespaces = dict(design=design_namespace,
+                  dock=dock_namespace,
+                  predict=predict_namespace,
+                  cluster=cluster_namespace
+                  )
+# Modify specific flags from their prefix to their suffix
+modify_options = {
+    'design': [design_method, design_number],
+    'predict': [predict_entities, predict_method],  # entities{predict_entities, 'entities'}],
+    'cluster': [cluster_map, cluster_mode, cluster_number],
 }
 
 
@@ -138,7 +154,7 @@ query_codes1 = format_for_cmdline(query_codes1)
 query_codes2 = format_for_cmdline(query_codes2)
 predict_structure = format_for_cmdline(predict_structure)
 num_predictions_per_model = format_for_cmdline(num_predictions_per_model)
-run_entities_and_interfaces = format_for_cmdline(run_entities_and_interfaces)
+predict_entities = format_for_cmdline(predict_entities)
 cluster_poses = format_for_cmdline(cluster_poses)
 generate_fragments = format_for_cmdline(generate_fragments)
 fragment_database = format_for_cmdline(fragment_database)
@@ -154,12 +170,15 @@ expand_asu = format_for_cmdline(expand_asu)
 rename_chains = format_for_cmdline(rename_chains)
 evolution_constraint = format_for_cmdline(evolution_constraint)
 term_constraint = format_for_cmdline(term_constraint)
-number_of_designs = format_for_cmdline(number_of_designs)
+design_number = format_for_cmdline(design_number)
+select_number = format_for_cmdline(select_number)
 structure_background = format_for_cmdline(structure_background)
 # design_profile = format_for_cmdline(design_profile)
 # evolutionary_profile = format_for_cmdline(evolutionary_profile)
 # fragment_profile = format_for_cmdline(fragment_profile)
 cluster_map = format_for_cmdline(cluster_map)
+cluster_mode = format_for_cmdline(cluster_mode)
+cluster_number = format_for_cmdline(cluster_number)
 specification_file = format_for_cmdline(putils.specification_file)
 # poses = format_for_cmdline(poses)
 specific_protocol = format_for_cmdline(specific_protocol)
@@ -746,16 +765,15 @@ predict_structure_help = 'Predict the 3D structure from specified sequence(s)'
 parser_predict_structure = \
     {predict_structure: dict(description=predict_structure_help, help=predict_structure_help)}
 predict_structure_arguments = {
-    ('-m', f'--predict-{method}'):  # f'--{method}',
+    ('-m', f'--{predict_method}'):
         dict(choices={'alphafold', 'thread'}, default='alphafold',  # 'thread',
              help=f'The method utilized to {predict_structure}\nChoices=%(choices)s\nDefault=%(default)s'),
     (f'--{num_predictions_per_model}', '--number-predictions-per-model'):  # '-n',
         dict(type=int,  # default=5,
              help=f'How many iterations of prediction should be used\nfor each individual Alphafold model.\n'
                   'Default=5(multimer mode),1(monomer mode)'),
-    ('-E', f'--{run_entities_and_interfaces}'):
-        dict(action='store_true', help='Whether the Pose should be predicted in separate runs\n'
-                                       'One run per entity and one run for the entire Pose'),
+    ('-E', f'--{predict_entities}'):
+        dict(action='store_true', help='Whether individual entities should be predicted\ninstead of the entire Pose'),
     (f'--{use_gpu_relax}',):
         dict(action='store_true', help='Whether predictions should be relaxed using a GPU (if one is available)'),
 }
@@ -860,21 +878,21 @@ nanohedra_mutual2_arguments = {
 }
 # ---------------------------------------------------
 cluster_map_args = ('-c', f'--{cluster_map}')
-cluster_map_kwargs = dict(type=os.path.abspath, dest='map',
+cluster_map_kwargs = dict(type=os.path.abspath,
                           metavar=ex_path(default_clustered_pose_file.format('TIMESTAMP', 'LOCATION')),
                           help='The location of a serialized file containing spatially\nor interfacial '
                                'clustered poses')
-number_args = ('-n', f'--{number}')  # '--select-number')
 cluster_poses_help = 'Cluster all poses by their spatial or interfacial similarity. This is\nuseful to identify ' \
                      'conformationally flexible docked configurations'
 parser_cluster = {cluster_poses: dict(description=cluster_poses_help, help=cluster_poses_help)}
 cluster_poses_arguments = {
     (f'--{as_objects}',): dict(action='store_true', help='Whether to store the resulting pose cluster file as '
                                                          'PoseJob objects\nDefault stores as pose IDs'),
-    ('--mode',): dict(type=str.lower, choices={'ialign', 'rmsd', 'transform'}, default='transform', metavar='',
-                      help='Which type of clustering should be performed?\nChoices=%(choices)s\nDefault=%(default)s'),
-    number_args + (f'--c-{number}',):
-        dict(type=int, default=sys.maxsize, metavar='int', help='The number of cluster members to return'),
+    (f'--{cluster_mode}',):
+        dict(type=str.lower, choices={'ialign', 'rmsd', 'transform'}, default='transform', metavar='',
+             help='Which type of clustering should be performed?\nChoices=%(choices)s\nDefault=%(default)s'),
+    (f'--{cluster_number}',):
+        dict(type=int, default=1, metavar='int', help='The number of cluster members to return'),
     output_file_args: dict(type=str,
                            help='Name of the output .pkl file containing pose clusters. Will be saved to the'
                                 f' {data.title()} folder of the output.'
@@ -895,7 +913,7 @@ structures_kwargs = dict(action='store_true',
 neighbors_args = (f'--{neighbors}',)
 neighbors_kwargs = \
     dict(action='store_true', help='Whether the neighboring residues should be considered during sequence design')
-design_method_args = ('-m', f'--design-{method}')  # f'--{method}',
+design_method_args = ('-m', f'--{design_method}')
 design_method_kwargs = dict(type=str.lower, default=proteinmpnn, choices=design_programs, metavar='',
                             help='Which design method should be used?\nChoices=%(choices)s\nDefault=%(default)s')
 hbnet_args = ('-hb', f'--{hbnet}')
@@ -907,7 +925,7 @@ structure_background_args = ('-sb', f'--{structure_background}')
 structure_background_kwargs = dict(action=argparse.BooleanOptionalAction, default=False,
                                    help='Whether to skip all constraints and measure the structure using only the '
                                         'selected energy function')
-design_number_args = ('-n', f'--{number_of_designs}')
+design_number_args = ('-n', f'--{design_number}')
 design_number_kwargs = dict(type=int, default=nstruct, metavar='INT',
                             help='How many unique sequences should be generated for each input?\nDefault=%(default)s')
 scout_args = ('-sc', f'--{scout}')
@@ -1033,6 +1051,7 @@ save_total_args = ('--save-total',)
 save_total_kwargs = dict(action='store_false', help='If --total is used, should the total dataframe be saved?')
 pose_select_number_kwargs = \
     dict(type=int, default=sys.maxsize, metavar='int', help='Number to return\nDefault=No Limit')
+select_number_args = (f'--{select_number}',)
 select_number_kwargs = dict(type=int, default=sys.maxsize, metavar='int',
                             help='Number to return\nIf --total, returns the '
                                  'specified number of sequences (Where Default=No Limit).\nOtherwise the '
@@ -1057,7 +1076,7 @@ select_arguments = {
     cluster_map_args: cluster_map_kwargs,
     filter_args: filter_kwargs,
     filter_file_args: filter_file_kwargs,
-    number_args + (f'--s-{number}',): select_number_kwargs,
+    select_number_args: select_number_kwargs,
     protocol_args: protocol_kwargs,
     save_total_args: save_total_kwargs,
     # total_args: total_kwargs,
@@ -1073,7 +1092,7 @@ select_poses_help = 'Select poses based on specific metrics.\n' \
 parser_select_poses = {select_poses: dict(description=select_poses_help, help=select_poses_help)}
 select_poses_arguments = {
     **select_arguments,
-    number_args + (f'--s-{number}',): pose_select_number_kwargs,
+    select_number_args: pose_select_number_kwargs,
     # total_args: dict(action='store_true',
     #                  help='Should poses be selected based on their ranking in the total\npose pool? This will select '
     #                       'the top poses based on the\naverage of all designs in that pose for the metrics specified\n'
@@ -1148,6 +1167,7 @@ multicistronic_help = 'Generate nucleotide sequences for selected designs by cod
                       'sequences, then concatenating nucleotide sequences. REQUIRES an input .fasta file\n' \
                       'specified with the -f/--file argument'
 parser_multicistronic = {multicistronic: dict(description=multicistronic_help, help=multicistronic_help)}
+number_args = ('-n', f'--{number}')
 multicistronic_arguments = {
     **multicistronic_args,
     number_args: dict(type=int, help='The number of protein sequences to concatenate into a '
@@ -1552,38 +1572,52 @@ for parser_name, parser_kwargs in input_parsers.items():
 #             entire_module_suparsers[parser_name].add_argument(*args, **kwargs)
 
 # Separate the provided arguments for modules or overall program arguments to into flags namespaces
-design_defaults = {}
+design_defaults = dict(namespace='design')
 """Contains all the arguments and their default parameters used in design"""
-dock_defaults = {}
+dock_defaults = dict(namespace='dock')
 """Contains all the arguments and their default parameters used in docking"""
-predict_defaults = {}
+predict_defaults = dict(namespace='predict')
 """Contains all the arguments and their default parameters used in structure prediction"""
-cluster_defaults = {}
+cluster_defaults = dict(namespace='cluster')
 """Contains all the arguments and their default parameters used in clustering Poses"""
-for group in parser._action_groups:
-    for arg in group._group_actions:
-        if isinstance(arg, argparse._SubParsersAction):  # We have a sup parser, recurse
-            for name, sub_parser in arg.choices.items():
-                for sub_group in sub_parser._action_groups:
-                    for arg in sub_group._group_actions:
-                        if arg.dest in design_namespace:
-                            design_defaults[arg.dest] = arg.default
-                        elif arg.dest in dock_namespace:
-                            dock_defaults[arg.dest] = arg.default
-                        elif arg.dest in predict_namespace:
-                            predict_defaults[arg.dest] = arg.default
-                        elif arg.dest in cluster_namespace:
-                            cluster_defaults[arg.dest] = arg.default
 
-        elif arg.dest in design_namespace:
-            design_defaults[arg.dest] = arg.default
-        elif arg.dest in dock_namespace:
-            dock_defaults[arg.dest] = arg.default
-        elif arg.dest in predict_namespace:
-            predict_defaults[arg.dest] = arg.default
-        elif arg.dest in cluster_namespace:
-            cluster_defaults[arg.dest] = arg.default
 
+def parse_flags_to_namespaces(parser_: argparse.ArgumentParser):
+    for group in parser_._action_groups:
+        for arg in group._group_actions:
+            if isinstance(arg, argparse._SubParsersAction):
+                # We have a sup parser, recurse
+                for name, sub_parser in arg.choices.items():
+                    parse_flags_to_namespaces(sub_parser)
+
+            elif arg.dest in design_namespace:
+                design_defaults[arg.dest] = arg.default
+            elif arg.dest in dock_namespace:
+                dock_defaults[arg.dest] = arg.default
+            elif arg.dest in predict_namespace:
+                predict_defaults[arg.dest] = arg.default
+            elif arg.dest in cluster_namespace:
+                cluster_defaults[arg.dest] = arg.default
+
+
+parse_flags_to_namespaces(parser)
 # Add orphaned 'interface', i.e. interface-design module alias for design with interface=True to design_defaults
 design_defaults[interface] = False
-# predict_defaults[method] = design_defaults[method]  # Also in design...
+
+defaults = {
+    'design': design_defaults,
+    'dock': dock_defaults,
+    'predict': predict_defaults,
+    'cluster': cluster_defaults,
+}
+
+
+def format_defaults_for_namespace(defaults_: dict[str, dict[str, Any]]):
+    for default_group, modify_flags in modify_options.items():
+        default_group_flags = defaults_[default_group]  # defaults[default_group]
+        for flag in modify_flags:
+            # Replace the flag destination with the plain flag, no namespace prefix
+            default_group_flags[flag.replace(f'{default_group}_', '')] = default_group_flags.pop(flag)
+
+
+format_defaults_for_namespace(defaults)

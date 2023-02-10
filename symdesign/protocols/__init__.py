@@ -470,9 +470,9 @@ def interface_design(job: pose.PoseJob):
 
     putils.make_path(job.data_path)  # Todo consolidate this check with pickle_info()
     # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
-    if job.job.design.design_method == putils.rosetta_str:
+    if job.job.design.method == putils.rosetta_str:
         # Update the Pose with the number of designs
-        raise NotImplementedError('Need to generate number_of_designs matching job.proteinmpnn_design()...')
+        raise NotImplementedError('Need to generate job.number_of_designs matching job.proteinmpnn_design()...')
         # Todo update upon completion given results of designs list file...
         job.update_design_data(design_parent=job.pose_source, number=job.job.design.number)
         favor_fragments = evo_fill = True
@@ -513,7 +513,7 @@ def interface_design(job: pose.PoseJob):
     # Acquire the pose_metrics if None have been made yet
     job.calculate_pose_metrics()
 
-    # match job.job.design.design_method:  # Todo python 3.10
+    # match job.job.design.method:  # Todo python 3.10
     #     case [putils.rosetta_str | putils.consensus]:
     #         # Write generated files
     #         job.pose.pssm_file = \
@@ -524,18 +524,18 @@ def interface_design(job: pose.PoseJob):
     #     case putils.proteinmpnn:
     #         job.proteinmpnn_design(interface=True, neighbors=job.job.design.neighbors)  # Sets job.protocol
     #     case _:
-    #         raise ValueError(f"The method '{job.job.design.design_method}' isn't available")
-    if job.job.design.design_method in [putils.rosetta_str, putils.consensus]:
+    #         raise ValueError(f"The method '{job.job.design.method}' isn't available")
+    if job.job.design.method in [putils.rosetta_str, putils.consensus]:
         # Write generated files
         job.pose.pssm_file = \
             write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
         write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
         job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
         job.rosetta_interface_design()  # Sets job.protocol
-    elif job.job.design.design_method == putils.proteinmpnn:
+    elif job.job.design.method == putils.proteinmpnn:
         job.proteinmpnn_design(interface=True, neighbors=job.job.design.neighbors)  # Sets job.protocol
     else:
-        raise ValueError(f"The method '{job.job.design.design_method}' isn't available")
+        raise ValueError(f"The method '{job.job.design.method}' isn't available")
 
 
 @protocol_decorator()
@@ -551,10 +551,10 @@ def design(job: pose.PoseJob):
 
     putils.make_path(job.data_path)  # Todo consolidate this check with pickle_info()
     # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
-    if job.job.design.design_method == putils.rosetta_str:
+    if job.job.design.method == putils.rosetta_str:
         # Update upon completion given results of designs list file...
         # NOT # Update the Pose with the number of designs
-        # raise NotImplementedError('Need to generate number_of_designs matching job.proteinmpnn_design()...')
+        # raise NotImplementedError('Need to generate design_number matching job.proteinmpnn_design()...')
         # job.update_design_data(design_parent=job.pose_source, number=job.job.design.number)
         if job.job.design.interface:
             pass
@@ -600,7 +600,7 @@ def design(job: pose.PoseJob):
     # Acquire the pose_metrics if None have been made yet
     job.calculate_pose_metrics()
 
-    # match job.job.design.design_method:  # Todo python 3.10
+    # match job.job.design.method:  # Todo python 3.10
     #     case [putils.rosetta_str | putils.consensus]:
     #         # Write generated files
     #         job.pose.pssm_file = \
@@ -615,8 +615,8 @@ def design(job: pose.PoseJob):
     #     case putils.proteinmpnn:
     #         job.proteinmpnn_design()  # Sets job.protocol
     #     case _:
-    #         raise ValueError(f"The method '{job.job.design.design_method}' isn't available")
-    if job.job.design.design_method in [putils.rosetta_str, putils.consensus]:
+    #         raise ValueError(f"The method '{job.job.design.method}' isn't available")
+    if job.job.design.method in [putils.rosetta_str, putils.consensus]:
         # Write generated files
         job.pose.pssm_file = \
             write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
@@ -627,11 +627,11 @@ def design(job: pose.PoseJob):
         else:
             raise NotImplementedError(f'No function for all residue Rosetta design yet')
             job.rosetta_design()  # Sets job.protocol
-    elif job.job.design.design_method == putils.proteinmpnn:
+    elif job.job.design.method == putils.proteinmpnn:
         # Sets job.protocol
         job.proteinmpnn_design()  # interface=job.job.design.interface, neighbors=job.job.design.neighbors
     else:
-        raise ValueError(f"The method '{job.job.design.design_method}' isn't available")
+        raise ValueError(f"The method '{job.job.design.method}' isn't available")
 
 
 @protocol_decorator()

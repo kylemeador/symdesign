@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import argparse
-import logging
+import dataclasses
 import inspect
+import logging
 import os
 from copy import deepcopy
-from dataclasses import make_dataclass, field
 from subprocess import list2cmdline
 from typing import Annotated, AnyStr, Any, Iterable
 
@@ -116,9 +116,34 @@ def process_design_selector_flags(
                               pdb_residues=residues_pdb_req))
 
 
-def from_flags(cls, **kwargs):
-    return cls(**{key: value for key, value in kwargs.items()
-                  if key in inspect.signature(cls).parameters})
+def format_args_for_namespace(args_: dict[str, Any], namespace: str, flags: Iterable[str]) -> dict[str, Any]:
+    namespace_args = {}
+    for flag in flags:
+        try:
+            arg_ = args_[flag]  # .pop(flag)  # , None)  # get(flag)
+        except KeyError:  # No flag is here
+            continue
+        else:# logger.debug('flag', flag, 'arg', arg_)
+        # if arg_ is not None:
+            # Replace the arg destination with the plain flag, no namespace prefix
+            namespace_args[flag.replace(f'{namespace}_', '')] = arg_
+
+    return namespace_args
+
+
+@dataclasses.dataclass
+class FlagsBase:
+    namespace: str
+
+    @classmethod
+    def from_flags(cls, **kwargs):
+        format_args_for_namespace(kwargs, cls.namespace, flags.namespaces[cls.namespace])
+        cls_parameters = inspect.signature(cls).parameters
+        return cls(**{key: value for key, value in kwargs.items()
+                      if key in cls_parameters})
+# def from_flags(cls, **kwargs):
+#     return cls(**{key: value for key, value in kwargs.items()
+#                   if key in inspect.signature(cls).parameters})
 
 
 # These dataclasses help simplify the use of flags into namespaces
@@ -127,31 +152,39 @@ def from_flags(cls, **kwargs):
 # DesignFlags = types.SimpleNamespace(**design_args)
 # Due to an error evaluating the singleton eval(type(None).__name__), need to pass a globals argument
 nonetype_map = {'NoneType': None}
-Design = make_dataclass('Design',
-                        [(flag, eval(type(default).__name__, nonetype_map), field(default=default))
-                         for flag, default in flags.design_defaults.items()],
-                        namespace={'from_flags': classmethod(from_flags)})
-#                         frozen=True)
+Design = dataclasses.make_dataclass(
+    'Design',
+    [(flag, eval(type(default).__name__, nonetype_map), dataclasses.field(default=default))
+     for flag, default in flags.design_defaults.items()],
+    bases=(FlagsBase,))
+#     namespace={'from_flags': classmethod(from_flags)})
+#     frozen=True)
 #  self.design = DesignFlags(*[kwargs.get(argument_name) for argument_name in design_args.keys()])
 #  self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
 #  self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
-Dock = make_dataclass('Dock',
-                      [(flag, eval(type(default).__name__, nonetype_map), field(default=default))
-                       for flag, default in flags.dock_defaults.items()],
-                      namespace={'from_flags': classmethod(from_flags)})
-#                       frozen=True)
+Dock = dataclasses.make_dataclass(
+    'Dock',
+    [(flag, eval(type(default).__name__, nonetype_map), dataclasses.field(default=default))
+     for flag, default in flags.dock_defaults.items()],
+    bases=(FlagsBase,))
+#     namespace={'from_flags': classmethod(from_flags)})
+#     frozen=True)
 
-Predict = make_dataclass('Predict',
-                         [(flag, eval(type(default).__name__, nonetype_map), field(default=default))
-                          for flag, default in flags.predict_defaults.items()],
-                         namespace={'from_flags': classmethod(from_flags)})
-#                          frozen=True)
+Predict = dataclasses.make_dataclass(
+    'Predict',
+    [(flag, eval(type(default).__name__, nonetype_map), dataclasses.field(default=default))
+     for flag, default in flags.predict_defaults.items()],
+    bases=(FlagsBase,))
+#     namespace={'from_flags': classmethod(from_flags)})
+#     frozen=True)
 
-Cluster = make_dataclass('Cluster',
-                         [(flag, eval(type(default).__name__, nonetype_map), field(default=default))
-                          for flag, default in flags.cluster_defaults.items()],
-                         namespace={'from_flags': classmethod(from_flags)})
-#                          frozen=True)
+Cluster = dataclasses.make_dataclass(
+    'Cluster',
+    [(flag, eval(type(default).__name__, nonetype_map), dataclasses.field(default=default))
+     for flag, default in flags.cluster_defaults.items()],
+    bases=(FlagsBase,))
+#     namespace={'from_flags': classmethod(from_flags)})
+#     frozen=True)
 
 
 class DBInfo:
@@ -378,8 +411,6 @@ class JobResources:
 
         # Design flags
         self.design = Design.from_flags(**kwargs)
-        # Alias number_of_designs
-        self.design.number = self.design.number_of_designs
         # self.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
         if self.design.ignore_clashes:
             self.design.ignore_pose_clashes = self.design.ignore_symmetric_clashes = True
@@ -387,7 +418,7 @@ class JobResources:
         if self.module == flags.interface_design:  # or self.design.neighbors:
             self.module = flags.design
             self.design.interface = True
-        if self.design.design_method == putils.consensus:
+        if self.design.method == putils.consensus:
             self.design.term_constraint = True
         if self.design.term_constraint:
             self.generate_fragments: bool = True
@@ -411,7 +442,6 @@ class JobResources:
         # self.evolution_constraint: bool = kwargs.get(evolution_constraint, False)
         # self.hbnet: bool = kwargs.get(hbnet, False)
         # self.term_constraint: bool = kwargs.get(term_constraint, False)
-        # self.number_of_designs: int = kwargs.get(number_of_designs, flags.nstruct)
         # self.pre_refine: bool = kwargs.get('pre_refine', True)
         # self.pre_loop_model: bool = kwargs.get('pre_loop_model', True)
         self.interface_to_alanine: bool = kwargs.get('interface_to_alanine')
@@ -452,7 +482,7 @@ class JobResources:
         else:
             self.weight = None
         self.weight_function = kwargs.get('weight_function')
-        self.number = kwargs.get('number')
+        self.select_number = kwargs.get('select_number')
         self.designs_per_pose = kwargs.get('designs_per_pose')
         # self.allow_multiple_poses = kwargs.get('allow_multiple_poses')
         self.tag_entities = kwargs.get(putils.tag_entities)
@@ -561,7 +591,7 @@ class JobResources:
         # self.cluster_map = kwargs.get('cluster_map')
         # self.as_objects: bool = kwargs.get('as_objects')
         # self.mode: bool = kwargs.get('mode')
-        if flags.cluster_poses in self.modules or 'map' in kwargs:
+        if flags.cluster_poses in self.modules or 'cluster_map' in kwargs:
             self.cluster = Cluster.from_flags(**kwargs)
             # self.cluster.map: AnyStr
             # """The path to a file containing the currently loaded mapping from cluster representatives to members"""
