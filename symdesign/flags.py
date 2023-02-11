@@ -44,6 +44,7 @@ module = 'module'
 method = 'method'
 num_predictions_per_model = 'num_predictions_per_model'
 predict_entities = 'predict_entities'
+models_to_relax = 'models_to_relax'
 interface = 'interface'
 neighbors = 'neighbors'
 # dock_only = 'dock_only'
@@ -157,6 +158,7 @@ predict_structure = format_for_cmdline(predict_structure)
 num_predictions_per_model = format_for_cmdline(num_predictions_per_model)
 predict_assembly = format_for_cmdline(predict_assembly)
 predict_entities = format_for_cmdline(predict_entities)
+models_to_relax = format_for_cmdline(models_to_relax)
 cluster_poses = format_for_cmdline(cluster_poses)
 generate_fragments = format_for_cmdline(generate_fragments)
 fragment_database = format_for_cmdline(fragment_database)
@@ -778,6 +780,8 @@ predict_structure_arguments = {
         dict(action='store_true', help='Whether the assembly state should be predicted\ninstead of the ASU'),
     ('-E', f'--{predict_entities}'):
         dict(action='store_true', help='Whether individual entities should be predicted\ninstead of the entire Pose'),
+    (f'--{models_to_relax}',):
+        dict(type=str.lower, choices=config.relax_options, help='Specify which predictions should be relaxed'),
     (f'--{use_gpu_relax}',):
         dict(action='store_true', help='Whether predictions should be relaxed using a GPU (if one is available)'),
 }

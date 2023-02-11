@@ -1721,30 +1721,17 @@ class PoseProtocol(PoseData):
             raise NotImplementedError(f"For {self.predict_structure.__name__}, the method "
                                       f"{self.job.predict.method} isn't implemented yet")
 
-    af_model_literal = Literal['monomer', 'monomer_casp14', 'monomer_ptm', 'multimer']
-
-    def alphafold_predict_structure(self, sequences: dict[str, str], random_seed: int = None,
-                                    models_to_relax: str = 'best', model_type: af_model_literal = 'monomer', **kwargs):
+    def alphafold_predict_structure(self, sequences: dict[str, str],
+                                    model_type: resources.ml.af_model_literal = 'monomer', **kwargs):
         """
         According to Deepmind Alphafold.ipynb (2/3/23), the usage of multimer with > 3000 residues isn't validated.
         while a memory requirement of 4000 is the theoretical limit. I think it depends on the available memory
         Args:
             sequences:
-            random_seed:
-            models_to_relax:
             model_type:
-            **kwargs:
-
         Returns:
 
         """
-        # Hard code in the use of only design based single sequence models
-        # if self.job.design:
-        #     no_msa = True
-        # else:
-        #     no_msa = False
-        no_msa = True
-
         self.load_pose()
         number_of_residues = self.pose.number_of_residues
         protocol_logger.info(f'Starting prediction with {len(sequences)} sequences')
@@ -1780,14 +1767,6 @@ class PoseProtocol(PoseData):
                 num_predictions_per_model = 1
         else:
             num_predictions_per_model = self.job.predict.num_predictions_per_model
-
-        if models_to_relax is not None:
-            relaxed = True
-            if models_to_relax not in ['all', 'best']:
-                raise ValueError(f"Can't use the models_to_relax value {models_to_relax}. Must be either "
-                                 f"'all', 'best' or NoneType")
-        else:
-            relaxed = False
 
         # Set up the various model_runners to supervise the prediction task for each sequence
         model_runners = {}
@@ -2152,6 +2131,21 @@ class PoseProtocol(PoseData):
                     container.append(scores[score_type])
 
             return total_scores
+
+        if self.job.predict.models_to_relax is not None:
+            relaxed = True
+            # if models_to_relax not in resources.ml.relax_options:
+            #     raise ValueError(f"Can't use the models_to_relax value {models_to_relax}. Must be either "
+            #                      f"'all', 'best' or NoneType")
+        else:
+            relaxed = False
+
+        # Hard code in the use of only design based single sequence models
+        # if self.job.design:
+        #     no_msa = True
+        # else:
+        #     no_msa = False
+        no_msa = True
 
         # Get features for the Pose and predict
         if self.job.predict.assembly:
