@@ -310,7 +310,7 @@ def main():
         info_messages = []
         if job.design.evolution_constraint:
             evolution_instructions = \
-                job.setup_evolution_constraint(uniprot_entities=uniprot_entities)
+                job.process_evolutionary_info(uniprot_entities=uniprot_entities)
             #                                    entities=all_entities)
             # load_resources = True if evolution_instructions else False
             info_messages.extend(evolution_instructions)

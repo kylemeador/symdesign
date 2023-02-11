@@ -65,9 +65,9 @@ missing_pose_transformation = "The design couldn't be transformed as it is missi
                               '"pose_transformation" attribute. Was this generated properly?'
 
 
-# def generate_evolutionary_profile(job: resources.job.JobResources, pose: Pose, warn_metrics: bool = False) \
-def generate_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Model | Entity,
-                                  warn_metrics: bool = False) -> tuple[bool, bool]:
+# def load_evolutionary_profile(job: resources.job.JobResources, pose: Pose, warn_metrics: bool = False) \
+def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Model | Entity,
+                              warn_metrics: bool = False) -> tuple[bool, bool]:
     """Add evolutionary profile information to the provided Entity
 
     Args:
@@ -1394,7 +1394,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if self.job.design.evolution_constraint:
             if self.measure_evolution is None and self.measure_alignment is None:
                 self.measure_evolution, self.measure_alignment = \
-                    generate_evolutionary_profile(self.job.api_db, self.pose, **kwargs)
+                    load_evolutionary_profile(self.job.api_db, self.pose, **kwargs)
             else:  # We already set these
                 return
 

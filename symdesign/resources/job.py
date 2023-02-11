@@ -873,8 +873,8 @@ class JobResources:
         #     putils.make_path(self.sequences)
         #     putils.make_path(self.profiles)
 
-    def setup_evolution_constraint(self, uniprot_entities: Iterable[wrapapi.UniProtEntity] = None,
-                                   entities: Iterable[structure.sequence.SequenceProfile] = None) -> list[str]:
+    def process_evolutionary_info(self, uniprot_entities: Iterable[wrapapi.UniProtEntity] = None,
+                                  entities: Iterable[structure.sequence.SequenceProfile] = None) -> list[str]:
         """Format the job with evolutionary constraint options
 
         Args:

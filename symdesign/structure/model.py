@@ -6818,9 +6818,9 @@ class Pose(SymmetricModel, Metrics):
     #     """Using each Entity in the Pose, combine individual Entity SequenceProfiles into a Pose SequenceProfile
     #
     #     Sets:
-    #         self.evolutionary_profile (profile_dictionary)
-    #         self.fragment_profile (profile_dictionary)
-    #         self.profile (profile_dictionary)
+    #         self.evolutionary_profile (ProfileDict)
+    #         self.fragment_profile (ProfileDict)
+    #         self.profile (ProfileDict)
     #     """
     #     # Ensure each Entity has the evolutionary_profile fit to the structure sequence before concatenation
     #     for entity in self.entities:

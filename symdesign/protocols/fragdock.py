@@ -20,7 +20,7 @@ from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
 from . import cluster
-from .pose import generate_evolutionary_profile, PoseJob
+from .pose import load_evolutionary_profile, PoseJob
 from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, job as symjob, sql
 from symdesign.sequence import protein_letters_alph1
@@ -2225,7 +2225,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         # Load profiles of interest into the analysis
         # profile_background = {}
         if job.design.evolution_constraint:
-            measure_evolution, measure_alignment = generate_evolutionary_profile(job.api_db, pose)
+            measure_evolution, measure_alignment = load_evolutionary_profile(job.api_db, pose)
 
             # if pose.evolutionary_profile:
             # profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
