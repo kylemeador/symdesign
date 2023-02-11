@@ -4205,8 +4205,8 @@ class PoseProtocol(PoseData):
     def analyze_predict_structure_metrics(self, scores: dict[str, [dict[str, np.ndarray]]],
                                           # design_ids: Iterable[str],  # Iterable[Pose] | Iterable[AnyStr],
                                           # designs: Iterable[Pose] | Iterable[AnyStr],
-                                          model_type: str = None, interface: bool = False,
-                                          ) -> tuple[pd.DataFrame, pd.DataFrame] | tuple[None, None]:
+                                          model_type: str = None, interface: bool = False) \
+            -> tuple[pd.DataFrame, pd.DataFrame] | tuple[None, None]:
         """From a set of metrics output by Alphafold"""
         if not scores:
             return None, None

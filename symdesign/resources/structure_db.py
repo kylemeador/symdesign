@@ -199,16 +199,16 @@ class StructureDatabase(Database):
         self.sources = [self.oriented_asu, self.refined, self.stride]  # self.full_models
 
     def download_structures(self, structure_identifiers: Iterable[str], out_dir: str = os.getcwd()) -> \
-            list[structure.model.Model]:
-        """Given EntryIDs/EntityIDs, retrieve/save .pdb files, then return the Model for each identifier
+            list[structure.model.Model | structure.model.Entity]:
+        """Given EntryIDs/EntityIDs, retrieve/save .pdb files, then return a Structure for each identifier
 
         Args:
             structure_identifiers: The names of all entity_ids requiring orientation
             out_dir: The directory to write downloaded files to
         Returns:
-            The requested Models
+            The requested Model/Entity instances
         """
-        all_structures = []
+        all_models = []
         for structure_identifier in structure_identifiers:
             # Retrieve the proper files using PDB ID's
             entry = structure_identifier.split('_')
@@ -266,9 +266,9 @@ class StructureDatabase(Database):
             #     # Write out file for the orient database
             #     orient_file = model.write(out_path=entity_out_path)
 
-            all_structures.append(model)
+            all_models.append(model)
 
-        return all_structures
+        return all_models
 
     def orient_structures(self, structure_identifiers: Iterable[str], symmetry: str = 'C1', by_file: bool = False) -> \
             list[structure.model.Model | structure.model.Entity] | list:
@@ -280,7 +280,7 @@ class StructureDatabase(Database):
             symmetry: The symmetry to treat each passed Entity. Default assumes no symmetry
             by_file: Whether to parse the structure_identifiers as file paths. Default treats as PDB EntryID or EntityID
         Returns:
-            The symmetric Models, oriented in a canonical orientation
+            The Model instances, oriented in a canonical orientation, and symmetrized
         """
         if not structure_identifiers:
             return []
@@ -417,7 +417,7 @@ class StructureDatabase(Database):
                 #         continue
 
                 models = self.download_structures([structure_identifier], out_dir=models_dir)
-                if models:  # Get the first model and throw away the rest
+                if models:  # Not empty list. Get the first model and throw away the rest
                     model, *_ = models
                 else:  # Empty list
                     non_viable_structures.append(structure_identifier)
@@ -437,12 +437,6 @@ class StructureDatabase(Database):
                     # else:  # Write out the entity as parsed. Since this is an assembly, we should get the correct state
                     # model.write(oligomer=True, out_path=entity_out_path)
 
-                    # try:  # Orient the Structure
-                    #     model.orient(symmetry=symmetry)
-                    # except (ValueError, RuntimeError) as err:
-                    #     orient_logger.error(str(err))
-                    #     non_viable_structures.append(structure_identifier)
-                    #     continue
                     # Write out oligomer file for the orient database
                     orient_file = model.write(oligomer=True, out_path=self.oriented.path_to(name=structure_identifier))
                     # Copy the entity that was extracted to the full structure_db directory
@@ -452,13 +446,7 @@ class StructureDatabase(Database):
                     model.file_path = model.write(out_path=self.oriented_asu.path_to(name=structure_identifier))
                     # Save Stride results
                     model.stride(to_file=self.stride.path_to(name=structure_identifier))
-                else:  # Orient the whole set of chains based on orient() multicomponent solution
-                    # try:  # Orient the Structure
-                    #     model.orient(symmetry=symmetry)
-                    # except (ValueError, RuntimeError) as err:
-                    #     orient_logger.error(str(err))
-                    #     non_viable_structures.append(structure_identifier)
-                    #     continue
+                else:
                     # Write out file for the orient database
                     orient_file = model.write(out_path=self.oriented.path_to(name=structure_identifier))
                     # Extract ASU from the Structure, save the file as .file_path for preprocess_structures_for_design
@@ -536,8 +524,8 @@ class StructureDatabase(Database):
             logger.critical('The following structures are not yet refined and are being set up for refinement'
                             ' into the Rosetta ScoreFunction for optimized sequence design:\n'
                             f'{", ".join(sorted(set(_structure.name for _structure in structures_to_refine)))}')
-            print('If you plan on performing sequence design using Rosetta, it is highly recommended you perform '
-                  'initial refinement. You can also refine them later using the refine module')
+            print(f'If you plan on performing {flags.design} using Rosetta, it is strongly encouraged that you perform '
+                  f'initial refinement. You can also refine them later using the {flags.refine} module')
             print('Would you like to refine them now?')
             if boolean_choice():
                 run_pre_refine = True
@@ -580,9 +568,9 @@ class StructureDatabase(Database):
                                                                                   f'{putils.refine}.log'),
                                                             max_jobs=int(len(refine_cmds)/2 + .5),
                                                             number_of_commands=len(refine_cmds))
-                    refine_sbatch_message = f'Once you are satisfied, run the following to distribute refine jobs:' \
+                    refine_script_message = f'Once you are satisfied, run the following to distribute refine jobs:' \
                                             f'\n\t{shell} {refine_script}'
-                    info_messages.append(refine_sbatch_message)
+                    info_messages.append(refine_script_message)
                 else:
                     raise NotImplementedError("Currently, refinement can't be run in the shell. "
                                               'Implement this if you would like this feature')
@@ -595,8 +583,8 @@ class StructureDatabase(Database):
             logger.info('The following structures have not been modelled for disorder. Missing loops will '
                         'be built for optimized sequence design: '
                         f'{", ".join(sorted(set(_structure.name for _structure in structures_to_loop_model)))}')
-            print('If you plan on performing sequence design with them, it is highly recommended you perform loop '
-                  'modelling to avoid designed clashes in disordered regions')
+            print(f'If you plan on performing {flags.design}/{flags.predict_structure} with them, it is strongly '
+                  f'encouraged that you perform loop modeling to avoid disordered region clashing/misalignment')
             print('Would you like to model loops for these structures now?')
             if boolean_choice():
                 run_loop_model = True
@@ -617,7 +605,8 @@ class StructureDatabase(Database):
                 _flags = rosetta.rosetta_flags.copy() + loop_model_flags
                 # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
                 _flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
-                variables = [('script_nstruct', '100')]  # generate 100 trial loops, 500 is typically sufficient
+                # Generate 100 trial loops, 500 is typically sufficient
+                variables = [('script_nstruct', '100')]
                 _flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
                 with open(flags_file, 'w') as f:
                     f.write('%s\n' % '\n'.join(_flags))

@@ -818,7 +818,6 @@ def main():
             #     job.output_directory = job.projects
             #     putils.make_path(job.output_directory)
             # Transform input entities to canonical orientation and return their ASU
-            all_structures = []
             grouped_structures: list[list[Model | Entity]] = []
             # Set up variables for the correct parsing of provided file paths
             by_file1 = by_file2 = False
@@ -898,10 +897,10 @@ def main():
                                                                          symmetry=job.sym_entry.group2,
                                                                          by_file=by_file2))
             # Get api wrapper
-            retrieve_stride_info = wrapapi.api_database_factory().stride.retrieve_data
+            retrieve_stride_info = job.api_db.stride.retrieve_data
             # Initialize the local database
-            # # Populate all_entities to set up sequence dependent resources
-            # all_entities = []
+            # Populate all_entities to set up sequence dependent resources
+            all_entities = []
             possibly_new_uniprot_to_prot_metadata = {}
             # Todo expand the definition of SymEntry/Entity to include
             #  specification of T:{T:{C3}{C3}}{C1}
@@ -911,9 +910,9 @@ def main():
                 if not structures:  # Useful in a case where symmetry groups are the same or group is None
                     continue
                 for structure in structures:
-                    # all_entities.extend(structure.entities)
+                    all_entities.extend(structure.entities)
                     for entity in structure.entities:
-                        # Try to get the already parsed secondary structure informatino
+                        # Try to get the already parsed secondary structure information
                         parsed_secondary_structure = retrieve_stride_info(name=entity.name)
                         if parsed_secondary_structure:
                             entity.secondary_structure = parsed_secondary_structure
@@ -940,7 +939,7 @@ def main():
                             uniprot_ids = entity.uniprot_ids
 
                         if uniprot_ids in possibly_new_uniprot_to_prot_metadata:
-                            # This Entity already found for processing and we shouldn't have duplicates
+                            # This Entity already found for processing, and we shouldn't have duplicates
                             raise RuntimeError(f"This error wasn't expected to occur.{putils.report_issue}")
                         else:  # Process for persistent state
                             possibly_new_uniprot_to_prot_metadata[uniprot_ids] = protein_metadata
@@ -961,9 +960,12 @@ def main():
             # Make all possible structure pairs given input entities by finding entities from entity_names
             # Using combinations of directories with .pdb files
             if single_component_design:
-                logger.info('No additional entities requested for docking, treating as single component')
+                logger.info('Treating as single component docking, no additional entities requested')
                 # structures1 = [entity for entity in all_entities if entity.name in structures1]
                 # ^ doesn't work as entity_id is set in orient_structures, but structure name is entry_id
+                all_structures = []
+                for structures, symmetry in grouped_structures:
+                    all_structures.extend(structures)
                 pose_jobs.extend(combinations(all_structures, 2))
             else:
                 # # v doesn't work as entity_id is set in orient_structures, but structure name is entry_id
@@ -1143,7 +1145,7 @@ def main():
                 preprocess_entities_by_symmetry = {'C1': []}
 
             # Get api wrapper
-            retrieve_stride_info = wrapapi.api_database_factory().stride.retrieve_data
+            retrieve_stride_info = job.api_db.stride.retrieve_data
             possibly_new_uniprot_to_prot_metadata: dict[tuple[str, ...], sql.ProteinMetadata] = {}
             existing_uniprot_ids = set()
             existing_uniprot_entities = set()

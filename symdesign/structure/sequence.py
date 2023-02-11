@@ -11,7 +11,7 @@ from itertools import repeat, count
 from logging import Logger
 from math import exp, floor
 from pathlib import Path
-from typing import Sequence, Any, Iterable, get_args, Literal, AnyStr, Type, NamedTuple
+from typing import Sequence, Any, Iterable, get_args, Literal, AnyStr, NamedTuple
 
 import numpy as np
 from Bio.Align import MultipleSeqAlignment, substitution_matrices
