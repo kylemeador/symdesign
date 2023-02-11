@@ -511,7 +511,7 @@ def main():
         # # Ensure all_entities are symmetric. As of now, all orient_structures returns are the symmetrized structure
         # for entity in [entity for structure in all_structures for entity in structure.entities]:
         #     entity.make_oligomer(symmetry=entity.symmetry)
-        return all_uniprot_to_prot_data
+        return all_uniprot_id_to_prot_data, uniprot_entities
 
     resubmit_command_message = f'After completion of sbatch script(s), re-submit your {putils.program_name} ' \
                                f'command:\n\tpython {" ".join(sys.argv)}'
@@ -956,18 +956,26 @@ def main():
                         else:  # Process for persistent state
                             possibly_new_uniprot_to_prot_metadata[uniprot_ids] = protein_metadata
 
-                all_structures.extend(structures)
-
             # Write new data to the database
             # with job.db.session(expire_on_commit=False) as session:
-            all_uniprot_to_prot_data = \
-                initialize_entities(all_structures, possibly_new_uniprot_to_prot_metadata)
+            all_uniprot_id_to_prot_data, uniprot_entities = \
+                initialize_metadata(possibly_new_uniprot_to_prot_metadata)
+
+            # Set up evolution and structures
+            all_structures = initialize_entities(uniprot_entities, all_uniprot_id_to_prot_data.values())
+            # # Indicate for the protein_metadata the characteristics of the Structure in the database
+            # for uniprot_ids, protein_metadata in all_uniprot_id_to_prot_data.items():
+            #     protein_metadata.pre_refine = job.initial_refinement
+            #     protein_metadata.pre_loop_model = job.initial_loop_model
+            # Todo need to take the version of all_structures from refine/loop modeling and insert entity.metadata
+            #  then usage for docking pairs below...
+
             # Correct existing ProteinMetadata
             for structures in grouped_structures:
                 for structure in structures:
                     for entity in structure.entities:
                         # Set the Entity with .metadata attribute to fetch in fragdock()
-                        entity.metadata = all_uniprot_to_prot_data[entity.uniprot_ids]
+                        entity.metadata = all_uniprot_id_to_prot_data[entity.uniprot_ids]
 
             # Make all possible structure pairs given input entities by finding entities from entity_names
             # Using combinations of directories with .pdb files
@@ -1261,8 +1269,8 @@ def main():
                 #  job.structure_db.orient_entities(entities, symmetry=symmetry)
 
             # Deal with new data compared to existing entries
-            all_uniprot_to_prot_data = \
-                initialize_entities(all_entities, possibly_new_uniprot_to_prot_metadata,
+            all_uniprot_id_to_prot_data, uniprot_entities = \
+                initialize_metadata(possibly_new_uniprot_to_prot_metadata,
                                     existing_uniprot_entities=existing_uniprot_entities,
                                     existing_protein_metadata=existing_protein_metadata)
             # Todo does all_uniprot_to_prot_data need to be returned or can I update in place?
@@ -1270,7 +1278,7 @@ def main():
             # with job.db.session(expire_on_commit=False) as session:
             for pose_job in pose_jobs_to_commit:
                 pose_job.entity_data.extend(
-                    sql.EntityData(meta=all_uniprot_to_prot_data[entity.uniprot_ids])
+                    sql.EntityData(meta=all_uniprot_id_to_prot_data[entity.uniprot_ids])
                     for entity in pose_job.initial_model.entities)
             session.add_all(pose_jobs_to_commit)
             # When pose_jobs_to_commit already exist, deal with it by getting those already
