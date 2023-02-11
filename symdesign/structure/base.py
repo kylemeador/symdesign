@@ -29,6 +29,8 @@ from symdesign import utils
 logger = logging.getLogger(__name__)
 protein_letters_3to1_extended_mse = protein_letters_3to1_extended.copy()
 protein_letters_3to1_extended_mse['MSE'] = 'M'
+DEFAULT_SS_PROGRAM = 'stride'
+DEFAULT_SS_COIL_IDENTIFIER = 'C'
 coords_type_literal = Literal['all', 'backbone', 'backbone_and_cb', 'ca', 'cb', 'heavy']
 directives = Literal['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding',
                      'branched']
@@ -1486,7 +1488,7 @@ class ContainsAtomsMixin(StructureBase, ABC):
 
     def _validate_coords(self):
         """Ensure that the StructureBase coordinates are formatted correctly"""
-        # This is the functionality we car about most of the time when making a new Structure
+        # This is the functionality we care about most of the time when making a new Structure
         if self.number_of_atoms != len(self.coords):  # .number_of_atoms typically just set by self._atom_indices
             raise ValueError(f'The number of Atoms ({self.number_of_atoms}) != number of Coords ({len(self.coords)}). '
                              f'Consider initializing {self.__class__.__name__} without explicitly passing coords if '
@@ -1505,6 +1507,11 @@ class ContainsAtomsMixin(StructureBase, ABC):
     def start_index(self) -> int:
         """The first atomic index of the StructureBase"""
         return self._atom_indices[0]
+
+    @property
+    def end_index(self) -> int:
+        """The last atomic index of the StructureBase"""
+        return self._atom_indices[-1]
 
     def reset_indices(self):
         """Reset the indices attached to the instance"""
@@ -1591,6 +1598,17 @@ class ContainsAtomsMixin(StructureBase, ABC):
         for atom in self.get_atoms(**kwargs):
             for kwarg, value in kwargs.items():
                 setattr(atom, kwarg, value)
+
+
+residue_attributes_literal = Literal[
+    'contact_order',
+    'local_density',
+    'spatial_aggregation_propensity',
+    'sasa',
+    'sasa_apolar',
+    'sasa_polar',
+    'secondary_structure',
+]
 
 
 class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
@@ -2158,20 +2176,6 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     #     self._o_index = index
 
     @property
-    def next_residue(self) -> Residue | None:
-        """The next Residue in the Structure if this Residue is part of a polymer"""
-        try:
-            return self._next_residue
-        except AttributeError:
-            return None
-
-    @next_residue.setter
-    def next_residue(self, other: Residue):
-        """Set the next_residue for this Residue and the prev_residue for the other Residue"""
-        self._next_residue = other
-        other._prev_residue = self
-
-    @property
     def prev_residue(self) -> Residue | None:
         """The previous Residue in the Structure if this Residue is part of a polymer"""
         try:
@@ -2183,7 +2187,35 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     def prev_residue(self, other: Residue):
         """Set the prev_residue for this Residue and the next_residue for the other Residue"""
         self._prev_residue = other
-        other._next_residue = self
+        try:
+            other._next_residue = self
+        except AttributeError:  # NoneType has no _next_residue
+            return
+
+    def is_n_termini(self) -> bool:
+        """Returns whether the Residue is the n-termini of the parent Structure"""
+        return self.prev_residue is None
+
+    @property
+    def next_residue(self) -> Residue | None:
+        """The next Residue in the Structure if this Residue is part of a polymer"""
+        try:
+            return self._next_residue
+        except AttributeError:
+            return None
+
+    @next_residue.setter
+    def next_residue(self, other: Residue):
+        """Set the next_residue for this Residue and the prev_residue for the other Residue"""
+        self._next_residue = other
+        try:
+            other._prev_residue = self
+        except AttributeError:  # NoneType has no _prev_residue
+            return
+
+    def is_c_termini(self) -> bool:
+        """Returns whether the Residue is the n-termini of the parent Structure"""
+        return self.next_residue is None
 
     def get_upstream(self, number: int) -> list[Residue]:
         """Get the Residues upstream of (n-terminal to) the current Residue
@@ -2422,7 +2454,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             return 0.
 
     @b_factor.setter
-    def b_factor(self, dtype: str | Iterable[float] = None, **kwargs):
+    def b_factor(self, dtype: str | float = None, **kwargs):
         """Set the temperature factor for the Atoms in the Residue
 
         Args:
@@ -2431,19 +2463,19 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         """
         try:
             for atom in self.atoms:
-                atom.b_factor = getattr(self, dtype)
+                atom.b_factor = self.__getattribute__(dtype)
         except AttributeError:
             raise AttributeError(f'The attribute {dtype} was not found in the Residue {self.number}{self.chain_id}. Are'
                                  ' you sure this is the attribute you want?')
-        except TypeError:
+        except TypeError:  # dtype isn't a string
             # raise TypeError(f'{type(dtype)} is not a string. To set b_factor, you must provide the dtype as a string')
-            try:
-                for atom, b_fact in zip(self.atoms, dtype):
-                    atom.b_factor = b_fact
-            except TypeError:
-                raise TypeError(f'{type(dtype)} is not a string nor an Iterable. To set b_factor, you must provide the '
-                                f'dtype as a string specifying a Residue attribute OR an Iterable with length = '
-                                f'Residue.number_of_atoms')
+            # try:
+            for atom in self.atoms:
+                atom.b_factor = dtype
+            # except TypeError:
+            #     raise TypeError(f'{type(dtype)} is not a string nor an Iterable. To set b_factor, you must provide the '
+            #                     f'dtype as a string specifying a Residue attribute OR an integer with length = '
+            #                     f'Residue.number_of_atoms')
 
     def mutation_possibilities_from_directive(self, directive: directives = None, background: set[str] = None,
                                               special: bool = False, **kwargs) -> set[str]:
@@ -3030,7 +3062,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # Set the indices through the private attribute
         setattr(self, f'_{dtype}_indices', [prior_idx + offset for prior_idx in indices])
 
-    def _insert_indices(self, at: int = 0, new_indices: list[int] = None, dtype: atom_or_residue = None):
+    def _insert_indices(self, at: int, new_indices: list[int], dtype: atom_or_residue = None):
         """Modify Structure container indices by a set integer amount
 
         Args:
@@ -3326,7 +3358,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """Access the number of Residues in the Structure"""
         return len(self._residue_indices)
 
-    def get_coords_subset(self, residue_numbers: Container[int] = None, start: int = None, end: int = None, 
+    def get_coords_subset(self, residue_numbers: Container[int] = None, start: int = None, end: int = None,
                           dtype: coords_type_literal = 'ca') -> np.ndarray:
         """Return a view of a subset of the Coords from the Structure specified by a range of Residue numbers
         
@@ -3364,12 +3396,12 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """Set attributes specified by key, value pairs for Residues in the Structure
 
         Keyword Args:
-            numbers: (Container[int]) = None - The Atom numbers of interest
-            pdb: (bool) = False - Whether to search for numbers as they were parsed (if True)
+            numbers: Container[int] = None - The Atom numbers of interest
+            pdb: bool = False - Whether to search for numbers as they were parsed (if True)
         """
         for residue in self.get_residues(**kwargs):
             for kwarg, value in kwargs.items():
-                setattr(residue, kwarg, value)
+                residue.__setattr__(kwarg, value)
 
     # def set_residues_attributes_from_array(self, **kwargs):
     #     """Set attributes specified by key, value pairs for all Residues in the Structure"""
@@ -3560,13 +3592,15 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             residue.number = idx
         self.log.debug(f'{self.name} was formatted in Pose numbering (residues now 1 to {self.number_of_residues})')
 
-    def renumber_residues(self, at: int = 1):
+    def renumber_residues(self, index: int = 0, at: int = 1):
         """Renumber Residue objects sequentially starting with "at"
 
         Args:
+            index: The index to start the renumbering process
             at: The number to start renumbering at
         """
-        for idx, residue in enumerate(self.residues, at):
+        residues = self.residues[index:]
+        for idx, residue in enumerate(residues, at):
             residue.number = idx
 
     def get_residues(self, numbers: Container[int] = None, pdb: bool = False, **kwargs) -> list[Residue]:
@@ -3740,7 +3774,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             first_residue = self.n_terminal_residue
             first_residue_number = first_residue.number
             last_residue_number = first_residue_number+align_length
-            fixed_coords = self.get_coords_subset(start=first_residue_number, end=last_residue_number, 
+            fixed_coords = self.get_coords_subset(start=first_residue_number, end=last_residue_number,
                                                   dtype='backbone')
             helix_align_start = 11
             helix_align_end = 15
@@ -3761,7 +3795,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             last_residue = self.c_terminal_residue
             last_residue_number = last_residue.number
             first_residue_number = last_residue_number-align_length
-            fixed_coords = self.get_coords_subset(start=first_residue_number, end=last_residue_number, 
+            fixed_coords = self.get_coords_subset(start=first_residue_number, end=last_residue_number,
                                                   dtype='backbone')
             helix_align_start = 1
             helix_align_end = 5
@@ -3908,97 +3942,119 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         return delete_indices
 
-    def insert_residue_type(self, residue_type: str, at: int = None, chain_id: str = None) -> Residue:
-        """Insert a standard Residue type into the Structure based on Pose numbering (1 to N) at the origin.
-        No structural alignment is performed!
+    # Todo ContainsResiduesMixin
+    def insert_residue_type(self, residue_type: str, index: int = None, chain_id: str = None) -> Residue:
+        """Insert a standard Residue type into the Structure at the origin. No structural alignment is performed!
 
         Args:
             residue_type: Either the 1 or 3 letter amino acid code for the residue in question
-            at: The pose numbered location which a new Residue should be inserted into the Structure
+            index: The residue index where a new Residue should be inserted into the Structure
             chain_id: The chain identifier to associate the new Residue with
         Returns:
             The newly inserted Residue object
         """
-        # Todo solve this issue for self.is_dependents()
-        #  this check and error really isn't True with the Residues object shared. It can be overcome...
-        if self.is_dependent():
-            raise stutils.DesignError(f"This Structure '{self.name}' isn't the owner of it's attributes and therefore "
-                                      "can't handle residue insertion!")
+        if self.is_dependent():  # Call on the parent
+            self.log.warning(f"This {self.__class__.__name__} '{self.name}' isn't the owner of it's attributes and the "
+                             f"provided index, {index}, is assumed to be valid for it's parent "
+                             f"{self.parent.__class__.__name__} Structure")
+            return self.parent.insert_residue_type(residue_type=residue_type, index=index, chain_id=chain_id)
+        #     parent = self.parent
+        #     residues = parent.residues
+        #     index_residues_to_coords = parent._set_coords_indexed
+        # else:
+        #     parent = self
+        #     residues = self.residues
+        #     index_residues_to_coords = self._set_coords_indexed
+
+        self.log.debug(f'Inserting {residue_type} into index {index} of {self.name}')
+
         # Convert incoming aa to residue index so that AAReference can fetch the correct amino acid
         reference_index = \
             protein_letters_alph1.find(protein_letters_3to1_extended.get(residue_type, residue_type.upper()))
         if reference_index == -1:
-            raise IndexError(f'{self.insert_residue_type.__name__} of residue_type "{residue_type}" is not allowed')
-        if at < 1:
-            raise IndexError(f'{self.insert_residue_type.__name__} at index {at} < 1 is not allowed')
+            raise IndexError(f"{self.insert_residue_type.__name__} of residue_type '{residue_type}' isn't allowed")
+        if index < 0:
+            raise IndexError(f"{self.insert_residue_type.__name__} at index {index} < 0 isn't allowed")
 
         # Grab the reference atom coordinates and push into the atom list
-        new_residue = stutils.reference_residues[reference_index].copy()
-        new_residue.number = at
-        residue_index = at - 1  # since at is one-indexed integer, take from pose numbering to zero-indexed
-        # insert the new_residue coords and atoms into the Structure Atoms
-        self._coords.insert(new_residue.start_index, new_residue.coords)
-        self._atoms.insert(new_residue.start_index, new_residue.atoms)
-        self._atoms.reindex(start_at=new_residue.start_index)
-        # insert the new_residue into the Structure Residues
-        self._residues.insert(residue_index, [new_residue])
-        self._residues.reindex(start_at=residue_index)  # .set_index()
-        # after coords, atoms, residues insertion into "_" containers, set parent to self
-        new_residue.parent = self
-        # set new residue_indices and atom_indices
-        self._insert_indices(at=residue_index, new_indices=[residue_index], dtype='residue')
-        self._insert_indices(at=new_residue.start_index, new_indices=new_residue.atom_indices, dtype='atom')
-        # self._atom_indices = self._atom_indices.insert(new_residue.start_index, idx + new_residue.start_index)
-        self.renumber()
+        new_residue: Residue = stutils.reference_residues[reference_index].copy()
 
-        # find the prior and next residues and add attributes
-        if residue_index:  # not 0
-            prior_residue = self.residues[residue_index - 1]
-            new_residue.prev_residue = prior_residue
-        else:  # n-termini = True
+        # Find the prior and next Residue, start_index (starting atom in new Residue index)
+        residues = self.residues
+        if index == 0:  # n-termini = True
             prior_residue = None
+            start_index = 0
+        else:
+            prior_residue = residues[index - 1]
+            start_index = prior_residue.end_index + 1
 
         try:
-            next_residue = self.residues[residue_index + 1]
-            new_residue.next_residue = next_residue
+            next_residue = residues[index + 1]
         except IndexError:  # c_termini = True
-            if not prior_residue:  # insertion on an empty Structure? block for now to simplify chain identification
-                raise stutils.DesignError(f"Can't insert_residue_type for an empty {self.__class__.__name__} class")
             next_residue = None
+            if not prior_residue:  # Insertion on an empty Structure? block for now to simplify chain identification
+                raise stutils.DesignError(
+                    f"Can't {self.insert_residue_type.__name__} for an empty {self.__class__.__name__} class")
 
-        # set the new chain_id, number_pdb. Must occur after self._residue_indices update if chain isn't provided
+        # Set found attributes
+        new_residue.index = index
+        new_residue.start_index = start_index
+        new_residue.prev_residue = prior_residue
+        new_residue.next_residue = next_residue
+
+        # Insert the new_residue coords and atoms into the Structure Atoms
+        self._coords.insert(start_index, new_residue.coords)
+        self._atoms.insert(start_index, new_residue.atoms)
+        self._atoms.reindex(start_at=start_index)
+        # insert the new_residue into the Structure Residues
+        self._residues.insert(index, [new_residue])
+        self._residues.reindex(start_at=index)  # .set_index()
+        # After coords, atoms, residues insertion into "_" containers, set parent to self
+        new_residue.parent = self  # parent
+        # Insert new_residue index and atom_indices into Structure indices
+        self._insert_indices(index, [index], dtype='residue')
+        self._insert_indices(start_index, new_residue.atom_indices, dtype='atom')
+
+        # Set the new chain_id. Must occur after self._residue_indices update if chain isn't provided
         chain_assignment_error = "Can't solve for the new Residue polymer association automatically! If the new " \
-                                 'Residue is at a Structure termini in a multi-Structure Structure container, you must'\
+                                 'Residue is at a Structure termini in a multi-Structure Structure container, you must' \
                                  ' specify which Structure it belongs to by passing chain_id='
-        if chain_id is not None:
-            new_residue.chain_id = chain_id
-        else:  # try to solve without it...
+        if chain_id is None:  # Try to solve without it...
             if prior_residue and next_residue:
                 if prior_residue.chain_id == next_residue.chain_id:
-                    res_with_info = prior_residue
-                else:  # we have a discrepancy which means this is an internal termini
+                    chain_id = prior_residue.chain_id
+                else:  # We have a discrepancy which means this is an internal termini
                     raise stutils.DesignError(chain_assignment_error)
-            else:  # we can solve as this represents an absolute termini case
-                res_with_info = prior_residue if prior_residue else next_residue
-            new_residue.chain_id = res_with_info.chain_id
-            new_residue.number_pdb = prior_residue.number_pdb + 1 if prior_residue else next_residue.number_pdb - 1
+            # We can solve as this represents an absolute termini case
+            elif prior_residue:
+                chain_id = prior_residue.chain_id
+            else:
+                chain_id = next_residue.chain_id
+        new_residue.chain_id = chain_id
+
+        # Solve the Residue number and renumber Structure if there is overlap
+        if prior_residue and next_residue:
+            tentative_number = prior_residue.number + 1
+            if tentative_number == next_residue.number:
+                # We have an insertion. Renumber all subsequent
+                # self.renumber_residues()
+                residues_renumber = residues[index:]
+                for residue in residues_renumber:
+                    residue.number = residue.number + 1
+            new_residue.number = tentative_number
+        elif prior_residue:
+            new_residue.number = prior_residue.number + 1
+        else:
+            new_residue.number = next_residue.number - 1
 
         if self.secondary_structure:
             # ASSUME the insertion is disordered and coiled segment
+            new_residue.secondary_structure = DEFAULT_SS_COIL_IDENTIFIER
             self.secondary_structure = \
-                self.secondary_structure[:residue_index] + 'C' + self.secondary_structure[residue_index:]
+                self.secondary_structure[:index] + DEFAULT_SS_COIL_IDENTIFIER + self.secondary_structure[index:]
 
-        # Todo solve this v for self.is_dependents()
-        # re-index the coords and residues map
-        residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
-        self._coords_indexed_residues, self._coords_indexed_residue_atoms = map(np.array, zip(*residues_atom_idx))
-        # range_idx = prior_range_idx = 0
-        # residue_indexed_ranges = []
-        # for residue in self.residues:
-        #     range_idx += residue.number_of_atoms
-        #     residue_indexed_ranges.append(list(range(prior_range_idx, range_idx)))
-        #     prior_range_idx = range_idx
-        # self.residue_indexed_atom_indices = residue_indexed_ranges
+        # Reindex the coords/residues map
+        self._set_coords_indexed()  # index_residues_to_coords()
 
         return new_residue
 
@@ -4249,7 +4305,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                                              prior_residue.c_atom_index,
                                              residue.next_residue.n_atom_index]
                                             + residue.atom_indices)
-                    )
+                )
 
             residue = residues[-1]
             residue_atom_contacts = atom_tree.query_radius(getattr(residue, coords_type), distance)
@@ -4632,14 +4688,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             return self._secondary_structure
 
     def calculate_secondary_structure(self):
-        # # if self.api_db:
-        # try:
-        #     # retrieve_api_info = self.api_db.pdb.retrieve_data
-        #     retrieve_stride_info = wrapapi.api_database_factory().stride.retrieve_data
-        # except AttributeError:
-        #     retrieve_stride_info = Structure.utils.parse_stride
-
-        self.stride()
+        """Perform the secondary structure calculation for the Structure using the DEFAULT_SS_PROGRAM"""
+        self.__getattribute__(DEFAULT_SS_PROGRAM)()  # self.stride()
 
     @secondary_structure.setter
     def secondary_structure(self, secondary_structure: Sequence[str] = None):
@@ -5180,15 +5230,37 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #         raise utils.DesignError('Must pass a source to %s' % Structure.read_secondary_structure.__name__)
     #
     #     return secondary_structure
-    def set_b_factor_data(self, dtype=None):
+
+    def set_b_factor_by_attribute(self, dtype: residue_attributes_literal):  # Todo ContainsResiduesMixin
         """Set the b-factor entry for every Residue to a Residue attribute
 
-        Keyword Args:
-            dtype=None (str): The attribute of interest
+        Args:
+            dtype: The attribute of interest
         """
-        # kwargs = dict(b_factor=dtype)
-        # self._residues.set_attributes(b_factor=dtype)  # , **kwargs)
-        self.set_residues_attributes(b_factor=dtype)  # , **kwargs)
+        if isinstance(dtype, str):
+            self.set_residues_attributes(b_factor=dtype)
+        else:
+            raise TypeError(f"The type '{dtype.__class__.__name__}' isn't a string. To "
+                            f'{self.set_b_factor_by_attribute.__name__}, you must provide the '
+                            'dtype as a string specifying a Residue attribute')
+
+    def set_b_factor_data(self, values: Iterable[int]):  # Todo ContainsResiduesMixin
+        """Set the b-factor entry for every Residue to a Residue attribute
+
+        Args:
+            values: The array like to set each Residue instance to
+        """
+        if isinstance(values, Iterable):
+            values = list(values)
+            if len(values) != self.number_of_residues:
+                raise ValueError(f"Can't provide a array-like of values with length {len(values)} != "
+                                 f"{self.number_of_residues}, the number of residues")
+            for residue, value in zip(self.residues, values):
+                residue.b_factor = value
+        else:
+            raise TypeError(f"The type '{values.__class__.__name__}' isn't an Iterable. To "
+                            f"{self.set_b_factor_data.__name__}, you must provide the values as an Iterable integer "
+                            'with length = number_of_residues')
 
     def _copy_structure_containers(self):  # Todo what about Structures() use. change mechanism
         """Copy all member Structures that reside in Structure containers"""

@@ -1554,7 +1554,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                     # residue_index is zero indexed
                     new_aa_type = mutation['from']
                     logger.debug(f'Inserting {new_aa_type} into index {residue_index} on Entity {entity_name}')
-                    # design_pose.insert_residue_type(new_aa_type, at=residue_number,
+                    # design_pose.insert_residue_type(new_aa_type, index=residue_index,
                     #                                 chain_id=entity.chain_id)
                     tagged_sequence.insert(residue_index, new_aa_type)
                     # Adjust mutations to account for insertion

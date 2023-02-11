@@ -3124,39 +3124,37 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     #         for structure in getattr(self, structure_type):  # Iterate over each Structure in each structure_container
     #             structure.reset_state()
 
-    def insert_residue_type(self, residue_type: str, at: int = None, chain_id: str = None):  # Todo Structures
+    def insert_residue_type(self, residue_type: str, index: int = None, chain_id: str = None):  # Todo Entity,Structures
         """Insert a standard Residue type into the Structure based on Pose numbering (1 to N) at the origin.
         No structural alignment is performed!
 
         Args:
             residue_type: Either the 1 or 3 letter amino acid code for the residue in question
-            at: The pose numbered location which a new Residue should be inserted into the Structure
+            index: The pose numbered location which a new Residue should be inserted into the Structure
             chain_id: The chain identifier to associate the new Residue with
         """
-        new_residue = super().insert_residue_type(residue_type, at=at, chain_id=chain_id)
-        # must update other Structures indices
-        residue_index = at - 1  # since at is one-indexed integer
-        # for structures in [self.chains, self.entities]:
+        new_residue = super().insert_residue_type(residue_type, index=index, chain_id=chain_id)
+
+        # Must update other Structures indices
         for structure_type in self.structure_containers:
             structures = getattr(self, structure_type)
             idx = 0
-            for idx, structure in enumerate(structures):  # iterate over Structures in each structure_container
-                try:  # update each Structures _residue_ and _atom_indices with additional indices
-                    structure._insert_indices(at=structure.residue_indices.index(residue_index),
-                                              new_indices=[residue_index], dtype='residue')
-                    structure._insert_indices(at=structure.atom_indices.index(new_residue.start_index),
-                                              new_indices=new_residue.atom_indices, dtype='atom')
-                    break  # move to the next container to update the indices by a set increment
-                except (ValueError, IndexError):  # this should happen if the Atom is not in the Structure of interest
-                    # edge case where the index is being appended to the c-terminus
-                    if residue_index - 1 == structure.residue_indices[-1] and \
+            # Iterate over Structures in each structure_container
+            for idx, structure in enumerate(structures, idx):
+                try:  # Update each Structures _residue_ and _atom_indices with additional indices
+                    structure._insert_indices(structure.residue_indices.index(index),
+                                              [index], dtype='residue')
+                    structure._insert_indices(structure.atom_indices.index(new_residue.start_index),
+                                              new_residue.atom_indices, dtype='atom')
+                    break  # Move to the next container to update the indices by a set increment
+                except (ValueError, IndexError):  # This should happen if the Atom is not in the Structure of interest
+                    # Edge case where the index is being appended to the c-terminus
+                    if index - 1 == structure.residue_indices[-1] and \
                             new_residue.chain_id == structure.chain_id:
-                        structure._insert_indices(at=structure.number_of_residues, new_indices=[residue_index],
-                                                  dtype='residue')
-                        structure._insert_indices(at=structure.number_of_atoms, new_indices=new_residue.atom_indices,
-                                                  dtype='atom')
+                        structure._insert_indices(structure.number_of_residues, [index], dtype='residue')
+                        structure._insert_indices(structure.number_of_atoms, new_residue.atom_indices, dtype='atom')
                         break  # must move to the next container to update the indices by a set increment
-            # for each subsequent structure in the structure container, update the indices with the last indices from
+            # For each subsequent structure in the structure container, update the indices with the last indices from
             # the prior structure
             for prior_idx, structure in enumerate(structures[idx + 1:], idx):
                 structure._start_indices(at=structures[prior_idx].atom_indices[-1] + 1, dtype='atom')
