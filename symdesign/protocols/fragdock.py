@@ -20,7 +20,7 @@ from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
 from . import cluster
-from .pose import PoseJob
+from .pose import generate_evolutionary_profile, PoseJob
 from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, job as symjob
 from symdesign.resources.sql import EntityData, EntityTransform, PoseResidueMetrics, PoseMetrics
@@ -2226,72 +2226,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
         # Load profiles of interest into the analysis
         # profile_background = {}
         if job.design.evolution_constraint:
-            # Add Entity information to the Pose
-            measure_evolution = measure_alignment = True
-            warn = False
-            for entity in pose.entities:
-
-                if entity.evolutionary_profile:
-                    continue
-
-                profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-                # profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.uniprot_ids)  # Todo
-                if not profile:
-                    # # We can try and add... This would be better at the program level due to memory issues
-                    # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
-                    # if not entity.pssm_file:
-                    #     # Still no file found. this is likely broken
-                    #     # raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
-                    #     #                   f'protocol you must generate the profile!')
-                    #     pass
-                    measure_evolution = False
-                    warn = True
-                    entity.evolutionary_profile = entity.create_null_profile()
-                else:
-                    entity.evolutionary_profile = profile
-                    # Ensure the file is attached as well
-                    entity.pssm_file = job.api_db.hhblits_profiles.retrieve_file(name=entity.name)
-                    # entity.pssm_file = job.api_db.hhblits_profiles.retrieve_file(name=entity.uniprot_ids)  # Todo
-
-                if not entity.verify_evolutionary_profile():
-                    entity.fit_evolutionary_profile_to_structure()
-                if not entity.sequence_file:
-                    entity.write_sequence_to_fasta('reference', out_dir=job.api_db.sequences.location)
-
-                if entity.msa:
-                    continue
-
-                try:  # To fetch the multiple sequence alignment for further processing
-                    msa = job.api_db.alignments.retrieve_data(name=entity.name)
-                    # msa = job.api_db.alignments.retrieve_data(name=entity.uniprot_ids)  # Todo
-                    if not msa:
-                        measure_alignment = False
-                        warn = True
-                    else:
-                        entity.msa = msa
-                except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
-                    # raise error
-                    logger.info(f'Entity reference sequence and provided alignment are different lengths: {error}')
-                    warn = True
-
-            if warn:
-                if not measure_evolution and not measure_alignment:
-                    logger.info("Metrics relying on evolution aren't being collected as the required files weren't "
-                                f'found. These include: {", ".join(metrics.all_evolutionary_metrics)}')
-                elif not measure_alignment:
-                    logger.info('Metrics relying on a multiple sequence alignment including: '
-                                f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}'
-                                "are being calculated with the reference sequence as there was no MSA found")
-                else:
-                    logger.info(f'Metrics relying on an evolutionary profile are not being collected as '
-                                f'there was no profile found. These include: '
-                                f'{", ".join(metrics.profile_dependent_metrics)}')
-
-            # if measure_evolution:
-            pose.evolutionary_profile = \
-                concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
-            # else:
-            #     pose.evolutionary_profile = pose.create_null_profile()
+            measure_evolution, measure_alignment = generate_evolutionary_profile(job.api_db, pose)
 
             # if pose.evolutionary_profile:
             # profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)

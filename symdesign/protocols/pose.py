@@ -64,6 +64,101 @@ missing_pose_transformation = "The design couldn't be transformed as it is missi
                               '"pose_transformation" attribute. Was this generated properly?'
 
 
+# def generate_evolutionary_profile(job: resources.job.JobResources, pose: Pose, warn_metrics: bool = False) \
+def generate_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Model | Entity,
+                                  warn_metrics: bool = False) -> tuple[bool, bool]:
+    """Add evolutionary profile information to the provided Entity
+
+    Args:
+        api_db: The database which store all information pertaining to evolutionary information
+        model: The Structure to check for Entity instances to load evolutionary information
+        warn_metrics: Whether to warn the user about missing files for metric collection
+    Returns:
+        A tuple of boolean values of length two indicating if, 1-evolutionary and 2-alignment information was added to
+        the Entity instances
+    """
+    # Assume True given this function call and set False if not possible for one of the Entities
+    measure_evolution = measure_alignment = True
+    warn = False
+    for entity in model.entities:
+        # if entity not in model.active_entities:  # We shouldn't design, add a null profile instead
+        #     entity.add_profile(null=True)
+        #     continue
+
+        if entity.evolutionary_profile:
+            continue
+
+        # profile = api_db.hhblits_profiles.retrieve_data(name=entity.name)
+        if len(entity.uniprot_ids) > 1:
+            # Todo make this possible by combining multiple profiles along the chimeric identifiers
+            raise DesignError(f"Can't set the profile for an {entity.__class__.__name__} with number of UniProtIDs,"
+                              f"{len(entity.uniprot_ids)} > 1. Please remove this or update the code")
+        # for idx, uniprot_id in enumerate(entity.uniprot_ids):
+        for uniprot_id in entity.uniprot_ids:
+            profile = api_db.hhblits_profiles.retrieve_data(name=uniprot_id)
+            if not profile:
+                # # We can try and add... This would be better at the program level due to memory issues
+                # entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
+                # if not entity.pssm_file:
+                #     # Still no file found. this is likely broken
+                #     # raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
+                #     #                   f'protocol you must generate the profile!')
+                #     pass
+                measure_evolution = False
+                warn = True
+                entity.evolutionary_profile = entity.create_null_profile()
+            else:
+                entity.evolutionary_profile = profile
+                # Ensure the file is attached as well
+                # entity.pssm_file = api_db.hhblits_profiles.retrieve_file(name=entity.name)
+                entity.pssm_file = api_db.hhblits_profiles.retrieve_file(name=uniprot_id)
+
+        if not entity.verify_evolutionary_profile():
+            entity.fit_evolutionary_profile_to_structure()
+        if not entity.sequence_file:
+            entity.write_sequence_to_fasta('reference', out_dir=api_db.sequences.location)
+
+        if entity.msa:
+            continue
+
+        try:  # To fetch the multiple sequence alignment for further processing
+            # msa = api_db.alignments.retrieve_data(name=entity.name)
+            for uniprot_id in entity.uniprot_ids:
+                msa = api_db.alignments.retrieve_data(name=uniprot_id)
+                if not msa:
+                    measure_alignment = False
+                    warn = True
+                else:
+                    entity.msa = msa
+                    # msa_file = api_db.alignments.retrieve_file(name=entity.name)
+                    entity.msa_file = api_db.alignments.retrieve_file(name=uniprot_id)
+        except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
+            # raise error
+            protocol_logger.info(f'{entity.name} {entity.__class__.__name__}.reference_sequence and provided alignment '
+                                 f'at {entity.msa_file} are different lengths: {error}')
+            warn = True
+
+    if warn_metrics and warn:
+        if not measure_evolution and not measure_alignment:
+            protocol_logger.info("Metrics relying on evolution aren't being collected as the required files weren't "
+                                 f'found. These include: {", ".join(metrics.all_evolutionary_metrics)}')
+        elif not measure_alignment:
+            protocol_logger.info('Metrics relying on a multiple sequence alignment including: '
+                                 f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}'
+                                 "are being calculated with the reference sequence as there was no MSA found")
+        else:
+            protocol_logger.info("Metrics relying on an evolutionary profile aren't being collected as "
+                                 'there was no profile found. These include: '
+                                 f'{", ".join(metrics.profile_dependent_metrics)}')
+
+    # if measure_evolution:
+    model.evolutionary_profile = \
+        concatenate_profile([entity.evolutionary_profile for entity in model.entities])
+    # else:
+    #     self.pose.evolutionary_profile = self.pose.create_null_profile()
+    return measure_evolution, measure_alignment
+
+
 # class PoseDirectory(ABC):  # Raises error about the subclass types not being the same...
 # metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its
 # bases
@@ -403,8 +498,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     """Hold DesignData that has been generated in the scope of this job"""
     initial_model: Model | None
     """Used if the pose structure has never been initialized previously"""
-    measure_evolution: bool
-    measure_alignment: bool
+    measure_evolution: bool | None
+    measure_alignment: bool | None
     pose: Pose | None
     """Contains the Pose object"""
     protocol: str | None
@@ -555,7 +650,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         """Initialize PoseData after the instance is "initialized", i.e. loaded from the database"""
         # Design attributes
         # self.current_designs = []
-        self.measure_evolution = self.measure_alignment = False
+        self.measure_evolution = self.measure_alignment = None
         self.pose = self.initial_model = self.protocol = None
         # Get the main program options
         self.job = resources.job.job_resources_factory.get()
@@ -1289,85 +1384,18 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                                  'would like to generate the Assembly anyway, re-submit the command with '
                                  f'--{flags.ignore_symmetric_clashes}')
 
-    def generate_evolutionary_profile(self, warn_metrics: bool = False):
+    def set_up_evolutionary_profile(self, **kwargs):
         """Add evolutionary profile information for each Entity to the Pose
 
-        Args:
+        Keyword Args:
             warn_metrics: Whether to warn the user about missing files for metric collection
         """
-        if self.measure_evolution and self.measure_alignment:
-            # We have already set and succeeded
-            return
-
-        # Assume True given this function call and set False if not possible for one of the Entities
-        self.measure_evolution = self.measure_alignment = True
-        warn = False
-        for entity in self.pose.entities:
-            if entity not in self.pose.active_entities:  # We shouldn't design, add a null profile instead
-                entity.add_profile(null=True)
-                continue
-
-            if entity.evolutionary_profile:
-                continue
-
-            profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-            # profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.uniprot_ids)  # Todo
-            if not profile:
-                # # We can try and add... This would be better at the program level due to memory issues
-                # entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
-                # if not entity.pssm_file:
-                #     # Still no file found. this is likely broken
-                #     # raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
-                #     #                   f'protocol you must generate the profile!')
-                #     pass
-                self.measure_evolution = False
-                warn = True
-                entity.evolutionary_profile = entity.create_null_profile()
-            else:
-                entity.evolutionary_profile = profile
-                # Ensure the file is attached as well
-                entity.pssm_file = self.job.api_db.hhblits_profiles.retrieve_file(name=entity.name)
-                # entity.pssm_file = self.job.api_db.hhblits_profiles.retrieve_file(name=entity.uniprot_ids)  # Todo
-
-            if not entity.verify_evolutionary_profile():
-                entity.fit_evolutionary_profile_to_structure()
-            if not entity.sequence_file:
-                entity.write_sequence_to_fasta('reference', out_dir=self.job.api_db.sequences.location)
-
-            if entity.msa:
-                continue
-
-            try:  # To fetch the multiple sequence alignment for further processing
-                msa = self.job.api_db.alignments.retrieve_data(name=entity.name)
-                # msa = self.job.api_db.alignments.retrieve_data(name=entity.uniprot_ids)  # Todo
-                if not msa:
-                    self.measure_alignment = False
-                    warn = True
-                else:
-                    entity.msa = msa
-            except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
-                # raise error
-                self.log.info(f'Entity reference sequence and provided alignment are different lengths: {error}')
-                warn = True
-
-        if warn_metrics and warn:
-            if not self.measure_evolution and not self.measure_alignment:
-                self.log.info("Metrics relying on evolution aren't being collected as the required files weren't "
-                              f'found. These include: {", ".join(metrics.all_evolutionary_metrics)}')
-            elif not self.measure_alignment:
-                self.log.info('Metrics relying on a multiple sequence alignment including: '
-                              f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}'
-                              "are being calculated with the reference sequence as there was no MSA found")
-            else:
-                self.log.info("Metrics relying on an evolutionary profile aren't being collected as "
-                              'there was no profile found. These include: '
-                              f'{", ".join(metrics.profile_dependent_metrics)}')
-
-        # if self.measure_evolution:
-        self.pose.evolutionary_profile = \
-            concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
-        # else:
-        #     self.pose.evolutionary_profile = self.pose.create_null_profile()
+        if self.job.design.evolution_constraint:
+            if self.measure_evolution is None and self.measure_alignment is None:
+                self.measure_evolution, self.measure_alignment = \
+                    generate_evolutionary_profile(self.job.api_db, self.pose, **kwargs)
+            else:  # We already set these
+                return
 
     def generate_fragments(self, interface: bool = False):
         """For the design info given by a PoseJob source, initialize the Pose then generate interfacial fragment
@@ -2658,8 +2686,7 @@ class PoseProtocol(PoseData):
         scores_df['interface_local_density'] = pd.Series(interface_local_density)
 
         # Load profiles of interest into the analysis
-        if self.job.design.evolution_constraint:
-            self.generate_evolutionary_profile(warn_metrics=True)
+        self.set_up_evolutionary_profile(warn_metrics=True)
 
         # self.generate_fragments() was already called
         self.pose.calculate_profile()
@@ -4313,8 +4340,7 @@ class PoseProtocol(PoseData):
         nan_blank_data = np.tile(list(repeat(np.nan, pose_length)), (number_of_sequences, 1))
 
         # Make requisite profiles
-        if self.job.design.evolution_constraint:
-            self.generate_evolutionary_profile(warn_metrics=True)
+        self.set_up_evolutionary_profile(warn_metrics=True)
 
         # Try to add each of the profile types in observed_types to profile_background
         profile_background = {}
