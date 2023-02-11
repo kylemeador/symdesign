@@ -55,26 +55,28 @@ sbatch_warning = 'Ensure the SBATCH script(s) below are correct. Specifically, c
 script_warning = 'Ensure the script(s) below are correct.'
 
 
+def parse_results_for_exceptions(pose_jobs: list[PoseJob], results: Iterable[Any], **kwargs) \
+        -> list[tuple[PoseJob, Exception]] | list:
+    """Filter out any exceptions from results
+
+    Args:
+        pose_jobs: The PoseJob instances that attempted work
+        results: The returned values from a job
+    Returns:
+        Tuple of passing PoseDirectories and Exceptions
+    """
+    if results is None:
+        return []
+    else:
+        exception_indices = [idx for idx, result_ in enumerate(results) if isinstance(result_, BaseException)]
+        return [(pose_jobs.pop(idx), results.pop(idx)) for idx in reversed(exception_indices)]
+
+
 def main():
     """Run the SymDesign program"""
     # -----------------------------------------------------------------------------------------------------------------
     #  Initialize local functions
     # -----------------------------------------------------------------------------------------------------------------
-    def parse_results_for_exceptions(results_: list[Any] | dict = None, **kwargs) \
-            -> list[tuple[PoseJob, Exception]] | list:
-        """For a multimodule protocol, filter out any exceptions before proceeding to the next module
-
-        Args:
-            results_: The returned values from the jobs
-        Returns:
-            Tuple of passing PoseDirectories and Exceptions
-        """
-        if results_ is None:
-            return []
-        else:
-            exception_indices = [idx for idx, result_ in enumerate(results_) if isinstance(result_, BaseException)]
-            return [(pose_jobs.pop(idx), results_.pop(idx)) for idx in reversed(exception_indices)]
-
     def terminate(results: list[Any] | dict = None, output: bool = True, **kwargs):
         """Format designs passing output parameters and report program exceptions
 
@@ -271,32 +273,8 @@ def main():
         # print('\n')
         exit(exit_code)
 
-    # def get_sym_entry_from_nanohedra_directory(nanohedra_dir: AnyStr) -> utils.SymEntry.SymEntry:
-    #     """Handles extraction of Symmetry info from Nanohedra outputs.
-    #
-    #     Args:
-    #         nanohedra_dir: The path to a Nanohedra master output directory
-    #     Raises:
-    #         FileNotFoundError: If no nanohedra master log file is found
-    #         SymmetryError: If no symmetry is found
-    #     Returns:
-    #         The SymEntry specified by the Nanohedra docking run
-    #     """
-    #     log_path = os.path.join(nanohedra_dir, putils.master_log)
-    #     try:
-    #         with open(log_path, 'r') as f:
-    #             for line in f.readlines():
-    #                 if 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
-    #                     return utils.SymEntry.symmetry_factory.get(int(line.split(':')[-1]))  # sym_map inclusion?
-    #     except FileNotFoundError:
-    #         raise FileNotFoundError('Nanohedra master directory is malformed. '
-    #                                 f'Missing required docking file {log_path}')
-    #     raise utils.InputError(f'Nanohedra master docking file {log_path} is malformed. Missing required info'
-    #                            ' "Nanohedra Entry Number:"')
-
     def initialize_entities(uniprot_entities: Iterable[wrapapi.UniProtEntity],
                             metadata: Iterable[sql.ProteinMetadata]):
-                            # Iterable[structure.base.Structure]):
         """Handle evolutionary and structural data creation
 
         Args:
@@ -312,7 +290,6 @@ def main():
             evolution_instructions = \
                 job.process_evolutionary_info(uniprot_entities=uniprot_entities)
             #                                    entities=all_entities)
-            # load_resources = True if evolution_instructions else False
             info_messages.extend(evolution_instructions)
 
         if job.preprocessed:
@@ -324,15 +301,13 @@ def main():
             for entity in metadata:  # entities:
                 shutil.copy(entity.model_source, job.refine_dir)
                 shutil.copy(entity.model_source, job.full_model_dir)
-                entity.pre_loop_model = True  # job.initial_loop_model
-                entity.pre_refine = True  # job.initial_refinement
-            # Report to JobResources the results after skipping set up
-            job.initial_refinement = job.initial_loop_model = True
+                entity.pre_loop_model = True
+                entity.pre_refine = True
         else:
-            # preprocess_instructions, job.initial_refinement, job.initial_loop_model = \
+            # preprocess_instructions, initial_refinement, initial_loop_model = \
             #     job.structure_db.preprocess_structures_for_design(structures, script_out_path=job.sbatch_scripts)
-            preprocess_instructions, job.initial_refinement, job.initial_loop_model = \
-                job.structure_db.preprocess_structures_for_design(metadata, script_out_path=job.sbatch_scripts)
+            preprocess_instructions, initial_refinement, initial_loop_model = \
+                job.structure_db.preprocess_metadata_for_design(metadata, script_out_path=job.sbatch_scripts)
             if info_messages and preprocess_instructions:
                 info_messages += ['The following can be run at any time regardless of evolutionary script progress']
             info_messages += preprocess_instructions
@@ -350,14 +325,8 @@ def main():
             logger.info(resubmit_command_message)
             terminate(output=False)
 
-            # After completion of sbatch, the next time command is entered program will proceed
-        #     else:
-        #         # We always prepare info_messages when jobs should be run
-        #         raise utils.InputError("This shouldn't have happened. 'info_messages' can't be False here...")
-
-        # # Todo inside initialize_entities()
-        # protein_metadata.pre_refine = job.initial_refinement
-        # protein_metadata.pre_loop_model = job.initial_loop_model
+        # After completion of indicated scripts, the next time command is entered
+        # these checks will not raise and the program will proceed
 
     def initialize_metadata(possibly_new_uniprot_to_prot_data: dict[tuple[str, ...], sql.ProteinMetadata] = None,
                             existing_uniprot_entities: Iterable[wrapapi.UniProtEntity] = None,
@@ -961,12 +930,9 @@ def main():
             all_uniprot_id_to_prot_data, uniprot_entities = \
                 initialize_metadata(possibly_new_uniprot_to_prot_metadata)
 
-            # Set up evolution and structures
-            all_structures = initialize_entities(uniprot_entities, all_uniprot_id_to_prot_data.values())
-            # # Indicate for the protein_metadata the characteristics of the Structure in the database
-            # for uniprot_ids, protein_metadata in all_uniprot_id_to_prot_data.items():
-            #     protein_metadata.pre_refine = job.initial_refinement
-            #     protein_metadata.pre_loop_model = job.initial_loop_model
+            # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
+            initialize_entities(uniprot_entities, all_uniprot_id_to_prot_data.values())
+
             # Todo need to take the version of all_structures from refine/loop modeling and insert entity.metadata
             #  then usage for docking pairs below...
 
@@ -1309,12 +1275,6 @@ def main():
                 # Todo set up a job based data acquisition as this takes some time and loading everythin isn't necessary!
                 job.structure_db.load_all_data()
                 job.api_db.load_all_data()
-            # # Set up in series
-            # for pose_job in pose_jobs:
-            #     # pose.initialize_structure_attributes(pre_refine=job.initial_refinement,
-            #     #                                      pre_loop_model=job.initial_loop_model)
-            #     pose_job.pre_refine = job.initial_refinement
-            #     pose_job.pre_loop_model = job.initial_loop_model
 
             logger.info(f'Found {len(pose_jobs)} unique poses from provided input location "{job.location}"')
             if not job.debug and not job.skip_logging:
@@ -1355,33 +1315,31 @@ def main():
                 # Fetch the specified protocol with python acceptable naming
                 protocol = getattr(protocols, protocol_name.replace('-', '_'))
                 # Figure out how the job should be set up
-                if protocol_name in protocols.config.run_on_pose_job:  # Single poses
+                if job.module in protocols.config.run_on_pose_job:  # Single poses
                     if job.multi_processing:
                         results_ = utils.mp_map(protocol, pose_jobs, processes=job.cores)
                     else:
-                        results_ = []
-                        for pose_job in pose_jobs:
-                            results_.append(protocol(pose_job))
-                else:  # Collection of poses
+                        results_ = [protocol(pose_job) for pose_job in pose_jobs]
+                else:  # Collection of pose_jobs
                     results_ = protocol(pose_jobs)
 
                 # Handle any returns that require particular treatment
-                if protocol_name in protocols.config.returns_pose_jobs:
+                if job.module in protocols.config.returns_pose_jobs:
                     results = []
                     if results_:  # Not an empty list
-                        if isinstance(results_[0], list):  # In the case of nanohedra
+                        if isinstance(results_[0], list):  # In the case returning collection of pose_jobs (nanohedra)
                             for result in results_:
                                 results.extend(result)
                         else:
                             results.extend(results_)
                     pose_jobs = results
+                # elif job.module == flags.cluster_poses:  # Returns None
+                #    pass
                 else:
                     results = results_
-                # elif putils.cluster_poses:  # Returns None
-                #    pass
+                    # Update the current state of protocols and exceptions
+                    exceptions.extend(job.parse_results_for_exceptions(pose_jobs, results))
 
-                # Update the current state of protocols and exceptions
-                exceptions.extend(parse_results_for_exceptions(results))
                 # # Retrieve any program flags necessary for termination
                 # terminate_kwargs.update(**terminate_options.get(protocol_name, {}))
         # -----------------------------------------------------------------------------------------------------------------

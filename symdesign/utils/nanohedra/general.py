@@ -149,3 +149,27 @@ def get_components_from_nanohedra_docking(pose_file: AnyStr) -> list[str]:
             entity_names = list(map(os.path.basename, [os.path.splitext(canonical_pdb1)[0],
                                                        os.path.splitext(canonical_pdb2)[0]]))
     return entity_names
+
+
+def get_sym_entry_from_nanohedra_directory(nanohedra_dir: AnyStr) -> utils.SymEntry.SymEntry:
+    """Handles extraction of Symmetry info from Nanohedra outputs.
+
+    Args:
+        nanohedra_dir: The path to a Nanohedra master output directory
+    Raises:
+        FileNotFoundError: If no nanohedra master log file is found
+        SymmetryError: If no symmetry is found
+    Returns:
+        The SymEntry specified by the Nanohedra docking run
+    """
+    log_path = os.path.join(nanohedra_dir, putils.master_log)
+    try:
+        with open(log_path, 'r') as f:
+            for line in f.readlines():
+                if 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
+                    return utils.SymEntry.symmetry_factory.get(int(line.split(':')[-1]))  # sym_map inclusion?
+    except FileNotFoundError:
+        raise FileNotFoundError('Nanohedra master directory is malformed. '
+                                f'Missing required docking file {log_path}')
+    raise utils.InputError(f'Nanohedra master docking file {log_path} is malformed. Missing required info'
+                           ' "Nanohedra Entry Number:"')
