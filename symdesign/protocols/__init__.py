@@ -495,8 +495,7 @@ def interface_design(job: pose.PoseJob):
     # elif os.path.exists(job.frag_file):
     #     job.retrieve_fragment_info_from_file()
 
-    if job.job.design.evolution_constraint:
-        job.generate_evolutionary_profile()
+    job.set_up_evolutionary_profile()
 
     # job.pose.combine_sequence_profiles()
     # I could also add the combined profile here instead of at each Entity
@@ -582,8 +581,7 @@ def design(job: pose.PoseJob):
     # elif os.path.exists(job.frag_file):
     #     job.retrieve_fragment_info_from_file()
 
-    if job.job.design.evolution_constraint:
-        job.generate_evolutionary_profile()
+    job.set_up_evolutionary_profile()
 
     # job.pose.combine_sequence_profiles()
     # I could also add the combined profile here instead of at each Entity

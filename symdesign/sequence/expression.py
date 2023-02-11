@@ -2,15 +2,15 @@
 from __future__ import annotations
 
 import logging
-# from itertools import chain as iter_chain  # combinations,
 
-from . import generate_alignment, protein_letters_alph1
-from .constants import h2o_mass, aa_polymer_molecular_weights, instability_order, instability_array
-from symdesign.resources import config, query
+from . import generate_alignment
+from .constants import expression_tags, h2o_mass, aa_polymer_molecular_weights, instability_order, instability_array
+from symdesign.resources import query
 from symdesign import utils
 putils = utils.path
 
 # Globals
+tags = expression_tags
 logger = logging.getLogger(__name__)
 uniprot_pdb_d = utils.unpickle(putils.uniprot_pdb_map)
 
@@ -268,12 +268,12 @@ def select_tags_for_sequence(sequence_id: str, matching_pdb_tags: list[dict[str,
                             tag_input = input('What tag would you like to use? Enter the number of the below options.'
                                               '\n\t%s\n%s'
                                               % ('\n\t'.join(['%d - %s' % (i, tag)
-                                                              for i, tag in enumerate(config.expression_tags, 1)]),
+                                                              for i, tag in enumerate(expression_tags, 1)]),
                                                  query.utils.input_string))
                             if tag_input.isdigit():
                                 tag_input = int(tag_input)
-                            if tag_input <= len(config.expression_tags):
-                                final_choice['name'] = list(config.expression_tags.keys())[tag_input - 1]
+                            if tag_input <= len(expression_tags):
+                                final_choice['name'] = list(expression_tags.keys())[tag_input - 1]
                                 break
                             print(f"Input '{tag_input}' doesn't match available options. Please try again")
                         break
@@ -304,7 +304,7 @@ def select_tags_for_sequence(sequence_id: str, matching_pdb_tags: list[dict[str,
     # total_alignment = SequenceProfile.create_bio_msa({idx: tag for idx, tag in enumerate(all_matching_tags)})
     # tag_msa = SequenceProfile.generate_msa_dictionary(total_alignment)
     if custom:
-        final_tag_sequence['sequence'] = config.expression_tags[final_choice['name']]
+        final_tag_sequence['sequence'] = expression_tags[final_choice['name']]
     else:
         logger.debug(f'Grabbing the first matching tag out of {len(all_matching_tags)} possible')
         final_tag_sequence['sequence'] = all_matching_tags[0]  # For now grab the first
@@ -364,7 +364,7 @@ def find_expression_tags(sequence: str, alignment_length: int = 12) -> list | li
     """
     half_sequence_length = len(sequence) / 2
     matching_tags = []
-    for tag, tag_sequence in config.expression_tags.items():
+    for tag, tag_sequence in expression_tags.items():
         tag_index = sequence.find(tag_sequence)
         if tag_index == -1:  # No match was found
             continue
@@ -412,7 +412,7 @@ def remove_expression_tags(sequence: str, tag_names: list[str]) -> str:
     """
     half_sequence_length = len(sequence) / 2
     for tag_name in tag_names:
-        tag_sequence = config.expression_tags[tag_name]
+        tag_sequence = expression_tags[tag_name]
         tag_index = sequence.find(tag_sequence)
         if tag_index == -1:  # No match was found
             continue

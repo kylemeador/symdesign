@@ -14,11 +14,11 @@ from sqlalchemy.sql import Select
 
 from . import cluster
 from .pose import PoseJob
-from symdesign import flags, metrics, resources, utils
+import symdesign.utils.path as putils
+from symdesign import flags, metrics, utils
 from symdesign.resources import sql, config
 from symdesign.resources.job import job_resources_factory
 from symdesign.resources.query.utils import input_string, boolean_choice, validate_input
-import symdesign.utils.path as putils
 from symdesign.structure.model import Model
 from symdesign.sequence import optimize_protein_sequence, write_sequences, expression, find_orf_offset, \
     generate_mutations, protein_letters_alph1
@@ -923,13 +923,12 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                                 while True:
                                     tag_input = input('What tag would you like to use? Enter the number of the '
                                                       f'below options.\n\t%s\n{input_string}' %
-                                                      '\n\t'.join([f'{i} - {tag}'
-                                                                   for i, tag in enumerate(
-                                                              resources.config.expression_tags, 1)]))
+                                                      '\n\t'.join(
+                                                          [f'{i} - {tag}' for i, tag in enumerate(expression.tags, 1)]))
                                     if tag_input.isdigit():
                                         tag_input = int(tag_input)
-                                        if tag_input <= len(resources.config.expression_tags):
-                                            tag = list(resources.config.expression_tags.keys())[tag_input - 1]
+                                        if tag_input <= len(expression.tags):
+                                            tag = list(expression.tags.keys())[tag_input - 1]
                                             break
                                     print("Input doesn't match available options. Please try again")
                                 while True:
@@ -943,12 +942,12 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                             selected_entity = list(sequences_and_tags.keys())[idx]
                             if termini == 'n':
                                 new_tag_sequence = \
-                                    resources.config.expression_tags[tag] + 'SG' \
+                                    expression.tags[tag] + 'SG' \
                                     + sequences_and_tags[selected_entity]['sequence'][:12]
                             else:  # termini == 'c'
                                 new_tag_sequence = \
                                     sequences_and_tags[selected_entity]['sequence'][-12:] \
-                                    + 'GS' + resources.config.expression_tags[tag]
+                                    + 'GS' + expression.tags[tag]
                             sequences_and_tags[selected_entity]['tag'] = {'name': tag, 'sequence': new_tag_sequence}
                             missing_tags[idx] = 0
                             break
@@ -975,7 +974,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                                 selected_entity = list(sequences_and_tags.keys())[tag_input - 1]
                                 sequences_and_tags[selected_entity]['tag'] = \
                                     {'name': None, 'termini': None, 'sequence': None}
-                                # tag = list(expression.expression_tags.keys())[tag_input - 1]
+                                # tag = list(expression.tags.keys())[tag_input - 1]
                                 break
                             else:
                                 print("Input doesn't match an integer from the available options. Please try again")
@@ -992,7 +991,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 # print('TAG:\n', tag.get('sequence'), '\nSEQUENCE:\n', sequence)
                 design_sequence = expression.add_expression_tag(tag.get('sequence'), sequence)
                 if tag.get('sequence') and design_sequence == sequence:  # tag exists and no tag added
-                    tag_sequence = resources.config.expression_tags[tag.get('name')]
+                    tag_sequence = expression.tags[tag.get('name')]
                     if tag.get('termini') == 'n':
                         if design_sequence[0] == 'M':  # remove existing Met to append tag to n-term
                             design_sequence = design_sequence[1:]
@@ -1690,25 +1689,24 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                                                          '. Which termini would you prefer?', ['n', 'c'])
                             else:
                                 print('Tag options include:\n\t%s' %
-                                      '\n\t'.join([f'{idx} - {tag}'
-                                                   for idx, tag in enumerate(resources.config.expression_tags, 1)]))
+                                      '\n\t'.join([f'{idx} - {tag}' for idx, tag in enumerate(expression.tags, 1)]))
                                 tag_input = \
                                     validate_input('Which of the above tags would you like to use? Enter the '
                                                    'number of your preferred option',
-                                                   list(map(str, range(1, 1 + len(resources.config.expression_tags)))))
+                                                   list(map(str, range(1, 1 + len(expression.tags)))))
                                 # if tag_input.isdigit():
                                 # Adjust for python indexing
                                 tag_index = int(tag_input) - 1
-                                tag = list(resources.config.expression_tags.keys())[tag_index]
+                                tag = list(expression.tags.keys())[tag_index]
                                 termini = validate_input(f'Your tag {tag} will be added to one of the termini'
                                                          '. Which termini would you prefer?', ['n', 'c'])
                             selected_sequence_and_tag = sequences_and_tags[idx]
                             if termini == 'n':
-                                new_tag_sequence = resources.config.expression_tags[tag] \
+                                new_tag_sequence = expression.tags[tag] \
                                     + 'SG' + selected_sequence_and_tag['sequence'][:12]
                             else:  # termini == 'c'
                                 new_tag_sequence = selected_sequence_and_tag['sequence'][-12:] \
-                                    + 'GS' + resources.config.expression_tags[tag]
+                                    + 'GS' + expression.tags[tag]
                             selected_sequence_and_tag['tag'] = {'name': tag, 'sequence': new_tag_sequence}
                             missing_tags[idx] = 0
                             break
@@ -1753,7 +1751,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 chimeric_tag_sequence = tag.get('sequence')
                 tagged_sequence = expression.add_expression_tag(chimeric_tag_sequence, sequence)
                 if chimeric_tag_sequence and tagged_sequence == sequence:  # tag exists and no tag added
-                    tag_sequence = resources.config.expression_tags[tag.get('name')]
+                    tag_sequence = expression.tags[tag.get('name')]
                     if tag.get('termini') == 'n':
                         if tagged_sequence[0] == 'M':  # Remove existing n-term Met to append tag to n-term
                             tagged_sequence = tagged_sequence[1:]

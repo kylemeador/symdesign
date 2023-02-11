@@ -1144,9 +1144,9 @@ select_sequences_arguments = {
     (f'--{nucleotide}',): dict(action=argparse.BooleanOptionalAction, default=True,
                                help=f'Whether to output codon optimized nucleotide sequences'
                                     f'\n{boolean_positional_prevent_msg(nucleotide)}'),
-    ('-t', f'--{preferred_tag}'): dict(type=str.lower, choices=config.expression_tags.keys(), default='his_tag', metavar='',
-                                       help='The name of your preferred expression tag'
-                                            '\nChoices=%(choices)s\nDefault=%(default)s'),
+    ('-t', f'--{preferred_tag}'): dict(type=str.lower, choices=constants.expression_tags.keys(), default='his_tag',
+                                       metavar='', help='The name of your preferred expression tag\n'
+                                                        'Choices=%(choices)s\nDefault=%(default)s'),
     (f'--{tag_entities}',): dict(type=str,
                                  help='If there are specific entities in the designs you want to tag,\nindicate how '
                                       'tagging should occur. Viable options include:\n\t"single" - a single entity\n\t'
