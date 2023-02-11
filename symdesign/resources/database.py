@@ -6,7 +6,7 @@ from glob import glob
 from logging import Logger
 from typing import Any, Callable, AnyStr
 
-from symdesign import utils
+from symdesign import utils, resources
 
 logger = logging.getLogger(__name__)
 # for checking out the options to read and write Rosetta runs to a relational DB such as MySQL
@@ -234,6 +234,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
             self.sql = sql
 
         self.log = log
+        self.job: 'resources.job.JobResources' | None = None
 
     def load_all_data(self):
         """For every resource, acquire all existing data in memory"""

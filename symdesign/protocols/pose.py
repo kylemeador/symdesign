@@ -39,13 +39,14 @@ from symdesign.structure.coords import superposition3d
 from symdesign.structure.model import Pose, Models, Model, Entity
 from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
 from symdesign.structure.utils import DesignError, ClashError
-from symdesign.third_party.alphafold.alphafold.common import protein, residue_constants
-from symdesign.third_party.alphafold.alphafold.data.pipeline import FeatureDict, make_sequence_features
-from symdesign.third_party.alphafold.alphafold.model import config as afconfig, model as afmodel
-from symdesign.third_party.alphafold.alphafold.model.data import get_model_haiku_params
-from symdesign.third_party.alphafold.alphafold.relax import amber_minimize, utils as relax_utils  # relax
+import symdesign.third_party.alphafold.alphafold as af
+# from symdesign.third_party.alphafold.alphafold.common import protein, residue_constants
+# from symdesign.third_party.alphafold.alphafold.data.pipeline import FeatureDict, make_sequence_features
+# from symdesign.third_party.alphafold.alphafold.model import config as afconfig
+# from symdesign.third_party.alphafold.alphafold.model.data import get_model_haiku_params
+# from symdesign.third_party.alphafold.alphafold.relax import amber_minimize, utils as relax_utils  # relax
 from symdesign.utils import all_vs_all, condensed_to_square, InputError, large_color_array, start_log, path as putils, \
-    pickle_object, rosetta, starttime, write_json, write_shell_script
+    pickle_object, rosetta, starttime, write_shell_script
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
 # from symdesign.utils.nanohedra.general import get_components_from_nanohedra_docking
 
@@ -1844,11 +1845,11 @@ class PoseProtocol(PoseData):
             sequence_length = len(seq_of_interest)
             # Set the sequence up in the FeatureDict
             # Todo the way that I am adding this here instead of during construction, seems that I should
-            #  symmetrize the sequence before passing to predict(). This would occur by entity, where the first
+            #  symmetrize the sequence before passing to af_predict(). This would occur by entity, where the first
             #  entity is combined, then the second entity is combined, etc. Any entity agnostic features such
             #  as all_atom_mask would be able to be made here
-            _seq_features = make_sequence_features(sequence=seq_of_interest, description='',
-                                                   num_res=sequence_length)
+            _seq_features = af.pipeline.make_sequence_features(sequence=seq_of_interest, description='',
+                                                               num_res=sequence_length)
             # Always use the outer "domain_name" feature if there is one
             _seq_features.pop('domain_name')
             if multimer_length is not None:
@@ -1885,7 +1886,7 @@ class PoseProtocol(PoseData):
             #     # increasing for each sequence position, restarting at the beginning of a chain
             # Make the atom positions according to the sequence
             # Add all_atom_mask and dummy all_atom_positions based on aatype.
-            all_atom_mask = residue_constants.STANDARD_ATOM_MASK[_seq_features['aatype']]
+            all_atom_mask = af.residue_constants.STANDARD_ATOM_MASK[_seq_features['aatype']]
             _seq_features['all_atom_mask'] = all_atom_mask
             _seq_features['all_atom_positions'] = np.zeros(list(all_atom_mask.shape) + [3])
 

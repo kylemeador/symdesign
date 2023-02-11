@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
-import inspect
 import logging
 import os
 from copy import deepcopy
@@ -324,6 +323,9 @@ class JobResources:
 
         self.api_db = wrapapi.api_database_factory.get(source=self.data)
         self.structure_db = structure_db.structure_database_factory.get(source=self.structure_info)
+        # Set the job instance on these db objects
+        self.api_db.job = self
+        self.structure_db.job = self
         self.fragment_db: structure.fragment.db.FragmentDatabase | None = None
         if kwargs.get('database'):
             if self.development or self.debug:
@@ -1029,8 +1031,6 @@ class JobResourcesFactory:
                 self._warn = False
                 logger.warning(f"Can't pass the new arguments {', '.join(kwargs.keys())} to JobResources "
                                f'since it was already initialized and is a singleton')
-                # raise RuntimeError(f'Can\'t pass the new arguments {", ".join(kwargs.keys())} to JobResources '
-                #                    f'since it was already initialized')
             return job
         else:
             logger.info(f'Initializing {JobResources.__name__}({kwargs.get("program_root", os.getcwd())})')
