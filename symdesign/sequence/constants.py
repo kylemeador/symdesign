@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import csv
+
 import numpy as np
+
+from symdesign.utils import path as putils
 
 ndeI_multicistronic_sequence = \
     'taatgcttaagtcgaacagaaagtaatcgtattgtacacggccgcataatcgaaat' \
@@ -197,3 +201,6 @@ instability_array = np.array(
      [-14.03, 1., 1., 1., 1., -9.37, 24.68, 1., 1., 13.34, 24.68, 13.34, 1., 1., 1., 1., -14.03, -7.49, 1., 1.],
      [24.68, 1., 24.68, -6.54, 1., -7.49, 13.34, 1., 1., 1., 44.94, 1., 13.34, 1., -15.91, 1., -7.49, 1., -9.37, 13.34]]
 )
+
+with open(putils.affinity_tags, 'r') as f:
+    expression_tags = {'_'.join(map(str.lower, row[0].split())): row[1] for row in csv.reader(f)}

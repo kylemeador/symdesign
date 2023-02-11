@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 from typing import Literal, get_args
 
 from symdesign.utils import path as putils
@@ -747,6 +746,3 @@ metrics = {
         dict(description='Rosetta Energy Term - favor planarity of tyrosine alcohol hydrogen',
              direction=None, function=None, filter=None)
 }
-
-with open(putils.affinity_tags, 'r') as f:
-    expression_tags = {'_'.join(map(str.lower, row[0].split())): row[1] for row in csv.reader(f)}

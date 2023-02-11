@@ -97,11 +97,44 @@ alphabet_to_type = {'ACDEFGHIKLMNPQRSTVWY': protein_letters_alph1,
 alignment_programs_literal = Literal['hhblits', 'psiblast']
 alignment_programs: tuple[str, ...] = get_args(alignment_programs_literal)
 profile_types = Literal['evolutionary', 'fragment', '']
-lod_dictionary: dict[protein_letters_literal, int]
-profile_values: float | str | lod_dictionary
+
+
+class LodDict(TypedDict):
+    A: int
+    R: int
+    N: int
+    D: int
+    C: int
+    Q: int
+    E: int
+    G: int
+    H: int
+    I: int
+    L: int
+    K: int
+    M: int
+    F: int
+    P: int
+    S: int
+    T: int
+    W: int
+    Y: int
+    V: int
+    # B: int
+    # J: int
+    # O: int
+    # U: int
+    # X: int
+    # Z: int
+
+
 profile_keys = Literal[protein_letters_literal, 'lod', 'type', 'info', 'weight']
-profile_entry: dict[profile_keys, profile_values]  # Type[dict[profile_keys, profile_values]]
-profile_dictionary: dict[int, dict[profile_keys, profile_values]]  # Type[dict[int, dict[profile_keys, profile_values]]]
+ProfileEntry = TypedDict('ProfileEntry', {**LodDict.__dict__['__annotations__'],
+                                          'lod': LodDict,
+                                          'type': protein_letters_literal,
+                                          'info': float,
+                                          'weight': float})
+ProfileDict = dict[int, ProfileEntry]
 """{1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
         'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
 """
@@ -1135,7 +1168,7 @@ def parse_pssm(file: AnyStr, **kwargs) -> dict[int, dict[str, str | float | int 
     return pose_dict
 
 
-def parse_hhblits_pssm(file: AnyStr, null_background: bool = True, **kwargs) -> profile_dictionary:
+def parse_hhblits_pssm(file: AnyStr, null_background: bool = True, **kwargs) -> ProfileDict:
     """Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
 
     Args:

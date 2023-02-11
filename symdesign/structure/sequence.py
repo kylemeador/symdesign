@@ -22,21 +22,13 @@ from . import utils
 from .fragment import info
 from .fragment.db import alignment_types_literal, alignment_types, fragment_info_type
 from symdesign import metrics, utils as sdutils
-# from symdesign.utils import path as putils
 from symdesign.sequence import alignment_programs_literal, alignment_programs, hhblits, get_lod, \
     MultipleSequenceAlignment, mutation_dictionary, numerical_profile, numerical_translation_alph1_bytes, \
-    numerical_translation_alph1_gapped_bytes, parse_hhblits_pssm, protein_letters_alph1, protein_letters_alph3, \
-    protein_letters_3to1, profile_types, protein_letters_literal, profile_keys, write_sequence_to_fasta, write_sequences
+    numerical_translation_alph1_gapped_bytes, parse_hhblits_pssm, ProfileDict, ProfileEntry, protein_letters_alph1, \
+    protein_letters_alph3, protein_letters_3to1, profile_types, write_sequence_to_fasta, write_sequences
 # import dependencies.bmdca as bmdca
 putils = sdutils.path
 
-lod_dictionary: dict[protein_letters_literal, int]
-profile_values: float | str | lod_dictionary
-profile_entry: Type[dict[profile_keys, profile_values]]
-profile_dictionary: Type[dict[int, dict[profile_keys, profile_values]]]
-"""{1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
-        'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
-"""
 # Globals
 logger = logging.getLogger(__name__)
 default_fragment_contribution = .5
@@ -118,7 +110,7 @@ def sequences_to_numeric(sequences: Iterable[Sequence[str]], translation_table: 
             raise ValueError(f"The 'alphabet_order' {alphabet_order} isn't valid. Choose from either 1 or 3")
 
 
-def pssm_as_array(pssm: profile_dictionary, alphabet: str = protein_letters_alph1, lod: bool = False) \
+def pssm_as_array(pssm: ProfileDict, alphabet: str = protein_letters_alph1, lod: bool = False) \
         -> np.ndarray:
     """Convert a position specific profile matrix into a numeric array
 
@@ -164,7 +156,7 @@ def concatenate_profile(profiles: Iterable[Any], start_at: int = 1) -> dict[int,
     # return new_profile
 
 
-def write_pssm_file(pssm: profile_dictionary, file_name: AnyStr = None, name: str = None,
+def write_pssm_file(pssm: ProfileDict, file_name: AnyStr = None, name: str = None,
                     out_dir: AnyStr = os.getcwd()) -> AnyStr | None:
     """Create a PSI-BLAST format PSSM file from a PSSM dictionary. Assumes residue numbering is correct!
 
@@ -219,12 +211,12 @@ def write_pssm_file(pssm: profile_dictionary, file_name: AnyStr = None, name: st
 
 
 class Profile(UserList):
-    data: list[profile_entry]
+    data: list[ProfileEntry]
     """[{'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...},
          'type': 'W', 'info': 3.20, 'weight': 0.73},
         {}, ...]
     """
-    def __init__(self, profile: list[profile_entry] = None, dtype: str = None, **kwargs):
+    def __init__(self, profile: list[ProfileEntry] = None, dtype: str = None, **kwargs):
         # Todo?
         if profile is None:
             profile = []
@@ -234,7 +226,7 @@ class Profile(UserList):
             except IndexError:  # No values in list
                 pass
 
-        super().__init__(initlist=profile, **kwargs)  # initlist sets UserList.data to profile_dictionary
+        super().__init__(initlist=profile, **kwargs)  # initlist sets UserList.data to ProfileDict
 
         self.dtype = 'profile' if dtype is None else dtype
         if not self.data:  # Set up an empty Profile
@@ -334,13 +326,13 @@ class Profile(UserList):
 
 
 # class Profile(UserDict):
-#     data: profile_dictionary
+#     data: ProfileDict
 #     """{1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...},
 #            'type': 'W', 'info': 3.20, 'weight': 0.73},
 #         2: {}, ...}
 #     """
-#     def __init__(self, profile: profile_dictionary, dtype: str = None, **kwargs):
-#         super().__init__(initialdata=profile, **kwargs)  # initialdata sets UserDict.data to profile_dictionary
+#     def __init__(self, profile: ProfileDict, dtype: str = None, **kwargs):
+#         super().__init__(initialdata=profile, **kwargs)  # initialdata sets UserDict.data to ProfileDict
 #
 #         self.dtype = 'profile' if dtype is None else dtype
 #         if not self.data:  # Set up an empty Profile
@@ -390,7 +382,7 @@ class SequenceProfile(ABC):
     _alpha: float
     _collapse_profile: np.ndarray  # pd.DataFrame
     _fragment_db: info.FragmentInfo | None
-    _fragment_profile: list[list[set[dict]]] | list[profile_entry] | None
+    _fragment_profile: list[list[set[dict]]] | list[ProfileEntry] | None
     _hydrophobic_collapse: np.ndarray
     _msa: MultipleSequenceAlignment | None
     _sequence_numeric: np.ndarray
@@ -398,7 +390,7 @@ class SequenceProfile(ABC):
     alpha: list[float]
     # alpha: dict[int, float]
     disorder: dict[int, dict[str, str]]
-    evolutionary_profile: dict | profile_dictionary
+    evolutionary_profile: dict | ProfileDict
     # fragment_map: dict[int, dict[int, set[fragment_info_type]]] | None
     fragment_map: list[dict[int, set[FragObservation]]] | None
     """{1: {-2: {FragObservation(source=Literal['mapped', 'pairer'], cluster= tuple[int, int, int], match=float, 
@@ -406,14 +398,14 @@ class SequenceProfile(ABC):
             -1: {}, ...},
         2: {}, ...}
     """
-    fragment_profile: Profile | None  # | profile_dictionary
+    fragment_profile: Profile | None  # | ProfileDict
     h_fields: np.ndarray | None
     j_couplings: np.ndarray | None
     log: Logger
     msa_file: AnyStr | None
     name: str
     number_of_residues: int
-    profile: dict | profile_dictionary
+    profile: dict | ProfileDict
     pssm_file: AnyStr | None
     reference_sequence: str
     residues: list['structure.base.Residue']
@@ -552,7 +544,7 @@ class SequenceProfile(ABC):
                 If False, residues are weighted by the residue local maximum lod score in a linear fashion
                 All lods are scaled to a maximum provided in the Rosetta REF2015 per residue reference weight.
         Sets:
-            self.profile (profile_dictionary)
+            self.profile (ProfileDict)
         """
         if null or (not evolution and not fragments):
             self.profile = self.evolutionary_profile = self.create_null_profile()
@@ -655,7 +647,7 @@ class SequenceProfile(ABC):
             profile_source: One of 'hhblits' or 'psiblast'
             force: Whether to force generation of a new profile
         Sets:
-            self.evolutionary_profile (profile_dictionary)
+            self.evolutionary_profile (ProfileDict)
         """
         if profile_source not in alignment_programs:  # [putils.hhblits, 'psiblast']:
             raise ValueError(f'{self.add_evolutionary_profile.__name__}: Profile generation only possible from '
@@ -697,9 +689,9 @@ class SequenceProfile(ABC):
                         time.sleep(20)
 
         # These functions set self.evolutionary_profile
-        getattr(self, f'parse_{profile_source}_pssm')()
+        self.__getattribute__(f'parse_{profile_source}_pssm')()
 
-    def create_null_profile(self, nan: bool = False, zero_index: bool = False, **kwargs) -> profile_dictionary:
+    def create_null_profile(self, nan: bool = False, zero_index: bool = False, **kwargs) -> ProfileDict:
         """Make a blank profile
 
         Args:
@@ -730,7 +722,7 @@ class SequenceProfile(ABC):
         sequence, removing information for residues not present in the Structure
 
         Sets:
-            self.evolutionary_profile (profile_dictionary)
+            self.evolutionary_profile (ProfileDict)
         """
         # Generate the disordered indices which are positions in reference that are missing in structure
         disorder = self.disorder
@@ -819,7 +811,7 @@ class SequenceProfile(ABC):
         """Take the contents of a pssm file, parse, and input into a sequence dictionary.
         # Todo it's CURRENTLY IMPOSSIBLE to use in calculate_profile, CHANGE psiblast lod score parsing
         Sets:
-            self.evolutionary_profile (profile_dictionary): Dictionary containing residue indexed profile information
+            self.evolutionary_profile (ProfileDict): Dictionary containing residue indexed profile information
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                  2: {}, ...}
         """
@@ -879,7 +871,7 @@ class SequenceProfile(ABC):
         Args:
             null_background: Whether to use the profile specific null background
         Sets:
-            self.evolutionary_profile (profile_dictionary): Dictionary containing residue indexed profile information
+            self.evolutionary_profile (ProfileDict): Dictionary containing residue indexed profile information
             Ex: {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
                      'weight': 0.00}, {...}}
         """
@@ -1093,7 +1085,7 @@ class SequenceProfile(ABC):
     #         alpha: float = 0.5 - The maximum contribution of the fragment profile to use, bounded between (0, 1].
     #             0 means no use of fragments in the .profile, while 1 means only use fragments
     #     Sets:
-    #         self.fragment_profile (profile_dictionary)
+    #         self.fragment_profile (ProfileDict)
     #     """
     #     self.simplify_fragment_profile(**kwargs)
     #     # self._calculate_alpha(**kwargs)
@@ -1390,7 +1382,7 @@ class SequenceProfile(ABC):
         """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
 
         Using self.evolutionary_profile
-            (profile_dictionary): HHblits - {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
+            (ProfileDict): HHblits - {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
                                                  'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
                                   PSIBLAST - {1: {'A': 0.13, 'R': 0.12, ..., 'lod': {'A': -5, 'R': 2, ...},
                                                   'type': 'W', 'info': 3.20, 'weight': 0.73}, {...}}
@@ -1408,7 +1400,7 @@ class SequenceProfile(ABC):
                 If False, residues are weighted by the residue local maximum lod score in a linear fashion
                 All lods are scaled to a maximum provided in the Rosetta REF2015 per residue reference weight.
         Sets:
-            self.profile: (profile_dictionary)
+            self.profile: (ProfileDict)
                 {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
                      'type': 'W', 'info': 0.00, 'weight': 0.00}, ...}, ...}
         """
@@ -1906,7 +1898,7 @@ def convert_to_residue_cluster_map(residue_cluster_dict, frag_range):
 #     return generate_msa_dictionary(msa_from_seq_records(read_fasta_file(file)))
 
 
-# def make_pssm_file(pssm_dict: profile_dictionary, name: str, out_dir: AnyStr = os.getcwd()):
+# def make_pssm_file(pssm_dict: ProfileDict, name: str, out_dir: AnyStr = os.getcwd()):
 #     """Create a PSI-BLAST format PSSM file from a PSSM dictionary
 #
 #     Args:
