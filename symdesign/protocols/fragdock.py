@@ -22,8 +22,7 @@ from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementatio
 from . import cluster
 from .pose import generate_evolutionary_profile, PoseJob
 from symdesign import flags, metrics, resources, utils
-from symdesign.resources import ml, job as symjob
-from symdesign.resources.sql import EntityData, EntityTransform, PoseResidueMetrics, PoseMetrics
+from symdesign.resources import ml, job as symjob, sql
 from symdesign.sequence import protein_letters_alph1
 from symdesign.structure.base import Structure
 from symdesign.structure.coords import transform_coordinate_sets
@@ -31,7 +30,7 @@ from symdesign.structure.fragment import GhostFragment
 from symdesign.structure.fragment.metrics import rmsd_z_score, z_value_from_match_score
 from symdesign.structure.fragment.visuals import write_fragment_pairs_as_accumulating_states
 from symdesign.structure.model import Pose, Model, Models
-from symdesign.structure.sequence import concatenate_profile, pssm_as_array
+from symdesign.structure.sequence import pssm_as_array
 from symdesign.structure.utils import chain_id_generator
 from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
 from symdesign.utils.symmetry import identity_matrix
@@ -3815,7 +3814,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                     'dock_collapse_violation': collapse_violation[idx],
                 })
 
-                # Update the EntityData with transformations
+                # Update the sql.EntityData with transformations
                 external_translation_x1, external_translation_y1, external_translation_z1 = _full_ext_tx1[idx]
                 external_translation_x2, external_translation_y2, external_translation_z2 = _full_ext_tx2[idx]
                 # pose_transformations[pose_id] = [
@@ -3844,26 +3843,26 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 # # Update the PoseJob with EntityMetrics
                 # pose_job.entity_metrics.extend([entity.metrics for entity in pose.entities])
 
-                # Update EntityData
+                # Update sql.EntityData
                 # pose_id = pose_job.id
                 entity_data = []
                 entity_transforms = []
                 # Todo the number of entities and the number of transformations could be different
                 for entity, transform in zip(pose.entities, entity_transformations):
                     # entity_data.metrics = entity.metrics
-                    # entity_data.transform = EntityTransform(**transform)
-                    transformation = EntityTransform(**transform)
+                    # entity_data.transform = sql.EntityTransform(**transform)
+                    transformation = sql.EntityTransform(**transform)
                     entity_transforms.append(transformation)
-                    # EntityData(
-                    entity_data.append(EntityData(
+                    # sql.EntityData(
+                    entity_data.append(sql.EntityData(
                         pose=pose_job,
                         meta=entity.metadata,
                         metrics=entity.metrics,
-                        transform=transformation)  # EntityTransform(**transform))
+                        transform=transformation)  # sql.EntityTransform(**transform))
                     )
 
                 job.current_session.add_all(entity_transforms + entity_data)
-                # # Update the PoseJob with EntityData
+                # # Update the PoseJob with sql.EntityData
                 # pose_job.entity_data.extend(entity_data)
 
                 # if job.design.sequences:
@@ -4161,14 +4160,14 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
             if job.db:
                 poses_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
                 # poses_df = pd.concat([poses_df], keys=[project], axis=0)
-                # poses_df.index.set_names([PoseMetrics.project.name, PoseMetrics.name.name], inplace=True)
-                poses_df.index.set_names(PoseMetrics.pose_id.name, inplace=True)
-                metrics.sql.write_dataframe(poses=poses_df)  # , update=False)
+                # poses_df.index.set_names([sql.PoseMetrics.project.name, sql.PoseMetrics.name.name], inplace=True)
+                poses_df.index.set_names(sql.PoseMetrics.pose_id.name, inplace=True)
+                metrics.sql.write_dataframe(job, poses=poses_df)  # , update=False)
 
-                residues_df.index = pd.Index(pose_ids, name=PoseResidueMetrics.pose_id.name)
+                residues_df.index = pd.Index(pose_ids, name=sql.PoseResidueMetrics.pose_id.name)
                 # residues_df.index.set_names(residue_index_names, inplace=True)
-                # _residues_ids = metrics.sql.write_dataframe(residues=residues_df)
-                metrics.sql.write_dataframe(pose_residues=residues_df)  # , update=False)
+                # _residues_ids = metrics.sql.write_dataframe(job, residues=residues_df)
+                metrics.sql.write_dataframe(job, pose_residues=residues_df)  # , update=False)
             else:  # Write to disk
                 residues_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
                 putils.make_path(job.all_scores)
