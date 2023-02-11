@@ -294,18 +294,80 @@ def main():
     #     raise utils.InputError(f'Nanohedra master docking file {log_path} is malformed. Missing required info'
     #                            ' "Nanohedra Entry Number:"')
 
-    def initialize_entities(structures: Iterable[structure.base.Structure],
-                            possibly_new_uniprot_to_prot_data: dict[tuple[str, ...], sql.ProteinMetadata] = None,
-                            existing_uniprot_entities: Iterable[wrapapi.UniProtEntity] = None,
-                            existing_protein_metadata: Iterable[wrapapi.UniProtEntity] = None) -> \
-            dict[tuple[str, ...], sql.ProteinMetadata]:
-        """Perform the routine of comparing newly described work to the existing database and handling set up of
-        structural and evolutionary data creation
+    def initialize_entities(uniprot_entities: Iterable[wrapapi.UniProtEntity],
+                            metadata: Iterable[sql.ProteinMetadata]):
+                            # Iterable[structure.base.Structure]):
+        """Handle evolutionary and structural data creation
 
         Args:
-            structures: The Structure instances that are being imported for the first time
+            uniprot_entities: All UniProtEntity instances which should be checked for evolutionary info
+            metadata: The ProteinMetadata instances that are being imported for the first time
+            # structures: The Structure instances that are being imported for the first time
+        Returns:
+            The processed structures
+        """
+        # Set up common Structure/Entity resources
+        info_messages = []
+        if job.design.evolution_constraint:
+            evolution_instructions = \
+                job.setup_evolution_constraint(uniprot_entities=uniprot_entities)
+            #                                    entities=all_entities)
+            # load_resources = True if evolution_instructions else False
+            info_messages.extend(evolution_instructions)
+
+        if job.preprocessed:
+            # Don't perform refinement or loop modeling, this has already been done or isn't desired
+            # args.orient, args.refine = True, True  # Todo make part of argparse?
+            # Move the oriented Entity.file_path (should be the ASU) to the respective directory
+            putils.make_path(job.refine_dir)
+            putils.make_path(job.full_model_dir)
+            for entity in metadata:  # entities:
+                shutil.copy(entity.model_source, job.refine_dir)
+                shutil.copy(entity.model_source, job.full_model_dir)
+                entity.pre_loop_model = True  # job.initial_loop_model
+                entity.pre_refine = True  # job.initial_refinement
+            # Report to JobResources the results after skipping set up
+            job.initial_refinement = job.initial_loop_model = True
+        else:
+            # preprocess_instructions, job.initial_refinement, job.initial_loop_model = \
+            #     job.structure_db.preprocess_structures_for_design(structures, script_out_path=job.sbatch_scripts)
+            preprocess_instructions, job.initial_refinement, job.initial_loop_model = \
+                job.structure_db.preprocess_structures_for_design(metadata, script_out_path=job.sbatch_scripts)
+            if info_messages and preprocess_instructions:
+                info_messages += ['The following can be run at any time regardless of evolutionary script progress']
+            info_messages += preprocess_instructions
+
+        if info_messages:
+            # Entity processing commands are needed
+            if utils.CommandDistributer.is_sbatch_available():
+                logger.critical(sbatch_warning)
+            else:
+                logger.critical(script_warning)
+
+            for message in info_messages:
+                logger.info(message)
+            print('\n')
+            logger.info(resubmit_command_message)
+            terminate(output=False)
+
+            # After completion of sbatch, the next time command is entered program will proceed
+        #     else:
+        #         # We always prepare info_messages when jobs should be run
+        #         raise utils.InputError("This shouldn't have happened. 'info_messages' can't be False here...")
+
+        # # Todo inside initialize_entities()
+        # protein_metadata.pre_refine = job.initial_refinement
+        # protein_metadata.pre_loop_model = job.initial_loop_model
+
+    def initialize_metadata(possibly_new_uniprot_to_prot_data: dict[tuple[str, ...], sql.ProteinMetadata] = None,
+                            existing_uniprot_entities: Iterable[wrapapi.UniProtEntity] = None,
+                            existing_protein_metadata: Iterable[wrapapi.UniProtEntity] = None) -> \
+            tuple[dict[tuple[str, ...], sql.ProteinMetadata], set[wrapapi.UniProtEntity]]:
+        """Compare newly described work to the existing database and set up metadata for all described entities
+
+        Args:
             possibly_new_uniprot_to_prot_data: A mapping of the possibly required UniProtID entries and their associated
-                ProteinProperty. These could already exist but have indicated they should be added
+                ProteinMetadata. These could already exist in database, but were indicated they are needed
             existing_uniprot_entities: If any UniProtEntity instances are already available, pass them to expedite setup
         """
         # Find existing UniProtEntity table entry instances
@@ -439,60 +501,10 @@ def main():
                                                      for uniprot_id in uniprot_ids)
 
         # Seal all gaps in data by mapping all UniProtIDs to all ProteinMetadata
-        all_uniprot_to_prot_data = {
+        all_uniprot_id_to_prot_data = {
             possible_entity_id_to_uniprot_ids[entity_id]: protein_data
             for entity_id, protein_data in existing_entity_id_to_protein_data.items()}
-        all_uniprot_to_prot_data.update(possibly_new_uniprot_to_prot_data)
-
-        # Set up common Structure/Entity resources
-        info_messages = []
-        if job.design.evolution_constraint:
-            evolution_instructions = \
-                job.setup_evolution_constraint(uniprot_entities=uniprot_entities)
-            #                                    entities=all_entities)
-            # load_resources = True if evolution_instructions else False
-            info_messages.extend(evolution_instructions)
-
-        if job.preprocessed:
-            # Don't perform refinement or loop modeling, this has already been done or isn't desired
-            # args.orient, args.refine = True, True  # Todo make part of argparse?
-            # Move the oriented Entity.file_path (should be the ASU) to the respective directory
-            putils.make_path(job.refine_dir)
-            putils.make_path(job.full_model_dir)
-            for entity in structures:  # entities:
-                shutil.copy(entity.file_path, job.refine_dir)
-                shutil.copy(entity.file_path, job.full_model_dir)
-
-            # Report to JobResources the results after skipping set up
-            job.initial_refinement = job.initial_loop_model = True
-        else:
-            preprocess_instructions, job.initial_refinement, job.initial_loop_model = \
-                job.structure_db.preprocess_structures_for_design(structures, script_out_path=job.sbatch_scripts)
-            if info_messages and preprocess_instructions:
-                info_messages += ['The following can be run at any time regardless of evolutionary script progress']
-            info_messages += preprocess_instructions
-
-        if info_messages:
-            # Entity processing commands are needed
-            if utils.CommandDistributer.is_sbatch_available():
-                logger.critical(sbatch_warning)
-            else:
-                logger.critical(script_warning)
-
-            for message in info_messages:
-                logger.info(message)
-            print('\n')
-            logger.info(resubmit_command_message)
-            terminate(output=False)
-
-        for uniprot_ids, protein_metadata in possibly_new_uniprot_to_prot_data.items():
-            protein_metadata.pre_refine = job.initial_refinement
-            protein_metadata.pre_loop_model = job.initial_loop_model
-
-            # After completion of sbatch, the next time command is entered program will proceed
-        #     else:
-        #         # We always prepare info_messages when jobs should be run
-        #         raise utils.InputError("This shouldn't have happened. 'info_messages' can't be False here...")
+        all_uniprot_id_to_prot_data.update(possibly_new_uniprot_to_prot_data)
 
         # Finalize additions to the database
         session.commit()
