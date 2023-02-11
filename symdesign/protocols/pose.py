@@ -2069,40 +2069,44 @@ class PoseProtocol(PoseData):
                 #     with open(path, 'w') as f:
                 #         f.write(structure)
 
-        def load_alphafold_structures(structures: dict[str, str], **model_kwargs) -> dict[str, Model]:
-            """
-
-            Args:
-                structures: The PDB formatted strings for each input Structure
-            Keyword Args:
-                entity_info:
-                name:
-            Returns:
-                A list of Model instances as calculated by Alphafold
-            """
-            # if entity_info:
-            #     # model_kwargs = kwargs
-            #     model_kwargs = dict(entity_info=entity_info)
-            # else:
-            #     model_kwargs = {}
-
-            # design_models = {}
-            # for design, design_scores in structures_and_scores.items():
-            #     # Output unrelaxed
-            #     structures = design_scores['structures_unrelaxed']
-            # models = []
-            # for type_str in ['', 'un']:
-            #     structures = design_scores.get(f'{type_str}relaxed', [])
-            model_name_to_design = {}
-            for model_name, structure in structures.items():
-                model = Model.from_pdb_lines(structure.splitlines(), **model_kwargs)
-                # models.append(model)
-                model_name_to_design[model_name] = model
-
-            return model_name_to_design
-            # return models
-            # design_models[design] = models
-            # return design_models
+        # def load_alphafold_structures(structures: dict[str, str], plddt: dict[str, np.ndarray] = None, **model_kwargs) \
+        #         -> dict[str, Model]:
+        #     """
+        #
+        #     Args:
+        #         structures: The PDB formatted strings for each input Structure
+        #         plddt: If a plddt score should be added to the b-factor column add it here
+        #     Keyword Args:
+        #         entity_info:
+        #         name:
+        #     Returns:
+        #         A list of Model instances as calculated by Alphafold
+        #     """
+        #     # if entity_info:
+        #     #     # model_kwargs = kwargs
+        #     #     model_kwargs = dict(entity_info=entity_info)
+        #     # else:
+        #     #     model_kwargs = {}
+        #
+        #     # design_models = {}
+        #     # for design, design_scores in structures_and_scores.items():
+        #     #     # Output unrelaxed
+        #     #     structures = design_scores['structures_unrelaxed']
+        #     # models = []
+        #     # for type_str in ['', 'un']:
+        #     #     structures = design_scores.get(f'{type_str}relaxed', [])
+        #     model_name_to_design = {}
+        #     for model_name, structure in structures.items():
+        #         model = Model.from_pdb_lines(structure.splitlines(), **model_kwargs)
+        #         if plddt is not None:
+        #             model.set_b_factor_data(plddt[model_name])
+        #         # models.append(model)
+        #         model_name_to_design[model_name] = model
+        #
+        #     return model_name_to_design
+        #     # return models
+        #     # design_models[design] = models
+        #     # return design_models
 
         def find_model_with_minimal_rmsd(models: dict[str, Structure], template_cb_coords) -> tuple[list[float], str]:
             """Use the CB coords to calculate the RMSD and find the best Structure instance from a group of Alphafold
@@ -2162,6 +2166,8 @@ class PoseProtocol(PoseData):
                 protocol_logger.critical(f"Predicting on a single symmetric input isn't recommended due to "
                                          'size limitations')
             features = self.pose.get_alphafold_features(symmetric=True, no_msa=no_msa)
+            # Todo may need to this if the pose isn't completely symmetric despite it being specified as such
+            # number_of_residues = self.pose.number_of_symmetric_residues
         else:
             features = self.pose.get_alphafold_features(symmetric=False, no_msa=no_msa)
 
@@ -2193,8 +2199,14 @@ class PoseProtocol(PoseData):
             output_alphafold_structures(asu_structures, design_name=f'{design}-asu')
             # asu_models = load_alphafold_structures(structures_to_load, name=str(design),  # Get '.name'
             #                                        entity_info=self.pose.entity_info)
+            # Load the Model in
             asu_models = {model_name: Pose.from_pdb_lines(structure.splitlines(), name=str(design), **self.pose_kwargs)
                           for model_name, structure in structures_to_load.items()}
+            if relaxed:  # Set b-factor data as relaxed get overwritten
+                model_plddts = {model_name: scores['plddt'][:number_of_residues]
+                                for model_name, scores in asu_scores.items()}
+                for model_name, model in asu_models.items():
+                    model.set_b_factor_data(model_plddts[model_name])
             # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
             rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.cb_coords)
             # rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
@@ -2221,8 +2233,8 @@ class PoseProtocol(PoseData):
         designs_df = self.analyze_design_metrics_per_design(residues_df, asu_design_structures)
         # Use the .interface_residues attribute to discern whether the interface should be examined
         predict_designs_df, predict_residues_df = \
-            self.analyze_predict_structure_metrics(asu_design_scores, model_type=model_type,
-                                                   interface=self.pose.interface_residues)
+            self.analyze_predict_structure_metrics(asu_design_scores, number_of_residues,
+                                                   model_type=model_type, interface=self.pose.interface_residues)
         residues_df = residues_df.join(predict_residues_df)
         designs_df = designs_df.join(predict_designs_df)
         self.output_metrics(designs=designs_df, residues=residues_df)
@@ -2279,16 +2291,28 @@ class PoseProtocol(PoseData):
                         structures_to_load = entity_structures.get('relaxed', [])
                     else:
                         structures_to_load = entity_structures.get('unrelaxed', [])
-                    design_models = \
-                        load_alphafold_structures(structures_to_load, name=entity.name,
-                                                  entity_info={entity.name: self.pose.entity_info[entity.name]})
+                    # model_plddts = {model_name: scores['plddt'][:sequence_length]
+                    #                 for model_name, scores in entity_scores.items()}
+                    # design_models = \
+                    #     load_alphafold_structures(structures_to_load, plddt=model_plddts, name=entity.name,
+                    #                               entity_info={entity.name: self.pose.entity_info[entity.name]})
+                    model_kwargs = dict(name=entity.name, entity_info={entity.name: self.pose.entity_info[entity.name]})
+                    design_models = {model_name: Model.from_pdb_lines(structure.splitlines(), **model_kwargs)
+                                     for model_name, structure in structures_to_load.items()}
+                    if relaxed:  # Set b-factor data as relaxed get overwritten
+                        model_plddts = {model_name: scores['plddt'][:entity.number_of_residues]
+                                        for model_name, scores in entity_scores.items()}
+                        for model_name, model in design_models.items():
+                            model.set_b_factor_data(model_plddts[model_name])
 
                     # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
+                    # If the model weren't multimeric, then use this...
+                    # if multimer:
                     entity_cb_coords = np.concatenate([mate.cb_coords for mate in entity.chains])
-                    # entity_backbone_and_cb_coords = \
-                    #     np.concatenate([mate.backbone_and_cb_coords for mate in entity.chains])
                     # Todo
-                    #  entity_backbone_and_cb_coords = entity.oligomer.backbone_and_cb_coords
+                    #  entity_backbone_and_cb_coords = entity.oligomer.cb_coords
+                    # else:
+                    #     entity_cb_coords = entity.cb_coords
 
                     rmsds, minimum_model = find_model_with_minimal_rmsd(design_models, entity_cb_coords)
                     # rmsds, minimum_model = find_model_with_minimal_rmsd(design_models, entity_backbone_and_cb_coords)
@@ -2309,8 +2333,10 @@ class PoseProtocol(PoseData):
                  'predicted_template_modeling_score': float
                  'rmsd_prediction_ensemble: (number_of_models)}
                 """
+                sequence_length = entity_slice.stop - entity_slice.start
                 designs_df, residues_df = \
-                    self.analyze_predict_structure_metrics(entity_scores_by_design, model_type=model_type)
+                    self.analyze_predict_structure_metrics(entity_scores_by_design,
+                                                           sequence_length, model_type=model_type)
                 entity_residue_dfs.append(residues_df)
                 entity_design_dfs.append(designs_df)
                 # raise NotImplementedError('Metrics are not implemented yet')
@@ -4210,7 +4236,7 @@ class PoseProtocol(PoseData):
         # self.job.dataframe = self.designs_metrics_csv
         # pose_df.to_csv(self.designs_metrics_csv)
 
-    def analyze_predict_structure_metrics(self, scores: dict[str, [dict[str, np.ndarray]]],
+    def analyze_predict_structure_metrics(self, scores: dict[str, [dict[str, np.ndarray]]], pose_length: int,
                                           # design_ids: Iterable[str],  # Iterable[Pose] | Iterable[AnyStr],
                                           # designs: Iterable[Pose] | Iterable[AnyStr],
                                           model_type: str = None, interface: bool = False) \
@@ -4273,8 +4299,8 @@ class PoseProtocol(PoseData):
                 pae_container[idx, :] = model_pae.mean(axis=0)
             # Next, average pae over each model
             array_scores = {
-                'predicted_aligned_error': pae_container.mean(axis=0),
-                'plddt': metrics_['plddt']
+                'predicted_aligned_error': pae_container.mean(axis=0)[:pose_length],
+                'plddt': metrics_['plddt'][:pose_length]
             }
             protocol_logger.debug(f'Found array_scores with contents:\n{array_scores}')
             # residue_scores.append(array_scores)
