@@ -1770,29 +1770,35 @@ class PoseProtocol(PoseData):
             num_predictions_per_model = self.job.predict.num_predictions_per_model
 
         # Set up the various model_runners to supervise the prediction task for each sequence
-        model_runners = {}
-        model_names = afconfig.MODEL_PRESETS[model_type]  # FLAGS.model_preset]
-        for model_name in model_names:
-            if self.job.development and model_name != 'model_2_multimer_v3':
-                continue
-            model_config = afconfig.model_config(model_name)
-            if run_multimer_system:
-                model_config.model.num_ensemble_eval = num_ensemble
-            else:
-                model_config.data.eval.num_ensemble = num_ensemble
-            model_params = get_model_haiku_params(model_name=model_name, data_dir=putils.alphafold_db_dir)  # FLAGS.data_dir)
-            # This is using prev_pos init
-            model_runner = resources.ml.RunModel(model_config, model_params)
-            # This should be used if the prediction is not for a design and we have an msa
-            # model_runner = afmodel.RunModel(model_config, model_params)
-
-            for i in range(num_predictions_per_model):
-                model_runners[f'{model_name}_pred_{i}'] = model_runner
-
-        num_models = len(model_runners)
-        protocol_logger.info(f'Predicting with {num_models} models: {list(model_runners.keys())}')
-        if random_seed is None:  # Make one
-            random_seed = random.randrange(sys.maxsize // num_models)
+        model_runners = resources.ml.set_up_model_runners(model_type=model_type,
+                                                          num_predictions_per_model=num_predictions_per_model,
+                                                          num_ensemble=num_ensemble,
+                                                          development=self.job.development)
+        # def set_up_model_runners(model_type: af_model_literal = 'monomer'):
+        # model_runners = {}
+        # model_names = af.model.config.MODEL_PRESETS[model_type]  # FLAGS.model_preset]
+        # for model_name in model_names:
+        #     if self.job.development and model_name != 'model_2_multimer_v3':
+        #         continue
+        #     model_config = af.model.config.model_config(model_name)
+        #     if run_multimer_system:
+        #         model_config.model.num_ensemble_eval = num_ensemble
+        #     else:
+        #         model_config.data.eval.num_ensemble = num_ensemble
+        #     model_params = af.model.data.get_model_haiku_params(model_name=model_name,
+        #         data_dir=putils.alphafold_db_dir)
+        #     # This is using prev_pos init
+        #     model_runner = resources.ml.RunModel(model_config, model_params)
+        #     # This should be used if the prediction is not for a design and we have an msa
+        #     # model_runner = afmodel.RunModel(model_config, model_params)
+        #
+        #     for i in range(num_predictions_per_model):
+        #         model_runners[f'{model_name}_pred_{i}'] = model_runner
+        #
+        # protocol_logger.info(f'Predicting with {num_models} models: {list(model_runners.keys())}')
+        # num_models = len(model_runners)
+        # if random_seed is None:  # Make one
+        #     random_seed = random.randrange(sys.maxsize // num_models)
 
         # Set up relax process
         # amber_relaxer = relax.AmberRelaxation(
@@ -1803,36 +1809,36 @@ class PoseProtocol(PoseData):
         #     max_outer_iterations=resources.ml.RELAX_MAX_OUTER_ITERATIONS,
         #     use_gpu=self.job.predict.use_gpu_relax)  # --enable_gpu_relax=true Less stable results, but much quicker
 
-        def amber_relax(prot):
-            out = amber_minimize.run_pipeline(
-                prot=prot,
-                max_iterations=resources.ml.RELAX_MAX_ITERATIONS,
-                tolerance=resources.ml.RELAX_ENERGY_TOLERANCE,
-                stiffness=resources.ml.RELAX_STIFFNESS,
-                exclude_residues=resources.ml.RELAX_EXCLUDE_RESIDUES,
-                max_outer_iterations=resources.ml.RELAX_MAX_OUTER_ITERATIONS,
-                use_gpu=self.job.predict.use_gpu_relax)
-            # min_pos = out['pos']
-            # start_pos = out['posinit']
-            # rmsd = np.sqrt(np.sum((start_pos - min_pos) ** 2) / start_pos.shape[0])
-            # debug_data = {
-            #     'initial_energy': out['einit'],
-            #     'final_energy': out['efinal'],
-            #     'attempts': out['min_attempts'],
-            #     'rmsd': rmsd
-            # }
-            min_pdb = out['min_pdb']
-            # min_pdb = utils.overwrite_b_factors(min_pdb, prot.b_factors)
-            relax_utils.assert_equal_nonterminal_atom_types(
-                protein.from_pdb_string(min_pdb).atom_mask,
-                prot.atom_mask)
-            violations = out['structural_violations'][
-                'total_per_residue_violations_mask'].tolist()
+        # def amber_relax(prot):
+        #     out = af.relax.amber_minimize.run_pipeline(
+        #         prot=prot,
+        #         max_iterations=resources.ml.RELAX_MAX_ITERATIONS,
+        #         tolerance=resources.ml.RELAX_ENERGY_TOLERANCE,
+        #         stiffness=resources.ml.RELAX_STIFFNESS,
+        #         exclude_residues=resources.ml.RELAX_EXCLUDE_RESIDUES,
+        #         max_outer_iterations=resources.ml.RELAX_MAX_OUTER_ITERATIONS,
+        #         use_gpu=self.job.predict.use_gpu_relax)
+        #     # min_pos = out['pos']
+        #     # start_pos = out['posinit']
+        #     # rmsd = np.sqrt(np.sum((start_pos - min_pos) ** 2) / start_pos.shape[0])
+        #     # debug_data = {
+        #     #     'initial_energy': out['einit'],
+        #     #     'final_energy': out['efinal'],
+        #     #     'attempts': out['min_attempts'],
+        #     #     'rmsd': rmsd
+        #     # }
+        #     min_pdb = out['min_pdb']
+        #     # min_pdb = utils.overwrite_b_factors(min_pdb, prot.b_factors)
+        #     af.relax.utils.assert_equal_nonterminal_atom_types(
+        #         af.protein.from_pdb_string(min_pdb).atom_mask,
+        #         prot.atom_mask)
+        #     violations = out['structural_violations'][
+        #         'total_per_residue_violations_mask'].tolist()
+        #
+        #     # return min_pdb, debug_data, violations
+        #     return min_pdb, violations
 
-            # return min_pdb, debug_data, violations
-            return min_pdb, violations
-
-        def get_sequence_features_to_merge(seq_of_interest: str, multimer_length: int = None) -> FeatureDict:
+        def get_sequence_features_to_merge(seq_of_interest: str, multimer_length: int = None) -> af.pipeline.FeatureDict:
             """Set up a sequence that has similar features to the Pose, but different sequence, say from design output
 
             Args:
@@ -1903,141 +1909,143 @@ class PoseProtocol(PoseData):
             #     merged_example[feature_name] = feats[0]
             return _seq_features
 
-        def predict(length: int, features: FeatureDict) -> tuple[dict[str, dict[str, str]], dict[str, FeatureDict]]:
-            """Run Alphafold to predict a structure from sequence/msa/template features
-
-            Args:
-                length: The length of the desired output for prediction metrics
-                features: The sequence/msa/template feature parameters to populate the jax model
-            Returns:
-                The tuple of structure and score dictionaries. Where structures contains the keys 'relaxed' and
-                'unrelaxed' mapped to the model name and the model PDB string and scores contain the model name
-                mapped to each of the score types 'predicted_aligned_error' (length, length), 'plddt' (length),
-                'predicted_template_modeling_score' (1), and 'predicted_interface_template_modeling_score' (1)
-            """
-            # _scores = {
-            #     'predicted_aligned_error': np.zeros((num_models, length, length), dtype=np.float32),
-            #     'plddt': np.zeros((num_models, length), dtype=np.float32),
-            #     'predicted_template_modeling_score': np.zeros(num_models, dtype=np.float32),
-            #     'predicted_interface_template_modeling_score': np.zeros(num_models, dtype=np.float32)
-            # }
-            if run_multimer_system:
-                _scores = {model_name: {'predicted_template_modeling_score': [],
-                                        'predicted_interface_template_modeling_score': []}
-                           for model_name in model_runners}
-            # elif 'monomer_ptm':
-            else:
-                _scores = {model_name: {} for model_name in model_runners}
-            ranking_confidences = {}
-            unrelaxed_proteins = {}
-            unrelaxed_pdbs_ = {}
-            relax_metrics = {}
-            # Run the models.
-            for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-                # self.log.info(f'Running model {model_name} on {design}')
-                # design_model_name = f'{design}-{model_name}'
-                protocol_logger.info(f'Running model {model_name}')
-                # t_0 = time.time()
-                model_random_seed = model_index + random_seed*num_models
-                processed_feature_dict = \
-                    model_runner.process_features(features, random_seed=model_random_seed)
-                # timings[f'process_features_{model_name}'] = time.time() - t_0
-
-                t_0 = time.time()
-                prediction_result = model_runner.predict(processed_feature_dict,
-                                                         random_seed=model_random_seed)
-                t_diff = time.time() - t_0
-                # timings[f'predict_and_compile_{model_name}'] = t_diff
-                protocol_logger.info(f'Total JAX model {model_name} structure prediction took {t_diff:.1f}s')
-                # if this is the first go in the model_runner, then f'(includes compilation time)' would be accurate
-                # Monomer?
-                #  Should take about 96 secs on a 1000 residue protein using 3 recycles...
-
-                # Remove jax dependency from results.
-                np_prediction_result = resources.ml.jnp_to_np(dict(prediction_result))
-                # {'distogram': {'bin_edges': (63,), 'logits': (774, 774, 64)},
-                #  'experimentally_resolved': {'logits': (774, 37)}, 'masked_msa': {'logits': (508, 774, 22)},
-                #  'predicted_aligned_error': (774, 774),
-                #  'predicted_lddt': {'logits': (774, 50)},
-                #  'structure_module': {'final_atom_mask': (774, 37), 'final_atom_positions': (774, 37, 3)},
-                #  'plddt': (774,), 'aligned_confidence_probs': (774, 774, 64),
-                #  'max_predicted_aligned_error': (),
-                #  'ptm': (), 'iptm': (),
-                #  'ranking_confidence': (),
-                #  'num_recycles': (),
-                #  }
-                # self.log.critical(f'Found the prediction_result keys: {list(np_prediction_result.keys())}')
-                # ['distogram', 'experimentally_resolved', 'masked_msa', 'num_recycles', 'predicted_aligned_error',
-                #  'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs',
-                #  'max_predicted_aligned_error', 'ptm', 'iptm', 'ranking_confidence']
-                # self.log.critical(f'Found the prediction_result keys: shapes: '
-                #                   f'{dict((type_, res.shape) if isinstance(res, np.ndarray)
-                #                      for type_, res in np_prediction_result.items())}')
-                # Process incoming scores to be returned. If multimer, we need to clean up to ASU at some point
-                # This is a 2d array
-                # _scores['predicted_aligned_error'][model_index, :] = \
-                #     np_prediction_result['predicted_aligned_error'][:length, :length]
-                _scores[model_name]['predicted_aligned_error'] = \
-                    np_prediction_result['predicted_aligned_error'][:length, :length]
-                plddt = np_prediction_result['plddt']
-                _scores[model_name]['plddt'] = plddt[:length]
-                # scores['predicted_template_modeling_score'][model_index] = prediction_result['ptm']
-                if run_multimer_system:
-                    # _scores['predicted_interface_template_modeling_score'][model_index] = np_prediction_result['iptm']
-                    _scores[model_name]['predicted_interface_template_modeling_score'].append(np_prediction_result['iptm'])
-                    _scores[model_name]['predicted_template_modeling_score'].append(np_prediction_result['ptm'])
-                ranking_confidences[model_name] = np_prediction_result['ranking_confidence']
-
-                # Add the predicted LDDT in the b-factor column.
-                # Note that higher predicted LDDT value means higher model confidence.
-                plddt_b_factors = np.repeat(plddt[:, None], residue_constants.atom_type_num, axis=-1)
-                unrelaxed_protein = protein.from_prediction(
-                    features=processed_feature_dict,
-                    result=prediction_result,
-                    b_factors=plddt_b_factors,
-                    remove_leading_feature_dimension=not model_runner.multimer_mode)
-                unrelaxed_proteins[model_name] = unrelaxed_protein
-                unrelaxed_pdbs_[model_name] = protein.to_pdb(unrelaxed_protein)
-
-            # Rank by model confidence.
-            ranked_order = [design_model_name for design_model_name, confidence in
-                            sorted(ranking_confidences.items(), key=lambda x: x[1], reverse=True)]
-            # Sort the unrelaxed_pdbs accordingly
-            unrelaxed_pdbs = {name: unrelaxed_pdbs_.pop(name) for name in ranked_order}
-
-            # Relax predictions.
-            relaxed_pdbs = {}
-            if models_to_relax is None:
-                pass  # to_relax = []
-            else:
-                if models_to_relax == 'best':
-                    to_relax = [ranked_order[0]]
-                else:  # if models_to_relax == 'all':
-                    to_relax = ranked_order
-
-                protocol_logger.info(f'Starting Amber relaxation')
-                for model_name in to_relax:
-                    protocol_logger.info(f'Relaxing {model_name}')
-                    # t_0 = time.time()
-                    # relaxed_pdb_str, _, violations = amber_relaxer.process(prot=unrelaxed_proteins[model_name])
-                    relaxed_pdb_str, violations = amber_relax(prot=unrelaxed_proteins[model_name])
-                    relax_metrics[model_name] = {
-                        'remaining_violations': violations,
-                        'remaining_violations_count': sum(violations)
-                    }
-                    # timings[f'relax_{model_name}'] = time.time() - t_0
-
-                    relaxed_pdbs[model_name] = relaxed_pdb_str
-
-            return {'relaxed': relaxed_pdbs, 'unrelaxed': unrelaxed_pdbs}, _scores
-
-            #     structures_and_scores[design] = {
-            #         **scores,
-            #         'structures': relaxed_pdbs,
-            #         'structures_unrelaxed': unrelaxed_pdbs
-            #     }
-            #
-            # return structures_and_scores
+        # def af_predict(length: int, features: af.pipeline.FeatureDict, model_runners: dict[str, RunModel],
+        #                random_seed: int) -> tuple[dict[str, dict[str, str]], dict[str, af.pipeline.FeatureDict]]:
+        #     """Run Alphafold to predict a structure from sequence/msa/template features
+        #
+        #     Args:
+        #         length: The length of the desired output for prediction metrics
+        #         features: The sequence/msa/template feature parameters to populate the jax model
+        #         model_runners: The RunModel instances which should predict the structure
+        #     Returns:
+        #         The tuple of structure and score dictionaries. Where structures contains the keys 'relaxed' and
+        #         'unrelaxed' mapped to the model name and the model PDB string and scores contain the model name
+        #         mapped to each of the score types 'predicted_aligned_error' (length, length), 'plddt' (length),
+        #         'predicted_template_modeling_score' (1), and 'predicted_interface_template_modeling_score' (1)
+        #     """
+        #     # _scores = {
+        #     #     'predicted_aligned_error': np.zeros((num_models, length, length), dtype=np.float32),
+        #     #     'plddt': np.zeros((num_models, length), dtype=np.float32),
+        #     #     'predicted_template_modeling_score': np.zeros(num_models, dtype=np.float32),
+        #     #     'predicted_interface_template_modeling_score': np.zeros(num_models, dtype=np.float32)
+        #     # }
+        #     if run_multimer_system:
+        #         _scores = {model_name: {'predicted_template_modeling_score': [],
+        #                                 'predicted_interface_template_modeling_score': []}
+        #                    for model_name in model_runners}
+        #     # elif 'monomer_ptm':
+        #     else:
+        #         _scores = {model_name: {} for model_name in model_runners}
+        #     ranking_confidences = {}
+        #     unrelaxed_proteins = {}
+        #     unrelaxed_pdbs_ = {}
+        #     relax_metrics = {}
+        #     # Run the models.
+        #     for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
+        #         # self.log.info(f'Running model {model_name} on {design}')
+        #         # design_model_name = f'{design}-{model_name}'
+        #         protocol_logger.info(f'Running model {model_name}')
+        #         # t_0 = time.time()
+        #         model_random_seed = model_index + random_seed*num_models
+        #         processed_feature_dict = \
+        #             model_runner.process_features(features, random_seed=model_random_seed)
+        #         # timings[f'process_features_{model_name}'] = time.time() - t_0
+        #
+        #         t_0 = time.time()
+        #         prediction_result = model_runner.af_predict(processed_feature_dict,
+        #                                                     random_seed=model_random_seed)
+        #         t_diff = time.time() - t_0
+        #         # timings[f'predict_and_compile_{model_name}'] = t_diff
+        #         protocol_logger.info(f'Total JAX model {model_name} structure prediction took {t_diff:.1f}s')
+        #         # if this is the first go in the model_runner, then f'(includes compilation time)' would be accurate
+        #         # Monomer?
+        #         #  Should take about 96 secs on a 1000 residue protein using 3 recycles...
+        #
+        #         # Remove jax dependency from results.
+        #         np_prediction_result = resources.ml.jnp_to_np(dict(prediction_result))
+        #         # {'distogram': {'bin_edges': (63,), 'logits': (774, 774, 64)},
+        #         #  'experimentally_resolved': {'logits': (774, 37)}, 'masked_msa': {'logits': (508, 774, 22)},
+        #         #  'predicted_aligned_error': (774, 774),
+        #         #  'predicted_lddt': {'logits': (774, 50)},
+        #         #  'structure_module': {'final_atom_mask': (774, 37), 'final_atom_positions': (774, 37, 3)},
+        #         #  'plddt': (774,), 'aligned_confidence_probs': (774, 774, 64),
+        #         #  'max_predicted_aligned_error': (),
+        #         #  'ptm': (), 'iptm': (),
+        #         #  'ranking_confidence': (),
+        #         #  'num_recycles': (),
+        #         #  }
+        #         # self.log.critical(f'Found the prediction_result keys: {list(np_prediction_result.keys())}')
+        #         # ['distogram', 'experimentally_resolved', 'masked_msa', 'num_recycles', 'predicted_aligned_error',
+        #         #  'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs',
+        #         #  'max_predicted_aligned_error', 'ptm', 'iptm', 'ranking_confidence']
+        #         # self.log.critical(f'Found the prediction_result keys: shapes: '
+        #         #                   f'{dict((type_, res.shape) if isinstance(res, np.ndarray)
+        #         #                      for type_, res in np_prediction_result.items())}')
+        #         # Process incoming scores to be returned. If multimer, we need to clean up to ASU at some point
+        #         # This is a 2d array
+        #         # _scores['predicted_aligned_error'][model_index, :] = \
+        #         #     np_prediction_result['predicted_aligned_error'][:length, :length]
+        #         _scores[model_name]['predicted_aligned_error'] = \
+        #             np_prediction_result['predicted_aligned_error'][:length, :length]
+        #         plddt = np_prediction_result['plddt']
+        #         _scores[model_name]['plddt'] = plddt[:length]
+        #         # scores['predicted_template_modeling_score'][model_index] = prediction_result['ptm']
+        #         if run_multimer_system:
+        #             # _scores['predicted_interface_template_modeling_score'][model_index] = np_prediction_result['iptm']
+        #             _scores[model_name]['predicted_interface_template_modeling_score'].append(np_prediction_result['iptm'])
+        #             _scores[model_name]['predicted_template_modeling_score'].append(np_prediction_result['ptm'])
+        #         ranking_confidences[model_name] = np_prediction_result['ranking_confidence']
+        #
+        #         # Add the predicted LDDT in the b-factor column.
+        #         # Note that higher predicted LDDT value means higher model confidence.
+        #         plddt_b_factors = np.repeat(plddt[:, None], af.residue_constants.atom_type_num, axis=-1)
+        #         unrelaxed_protein = af.protein.from_prediction(
+        #             features=processed_feature_dict,
+        #             result=prediction_result,
+        #             b_factors=plddt_b_factors,
+        #             remove_leading_feature_dimension=not model_runner.multimer_mode)
+        #         unrelaxed_proteins[model_name] = unrelaxed_protein
+        #         unrelaxed_pdbs_[model_name] = af.protein.to_pdb(unrelaxed_protein)
+        #
+        #     # Rank by model confidence.
+        #     ranked_order = [design_model_name for design_model_name, confidence in
+        #                     sorted(ranking_confidences.items(), key=lambda x: x[1], reverse=True)]
+        #     # Sort the unrelaxed_pdbs accordingly
+        #     unrelaxed_pdbs = {name: unrelaxed_pdbs_.pop(name) for name in ranked_order}
+        #
+        #     # Relax predictions.
+        #     relaxed_pdbs = {}
+        #     if models_to_relax is None:
+        #         pass  # to_relax = []
+        #     else:
+        #         if models_to_relax == 'best':
+        #             to_relax = [ranked_order[0]]
+        #         else:  # if models_to_relax == 'all':
+        #             to_relax = ranked_order
+        #
+        #         protocol_logger.info(f'Starting Amber relaxation')
+        #         for model_name in to_relax:
+        #             protocol_logger.info(f'Relaxing {model_name}')
+        #             # t_0 = time.time()
+        #             # relaxed_pdb_str, _, violations = amber_relaxer.process(prot=unrelaxed_proteins[model_name])
+        #             relaxed_pdb_str, violations = amber_relax(prot=unrelaxed_proteins[model_name])
+        #             relax_metrics[model_name] = {
+        #                 'remaining_violations': violations,
+        #                 'remaining_violations_count': sum(violations)
+        #             }
+        #             # timings[f'relax_{model_name}'] = time.time() - t_0
+        #
+        #             relaxed_pdbs[model_name] = relaxed_pdb_str
+        #
+        #     return {'relaxed': relaxed_pdbs, 'unrelaxed': unrelaxed_pdbs}, _scores
+        #
+        #     #     structures_and_scores[design] = {
+        #     #         **scores,
+        #     #         'structures': relaxed_pdbs,
+        #     #         'structures_unrelaxed': unrelaxed_pdbs
+        #     #     }
+        #     #
+        #     # return structures_and_scores
 
         def output_alphafold_structures(structure_types: dict[str, dict[str, str]], design_name: str = None):
             if design_name is None:
@@ -2174,7 +2182,9 @@ class PoseProtocol(PoseData):
             protocol_logger.debug(f'Found this_seq_features:\n\t%s'
                                   % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
             asu_structures, asu_scores = \
-                predict(number_of_residues, {**features, **this_seq_features, **model_features})
+                resources.ml.af_predict({**features, **this_seq_features, **model_features},
+                                        model_runners, gpu_relax=self.job.predict.use_gpu_relax,
+                                        models_to_relax=self.job.predict.models_to_relax)
             if relaxed:
                 structures_to_load = asu_structures.get('relaxed', [])
             else:
@@ -2248,22 +2258,20 @@ class PoseProtocol(PoseData):
                 model_features = {'prev_pos': oligomer_atom_positions}
                 # model_features = {'prev_pos': jnp.asarray(entity.oligomer.alphafold_coords)}
                 entity_slice = slice(entity.n_terminal_residue.index, 1 + entity.c_terminal_residue.index)
-                # entity_scores = predict({design: sequence[entity_slice]
-                #                          for design, sequence in sequences.items()},
-                #                         features)
-
                 entity_scores_by_design = {}  # []
                 # Iterate over provided sequences. For each one, find the structure with the best model and it's scores
                 for design, sequence in sequences.items():
                     sequence = sequence[entity_slice]
-                    sequence_length = len(sequence)
+                    # sequence_length = len(sequence)
                     this_seq_features = \
                         get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
                     protocol_logger.debug(f'Found this_seq_features:\n\t%s'
                                           % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
                     # structures_and_scores[design] = entity_scores = \
                     entity_structures, entity_scores = \
-                        predict(sequence_length, {**features, **this_seq_features, **model_features})
+                        resources.ml.af_predict({**features, **this_seq_features, **model_features},
+                                                model_runners, gpu_relax=self.job.predict.use_gpu_relax,
+                                                models_to_relax=self.job.predict.models_to_relax)
                     # Todo remove this after debug is done
                     output_alphafold_structures(entity_structures, design_name=f'{design}-{entity.name}')
                     # design_model_models = \
