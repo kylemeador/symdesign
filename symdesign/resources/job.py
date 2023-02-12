@@ -4,6 +4,7 @@ import argparse
 import dataclasses
 import logging
 import os
+import subprocess
 from copy import deepcopy
 from subprocess import list2cmdline
 from typing import Annotated, AnyStr, Any, Iterable
@@ -862,16 +863,19 @@ class JobResources:
             self.reduce_memory = True
         logger.debug(f'Reduce job memory?: {self.reduce_memory}')
 
-        # # Run specific checks
-        # if self.design.evolution_constraint:  # hhblits to run
-        #     if psutil.virtual_memory().available <= required_memory + CommandDistributer.hhblits_memory_threshold:
-        #         logger.critical(f'The available memory (RAM) is insufficient to run {putils.hhblits}, (needs '
-        #                         f'{round(required_memory + CommandDistributer.hhblits_memory_threshold / 10e9, 2)} Gb)'
-        #                         ' Please allocate the job to a computer with more memory or the process will fail, '
-        #                         f'otherwise, submit the job with --no-{flags.evolution_constraint}')
-        #         exit(1)
-        #     putils.make_path(self.sequences)
-        #     putils.make_path(self.profiles)
+    @staticmethod
+    def can_evolutionary_profiles_process() -> bool:
+        """Return True if the current computer has the computational requirements to collect evolutionary profiles"""
+        # Run specific checks
+        if psutil.virtual_memory().available <= CommandDistributer.hhblits_memory_threshold:
+            logger.critical(f'The available RAM is insufficient to run {putils.hhblits}. Required memory: '
+                            f'{CommandDistributer.hhblits_memory_threshold / gb_divisior:.2f} GB\n')
+            #                 '\tPlease allocate the job to a computer with more memory or the process will fail, '
+            #                 f'otherwise, submit the job with --no-{flags.evolution_constraint}')
+            # exit(1)
+            logger.critical(f'Creating scripts that can be distributed to a capable computer instead')
+            return False
+        return True
 
     def process_evolutionary_info(self, uniprot_entities: Iterable[wrapapi.UniProtEntity] = None,
                                   entities: Iterable[structure.sequence.SequenceProfile] = None) -> list[str]:
@@ -945,24 +949,36 @@ class JobResources:
                                      f"'{os.path.join(self.profiles, '*.a3m')}'", '.sto', '-num', '-uc']
                 reformat_msa_cmd2 = [putils.reformat_msa_exe_path, 'a3m', 'fas',
                                      f"'{os.path.join(self.profiles, '*.a3m')}'", '.fasta', '-M', 'first', '-r']
-            hhblits_cmd_file = utils.write_commands(hhblits_cmds, name=f'{utils.starttime}-{putils.hhblits}',
-                                                    out_path=self.profiles)
-            hhblits_script = \
-                CommandDistributer.distribute(file=hhblits_cmd_file, out_path=self.sbatch_scripts,
-                                              scale=putils.hhblits, max_jobs=len(hhblits_cmds),
-                                              number_of_commands=len(hhblits_cmds),
-                                              log_file=os.path.join(self.profiles, 'generate_profiles.log'),
-                                              finishing_commands=[list2cmdline(reformat_msa_cmd1),
-                                                                  list2cmdline(reformat_msa_cmd2)])
-            hhblits_job_info_message = \
-                f'Enter the following to distribute {putils.hhblits} jobs:\n\t'
-            if CommandDistributer.is_sbatch_available():
-                hhblits_job_info_message += f'{CommandDistributer.sbatch} {hhblits_script}'
+            hhblits_log_file = os.path.join(self.profiles, 'generate_profiles.log')
+            if self.can_evolutionary_profiles_process():
+                # Run commands here
+                with open(hhblits_log_file, 'w') as f:
+                    for cmd in hhblits_cmds:
+                        p = subprocess.Popen(cmd, stdout=f, stderr=f)
+                        p.communicate()
+                # Todo this would be more preferable
+                # for cmd in hhblits_cmds:
+                #     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                #     stdout, stderr = p.communicate()
+                #     if stdout or stderr:
+                #         logger.info()
             else:
-                hhblits_job_info_message += f'{CommandDistributer.default_shell} {hhblits_script}'
-            info_messages.append(hhblits_job_info_message)
-        # else:
-        #     hhblits_script = None
+                hhblits_cmd_file = utils.write_commands(hhblits_cmds, name=f'{utils.starttime}-{putils.hhblits}',
+                                                        out_path=self.profiles)
+                hhblits_script = \
+                    CommandDistributer.distribute(file=hhblits_cmd_file, out_path=self.sbatch_scripts,
+                                                  scale=putils.hhblits, max_jobs=len(hhblits_cmds),
+                                                  number_of_commands=len(hhblits_cmds),
+                                                  log_file=hhblits_log_file,
+                                                  finishing_commands=[list2cmdline(reformat_msa_cmd1),
+                                                                      list2cmdline(reformat_msa_cmd2)])
+                hhblits_job_info_message = \
+                    f'Enter the following to distribute {putils.hhblits} jobs:\n\t'
+                if CommandDistributer.is_sbatch_available():
+                    hhblits_job_info_message += f'{CommandDistributer.sbatch} {hhblits_script}'
+                else:
+                    hhblits_job_info_message += f'{CommandDistributer.default_shell} {hhblits_script}'
+                info_messages.append(hhblits_job_info_message)
 
         if bmdca_cmds:
             putils.make_path(self.profiles)
@@ -998,8 +1014,6 @@ class JobResources:
                                                          'couplings i,j for each amino acid in the multiple ' \
                                                          f'sequence alignment, enter:\n\t{shell} {bmdca_script}'
             info_messages.append(bmdca_script_message)
-        # else:
-        #     bmdca_sbatch = reformat_sbatch = None
 
         return info_messages
 
