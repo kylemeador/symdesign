@@ -2217,15 +2217,17 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         """Returns whether the Residue is the n-termini of the parent Structure"""
         return self.next_residue is None
 
-    def get_upstream(self, number: int) -> list[Residue]:
+    def get_upstream(self, number: int = None) -> list[Residue]:
         """Get the Residues upstream of (n-terminal to) the current Residue
 
         Args:
-            number: The number of residues to retrieve
+            number: The number of residues to retrieve. If not provided gets all
         Returns:
             The Residue instances in n- to c-terminal order
         """
-        if number == 0:
+        if number is None:
+            number = sys.maxsize
+        elif number == 0:
             raise ValueError("Can't get 0 upstream residues. 1 or more must be specified")
 
         prior_residues = [self.prev_residue]
@@ -2233,19 +2235,23 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             try:
                 prior_residues.append(prior_residues[idx].prev_residue)
             except AttributeError:  # We hit a termini
+                # logger.critical(f'Stopped at {idx}. with residues {prior_residues}. Popping the last')
+                prior_residues.pop(idx)
                 break
 
-        return [residue for residue in prior_residues[::-1] if residue]
+        return prior_residues[::-1]  # Used before .pop() -> [residue for residue in prior_residues[::-1] if residue]
 
-    def get_downstream(self, number: int) -> list[Residue]:
+    def get_downstream(self, number: int = None) -> list[Residue]:
         """Get the Residues downstream of (c-terminal to) the current Residue
 
         Args:
-            number: The number of residues to retrieve
+            number: The number of residues to retrieve. If not provided gets all
         Returns:
             The Residue instances in n- to c-terminal order
         """
-        if number == 0:
+        if number is None:
+            number = sys.maxsize
+        elif number == 0:
             raise ValueError("Can't get 0 downstream residues. 1 or more must be specified")
 
         next_residues = [self.next_residue]
@@ -2253,9 +2259,11 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             try:
                 next_residues.append(next_residues[idx].next_residue)
             except AttributeError:  # We hit a termini
+                # logger.critical(f'Stopped at {idx}. with residues {next_residues}. Popping the last')
+                next_residues.pop(idx)
                 break
 
-        return [residue for residue in next_residues if residue]
+        return next_residues  # Used before .pop() -> [residue for residue in next_residues if residue]
 
     def get_neighbors(self, distance: float = 8., **kwargs) -> list[Residue]:
         """The neighbors to the Residue in the Structure if this Residue is part of a polymer
