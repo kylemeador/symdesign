@@ -27,7 +27,7 @@ from .base import Structure, Structures, Residue, StructureBase, atom_or_residue
 from .coords import Coords, superposition3d, transform_coordinate_sets
 from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type
 from .sequence import SequenceProfile, Profile, pssm_as_array, default_fragment_contribution, sequence_to_numeric, \
-    sequences_to_numeric
+    sequence_to_one_hot, sequences_to_numeric
 from .utils import DesignError, SymmetryError, ClashError, chain_id_generator
 from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, query, sql

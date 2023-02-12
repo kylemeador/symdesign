@@ -3268,18 +3268,37 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                              f'!= _atom_indices {len(self._atom_indices)}')
 
     @property
+    def alphafold_atom_mask(self) -> np.ndarray:  # Todo ContainsResiduesMixin
+        """Return an Alphafold mask describing which Atom positions have Coord data"""
+        # Todo Fix naming errors in arginine residues where NH2 is incorrectly
+        #  assigned to be closer to CD than NH1...
+        # This works except for the off case that we sum to 0, which may be hard given float precision
+        return (self.alphafold_coords.sum(axis=-1) != 0).astype(dtype=np.int32)
+
+    @property
     def alphafold_coords(self) -> np.ndarray:  # Todo ContainsResiduesMixin
         """Return a view of the Coords from the StructureBase in Alphafold coordinate format"""
-        af_coords = np.zeros((self.number_of_residues, atom_type_num, 3), dtype=np.float32)
-        # for atom, coords in zip(self.atoms, self.coords):
-        for idx, residue in enumerate(self.residues):
-            residue_array = np.zeros((atom_type_num, 3), dtype=np.float32)
-            # Don't include any hydrogens
-            for atom, xyz_coord in zip(residue.heavy_atoms, residue.heavy_coords.tolist()):
-                residue_array[atom_order[atom.type]] = xyz_coord
-            af_coords[idx] = residue_array
+        try:
+            return self._af_coords
+        except AttributeError:
+            # Todo Fix naming errors in arginine residues where NH2 is incorrectly
+            #  assigned to be closer to CD than NH1...
+            # af_coords = np.zeros((self.number_of_residues, atom_type_num, 3), dtype=np.float32)
+            # residue_template_array = np.zeros((atom_type_num, 3), dtype=np.float32)
+            structure_array = [[] for _ in range(self.number_of_residues)]
+            origin_coord = [0., 0., 0.]
+            residue_template_array = [origin_coord for _ in range(atom_type_num)]
+            for idx, residue in enumerate(self.residues):
+                residue_array = residue_template_array.copy()
+                # Don't include any hydrogens
+                for atom, xyz_coord in zip(residue.heavy_atoms, residue.heavy_coords.tolist()):
+                    residue_array[atom_order[atom.type]] = xyz_coord
+                structure_array[idx] = residue_array
+                # af_coords[idx] = residue_array
+            # self._af_coords = af_coords
+            self._af_coords = np.array(structure_array, dtype=np.float32)
 
-        return af_coords
+        return self._af_coords
 
     @property
     def coords_indexed_residues(self) -> list[Residue]:  # Todo ContainsResiduesMixin

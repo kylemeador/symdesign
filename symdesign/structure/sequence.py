@@ -60,6 +60,34 @@ aa_weighted_counts['weight'] = 1
 # protein_letters_alph1_extended: tuple[str, ...] = get_args(utils.protein_letters_alph1_extended_literal)
 
 
+def sequence_to_one_hot(sequence: Sequence[str], translation_table: dict[str, int] = None,
+                        alphabet_order: int = 1) -> np.ndarray:
+    """Convert a sequence into a numeric array
+
+    Args:
+        sequence: The sequence to encode
+        translation_table: If a translation table (in bytes) is provided, it will be used. If not, use alphabet_order
+        alphabet_order: The alphabetical order of the amino acid alphabet. Can be either 1 or 3
+    Returns:
+        The one-hot encoded sequence with shape (sequence length, translation_table length)
+    """
+    numeric_sequence = sequence_to_numeric(sequence, translation_table, alphabet_order=alphabet_order)
+    if translation_table is None:
+        # Assumes that alphabet_order is used and there aren't missing letters...
+        num_entries = 20
+    else:
+        num_entries = len(translation_table)
+    one_hot = np.zeros((len(sequence), num_entries), dtype=np.int32)
+    try:
+        one_hot[:, numeric_sequence] = 1
+    except IndexError:  # Our assumption above was wrong
+        from symdesign import sequence as _seq
+        embedding = getattr(_seq, f'numerical_translation_alph{alphabet_order}_bytes') \
+            if translation_table is None else translation_table
+        raise ValueError(f"Couldn't produce a proper one-hot encoding for the provided sequence embedding: {embedding}")
+    return one_hot
+
+
 def sequence_to_numeric(sequence: Sequence[str], translation_table: dict[str, int] = None,
                         alphabet_order: int = 1) -> np.ndarray:
     """Convert a sequence into a numeric array
