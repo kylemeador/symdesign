@@ -646,8 +646,8 @@ class SequenceProfile(ABC):
                 self.log.warning(f'{self.__class__.__name__}.evolutionary_profile and .sequence mismatched'
                                  f'\n\tResidue {residue.number}: .evolutionary_profile={profile_res_type}, '
                                  f'.sequence={pose_res_type}')
-                if position_data[pose_res_type] > 0:  # The residue choice isn't horrible...
-                    self.log.critical('The evolutionary profile must have been generated from a different file, '
+                if position_data[pose_res_type] > 0:  # The occurrence data indicates this AA is also possible
+                    self.log.critical("The evolutionary profile must've been generated from a different file, "
                                       'however, the evolutionary information contained is still viable. The '
                                       'correct residue from the Pose will be substituted for the missing '
                                       'residue in the profile')
@@ -658,8 +658,8 @@ class SequenceProfile(ABC):
                     position_data['type'] = pose_res_type
                 else:
                     self.log.critical('The evolutionary profile must have been generated from a different file,'
-                                      " and the evolutionary information contained ISN'T viable. Regenerating "
-                                      'evolutionary profile from the structure sequence instead')
+                                      " and the evolutionary information contained ISN'T viable")
+                    #                   'Regenerating evolutionary profile from the structure sequence instead'
                     return False
 
         return True

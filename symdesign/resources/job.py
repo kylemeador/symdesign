@@ -22,6 +22,7 @@ from symdesign.structure.fragment import db
 from symdesign.utils import CommandDistributer, guide, SymEntry, InputError, path as putils
 
 logger = logging.getLogger(__name__)
+gb_divisior = 10e9  # 1000000000
 
 
 def generate_sequence_mask(fasta_file: AnyStr) -> list[int]:
@@ -848,7 +849,6 @@ class JobResources:
                                number_jobs * putils.approx_ave_design_directory_memory_w_pose) * 1.2
 
         available_memory = psutil.virtual_memory().available
-        gb_divisior = 1000000000
         logger.debug(f'Available memory: {available_memory / gb_divisior:.2f} GB')
         logger.debug(f'Required memory: {required_memory / gb_divisior:.2f} GB')
         # If we are running a protocol, check for reducing memory requirements

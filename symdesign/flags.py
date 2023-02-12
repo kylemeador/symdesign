@@ -100,7 +100,7 @@ dock_namespace = {
     rotation_step1, rotation_step2, score, quick
 }
 predict_namespace = {
-    predict_assembly, predict_entities, predict_method, num_predictions_per_model, use_gpu_relax
+    models_to_relax, num_predictions_per_model, predict_assembly, predict_entities, predict_method, use_gpu_relax
 }
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number

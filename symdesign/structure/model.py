@@ -23,7 +23,7 @@ from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementatio
 # from sqlalchemy.ext.hybrid import hybrid_property
 
 from . import fragment
-from .base import Structure, Structures, Residue, StructureBase, atom_or_residue, sasa_burial_threshold
+from .base import Structure, Structures, Residue, StructureBase, atom_or_residue_literal, sasa_burial_threshold
 from .coords import Coords, superposition3d, transform_coordinate_sets
 from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type
 from .sequence import SequenceProfile, Profile, pssm_as_array, default_fragment_contribution, sequence_to_numeric, \
@@ -2187,8 +2187,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         else:
             chains = [self.max_symmetry_chain]
 
-        sdf_cmd = \
-            ['perl', putils.make_symmdef, '-m', sdf_mode, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i']\
+        sdf_cmd = ['perl', putils.make_symmdef, '-m', sdf_mode, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i']\
             + chains
         self.log.info(f'Creating symmetry definition file: {subprocess.list2cmdline(sdf_cmd)}')
         # with open(out_file, 'w') as file:
@@ -2269,13 +2268,12 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # where complex subunits = num_subunits - 1
             # new_energy = 'E = %d*%s + ' % (energy, subunits[0])  # assumes subunits are read in alphanumerical order
             # new_energy += ' + '.join('1*(%s:%s)' % t for t in zip(repeat(subunits[0]), subunits[1:]))
-            lines[1] = 'E = 2*%s+%s' \
-                % (subunits[0], '+'.join('1*(%s:%s)' % (subunits[0], pair) for pair in subunits[1:]))
+            lines[1] = f'E = 2*{subunits[0]}+{"+".join(f"1*({subunits[0]}:{pair})" for pair in subunits[1:])}'
         else:
             if not energy:
                 energy = len(subunits)
-            lines[1] = 'E = %d*%s+%s' \
-                % (energy, subunits[0], '+'.join('%d*(%s:%s)' % (energy, subunits[0], pair) for pair in subunits[1:]))
+            lines[1] = \
+                f'E = {energy}*{subunits[0]}+{"+".join(f"{energy}*({subunits[0]}:{pair})" for pair in subunits[1:])}'
 
         if not to_file:
             to_file = os.path.join(out_path, '%s.sdf' % self.name)
@@ -3175,7 +3173,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 structure._start_indices(at=structures[prior_idx].residue_indices[-1] + 1, dtype='residue')
 
     def delete_residue(self, chain_id: str, residue_number: int):  # Todo Move to Structure
-        self.log.critical(f'{self.delete_residue.__name__} This function requires testing')  # TODO TEST
+        """"""
+        raise NotImplementedError(f'{self.delete_residue.__name__} This function requires testing')  # TODO TEST
         # start = len(self.atoms)
         # self.log.debug(start)
         # residue = self.get_residue(chain, residue_number)
@@ -5106,7 +5105,7 @@ class SymmetricModel(Models):
 
         return interacting_indices
 
-    def make_indices_symmetric(self, indices: list[int], dtype: atom_or_residue = 'atom') -> list[int]:
+    def make_indices_symmetric(self, indices: list[int], dtype: atom_or_residue_literal = 'atom') -> list[int]:
         """Extend asymmetric indices using the symmetry state across atom or residue indices
 
         Args:
@@ -6182,8 +6181,8 @@ class Pose(SymmetricModel, Metrics):
             if residues:  # is not None:
                 atom_indices = set_function(atom_indices, self.get_residue_atom_indices(numbers=list(residues)))
             if pdb_residues:  # is not None:
-                atom_indices = set_function(atom_indices, self.get_residue_atom_indices(numbers=list(residues),
-                                                                                        pdb=True))
+                atom_indices = \
+                    set_function(atom_indices, self.get_residue_atom_indices(numbers=list(residues), pdb=True))
             # if atoms:
             #     atom_indices = set_function(atom_indices, [idx for idx in self._atom_indices if idx in atoms])
 

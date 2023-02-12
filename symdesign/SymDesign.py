@@ -599,8 +599,8 @@ def main():
         args, additional_args = flags.argparsers[argparser].parse_known_args(args=additional_args, namespace=args)
 
     if additional_args:
-        exit(f'\nSuspending run. Found flag(s) that are not recognized program wide: {", ".join(additional_args)}\n'
-             'Please correct (try adding --help if unsure), and resubmit your command\n')
+        exit(f"\nSuspending run. Found flag(s) that aren't recognized: {', '.join(additional_args)}\n"
+             'Please correct them and resubmit your command. Try adding -h/--help if unsure about formatting\n')
 
     if remove_dummy:  # Remove the dummy input
         del args.file

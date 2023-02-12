@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import abc
 import logging
 import os
 import subprocess
+import sys
 import time
 from abc import ABC
 from collections import UserList, defaultdict
 from copy import copy
+from itertools import count
 from logging import Logger
+from pathlib import Path
 from random import random
 from typing import IO, Sequence, Container, Literal, get_args, Callable, Any, AnyStr, Iterable
 
@@ -35,7 +39,7 @@ coords_type_literal = Literal['all', 'backbone', 'backbone_and_cb', 'ca', 'cb', 
 directives = Literal['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding',
                      'branched']
 mutation_directives: tuple[directives, ...] = get_args(directives)
-atom_or_residue = Literal['atom', 'residue']
+atom_or_residue_literal = Literal['atom', 'residue']
 structure_container_types = Literal['atoms', 'residues', 'chains', 'entities']
 termini_literal = Literal['n', 'c']
 protein_backbone_atom_types = {'N', 'CA', 'C', 'O'}
@@ -239,6 +243,7 @@ def parse_seqres(seqres_lines: list[str]) -> dict[str, str]:  # list[str]:
     return reference_sequences
 
 
+atom_index_slice = slice(-5, None)
 slice_remark, slice_number, slice_atom_type, slice_alt_location, slice_residue_type, slice_chain, \
     slice_residue_number, slice_code_for_insertion, slice_x, slice_y, slice_z, slice_occ, slice_temp_fact, \
     slice_element, slice_charge = slice(0, 6), slice(6, 11), slice(12, 16), slice(16, 17), slice(17, 20), \
@@ -273,7 +278,7 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
         with open(file, 'r') as f:
             pdb_lines = f.readlines()
         path, extension = os.path.splitext(file)
-        name = os.path.basename(path)  # .replace('pdb', '')
+        name = os.path.basename(path)
 
         if extension[-1].isdigit():
             # If last character is not a letter, then the file is an assembly, or the extension was provided weird
@@ -571,7 +576,7 @@ class StructureBase(SymmetryMixin, ABC):
     """
     _atom_indices: list[int] | None  # np.ndarray
     _coords: Coords
-    _copier: bool = False
+    _copier: bool
     """Whether the StructureBase is being copied by a Container object. If so, cut corners"""
     _dependent_is_updating: bool
     """Whether the StructureBase.coords are being updated by a dependent. If so, cut corners"""
@@ -585,6 +590,7 @@ class StructureBase(SymmetryMixin, ABC):
                  , biological_assembly=None, cryst_record=None, entity_info=None, file_path=None, header=None,
                  multimodel=None, resolution=None, reference_sequence=None, sequence=None, entities=None,
                  pose_format=None, query_by_sequence=True, entity_names=None, rename_chains=None, **kwargs):
+        self._copier = False
         if parent:  # Initialize StructureBase from parent
             self._parent = parent
             self._parent_is_updating = False
@@ -593,20 +599,20 @@ class StructureBase(SymmetryMixin, ABC):
             self._dependent_is_updating = False
             # Initialize Log
             if log:
-                if log is True:  # Use the module logger
-                    self._log = Log(logger)
-                elif isinstance(log, Log):  # Initialized Log
+                if isinstance(log, Log):  # Initialized Log
                     self._log = log
                 elif isinstance(log, Logger):  # logging.Logger object
                     self._log = Log(log)
-                else:
-                    raise TypeError(f"Can't set Log to {type(log).__name__}. Must be type logging.Logger")
-            else:  # when explicitly passed as None or False, uses the null logger
+                else:  # log is True or some other type:  # Use the module logger
+                    self._log = Log(logger)
+                # else:
+                #     raise TypeError(f"Can't set Log to {type(log).__name__}. Must be type logging.Logger")
+            else:  # When explicitly passed as None or False, uses the null logger
                 self._log = null_struct_log  # Log()
 
-            # initialize Coords
-            if coords is None:  # check this first
-                # most init occurs from Atom instances that are their own parent until another StructureBase adopts them
+            # Initialize Coords
+            if coords is None:  # Check this first
+                # Most init occurs from Atom instances that are their own parent until another StructureBase adopts them
                 self._coords = Coords()  # null_coords
             elif isinstance(coords, Coords):
                 self._coords = coords
@@ -663,7 +669,7 @@ class StructureBase(SymmetryMixin, ABC):
     @log.setter
     def log(self, log: Logger | Log):
         """Set the StructureBase to a logging.Logger object"""
-        if isinstance(log, Logger):  # prefer this protection method versus Log.log property overhead?
+        if isinstance(log, Logger):  # Prefer this protection method versus Log.log property overhead?
             self._log.log = log
         elif isinstance(log, Log):
             self._log.log = log.log
@@ -968,8 +974,8 @@ class Atom(StructureBase):
         # Use self.type_str to comply with the PDB format specifications because of the atom type field
         # ATOM     32  CG2 VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- PDB format
         # Checks if len(atom.type)=4 with slice v. If not insert a space
-        return f'ATOM  %s {self._type_str}{self.alt_location:1s}%s%s%s' \
-               f'{self.code_for_insertion:1s}   %s{self.occupancy:6.2f}{self.b_factor:6.2f}          ' \
+        return f'ATOM  {"{}"} {self._type_str}{self.alt_location:1s}{"{}"}{"{}"}{"{}"}' \
+               f'{self.code_for_insertion:1s}   {"{}"}{self.occupancy:6.2f}{self.b_factor:6.2f}          ' \
                f'{self.element:>2s}{self.charge:2s}'
         # Todo if parent:  # return full ATOM record
         # return 'ATOM  {:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   '\
@@ -987,7 +993,7 @@ class Atom(StructureBase):
     def __hash__(self) -> int:
         return hash(self._key)
 
-    def __copy__(self) -> Atom:  # -> Self: Todo python3.11 Todo this is ready, but isn't needed anywhere
+    def __copy__(self) -> Atom:  # -> Self: Todo python3.11
         cls = self.__class__
         other = cls.__new__(cls)
         other.__dict__.update(self.__dict__)
@@ -1128,11 +1134,17 @@ class Atoms:
             start_at: The integer to start renumbering at
         """
         if start_at > 0:
-            if start_at < self.atoms.shape[0]:  # if in the Atoms index range
+            # if start_at < self.atoms.shape[0]:  # if in the Atoms index range
+            try:
                 prior_atom: Atom = self.atoms[start_at - 1]
                 for idx, atom in enumerate(self.atoms[start_at:].tolist(), prior_atom.index + 1):
                     atom.index = idx
-        else:
+            except IndexError:
+                raise IndexError(f'{self.reindex.__name__}: Starting index is outside of the '
+                                 f'allowable indices in the {self.__class__.__name__} object!')
+        else:  # When start_at is 0 or less
+            if start_at < 0:
+                raise NotImplementedError(f'Need to adjust {self.reindex_atoms.__name__} for negative integers')
             for idx, atom in enumerate(self, start_at):
                 atom.index = idx
 
@@ -1539,6 +1551,18 @@ class ContainsAtomsMixin(StructureBase, ABC):
             f'REMARK 220  DATE OF DATA COLLECTION        : {utils.long_start_date:<35s}\n' \
             f'REMARK 220 REMARK: MODEL GENERATED BY {utils.path.program_name.upper():<50s}\n' \
             f'REMARK 220         VERSION {utils.path.program_version:<61s}\n'
+
+    @abc.abstractmethod
+    def get_atom_record(self, **kwargs) -> str:
+        """Provide the Structure Atoms as a PDB file string
+
+        Keyword Args:
+            pdb: bool = False - Whether the Residue representation should use the number at file parsing
+            chain_id: str = None - The chain ID to use
+            atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed
+        Returns:
+            The archived .pdb formatted ATOM records for the Structure
+        """
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None, **kwargs) -> \
             str | None:
@@ -2285,8 +2309,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
 
     def _warn_missing_attribute(self, attribute_name: str, func: str = None) -> str:
         return f'Residue {self.number}{self.chain_id} has no ".{attribute_name}" attribute! Ensure you call ' \
-               f'{getattr(Structure, attribute_name if func is None else func)} before you request Residue ' \
-               f'{" ".join(attribute_name.split("_"))} information'
+               f'{func} before you request Residue {" ".join(attribute_name.split("_"))} information'
 
     # Below properties are considered part of the Residue state
     @property
@@ -2300,7 +2323,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                 self.parent.local_density()
                 return self._local_density
             except AttributeError:
-                raise AttributeError(self._warn_missing_attribute(Residue.local_density.fget.__name__))
+                raise AttributeError(self._warn_missing_attribute(Residue.local_density.fget.__name__, 'local_density'))
                 # raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".{self.local_density.__name__}" '
                 #                      f'attribute! Ensure you call {Structure.local_density.__name__} before you request'
                 #                      f' Residue local density information')
@@ -2319,7 +2342,8 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             # try:
             #     return self._secondary_structure
             # except AttributeError:
-            raise AttributeError(self._warn_missing_attribute(Residue.secondary_structure.fget.__name__))
+            raise AttributeError(self._warn_missing_attribute(Residue.secondary_structure.fget.__name__,
+                                 'secondary_structure'))
             # raise AttributeError(f'Residue {self.number}{self.chain_id} has no ".secondary_structure" attribute. '
             #                      'Ensure you set the "parent".secondary_structure before you '
             #                      'request Residue.secondary_structure information')
@@ -2426,7 +2450,8 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                 self.parent.spatial_aggregation_propensity_per_residue()
                 return self._sap
             except AttributeError:
-                raise AttributeError(self._warn_missing_attribute(Residue.spatial_aggregation_propensity.fget.__name__))
+                raise AttributeError(self._warn_missing_attribute(Residue.spatial_aggregation_propensity.fget.__name__,
+                                     'spatial_aggregation_propensity'))
 
     @spatial_aggregation_propensity.setter
     def spatial_aggregation_propensity(self, sap: float):
@@ -2442,7 +2467,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                 self.parent.contact_order_per_residue()
                 return self._contact_order
             except AttributeError:
-                raise AttributeError(self._warn_missing_attribute(Residue.contact_order.fget.__name__))
+                raise AttributeError(self._warn_missing_attribute(Residue.contact_order.fget.__name__, 'contact_order'))
 
     @contact_order.setter
     def contact_order(self, contact_order: float):
@@ -2593,11 +2618,12 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         # res_str = self.residue_string(**kwargs)
         res_str = format(self.type, '3s'), format(chain_id or self.chain_id, '>2s'), \
             format(getattr(self, f'number{"_pdb" if pdb else ""}'), '4d')
-        offset = 1 + atom_offset  # add 1 to make index one-indexed
-        # limit idx + offset with [-5:] to keep pdb string to a minimum v
-        return '\n'.join(atom.__str__() % (format(idx + offset, '5d')[-5:], *res_str,
-                                           '{:8.3f}{:8.3f}{:8.3f}'.format(*coord))
-                         for atom, idx, coord in zip(self.atoms, self._atom_indices, self.coords.tolist()))
+        # Add 1 to make index one-indexed
+        offset = 1 + atom_offset
+        # Limit atom_index with atom_index_slice to keep ATOM record correct length v
+        return '\n'.join(atom.__str__().format(format(atom_idx + offset, '5d')[atom_index_slice],
+                                               *res_str, '{:8.3f}{:8.3f}{:8.3f}'.format(*coord))
+                         for atom, atom_idx, coord in zip(self.atoms, self._atom_indices, self.coords.tolist()))
 
     def __hash__(self) -> int:
         return hash(self._key)
@@ -2695,23 +2721,24 @@ class Residues:
         """
         residue: Residue
         if start_at > 0:
-            if start_at < self.residues.shape[0]:  # if in the Residues index range
-                prior_residue = self.residues[start_at - 1]
+            # if start_at < self.residues.shape[0]:  # if in the Residues index range
+            try:
+                prior_residue: Residue = self.residues[start_at - 1]
                 # prior_residue.start_index = start_at
                 for residue in self.residues[start_at:].tolist():
-                    residue.start_index = prior_residue.atom_indices[-1] + 1
+                    residue.start_index = prior_residue.end_index + 1
                     prior_residue = residue
-            else:
+            except IndexError:
                 # self.residues[-1].start_index = self.residues[-2].atom_indices[-1]+1
-                raise IndexError(f'{Residues.reindex_atoms.__name__}: Starting index is outside of the '
-                                 f'allowable indices in the Residues object!')
-        else:  # when start_at is 0 or less
+                raise IndexError(f'{self.reindex.__name__}: Starting index is outside of the '
+                                 f'allowable indices in the {self.__class__.__name__} object!')
+        else:  # When start_at is 0 or less
             if start_at < 0:
                 raise NotImplementedError(f'Need to adjust {self.reindex_atoms.__name__} for negative integers')
             prior_residue = self.residues[0]
             prior_residue.start_index = start_at
             for residue in self.residues[1:].tolist():
-                residue.start_index = prior_residue.atom_indices[-1] + 1
+                residue.start_index = prior_residue.end_index + 1
                 prior_residue = residue
 
     def delete(self, indices: Sequence[int]):
@@ -4654,7 +4681,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         p = subprocess.Popen([utils.path.stride_exe_path, current_struc_file],
                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         out, err = p.communicate()
-        os.system(f'rm {current_struc_file}')
+        struct_file = Path(current_struc_file)
+        struct_file.unlink(missing_ok=True)
+        # self.log.critical(f'Stride file is at: {current_struc_file}')
 
         if out:
             if to_file:
@@ -4669,7 +4698,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         # if stride_out is not None:
         #     lines = stride_out.split('\n')
-        residue_idx = 0
+        residue_idx = count()
         residues = self.residues
         for line in stride_output:
             # residue_idx = int(line[10:15])
@@ -4677,8 +4706,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 # residue_idx = int(line[15:20])  # one-indexed, use in Structure version...
                 # line[10:15].strip().isdigit():  # residue number -> line[10:15].strip().isdigit():
                 # self.chain(line[9:10]).residue(int(line[10:15].strip())).secondary_structure = line[24:25]
-                residues[residue_idx].secondary_structure = line[24:25]
-                residue_idx += 1
+                residues[next(residue_idx)].secondary_structure = line[24:25]
+
         self.secondary_structure = ''.join(residue.secondary_structure for residue in residues)
 
     def parse_stride(self, stride_file: AnyStr, **kwargs):
@@ -4750,9 +4779,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 for residue, ss in zip(self.residues, secondary_structure):
                     residue.secondary_structure = ss
             else:
-                self.log.warning(f'The passed secondary_structure length ({len(self.secondary_structure)}) is not equal'
-                                 f' to the number of residues ({self.number_of_residues})')  # . Recalculating...')
-                # self.stride()  # We tried for efficiency, but its inaccurate, recalculate
+                self.log.warning(f"The passed secondary_structure length, {len(secondary_structure)} != "
+                                 f'{self.number_of_residues}, the number of residues')  # . Recalculating...')
+                # Todo? # self.stride()  # We tried for efficiency, but its inaccurate, recalculate
 
     def termini_proximity_from_reference(self, termini: termini_literal = 'n',
                                          reference: np.ndarray = utils.symmetry.origin, **kwargs) -> float:
