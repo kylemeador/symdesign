@@ -35,6 +35,29 @@ protein_letters_3to1_extended_mse = protein_letters_3to1_extended.copy()
 protein_letters_3to1_extended_mse['MSE'] = 'M'
 DEFAULT_SS_PROGRAM = 'stride'
 DEFAULT_SS_COIL_IDENTIFIER = 'C'
+"""Secondary structure identifier mapping
+Stride
+H:Alpha helix
+G:3-10 helix
+I:PI-helix
+E:Strand/Extended conformation 
+B/b:Isolated bridge
+T:Turn
+C:Coil (none of the above)
+SS_DISORDER_IDENTIFIERS = 'C'
+
+DSSP
+G:310 helix
+H:α helix
+I:π helix
+B:beta bridge
+E:strand/beta bulge
+T:turns
+S:high curvature (where the angle between i-2, i, and i+2 is at least 70°)
+" "(space):loop
+SS_DISORDER_IDENTIFIERS = 'S '
+"""
+SS_DISORDER_IDENTIFIERS = 'C'
 coords_type_literal = Literal['all', 'backbone', 'backbone_and_cb', 'ca', 'cb', 'heavy']
 directives = Literal['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding',
                      'branched']
@@ -4738,7 +4761,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # self.secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
 
     def is_termini_helical(self, termini: termini_literal = 'n', window: int = 5) -> int:
-        """Using assigned secondary structure, probe for a helical C-termini using a segment of 'window' residues
+        """Using assigned secondary structure, probe for helical termini using a segment of 'window' residues. Will
+        remove any disordered residues from the specified termini before checking, with the assumption that the
+        disordered terminal residues are not integral to the structure
 
         Args:
             termini: Either 'n' or 'c' should be specified
@@ -4746,8 +4771,17 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         Returns:
             Whether the specified termini has a stretch of helical residues the length of the window (1) or not (0)
         """
-        residues = list(reversed(self.residues)) if termini.lower() == 'c' else self.residues
-        term_window = ''.join(residue.secondary_structure for residue in residues[:window * 2])
+        # residues = list(reversed(self.residues)) if termini.lower() == 'c' else self.residues
+        # term_window = ''.join(residue.secondary_structure for residue in residues[:window * 2])
+        # Strip any disorder from the termini, then use the window to compare against the secondary structure
+        if termini in 'Nn':
+            term_window = self.secondary_structure.lstrip(SS_DISORDER_IDENTIFIERS)[:window * 2]
+        elif termini in 'Cc':
+            term_window = self.secondary_structure.rstrip(SS_DISORDER_IDENTIFIERS)[window * 2:]
+        else:
+            raise ValueError(f"The termini value {termini} isn't allowed. Must indicate one"
+                             f" of {get_args(termini_literal)}")
+
         if 'H' * window in term_window:
             return 1  # True
         else:
