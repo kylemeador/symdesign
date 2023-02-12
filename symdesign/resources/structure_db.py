@@ -9,9 +9,12 @@ from logging import Logger
 from pathlib import Path
 from typing import Iterable, Annotated, AnyStr
 
+from . import sql
 from .database import Database, DataStore
 from .query.utils import boolean_choice
-from symdesign import flags, structure, utils
+from symdesign import flags, resources, structure, utils
+from symdesign.protocols.pose import load_evolutionary_profile
+from symdesign.sequence import generate_mutations, expression
 from symdesign.utils import CommandDistributer, rosetta
 putils = utils.path
 
@@ -184,7 +187,9 @@ class StructureDatabase(Database):
         # sql: sqlite = None, log: Logger = logger
         super().__init__(**kwargs)  # Database
 
-        self.full_models = DataStore(location=full_models, extension='_ensemble.pdb', glob_extension='_ensemble.pdb*',
+        # Old version when loop model came from an ensemble
+        # self.full_models = DataStore(location=full_models, extension='_ensemble.pdb', glob_extension='_ensemble.pdb*',
+        self.full_models = DataStore(location=full_models, extension='.pdb', glob_extension='.pdb*',
                                      sql=self.sql, log=self.log, load_file=structure.model.Model.from_pdb)
         self.oriented = DataStore(location=oriented, extension='.pdb', glob_extension='.pdb*',
                                   sql=self.sql, log=self.log, load_file=structure.model.Model.from_pdb)
@@ -710,6 +715,277 @@ class StructureDatabase(Database):
                     info_messages.append(loop_model_sbatch_message)
                 else:
                     raise NotImplementedError("Currently, loop modeling can't be run in the shell. "
+                                              'Implement this if you would like this feature')
+
+        return info_messages, pre_refine, pre_loop_model
+
+    def preprocess_metadata_for_design(self, metadata: list[sql.ProteinMetadata],
+                                       script_out_path: AnyStr = os.getcwd(), batch_commands: bool = True) -> \
+            tuple[list, bool, bool]:
+        """Assess whether Structure objects require any processing prior to design calculations.
+        Processing includes relaxation "refine" into the energy function and/or modelling missing segments "loop model"
+
+        Args:
+            metadata: An iterable of ProteinMetadata objects of interest with the following attributes:
+                model_source, symmetry_group, and entity_id
+            script_out_path: Where should Entity processing commands be written?
+            batch_commands: Whether commands should be made for batch submission
+        Returns:
+            Any instructions if processing is needed, then booleans for whether refinement and loop modeling has already
+            occurred (True) or if files are not reported as having this modeling yet
+        """
+        api_db = self.job.api_db  # resources.wrapapi.api_database_factory()
+        self.refined.make_path()
+        refine_names = self.refined.retrieve_names()
+        refine_dir = self.refined.location
+        self.full_models.make_path()
+        full_model_names = self.full_models.retrieve_names()
+        full_model_dir = self.full_models.location
+        # Identify the entities to refine and to model loops before proceeding
+        protein_data_to_refine, protein_data_to_loop_model, sym_def_files = [], [], {}
+        for data in metadata:  # If data is here, it's model_source file should've been oriented...
+            sym_def_files[data.symmetry_group] = utils.SymEntry.sdf_lookup(data.symmetry_group)
+            if data.entity_id not in refine_names:  # Assumes oriented_asu structure name is the same
+                protein_data_to_refine.append(data)
+            if data.entity_id not in full_model_names:  # Assumes oriented_asu structure name is the same
+                protein_data_to_loop_model.append(data)
+
+        # Query user and set up commands to perform refinement on missing entities
+        if CommandDistributer.is_sbatch_available():
+            shell = CommandDistributer.sbatch
+        else:
+            shell = CommandDistributer.default_shell
+
+        info_messages = []
+        # Query user and set up commands to perform loop modelling on missing entities
+        # Assume pre_loop_model is True until we find it isn't
+        pre_loop_model = True
+        if protein_data_to_loop_model:
+            pre_loop_model = False
+            logger.info('The following structures have not been modelled for disorder: '
+                        f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_loop_model)))}')
+            print(f'If you plan on performing {flags.design}/{flags.predict_structure} with them, it is strongly '
+                  f'encouraged that you build missing loops to avoid disordered region clashing/misalignment')
+            print('Would you like to model loops for these structures now?')
+            if boolean_choice():
+                run_loop_model = True
+            else:
+                print('To confirm, asymmetric units are going to be generated without modeling disordered loops. '
+                      'Confirm with "y" to ensure this is what you want')
+                if boolean_choice():
+                    run_loop_model = False
+                else:
+                    run_loop_model = True
+
+            if run_loop_model:
+                # Generate loop model commands
+                use_alphafold = True
+                if use_alphafold:
+                    # Hard code in parameters
+                    model_type = 'monomer'
+                    relaxed = self.job.predict.models_to_relax is None
+                    # Set up the various model_runners to supervise the prediction task for each sequence
+                    model_runners = resources.ml.set_up_model_runners(model_type=model_type)
+                    # I don't suppose I need to reinitialize these for different length inputs, but I'm sure I will
+
+                    # Predict each
+                    for idx, protein in enumerate(protein_data_to_loop_model):
+                        # Model_source should be an oriented, asymmetric version of the protein file
+                        entity = structure.model.Entity.from_file(protein.model_source)
+
+                        # Remove tags from reference_sequence
+                        clean_reference_sequence = expression.remove_terminal_tags(entity.reference_sequence)
+                        # Todo
+                        #  What happens if entity.sequence (i.e. the Structure) has resolved tag density? {
+                        #  source_gap_mutations = mutation_index: {'from': '-', 'to: LETTER}}
+                        logger.debug(f'Found the .reference_sequence:\n{entity.reference_sequence}')
+                        logger.debug(f'Found the clean_reference_sequence:\n{clean_reference_sequence}')
+                        source_gap_mutations = generate_mutations(clean_reference_sequence, entity.sequence,
+                                                                  zero_index=True, only_gaps=True)
+                        # Format the Structure to have the proper sequence to predict the entire structure with loops
+                        logger.debug(f'Found the source_gap_mutations: {source_gap_mutations}')
+                        for residue_index, mutation in source_gap_mutations.items():
+                            # residue_index is zero indexed
+                            new_aa_type = mutation['from']
+                            entity.insert_residue_type(new_aa_type, index=residue_index, chain_id=entity.chain_id)
+
+                        # Attach evolutionary info to the entity
+                        evolution_info, alignment_info = load_evolutionary_profile(api_db, entity)
+                        # Don't get the msa (no_msa=True) if the alignment_info is missing (False)
+                        # Ensure the entity.msa_file is present for this prediction to succeed with high probability
+                        features = entity.get_alphafold_features(no_msa=not alignment_info)
+                        # template_features = entity.get_alphafold_template_features()
+
+                        # Run the prediction
+                        entity_structures, entity_scores = \
+                            resources.ml.af_predict(features, model_runners,  # {**features, **template_features},
+                                                    gpu_relax=self.job.predict.use_gpu_relax,
+                                                    models_to_relax=self.job.predict.models_to_relax)
+                        if relaxed:
+                            structures_to_load = entity_structures.get('relaxed', [])
+                        else:
+                            structures_to_load = entity_structures.get('unrelaxed', [])
+                        model_kwargs = dict(name=entity.name,
+                                            entity_info={entity.name: entity.entity_info[entity.name]})
+                        folded_entities = {model_name: structure.model.Model.from_pdb_lines(structure_.splitlines(),
+                                                                                            **model_kwargs)
+                                           for model_name, structure_ in structures_to_load.items()}
+                        if relaxed:  # Set b-factor data as relaxed get overwritten
+                            model_plddts = {model_name: scores['plddt'][:entity.number_of_residues]
+                                            for model_name, scores in entity_scores.items()}
+                            for model_name, entity_ in folded_entities.items():
+                                entity_.set_b_factor_data(model_plddts[model_name])
+                        # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
+                        # If the model were to be multimeric, then use this...
+                        # if multimer:
+                        #     entity_cb_coords = np.concatenate([mate.cb_coords for mate in entity.chains])
+                        #     Tod0 entity_backbone_and_cb_coords = entity.oligomer.cb_coords
+
+                        template_cb_coords = entity.cb_coords
+                        min_rmsd = float('inf')
+                        min_entity = None
+                        for af_model_name, entity_ in folded_entities.items():
+                            rmsd, rot, tx = structure.coords.superposition3d(template_cb_coords, entity_.cb_coords)
+                            if rmsd < min_rmsd:
+                                min_rmsd = rmsd
+                                # Move the Alphafold model into the Pose reference frame
+                                entity_.transform(rotation=rot, translation=tx)
+                                min_entity = entity_
+
+                        # Save the min_model asu (now aligned with entity, which was oriented prior)
+                        min_entity.write(out_path=self.full_models.path_to(name=protein.entity_id))
+
+                else:  # rosetta_loop_model
+                    raise NotImplementedError(f'This has not been updated to use ProteinMetadata')
+                    flags_file = os.path.join(full_model_dir, 'loop_model_flags')
+                    # if not os.path.exists(flags_file):
+                    loop_model_flags = ['-remodel::save_top 0', '-run:chain A', '-remodel:num_trajectory 1']
+                    #                   '-remodel:run_confirmation true', '-remodel:quick_and_dirty',
+                    _flags = rosetta.rosetta_flags.copy() + loop_model_flags
+                    # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
+                    _flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
+                    # Generate 100 trial loops, 500 is typically sufficient
+                    variables = [('script_nstruct', '100')]
+                    _flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
+                    with open(flags_file, 'w') as f:
+                        f.write('%s\n' % '\n'.join(_flags))
+                    loop_model_cmd = [f'@{flags_file}', '-parser:protocol',
+                                      os.path.join(putils.rosetta_scripts_dir, 'loop_model_ensemble.xml'),
+                                      '-parser:script_vars']
+                    # Make all output paths and files for each loop ensemble
+                    # logger.info('Preparing blueprint and loop files for structure:')
+                    loop_model_cmds = []
+                    for idx, _structure in enumerate(protein_data_to_loop_model):
+                        # Make a new directory for each structure
+                        structure_out_path = os.path.join(full_model_dir, _structure.name)
+                        putils.make_path(structure_out_path)
+                        # Todo is renumbering required?
+                        _structure.renumber_residues()
+                        structure_loop_file = _structure.make_loop_file(out_path=full_model_dir)
+                        if not structure_loop_file:  # No loops found, copy input file to the full model
+                            copy_cmd = ['scp', self.refined.path_to(_structure.name),
+                                        self.full_models.path_to(_structure.name)]
+                            loop_model_cmds.append(
+                                utils.write_shell_script(subprocess.list2cmdline(copy_cmd), name=_structure.name,
+                                                         out_path=full_model_dir))
+                            # Can't do this v as refined path doesn't exist yet
+                            # shutil.copy(self.refined.path_to(_structure.name),
+                            #             self.full_models.path_to(_structure.name))
+                            continue
+                        structure_blueprint = _structure.make_blueprint_file(out_path=full_model_dir)
+                        structure_cmd = rosetta.script_cmd + loop_model_cmd \
+                            + [f'blueprint={structure_blueprint}', f'loop_file={structure_loop_file}',
+                               '-in:file:s', self.refined.path_to(_structure.name),
+                               '-out:path:pdb', structure_out_path] \
+                            + [f'sdf={sym_def_files[_structure.symmetry]}',
+                               f'symmetry={"asymmetric" if _structure.symmetry == "C1" else "make_point_group"}']
+                        #     + (['-symmetry:symmetry_definition', sym_def_files[_structure.symmetry]]
+                        #        if _structure.symmetry != 'C1' else [])
+                        # Create a multimodel from all output loop models
+                        multimodel_cmd = ['python', putils.models_to_multimodel_exe, '-d', structure_loop_file,
+                                          '-o', os.path.join(full_model_dir, f'{_structure.name}_ensemble.pdb')]
+                        # Copy the first model from output loop models to be the full model
+                        copy_cmd = ['scp', os.path.join(structure_out_path, f'{_structure.name}_0001.pdb'),
+                                    self.full_models.path_to(_structure.name)]
+                        loop_model_cmds.append(
+                            utils.write_shell_script(subprocess.list2cmdline(structure_cmd), name=_structure.name,
+                                                     out_path=full_model_dir,
+                                                     additional=[subprocess.list2cmdline(multimodel_cmd),
+                                                                 subprocess.list2cmdline(copy_cmd)]))
+                if batch_commands:
+                    loop_cmds_file = \
+                        utils.write_commands(loop_model_cmds, name=f'{utils.starttime}-loop_model_entities',
+                                             out_path=full_model_dir)
+                    loop_model_script = \
+                        utils.CommandDistributer.distribute(loop_cmds_file, flags.refine, out_path=script_out_path,
+                                                            log_file=os.path.join(full_model_dir, 'loop_model.log'),
+                                                            max_jobs=int(len(loop_model_cmds)/2 + .5),
+                                                            number_of_commands=len(loop_model_cmds))
+                    loop_model_script_message = 'Once you are satisfied, run the following to distribute loop_modeling'\
+                                                f' jobs:\n\t{shell} {loop_model_script}'
+                    info_messages.append(loop_model_script_message)
+                else:
+                    raise NotImplementedError("Currently, loop modeling can't be run in the shell. "
+                                              'Implement this if you would like this feature')
+
+        # Assume pre_refine is True until we find it isn't
+        pre_refine = True
+        if protein_data_to_refine:  # if files found unrefined, we should proceed
+            pre_refine = False
+            logger.critical('The following structures are not yet refined and are being set up for refinement'
+                            ' into the Rosetta ScoreFunction for optimized sequence design:\n'
+                            f'{", ".join(sorted(set(_structure.name for _structure in protein_data_to_refine)))}')
+            print(f'If you plan on performing {flags.design} using Rosetta, it is strongly encouraged that you perform '
+                  f'initial refinement. You can also refine them later using the {flags.refine} module')
+            print('Would you like to refine them now?')
+            if boolean_choice():
+                run_pre_refine = True
+            else:
+                print('To confirm, asymmetric units are going to be generated with input coordinates. Confirm '
+                      'with "y" to ensure this is what you want')
+                if boolean_choice():
+                    run_pre_refine = False
+                else:
+                    run_pre_refine = True
+
+            if run_pre_refine:
+                # Generate sbatch refine command
+                flags_file = os.path.join(refine_dir, 'refine_flags')
+                # if not os.path.exists(flags_file):
+                _flags = rosetta.rosetta_flags.copy() + rosetta.relax_flags
+                _flags.extend([f'-out:path:pdb {refine_dir}', '-no_scorefile true'])
+                _flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
+                variables = rosetta.rosetta_variables.copy()
+                variables.append(('dist', 0))  # Todo modify if not point groups used
+                _flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
+
+                with open(flags_file, 'w') as f:
+                    f.write('%s\n' % '\n'.join(_flags))
+
+                refine_cmd = [f'@{flags_file}', '-parser:protocol',
+                              os.path.join(putils.rosetta_scripts_dir, f'{putils.refine}.xml')]
+                refine_cmds = [rosetta.script_cmd + refine_cmd
+                               + ['-in:file:s', _structure.file_path, '-parser:script_vars']
+                               + [f'sdf={sym_def_files[_structure.symmetry]}',
+                                  f'symmetry={"asymmetric" if _structure.symmetry == "C1" else "make_point_group"}']
+                               for _structure in protein_data_to_refine]
+                if batch_commands:
+                    commands_file = \
+                        utils.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
+                                             name=f'{utils.starttime}-refine_entities')
+                    refine_script = \
+                        utils.CommandDistributer.distribute(commands_file, flags.refine, out_path=script_out_path,
+                                                            log_file=os.path.join(refine_dir,
+                                                                                  f'{putils.refine}.log'),
+                                                            max_jobs=int(len(refine_cmds)/2 + .5),
+                                                            number_of_commands=len(refine_cmds))
+                    multi_script_warning = "\n***Run this script AFTER completion of the loop modeling script***\n" \
+                        if info_messages else ""
+                    refine_script_message = f'Once you are satisfied, run the following to distribute refine jobs:' \
+                                            f'{multi_script_warning}\n\t{shell} {refine_script}'
+                    info_messages.append(refine_script_message)
+                else:
+                    raise NotImplementedError("Currently, refinement can't be run in the shell. "
                                               'Implement this if you would like this feature')
 
         return info_messages, pre_refine, pre_loop_model
