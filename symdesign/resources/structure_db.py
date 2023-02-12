@@ -253,7 +253,9 @@ class StructureDatabase(Database):
                 # if it was provided correctly
                 entity = model.entity(structure_identifier)
                 if entity:
+                    file_path = model.file_path
                     model = entity
+                    model.file_path = file_path
                 else:  # We couldn't find the specified EntityID
                     logger.warning(f"For {structure_identifier}, couldn't locate the specified Entity '{entity}'. The"
                                    f' available Entities are {", ".join(entity.name for entity in model.entities)}')
@@ -295,83 +297,134 @@ class StructureDatabase(Database):
         # orient_logger = start_log(name='orient', handler=1)
         # orient_logger = utils.start_log(name='orient', propagate=True)
         orient_logger = logging.getLogger(putils.orient)
-        # For some reason this won't also emit to stream when the log level is error
-        # orient_logger = \
-        #     start_log(name='orient', handler=2, location=os.path.join(orient_dir, orient_log_file), propagate=True)
-        if symmetry:
-            sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=symmetry)
-            logger.info(f'The requested {"files" if by_file else "IDs"} are being checked for proper orientation '
-                        f'with symmetry {symmetry}: {", ".join(structure_identifiers)}')
-            if by_file:
-                oriented_filepaths = orient_structure_files(structure_identifiers, log=orient_logger,
-                                                            symmetry=symmetry, out_dir=orient_dir)
-                # Pull out the structure names and use below to retrieve the oriented file
-                structure_identifiers = \
-                    list(map(os.path.basename, [os.path.splitext(file)[0]
-                                                for file in filter(None, oriented_filepaths)]))
-        else:  # Only possible if symmetry passed as None/False, in which case we should treat as asymmetric - i.e. C1
+        non_viable_structures = []
+
+        def report_non_viable_structures():
+            if non_viable_structures:
+                non_str = ', '.join(non_viable_structures)
+                orient_logger.error(
+                    f'The Model{f"s {non_str} were" if len(non_viable_structures) > 1 else f" {non_str} was"} '
+                    f'unable to be oriented properly')
+
+        def write_entities_and_asu(model: structure.model.Model, assembly_integer: str):
+            """Write the overall Model ASU, each Entity as an ASU and oligomer, and set the Model.file_path attribute
+
+            Args:
+                model: The Model of interest being oriented
+                assembly_integer: The integer representing the assembly number (provided from ".pdb1" type extensions)
+            """
+            # Extract ASU from the Model, save .file_path attribute
+            model.file_path = os.path.join(self.oriented_asu.location,
+                                           f'{model.name}.pdb{assembly_integer}')
+            with open(model.file_path, 'w') as f:
+                f.write(model.format_header())
+                # Write out each Entity in Model
+                for entity in model.entities:
+                    # Write each Entity to combined asu
+                    entity.write(file_handle=f)
+                    # Write each Entity to own file
+                    oligomer_path = os.path.join(self.oriented.location,
+                                                 f'{entity.name}.pdb{assembly_integer}')
+                    entity.write(oligomer=True, out_path=oligomer_path)
+                    # And asu
+                    asu_path = os.path.join(self.oriented_asu.location,
+                                            f'{entity.name}.pdb{assembly_integer}')
+                    entity.file_path = entity.write(out_path=asu_path)
+
+        def orient_existing_file(files: Iterable[str], symmetry: str) -> list[str]:
+            """Return the structure identifier for a file that is loaded and oriented"""
+            # non_viable_structures = []
+            all_structure = []
+            for file in files:
+                # Load entities to solve multi-component orient problem
+                model = structure.model.Model.from_file(file)
+                try:
+                    model.orient(symmetry=symmetry)
+                except (ValueError, RuntimeError) as error:
+                    orient_logger.error(str(error))
+                    non_viable_structures.append(structure_identifier)
+                    continue
+                assembly_integer = '' if model.biological_assembly is None else model.biological_assembly
+                orient_file = os.path.join(self.oriented.location,
+                                           f'{model.name}.pdb{assembly_integer}')
+                model.write(out_path=orient_file)
+                orient_logger.info(f'Oriented: {orient_file}')  # <- This isn't ASU
+                write_entities_and_asu(model, assembly_integer)
+
+                model.symmetry = symmetry
+                # structure_identifiers_.append(model.name)
+                all_structure.append(model)
+
+            # return structure_identifiers_
+            return all_structure
+
+        if not symmetry or symmetry == 'C1':
+            # Only possible if symmetry passed as None/False, in which case we should treat as asymmetric - i.e. C1
             symmetry = 'C1'
-            sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=symmetry)
             logger.info(f'The requested {"files" if by_file else "IDs"} are being set up into the DataBase: '
                         f'{", ".join(structure_identifiers)}')
-            if by_file:
-                structure_identifiers_ = []
-                for file in structure_identifiers:
-                    model = structure.model.Model.from_file(file)
-                    # Loading the file will parse the file name and set .name
-                    model.write(out_path=self.oriented.path_to(name=model.name))
-                    # Write out each Entity in Model to ASU file for the oriented_asu database
-                    model.file_path = self.oriented_asu.path_to(name=model.name)
-                    model.symmetry = symmetry
-                    with open(model.file_path, 'w') as f:
-                        f.write(model.format_header())
-                        for entity in model.entities:
-                            # Write each Entity to asu
-                            entity.write(file_handle=f)
-                            # Save Stride results
-                            entity.stride(to_file=self.stride.path_to(name=entity.name))
-                    structure_identifiers_.append(model.name)
+        else:
+            logger.info(f'The requested {"files" if by_file else "IDs"} are being checked for proper orientation '
+                        f'with symmetry {symmetry}: {", ".join(structure_identifiers)}')
 
-                structure_identifiers = structure_identifiers_
+        sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=symmetry)
+        if by_file:
+            # oriented_filepaths = orient_structure_files(structure_identifiers, log=orient_logger,
+            #                                             symmetry=symmetry, out_dir=orient_dir)
+            # # Pull out the structure names and use below to retrieve the oriented file
+            # structure_identifiers = \
+            #     list(map(os.path.basename, [os.path.splitext(file)[0]
+            #                                 for file in filter(None, oriented_filepaths)]))
+            all_structures = orient_existing_file(structure_identifiers, symmetry)
+            report_non_viable_structures()
+            return all_structures
 
         # Next work through the process of orienting the selected files
         orient_names = self.oriented.retrieve_names()
         orient_asu_names = self.oriented_asu.retrieve_names()
         all_structures = []
-        non_viable_structures = []
         pose_kwargs = dict(sym_entry=sym_entry, ignore_clashes=True)
         for structure_identifier in structure_identifiers:
             # First, check if the structure_identifier ASU has been processed
-            # This happens when files are passed WITHOUT symmetry
-            if structure_identifier in orient_asu_names:  # orient_asu file exists, stride should as well. Just load asu
+            # # NOT SURE WHY I WROTE THIS - This happens when files are passed WITHOUT symmetry, i.e. C1
+            if structure_identifier in orient_asu_names:  # orient_asu file exists, just load
                 orient_asu_file = self.oriented_asu.retrieve_file(name=structure_identifier)
                 pose = structure.model.Pose.from_file(orient_asu_file, name=structure_identifier, **pose_kwargs)
                 # Get the full assembly and set the symmetry as it has none
                 model = pose.assembly
                 model.name = structure_identifier
                 model.file_path = orient_asu_file  # pose.file_path
-            # This happens when files are passed WITH symmetry
-            elif structure_identifier in orient_names:  # orient file exists, load, save asu, and create stride
+                for entity in pose.entities:
+                    entity_asu_path = self.oriented_asu.retrieve_file(name=entity.name)
+                    if entity_asu_path is None:
+                        entity.write(out_path=entity_asu_path)
+                    entity.file_path = entity_asu_path
+            # # NOT SURE WHY I WROTE THIS - This happens when files are passed WITH symmetry
+            elif structure_identifier in orient_names:  # orient file exists, load, save asu
                 orient_file = self.oriented.retrieve_file(name=structure_identifier)
+                # These name=structure_identifier should be the default parsing method anyway...
                 pose = structure.model.Pose.from_file(orient_file, name=structure_identifier, **pose_kwargs)
                 # Write out the Pose ASU
                 assembly_integer = '' if pose.biological_assembly is None else pose.biological_assembly
-                pose.file_path = pose.write(out_path=os.path.join(self.oriented_asu.location,
-                                                                  f'{structure_identifier}.pdb{assembly_integer}'))
-                # pose.file_path = pose.write(out_path=self.oriented_asu.path_to(name=structure_identifier))
-                # Save Stride results
-                for entity in pose.entities:
-                    # Ensure we have the files written for the Entity instances as well. This is a bit of a data dump
-                    entity.write(oligomer=True, out_path=os.path.join(self.oriented_asu.location,
-                                                                      f'{entity.name}.pdb{assembly_integer}'))
-                    entity.write(out_path=os.path.join(self.oriented_asu.location,
-                                                       f'{entity.name}.pdb{assembly_integer}'))
-                    entity.stride(to_file=self.stride.path_to(name=entity.name))
+                write_entities_and_asu(pose, assembly_integer)
+                # pose.file_path = pose.write(out_path=os.path.join(self.oriented_asu.location,
+                #                                                   f'{structure_identifier}.pdb{assembly_integer}'))
+                # # pose.file_path = pose.write(out_path=self.oriented_asu.path_to(name=structure_identifier))
+                # # Save Stride results
+                # for entity in pose.entities:
+                #     # Write each Entity to own file
+                #     oligomer_path = os.path.join(self.oriented.location,
+                #                                  f'{entity.name}.pdb{assembly_integer}')
+                #     entity.write(oligomer=True, out_path=oligomer_path)
+                #     # And asu
+                #     asu_path = os.path.join(self.oriented_asu.location,
+                #                             f'{entity.name}.pdb{assembly_integer}')
+                #     entity.write(out_path=asu_path)
 
                 # Get the full assembly
                 model = pose.assembly
                 model.name = structure_identifier
-                model.file_path = pose.file_path
+                model.file_path = pose.file_path  # <- set to orient_asu.location in write_entities_and_asu()
             # Use entry_entity only if not processed before
             else:  # They are missing, retrieve the proper files using PDB ID's
                 # entry = structure_identifier.split('_')
@@ -417,6 +470,8 @@ class StructureDatabase(Database):
                 #         continue
 
                 models = self.download_structures([structure_identifier], out_dir=models_dir)
+                # Todo include Entity specific parsing from download_structure in orient_existing_file, then
+                #  consolidate their overlap
                 if models:  # Not empty list. Get the first model and throw away the rest
                     model, *_ = models
                 else:  # Empty list
@@ -428,37 +483,29 @@ class StructureDatabase(Database):
                     orient_logger.error(str(error))
                     non_viable_structures.append(structure_identifier)
                     continue
+                else:  # Delete the source file(s) now that oriented correctly and saving elsewhere
+                    for model in models:
+                        model_file = Path(model.file_path)
+                        model_file.unlink(missing_ok=True)
 
+                assembly_integer = '' if model.biological_assembly is None else model.biological_assembly
+                # Write out files for the orient database
+                orient_file = os.path.join(self.oriented.location,
+                                           f'{structure_identifier}.pdb{assembly_integer}')
                 if isinstance(model, structure.model.Entity):
-                    # Write out only the entity that was extracted to the full structure_db directory
-                    # Todo should we delete the source file?
-                    # if symmetry == 'C1':
-                    #     entity_file_path = model.write(out_path=entity_out_path)
-                    # else:  # Write out the entity as parsed. Since this is an assembly, we should get the correct state
-                    # model.write(oligomer=True, out_path=entity_out_path)
-
-                    # Write out oligomer file for the orient database
-                    orient_file = model.write(oligomer=True, out_path=self.oriented.path_to(name=structure_identifier))
-                    # Copy the entity that was extracted to the full structure_db directory
-                    entity_out_path = os.path.join(models_dir, f'{structure_identifier}.pdb')
-                    shutil.copy(orient_file, entity_out_path)
-                    # Write out ASU file for the oriented_asu database
-                    model.file_path = model.write(out_path=self.oriented_asu.path_to(name=structure_identifier))
-                    # Save Stride results
-                    model.stride(to_file=self.stride.path_to(name=structure_identifier))
+                    model.write(oligomer=True, out_path=orient_file)
+                    # Write out ASU file
+                    asu_path = os.path.join(self.oriented_asu.location,
+                                            f'{structure_identifier}.pdb{assembly_integer}')
+                    model.file_path = model.write(out_path=asu_path)
+                    # # Copy the entity that was extracted to the full structure_db directory
+                    # entity_out_path = os.path.join(models_dir, f'{structure_identifier}.pdb')
+                    # shutil.copy(orient_file, entity_out_path)
                 else:
-                    # Write out file for the orient database
-                    orient_file = model.write(out_path=self.oriented.path_to(name=structure_identifier))
-                    # Extract ASU from the Structure, save the file as .file_path for preprocess_structures_for_design
-                    model.file_path = self.oriented_asu.path_to(name=structure_identifier)
-                    with open(model.file_path, 'w') as f:
-                        # model.write_header(f)
-                        f.write(model.format_header())
-                        for entity in model.entities:
-                            # Write each Entity to asu
-                            entity.write(file_handle=f)
-                            # Save Stride results
-                            entity.stride(to_file=self.stride.path_to(name=entity.name))
+                    orient_file = os.path.join(self.oriented.location,
+                                               f'{structure_identifier}.pdb{assembly_integer}')
+                    model.write(out_path=orient_file)
+                    write_entities_and_asu(model, assembly_integer)
 
                 orient_logger.info(f'Oriented: {orient_file}')
 
@@ -466,11 +513,8 @@ class StructureDatabase(Database):
             model.symmetry = symmetry
             all_structures.append(model)
 
-        if non_viable_structures:
-            non_str = ', '.join(non_viable_structures)
-            orient_logger.error(f'The Model'
-                                f'{f"s {non_str} were" if len(non_viable_structures) > 1 else f" {non_str} was"} '
-                                f'unable to be oriented properly')
+        report_non_viable_structures()
+
         return all_structures
 
     def preprocess_structures_for_design(self, structures: list[structure.base.Structure],
@@ -580,11 +624,10 @@ class StructureDatabase(Database):
         pre_loop_model = True
         if structures_to_loop_model:
             pre_loop_model = False
-            logger.info('The following structures have not been modelled for disorder. Missing loops will '
-                        'be built for optimized sequence design: '
+            logger.info('The following structures have not been modelled for disorder: '
                         f'{", ".join(sorted(set(_structure.name for _structure in structures_to_loop_model)))}')
             print(f'If you plan on performing {flags.design}/{flags.predict_structure} with them, it is strongly '
-                  f'encouraged that you perform loop modeling to avoid disordered region clashing/misalignment')
+                  f'encouraged that you build missing loops to avoid disordered region clashing/misalignment')
             print('Would you like to model loops for these structures now?')
             if boolean_choice():
                 run_loop_model = True
