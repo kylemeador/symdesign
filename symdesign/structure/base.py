@@ -3022,6 +3022,13 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         return self._contains_hydrogen
 
+    # def _reset_sequence(self):
+    #     """Remove stored self._sequence attribute upon sequence mutation"""
+    #     try:
+    #         del self._sequence
+    #     except AttributeError:
+    #         pass
+
     @property
     def sequence(self) -> str:
         """Holds the Structure amino acid sequence"""
@@ -3939,6 +3946,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         # Reissue the atom assignments for the Residue
         residue.delegate_atoms()
+        self.reset_state()
+        # self._reset_sequence()  # Performed in self.reset_state()
 
         return delete_indices
 

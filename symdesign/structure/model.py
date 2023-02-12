@@ -3120,13 +3120,12 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                         structure_atom_indices.pop(atom_delete_index)
                     structure._offset_indices(start_at=atom_delete_index, offset=-delete_length)
                     structure.reset_state()
+                    # structure._reset_sequence()  # Performed in self.reset_state()
                     residue_found = True
                 except (ValueError, IndexError):  # This should happen if the Atom is not in the Structure of interest
                     if residue_found:  # The Structure the Residue belongs to is already accounted for, just offset
                         structure._offset_indices(start_at=0, offset=-delete_length)
                         structure.reset_state()
-
-        self.reset_state()
 
     # def reset_state(self):  # Todo this seems to introduce errors during Pose.find_interface_residues()
     #     """Remove StructureBase attributes that are invalid for the current state for each member Structure instance
@@ -3208,7 +3207,10 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                         structure.atom_indices.pop(atom_delete_index)
                 except ValueError:
                     continue
+
         # self.log.debug('Deleted: %d atoms' % (start - len(self.atoms)))
+        self.reset_state()
+        # self._reset_sequence()  # Performed in self.reset_state()
 
     def retrieve_pdb_info_from_api(self):
         """Query the PDB API for information on the PDB code found at the Model.name attribute
