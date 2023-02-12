@@ -355,16 +355,14 @@ def find_expression_tags(sequence: str, alignment_length: int = 12) -> list | li
     sequence with additional protein sequence context equal to the passed alignment_length
 
     Args:
-        sequence: 'MSGHHHHHHGKLKPNDLRI...'
+        sequence: The sequence of interest i.e. 'MSGHHHHHHGKLKPNDLRI...'
         alignment_length: length to perform the clipping of the native sequence in addition to found tag
-    Keyword Args:
-        # tag_file=PathUtils.affinity_tags (list): List of tuples where tuple[0] is the name and tuple[1] is the string
     Returns:
         [{'name': 'tag_name', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...], [] if none are found
     """
     half_sequence_length = len(sequence) / 2
     matching_tags = []
-    for tag, tag_sequence in expression_tags.items():
+    for name, tag_sequence in expression_tags.items():
         tag_index = sequence.find(tag_sequence)
         if tag_index == -1:  # No match was found
             continue
@@ -378,48 +376,66 @@ def find_expression_tags(sequence: str, alignment_length: int = 12) -> list | li
             termini = 'c'
             final_tag_index = tag_index + tag_length
             matching_sequence = sequence[final_tag_index - alignment_size:final_tag_index]
-        matching_tags.append({'name': tag, 'termini': termini, 'sequence': matching_sequence})
+        matching_tags.append({'name': name, 'termini': termini, 'sequence': matching_sequence})
 
     return matching_tags
 
 
-# def remove_expression_tags(sequence: str, tag_sequences: list[str]) -> str:
-#     """Remove the sequence provided by specified tags from an input sequence
-#
-#     Args:
-#         sequence: 'MSGHHHHHHGKLKPNDLRI...'
-#         tag_sequences: A list with the sequences of found tags
-#     Returns:
-#         'MSGGKLKPNDLRI...' The modified sequence without the tag
-#     """
-#     for tag in tag_sequences:
-#         tag_index = sequence.find(tag)
-#         if tag_index == -1:  # No match was found
-#             continue
-#         sequence = sequence[:tag_index] + sequence[tag_index + len(tag):]
-#
-#     return sequence
+# This variant only removes the tag, not the entire termini
+def remove_internal_tags(sequence: str, tag_names: list[str]) -> str:
+    """Remove matching tag sequences only, from the specified sequence
 
-
-def remove_expression_tags(sequence: str, tag_names: list[str]) -> str:
-    """Remove the sequence provided by specified tags from an input sequence
+    Defaults to known tags in constants.expression_tags
 
     Args:
-        sequence: 'MSGHHHHHHGKLKPNDLRI...'
-        tag_names: A list with the names of found tags
+        sequence: The sequence of interest i.e. 'MSGHHHHHHGKLKPNDLRI...'
+        tag_names: If only certain tags should be removed, a list with the names of known tags
     Returns:
         'MSGGKLKPNDLRI...' The modified sequence without the tag
     """
+    if tag_names:
+        _expression_tags = {expression_tags[tag_name] for tag_name in tag_names}
+    else:
+        _expression_tags = expression_tags
+
     half_sequence_length = len(sequence) / 2
-    for tag_name in tag_names:
-        tag_sequence = expression_tags[tag_name]
+    for name, tag_sequence in _expression_tags.items():
         tag_index = sequence.find(tag_sequence)
         if tag_index == -1:  # No match was found
             continue
 
         # Remove the tag from the source sequence
         tag_length = len(tag_sequence)
-        # sequence = sequence[:tag_index] + sequence[tag_index + tag_length:]
+        sequence = sequence[:tag_index] + sequence[tag_index + tag_length:]
+
+    return sequence
+
+
+def remove_terminal_tags(sequence: str, tag_names: list[str] = None) -> str:
+    """Remove matching tag sequences and any remaining termini from the specified sequence
+
+    Defaults to known tags in constants.expression_tags
+
+    Args:
+        sequence: The sequence of interest i.e. 'MSGHHHHHHGKLKPNDLRI...'
+        tag_names: If only certain tags should be removed, a list with the names of known tags
+    Returns:
+        'GGKLKPNDLRI...' The modified sequence without the tagged termini
+    """
+    if tag_names:
+        _expression_tags = {expression_tags[tag_name] for tag_name in tag_names}
+    else:
+        _expression_tags = expression_tags
+
+    half_sequence_length = len(sequence) / 2
+    for name, tag_sequence in _expression_tags.items():
+        tag_index = sequence.find(tag_sequence)
+        if tag_index == -1:  # No match was found
+            continue
+
+        # Remove the tag from the source sequence
+        tag_length = len(tag_sequence)
+
         # Remove from one end based on termini proximity
         if tag_index < half_sequence_length:  # termini = 'n'
             sequence = sequence[tag_index + tag_length:]

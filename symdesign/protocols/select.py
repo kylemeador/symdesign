@@ -815,7 +815,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                             selected_tag = available_tags[preferred_tag_index]
                     except ValueError:
                         pass
-                    pretag_sequence = expression.remove_expression_tags(inserted_design_sequence, tag_names)
+                    pretag_sequence = expression.remove_terminal_tags(inserted_design_sequence, tag_names)
                 else:
                     pretag_sequence = inserted_design_sequence
                 logger.debug(f'The pretag sequence is:\n{pretag_sequence}')
@@ -1586,7 +1586,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                         if tag_termini[preferred_tag_index] in entity_true_termini[entity_idx]:
                             selected_tag = available_tags[preferred_tag_index]
                     # Remove existing tags from sequence
-                    pretag_sequence = expression.remove_expression_tags(inserted_design_sequence, tag_names)
+                    pretag_sequence = expression.remove_terminal_tags(inserted_design_sequence, tag_names)
                 else:
                     pretag_sequence = inserted_design_sequence
                 logger.debug(f'The inserted sequence sequence is:\n{inserted_design_sequence}')
