@@ -1701,12 +1701,12 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             {chain.chain_id: ' '.join(protein_letters_1to3_extended.get(aa, 'XXX')
                                       for aa in chain.reference_sequence)
              for chain in self.chains[:asu_slice]}
-        chain_lengths = {chain: len(sequence) for chain, sequence in formated_reference_sequence.items()}
+        chain_lengths = {chain.chain_id: len(chain.reference_sequence) for chain in self.chains[:asu_slice]}
         return '%s\n' \
-               % '\n'.join(f'SEQRES{line_number:4d} {chain:1s}{chain_lengths[chain]:5d}  '
-                           f'{sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]}         '
-                           for chain, sequence in formated_reference_sequence.items()
-                           for line_number in range(1, 1 + math.ceil(chain_lengths[chain] / seq_res_len)))
+            % '\n'.join(f'SEQRES{line_number:4d} {chain_id:1s}{chain_lengths[chain_id]:5d}  '
+                        f'{formatted_sequence[seq_res_len * (line_number-1):seq_res_len * line_number]}         '
+                        for chain_id, formatted_sequence in formated_reference_sequence.items()
+                        for line_number in range(1, 1 + math.ceil(len(formatted_sequence) / seq_res_len)))
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
               oligomer: bool = False, **kwargs) -> AnyStr | None:
@@ -2974,24 +2974,12 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             {chain.chain_id: ' '.join(protein_letters_1to3_extended.get(aa, 'XXX')
                                       for aa in chain.reference_sequence)
              for chain in self.chains}
-        chain_lengths = {chain: len(sequence) for chain, sequence in formated_reference_sequence.items()}
+        chain_lengths = {chain.chain_id: len(chain.reference_sequence) for chain in self.chains}
         return '%s\n' \
-            % '\n'.join(f'SEQRES{line_number:4d} {chain:1s}{chain_lengths[chain]:5d}  '
-                        f'{sequence[seq_res_len * (line_number-1):seq_res_len * line_number]}         '
-                        for chain, sequence in formated_reference_sequence.items()
-                        for line_number in range(1, 1 + math.ceil(chain_lengths[chain]/seq_res_len)))
-
-    # def write(self, **kwargs) -> AnyStr | None:
-    #     """Write Atoms to a file specified by out_path or with a passed file_handle
-    #
-    #     Keyword Args
-    #         header: None | str - A string that is desired at the top of the file
-    #         pdb: bool = False - Whether the Residue representation should use the number at file parsing
-    #     Returns:
-    #         The name of the written file if out_path is used
-    #     """
-    #     self.log.debug(f'Model is writing')
-    #     return super().write(**kwargs)
+            % '\n'.join(f'SEQRES{line_number:4d} {chain_id:1s}{chain_lengths[chain_id]:5d}  '
+                        f'{formatted_sequence[seq_res_len * (line_number-1):seq_res_len * line_number]}         '
+                        for chain_id, formatted_sequence in formated_reference_sequence.items()
+                        for line_number in range(1, 1 + math.ceil(len(formatted_sequence)/seq_res_len)))
 
     def orient(self, symmetry: str = None):  # similar function in Entity
         """Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
