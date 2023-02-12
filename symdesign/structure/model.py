@@ -885,6 +885,13 @@ class ContainsChainsMixin:
                                      f'!= number of chain_ids ({len(self.chain_ids)})')
         return None
 
+    def set_reference_sequence_from_seqres(self, reference_sequence: dict[str, str]):
+        """If SEQRES was parsed, set the reference_sequence attribute from each parsed chain_id. Ensure that this is called after
+        self._create_chains()
+        """
+        for original_chain, chain in zip(self.original_chain_ids, self.chains):
+            chain._reference_sequence = reference_sequence[original_chain]
+
     @staticmethod
     def chain_id_generator() -> Generator[str, None, None]:
         """Provide a generator which produces all combinations of chain ID strings
@@ -1034,7 +1041,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                  # dbref: dict[str, str] = None,
                  # Todo remove self.thermophilicity once sql load more streamlined
                  thermophilicity: bool = None,
-                 reference_sequence: str = None, **kwargs):
+                 reference_sequence: str | dict[str, str] = None, **kwargs):
         """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated"""
         self._captain = None
         self._chain_transforms = []
@@ -1044,21 +1051,6 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         self.max_symmetry = None
         self.max_symmetry_chain = None
         self.rotation_d = {}  # Maps mate entities to their rotation matrix
-        if metadata is None:
-            # self.__dict__.update(metadata.__dict__)
-            if reference_sequence is not None:
-                self._reference_sequence = reference_sequence
-            # Todo remove self.thermophilicity once sql load more streamlined
-            self.thermophilicity = thermophilicity
-            if uniprot_ids is not None:
-                self.uniprot_ids = uniprot_ids
-        else:
-            if metadata.reference_sequence is not None:
-                self._reference_sequence = metadata.reference_sequence
-            # Todo remove self.thermophilicity once sql load more streamlined
-            self.thermophilicity = metadata.thermophilicity
-            if metadata.uniprot_entities is not None:
-                self.uniprot_ids = tuple(entity.uniprot_id for entity in metadata.uniprot_entities)
 
         # Set up chain information if Chain instances provided for Structure.__init__()
         if chains:  # Instance was initialized with .from_chains()
@@ -1119,8 +1111,26 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             self.symmetry = None
             self._is_oligomeric = False
 
-        # if chain_ids:
-        #     self.chain_ids = chain_ids
+        # reference_sequence must be set up after self.chains
+        if metadata is None:
+            # self.__dict__.update(metadata.__dict__)
+            if reference_sequence is not None:
+                if isinstance(reference_sequence, dict):  # Was parsed from file
+                    # self.log.debug(f'Found reference_sequence data: {reference_sequence}')
+                    self.set_reference_sequence_from_seqres(reference_sequence)
+                else:  # Assumeing a string from create_entities()
+                    self._reference_sequence = reference_sequence
+            # Todo remove self.thermophilicity once sql load more streamlined
+            self.thermophilicity = thermophilicity
+            if uniprot_ids is not None:
+                self.uniprot_ids = uniprot_ids
+        else:
+            if metadata.reference_sequence is not None:
+                self._reference_sequence = metadata.reference_sequence
+            # Todo remove self.thermophilicity once sql load more streamlined
+            self.thermophilicity = metadata.thermophilicity
+            if metadata.uniprot_entities is not None:
+                self.uniprot_ids = tuple(entity.uniprot_id for entity in metadata.uniprot_entities)
 
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
@@ -2705,8 +2715,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         #                      'type')
 
         if reference_sequence is not None:  # Was parsed from file
-            for original_chain, chain in zip(self.original_chain_ids, self.chains):  # self.chains is viable at this point
-                chain._reference_sequence = reference_sequence[original_chain]
+            # self.chains is viable at this point
+            self.set_reference_sequence_from_seqres(reference_sequence)
 
         # if metadata and isinstance(metadata, PDB):
         #     self.copy_metadata(metadata)
