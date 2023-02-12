@@ -16,6 +16,10 @@ import numpy as np
 import torch
 
 import symdesign.third_party.alphafold.alphafold as af
+from symdesign.third_party.alphafold.alphafold.model import config as afconfig, data as afdata
+from symdesign.third_party.alphafold.alphafold.common import protein as afprotein, residue_constants
+from symdesign.third_party.alphafold.alphafold.data.pipeline import FeatureDict
+from symdesign.third_party.alphafold.alphafold.relax import amber_minimize, utils as af_relax_utils
 from .config import relax_options_literal
 from symdesign.third_party.ProteinMPNN.protein_mpnn_utils import ProteinMPNN
 from symdesign.sequence import numerical_translation_alph1_unknown_bytes
@@ -974,7 +978,7 @@ class RunModel:
 
   def __init__(self,
                config: ml_collections.ConfigDict,
-               params: Optional[Mapping[str, Mapping[str, np.ndarray]]] = None):
+               params: Optional[Mapping[str, Mapping[str, jnp.ndarray]]] = None):
     self.config = config
     self.params = params
     self.multimer_mode = config.model.global_config.multimer_mode
@@ -1095,16 +1099,16 @@ def set_up_model_runners(model_type: af_model_literal = 'monomer', num_predictio
                          num_ensemble: int = 1, development: bool = False) -> dict[str, RunModel]:
     """"""
     model_runners = {}
-    model_names = af.model.config.MODEL_PRESETS[model_type]  # FLAGS.model_preset]
+    model_names = afconfig.MODEL_PRESETS[model_type]  # FLAGS.model_preset]
     for model_name in model_names:
         if development and model_name != 'model_2_multimer_v3':
             continue
-        model_config = af.model.config.model_config(model_name)
+        model_config = afconfig.model_config(model_name)
         if model_config.model.global_config.multimer_mode:
             model_config.model.num_ensemble_eval = num_ensemble
         else:
             model_config.data.eval.num_ensemble = num_ensemble
-        model_params = af.model.data.get_model_haiku_params(model_name=model_name, data_dir=putils.alphafold_db_dir)
+        model_params = afdata.get_model_haiku_params(model_name=model_name, data_dir=putils.alphafold_db_dir)
         # This is using prev_pos init
         model_runner = RunModel(model_config, model_params)
         # This should be used if the prediction is not for a design and we have an msa
@@ -1116,9 +1120,11 @@ def set_up_model_runners(model_type: af_model_literal = 'monomer', num_predictio
     num_models = len(model_runners)
     logger.info(f'Predicting with {num_models} models: {list(model_runners.keys())}')
 
+    return model_runners
 
-def amber_relax(prot: af.protein, gpu: bool = False):
-    out = af.relax.amber_minimize.run_pipeline(
+
+def amber_relax(prot: afprotein, gpu: bool = False):
+    out = amber_minimize.run_pipeline(
         prot=prot,
         max_iterations=RELAX_MAX_ITERATIONS,
         tolerance=RELAX_ENERGY_TOLERANCE,
@@ -1137,9 +1143,8 @@ def amber_relax(prot: af.protein, gpu: bool = False):
     # }
     min_pdb = out['min_pdb']
     # min_pdb = utils.overwrite_b_factors(min_pdb, prot.b_factors)
-    af.relax.utils.assert_equal_nonterminal_atom_types(
-        af.protein.from_pdb_string(min_pdb).atom_mask,
-        prot.atom_mask)
+    af_relax_utils.assert_equal_nonterminal_atom_types(
+        afprotein.from_pdb_string(min_pdb).atom_mask, prot.atom_mask)
     violations = out['structural_violations'][
         'total_per_residue_violations_mask'].tolist()
 
@@ -1147,9 +1152,9 @@ def amber_relax(prot: af.protein, gpu: bool = False):
     return min_pdb, violations
 
 
-def af_predict(features: af.pipeline.FeatureDict, model_runners: dict[str, RunModel],
+def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
                gpu_relax: bool = False, models_to_relax: relax_options_literal = None, random_seed: int = None) \
-        -> tuple[dict[str, dict[str, str]], dict[str, af.pipeline.FeatureDict]]:
+        -> tuple[dict[str, dict[str, str]], dict[str, FeatureDict]]:
     """Run Alphafold to predict a structure from sequence/msa/template features
 
     Args:
@@ -1250,14 +1255,14 @@ def af_predict(features: af.pipeline.FeatureDict, model_runners: dict[str, RunMo
 
         # Add the predicted LDDT in the b-factor column.
         # Note that higher predicted LDDT value means higher model confidence.
-        plddt_b_factors = np.repeat(plddt[:, None], af.residue_constants.atom_type_num, axis=-1)
-        unrelaxed_protein = af.protein.from_prediction(
+        plddt_b_factors = np.repeat(plddt[:, None], residue_constants.atom_type_num, axis=-1)
+        unrelaxed_protein = afprotein.from_prediction(
             features=processed_feature_dict,
             result=prediction_result,
             b_factors=plddt_b_factors,
             remove_leading_feature_dimension=not model_runner.multimer_mode)
         unrelaxed_proteins[model_name] = unrelaxed_protein
-        unrelaxed_pdbs_[model_name] = af.protein.to_pdb(unrelaxed_protein)
+        unrelaxed_pdbs_[model_name] = afprotein.to_pdb(unrelaxed_protein)
 
     # Rank by model confidence.
     ranked_order = [design_model_name for design_model_name, confidence in

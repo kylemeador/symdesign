@@ -134,8 +134,64 @@ multimer_features = {
     # each successive entity will increase the integer value by 1 to equal the entity number
     }
 
+# So this constitutes the actions needed to make the template features
+"""
+    TEMPLATE_FEATURES = {
+        'template_aatype': np.float32,
+        'template_all_atom_masks': np.float32,
+        'template_all_atom_positions': np.float32,
+        'template_domain_names': object,
+        'template_sequence': object,
+        'template_sum_probs': np.float32,
+    }
+    template_features = {key: [] for key in TEMPLATE_FEATURES}
+    
+    # Todo get these into symdesign *****
+    for hit in template_hits:
+        # Where hit is parsed from hmmsearch or hhsearch
+        ""
+        hit = TemplateHit(
+            index=i,  # The number of the hit in a sequence of multiple hits
+            name=f'{pdb_id}_{chain}',
+            aligned_cols=aligned_cols, (int)  # This represents the number of matches
+            sum_probs=None,
+            query=query_sequence,
+            hit_sequence=hit_sequence.upper(),
+            # This is the sequence to be predicted
+            indices_query=indices_query,  # <- [0,1,2,-1,-1,...] Where -1 is a gap '-' and every aligned index is 
+            #                                  incremented. Seems similar to my Entity.alignment function
+            indices_hit=indices_hit,  # Same data type as above
+        )
+        ""
+        result = featurize(feature_hit)
+        # performs the work of aligning a PDB from mmcif to the query sequence. inputs a black all_atom_position/mask 
+        if sequence doesn't align
+        features = {
+            'template_all_atom_positions': np.array(templates_all_atom_positions),
+            'template_all_atom_masks': np.array(templates_all_atom_masks),  <- contains 1 where atom is present
+            'template_sequence': output_templates_sequence.encode(),
+            'template_aatype': np.array(templates_aatype),  <- one hot encoded
+            'template_domain_names': f'{pdb_id.lower()}_{chain_id}'.encode()
+        }
+        # Todo get these into symdesign ******
+        
+        # Add each result to the concatenated dictionary block
+        for key, feature in template_features.items():
+            feature.append(result[key)
+    # Process concatenated block to a stacked np array with the correct dtype
+    for name in template_features:
+      if num_hits > 0:
+        template_features[name] = np.stack(
+            template_features[name], axis=0).astype(TEMPLATE_FEATURES[name])
+      else:
+        # Make sure the feature has correct dtype even if empty.
+        template_features[name] = np.array([], dtype=TEMPLATE_FEATURES[name])
 
-# So this constitutes the actions needed to make the "multimer" features
+    return template_features
+    # return TemplateSearchResult(
+    #     features=template_features,  # DONT CARE ABOUT THESE -> errors=errors, warnings=warnings)
+"""
+# So this constitutes the actions needed to make the "multimer" sequence/msa features
 """
 import alphafold
 
