@@ -1779,7 +1779,20 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             'n_terminal_orientation': self.termini_proximity_from_reference(**kwargs),
             'c_terminal_orientation': self.termini_proximity_from_reference(termini='c', **kwargs),
         }
-        # return self._metrics_
+
+    def get_alphafold_template_features(self, symmetric: bool = False, heteromer: bool = False, **kwargs) \
+            -> af_pipeline.FeatureDict:
+        if symmetric or heteromer:
+            raise NotImplementedError("Can't get multimeric features in "
+                                      f"{self.get_alphafold_template_features.__name__}")
+        template_features = {
+            'template_all_atom_positions': self.alphafold_coords,
+            'template_all_atom_masks': self.alphafold_atom_mask,
+            'template_sequence': self.sequence.encode(),
+            'template_aatype': sequence_to_one_hot(self.sequence, numerical_translation_alph3_unknown_bytes),
+            'template_domain_names': self.name.encode()
+        }
+        return template_features
 
     def get_alphafold_features(self, symmetric: bool = False, heteromer: bool = False, no_msa: bool = False, **kwargs) \
             -> FeatureDict:
@@ -1800,6 +1813,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 raise ValueError(f"Couldn't {self.get_alphafold_features.__name__} with both 'symmetric' and "
                                  f"'heteromer' True. Only run with symmetric True if this {self.__class__.__name__} "
                                  "instance alone should be predicted as a multimer")
+            if templates:
+                raise ValueError(f"Couldn't {self.get_alphafold_features.__name__} with both 'symmetric' and "
+                                 f"'templates' True. Templates not set up for multimer")
         # elif symmetric:
         #     # Set multimer True as we need to make_msa_features_multimeric
         #     multimer = True
@@ -1868,14 +1884,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         else:
             raise ValueError(f"Couldn't acquire the msa features...")
 
-        templates = False
         if templates:
-            raise NotImplementedError(f"Can't specifiy usage with templates yet...")
-            template_features = template_result.features
+            template_features = self.get_alphafold_template_features()
         else:
-            template_features = \
-                af.notebooks.notebook_utils.empty_placeholder_template_features(num_templates=0,
-                                                                                num_res=number_of_residues)
+            template_features = empty_placeholder_template_features(num_templates=0, num_res=number_of_residues)
 
         entity_features = {
             **msa_features,
@@ -2439,7 +2451,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         #     for tag_start, tag_length in remove_loop_pairs:
         #         for
         #
-        #     # untagged_seq = remove_expression_tags(loop_sequences, [tag['sequence'] for tag in available_tags])
+        #     # untagged_seq = remove_terminal_tags(loop_sequences, [tag['sequence'] for tag in available_tags])
 
         _, disorder_indices, start_idx = self.format_missing_loops_for_design(**kwargs)
         if not disorder_indices:
