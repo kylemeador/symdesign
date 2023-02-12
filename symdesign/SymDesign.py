@@ -43,7 +43,7 @@ from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from symdesign.resources.query.utils import validate_input_return_response_value
 from symdesign.resources import sql, wrapapi
 from symdesign.structure.fragment.db import fragment_factory, euler_factory
-from symdesign.structure.model import Entity, Model
+from symdesign.structure.model import Entity, Model, Pose
 # from symdesign.structure import utils as stutils
 from symdesign.sequence import create_mulitcistronic_sequences
 from symdesign.utils import guide, nanohedra
@@ -887,7 +887,7 @@ def main():
             retrieve_stride_info = job.api_db.stride.retrieve_data
             # Initialize the local database
             # Populate all_entities to set up sequence dependent resources
-            all_entities = []
+            grouped_structures_metadata = {}
             possibly_new_uniprot_to_prot_metadata = {}
             # Todo expand the definition of SymEntry/Entity to include
             #  specification of T:{T:{C3}{C3}}{C1}
@@ -896,21 +896,14 @@ def main():
             for structures, symmetry in zip(grouped_structures, job.sym_entry.groups):  # symmetry_map):
                 if not structures:  # Useful in a case where symmetry groups are the same or group is None
                     continue
+                structures_metadata = []
                 for structure in structures:
-                    all_entities.extend(structure.entities)
+                    structure_metadata = []
                     for entity in structure.entities:
-                        # Try to get the already parsed secondary structure information
-                        parsed_secondary_structure = retrieve_stride_info(name=entity.name)
-                        if parsed_secondary_structure:
-                            entity.secondary_structure = parsed_secondary_structure
-                        else:
-                            entity.stride(to_file=job.api_db.stride.path_to(entity.name))
-                            # entity.calculate_secondary_structure()
                         protein_metadata = sql.ProteinMetadata(
                             entity_id=entity.name,
+                            model_source=entity.file_path,
                             reference_sequence=entity.reference_sequence,
-                            n_terminal_helix=entity.is_termini_helical(),
-                            c_terminal_helix=entity.is_termini_helical('c'),
                             thermophilicity=entity.thermophilicity,
                             symmetry_group=symmetry)
                         # # Set the Entity with .metadata attribute to fetch in fragdock()
@@ -930,6 +923,9 @@ def main():
                             raise RuntimeError(f"This error wasn't expected to occur.{putils.report_issue}")
                         else:  # Process for persistent state
                             possibly_new_uniprot_to_prot_metadata[uniprot_ids] = protein_metadata
+                        structure_metadata.append(protein_metadata)
+                    structures_metadata.append(structure_metadata)
+                grouped_structures_metadata[symmetry] = structures_metadata
 
             # Write new data to the database
             # with job.db.session(expire_on_commit=False) as session:
@@ -942,12 +938,23 @@ def main():
             # Todo need to take the version of all_structures from refine/loop modeling and insert entity.metadata
             #  then usage for docking pairs below...
 
-            # Correct existing ProteinMetadata
-            for structures in grouped_structures:
-                for structure in structures:
-                    for entity in structure.entities:
-                        # Set the Entity with .metadata attribute to fetch in fragdock()
-                        entity.metadata = all_uniprot_id_to_prot_data[entity.uniprot_ids]
+            # Correct existing ProteinMetadata, now that Entity instances are processed
+            grouped_structures = []
+            for symmetry, structures_metadata in grouped_structures_metadata.items():
+                structures = []
+                for structure_metadata in structures_metadata:
+                    # entities = [Entity.from_file(data.model_source, name=data.entity_id)
+                    #             for data in structure_metadata]
+                    entities = []
+                    for data in structure_metadata:
+                        entity = Entity.from_file(data.model_source, name=data.entity_id)
+                        entity.stride(to_file=job.api_db.stride.path_to(entity.name))
+                        data.n_terminal_helix = entity.is_termini_helical()
+                        data.c_terminal_helix = entity.is_termini_helical('c')
+                        entity.metadata = data
+
+                    structures.append(Pose.from_entities(entities, symmetry=symmetry))
+                grouped_structures.append(structures)
 
             # Make all possible structure pairs given input entities by finding entities from entity_names
             # Using combinations of directories with .pdb files
@@ -956,7 +963,7 @@ def main():
                 # structures1 = [entity for entity in all_entities if entity.name in structures1]
                 # ^ doesn't work as entity_id is set in orient_structures, but structure name is entry_id
                 all_structures = []
-                for structures, symmetry in grouped_structures:
+                for structures in grouped_structures:
                     all_structures.extend(structures)
                 pose_jobs.extend(combinations(all_structures, 2))
             else:
