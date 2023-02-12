@@ -277,6 +277,9 @@ metrics = {
         dict(description='The Stride based secondary structure names of each unique element where possible '
                          'values are - H:Alpha helix, G:3-10 helix, I:PI-helix, E:Extended conformation, '
                          'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
+                         # DSSP G:310 helix, H:α helix and I:π helix, B:beta bridge, E:strand/beta bulge, T:turns,
+                         #      S:high curvature (where the angle between i-2, i, and i+2 is at least 70°), and
+                         #      " "(space):loop
              direction=None, function=None, filter=None),
     'entity_interface_secondary_structure_topology':
         dict(description='The Stride based secondary structure names of each unique element where possible '
@@ -360,8 +363,6 @@ metrics = {
         dict(description='Median distance between all atom points on each side of the interface core fragment '
                          'positions',
              direction=min_, function=normalize, filter=True),
-    # DSSP G:310 helix, H:α helix and I:π helix, B:beta bridge, E:strand/beta bulge, T:turns,
-    #      S:high curvature (where the angle between i-2, i, and i+2 is at least 70°), and " "(space):loop
     'interface_secondary_structure_count':
         dict(description='The number of unique secondary structures in the interface',
              direction=max_, function=normalize, filter=True),
