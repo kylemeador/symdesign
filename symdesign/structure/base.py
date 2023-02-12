@@ -3046,7 +3046,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def structure_sequence(self, sequence: str):
         self._sequence = sequence
 
-    def _start_indices(self, at: int = 0, dtype: atom_or_residue = None):
+    def _start_indices(self, at: int = 0, dtype: atom_or_residue_literal = None):
         """Modify Structure container indices by a set integer amount
 
         Args:
@@ -3054,15 +3054,15 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             dtype: The type of indices to modify. Can be either 'atom' or 'residue'
         """
         try:  # To get the indices through the public property
-            indices = getattr(self, f'{dtype}_indices')
+            indices = self.__getattribute__(f'{dtype}_indices')
         except AttributeError:
             raise AttributeError(f'The dtype {dtype}_indices was not found the in {self.__class__.__name__} object. '
                                  f'Possible values of dtype are "atom" or "residue"')
         offset = at - indices[0]
         # Set the indices through the private attribute
-        setattr(self, f'_{dtype}_indices', [prior_idx + offset for prior_idx in indices])
+        self.__setattr__(f'_{dtype}_indices', [prior_idx + offset for prior_idx in indices])
 
-    def _insert_indices(self, at: int, new_indices: list[int], dtype: atom_or_residue = None):
+    def _insert_indices(self, at: int, new_indices: list[int], dtype: atom_or_residue_literal = None):
         """Modify Structure container indices by a set integer amount
 
         Args:
@@ -3073,12 +3073,12 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         if new_indices is None:
             return  # new_indices = []
         try:
-            indices = getattr(self, f'{dtype}_indices')
+            indices = self.__getattribute__(f'{dtype}_indices')
         except AttributeError:
-            raise AttributeError(f'The dtype {dtype}_indices was not found the Structure object. Possible values of '
-                                 f'dtype are atom or residue')
+            raise AttributeError(f'The dtype {dtype}_indices was not found the {self.__class__.__name__} object. '
+                                 f'Possible values of dtype are "atom" or "residue"')
         number_new = len(new_indices)
-        setattr(self, f'_{dtype}_indices', indices[:at] + new_indices + [idx + number_new for idx in indices[at:]])
+        self.__setattr__(f'_{dtype}_indices', indices[:at] + new_indices + [idx + number_new for idx in indices[at:]])
 
     def _offset_indices(self, start_at: int = None, offset: int = None):
         """Reindex the Structure atom_indices by a uniform offset, starting with the index 'start_at'
@@ -3979,73 +3979,86 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # Grab the reference atom coordinates and push into the atom list
         new_residue: Residue = stutils.reference_residues[reference_index].copy()
 
-        # Find the prior and next Residue, start_index (starting atom in new Residue index)
+        # Find the prior and next Residue, atom_start_index (starting atom in new Residue index)
         residues = self.residues
         if index == 0:  # n-termini = True
-            prior_residue = None
-            start_index = 0
+            prev_residue = None
+            atom_start_index = 0
         else:
-            prior_residue = residues[index - 1]
-            start_index = prior_residue.end_index + 1
+            prev_residue = residues[index - 1]
+            atom_start_index = prev_residue.end_index + 1
 
         try:
-            next_residue = residues[index + 1]
+            next_residue = residues[index]
         except IndexError:  # c_termini = True
             next_residue = None
-            if not prior_residue:  # Insertion on an empty Structure? block for now to simplify chain identification
+            if not prev_residue:  # Insertion on an empty Structure? block for now to simplify chain identification
                 raise stutils.DesignError(
                     f"Can't {self.insert_residue_type.__name__} for an empty {self.__class__.__name__} class")
 
         # Set found attributes
-        new_residue.index = index
-        new_residue.start_index = start_index
-        new_residue.prev_residue = prior_residue
+        new_residue._insert = True
+        # new_residue._index = index  # Set in self._residues.reindex()
+        new_residue.prev_residue = prev_residue
         new_residue.next_residue = next_residue
 
-        # Insert the new_residue coords and atoms into the Structure Atoms
-        self._coords.insert(start_index, new_residue.coords)
-        self._atoms.insert(start_index, new_residue.atoms)
-        self._atoms.reindex(start_at=start_index)
-        # insert the new_residue into the Structure Residues
+        # Insert the new_residue coords, atoms, and residues into the Structure
+        self._coords.insert(atom_start_index, new_residue.coords)
+        self._atoms.insert(atom_start_index, new_residue.atoms)
         self._residues.insert(index, [new_residue])
-        self._residues.reindex(start_at=index)  # .set_index()
         # After coords, atoms, residues insertion into "_" containers, set parent to self
-        new_residue.parent = self  # parent
+        new_residue._parent = self  # parent
+
+        # Reformat indices
+        # new_residue.start_index = atom_start_index
+        # self._atoms.reindex(start_at=atom_start_index)  # Called in self._residues.reindex
+        self._residues.reindex(start_at=index)  # .set_index()
         # Insert new_residue index and atom_indices into Structure indices
         self._insert_indices(index, [index], dtype='residue')
-        self._insert_indices(start_index, new_residue.atom_indices, dtype='atom')
+        self._insert_indices(atom_start_index, new_residue.atom_indices, dtype='atom')
 
         # Set the new chain_id. Must occur after self._residue_indices update if chain isn't provided
         chain_assignment_error = "Can't solve for the new Residue polymer association automatically! If the new " \
                                  'Residue is at a Structure termini in a multi-Structure Structure container, you must' \
                                  ' specify which Structure it belongs to by passing chain_id='
         if chain_id is None:  # Try to solve without it...
-            if prior_residue and next_residue:
-                if prior_residue.chain_id == next_residue.chain_id:
-                    chain_id = prior_residue.chain_id
+            if prev_residue and next_residue:
+                if prev_residue.chain_id == next_residue.chain_id:
+                    chain_id = prev_residue.chain_id
                 else:  # We have a discrepancy which means this is an internal termini
                     raise stutils.DesignError(chain_assignment_error)
             # We can solve as this represents an absolute termini case
-            elif prior_residue:
-                chain_id = prior_residue.chain_id
+            elif prev_residue:
+                chain_id = prev_residue.chain_id
             else:
                 chain_id = next_residue.chain_id
         new_residue.chain_id = chain_id
 
         # Solve the Residue number and renumber Structure if there is overlap
-        if prior_residue and next_residue:
-            tentative_number = prior_residue.number + 1
+        if prev_residue and next_residue:
+            tentative_number = prev_residue.number + 1
             if tentative_number == next_residue.number:
-                # We have an insertion. Renumber all subsequent
-                # self.renumber_residues()
-                residues_renumber = residues[index:]
-                for residue in residues_renumber:
-                    residue.number = residue.number + 1
-            new_residue.number = tentative_number
-        elif prior_residue:
-            new_residue.number = prior_residue.number + 1
-        else:
-            new_residue.number = next_residue.number - 1
+                # We have a conflicting insertion
+                # The prev_residue could also be inserted and needed to be numbered lower
+                try:  # Check residue._insert
+                    prev_residue._insert
+                except AttributeError:  # Not inserted. Renumber all subsequent
+                    # self.renumber_residues()
+                    residues_renumber = residues[index:]
+                    for residue in residues_renumber:
+                        residue.number = residue.number + 1
+                else:
+                    for residue in prev_residue.get_upstream() + [prev_residue]:
+                        residue.number = residue.number - 1
+
+            new_residue.number = new_residue.number_pdb = tentative_number
+        elif prev_residue:
+            new_residue.number = new_residue.number_pdb = prev_residue.number + 1
+        else:  # next_residue
+            # Subtracting one may not be enough if this insert_residue_type is part of a set of inserts and all
+            # n-terminal insertions are being conducted before this next_residue. Clean this in the first check of
+            # this logic block
+            new_residue.number = new_residue.number_pdb = next_residue.number - 1
 
         if self.secondary_structure:
             # ASSUME the insertion is disordered and coiled segment
@@ -4055,6 +4068,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         # Reindex the coords/residues map
         self._set_coords_indexed()  # index_residues_to_coords()
+        self.reset_state()
+        # self._reset_sequence()  # Performed in self.reset_state()
 
         return new_residue
 

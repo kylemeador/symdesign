@@ -3143,19 +3143,21 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             idx = 0
             # Iterate over Structures in each structure_container
             for idx, structure in enumerate(structures, idx):
+                structure.reset_state()
+                # structure._reset_sequence()  # Performed in self.reset_state()
                 try:  # Update each Structures _residue_ and _atom_indices with additional indices
                     structure._insert_indices(structure.residue_indices.index(index),
                                               [index], dtype='residue')
                     structure._insert_indices(structure.atom_indices.index(new_residue.start_index),
                                               new_residue.atom_indices, dtype='atom')
                     break  # Move to the next container to update the indices by a set increment
-                except (ValueError, IndexError):  # This should happen if the Atom is not in the Structure of interest
+                except (ValueError, IndexError):
+                    # This should happen if the Atom is not in the Structure of interest
                     # Edge case where the index is being appended to the c-terminus
-                    if index - 1 == structure.residue_indices[-1] and \
-                            new_residue.chain_id == structure.chain_id:
+                    if index - 1 == structure.residue_indices[-1] and new_residue.chain_id == structure.chain_id:
                         structure._insert_indices(structure.number_of_residues, [index], dtype='residue')
                         structure._insert_indices(structure.number_of_atoms, new_residue.atom_indices, dtype='atom')
-                        break  # must move to the next container to update the indices by a set increment
+                        break  # Must move to the next container to update the indices by a set increment
             # For each subsequent structure in the structure container, update the indices with the last indices from
             # the prior structure
             for prior_idx, structure in enumerate(structures[idx + 1:], idx):
