@@ -33,13 +33,14 @@ from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, query, sql
 from symdesign.sequence import default_substitution_matrix_array, default_substitution_matrix_translation_table, \
     generate_alignment, generate_mutations, get_equivalent_indices, numeric_to_sequence, \
-    numerical_translation_alph1_unknown_gapped_bytes, protein_letters_alph1, protein_letters_3to1_extended, \
-    protein_letters_1to3_extended, profile_types
-import symdesign.third_party.alphafold.alphafold as af
-# from symdesign.third_party.alphafold.alphafold.data import feature_processing, msa_pairing, parsers, pipeline_multimer
-# from symdesign.third_party.alphafold.alphafold.data.pipeline import FeatureDict, make_msa_features, \
-#     make_sequence_features
-# from symdesign.third_party.alphafold.alphafold.notebooks.notebook_utils import empty_placeholder_template_features
+    numerical_translation_alph1_unknown_gapped_bytes, numerical_translation_alph3_unknown_bytes, protein_letters_alph1,\
+    protein_letters_3to1_extended, protein_letters_1to3_extended, profile_types
+import symdesign.third_party.alphafold.alphafold.data.feature_processing as af_feature_processing
+import symdesign.third_party.alphafold.alphafold.data.parsers as af_data_parsers
+import symdesign.third_party.alphafold.alphafold.data.msa_pairing as af_msa_pairing
+import symdesign.third_party.alphafold.alphafold.data.pipeline as af_pipeline
+import symdesign.third_party.alphafold.alphafold.data.pipeline_multimer as af_pipeline_multimer
+from symdesign.third_party.alphafold.alphafold.notebooks.notebook_utils import empty_placeholder_template_features
 
 putils = utils.path
 
@@ -1820,9 +1821,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         #     'sequence': np.array([sequence.encode('utf-8')], dtype=np.object_)
         # }
 
-        def make_msa_features_multimeric(msa_feats: af.data.pipeline.FeatureDict) -> af.data.pipeline.FeatureDict:
+        def make_msa_features_multimeric(msa_feats: af_pipeline.FeatureDict) -> af_pipeline.FeatureDict:
             """Create the feature names for Alphafold heteromeric inputs run in multimer mode"""
-            valid_feats = af.data.msa_pairing.MSA_FEATURES + ('msa_species_identifiers',)
+            valid_feats = af_msa_pairing.MSA_FEATURES + ('msa_species_identifiers',)
             return {f'{k}_all_seq': v for k, v in msa_feats.items() if k in valid_feats}
 
         # When no msa_used, construct our own
@@ -1848,12 +1849,12 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 uniclust_lines = f.read()
             file, extension = os.path.splitext(self.msa_file)
             if extension == '.sto':
-                uniclust30_msa = af.data.parsers.parse_stockholm(uniclust_lines)
+                uniclust30_msa = af_data_parsers.parse_stockholm(uniclust_lines)
             else:
                 raise ValueError(f"Currently, the multiple sequence alignment file type '{extension}' isn't supported\n"
                                  f"\tOffending file located at: {self.msa_file}")
-            msa_features = af.data.pipeline.make_msa_features((uniclust30_msa,))  # <- I can use a single one...
-            #                                                   (uniref90_msa, bfd_msa, mgnify_msa))
+            msa_features = af_pipeline.make_msa_features((uniclust30_msa,))  # <- I can use a single one...
+            #                                           (uniref90_msa, bfd_msa, mgnify_msa))
             if heteromer:
                 # Todo enusre that uniref90 runner was used...
                 #  OR equivalent so that we ensure each sequence in a multimeric msa is able to be paired
@@ -1861,9 +1862,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 with open(self.msa_file, 'r') as f:
                     uniref90_lines = f.read()
 
-                uniref90_msa = af.data.parsers.parse_stockholm(uniref90_lines)
-                msa_features = af.data.pipeline.make_msa_features((uniref90_msa,))
-                msa_features.update(af.data.pipeline.make_msa_features_multimeric(msa_features))
+                uniref90_msa = af_data_parsers.parse_stockholm(uniref90_lines)
+                msa_features = af_pipeline.make_msa_features((uniref90_msa,))
+                msa_features.update(make_msa_features_multimeric(msa_features))
         else:
             raise ValueError(f"Couldn't acquire the msa features...")
 
@@ -1884,11 +1885,11 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         if symmetric and self.is_symmetric():  # is_oligomeric():
             # Hard code in chain_id as we are using a multimeric predict on the oligomeric version
             chain_id = 'A'
-            entity_features = af.data.pipeline_multimer.convert_monomer_features(entity_features, chain_id=chain_id)
+            entity_features = af_pipeline_multimer.convert_monomer_features(entity_features, chain_id=chain_id)
 
             chain_count = count(1)
             entity_integer = 1
-            entity_id = af.data.pipeline_multimer.int_id_to_str_id(entity_integer)
+            entity_id = af_pipeline_multimer.int_id_to_str_id(entity_integer)
             all_chain_features = {}
             for sym_idx in range(1, 1 + self.number_of_symmetry_mates):
                 # chain_id = next(available_chain_ids_iter)  # The mmCIF formatted chainID with 'AB' type notation
@@ -1908,9 +1909,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # The first of the two MSAs is constructed by extracting the organism identifiers (OX) from the resulting
             # a3m file and pairing sequences using the top hit from each OX. The second is constructed by block
             # diagonalizing the resulting a3m file.
-            np_example = af.data.feature_processing.pair_and_merge(all_chain_features=all_chain_features)
+            np_example = af_feature_processing.pair_and_merge(all_chain_features=all_chain_features)
             # Pad MSA to avoid zero-sized extra_msa.
-            np_example = af.data.pipeline_multimer.pad_msa(np_example, 512)
+            np_example = af_pipeline_multimer.pad_msa(np_example, 512)
 
             return np_example  # This is still a FeatureDict and could be named entity_features
         else:
@@ -6251,7 +6252,7 @@ class Pose(SymmetricModel, Metrics):
             # particular importance needs to be given to the MSA used.
             # Should fragments be utilized in the MSA? If so, naming them in some way to pair is required!
             # Follow the example in:
-            #    af.data.pipeline.make_msa_features(msas: Sequence[af.data.parsers.Msa]) -> FeatureDict
+            #    af_pipeline.make_msa_features(msas: Sequence[af_data_parsers.Msa]) -> FeatureDict
             # to featurize
 
             if multimer:  # symmetric:
@@ -6261,10 +6262,10 @@ class Pose(SymmetricModel, Metrics):
                 # For example, for an A4B4 heteromer with C4 symmetry, the chain_id for entity idx 0 would be A and for
                 # entity idx 1 would be E. This may not be important, but this is how symmetric is prepared
                 chain_id = available_chain_ids[self.number_of_symmetry_mates * entity_idx]
-                entity_features = af.data.pipeline_multimer.convert_monomer_features(entity_features, chain_id=chain_id)
+                entity_features = af_pipeline_multimer.convert_monomer_features(entity_features, chain_id=chain_id)
 
                 entity_integer = entity_idx + 1
-                entity_id = af.data.pipeline_multimer.int_id_to_str_id(entity_integer)
+                entity_id = af_pipeline_multimer.int_id_to_str_id(entity_integer)
 
             entity_length = entity.number_of_residues
             # for _ in range(self.number_of_symmetry_mates):
@@ -6293,12 +6294,12 @@ class Pose(SymmetricModel, Metrics):
 
         # This v performed above during all_chain_features creation
         # all_chain_features = \
-        #     alphafold.alphafold.data.af.data.pipeline_multimer.add_assembly_features(all_chain_features)
+        #     af_pipeline_multimer.add_assembly_features(all_chain_features)
 
         if multimer:  # symmetric:
-            all_chain_features = af.data.feature_processing.pair_and_merge(all_chain_features=all_chain_features)
+            all_chain_features = af_feature_processing.pair_and_merge(all_chain_features=all_chain_features)
             # Pad MSA to avoid zero-sized extra_msa.
-            all_chain_features = af.data.pipeline_multimer.pad_msa(all_chain_features, 512)
+            all_chain_features = af_pipeline_multimer.pad_msa(all_chain_features, 512)
 
         return all_chain_features
 

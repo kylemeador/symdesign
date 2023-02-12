@@ -3,7 +3,7 @@ import jax
 import jax.numpy as jnp
 
 from symdesign.third_party.alphafold.alphafold.common import residue_constants
-from symdesign.third_party.alphafold.alphafold.model.modules_multimer import AlphaFoldIteration
+from symdesign.third_party.alphafold.alphafold.model.modules import AlphaFoldIteration
 
 
 class AlphaFoldInitialGuess(hk.Module):

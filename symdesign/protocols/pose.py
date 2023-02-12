@@ -39,12 +39,9 @@ from symdesign.structure.coords import superposition3d
 from symdesign.structure.model import Pose, Models, Model, Entity
 from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
 from symdesign.structure.utils import DesignError, ClashError
-import symdesign.third_party.alphafold.alphafold as af
-# from symdesign.third_party.alphafold.alphafold.common import protein, residue_constants
-# from symdesign.third_party.alphafold.alphafold.data.pipeline import FeatureDict, make_sequence_features
-# from symdesign.third_party.alphafold.alphafold.model import config as afconfig
-# from symdesign.third_party.alphafold.alphafold.model.data import get_model_haiku_params
-# from symdesign.third_party.alphafold.alphafold.relax import amber_minimize, utils as relax_utils  # relax
+# import symdesign.third_party.alphafold.alphafold as af
+import symdesign.third_party.alphafold.alphafold.data.pipeline as af_pipeline
+from symdesign.third_party.alphafold.alphafold.common import residue_constants
 from symdesign.utils import all_vs_all, condensed_to_square, InputError, large_color_array, start_log, path as putils, \
     pickle_object, rosetta, starttime, write_shell_script
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
@@ -1838,7 +1835,8 @@ class PoseProtocol(PoseData):
         #     # return min_pdb, debug_data, violations
         #     return min_pdb, violations
 
-        def get_sequence_features_to_merge(seq_of_interest: str, multimer_length: int = None) -> af.pipeline.FeatureDict:
+        def get_sequence_features_to_merge(seq_of_interest: str, multimer_length: int = None) \
+                -> af_pipeline.FeatureDict:
             """Set up a sequence that has similar features to the Pose, but different sequence, say from design output
 
             Args:
@@ -1854,7 +1852,7 @@ class PoseProtocol(PoseData):
             #  symmetrize the sequence before passing to af_predict(). This would occur by entity, where the first
             #  entity is combined, then the second entity is combined, etc. Any entity agnostic features such
             #  as all_atom_mask would be able to be made here
-            _seq_features = af.pipeline.make_sequence_features(sequence=seq_of_interest, description='',
+            _seq_features = af_pipeline.make_sequence_features(sequence=seq_of_interest, description='',
                                                                num_res=sequence_length)
             # Always use the outer "domain_name" feature if there is one
             _seq_features.pop('domain_name')
@@ -1892,7 +1890,7 @@ class PoseProtocol(PoseData):
             #     # increasing for each sequence position, restarting at the beginning of a chain
             # Make the atom positions according to the sequence
             # Add all_atom_mask and dummy all_atom_positions based on aatype.
-            all_atom_mask = af.residue_constants.STANDARD_ATOM_MASK[_seq_features['aatype']]
+            all_atom_mask = residue_constants.STANDARD_ATOM_MASK[_seq_features['aatype']]
             _seq_features['all_atom_mask'] = all_atom_mask
             _seq_features['all_atom_positions'] = np.zeros(list(all_atom_mask.shape) + [3])
 
