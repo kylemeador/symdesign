@@ -284,13 +284,26 @@ def main():
         Returns:
             The processed structures
         """
+        def check_if_script_and_exit():
+            if info_messages:
+                # Entity processing commands are needed
+                if utils.CommandDistributer.is_sbatch_available():
+                    logger.critical(sbatch_warning)
+                else:
+                    logger.critical(script_warning)
+
+                for message in info_messages:
+                    logger.info(message)
+                print('\n')
+                logger.info(resubmit_command_message)
+                terminate(output=False)
+
         # Set up common Structure/Entity resources
         info_messages = []
         if job.design.evolution_constraint:
-            evolution_instructions = \
-                job.process_evolutionary_info(uniprot_entities=uniprot_entities)
-            #                                    entities=all_entities)
-            info_messages.extend(evolution_instructions)
+            info_messages.extend(job.process_evolutionary_info(uniprot_entities=uniprot_entities))
+
+        check_if_script_and_exit()
 
         if job.preprocessed:
             # Don't perform refinement or loop modeling, this has already been done or isn't desired
@@ -298,7 +311,7 @@ def main():
             # Move the oriented Entity.file_path (should be the ASU) to the respective directory
             putils.make_path(job.refine_dir)
             putils.make_path(job.full_model_dir)
-            for entity in metadata:  # entities:
+            for entity in metadata:
                 shutil.copy(entity.model_source, job.refine_dir)
                 shutil.copy(entity.model_source, job.full_model_dir)
                 entity.pre_loop_model = True
@@ -312,19 +325,12 @@ def main():
                 info_messages += ['The following can be run at any time regardless of evolutionary script progress']
             info_messages += preprocess_instructions
 
-        if info_messages:
-            # Entity processing commands are needed
-            if utils.CommandDistributer.is_sbatch_available():
-                logger.critical(sbatch_warning)
-            else:
-                logger.critical(script_warning)
+            # Set these attributes. Todo set for each instance individually inside preprocess_metadata_for_design ?
+            for entity in metadata:  # entities:
+                entity.pre_loop_model = initial_loop_model
+                entity.pre_refine = initial_refinement
 
-            for message in info_messages:
-                logger.info(message)
-            print('\n')
-            logger.info(resubmit_command_message)
-            terminate(output=False)
-
+        check_if_script_and_exit()
         # After completion of indicated scripts, the next time command is entered
         # these checks will not raise and the program will proceed
 
