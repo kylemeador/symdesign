@@ -307,9 +307,9 @@ def main():
 
         if job.preprocessed:
             # Don't perform refinement or loop modeling, this has already been done or isn't desired
-            # if job.pre_loop_modeled
+            # if job.init.pre_loop_modeled
             #    just do refine stuff
-            # if job.pre_refined
+            # if job.init.pre_refined
             #    just do loop model stuff
             # Move the oriented Entity.file_path (should be the ASU) to the respective directory
             putils.make_path(job.refine_dir)
@@ -317,8 +317,8 @@ def main():
             for entity in metadata:
                 shutil.copy(entity.model_source, job.refine_dir)
                 shutil.copy(entity.model_source, job.full_model_dir)
-                entity.pre_loop_model = True
-                entity.pre_refine = True
+                entity.loop_modeled = True
+                entity.refined = True
         else:
             # preprocess_instructions, initial_refinement, initial_loop_model = \
             #     job.structure_db.preprocess_structures_for_design(structures, script_out_path=job.sbatch_scripts)
@@ -330,8 +330,8 @@ def main():
 
             # Set these attributes. Todo set for each instance individually inside preprocess_metadata_for_design ?
             for entity in metadata:  # entities:
-                entity.pre_loop_model = initial_loop_model
-                entity.pre_refine = initial_refinement
+                entity.loop_modeled = initial_loop_model
+                entity.refined = initial_refinement
 
         check_if_script_and_exit()
         # After completion of indicated scripts, the next time command is entered

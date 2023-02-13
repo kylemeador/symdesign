@@ -509,7 +509,7 @@ def interface_design(job: pose.PoseJob):
     # Todo job.solve_consensus()
     # -------------------------------------------------------------------------
 
-    if not job.pre_refine and not os.path.exists(job.refined_pdb):
+    if not job.refined and not os.path.exists(job.refined_pdb):
         job.refine(gather_metrics=False)
 
     putils.make_path(job.designs_path)
@@ -595,7 +595,7 @@ def design(job: pose.PoseJob):
     # Todo job.solve_consensus()
     # -------------------------------------------------------------------------
 
-    if not job.pre_refine and not os.path.exists(job.refined_pdb):
+    if not job.refined and not os.path.exists(job.refined_pdb):
         job.refine(gather_metrics=False)
 
     putils.make_path(job.designs_path)

@@ -310,8 +310,8 @@ class ProteinMetadata(Base):
     entity_data = relationship('EntityData', back_populates='meta')
 
     model_source = Column(String)
-    pre_refine = Column(Boolean, default=True)
-    pre_loop_model = Column(Boolean, default=True)
+    refined = Column(Boolean, default=True)
+    loop_modeled = Column(Boolean, default=True)
     reference_sequence = Column(String)
     # number_of_residues = Column(Integer)  # entity_ is used in config.metrics
     n_terminal_helix = Column(Boolean)  # entity_ is used in config.metrics

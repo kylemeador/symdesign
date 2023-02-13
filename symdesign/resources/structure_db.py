@@ -852,8 +852,10 @@ class StructureDatabase(Database):
                                 entity_.transform(rotation=rot, translation=tx)
                                 min_entity = entity_
 
+                        # Indicate that this ProteinMetadata has been processed for loop modeling
+                        protein.loop_modeled = True
                         # Save the min_model asu (now aligned with entity, which was oriented prior)
-                        min_entity.write(out_path=self.full_models.path_to(name=protein.entity_id))
+                        protein.model_source = min_entity.write(out_path=self.full_models.path_to(name=protein.entity_id))
 
                 else:  # rosetta_loop_model
                     raise NotImplementedError(f'This has not been updated to use ProteinMetadata')
@@ -912,22 +914,26 @@ class StructureDatabase(Database):
                                                      out_path=full_model_dir,
                                                      additional=[subprocess.list2cmdline(multimodel_cmd),
                                                                  subprocess.list2cmdline(copy_cmd)]))
-                if batch_commands:
-                    loop_cmds_file = \
-                        utils.write_commands(loop_model_cmds, name=f'{utils.starttime}-loop_model_entities',
-                                             out_path=full_model_dir)
-                    loop_model_script = \
-                        utils.CommandDistributer.distribute(loop_cmds_file, flags.refine, out_path=script_out_path,
-                                                            log_file=os.path.join(full_model_dir, 'loop_model.log'),
-                                                            max_jobs=int(len(loop_model_cmds)/2 + .5),
-                                                            number_of_commands=len(loop_model_cmds))
-                    loop_model_script_message = 'Once you are satisfied, run the following to distribute loop_modeling'\
-                                                f' jobs:\n\t{shell} {loop_model_script}'
-                    info_messages.append(loop_model_script_message)
-                else:
-                    raise NotImplementedError("Currently, loop modeling can't be run in the shell. "
-                                              'Implement this if you would like this feature')
-
+                    if batch_commands:
+                        loop_cmds_file = \
+                            utils.write_commands(loop_model_cmds, name=f'{utils.starttime}-loop_model_entities',
+                                                 out_path=full_model_dir)
+                        loop_model_script = \
+                            utils.CommandDistributer.distribute(loop_cmds_file, flags.refine, out_path=script_out_path,
+                                                                log_file=os.path.join(full_model_dir, 'loop_model.log'),
+                                                                max_jobs=int(len(loop_model_cmds)/2 + .5),
+                                                                number_of_commands=len(loop_model_cmds))
+                        loop_model_script_message = 'Once you are satisfied, run the following to distribute ' \
+                                                    f'loop_modeling jobs:\n\t{shell} {loop_model_script}'
+                        info_messages.append(loop_model_script_message)
+                    else:
+                        raise NotImplementedError("Currently, loop modeling can't be run in the shell. "
+                                                  'Implement this if you would like this feature')
+                    # Todo this is sloppy as this doesn't necessarily indicate that work will be done (batch_command)
+                    # Indicate that this ProteinMetadata has been processed
+                    for protein in protein_data_to_refine:
+                        protein.loop_modeled = True
+                        protein.model_source = self.refined.path_to(name=protein.entity_id)
         # Assume pre_refine is True until we find it isn't
         pre_refine = True
         if protein_data_to_refine:  # if files found unrefined, we should proceed
@@ -965,10 +971,10 @@ class StructureDatabase(Database):
                 refine_cmd = [f'@{flags_file}', '-parser:protocol',
                               os.path.join(putils.rosetta_scripts_dir, f'{putils.refine}.xml')]
                 refine_cmds = [rosetta.script_cmd + refine_cmd
-                               + ['-in:file:s', _structure.file_path, '-parser:script_vars']
-                               + [f'sdf={sym_def_files[_structure.symmetry]}',
-                                  f'symmetry={"asymmetric" if _structure.symmetry == "C1" else "make_point_group"}']
-                               for _structure in protein_data_to_refine]
+                               + ['-in:file:s', protein.model_source, '-parser:script_vars']
+                               + [f'sdf={sym_def_files[protein.symmetry_group]}',
+                                  f'symmetry={"asymmetric" if protein.symmetry_group == "C1" else "make_point_group"}']
+                               for protein in protein_data_to_refine]
                 if batch_commands:
                     commands_file = \
                         utils.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
@@ -987,6 +993,11 @@ class StructureDatabase(Database):
                 else:
                     raise NotImplementedError("Currently, refinement can't be run in the shell. "
                                               'Implement this if you would like this feature')
+                # Todo this is sloppy as this doesn't necessarily indicate that this work will be done (batch_command)
+                # Indicate that this ProteinMetadata has been processed
+                for protein in protein_data_to_refine:
+                    protein.refined = True
+                    protein.model_source = self.refined.path_to(name=protein.entity_id)
 
         return info_messages, pre_refine, pre_loop_model
 

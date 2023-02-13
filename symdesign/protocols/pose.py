@@ -1011,59 +1011,59 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
     # Both pre_* properties are really implemented to take advantage of .setter
     @property
-    def pre_refine(self) -> bool:
+    def refined(self) -> bool:
         """Provide the state attribute regarding the source files status as "previously refined"
 
         Returns:
             Whether refinement has occurred
         """
         # return self._pre_refine
-        return all(data.meta.pre_refine for data in self.entity_data)
+        return all(data.meta.refined for data in self.entity_data)
         # try:
         #     return self._pre_refine
         # except AttributeError:  # Get from the pose state
-        #     self._pre_refine = self.info.get('pre_refine', True)
+        #     self._pre_refine = self.info.get('refined', True)
         #     return self._pre_refine
 
-    # @pre_refine.setter
-    # def pre_refine(self, pre_refine: bool):
-    #     if isinstance(pre_refine, bool):
-    #         self._pre_refine = self.info['pre_refine'] = pre_refine
-    #         if pre_refine:
+    # @refined.setter
+    # def refined(self, refined: bool):
+    #     if isinstance(refined, bool):
+    #         self._pre_refine = self.info['refined'] = refined
+    #         if refined:
     #             self.refined_pdb = self.asu_path
     #             self.scouted_pdb = os.path.join(self.designs_path,
     #                                             f'{os.path.basename(os.path.splitext(self.refined_pdb)[0])}_scout.pdb')
-    #     elif pre_refine is None:
+    #     elif refined is None:
     #         pass
     #     else:
-    #         raise ValueError(f'The attribute pre_refine must be a boolean or NoneType, not {type(pre_refine).__name__}')
+    #         raise ValueError(f'The attribute refined must be a boolean or NoneType, not {type(refined).__name__}')
 
     @property
-    def pre_loop_model(self) -> bool:
+    def loop_modeled(self) -> bool:
         """Provide the state attribute regarding the source files status as "previously loop modeled"
 
         Returns:
             Whether loop modeling has occurred
         """
         # return self._pre_loop_model
-        return all(data.meta.pre_loop_model for data in self.entity_data)
+        return all(data.meta.loop_modeled for data in self.entity_data)
         # try:
         #     return self._pre_loop_model
         # except AttributeError:  # Get from the pose state
-        #     self._pre_loop_model = self.info.get('pre_loop_model', True)
+        #     self._pre_loop_model = self.info.get('loop_modeled', True)
         #     return self._pre_loop_model
     #
-    # @pre_loop_model.setter
-    # def pre_loop_model(self, pre_loop_model: bool):
-    #     if isinstance(pre_loop_model, bool):
-    #         self._pre_loop_model = self.info['pre_loop_model'] = pre_loop_model
-    #         # if pre_loop_model:
+    # @loop_modeled.setter
+    # def loop_modeled(self, loop_modeled: bool):
+    #     if isinstance(loop_modeled, bool):
+    #         self._pre_loop_model = self.info['loop_modeled'] = loop_modeled
+    #         # if loop_modeled:
     #         #     do_something
-    #     elif pre_loop_model is None:
+    #     elif loop_modeled is None:
     #         pass
     #     else:
-    #         raise ValueError(f'The attribute pre_loop_model must be a boolean or NoneType, not '
-    #                          f'{type(pre_loop_model).__name__}')
+    #         raise ValueError(f'The attribute loop_modeled must be a boolean or NoneType, not '
+    #                          f'{type(loop_modeled).__name__}')
 
     def get_designs_without_structure(self) -> list[sql.DesignData]:
         """For each design, access whether there is a structure that exists for it. If not, return the design
@@ -1183,10 +1183,11 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                                        f'"{source_datastore.location}"')
 
             entities.extend([entity for entity in model.entities])
+        # Todo is this useful or is the ProteinMetadata already set elsewhere?
         # if source_idx == 0:
-        #     self.pre_refine = True
-        # if source_idx == 0:  # Todo
-        #     self.pre_loop_model = True
+        #     self.refined = True
+        # if source_idx == 0:
+        #     self.loop_modeled = True
 
         # self.log.debug(f'{len(entities)} matching entities found')
         if len(entities) != len(self.entity_data):
@@ -1202,7 +1203,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #                 oriented = True  # fall back to the oriented version
         #                 self.log.debug('Couldn\'t find entities in the refined directory')
         #                 break
-        #         self.pre_refine = True if not oriented else False
+        #         self.refined = True if not oriented else False
         #     if oriented:
         #         out_dir = self.job.orient_dir
         #         for name in self.entity_names:
