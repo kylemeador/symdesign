@@ -2,33 +2,31 @@ from __future__ import annotations
 
 import logging
 import os
-import random
 import re
 import shutil
-import sys
 import time
 import warnings
 from glob import glob
 from itertools import combinations, repeat, count
 from pathlib import Path
 from subprocess import Popen, list2cmdline
-from typing import Any, Iterable, AnyStr, Literal, Sequence
+from typing import Any, Iterable, AnyStr, Sequence
 
 from cycler import cycler
+import jax.numpy as jnp
 from matplotlib import pyplot as plt
 # from matplotlib.axes import Axes
 from matplotlib.ticker import MultipleLocator
 # from mpl_toolkits.mplot3d import Axes3D
-import jax.numpy as jnp
 import numpy as np
 import pandas as pd
+from scipy.spatial.distance import pdist, cdist
 # import seaborn as sns
 import sklearn as skl
-import torch
-from scipy.spatial.distance import pdist, cdist
 # from sqlalchemy import select
 # from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import reconstructor
+import torch
 
 from symdesign import flags, metrics, resources
 from symdesign.resources import sql
@@ -177,7 +175,6 @@ class PoseDirectory:
         Args:
             directory:
             output_modifier:
-            initial:
         """
         self.info: dict = {}
         """Internal state info"""
@@ -466,7 +463,8 @@ class PoseDirectory:
         #     return
         # try:
         # Todo make better patch for numpy.ndarray compare value of array is ambiguous
-        if self.info.keys() != self._info.keys():  # if the state has changed from the original version
+        # if the state has changed from the original version
+        if self.info.keys() != self._info.keys():
             putils.make_path(self.data_path)
             pickle_object(self.info, self.serialized_info, out_path='')
         # except ValueError:
@@ -506,7 +504,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     # specific_designs_file_paths: list[AnyStr] = []
     # """Contains the various file paths for each design of interest according to self.specific_designs"""
 
-    # START classmethod where the PoseData isn't initialized
+    # START classmethods where PoseData hasn't been initialized from sqlalchemy
     @classmethod
     def from_path(cls, path: str, project: str = None, **kwargs):
         # path = os.path.abspath(path)
@@ -526,7 +524,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     raise InputError(f"Couldn't get the project from the path '{path}'. Please provide "
                                      f"project name with --{flags.project_name}")
 
-            return cls(name=name, project=project, source_path=path, initial=True, **kwargs)
+            return cls(name=name, project=project, source_path=path, **kwargs)
         elif os.path.isdir(path):
             # Same as from_directory. This is an existing pose_identifier that hasn't been initialized
             try:
@@ -534,7 +532,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             except ValueError:  # Only got 1 value during unpacking... This isn't a "pose_directory" identifier
                 raise InputError(f"Couldn't coerce {path} to a {cls.__name__}. The directory must contain the "
                                  f'"project{os.sep}pose_name" string')
-            return cls(name=name, project=project, initial=True, **kwargs)  # source_path=None,
+            return cls(name=name, project=project, **kwargs)  # source_path=None,
         else:
             raise InputError(f"{cls.__name__} couldn't load the specified source path '{path}'")
 
@@ -580,7 +578,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 raise InputError(f"Couldn't get the project from the path '{file}'. Please provide "
                                  f"project name with --{flags.project_name}")
 
-        return cls(name=name, project=project, source_path=file, initial=True, **kwargs)
+        return cls(name=name, project=project, source_path=file, **kwargs)
 
     @classmethod
     def from_directory(cls, source_path: str, **kwargs):  # root: AnyStr,
@@ -598,7 +596,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             raise InputError(f"Couldn't coerce {source_path} to a {cls.__name__}. The directory must contain the "
                              f'"project{os.sep}pose_name" string')
 
-        return cls(name=name, project=project, initial=True, **kwargs)  # source_path=os.path.join(root, source_path),
+        return cls(name=name, project=project, **kwargs)  # source_path=os.path.join(root, source_path),
 
     @classmethod
     def from_name(cls, name: str = None, project: str = None, **kwargs):
@@ -609,7 +607,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Returns:
             The PoseJob instance
         """
-        return cls(name=name, project=project, initial=True, **kwargs)
+        return cls(name=name, project=project, **kwargs)
 
     @classmethod
     def from_pose_identifier(cls, pose_identifier: str, **kwargs):
@@ -624,8 +622,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         except ValueError:  # We don't have a pose_identifier
             raise InputError(f"Couldn't coerce {pose_identifier} to 'project' {os.sep} 'name'. Please ensure the "
                              f'pose_identifier is passed with the "project{os.sep}name" string')
-        return cls(name=name, project=project, initial=True, **kwargs)
-    # END classmethod where the PoseData hasn't been initialized before
+        return cls(name=name, project=project, **kwargs)
+    # END classmethods where the PoseData hasn't been initialized from sqlalchemy
 
     # def pose_string_to_path(self, root: AnyStr, pose_id: str):
     #     """Set self.pose_directory to the root/poseID where the poseID is converted from dash "-" separation to path separators"""
@@ -663,7 +661,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # These arguments are for PoseDirectory. initial signifies that this is the first load of this PoseJob
         # which can help in gathering the self.serialized_info file and converting this to the proper utils.sql
         # table data
-        # self.initial = False
         super().__init__()  # directory=pose_directory, output_modifier=output_modifier)  # Todo **kwargs)
 
         putils.make_path(self.pose_directory, condition=self.job.construct_pose)
@@ -701,25 +698,36 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 else:
                     self.source_path = None
 
-    def __init__(self, name: str = None, project: str = None, source_path: AnyStr = None, initial: bool = False,
-                 protocol: str = None, **kwargs):
+    def __init__(self, name: str = None, project: str = None, source_path: AnyStr = None, protocol: str = None,
+                 pose_source: sql.DesignData = None,
                  # pose_transformation: Sequence[transformation_mapping] = None,
                  # entity_metadata: list[sql.EntityData] = None,
                  # entity_names: Sequence[str] = None,
-                 # specific_designs: Sequence[str] = None, directives: list[dict[int, str]] = None, **kwargs):
-        # pose_identifier: bool = False, initialized: bool = True,
+                 # specific_designs: Sequence[str] = None, directives: list[dict[int, str]] = None,
+                 **kwargs):
+        """
 
+        Args:
+            name: The identifier
+            project: The project which this work belongs too
+            source_path: If a path exists, where is Structure information stored?
+            protocol: If a protocol was used to generate this Pose, which protocol?
+            pose_source: If this is a descendant of another Design, which one?
+        """
         # PoseJob attributes
         self.name = name
         self.project = project
         self.source_path = source_path
-        self.initial = initial
         # self.pose_identifier = f'{self.project}{os.sep}{self.name}'
         # self.designs = [sql.DesignData(name=name)]
         # self.designs.append(sql.DesignData(name=name))
         # self.designs.append(sql.DesignData(name=name, design_parent=None))
         # Set up original DesignData entry for the pose baseline
-        pose_source = sql.DesignData(name=name, pose=self, design_parent=None, structure_path=source_path)
+        if pose_source is None:
+            pose_source = sql.DesignData(name=name, pose=self, design_parent=None, structure_path=source_path)
+        else:
+            pose_source = sql.DesignData(name=name, pose=self, design_parent=pose_source,
+                                         structure_path=pose_source.source_path)
         if protocol is not None:
             pose_source.protocols.append(sql.DesignProtocol(protocol=protocol))
         self.__init_from_db__()
@@ -745,7 +753,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #     # else:
         #     self.load_initial_model()
         #     entity_names = [entity.name for entity in self.initial_model.entities]
-        #     # Todo is this efficient? NO! needs to be ProteinMetadata?!
         #     entity_stmt = select(sql.EntityData).where(sql.EntityData.name.in_(entity_names))
         #     rows = self.job.db.current_session.scalars(entity_stmt)
         #     self.entity_data.extend(rows)
@@ -755,32 +762,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #
         # if pose_transformation:
         #     self.pose_transformation = pose_transformation
-
-        # else:  # This has been initialized, gather state data
-        #     try:
-        #         serial_info = unpickle(self.serialized_info)
-        #         if not self.info:  # Empty dict
-        #             self.info = serial_info
-        #         else:
-        #             serial_info.update(self.info)
-        #             self.info = serial_info
-        #     except pickle.UnpicklingError as error:
-        #         protocol_logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
-        #         raise error
-        #
-        #     # Make a copy to check for changes to the current state
-        #     self._info = self.info.copy()
-        #     # self.source_path = None  # Will be set to self.asu_path later
-        #     # if self.job.output_to_directory:
-        #     #     # self.job.projects = ''
-        #     #     # self.project_path = ''
-        #     #     self.pose_directory = self.job.program_root  # /output_directory<- self.pose_directory /design.pdb
-        #     # else:
-        #     #     # self.project_path = os.path.dirname(self.pose_directory)
-        #     # self.pose_directory = self.source_path
-        #     # self.pose_directory = os.path.join(self.job.projects, self.project, self.name)
-        #     #     # self.job.projects = os.path.dirname(self.project_path)
-        #     # self.project = os.path.basename(self.project_path)
 
     def use_specific_designs(self, designs: Sequence[str] = None, directives: list[dict[int, str]] = None,
                              **kwargs):
@@ -1246,10 +1227,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             pass  # Use the entities as provided
         elif self.source_path is None or not os.path.exists(self.source_path):
             # In case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
-            if not self.job.structure_db:
-                raise RuntimeError(f"Couldn't {self.get_entities.__name__} as there was no "
-                                   f"{resources.structure_db.StructureDatabase.__name__}"
-                                   f" attached to the {self.__class__.__name__}")
+            # if not self.job.structure_db:
+            #     raise RuntimeError(f"Couldn't {self.get_entities.__name__} as there was no "
+            #                        f"{resources.structure_db.StructureDatabase.__name__}"
+            #                        f" attached to the {self.__class__.__name__}")
             self.log.info(f'No structure source_path file found. Fetching structure_source from '
                           f'{type(self.job.structure_db).__name__} and transforming to Pose')
             # Minimize I/O with transform...
@@ -1279,6 +1260,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             # Careful, if processing has occurred to the initial_model, then this may be wrong!
             self.pose = Pose.from_model(self.initial_model, entity_info=self.initial_model.entity_info,
                                         name=self.name, **self.pose_kwargs)
+            # Todo we should use the ProteinMetadata version if the constituent Entity coordinates aren't modified by
+            #  some small amount as this will ensure that we are refined, and that loops are included...
+            # We have to collect the EntityTransform for these if they are symmetric. Actually, we need the transform
+            # regardless of symmetry since the file will be coming from the oriented/origin position...
         else:
             self.structure_source = file if file else self.source_path
             self.pose = Pose.from_file(self.structure_source, name=self.name, **self.pose_kwargs)

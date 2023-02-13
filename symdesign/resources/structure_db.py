@@ -104,8 +104,9 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = putils.pd
     # if location == putils.pdb_db and asu:
     if os.path.exists(location) and asu:
         file_path = os.path.join(location, f'pdb{pdb_code.lower()}.ent')
+        # ^ Cassini format
         def get_pdb(*args, **_kwargs): return sorted(glob(file_path))
-        # Cassini format is above, KM local pdb and the escher PDB mirror is below
+        # v KM local pdb and escher PDB mirror
         # file_path = os.path.join(location, subdirectory(pdb_code), f'{pdb_code.lower()}.pdb')
         logger.debug(f'Searching for PDB file at "{file_path}"')
     else:
