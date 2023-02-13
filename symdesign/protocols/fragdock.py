@@ -4162,12 +4162,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
                 # poses_df = pd.concat([poses_df], keys=[project], axis=0)
                 # poses_df.index.set_names([sql.PoseMetrics.project.name, sql.PoseMetrics.name.name], inplace=True)
                 poses_df.index.set_names(sql.PoseMetrics.pose_id.name, inplace=True)
-                metrics.sql.write_dataframe(job, poses=poses_df)  # , update=False)
+                metrics.sql.write_dataframe(job.current_session, poses=poses_df)
 
                 residues_df.index = pd.Index(pose_ids, name=sql.PoseResidueMetrics.pose_id.name)
                 # residues_df.index.set_names(residue_index_names, inplace=True)
-                # _residues_ids = metrics.sql.write_dataframe(job, residues=residues_df)
-                metrics.sql.write_dataframe(job, pose_residues=residues_df)  # , update=False)
+                # _residues_ids = metrics.sql.write_dataframe(job.current_session, residues=residues_df)
+                metrics.sql.write_dataframe(job.current_session, pose_residues=residues_df)
             else:  # Write to disk
                 residues_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
                 putils.make_path(job.all_scores)

@@ -9,7 +9,7 @@ from sqlalchemy import inspect
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
-from symdesign.resources import job as sym_job, sql
+from symdesign.resources import sql
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -189,12 +189,13 @@ def format_residues_df_for_write(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
+def write_dataframe(session: Session, designs: pd.DataFrame = None, residues: pd.DataFrame = None,
                     poses: pd.DataFrame = None, pose_residues: pd.DataFrame = None,
                     update: bool = True):
     """Format each possible DataFrame type for output via csv or SQL database
 
     Args:
+        session: The active session for which the transaction should proceed
         designs: The typical per-design metric DataFrame where each index is the design id and the columns are
             design metrics
         residues: The typical per-residue metric DataFrame where each index is the design id and the columns are
@@ -205,6 +206,7 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
             (residue index, residue metric)
         update: Whether the output identifiers are already present in the metrics
     """
+    #     job: The resources for the current job
     if update:
         dataframe_function = upsert_dataframe
     else:
@@ -219,9 +221,9 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
     #                        "transaction")
     #         warned = True
 
-    job = sym_job.job_resources_factory()
+    # job = sym_job.job_resources_factory()
     # engine = job.db.engine
-    session = job.current_session
+    # session = job.current_session
     if poses is not None:
         # warn = True
         poses.replace({np.nan: None}, inplace=True)
@@ -229,7 +231,7 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
         dataframe_function(session, table=table, df=poses)
         # poses.to_sql(table, con=engine, if_exists='append', index=True)
         # #              dtype=sql.Base.metadata.table[table])
-        logger.info(f'Wrote {table.__tablename__} metrics to DataBase {job.internal_db}')
+        logger.info(f'Wrote {table.__tablename__} metrics to DataBase')  # {job.internal_db}')
 
         # return result
 
@@ -241,7 +243,7 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
         dataframe_function(session, table=table, df=designs)
         # designs.to_sql(table, con=engine, if_exists='append', index=True)
         # #                dtype=sql.Base.metadata.table[table])
-        logger.info(f'Wrote {table.__tablename__} metrics to DataBase {job.internal_db}')
+        logger.info(f'Wrote {table.__tablename__} metrics to DataBase')  # {job.internal_db}')
 
         # return result
 
@@ -256,7 +258,7 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
         # # Todo Ensure that the 'id' column is present
         # stmt = select(sql.DesignMetrics).where(sql.DesignMetrics.pose.in_(pose_ids))  # text('''SELECT * from residues''')
         # results = session.scalars(stmt)  # execute(stmt)
-        logger.info(f'Wrote {table.__tablename__} metrics to DataBase {job.internal_db}')
+        logger.info(f'Wrote {table.__tablename__} metrics to DataBase')  # {job.internal_db}')
 
     if pose_residues is not None:
         # warn_multiple_update_results()
@@ -269,6 +271,6 @@ def write_dataframe(designs: pd.DataFrame = None, residues: pd.DataFrame = None,
         # # Todo Ensure that the 'id' column is present
         # stmt = select(sql.DesignMetrics).where(sql.DesignMetrics.pose.in_(pose_ids))  # text('''SELECT * from residues''')
         # results = session.scalars(stmt)  # execute(stmt)
-        logger.info(f'Wrote {table.__tablename__} metrics to DataBase {job.internal_db}')
+        logger.info(f'Wrote {table.__tablename__} metrics to DataBase')  # {job.internal_db}')
 
     # return result

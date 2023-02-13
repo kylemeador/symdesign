@@ -4171,8 +4171,8 @@ class PoseProtocol(PoseData):
                 # #                     names=design_index_names, axis=0)
                 # designs.index.set_names(design_index_names, inplace=True)
                 designs.index.set_names(sql.DesignMetrics.design_id.name, inplace=True)
-                # _design_ids = metrics.sql.write_dataframe(designs=designs)
-                metrics.sql.write_dataframe(designs=designs)  # , update=False)
+                # _design_ids = metrics.sql.write_dataframe(self.job.current_session, designs=designs)
+                metrics.sql.write_dataframe(self.job.current_session, designs=designs)
             # else:
             #     _design_ids = []
 
@@ -4193,7 +4193,7 @@ class PoseProtocol(PoseData):
                     dataframe_kwargs = dict(residues=residues)
 
                 residues.index.set_names(index_name, inplace=True)
-                metrics.sql.write_dataframe(**dataframe_kwargs)  # , update=False)
+                metrics.sql.write_dataframe(self.job.current_session, **dataframe_kwargs)
         else:
             putils.make_path(self.data_path)
             if residues is not None:
