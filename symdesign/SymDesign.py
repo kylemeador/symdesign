@@ -307,7 +307,10 @@ def main():
 
         if job.preprocessed:
             # Don't perform refinement or loop modeling, this has already been done or isn't desired
-            # args.orient, args.refine = True, True  # Todo make part of argparse?
+            # if job.pre_loop_modeled
+            #    just do refine stuff
+            # if job.pre_refined
+            #    just do loop model stuff
             # Move the oriented Entity.file_path (should be the ASU) to the respective directory
             putils.make_path(job.refine_dir)
             putils.make_path(job.full_model_dir)
@@ -1125,6 +1128,9 @@ def main():
                     pose_jobs = [PoseJob.from_path(path, project=project_name)
                                  for path in file_paths[range_slice]]
             if not pose_jobs:
+                # Todo this needs a more informative error. Is the location of the correct format?
+                #  For instance, a --project provided with the directory of type --single would die without much
+                #  knowledge of why
                 raise utils.InputError(f"No {PoseJob.__name__}'s found at location '{job.location}'")
             """Check to see that proper data/files have been created 
             Data includes:
@@ -1192,7 +1198,7 @@ def main():
                                 c_terminal_helix=entity.is_termini_helical('c'),
                                 thermophilicity=entity.thermophilicity,
                                 symmetry_group=symmetry
-                                # # Todo there could be no sym_entry, the use the entity.symmetry
+                                # # Todo there could be no sym_entry, then use the entity.symmetry
                                 # symmetry=entity.symmetry
                             )
                             # for uniprot_id in entity.uniprot_ids:
@@ -1234,7 +1240,7 @@ def main():
             all_entities = []
             # Orient entities, then load each entity to all_structures for further database processing
             for symmetry, entities in preprocess_entities_by_symmetry.items():
-                if not entities:  # useful in a case where symmetry groups are the same or group is None
+                if not entities:  # Useful in a case where symmetry groups are the same or group is None
                     continue
                 # all_entities.extend(entities)
                 # job.structure_db.orient_structures(
@@ -1243,7 +1249,7 @@ def main():
                 all_entities.extend(job.structure_db.orient_structures(
                     [entity.name for entity in entities], symmetry=symmetry))
                 # Todo orient Entity individually, which requires symmetric oligomer be made
-                #  This could be found from Pose._assign_pose_transformation() or new meachanism
+                #  This could be found from Pose._assign_pose_transformation() or new mechanism
                 #  Where oligomer is deduced from available surface fragment overlap with the specified symmetry...
                 #  job.structure_db.orient_entities(entities, symmetry=symmetry)
 

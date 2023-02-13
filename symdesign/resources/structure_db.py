@@ -200,7 +200,7 @@ class StructureDatabase(Database):
         self.stride = DataStore(location=stride, extension='.stride', sql=self.sql, log=self.log,
                                 load_file=structure.utils.parse_stride)
 
-        # Todo only load the necessary structural template
+        # Todo modify to only load the necessary structural files upon self.load_all_data() call
         self.sources = [self.oriented_asu, self.refined, self.stride]  # self.full_models
 
     def download_structures(self, structure_identifiers: Iterable[str], out_dir: str = os.getcwd()) -> \

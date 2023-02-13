@@ -610,6 +610,8 @@ metrics = {
                          'different protocols arrived at the same per residue energy conclusions despite '
                          'different pools of amino acids specified for sampling',
              direction=min_, function=rank, filter=True),
+    # 'psipred_match': {'fraction of residues that match the secondary structure assignment of PSIPRED'},
+    # 'rama_prepro_per_res': dict(),
     'rim':
         dict(description='The number of "rim" residues as classified by E. Levy 2010',
              direction=max_, function=rank, filter=True),
@@ -680,6 +682,7 @@ metrics = {
     'symmetry_dimension':  # 'design_dimension':
         dict(description='The underlying dimension of the design. 0 - point, 2 - layer, 3 - space group',
              direction=None, function=None, filter=True),
+    # 'total_charge_per_res': dict(),  # Todo
     # Rosetta based scores
     'REU':
         dict(description='Rosetta Energy Units. Always 0. We can disregard',

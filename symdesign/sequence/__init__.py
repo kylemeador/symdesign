@@ -529,6 +529,9 @@ def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[s
     pssm_file = os.path.join(out_dir, f'{name}.hmm')
     a3m_file = os.path.join(out_dir, f'{name}.a3m')
     # Todo for higher performance set up https://www.howtoforge.com/storing-files-directories-in-memory-with-tmpfs
+    #  Create a ramdisk to store a database chunk to make hhblits/Jackhmmer run fast.
+    #  sudo mkdir -m 777 --parents /tmp/ramdisk
+    #  sudo mount -t tmpfs -o size=9G ramdisk /tmp/ramdisk
     cmd = [putils.hhblits_exe, '-d', putils.uniclust_db, '-i', sequence_file,
            '-ohhm', pssm_file, '-oa3m', a3m_file,  # '-Ofas', self.msa_file,
            '-hide_cons', '-hide_pred', '-hide_dssp', '-E', '1E-06',

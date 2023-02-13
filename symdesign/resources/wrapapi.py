@@ -57,8 +57,9 @@ class APIDatabase(Database):
         #  elif extension == f'_bmDCA{os.sep}sparameters_J_final.bin':
         #      self.load_file = bmdca.load_couplings
         #      self.save_file = not_implemented
-        self.sources = [self.stride, self.sequences, self.alignments, self.hhblits_profiles, self.pdb,
-                        self.uniprot]
+
+        # Todo modify to only load the necessary files upon self.load_all_data() call
+        self.sources = [self.stride, self.sequences, self.alignments, self.hhblits_profiles, self.pdb, self.uniprot]
 
 
 class APIDatabaseFactory:

@@ -350,7 +350,8 @@ class JobResources:
 
         # PoseJob initialize Flags
         self.preprocessed = kwargs.get(flags.preprocessed)
-        self.initial_refinement = self.initial_loop_model = None
+        # self.pre_refined = kwargs.get('pre_refined')  # Todo
+        # self.pre_loop_modeled = kwargs.get('pre_loop_modeled')  # Todo
 
         # Program flags
         # self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus

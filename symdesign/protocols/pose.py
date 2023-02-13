@@ -814,6 +814,12 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 raise InputError(f"Couldn't {self.load_initial_model.__name__} for {self.name} as there isn't a "
                                  "specified file")
             self.initial_model = Model.from_file(self.source_path, log=self.log)
+            # # Todo ensure that the chain names are renamed if they are imported a certain way
+            # if len(set([entity.chain_id for entity in self.initial_model.entities])) != self.initial_model.number_of_entities:
+            #     rename = True
+            #     self.initial_model.rename_chains()
+            # # else:
+            # #     rename = False
 
     @property
     def new_pose_identifier(self) -> str:
@@ -1757,6 +1763,9 @@ class PoseProtocol(PoseData):
         # else:
         #     multimer = False
 
+        # # Todo enable compilation time savings by returning a precomputed model_factory. Padding the size of this may
+        # #  help quite a bit
+        # model_runners = resources.ml.alphafold_model_factory.get()
         if self.job.predict.num_predictions_per_model is None:
             if run_multimer_system:  # 'multimer
                 # Default is 5, with 5 models for 25 outputs. Could do 1 to increase speed...
