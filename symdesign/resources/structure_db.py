@@ -813,7 +813,7 @@ class StructureDatabase(Database):
                         evolution_info, alignment_info = load_evolutionary_profile(api_db, entity)
                         # Don't get the msa (no_msa=True) if the alignment_info is missing (False)
                         # Ensure the entity.msa_file is present for this prediction to succeed with high probability
-                        features = entity.get_alphafold_features(no_msa=not alignment_info)
+                        features = entity.get_alphafold_features(no_msa=not alignment_info, templates=True)
                         # template_features = entity.get_alphafold_template_features()
 
                         # Run the prediction
