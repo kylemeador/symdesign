@@ -951,9 +951,10 @@ def main():
                     entities = []
                     for data in structure_metadata:
                         entity = Entity.from_file(data.model_source, name=data.entity_id)
-                        entity.stride(to_file=job.api_db.stride.path_to(entity.name))
+                        entity.stride(to_file=job.api_db.stride.path_to(name=data.entity_id))
                         data.n_terminal_helix = entity.is_termini_helical()
                         data.c_terminal_helix = entity.is_termini_helical('c')
+                        # Set this attribute to carry through Nanohedra
                         entity.metadata = data
 
                     structures.append(Pose.from_entities(entities, symmetry=symmetry))
@@ -1183,19 +1184,10 @@ def main():
                         # Check if the tuple of UniProtIDs has already been observed
                         protein_metadata = possibly_new_uniprot_to_prot_metadata.get(uniprot_ids, None)
                         if protein_metadata is None:  # uniprot_ids in possibly_new_uniprot_to_prot_metadata:
-                            # Try to get the already parsed secondary structure informatino
-                            parsed_secondary_structure = retrieve_stride_info(name=entity.name)
-                            if parsed_secondary_structure:
-                                entity.secondary_structure = parsed_secondary_structure
-                            else:
-                                entity.stride(to_file=job.api_db.stride.path_to(entity.name))
-                                # entity.calculate_secondary_structure()
                             # Process for persistent state
                             protein_metadata = sql.ProteinMetadata(
                                 entity_id=entity.name,
                                 reference_sequence=entity.reference_sequence,
-                                n_terminal_helix=entity.is_termini_helical(),
-                                c_terminal_helix=entity.is_termini_helical('c'),
                                 thermophilicity=entity.thermophilicity,
                                 symmetry_group=symmetry
                                 # # Todo there could be no sym_entry, then use the entity.symmetry
@@ -1235,7 +1227,13 @@ def main():
 
             if not pose_jobs:
                 raise utils.InputError(f"No viable {PoseJob.__name__}'s found at location '{job.location}'")
-            # all_structures = []
+
+            # Deal with new data compared to existing entries
+            all_uniprot_id_to_prot_data, uniprot_entities = \
+                initialize_metadata(possibly_new_uniprot_to_prot_metadata,
+                                    existing_uniprot_entities=existing_uniprot_entities,
+                                    existing_protein_metadata=existing_protein_metadata)
+
             # Populate all_entities to set up sequence dependent resources
             all_entities = []
             # Orient entities, then load each entity to all_structures for further database processing
@@ -1253,12 +1251,32 @@ def main():
                 #  Where oligomer is deduced from available surface fragment overlap with the specified symmetry...
                 #  job.structure_db.orient_entities(entities, symmetry=symmetry)
 
-            # Deal with new data compared to existing entries
-            all_uniprot_id_to_prot_data, uniprot_entities = \
-                initialize_metadata(possibly_new_uniprot_to_prot_metadata,
-                                    existing_uniprot_entities=existing_uniprot_entities,
-                                    existing_protein_metadata=existing_protein_metadata)
-            # Todo does all_uniprot_to_prot_data need to be returned or can I update in place?
+            # Indicate for the ProteinMetadata the characteristics of the Structure in the database
+            for entity in all_entities:
+                protein_metadata = all_uniprot_id_to_prot_data[entity.uniprot_ids]
+                protein_metadata.model_source = entity.file_path
+
+            # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
+            initialize_entities(uniprot_entities, all_uniprot_id_to_prot_data.values())
+
+            # Todo replace the passed files with the processed versions?
+            #  See PoseJob.load_pose()
+            # for pose_job in pose_jobs:
+            #     for idx, entity in enumerate(pose_job.initial_model.entities):
+            #         pose_job.initial_model.entities[idx]
+
+            for uniprot_ids, protein_metadata in all_uniprot_id_to_prot_data.items():
+                # Try to get the already parsed secondary structure information
+                parsed_secondary_structure = retrieve_stride_info(name=entity.name)
+                if parsed_secondary_structure:
+                    continue  # We already have this SS information
+                    # entity.secondary_structure = parsed_secondary_structure
+                else:
+                    entity = Entity.from_file(data.model_source, name=data.entity_id)
+                    entity.stride(to_file=job.api_db.stride.path_to(name=data.entity_id))
+                    protein_metadata.n_terminal_helix = entity.is_termini_helical()
+                    protein_metadata.c_terminal_helix = entity.is_termini_helical('c')
+
             # Write new data to the database with correct unique entries
             # with job.db.session(expire_on_commit=False) as session:
             for pose_job in pose_jobs_to_commit:
@@ -1266,6 +1284,7 @@ def main():
                     sql.EntityData(meta=all_uniprot_id_to_prot_data[entity.uniprot_ids])
                     for entity in pose_job.initial_model.entities)
             session.add_all(pose_jobs_to_commit)
+
             # When pose_jobs_to_commit already exist, deal with it by getting those already
             # OR raise a useful error for the user about input
             try:
