@@ -661,6 +661,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     generate_files_cmd = pose.null_cmd
 
     # Create file output
+    raise NotImplementedError('Must make the infile a in:file:s derivative')
     designed_files_file = os.path.join(job.scripts_path, f'{starttime}_{job.protocol}_files_output.txt')
     if job.current_designs:
         design_files = [design_.structure_file for design_ in job.current_designs]
@@ -698,14 +699,15 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     # include the wild-type residue from PoseJob Pose source and the residue identity of the selected design
     wt = {residue: {background_profile[residue.number].get('type'), protein_letters_3to1[residue.type]}
           for residue in background}
-    directives = dict(zip(background.keys(), repeat(None)))
-    # directives.update({job.pose.residue(residue_number): directive
-    #                    for residue_number, directive in job.directives.items()})
-    # Todo make job.directives iterable list[dict[int, str]]
-    directives.update({residue: job.directives[residue.number]
-                       for residue in job.pose.get_residues(job.directives.keys())})
+    bkgnd_directives = dict(zip(background.keys(), repeat(None)))
 
-    res_file = job.pose.make_resfile(directives, out_path=job.data_path, include=wt, background=background)
+    directives = [bkgnd_directives.copy() for _ in job.directives]
+    for idx, design_directives in enumerate(self.directives):
+        directives[idx].update({residue: design_directives[residue.number]
+                                for residue in job.pose.get_residues(design_directives.keys())})
+
+    res_files = [job.pose.make_resfile(directives_, out_path=job.data_path, include=wt, background=background)
+                 for directives_ in directives]
 
     # nstruct_instruct = ['-no_nstruct_label', 'true']
     nstruct_instruct = ['-nstruct', str(job.job.design.number)]
@@ -725,9 +727,13 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     #  must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
     profile_cmd = ['-in:file:pssm', job.evolutionary_profile_file] \
         if os.path.exists(job.evolutionary_profile_file) else []
-    design_cmd = main_cmd + profile_cmd + infile \
-        + [f'@{job.flags}', '-out:suffix', f'_{job.protocol}', '-packing:resfile', res_file,
-           '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml')] + nstruct_instruct
+    design_cmds = []
+    for res_file in res_files:
+        design_cmds.append(
+            main_cmd + profile_cmd + infile  # Todo this must be in:file:s
+            + [f'@{job.flags}', '-out:suffix', f'_{job.protocol}', '-packing:resfile', res_file, '-parser:protocol',
+               os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml')]
+            + nstruct_instruct)
 
     # metrics_pdb = ['-in:file:l', designed_files_file]  # job.pdb_list]
     # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration

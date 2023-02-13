@@ -5309,28 +5309,27 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         return res_file_lines
 
-    def make_resfile(self, residue_directives, out_path=os.getcwd(), header=None, **kwargs):
+    def make_resfile(self, residue_directives: dict[Residue | int, str], out_path: AnyStr = os.getcwd(),
+                     header: list[str] = None, **kwargs) -> AnyStr:
         """Format a resfile for the Rosetta Packer from Residue mutational directives
 
         Args:
-            residue_directives (dict[Residue | int, str]): {Residue/int: 'mutational_directive', ...}
+            residue_directives: {Residue/int: 'mutational_directive', ...}
+            out_path: Directory to write the file
+            header: A header to constrain all Residues for packing
         Keyword Args:
-            out_path=os.getcwd() (str): Directory to write the file
-            header=None (list[str]): A header to constrain all Residues for packing
-            include=None (dict[Residue | int, set[str]]):
-                Include a set of specific amino acids for each residue
-            background=None (dict[Residue | int, set[str]]):
-                The background amino acids to compare possibilities against
-            special=False (bool): Whether to include special residues
+            include: dict[Residue | int, set[str]] = None - Include a set of specific amino acids for each residue
+            background: dict[Residue | int, set[str]] = None - The background amino acids to compare possibilities
+            special: bool = False - Whether to include special residues
         Returns:
-            (str): The path to the resfile
+            The path to the resfile
         """
         residue_lines = self.format_resfile_from_directives(residue_directives, **kwargs)
-        res_file = os.path.join(out_path, '%s.resfile' % self.name)
+        res_file = os.path.join(out_path, f'{self.name}.resfile')
         with open(res_file, 'w') as f:
-            # format the header
+            # Format the header
             f.write('%s\n' % ('\n'.join(header + ['start']) if header else 'start'))
-            # start the body
+            # Start the body
             f.write('%s\n' % '\n'.join(residue_lines))
 
         return res_file
