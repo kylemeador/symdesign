@@ -107,11 +107,11 @@ def download_alphafold_latest_params(version: str = None, dry_run: bool = False)
         unzip_out, unzip_err = unzip_p.communicate()
         logger.debug(f'unzip stdout:\n{unzip_out}\n\nunzip stderr:\n{unzip_err}')
 
-    # Todo # Remove the .tar file if everything worked
-    # if dry_run:
-    #     pass
-    # else:
-    #     os.remove(downloaded_file)
+    # Remove the .tar file if everything worked
+    if dry_run:
+        pass
+    else:
+        os.remove(downloaded_file)
 
     # Download the stereo chemical props file and copy to the correct place
     # shutil.mkdir -p /alphafold/alphafold/common
