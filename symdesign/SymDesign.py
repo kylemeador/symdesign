@@ -314,11 +314,11 @@ def main():
             # Move the oriented Entity.file_path (should be the ASU) to the respective directory
             putils.make_path(job.refine_dir)
             putils.make_path(job.full_model_dir)
-            for entity in metadata:
-                shutil.copy(entity.model_source, job.refine_dir)
-                shutil.copy(entity.model_source, job.full_model_dir)
-                entity.loop_modeled = True
-                entity.refined = True
+            for data in metadata:
+                shutil.copy(data.model_source, job.refine_dir)
+                shutil.copy(data.model_source, job.full_model_dir)
+                data.loop_modeled = True
+                data.refined = True
         else:
             # preprocess_instructions, initial_refinement, initial_loop_model = \
             #     job.structure_db.preprocess_structures_for_design(structures, script_out_path=job.sbatch_scripts)
@@ -329,9 +329,9 @@ def main():
             info_messages += preprocess_instructions
 
             # Set these attributes. Todo set for each instance individually inside preprocess_metadata_for_design ?
-            for entity in metadata:  # entities:
-                entity.loop_modeled = initial_loop_model
-                entity.refined = initial_refinement
+            for data in metadata:  # entities:
+                data.loop_modeled = initial_loop_model
+                data.refined = initial_refinement
 
         check_if_script_and_exit()
         # After completion of indicated scripts, the next time command is entered
@@ -886,11 +886,10 @@ def main():
             grouped_structures.append(job.structure_db.orient_structures(structure_names2,
                                                                          symmetry=job.sym_entry.group2,
                                                                          by_file=by_file2))
-            # Get api wrapper
-            retrieve_stride_info = job.api_db.stride.retrieve_data
             # Initialize the local database
             # Populate all_entities to set up sequence dependent resources
-            grouped_structures_metadata = {}
+            # grouped_structures_metadata = defaultdict(list)
+            grouped_structures_metadata = []
             possibly_new_uniprot_to_prot_metadata = {}
             # Todo expand the definition of SymEntry/Entity to include
             #  specification of T:{T:{C3}{C3}}{C1}
@@ -928,7 +927,8 @@ def main():
                             possibly_new_uniprot_to_prot_metadata[uniprot_ids] = protein_metadata
                         structure_metadata.append(protein_metadata)
                     structures_metadata.append(structure_metadata)
-                grouped_structures_metadata[symmetry] = structures_metadata
+                # grouped_structures_metadata[symmetry] = structures_metadata
+                grouped_structures_metadata.append((symmetry, structures_metadata))
 
             # Write new data to the database
             # with job.db.session(expire_on_commit=False) as session:
@@ -942,8 +942,11 @@ def main():
             #  then usage for docking pairs below...
 
             # Correct existing ProteinMetadata, now that Entity instances are processed
+            # # Get api wrapper
+            # retrieve_stride_info = job.api_db.stride.retrieve_data
             grouped_structures = []
-            for symmetry, structures_metadata in grouped_structures_metadata.items():
+            # for symmetry, structures_metadata in grouped_structures_metadata.items():
+            for symmetry, structures_metadata in grouped_structures_metadata:
                 structures = []
                 for structure_metadata in structures_metadata:
                     # entities = [Entity.from_file(data.model_source, name=data.entity_id)
@@ -956,6 +959,7 @@ def main():
                         data.c_terminal_helix = entity.is_termini_helical('c')
                         # Set this attribute to carry through Nanohedra
                         entity.metadata = data
+                        entities.append(entity)
 
                     structures.append(Pose.from_entities(entities, symmetry=symmetry))
                 grouped_structures.append(structures)
