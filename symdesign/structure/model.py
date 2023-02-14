@@ -33,8 +33,8 @@ from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, query, sql
 from symdesign.sequence import default_substitution_matrix_array, default_substitution_matrix_translation_table, \
     generate_alignment, generate_mutations, get_equivalent_indices, numeric_to_sequence, \
-    numerical_translation_alph1_unknown_gapped_bytes, numerical_translation_alph3_unknown_bytes, protein_letters_alph1,\
-    protein_letters_3to1_extended, protein_letters_1to3_extended, profile_types
+    numerical_translation_alph1_unknown_gapped_bytes, numerical_translation_alph3_unknown_gapped_bytes,\
+    protein_letters_alph1, protein_letters_3to1_extended, protein_letters_1to3_extended, profile_types
 import symdesign.third_party.alphafold.alphafold.data.feature_processing as af_feature_processing
 import symdesign.third_party.alphafold.alphafold.data.parsers as af_data_parsers
 import symdesign.third_party.alphafold.alphafold.data.msa_pairing as af_msa_pairing
@@ -1795,17 +1795,21 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         if symmetric or heteromer:
             raise NotImplementedError("Can't get multimeric features in "
                                       f"{self.get_alphafold_template_features.__name__}")
+        # Create a stack with 1, number_residues, feature dimension length
+        # as found in HmmsearchHitFeaturizer(TemplateHitFeaturizer).get_templates()
         template_features = {
-            'template_all_atom_positions': self.alphafold_coords,
-            'template_all_atom_masks': self.alphafold_atom_mask,
-            'template_sequence': self.sequence.encode(),
-            'template_aatype': sequence_to_one_hot(self.sequence, numerical_translation_alph3_unknown_bytes),
-            'template_domain_names': self.name.encode()
+            'template_all_atom_positions': np.array([self.alphafold_coords], dtype=np.int32),
+            'template_all_atom_masks': np.array([self.alphafold_atom_mask], dtype=np.int32),
+            'template_sequence': np.array([self.sequence.encode()], dtype=object),
+            'template_aatype': np.array([sequence_to_one_hot(self.sequence,
+                                                             numerical_translation_alph3_unknown_gapped_bytes)],
+                                        dtype=np.int32),
+            'template_domain_names': np.array([self.name.encode()], dtype=object)
         }
         return template_features
 
-    def get_alphafold_features(self, symmetric: bool = False, heteromer: bool = False, no_msa: bool = False, **kwargs) \
-            -> FeatureDict:
+    def get_alphafold_features(self, symmetric: bool = False, heteromer: bool = False, no_msa: bool = False,
+                               templates: bool = False, **kwargs) -> af_pipeline.FeatureDict:
         # multimer: bool = False,
         """Retrieve the required feature dictionary for this instance to use in Alphafold inference
 
@@ -1815,6 +1819,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             heteromer: Whether Alphafold should be run as a heteromer. Features directly used in
                 Alphafold from this instance should never be used with heteromer=True
             no_msa: Whether multiple sequence alignments should be included in the features
+            templates: Whether the Entity should be returned with it's template features
         Returns:
             The Alphafold FeatureDict which is essentially a dictionary with dict[str, np.ndarray]
         """
@@ -1835,9 +1840,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         # This ^ runs
         number_of_residues = self.number_of_residues
         sequence = self.sequence
-        sequence_features = make_sequence_features(sequence=sequence,
-                                                   description=self.name,  # input_description,
-                                                   num_res=number_of_residues)
+        sequence_features = af_pipeline.make_sequence_features(sequence=sequence,
+                                                               description=self.name,  # input_description,
+                                                               num_res=number_of_residues)
         # sequence_features = {
         #     'aatype': ,  # MAKE ONE HOT with X i.e.unknown are X
         #     'between_segment_residues': np.zeros((number_of_residues,), dtype=np.int32),
@@ -4221,8 +4226,9 @@ class SymmetricModel(Models):
             # Ensure the number of Modela matches the SymEntry groups
             number_of_entities = self.number_of_entities
             if number_of_entities != self.sym_entry.number_of_groups:
-                raise SymmetryError(f'The {self.__class__.__name__} has {self.number_of_entities} symmetric entities,'
-                                    f' but {self.sym_entry.number_of_groups} were expected')
+                raise SymmetryError(
+                    f'The {self.__class__.__name__} has {self.number_of_entities} symmetric entities. '
+                    f'{self.sym_entry.number_of_groups} were expected')
 
             # Ensure the Model is an asu
             if number_of_entities != self.number_of_chains:
@@ -6217,7 +6223,7 @@ class Pose(SymmetricModel, Metrics):
             entity_required, self.required_indices = set(), set()
 
     def get_alphafold_features(self, symmetric: bool = False, multimer: bool = False, no_msa: bool = False, **kwargs) \
-            -> FeatureDict:
+            -> af_pipeline.FeatureDict:
         """Retrieve the required feature dictionary for this instance to use in Alphafold inference
 
         Args:
