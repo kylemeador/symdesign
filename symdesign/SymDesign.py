@@ -1383,7 +1383,7 @@ def main():
                 else:
                     results = results_
                     # Update the current state of protocols and exceptions
-                    exceptions.extend(job.parse_results_for_exceptions(pose_jobs, results))
+                    exceptions.extend(parse_results_for_exceptions(pose_jobs, results))
 
                 # # Retrieve any program flags necessary for termination
                 # terminate_kwargs.update(**terminate_options.get(protocol_name, {}))
