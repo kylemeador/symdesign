@@ -7,7 +7,7 @@ from symdesign.utils import path as putils
 MAXIMUM_SEQUENCE = 10000
 MAXIMUM_ENTITIES = 4
 MAXIMUM_INTERFACES = 2
-relax_options_literal = Literal['all', 'best']
+relax_options_literal = Literal['all', 'best', 'none']
 relax_options: tuple[str, ...] = get_args(relax_options_literal)
 min_, max_ = 'min', 'max'
 rank, normalize, boolean = 'rank', 'normalize', 'boolean'

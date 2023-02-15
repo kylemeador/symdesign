@@ -605,6 +605,8 @@ class JobResources:
         #         self.num_predictions_per_model = 1
         #     else:  # 'multimer
         #         self.num_predictions_per_model = 5
+        if self.predict.models_to_relax == 'none':
+            self.predict.models_to_relax = None
 
         # Clustering flags
         # Todo this is pretty sloppy. I should modify this DataClass mechanism...

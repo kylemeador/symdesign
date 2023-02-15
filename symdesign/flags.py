@@ -787,7 +787,9 @@ predict_structure_arguments = {
     ('-E', f'--{predict_entities}'):
         dict(action='store_true', help='Whether individual entities should be predicted\ninstead of the entire Pose'),
     (f'--{models_to_relax}',):
-        dict(type=str.lower, choices=config.relax_options, help='Specify which predictions should be relaxed'),
+        dict(type=str.lower, default='best',
+             choices=config.relax_options, help='Specify which predictions should be relaxed'
+                                                '\nChoices=%(choices)s\nDefault=%(default)s'),
     (f'--{use_gpu_relax}',):
         dict(action='store_true', help='Whether predictions should be relaxed using a GPU (if one is available)'),
 }
