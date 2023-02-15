@@ -15,8 +15,8 @@ weight_functions_literal = Literal['rank', 'normalize']
 default_weight_parameter: dict[str, str] = {
     putils.rosetta_str: 'interface_energy',
     putils.proteinmpnn: 'proteinmpnn_score_complex',
-    # putils.nanohedra: 'nanohedra_score_center_normalized',
-    putils.nanohedra: 'proteinmpnn_dock_cross_entropy_loss',
+    putils.nanohedra: 'nanohedra_score_center_normalized',
+    f'{putils.nanohedra}+{putils.proteinmpnn}': 'proteinmpnn_dock_cross_entropy_loss',
 }
 metric_weight_functions: tuple[weight_functions_literal, ...] = get_args(weight_functions_literal)
 default_pca_variance = 0.8  # P432 designs used 0.8 percent of the variance
