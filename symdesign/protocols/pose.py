@@ -2140,9 +2140,6 @@ class PoseProtocol(PoseData):
 
         if self.job.predict.models_to_relax is not None:
             relaxed = True
-            # if models_to_relax not in resources.ml.relax_options:
-            #     raise ValueError(f"Can't use the models_to_relax value {models_to_relax}. Must be either "
-            #                      f"'all', 'best' or NoneType")
         else:
             relaxed = False
 
@@ -2152,6 +2149,9 @@ class PoseProtocol(PoseData):
         # else:
         #     no_msa = False
         no_msa = True
+        # Ensure clashes aren't checked as these stop operation
+        pose_kwargs = self.pose_kwargs
+        pose_kwargs.update({'ignore_clashes': True})
 
         # Get features for the Pose and predict
         if self.job.predict.assembly:
@@ -2193,8 +2193,8 @@ class PoseProtocol(PoseData):
             output_alphafold_structures(asu_structures, design_name=f'{design}-asu')
             # asu_models = load_alphafold_structures(structures_to_load, name=str(design),  # Get '.name'
             #                                        entity_info=self.pose.entity_info)
-            # Load the Model in
-            asu_models = {model_name: Pose.from_pdb_lines(structure.splitlines(), name=str(design), **self.pose_kwargs)
+            # Load the Model in while ignoring any potential clashes
+            asu_models = {model_name: Pose.from_pdb_lines(structure.splitlines(), name=str(design), **pose_kwargs)
                           for model_name, structure in structures_to_load.items()}
             if relaxed:  # Set b-factor data as relaxed get overwritten
                 model_plddts = {model_name: scores['plddt'][:number_of_residues]
