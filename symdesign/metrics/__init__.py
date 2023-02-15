@@ -1671,7 +1671,8 @@ def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = N
         function: The function to use for weighting. Either 'rank' or 'normalize' is possible
         default_sort: The metric to sort the dataframe by default if no weights are provided
     Returns:
-        The sorted Series of values with the best indices first (top) and the worst on the bottom
+        A sorted pandas.Series with the best indices first in the Series.index, and the resulting optimization values
+        in the corresponding value.
     """
     if weights:  # Could be None or empty dict
         # weights = {metric: dict(direction=filter_df.loc['direction', metric], value=value)
@@ -1693,12 +1694,11 @@ def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = N
                 coefficients[metric_name] = dict(direction=direction, value=weight_ops)
                 print_weights.append((metric_name, f'= {weight_ops}'))
 
-        # # This sorts the wrong direction despite the perception that it sorts correctly
-        # sort_direction = dict(max=False, min=True}  # max - ascending=False, min - ascending=True
-        # This sorts the correct direction, putting small and negative value (when min is better) with higher rank
-        sort_direction = dict(max=True, min=False)  # max - ascending=False, min - ascending=True
         metric_df = {}
         if function == 'rank':
+            # This puts small and negative value (when min is chosen) with higher rank
+            sort_direction = dict(max=True, min=False)  # max - ascending=True, min - ascending=False
+
             for metric_name, parameters in coefficients.items():
                 direction = parameters['direction']
                 try:
@@ -1732,10 +1732,15 @@ def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = N
             return weighted_df.sum(axis=1).sort_values(ascending=False)
 
     if default_sort in df.columns:
+        # For sort_values(), this sorts the right direction, while for rank() it sorts incorrectly
+        sort_direction = dict(max=False, min=True)  # max - ascending=False, min - ascending=True
+
         # Just sort by the default
-        return df[default_sort].sort_values(default_sort, ascending=True)
+        direction = filter_df.loc['direction', default_sort]
+        # return df.sort_values(default_sort, ascending=sort_direction[direction])
+        return df[default_sort].sort_values(ascending=sort_direction[direction])
     else:
-        raise KeyError(f"There wasn't a metric named {default_sort} which was specified as the default")
+        raise KeyError(f"There wasn't a metric named '{default_sort}' which was specified as the default")
 
 
 def window_function(data: Sequence[int | float], windows: Iterable[int] = None, lower: int = None,
