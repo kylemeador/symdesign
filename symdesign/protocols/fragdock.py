@@ -266,7 +266,7 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
     return perturbation_mapping
 
 
-def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJob] | list:
+def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list:
     # model1: Structure | AnyStr, model2: Structure | AnyStr,
     """Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
 
@@ -343,10 +343,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[PoseJo
     # Assumes model is oriented with major axis of symmetry along z
     entity_count = count(1)
     for idx, (model, symmetry) in enumerate(zip(models, sym_entry.groups)):
-        if not isinstance(model, Structure):
-            # Todo remove this feature from Nanohedra
-            model = Model.from_file(model)
-
         for entity in model.entities:
             if entity.is_oligomeric():
                 pass
