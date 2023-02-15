@@ -19,6 +19,8 @@ import torch
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from . import cluster
 from .pose import load_evolutionary_profile, PoseJob
@@ -4102,16 +4104,55 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
         # Create PoseJob names
         pose_names = [create_pose_name(idx) for idx in range(number_of_transforms)]
-        # return [PoseJob.from_file(file,
-        # entity_names = [entity.name for model in models for entity in model.entities]
-        pose_jobs = [PoseJob.from_name(pose_name, project=project, protocol=protocol_name)
-                     for idx, pose_name in enumerate(pose_names)]
-        #                               entity_names=entity_names,
-        #                               pose_transformation=create_specific_transformation(idx))
-        # Commit all new PoseJobs to the current session to generate ids
-        session = job.current_session
-        session.add_all(pose_jobs)
-        session.flush()
+
+        # Add the names to the database
+        while True:
+            # entity_names = [entity.name for model in models for entity in model.entities]
+            pose_jobs = [PoseJob.from_name(pose_name, project=project, protocol=protocol_name)
+                         for idx, pose_name in enumerate(pose_names)]
+            #                               entity_names=entity_names,
+            #                               pose_transformation=create_specific_transformation(idx))
+            # Commit all new PoseJobs to the current session to generate ids
+            session = job.current_session
+            session.add_all(pose_jobs)
+            try:
+                session.flush()
+            except SQLAlchemyError:  # We already inserted this PoseJob.project/.name
+                session.rollback()
+                # Find the actual pose_jobs_to_commit and place in session
+                # pose_identifiers = [pose_job.new_pose_identifier for pose_job in pose_jobs]
+                fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.is_(project))\
+                    .where(PoseJob.name.in_(pose_names))
+                existing_pose_jobs = list(session.scalars(fetch_jobs_stmt))
+                # Note: Values are sorted by alphanumerical, not numerical
+                # ex, design 11 is processed before design 2
+                existing_pose_names = {pose_job_.name for pose_job_ in existing_pose_jobs}
+                new_pose_names = set(pose_names).difference(existing_pose_names)
+                if not new_pose_names:  # No new PoseJobs
+                    return existing_pose_jobs
+                else:
+                    pose_names_ = []
+                    for name in new_pose_names:
+                        pose_name_index = pose_names.index(name)
+                        if pose_name_index != -1:
+                            pose_names_.append((pose_name_index, name))
+                    # Finally, sort all the names to ensure that the indices from the first pass are accurate
+                    # with the new set
+                    existing_indices_, pose_names = zip(*sorted(pose_names_, key=lambda name: name[0]))
+                    # Select poses_df/residues_df by existing_indices_
+                    poses_df_ = poses_df_[existing_indices_]
+                    residues_df_ = residues_df_[existing_indices_]
+                    logger.critical(f'Reset the new poses with attributes:\n'
+                                    f'\tpose_names={pose_names}\n'
+                                    f'\texisting_indices_={existing_indices_}\n'
+                                    f'\tposes_df_.index={poses_df_.index.tolist()}\n'
+                                    f'\tresidues_df_.index={residues_df_.index.tolist()}\n'
+                                    f'')
+                    raise NotImplementedError(f'Need to verify the above output is as expected for the removal of '
+                                              f'transforms that were duplicated from the poses_df/residues_df metrics')
+            else:
+                break
+
         # trajectory = TrajectoryMetadata(poses=pose_jobs, protocol=protocol)
         # session.add(trajectory)
 
