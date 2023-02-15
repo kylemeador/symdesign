@@ -507,6 +507,9 @@ metrics = {
     'percent_residues_fragment_interface_total':
         dict(description='The percentage of residues which are represented by fragment observations',
              direction=max_, function=normalize, filter=True),
+    'percent_residues_non_fragment_interface':
+        dict(description="The percentage of interface residues which aren't represented by fragment observations",
+             direction=max_, function=normalize, filter=True),
     'percent_rim':
         dict(description='The percentage of residues which are "rim" according to Levy, E. 2010',
              direction=min_, function=normalize, filter=True),

@@ -7082,7 +7082,8 @@ class Pose(SymmetricModel, Metrics):
              'percent_fragment_coil',
              'number_of_fragments',
              'percent_residues_fragment_interface_total',
-             'percent_residues_fragment_interface_center'
+             'percent_residues_fragment_interface_center',
+             'percent_residues_non_fragment_interface',
              'number_interface_residues',
              'number_interface_residues_non_fragment',
              'pose_length',
@@ -7122,15 +7123,19 @@ class Pose(SymmetricModel, Metrics):
                 min(pose_metrics['number_fragment_residues_center'] / number_interface_residues, 1)
             percent_residues_fragment_interface_total = \
                 min(pose_metrics['number_fragment_residues_total'] / number_interface_residues, 1)
+            percent_interface_residues_non_fragment = \
+                min(number_interface_residues_non_fragment / number_interface_residues, 1)
             ave_b_factor = int_b_factor / number_interface_residues
         except ZeroDivisionError:
             self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your design?')
-            ave_b_factor = percent_residues_fragment_interface_center = percent_residues_fragment_interface_total = 0.
+            ave_b_factor = percent_residues_fragment_interface_center = percent_residues_fragment_interface_total = \
+                percent_interface_residues_non_fragment = 0.
 
         pose_metrics.update({
             'interface_b_factor_per_residue': ave_b_factor,
             'number_interface_residues': number_interface_residues,
             'number_interface_residues_non_fragment': number_interface_residues_non_fragment,
+            'percent_residues_non_fragment_interface': percent_interface_residues_non_fragment,
             'percent_residues_fragment_interface_total': percent_residues_fragment_interface_total,
             'percent_residues_fragment_interface_center': percent_residues_fragment_interface_center})
 
