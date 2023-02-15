@@ -2172,7 +2172,7 @@ class PoseProtocol(PoseData):
         asu_atom_positions = jnp.asarray(self.pose.alphafold_coords)
         protocol_logger.debug(f'Found asu_atom_positions with shape: {asu_atom_positions.shape}')
         protocol_logger.debug(f'Found asu with length: {self.pose.number_of_residues}')
-        protocol_logger.critical(f'Found asu_atom_positions[0] with values: {asu_atom_positions[0].tolist()}')
+        # protocol_logger.critical(f'Found asu_atom_positions[0] with values: {asu_atom_positions[0].tolist()}')
         model_features = {'prev_pos': asu_atom_positions}
         # model_features = {'prev_pos': jnp.asarray(self.pose.alphafold_coords)}
         asu_design_structures = []  # structure_by_design = {}
@@ -2261,8 +2261,8 @@ class PoseProtocol(PoseData):
                 oligomer_atom_positions = jnp.asarray(entity.oligomer.alphafold_coords)
                 protocol_logger.debug(f'Found oligomer_atom_positions with shape: {oligomer_atom_positions.shape}')
                 protocol_logger.debug(f'Found oligomer with length: {entity.oligomer.number_of_residues}')
-                protocol_logger.critical(f'Found oligomer_atom_positions[0] with values: '
-                                         f'{oligomer_atom_positions[0].tolist()}')
+                # protocol_logger.critical(f'Found oligomer_atom_positions[0] with values: '
+                #                          f'{oligomer_atom_positions[0].tolist()}')
                 model_features = {'prev_pos': oligomer_atom_positions}
                 # model_features = {'prev_pos': jnp.asarray(entity.oligomer.alphafold_coords)}
                 entity_slice = slice(entity.n_terminal_residue.index, 1 + entity.c_terminal_residue.index)
