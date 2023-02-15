@@ -214,6 +214,7 @@ class JobResources:
     then shared across all member designs"""
     _input_source: str | list[str] | None
     _location: str | None
+    _modules: list[str]
     _output_directory: AnyStr | None
     _session: Session | None
     db: DBInfo | None
@@ -243,11 +244,12 @@ class JobResources:
         # Ensure that the protocol is viable
         if self.module == flags.protocol:
             self.protocol_module = True
-            self.modules: list[str] = kwargs.get(flags.modules)
+            self.modules = kwargs.get(flags.modules)
             self.check_protocol_module_arguments()
         else:
             self.protocol_module = False
-            self.modules = [self.module]
+            # Instead of setting this, let self.module be used dynamically with property
+            # self.modules = [self.module]
 
         # Computing environment and development Flags
         # self.command_only: bool = kwargs.get('command_only', False)
@@ -429,6 +431,7 @@ class JobResources:
             self.design.ignore_pose_clashes = self.design.ignore_symmetric_clashes = True
         # Handle protocol specific flags
         if self.module == flags.interface_design:  # or self.design.neighbors:
+            # Handle interface-design module alias
             self.module = flags.design
             self.design.interface = True
         if self.design.method == putils.consensus:
@@ -443,6 +446,10 @@ class JobResources:
             self.design.hbnet = False
             self.design.scout = False
             self.design.term_constraint = False
+
+        # Explicitly set to false if not designing
+        if self.design.evolution_constraint and flags.design not in self.modules:
+            self.design.evolution_constraint = False
 
         # self.dock_only: bool = kwargs.get('dock_only')
         # if self.dock_only:
@@ -612,6 +619,18 @@ class JobResources:
             self.cluster = False
 
     @property
+    def modules(self) -> list[str]:
+        """Return the modules slated to run during the job"""
+        try:
+            return self._modules
+        except AttributeError:
+            return [self.module]
+
+    @modules.setter
+    def modules(self, modules: Iterable[str]) -> list[str]:
+        self._modules = list(modules)
+
+    @property
     def current_session(self) -> Session:
         """Contains the sqlalchemy.orm.Session that is currently in use for access to database attributes"""
         try:
@@ -703,6 +722,7 @@ class JobResources:
         else:  # No construction specific flags
             self.write_fragments = self.write_oligomers = False
 
+    # Todo make part of modules.setter routine
     def check_protocol_module_arguments(self):
         """Given provided modules for the 'protocol' module, check to ensure the work is adequate
 
