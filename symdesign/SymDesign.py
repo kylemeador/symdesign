@@ -888,8 +888,8 @@ def main():
                                                                          by_file=by_file2))
             # Initialize the local database
             # Populate all_entities to set up sequence dependent resources
-            # grouped_structures_metadata = defaultdict(list)
-            grouped_structures_metadata: list[tuple[str, list]] = []
+            # grouped_structures_ids = defaultdict(list)
+            grouped_structures_ids: list[tuple[str, list]] = []
             possibly_new_uniprot_to_prot_metadata = {}
             # Todo expand the definition of SymEntry/Entity to include
             #  specification of T:{T:{C3}{C3}}{C1}
@@ -898,9 +898,10 @@ def main():
             for structures, symmetry in zip(grouped_structures, job.sym_entry.groups):  # symmetry_map):
                 if not structures:  # Useful in a case where symmetry groups are the same or group is None
                     continue
-                structures_metadata: list[tuple[str, list[sql.ProteinMetadata]]] = []
+                # structures_metadata: list[tuple[str, list[sql.ProteinMetadata]]] = []
+                structures_ids: list[tuple[str, list[tuple[str, ...]]]] = []
                 for structure in structures:
-                    structure_metadata = []
+                    structure_uniprot_ids = []
                     for entity in structure.entities:
                         protein_metadata = sql.ProteinMetadata(
                             entity_id=entity.name,
@@ -925,10 +926,10 @@ def main():
                             raise RuntimeError(f"This error wasn't expected to occur.{putils.report_issue}")
                         else:  # Process for persistent state
                             possibly_new_uniprot_to_prot_metadata[uniprot_ids] = protein_metadata
-                        structure_metadata.append(protein_metadata)
-                    structures_metadata.append((structure.name, structure_metadata))
-                # grouped_structures_metadata[symmetry] = structures_metadata
-                grouped_structures_metadata.append((symmetry, structures_metadata))
+                        structure_uniprot_ids.append(uniprot_ids)  # protein_metadata)
+                    structures_ids.append((structure.name, structure_uniprot_ids))
+                # grouped_structures_ids[symmetry] = structures_metadata
+                grouped_structures_ids.append((symmetry, structures_ids))
 
             # Write new data to the database
             # with job.db.session(expire_on_commit=False) as session:
@@ -945,14 +946,16 @@ def main():
             # # Get api wrapper
             # retrieve_stride_info = job.api_db.stride.retrieve_data
             grouped_structures = []
-            # for symmetry, structures_metadata in grouped_structures_metadata.items():
-            for symmetry, structures_metadata in grouped_structures_metadata:
+            # for symmetry, structures_metadata in grouped_structures_ids.items():
+            for symmetry, structures_ids in grouped_structures_ids:
                 structures = []
-                for structure_name, structure_metadata in structures_metadata:
+                for structure_name, structure_uniprot_ids in structures_ids:
                     # entities = [Entity.from_file(data.model_source, name=data.entity_id)
                     #             for data in structure_metadata]
                     entities = []
-                    for data in structure_metadata:
+                    for uniprot_ids in structure_uniprot_ids:
+                        # This data may not be the one that is initialized, grab the correct one
+                        data = all_uniprot_id_to_prot_data[uniprot_ids]
                         entity = Entity.from_file(data.model_source, name=data.entity_id)
                         entity.stride(to_file=job.api_db.stride.path_to(name=data.entity_id))
                         data.n_terminal_helix = entity.is_termini_helical()
