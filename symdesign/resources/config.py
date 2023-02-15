@@ -26,8 +26,12 @@ metrics = {
                      direction=None, function=None, filter=True),
     'setting_matrix': dict(description='The setting_matrix transformation parameter',
                            direction=None, function=None, filter=True),
-    'internal_translation': dict(description='The internal_translation transformation parameter',
-                                 direction=None, function=None, filter=True),
+    'internal_translation_x': dict(description='The internal_translation transformation parameter',
+                                   direction=None, function=None, filter=True),
+    'internal_translation_y': dict(description='The internal_translation transformation parameter',
+                                   direction=None, function=None, filter=True),
+    'internal_translation_z': dict(description='The internal_translation transformation parameter',
+                                   direction=None, function=None, filter=True),
     'external_translation_x': dict(description='The external_translation_x transformation parameter',
                                    direction=None, function=None, filter=True),
     'external_translation_y': dict(description='The external_translation_y transformation parameter',
@@ -78,7 +82,64 @@ metrics = {
     'contact_order':
         dict(description='The distance of contacts to other residues in the structure',
              direction=max_, function=rank, filter=True),
-    'dock_collapse_deviation_magnitude':
+    'collapse_deviation_magnitude':
+        dict(description='The total deviation in the hydrophobic collapse. Either more or less collapse prone',
+             direction=min_, function=rank, filter=True),
+    'collapse_increase_significance_by_contact_order_z':
+        dict(description='Summation of positions with increased collapse from reference scaled by the inverse contact '
+                         'order z-score. Where positive is more isolated collapse, and negative indicates collapse '
+                         'occurs in higher contact order sites. More significant collapse is more positive',
+             direction=min_, function=rank, filter=True),
+    'collapse_increased_z':
+        dict(description='The sum of all sequence regions z-scores experiencing increased collapse. Measures the '
+                         'normalized magnitude of additional hydrophobic collapse',
+             direction=min_, function=rank, filter=True),
+    'collapse_increased_z_mean':
+        dict(description='Mean of the collapse_increased_z per-position experiencing increased collapse',
+             direction=min_, function=rank, filter=True),
+    'collapse_new_position_significance':
+        dict(description='The magnitude of the collapse_significance_by_contact_order_z (abs(deviation)) for identified'
+                         ' new collapse positions',
+             direction=min_, function=rank, filter=True),
+    'collapse_new_positions':
+        dict(description='The number of new collapse positions found',
+             direction=min_, function=rank, filter=True),
+    'collapse_sequential_peaks_z':
+        dict(description='Summation of the collapse z-score for each residue scaled sequentially by the number of '
+                         'previously observed collapsable locations',
+             direction=min_, function=rank, filter=True),
+    'collapse_sequential_peaks_z_mean':
+        dict(description='Mean of the collapse_sequential_peaks_z per-position experiencing increased collapse',
+             direction=min_, function=rank, filter=True),
+    'collapse_sequential_z':
+        dict(description='Summation of the collapse z-score for each residue scaled by the proximity to sequence start',
+             direction=min_, function=rank, filter=True),
+    'collapse_sequential_z_mean':
+        dict(description='Mean of the collapse_sequential_z per-position experiencing increased collapse',
+             direction=min_, function=rank, filter=True),
+    'collapse_significance_by_contact_order_z':
+        dict(description='Summed significance. Takes the product of collapse z-score at collapsing positions and '
+                         'contact order per residue. Resulting values are positive when collapse occurs in areas with '
+                         'low contact order, and negative when collapse occurs in high contact order positions. A '
+                         'protein fold with high contact order may tolerate collapse differently than low contact order'
+                         ", where the segment would rely on it's collapse to fold",
+             direction=min_, function=rank, filter=True),
+    'collapse_significance_by_contact_order_z_mean':
+        dict(description='Mean of the collapse_significance_by_contact_order_z per-position experiencing collapse',
+             direction=min_, function=rank, filter=True),
+    'collapse_variance':
+        dict(description='The average/expected deviation of the hydrophobic collapse from a reference collapse',
+             direction=min_, function=rank, filter=True),
+    'collapse_violation':
+        dict(description='Whether there are collapse_new_positions and the collapse profile is altered',
+             direction=min_, function=rank, filter=True),  # Boolean
+    'core':
+        dict(description='The number of "core" residues as classified by E. Levy 2010',
+             direction=max_, function=rank, filter=True),
+    'coordinate_constraint':
+        dict(description='Total weight of coordinate constraints to keep design from moving in cartesian '
+                         'space', direction=min_, function=normalize, filter=True),
+        'dock_collapse_deviation_magnitude':
         dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
                          ' total deviation in the hydrophobic collapse. Either more or less collapse prone',
              direction=min_, function=rank, filter=True),
@@ -142,63 +203,6 @@ metrics = {
     'dock_collapse_violation':
         dict(description='Whether there are dock_collapse_new_positions and the collapse profile is altered',
              direction=min_, function=rank, filter=True),  # Boolean
-    'collapse_deviation_magnitude':
-        dict(description='The total deviation in the hydrophobic collapse. Either more or less collapse prone',
-             direction=min_, function=rank, filter=True),
-    'collapse_increase_significance_by_contact_order_z':
-        dict(description='Summation of positions with increased collapse from reference scaled by the inverse contact '
-                         'order z-score. Where positive is more isolated collapse, and negative indicates collapse '
-                         'occurs in higher contact order sites. More significant collapse is more positive',
-             direction=min_, function=rank, filter=True),
-    'collapse_increased_z':
-        dict(description='The sum of all sequence regions z-scores experiencing increased collapse. Measures the '
-                         'normalized magnitude of additional hydrophobic collapse',
-             direction=min_, function=rank, filter=True),
-    'collapse_increased_z_mean':
-        dict(description='Mean of the collapse_increased_z per-position experiencing increased collapse',
-             direction=min_, function=rank, filter=True),
-    'collapse_new_position_significance':
-        dict(description='The magnitude of the collapse_significance_by_contact_order_z (abs(deviation)) for identified'
-                         ' new collapse positions',
-             direction=min_, function=rank, filter=True),
-    'collapse_new_positions':
-        dict(description='The number of new collapse positions found',
-             direction=min_, function=rank, filter=True),
-    'collapse_sequential_peaks_z':
-        dict(description='Summation of the collapse z-score for each residue scaled sequentially by the number of '
-                         'previously observed collapsable locations',
-             direction=min_, function=rank, filter=True),
-    'collapse_sequential_peaks_z_mean':
-        dict(description='Mean of the collapse_sequential_peaks_z per-position experiencing increased collapse',
-             direction=min_, function=rank, filter=True),
-    'collapse_sequential_z':
-        dict(description='Summation of the collapse z-score for each residue scaled by the proximity to sequence start',
-             direction=min_, function=rank, filter=True),
-    'collapse_sequential_z_mean':
-        dict(description='Mean of the collapse_sequential_z per-position experiencing increased collapse',
-             direction=min_, function=rank, filter=True),
-    'collapse_significance_by_contact_order_z':
-        dict(description='Summed significance. Takes the product of collapse z-score at collapsing positions and '
-                         'contact order per residue. Resulting values are positive when collapse occurs in areas with '
-                         'low contact order, and negative when collapse occurs in high contact order positions. A '
-                         'protein fold with high contact order may tolerate collapse differently than low contact order'
-                         ", where the segment would rely on it's collapse to fold",
-             direction=min_, function=rank, filter=True),
-    'collapse_significance_by_contact_order_z_mean':
-        dict(description='Mean of the collapse_significance_by_contact_order_z per-position experiencing collapse',
-             direction=min_, function=rank, filter=True),
-    'collapse_variance':
-        dict(description='The average/expected deviation of the hydrophobic collapse from a reference collapse',
-             direction=min_, function=rank, filter=True),
-    'collapse_violation':
-        dict(description='Whether there are collapse_new_positions and the collapse profile is altered',
-             direction=min_, function=rank, filter=True),  # Boolean
-    'core':
-        dict(description='The number of "core" residues as classified by E. Levy 2010',
-             direction=max_, function=rank, filter=True),
-    'coordinate_constraint':
-        dict(description='Total weight of coordinate constraints to keep design from moving in cartesian '
-                         'space', direction=min_, function=normalize, filter=True),
     'divergence_design_per_residue':
         dict(description='The Jensen-Shannon divergence of interface residues from the position specific '
                          'design profile values. Includes fragment & evolution if both are True, otherwise '
@@ -502,10 +506,10 @@ metrics = {
         dict(description='The percent of the design which has been mutated',
              direction=max_, function=normalize, filter=True),
     'percent_residues_fragment_interface_center':
-        dict(description='The percentage of residues which are central fragment observations',
+        dict(description='The percentage of interface residues which are central fragment observations',
              direction=max_, function=normalize, filter=True),
     'percent_residues_fragment_interface_total':
-        dict(description='The percentage of residues which are represented by fragment observations',
+        dict(description='The percentage of interface residues which are represented by fragment observations',
              direction=max_, function=normalize, filter=True),
     'percent_residues_non_fragment_interface':
         dict(description="The percentage of interface residues which aren't represented by fragment observations",

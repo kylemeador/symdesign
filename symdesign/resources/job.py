@@ -39,7 +39,7 @@ def generate_sequence_mask(fasta_file: AnyStr) -> list[int]:
     # sequences = sequence_and_mask
     _sequence, mask, *_ = sequence_and_mask
     if not len(_sequence) == len(mask):
-        raise ValueError('The sequence and design_selector are different lengths! Please correct the alignment and '
+        raise ValueError('The sequence and design_selector are different lengths. Please correct the alignment and '
                          'lengths before proceeding.')
 
     return [idx for idx, aa in enumerate(mask, 1) if aa != '-']
@@ -490,7 +490,7 @@ class JobResources:
         _weight_file = kwargs.get('weight_file')
         if _weight or _weight_file is not None:
             self.weight = flags.parse_weights(_weight, file=_weight_file)
-        elif _weight is not None:  # --weight was provided, but as a boolean-esq. Query the user for them once have a df
+        elif _weight is not None:  # --weight was provided, but as a boolean-esq. Query the user once there is a df
             self.weight = []
         else:
             self.weight = None

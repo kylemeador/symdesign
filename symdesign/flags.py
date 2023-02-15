@@ -537,8 +537,9 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
                 if isinstance(value, str):
                     possible_metrics.append(value)
             # Todo find the closest and report to the user!
-            raise InputError(f"Couldn't coerce{' any of' if len(possible_metrics) > 1 else ''} '"
-                             f"{', '.join(possible_metrics)}' to a viable metric")
+            raise InputError(
+                f"Couldn't coerce{' any of' if len(possible_metrics) > 1 else ''} '{', '.join(possible_metrics)}' to a"
+                f" viable metric. Ensure you used the correct spelling")
 
         # Format the metric for use by select-* protocols
         filter_specification = []

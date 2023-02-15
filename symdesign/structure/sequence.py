@@ -624,7 +624,7 @@ class SequenceProfile(ABC):
     def verify_evolutionary_profile(self) -> bool:
         """Returns True if the evolutionary_profile and Structure sequences are equivalent"""
         if self.number_of_residues != len(self.evolutionary_profile):
-            self.log.warning(f'{self.name}: Profile and {self.__class__.__name__} are different lengths! Profile='
+            self.log.warning(f'{self.name}: Profile and {self.__class__.__name__} are different lengths. Profile='
                              f'{len(self.evolutionary_profile)}, Pose={self.number_of_residues}')
             return False
 

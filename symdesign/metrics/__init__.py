@@ -63,6 +63,44 @@ collapse_thresholds = {
 collapse_reported_std = .05
 idx_slice = pd.IndexSlice
 filter_df = pd.DataFrame(config.metrics)
+pose_metrics = [
+    'nanohedra_score_normalized',
+    'nanohedra_score_center_normalized',
+    'nanohedra_score',
+    'nanohedra_score_center',
+    'number_fragment_residues_total',
+    'number_fragment_residues_center',
+    'multiple_fragment_ratio',
+    'percent_fragment_helix',
+    'percent_fragment_strand',
+    'percent_fragment_coil',
+    'number_of_fragments',
+    'percent_residues_fragment_interface_total',
+    'percent_residues_fragment_interface_center',
+    'percent_residues_non_fragment_interface',
+    'number_interface_residues',
+    'number_interface_residues_non_fragment',
+    'pose_length',
+    'minimum_radius',
+    'maximum_radius',
+    'interface_b_factor_per_residue',
+    'interface1_secondary_structure_fragment_topology',
+    'interface1_secondary_structure_fragment_count',
+    'interface1_secondary_structure_topology',
+    'interface1_secondary_structure_count',
+    'interface2_secondary_structure_fragment_topology',
+    'interface2_secondary_structure_fragment_count',
+    'interface2_secondary_structure_topology',
+    'interface2_secondary_structure_count',
+    'entity_radius_ratio_v',
+    'entity_min_radius_ratio_v',
+    'entity_max_radius_ratio_v',
+    'entity_number_of_residues_ratio_v',
+    'entity_radius_average_deviation',
+    'entity_min_radius_average_deviation',
+    'entity_max_radius_average_deviation',
+    'entity_number_of_residues_average_deviation'
+]
 nanohedra_metrics = ['multiple_fragment_ratio', 'nanohedra_score', 'nanohedra_score_center',
                      'nanohedra_score_normalized', 'nanohedra_score_center_normalized',
                      'number_fragment_residues_center', 'number_fragment_residues_total',
@@ -1685,12 +1723,12 @@ def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = N
             direction = filter_df.loc['direction', substituted_metric]
             if isinstance(weight_ops, list):
                 # Where the metrics = {metric: [(operation, pre_operation, pre_kwargs, value),], ...}
-                # Currently can only have one weight per metric
+                # Currently, can only have one weight per metric...
                 for idx, weight_op in enumerate(weight_ops):
                     operation, pre_operation, pre_kwargs, value = weight_op
                     coefficients[metric_name] = dict(direction=direction, value=value)
                     print_weights.append((metric_name, f'= {value}'))
-            else:
+            else:  # weight_ops is just the value
                 coefficients[metric_name] = dict(direction=direction, value=weight_ops)
                 print_weights.append((metric_name, f'= {weight_ops}'))
 
@@ -1706,7 +1744,8 @@ def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = N
                         df[metric_name].rank(ascending=sort_direction[direction], method=direction, pct=True) \
                         * parameters['value']
                 except KeyError:  # metric_name is missing from df
-                    logger.error(f"The metric {metric_name} wasn't available in the DataFrame")
+                    logger.error(f"{pareto_optimize_trajectories.__name__}: The metric {metric_name} wasn't available "
+                                 "for weighting in the given DataFrame")
                     continue
                 metric_df[metric_name] = metric_series
             # df = pd.concat({metric: df[metric].rank(ascending=sort_direction[parameters['direction']],

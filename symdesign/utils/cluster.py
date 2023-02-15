@@ -132,7 +132,7 @@ logger = logging.getLogger(__name__)
 #     return pose_map
 
 
-def predict_best_pose_from_transformation_cluster(train_trajectories_file, training_clusters):
+def predict_best_pose_from_transformation_cluster(train_trajectories_file, training_clusters):  # UNUSED
     """From full training Nanohedra, Rosetta Sequecnce Design analyzed trajectories, train a linear model to select the
     best trajectory from a group of clustered poses given only the Nanohedra Metrics
 
@@ -207,7 +207,7 @@ def predict_best_pose_from_transformation_cluster(train_trajectories_file, train
         mae_scores.append(sklearn.metrics.median_absolute_error(target_test, target_test_prediction))
 
 
-def chose_top_pose_from_model(test_trajectories_file, clustered_poses, model):
+def chose_top_pose_from_model(test_trajectories_file, clustered_poses, model):  # UNUSED
     """
     Args:
         test_trajectories_file (str): Location of a Nanohedra Trajectory Analysis .csv with Nanohedra metrics
