@@ -61,6 +61,8 @@ perturb_dof_rot = 'perturb_dof_rot'
 perturb_dof_tx = 'perturb_dof_tx'
 perturb_dof_steps_rot = 'perturb_dof_steps_rot'
 perturb_dof_steps_tx = 'perturb_dof_steps_tx'
+dock_weight = 'dock_weight'
+dock_weight_file = 'dock_weight_file'
 cluster_map = 'cluster_map'
 cluster_mode = 'cluster_mode'
 cluster_number = 'cluster_number'
@@ -95,10 +97,10 @@ design_namespace = {
     sequences, structures, interface, neighbors
 }
 dock_namespace = {
-    proteinmpnn_score, contiguous_ghosts, perturb_dof, perturb_dof_rot, perturb_dof_tx,
-    perturb_dof_steps, perturb_dof_steps_rot, perturb_dof_steps_tx, initial_z_value, match_value, min_matched,
-    rotation_step1, rotation_step2, score, quick
-}
+    contiguous_ghosts, dock_weight, dock_weight_file, initial_z_value, match_value, min_matched, perturb_dof,
+    perturb_dof_rot, perturb_dof_tx, perturb_dof_steps, perturb_dof_steps_rot, perturb_dof_steps_tx, proteinmpnn_score,
+    quick, rotation_step1, rotation_step2
+}  # score,
 predict_namespace = {
     models_to_relax, num_predictions_per_model, predict_assembly, predict_entities, predict_method, use_gpu_relax
 }
@@ -113,6 +115,7 @@ namespaces = dict(design=design_namespace,
 # Modify specific flags from their prefix to their suffix
 modify_options = {
     'design': [design_method, design_number],
+    'dock': [dock_weight, dock_weight_file],
     'predict': [predict_assembly, predict_entities, predict_method],  # entities{predict_entities, 'entities'}],
     'cluster': [cluster_map, cluster_mode, cluster_number],
 }
@@ -201,6 +204,8 @@ perturb_dof_rot = format_for_cmdline(perturb_dof_rot)
 perturb_dof_tx = format_for_cmdline(perturb_dof_tx)
 perturb_dof_steps_rot = format_for_cmdline(perturb_dof_steps_rot)
 perturb_dof_steps_tx = format_for_cmdline(perturb_dof_steps_tx)
+dock_weight = format_for_cmdline(dock_weight)
+dock_weight_file = format_for_cmdline(dock_weight_file)
 ca_only = format_for_cmdline(ca_only)
 perturb_dof = format_for_cmdline(perturb_dof)
 distribute_work = format_for_cmdline(distribute_work)
@@ -803,12 +808,20 @@ refine_arguments = {
 nanohedra_help = f'Run {nanohedra.title()}.py'
 parser_nanohedra = {nanohedra: dict(description=nanohedra_help, help=nanohedra_help)}
 default_perturbation_steps = 3
+dock_weight_args = (f'--{dock_weight}',)
+dock_weight_kwargs = dict(nargs='*', default=None,
+                          help='Whether to weight dock trajectory according to metrics')
+dock_weight_file_args = (f'--{dock_weight_file}',)
+dock_weight_file_kwargs = dict(type=os.path.abspath,
+                               help='Whether to weight dock trajectory according to metrics provided in a file')
 nanohedra_arguments = {
     (f'--{contiguous_ghosts}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                       help='Whether to prioritize docking with ghost fragments that form continuous'
                                            '\nsegments on a single component'),
     # (f'--{dock_only}',): dict(action=argparse.BooleanOptionalAction, default=False,
     #                           help='Whether docking should be performed without sequence design'),
+    dock_weight_args: dock_weight_kwargs,
+    dock_weight_file_args: dock_weight_file_kwargs,
     evolution_constraint_args: evolution_constraint_kwargs,
     ('-iz', f'--{initial_z_value}'): dict(type=float, default=1.,
                                           help='The acceptable standard deviation z score for initial fragment overlap '
@@ -820,8 +833,8 @@ nanohedra_arguments = {
     (f'--{min_matched}',): dict(type=int, default=3,
                                 help='How many high quality fragment pairs should be present before a pose is '
                                      'identified?\nDefault=%(default)s'),
-    (f'--{score}',): dict(type=str, choices={'nanohedra', 'proteinmpnn'},  # default='nanohedra'
-                          help='Which metric should be used to rank output poses?\nDefault=%(default)s'),
+    # (f'--{score}',): dict(type=str, choices={'nanohedra', 'proteinmpnn'},  # default='nanohedra'
+    #                       help='Which metric should be used to rank output poses?\nDefault=%(default)s'),
     (f'--{only_write_frag_info}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                          help='Used to write fragment information to a directory for C1 based docking'),
     output_directory_args:

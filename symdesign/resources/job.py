@@ -403,6 +403,14 @@ class JobResources:
                                f" wasn't set")
             self.dock.perturb_dof_steps = self.dock.perturb_dof_steps_rot = self.dock.perturb_dof_steps_tx = 1
 
+        # dock_weight = kwargs.get('weight')
+        # dock_weight_file = kwargs.get('weight_file')
+        if self.dock.weight or self.dock.weight_file is not None:
+            self.weight = flags.parse_weights(self.dock.weight, file=self.dock.weight_file)
+        elif self.dock.weight is not None:  # --dock-weight was provided, but as a boolean-esq. Query the user
+            self.dock.weight = []
+        else:
+            self.weight = None
         # self.proteinmpnn_score: bool = kwargs.get('proteinmpnn_score', False)
         # self.contiguous_ghosts: bool = kwargs.get('contiguous_ghosts', False)
 
