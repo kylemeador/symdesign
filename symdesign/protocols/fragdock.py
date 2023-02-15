@@ -2102,6 +2102,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             # Check for symmetric clashes again
             if not job.design.ignore_symmetric_clashes:
                 passing_symmetric_clash_indices_perturb = find_viable_symmetric_indices(passing_perturbations.tolist())
+            else:
+                passing_symmetric_clash_indices_perturb = slice(None)
             # Index the passing ASU indices with the passing symmetric indices and keep all viable transforms
             # Stack the viable perturbed transforms
             stack_viable_transforms(passing_perturbations[passing_symmetric_clash_indices_perturb])
@@ -2112,16 +2114,16 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         number_of_transforms = full_rotation1.shape[0]
         logger.info(f'After perturbation, found {number_of_transforms} viable solutions')
         if sym_entry.is_internal_tx1:
-            stacked_internal_tx_vectors1 = np.zeros((number_of_transforms, 3), dtype=float)
+            full_int_tx1 = np.zeros_like(full_rotation1, dtype=float)
             # Add the translation to Z (axis=1)
-            stacked_internal_tx_vectors1[:, -1] = perturb_int_tx1
-            full_int_tx1 = stacked_internal_tx_vectors1
+            full_int_tx1[:, -1] = perturb_int_tx1
+            # full_int_tx1 = stacked_internal_tx_vectors1
 
         if sym_entry.is_internal_tx2:
-            stacked_internal_tx_vectors2 = np.zeros((number_of_transforms, 3), dtype=float)
+            full_int_tx2 = np.zeros_like(full_rotation1, dtype=float)
             # Add the translation to Z (axis=1)
-            stacked_internal_tx_vectors2[:, -1] = perturb_int_tx2
-            full_int_tx2 = stacked_internal_tx_vectors2
+            full_int_tx2[:, -1] = perturb_int_tx2
+            # full_int_tx2 = stacked_internal_tx_vectors2
 
         if sym_entry.unit_cell:
             # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
@@ -2150,7 +2152,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         """
         # First, clear any pose information and force identification of the interface
         # del pose._interface_residues
-        pose.residues_by_interface = {}
+        pose.interface_residues_by_interface = {}
         pose.find_and_split_interface(distance=cb_distance)
 
         # # Next, set the interface fragment info for gathering of interface metrics
