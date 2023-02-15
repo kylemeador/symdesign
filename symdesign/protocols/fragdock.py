@@ -2199,62 +2199,48 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # if job.dock.proteinmpnn_score or job.design.sequences:  # Initialize proteinmpnn for dock/design
     pose_length_nan = [np.nan for _ in range(pose_length)]
 
-    per_residue_dock_islands = per_residue_dock_island_significance = \
-        per_residue_dock_collapse_significance_by_contact_order_z = \
-        per_residue_dock_collapse_increase_significance_by_contact_order_z = \
-        per_residue_dock_collapse_increased_z = per_residue_dock_collapse_deviation_magnitude = \
-        per_residue_dock_sequential_peaks_collapse_z = per_residue_dock_collapse_sequential_z = \
-        per_residue_dock_hydrophobic_collapse = \
-        per_residue_design_cross_entropy = per_residue_evolution_cross_entropy = \
-        per_residue_fragment_cross_entropy = per_residue_design_indices = pose_length_nan
-    # dock_hydrophobic_collapse =  pose_length_nan
-    # Make an empty collapse_profile
-    collapse_profile = np.empty(0)
-    evolutionary_profile_array = None
-    if job.dock.proteinmpnn_score:  # Initialize proteinmpnn for dock/design
-        # Load profiles of interest into the analysis
+    # Load evolutionary profiles of interest for optimization/analysis
+    if job.design.evolution_constraint:
         # profile_background = {}
-        if job.design.evolution_constraint:
-            measure_evolution, measure_alignment = load_evolutionary_profile(job.api_db, pose)
+        measure_evolution, measure_alignment = load_evolutionary_profile(job.api_db, pose)
 
-            # if pose.evolutionary_profile:
-            # profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
-            evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
-            batch_evolutionary_profile = \
-                torch.from_numpy(np.tile(evolutionary_profile_array, (batch_length, 1, 1)))
-            # torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
-            # else:
-            #     pose.log.info('No evolution information')
-
-        # if job.fragment_db is not None:
-        #     # Todo ensure the AA order is the same as MultipleSequenceAlignment.from_dictionary(pose_sequences) below
-        #     interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
-        #     profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
-
-        # Calculate hydrophobic collapse for each dock
-        if measure_evolution:
-            hydrophobicity = 'expanded'
-        else:
-            hydrophobicity = 'standard'
-        contact_order_per_res_z, reference_collapse, collapse_profile = \
-            pose.get_folding_metrics(hydrophobicity=hydrophobicity)
-        if measure_evolution:  # collapse_profile.size:  # Not equal to zero, use the profile instead
-            reference_collapse = collapse_profile
-        #     reference_mean = np.nanmean(collapse_profile, axis=-2)
-        #     reference_std = np.nanstd(collapse_profile, axis=-2)
-        #     # How different are the collapse of the MSA profile and the mean of the collapse profile?
-        #     reference_collapse = metrics.hydrophobic_collapse_index(evolutionary_profile_array,
-        #                                                             alphabet_type=protein_letters_alph1,
-        #                                                             hydrophobicity='expanded')
-        #     # seq_reference_collapse = reference_collapse
-        #     # reference_difference1 = reference_collapse - seq_reference_collapse
-        #     # logger.critical('Found a collapse difference between the MSA profile and the reference collapse'
-        #     #                 f' of {reference_difference1.sum()}')
-        #     # reference_difference2 = reference_collapse - reference_mean
-        #     # logger.critical('Found a collapse difference between the MSA profile and the mean of the collapse'
-        #                       f'profile of {reference_difference2.sum()}')
+        # if pose.evolutionary_profile:
+        # profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
+        evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
+        batch_evolutionary_profile = \
+            torch.from_numpy(np.tile(evolutionary_profile_array, (batch_length, 1, 1)))
+        # torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
         # else:
-        #     reference_mean = reference_std = None
+        #     pose.log.info('No evolution information')
+    else:  # Make an empty collapse_profile
+        measure_evolution = measure_alignment = False
+        collapse_profile = np.empty(0)
+        evolutionary_profile_array = None
+
+    # Calculate hydrophobic collapse for each dock using the collapse_profile if it was calculated
+    if measure_evolution:
+        hydrophobicity = 'expanded'
+    else:
+        hydrophobicity = 'standard'
+    contact_order_per_res_z, reference_collapse, collapse_profile = \
+        pose.get_folding_metrics(hydrophobicity=hydrophobicity)
+    if measure_evolution:  # collapse_profile.size:  # Not equal to zero, use the profile instead
+        reference_collapse = collapse_profile
+    #     reference_mean = np.nanmean(collapse_profile, axis=-2)
+    #     reference_std = np.nanstd(collapse_profile, axis=-2)
+    #     # How different are the collapse of the MSA profile and the mean of the collapse profile?
+    #     reference_collapse = metrics.hydrophobic_collapse_index(evolutionary_profile_array,
+    #                                                             alphabet_type=protein_letters_alph1,
+    #                                                             hydrophobicity='expanded')
+    #     # seq_reference_collapse = reference_collapse
+    #     # reference_difference1 = reference_collapse - seq_reference_collapse
+    #     # logger.critical('Found a collapse difference between the MSA profile and the reference collapse'
+    #     #                 f' of {reference_difference1.sum()}')
+    #     # reference_difference2 = reference_collapse - reference_mean
+    #     # logger.critical('Found a collapse difference between the MSA profile and the mean of the collapse'
+    #                       f'profile of {reference_difference2.sum()}')
+    # else:
+    #     reference_mean = reference_std = None
 
         # Extract parameters to run ProteinMPNN design and modulate memory requirements
         # Retrieve the ProteinMPNN model
