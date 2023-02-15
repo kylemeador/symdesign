@@ -889,7 +889,7 @@ def main():
             # Initialize the local database
             # Populate all_entities to set up sequence dependent resources
             # grouped_structures_metadata = defaultdict(list)
-            grouped_structures_metadata = []
+            grouped_structures_metadata: list[tuple[str, list]] = []
             possibly_new_uniprot_to_prot_metadata = {}
             # Todo expand the definition of SymEntry/Entity to include
             #  specification of T:{T:{C3}{C3}}{C1}
@@ -898,7 +898,7 @@ def main():
             for structures, symmetry in zip(grouped_structures, job.sym_entry.groups):  # symmetry_map):
                 if not structures:  # Useful in a case where symmetry groups are the same or group is None
                     continue
-                structures_metadata = []
+                structures_metadata: list[tuple[str, list[sql.ProteinMetadata]]] = []
                 for structure in structures:
                     structure_metadata = []
                     for entity in structure.entities:
@@ -926,7 +926,7 @@ def main():
                         else:  # Process for persistent state
                             possibly_new_uniprot_to_prot_metadata[uniprot_ids] = protein_metadata
                         structure_metadata.append(protein_metadata)
-                    structures_metadata.append(structure_metadata)
+                    structures_metadata.append((structure.name, structure_metadata))
                 # grouped_structures_metadata[symmetry] = structures_metadata
                 grouped_structures_metadata.append((symmetry, structures_metadata))
 
@@ -948,7 +948,7 @@ def main():
             # for symmetry, structures_metadata in grouped_structures_metadata.items():
             for symmetry, structures_metadata in grouped_structures_metadata:
                 structures = []
-                for structure_metadata in structures_metadata:
+                for structure_name, structure_metadata in structures_metadata:
                     # entities = [Entity.from_file(data.model_source, name=data.entity_id)
                     #             for data in structure_metadata]
                     entities = []
@@ -961,7 +961,7 @@ def main():
                         entity.metadata = data
                         entities.append(entity)
 
-                    structures.append(Pose.from_entities(entities, symmetry=symmetry))
+                    structures.append(Pose.from_entities(entities, name=structure_name, symmetry=symmetry))
                 grouped_structures.append(structures)
 
             # Make all possible structure pairs given input entities by finding entities from entity_names

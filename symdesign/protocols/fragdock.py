@@ -127,13 +127,19 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
     n_dof_external = sym_entry.number_dof_external
 
     if rotation_number < 1:
-        raise ValueError(f"Can't create perturbation transformations with rotation_number of {rotation_number}")
-    elif rotation_number == 1:
+        logger.warning(f"Can't create perturbation transformations with rotation_number of {rotation_number}. "
+                       f"Setting to 1")
+        rotation_number = 1
+        # raise ValueError(f"Can't create perturbation transformations with rotation_number of {rotation_number}")
+    if rotation_number == 1:
         target_dof -= rotational_dof
 
     if translation_number < 1:
-        raise ValueError(f"Can't create perturbation transformations with translation_number of {translation_number}")
-    elif translation_number == 1:
+        logger.warning(f"Can't create perturbation transformations with translation_number of {translation_number}. "
+                       f"Setting to 1")
+        translation_number = 1
+        # raise ValueError(f"Can't create perturbation transformations with translation_number of {translation_number}")
+    if translation_number == 1:
         target_dof -= translational_dof
 
     # # Make a vector of the perturbation number [1, 2, 2, 3, 3, 1] with 1 as constants on each end

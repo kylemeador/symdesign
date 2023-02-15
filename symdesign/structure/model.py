@@ -5614,7 +5614,7 @@ class SymmetricModel(Models):
             # We only have one Entity. Choice doesn't matter, grab the first
             selected_asu_model_indices: list[int] = [oligomeric_indices_groups[0][0]]
         else:
-            oligomeric_com_groups = [entity_symmetric_centers_of_mass[indices]
+            oligomeric_com_groups = [[entity_symmetric_centers_of_mass[idx] for idx in indices]
                                      for entity_symmetric_centers_of_mass, indices in
                                      zip(center_of_mass_symmetric_entities, oligomeric_indices_groups)]
             # self.log.critical('oligomeric_com_groups: %s' % oligomeric_com_groups)

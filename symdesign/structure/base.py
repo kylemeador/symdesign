@@ -2278,13 +2278,15 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             raise ValueError("Can't get 0 upstream residues. 1 or more must be specified")
 
         prior_residues = [self.prev_residue]
-        for idx in range(abs(number) - 1):
-            try:
+        try:
+            for idx in range(abs(number) - 1):
                 prior_residues.append(prior_residues[idx].prev_residue)
-            except AttributeError:  # We hit a termini
-                # logger.critical(f'Stopped at {idx}. with residues {prior_residues}. Popping the last')
-                prior_residues.pop(idx)
-                break
+        except AttributeError:  # We hit a termini
+            # logger.critical(f'Stopped at {idx}. with residues {prior_residues}. Popping the last')
+            prior_residues.pop(idx)
+        else:  # For the edge case where the last added residue is a termini, strip from results
+            if prior_residues[-1] is None:
+                prior_residues.pop()
 
         return prior_residues[::-1]  # Used before .pop() -> [residue for residue in prior_residues[::-1] if residue]
 
@@ -2302,13 +2304,15 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             raise ValueError("Can't get 0 downstream residues. 1 or more must be specified")
 
         next_residues = [self.next_residue]
-        for idx in range(abs(number) - 1):
-            try:
+        try:
+            for idx in range(abs(number) - 1):
                 next_residues.append(next_residues[idx].next_residue)
-            except AttributeError:  # We hit a termini
-                # logger.critical(f'Stopped at {idx}. with residues {next_residues}. Popping the last')
-                next_residues.pop(idx)
-                break
+        except AttributeError:  # We hit a termini
+            # logger.critical(f'Stopped at {idx}. with residues {next_residues}. Popping the last')
+            next_residues.pop(idx)
+        else:  # For the edge case where the last added residue is a termini, strip from results
+            if next_residues[-1] is None:
+                next_residues.pop()
 
         return next_residues  # Used before .pop() -> [residue for residue in next_residues if residue]
 
