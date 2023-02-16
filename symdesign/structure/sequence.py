@@ -786,7 +786,9 @@ class SequenceProfile(ABC):
             self.log.info(f'The {self.name} .reference_sequence length, {len(self.reference_sequence)} != '
                           f'{self.msa.query_length}, the MultipleSequenceAlignment query length')
             query_indices, reference_indices = get_equivalent_indices(self.msa.query, self.reference_sequence)
-            sequence_indices = sequence_indices[query_indices]
+            sequence_indices = np.zeros_like(sequence_indices)
+            # sequence_indices = sequence_indices[:, query_indices]
+            sequence_indices[:, query_indices] = True
             self.log.critical(f'For MSA alignment to the reference sequence, found the corresponding MSA query indices:'
                               f' {query_indices}')
             self.log.critical(f'MSA aligned sequence_indices: {sequence_indices}')
