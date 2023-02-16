@@ -2196,6 +2196,10 @@ class PoseProtocol(PoseData):
             # Load the Model in while ignoring any potential clashes
             asu_models = {model_name: Pose.from_pdb_lines(structure.splitlines(), name=str(design), **pose_kwargs)
                           for model_name, structure in structures_to_load.items()}
+            # Because the pdb_lines are not oriented, we must handle orientation of incoming files to match sym_entry
+            # This is handled in find_model_with_minimal_rmsd(), however, the symmetry isn't set up correctly, i.e.
+            # we need to pose.make_oligomers() in the correct orientation
+            # Do this all at once after every design
             if relaxed:  # Set b-factor data as relaxed get overwritten
                 model_plddts = {model_name: scores['plddt'][:number_of_residues]
                                 for model_name, scores in asu_scores.items()}
@@ -2217,11 +2221,14 @@ class PoseProtocol(PoseData):
         #     scores['predicted_aligned_error'] = scores['predicted_aligned_error'].mean(axis=-1)
 
         # Write the folded structure to designs_path and update DesignProtocols
-        for data, structure in zip(self.current_designs, asu_design_structures):
-            data.structure_path = structure.write(out_path=os.path.join(self.designs_path, f'{data.name}.pdb'))
+        for data, pose in zip(self.current_designs, asu_design_structures):
+            data.structure_path = pose.write(out_path=os.path.join(self.designs_path, f'{data.name}.pdb'))
             data.protocols.append(sql.DesignProtocol(design_id=data.id,
                                                      protocol=self.protocol,
                                                      file=data.structure_path))
+            # This corrects the oligomeric specification for each Entity
+            pose.make_oligomers()
+            # structure.make_oligomers(transformations=structure.entity_transformations)
 
         residues_df = self.analyze_residue_metrics_per_design(asu_design_structures)
         designs_df = self.analyze_design_metrics_per_design(residues_df, asu_design_structures)
