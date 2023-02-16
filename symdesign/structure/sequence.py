@@ -861,7 +861,7 @@ class SequenceProfile(ABC):
                 self.evolutionary_profile[residue_number]['info'] = float(line_data[42])
                 self.evolutionary_profile[residue_number]['weight'] = float(line_data[43])
 
-    def hhblits(self, out_dir: AnyStr = os.getcwd(), **kwargs) -> str | None:
+    def hhblits(self, out_dir: AnyStr = os.getcwd(), **kwargs) -> list[str] | None:
         """Generate a position specific scoring matrix from HHblits using Hidden Markov Models
 
         Args:

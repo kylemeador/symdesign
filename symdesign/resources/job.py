@@ -895,7 +895,7 @@ class JobResources:
         logger.debug(f'Reduce job memory?: {self.reduce_memory}')
 
     @staticmethod
-    def can_evolutionary_profiles_process() -> bool:
+    def can_process_evolutionary_profiles() -> bool:
         """Return True if the current computer has the computational requirements to collect evolutionary profiles"""
         # Run specific checks
         if psutil.virtual_memory().available <= CommandDistributer.hhblits_memory_threshold:
@@ -981,7 +981,7 @@ class JobResources:
                 reformat_msa_cmd2 = [putils.reformat_msa_exe_path, 'a3m', 'fas',
                                      f"'{os.path.join(self.profiles, '*.a3m')}'", '.fasta', '-M', 'first', '-r']
             hhblits_log_file = os.path.join(self.profiles, 'generate_profiles.log')
-            if self.can_evolutionary_profiles_process():
+            if self.can_process_evolutionary_profiles():
                 # Run commands here
                 with open(hhblits_log_file, 'w') as f:
                     for cmd in hhblits_cmds:
@@ -993,7 +993,8 @@ class JobResources:
                 #     stdout, stderr = p.communicate()
                 #     if stdout or stderr:
                 #         logger.info()
-            else:
+            else:  # Convert each command to a string and write to distribute
+                hhblits_cmds = [subprocess.list2cmdline(cmd) for cmd in hhblits_cmds]
                 hhblits_cmd_file = utils.write_commands(hhblits_cmds, name=f'{utils.starttime}-{putils.hhblits}',
                                                         out_path=self.profiles)
                 hhblits_script = \

@@ -492,7 +492,7 @@ hhblits_threads = 2
 
 def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[str] = None,
             out_dir: AnyStr = os.getcwd(), threads: int = hhblits_threads,
-            return_command: bool = False, **kwargs) -> str | None:
+            return_command: bool = False, **kwargs) -> list[str] | None:
     """Generate a position specific scoring matrix from HHblits using Hidden Markov Models
 
     When the command is run, it is possible to create six files in out_dir with the pattern '/outdir/name.*'
@@ -538,7 +538,7 @@ def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[s
            '-v', '1', '-cpu', str(threads)]
 
     if return_command:
-        return subprocess.list2cmdline(cmd)
+        return cmd  # subprocess.list2cmdline(cmd)
 
     logger.debug(f'{name} Profile Command: {subprocess.list2cmdline(cmd)}')
     p = subprocess.Popen(cmd)
