@@ -6,6 +6,7 @@ import logging
 import os
 import subprocess
 from copy import deepcopy
+from itertools import repeat
 from subprocess import list2cmdline
 from typing import Annotated, AnyStr, Any, Iterable
 
@@ -981,12 +982,20 @@ class JobResources:
             # Run hhblits commands
             if self.can_process_evolutionary_profiles():
                 logger.info(f'Writing {putils.hhblits} results to file: {hhblits_log_file}')
-                # Run commands here
+                # Run commands in this process
+                if self.multi_processing:
+                    zipped_args = zip(hhblits_cmds, repeat(hhblits_log_file))
+                    # utils.CommandDistributer.run(cmd, hhblits_log_file)
+                    # Todo calculate how many cores are available to use given memory limit
+                    utils.mp_starmap(utils.CommandDistributer.run, zipped_args, processes=self.cores)
+                else:
+                    with open(hhblits_log_file, 'w') as f:
+                        for cmd in hhblits_cmds:
+                            p = subprocess.Popen(cmd, stdout=f, stderr=f)
+                            p.communicate()
+
+                # Format .a3m multiple sequence alignments to .sto/.fasta
                 with open(hhblits_log_file, 'w') as f:
-                    for cmd in hhblits_cmds:
-                        p = subprocess.Popen(cmd, stdout=f, stderr=f)
-                        p.communicate()
-                    # Format .a3m multiple sequence alignments to .sto/.fasta
                     p = subprocess.Popen(reformat_msa_cmd1, stdout=f, stderr=f)
                     p.communicate()
                     p = subprocess.Popen(reformat_msa_cmd2, stdout=f, stderr=f)
