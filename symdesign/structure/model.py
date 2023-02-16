@@ -4240,7 +4240,11 @@ class SymmetricModel(Models):
                 self.generate_symmetric_coords(surrounding_uc=surrounding_uc)  # Defaults to surrounding_uc=True
 
             # Generate oligomers for each entity in the pose
-            self.make_oligomers(transformations=transformations)
+            for entity, subunit_number in zip(self.entities, self.sym_entry.group_subunit_numbers):
+                if entity.number_of_symmetry_mates != subunit_number:
+                    self.make_oligomers(transformations=transformations)
+                    break
+                self.log.debug(f'Entity {entity.name} is already the correct oligomer, skipping make_oligomer()')
 
     def set_symmetry(self, sym_entry: utils.SymEntry.SymEntry | int = None, symmetry: str = None,
                      uc_dimensions: list[float] = None, expand_matrices: np.ndarray | list = None):
@@ -5846,10 +5850,10 @@ class SymmetricModel(Models):
 
         for entity, subunit_number, symmetry, transformation in zip(self.entities, self.sym_entry.group_subunit_numbers,
                                                                     self.sym_entry.groups, transformations):
-            if entity.number_of_symmetry_mates != subunit_number:
-                entity.make_oligomer(symmetry=symmetry, **transformation)
-            else:
-                self.log.debug(f'{self.make_oligomers.__name__}: Entity is already the correct oligomer')
+            # if entity.number_of_symmetry_mates != subunit_number:
+            entity.make_oligomer(symmetry=symmetry, **transformation)
+            # else:
+            #     self.log.debug(f'{self.make_oligomers.__name__}: Entity is already the correct oligomer')
 
     def symmetric_assembly_is_clash(self, distance: float = 2.1, warn: bool = True) -> bool:  # Todo design_selector
         """Returns True if the SymmetricModel presents any clashes. Checks only backbone and CB atoms

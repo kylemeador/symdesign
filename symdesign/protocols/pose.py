@@ -2230,13 +2230,15 @@ class PoseProtocol(PoseData):
             # # by using the inherent _assign_pose_transformation()
             # pose.make_oligomers()
             # This would explicitly pass the transformation parameters which are correct for the PoseJob
+            # for entity in pose.entities:
+            #     entity.remove_mate_chains()
             pose.make_oligomers(transformations=self.transformations)
             pose.write(out_path=os.path.join(self.designs_path, f'{pose.name}-asu-check.pdb'))
             for entity in pose.entities:
                 entity.write(out_path=os.path.join(self.designs_path, f'{pose.name}{entity.name}-oligomer-asu-check.pdb'))
                 entity.write(oligomer=True,
                              out_path=os.path.join(self.designs_path, f'{pose.name}{entity.name}-oligomer-check.pdb'))
-            pose.write(aseembly=True, out_path=os.path.join(self.designs_path, f'{pose.name}-assembly-check.pdb'))
+            pose.write(assembly=True, out_path=os.path.join(self.designs_path, f'{pose.name}-assembly-check.pdb'))
 
         residues_df = self.analyze_residue_metrics_per_design(asu_design_structures)
         designs_df = self.analyze_design_metrics_per_design(residues_df, asu_design_structures)
