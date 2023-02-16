@@ -1231,23 +1231,26 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
         #  'ranking_confidence': (),
         #  'num_recycles': (),
         #  }
-        # self.log.critical(f'Found the prediction_result keys: {list(np_prediction_result.keys())}')
+        logger.critical(f'Found the prediction_result keys: {list(np_prediction_result.keys())}')
+        # monomer
+        #
+        # multimer
         # ['distogram', 'experimentally_resolved', 'masked_msa', 'num_recycles', 'predicted_aligned_error',
         #  'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs',
         #  'max_predicted_aligned_error', 'ptm', 'iptm', 'ranking_confidence']
-        # self.log.critical(f'Found the prediction_result keys: shapes: '
-        #                   f'{dict((type_, res.shape) if isinstance(res, np.ndarray)
-        #                      for type_, res in np_prediction_result.items())}')
+        # logger.critical(f'Found the prediction_result keys: shapes: '
+        #                 f'{dict((type_, res.shape) if isinstance(res, np.ndarray)
+        #                 for type_, res in np_prediction_result.items())}')
         # Process incoming scores to be returned. If multimer, we need to clean up to ASU at some point
         # This is a 2d array
         # _scores['predicted_aligned_error'][model_index, :] = \
         #     np_prediction_result['predicted_aligned_error'][:length, :length]
-        _scores[model_name]['predicted_aligned_error'] = \
-            np_prediction_result['predicted_aligned_error']  # [:length, :length]
         plddt = np_prediction_result['plddt']
         _scores[model_name]['plddt'] = plddt  # [:length]
         # scores['predicted_template_modeling_score'][model_index] = prediction_result['ptm']
         if model_runner.multimer_mode:
+            _scores[model_name]['predicted_aligned_error'] = \
+                np_prediction_result['predicted_aligned_error']  # [:length, :length]
             # _scores['predicted_interface_template_modeling_score'][model_index] = np_prediction_result['iptm']
             _scores[model_name]['predicted_interface_template_modeling_score'].append(np_prediction_result['iptm'])
             _scores[model_name]['predicted_template_modeling_score'].append(np_prediction_result['ptm'])
