@@ -792,7 +792,7 @@ class StructureDatabase(Database):
                     # Predict each
                     for idx, protein in enumerate(protein_data_to_loop_model):
                         # Model_source should be an oriented, asymmetric version of the protein file
-                        entity = structure.model.Entity.from_file(protein.model_source)
+                        entity = structure.model.Entity.from_file(protein.model_source, metadata=protein)
 
                         # Remove tags from reference_sequence
                         clean_reference_sequence = expression.remove_terminal_tags(entity.reference_sequence)
@@ -826,8 +826,7 @@ class StructureDatabase(Database):
                             structures_to_load = entity_structures.get('relaxed', [])
                         else:
                             structures_to_load = entity_structures.get('unrelaxed', [])
-                        model_kwargs = dict(name=entity.name,
-                                            entity_info={entity.name: entity.entity_info[entity.name]})
+                        model_kwargs = dict(name=protein.entity_id, metadata=protein)
                         folded_entities = {model_name: structure.model.Model.from_pdb_lines(structure_.splitlines(),
                                                                                             **model_kwargs)
                                            for model_name, structure_ in structures_to_load.items()}
