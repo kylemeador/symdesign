@@ -320,7 +320,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     """
     rotation_step1 = job.dock.rotation_step1
     rotation_step2 = job.dock.rotation_step2
-    # Todo set below as parameters?
+    # Todo 3 set below as parameters?
     measure_interface_during_dock = True
     low_quality_match_value = .2
     """The lower bounds on an acceptable match. Was upper bound of 2 using z-score"""
@@ -330,7 +330,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     """The distance to measure for interface atoms"""
     # Testing if this is too strict when strict overlaps are used
     cluster_transforms = not job.dock.contiguous_ghosts  # True
-    # Todo set above as parameters?
+    # Todo 3 set above as parameters?
     translation_epsilon = 1  # 1 seems to work well at recapitulating the results without it. More stringent -> 0.75
     high_quality_z_value = z_value_from_match_score(high_quality_match_value)
     low_quality_z_value = z_value_from_match_score(low_quality_match_value)
@@ -353,7 +353,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 entity.make_oligomer(symmetry=symmetry)
 
             if next(entity_count) > 2:
-                # Todo remove able to take more than 2 Entity
+                # Todo 2 remove able to take more than 2 Entity
                 raise NotImplementedError(f"Can't dock 2 Model instances with > 2 total Entity instances")
 
         # Make, then save a new model based on the symmetric version of each Entity in the Model
@@ -368,7 +368,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             _entity.metadata = entity.metadata
         models[idx] = _model
 
-    # Todo figure out for single component
+    # Todo 2 figure out for single component
     model1: Model
     model2: Model
     model1, model2 = models
@@ -506,7 +506,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             found_pairs.extend([(residue_idx1, residue_idx2), (residue_idx2, residue_idx1)])
 
         # Now, use asymmetric_contacting_residue_pairs indices to find the ghost_fragments that overlap for each residue
-        # Todo, there are multiple indexing steps for residue_idx1/2 which only occur once if below code was used
+        # Todo 3, there are multiple indexing steps for residue_idx1/2 which only occur once if below code was used
         #  found_pairs = []
         #  for residue_idx2 in range(residue_contact_query.size):
         #      residue_ghost_frag_type2 = ghost_frag_type_by_residue[residue_idx2]
@@ -653,7 +653,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # ij_matching_surf2_indices = \
     #     (ij_type_match_lookup_table * np.arange(ij_type_match_lookup_table.shape[1])[:, None])[
     #         ij_type_match_lookup_table]
-    # Todo apparently this should work to grab the flattened indices where there is overlap
+    # Tod0 apparently this works to grab the flattened indices where there is overlap
     #  row_indices, column_indices = np.indices(ij_type_match_lookup_table.shape)
     #  # row index vary with ghost, column surf
     #  # transpose to index the first axis (axis=0) along the 1D row indices
@@ -722,7 +722,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
         rotation_steps[idx - 1] = rotation_step
         degeneracy_matrices = getattr(sym_entry, f'degeneracy_matrices{idx}')
-        # Todo make reliant on scipy...Rotation
+        # Todo 3 make reliant on scipy...Rotation
         # rotation_matrix = \
         #     scipy.spatial.transform.Rotation.from_euler('Z', [step * rotation_step
         #                                                       for step in range(number_of_steps)],
@@ -969,7 +969,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         rotations_to_perform1 = rotation_matrices1.shape[0]
         rotations_to_perform2 = rotation_matrices2.shape[0]
 
-    # Todo multiprocessing
+    # Todo 2 multiprocessing
     def initial_euler_search():
         pass
 
@@ -983,7 +983,18 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # for rot_pair in rotation_pairs:
         #     results.append(initial_euler_search(rot_pair))
 
-    # Todo resolve. Below uses eulerints
+    # Todo 3 resolve which mechanisms to use. guide coords or eulerints
+    #  Below uses eulerints which work just fine.
+    #  Timings on these from improved protocols shows about similar times to euler_lookup and calculate_overlap
+    #  even with vastly different scales of the arrays. This ignores the fact that calculate_overlap uses a
+    #  number of indexing steps including making the ij_match array formation, indexing against the ghost and
+    #  surface arrays, the rmsd_reference construction
+    #  |
+    #  Given the lookups sort of irrelevance to the scoring (given very poor alignment), I could remove that
+    #  step if it interfered with differentiability
+    #  |
+    #  Majority of time is spent indexing the 6D euler overlap arrays which should be quite easy to speed up given
+    #  understanding of different computational efficiencies at this check
     # Get rotated oligomer1 ghost fragment, oligomer2 surface fragment guide coodinate pairs in the same Euler space
     for idx1 in range(rotations_to_perform1):
         rot1_count = idx1%number_of_rotations1 + 1
@@ -1015,9 +1026,9 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             # #                                                                                  1, 3),
             # #                                                eulerint_surf_component1.reshape(number_of_rotations1,
             # #                                                                                 1, 3))
-            # Todo resolve. eulerints
+            # Todo 3 resolve. eulerints
 
-    # Todo resolve. Below uses guide coords
+    # Todo 3 resolve. Below uses guide coords
     # # for idx1 in range(rotation_matrices):
     # # Iterating over more than 2 rotation matrix sets becomes hard to program dynamically owing to the permutations
     # # of the rotations and the application of the rotation/setting to each set of fragment information. It would be a
@@ -1057,13 +1068,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     #         # euler_matched_ghost_indices_rev2, euler_matched_surf_indices_rev1 = \
     #         #     euler_lookup.check_lookup_table(ghost_guide_coords_rot_and_set2,
     #         #                                     surf_guide_coords_rot_and_set1)
-    # Todo resolve. guide coords
-    #  Timings on these from improved protocola shows about similar times to euler_lookup and calculate_overlap
-    #  even with vastly different scales of the arrays. This ignores the fact that calculate_overlap uses a
-    #  number of indexing steps including making the ij_match array formation, indexing against the ghost and
-    #  surface arrays, the rmsd_reference construction
-    #  Given the lookups sort of irrelevance to the scoring (given very poor alignment), I could remove that
-    #  step if it interfered with differentiability
+    # Todo 3 resolve. guide coords
             logger.debug(f'\tEuler search took {time.time() - euler_start:8f}s for '
                          f'{total_ghost_surf_combinations} ghost/surf pairs')
 
@@ -1221,7 +1226,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                         f'match{"es" if number_passing_shifts != 1 else ""} found '
                         f'(took {time.time() - euler_start:8f}s)')
 
-            # # Todo remove debug
+            # # Tod0 debug
             # # tx_param_list = []
             # init_pass_ghost_numbers = init_ghost_residue_numbers1[possible_ghost_frag_indices]
             # init_pass_surf_numbers = init_surf_residue_numbers2[possible_surf_frag_indices]
@@ -1250,13 +1255,12 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             #                           init_surf_guide_coords2[euler_matched_surf_indices2[possible_overlaps]],
             #                           [rot_mat2], stacked_internal_tx_vectors2,
             #                           reference_rmsds)
-            # # Todo remove debug
+            # # Tod0 debug
 
-    ##############
-    # Here represents an important break in the execution of this code.
-    # Below create vectors for cluster transformations
-    # Then we perform asu clash testing, scoring, and finally symmetric clash testing
-    ##############
+    # -----------------------------------------------------------------------------------------------------------------
+    # Below creates vectors for cluster transformations
+    # Then asu clash testing, scoring, and symmetric clash testing are performed
+    # -----------------------------------------------------------------------------------------------------------------
     if sym_entry.unit_cell:
         # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
         full_optimal_ext_dof_shifts = np.concatenate(full_optimal_ext_dof_shifts, axis=0)
@@ -1291,14 +1295,14 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # Add the translation to Z (axis=1)
         stacked_internal_tx_vectors1[:, -1] = full_int_tx1
         full_int_tx1 = stacked_internal_tx_vectors1
-        del stacked_internal_tx_vectors1
+        # del stacked_internal_tx_vectors1
 
     if sym_entry.is_internal_tx2:
         stacked_internal_tx_vectors2 = np.zeros((starting_transforms, 3), dtype=float)
         # Add the translation to Z (axis=1)
         stacked_internal_tx_vectors2[:, -1] = full_int_tx2
         full_int_tx2 = stacked_internal_tx_vectors2
-        del stacked_internal_tx_vectors2
+        # del stacked_internal_tx_vectors2
 
     # full_int_tx1 = np.concatenate(full_int_tx1, axis=0)
     # full_int_tx2 = np.concatenate(full_int_tx2, axis=0)
@@ -1370,7 +1374,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # Find the clustered transformations to expedite search of ASU clashing
     if cluster_transforms:
         clustering_start = time.time()
-        # Todo
+        # Todo 3
         #  Can I use cluster.cluster_transformation_pairs distance graph to provide feedback on other aspects of the
         #  dock? Seems that I could use the distances to expedite clashing checks, especially for more time consuming
         #  expansion checks such as the full material...
@@ -1384,7 +1388,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         #     find_cluster_representatives(transform_neighbor_tree, transform_cluster)
         del transform_neighbor_tree
         # representative_labels = cluster_labels[cluster_representative_indices]
-        # Todo?
+        # Todo 3
         #  _, cluster_labels = find_cluster_representatives(transform_neighbor_tree, transform_cluster)
         cluster_labels = transform_cluster.labels_
         # logger.debug(f'Shape of cluster_labels: {cluster_labels.shape}')
@@ -1463,7 +1467,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # actual_batch_length = batch_slice.stop - batch_slice.start
         actual_batch_length = _rotation.shape[0]
         # Transform the coordinates
-        # Todo for performing broadcasting of this operation
+        # Todo 3 for performing broadcasting of this operation
         #  s_broad = np.matmul(tiled_coords2[None, :, None, :], _full_rotation2[:, None, :, :])
         #  produces a shape of (_full_rotation2.shape[0], tiled_coords2.shape[0], 1, 3)
         #  inverse_transformed_model2_tiled_coords = transform_coordinate_sets(transform_coordinate_sets()).squeeze()
@@ -1561,7 +1565,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     logger.info(f'\tTransformation of viable oligomer 2 CB atoms and surface fragments took '
                 f'{time.time() - int_cb_and_frags_start:8f}s')
 
-    # Todo if using individual Poses
+    # Todo 3 if using individual Poses
     #  def clone_pose(idx: int) -> Pose:
     #      # Create a copy of the base Pose
     #      new_pose = copy.copy(pose)
@@ -1572,7 +1576,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     #      new_pose.coords = np.concatenate(new_coords)
     #      return new_pose
 
-    # Use below instead of this until can TODO vectorize asu_interface_residue_processing
+    # Use below instead of this until can Todo 3 vectorize asu_interface_residue_processing
     # asu_interface_residues = \
     #     np.array([oligomer1_backbone_cb_tree.query_radius(inverse_transformed_model2_tiled_cb_coords[idx],
     #                                                       cb_distance)
@@ -1634,7 +1638,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # Since *_residue_numbers1/2 are the same index as the complete fragment arrays, these interface indices are the
         # same index as the complete guide coords and rmsds as well
         # Both residue numbers are one-indexed vv
-        # Todo make ghost_residue_indices1 unique -> unique_ghost_residue_numbers1
+        # Todo 3 make ghost_residue_indices1 unique -> unique_ghost_residue_numbers1
         #  index selected numbers against per_residue_ghost_indices 2d (number surface frag residues,
         ghost_indices_in_interface1 = \
             np.flatnonzero(np.isin(ghost_residue_indices1, interface_residue_indices1))
@@ -1658,7 +1662,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         number_int_ghost = ghost_indices_in_interface1.shape[0]
         # maximum_number_of_pairs = number_int_ghost*number_int_surf
         # if maximum_number_of_pairs < euler_lookup_size_threshold:
-        # Todo there may be memory leak by Pose objects sharing memory with persistent objects
+        # Tod0 at one point, there might have been a memory leak by Pose objects sharing memory with persistent objects
         #  that prevent garbage collection and stay attached to the run
         # Skipping EulerLookup as it has issues with precision
         index_ij_pairs_start_time = time.time()
@@ -2008,7 +2012,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                                                 rotation_range=rotation_steps,
                                                 translation_range=translation_perturb_steps)
         # Extract perturbation parameters and set the original transformation parameters to a new variable
-        # if sym_entry.is_internal_rot1:
+        # if sym_entry.is_internal_rot1:  # Todo 2
         nonlocal number_of_transforms, full_rotation1, full_rotation2
         nonlocal number_perturbations_applied
         original_rotation1 = full_rotation1
@@ -2018,7 +2022,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # logger.debug(f'rotation_perturbations1.shape: {rotation_perturbations1.shape}')
         # logger.debug(f'rotation_perturbations1[:5]: {rotation_perturbations1[:5]}')
 
-        # if sym_entry.is_internal_rot2:
+        # if sym_entry.is_internal_rot2:  # Todo 2
         original_rotation2 = full_rotation2
         rotation_perturbations2 = perturbations['rotation2']
         # logger.debug(f'rotation_perturbations2.shape: {rotation_perturbations2.shape}')
@@ -2182,7 +2186,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         #     frag_match_info = get_matching_fragment_pairs_info(fragment_pairs)
         #     # pose.fragment_queries = {(model1, model2): frag_match_info}
         #     fragment_metrics = pose.fragment_db.calculate_match_metrics(frag_match_info)
-        #     # Todo when able to take more than 2 Entity
+        #     # Tod0 2 when able to take more than 2 Entity
         #     #  The entity_tuple must contain the same Entity instances as in the Pose!
         #     # entity_tuple = models_tuple
         #     # These two pose attributes must be set
@@ -3606,7 +3610,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         #                 # Todo NEED TO MAKE SymmetricModel copy .entities and .chains correctly!
         #             trajectory_models.append_model(new_pose)
         #
-        #     # Todo group by input model... not entities
+        #     # Todo 3 group by input model... not entities
         #     # Write Model1, Model2
         #     if job.write_oligomers:
         #         for entity in pose.entities:

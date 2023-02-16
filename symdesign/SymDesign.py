@@ -891,9 +891,20 @@ def main():
             # grouped_structures_ids = defaultdict(list)
             grouped_structures_ids: list[tuple[str, list]] = []
             possibly_new_uniprot_to_prot_metadata = {}
-            # Todo expand the definition of SymEntry/Entity to include
+            # Todo 2 expand the definition of SymEntry/Entity to include
             #  specification of T:{T:{C3}{C3}}{C1}
             #  where an Entity is composed of multiple Entity (Chain) instances
+            #  This helps with the grouping by input model... not entities such as in Nanohedra pose.output_pose()
+            #  # Write Model1, Model2
+            #  if job.write_oligomers:
+            #      for entity in pose.entities:
+            #          entity.write(oligomer=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))
+            #  Which should be
+            #      for model in pose.entities:
+            #          model.write(assembly=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))
+            #  Essentially this would make oligomer/assembly keywords the same
+            #  and allow a multi-entity Model/Pose as an Entity in a Pose... Recursion baby
+            #
             # symmetry_map = job.sym_entry.groups if job.sym_entry else repeat(None)
             for structures, symmetry in zip(grouped_structures, job.sym_entry.groups):  # symmetry_map):
                 if not structures:  # Useful in a case where symmetry groups are the same or group is None
@@ -1261,6 +1272,7 @@ def main():
             # Indicate for the ProteinMetadata the characteristics of the Structure in the database
             for entity in all_entities:
                 protein_metadata = all_uniprot_id_to_prot_data[entity.uniprot_ids]
+                # Importantly, we add oriented attribute to aid in any future processing
                 protein_metadata.model_source = entity.file_path
 
             # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
