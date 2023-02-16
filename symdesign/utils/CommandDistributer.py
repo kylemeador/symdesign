@@ -162,7 +162,7 @@ def create_file(file: AnyStr = None):
             dummy = True
 
 
-def run(cmd: str, log_file_name: str, program: str = None, srun: str = None) -> bool:  #
+def run(cmd: list[str] | AnyStr, log_file_name: str, program: str = None, srun: str = None) -> bool:
     """Executes specified command and appends command results to log file
 
     Args:
