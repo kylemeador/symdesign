@@ -4189,7 +4189,7 @@ class PoseProtocol(PoseData):
                 for idx, model_pae in enumerate(metrics_['predicted_aligned_error']):
                     pae_container[idx, :] = model_pae.mean(axis=0)
                 # Next, average pae over each model
-                array_scores['predicted_aligned_error']: pae_container.mean(axis=0)[:pose_length],
+                array_scores['predicted_aligned_error']: pae_container.mean(axis=0)[:pose_length]
 
             protocol_logger.debug(f'Found array_scores with contents:\n{array_scores}')
             # residue_scores.append(array_scores)
