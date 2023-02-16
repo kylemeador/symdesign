@@ -2226,9 +2226,11 @@ class PoseProtocol(PoseData):
             data.protocols.append(sql.DesignProtocol(design_id=data.id,
                                                      protocol=self.protocol,
                                                      file=data.structure_path))
-            # This corrects the oligomeric specification for each Entity
-            pose.make_oligomers()
-            # structure.make_oligomers(transformations=structure.entity_transformations)
+            # # This corrects the oligomeric specification for each Entity
+            # # by using the inherent _assign_pose_transformation()
+            # pose.make_oligomers()
+            # This would explictly pass the transformation parameters which are correct for the PoseJob
+            pose.make_oligomers(transformations=self.transformations)
 
         residues_df = self.analyze_residue_metrics_per_design(asu_design_structures)
         designs_df = self.analyze_design_metrics_per_design(residues_df, asu_design_structures)
