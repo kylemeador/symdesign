@@ -780,15 +780,16 @@ class SequenceProfile(ABC):
             self.msa.sequence_indices (np.ndarray)
         """
         sequence_indices = self.msa.sequence_indices
-        # generate the disordered indices which are positions in reference that are missing in structure
-        # disorder_indices = [index - 1 for index in self.disorder]
+        # Get all non-zero/False, numerical indices for the query
+        msa_query_indices = np.flatnonzero(self.msa.query_indices)
         if len(self.reference_sequence) != self.msa.query_length:
             self.log.info(f'The {self.name} .reference_sequence length, {len(self.reference_sequence)} != '
                           f'{self.msa.query_length}, the MultipleSequenceAlignment query length')
             query_indices, reference_indices = get_equivalent_indices(self.msa.query, self.reference_sequence)
             sequence_indices = np.zeros_like(sequence_indices)
             # sequence_indices = sequence_indices[:, query_indices]
-            sequence_indices[:, query_indices] = True
+            aligned_query_indices = msa_query_indices[query_indices]
+            sequence_indices[:, aligned_query_indices] = True
             self.log.critical(f'For MSA alignment to the reference sequence, found the corresponding MSA query indices:'
                               f' {query_indices}')
             self.log.critical(f'MSA aligned sequence_indices: {sequence_indices}')
@@ -799,8 +800,8 @@ class SequenceProfile(ABC):
         disordered_indices = [index - zero_offset for index in self.disorder]
         self.log.debug(f'Removing disordered indices (reference_sequence indices) from the MultipleSequenceAlignment: '
                        f'{disordered_indices}')  # f'{",".join(map(str, disordered_indices))}')
-        # Get all non-zero/False, numerical indices. Then, select the disordered indices from these indices
-        msa_disordered_indices = np.flatnonzero(self.msa.query_indices)[disordered_indices]
+        # Select the disordered indices from these indices
+        msa_disordered_indices = msa_query_indices[disordered_indices]
         # These selected indices are where the msa is populated, but the structure sequence is missing
         sequence_indices[:, msa_disordered_indices] = False
         self.msa.sequence_indices = sequence_indices
