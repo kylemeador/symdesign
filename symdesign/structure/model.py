@@ -1645,6 +1645,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         # Set the new properties
         self.number_of_symmetry_mates = number_of_subunits
+        self._chains = [self]
         self._set_chain_ids()
 
     def get_transformed_mate(self, rotation: list[list[float]] | np.ndarray = None,
