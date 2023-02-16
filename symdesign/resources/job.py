@@ -967,9 +967,6 @@ class JobResources:
                                    f'{guide.hhblits_setup_instructions}')
             putils.make_path(self.profiles)
             putils.make_path(self.sbatch_scripts)
-            # Prepare files for running hhblits commands
-            instructions = 'Please follow the instructions below to generate sequence profiles for input proteins'
-            info_messages.append(instructions)
             # hhblits_cmds, reformat_msa_cmds = zip(*profile_cmds)
             # hhblits_cmds, _ = zip(*hhblits_cmds)
             if not os.access(putils.reformat_msa_exe_path, os.X_OK):
@@ -981,12 +978,19 @@ class JobResources:
                 reformat_msa_cmd2 = [putils.reformat_msa_exe_path, 'a3m', 'fas',
                                      f"'{os.path.join(self.profiles, '*.a3m')}'", '.fasta', '-M', 'first', '-r']
             hhblits_log_file = os.path.join(self.profiles, 'generate_profiles.log')
+            # Run hhblits commands
             if self.can_process_evolutionary_profiles():
+                logger.info(f'Writing {putils.hhblits} results to file: {hhblits_log_file}')
                 # Run commands here
                 with open(hhblits_log_file, 'w') as f:
                     for cmd in hhblits_cmds:
                         p = subprocess.Popen(cmd, stdout=f, stderr=f)
                         p.communicate()
+                    # Format .a3m multiple sequence alignments to .sto/.fasta
+                    p = subprocess.Popen(reformat_msa_cmd1, stdout=f, stderr=f)
+                    p.communicate()
+                    p = subprocess.Popen(reformat_msa_cmd2, stdout=f, stderr=f)
+                    p.communicate()
                 # Todo this would be more preferable
                 # for cmd in hhblits_cmds:
                 #     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -994,6 +998,8 @@ class JobResources:
                 #     if stdout or stderr:
                 #         logger.info()
             else:  # Convert each command to a string and write to distribute
+                instructions = 'Please follow the instructions below to generate sequence profiles for input proteins'
+                info_messages.append(instructions)
                 hhblits_cmds = [subprocess.list2cmdline(cmd) for cmd in hhblits_cmds]
                 hhblits_cmd_file = utils.write_commands(hhblits_cmds, name=f'{utils.starttime}-{putils.hhblits}',
                                                         out_path=self.profiles)
