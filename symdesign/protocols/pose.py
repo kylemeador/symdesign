@@ -125,9 +125,8 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
                     measure_alignment = False
                     warn = True
                 else:
-                    entity.msa = msa
-                    # msa_file = api_db.alignments.retrieve_file(name=entity.name)
                     entity.msa_file = api_db.alignments.retrieve_file(name=uniprot_id)
+                    entity.msa = msa
         except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
             # raise error
             protocol_logger.info(f'{entity.name} {entity.__class__.__name__}.reference_sequence and provided alignment '

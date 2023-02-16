@@ -413,6 +413,7 @@ class SequenceProfile(ABC):
     _fragment_profile: list[list[set[dict]]] | list[ProfileEntry] | None
     _hydrophobic_collapse: np.ndarray
     _msa: MultipleSequenceAlignment | None
+    _sequence_array: np.ndarray
     _sequence_numeric: np.ndarray
     a3m_file: AnyStr | None
     alpha: list[float]
@@ -484,7 +485,7 @@ class SequenceProfile(ABC):
             self._msa = copy(msa)
             self.fit_msa_to_structure()
         else:
-            self.log.warning(f"The passed msa (type: {type(msa).__name__}) isn't of the required type "
+            self.log.warning(f"The passed msa (type: {msa.__class__.__name__}) isn't of the required type "
                              f"{MultipleSequenceAlignment.__name__}")
 
     @property
@@ -780,7 +781,7 @@ class SequenceProfile(ABC):
         # disorder_indices = [index - 1 for index in self.disorder]
         if len(self.reference_sequence) != self.msa.query_length:
             raise ValueError(f'The {self.name} reference_sequence ({len(self.reference_sequence)}) and '
-                             f'MultipleSequenceAlignment query ({self.msa.query_length}) should be the same length!')
+                             f'MultipleSequenceAlignment query ({self.msa.query_length}) should be the same length')
         sequence_indices = self.msa.sequence_indices
         disordered_indices = [index - zero_offset for index in self.disorder]
         self.log.debug(f'Removing disordered indices (reference_sequence indices) from the MultipleSequenceAlignment: '

@@ -1332,7 +1332,9 @@ class MultipleSequenceAlignment:
             frequencies - {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
             observations - {1: 210, 2:211, ...}}
         """
-        if alignment is not None:
+        if alignment is None:
+            raise NotImplementedError(f"Can't create a {MultipleSequenceAlignment.__name__} with alignment=None")
+        else:
             self.alignment = alignment
             self.number_of_sequences = len(alignment)
             self.length = alignment.get_alignment_length()
@@ -1440,9 +1442,9 @@ class MultipleSequenceAlignment:
         Returns:
             The MultipleSequenceAlignment object for the provided sequences
         """
-        return cls(alignment=MultipleSeqAlignment([SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'},
-                                                             id=name)
-                                                   for name, sequence in named_sequences.items()]), **kwargs)
+        return cls(alignment=MultipleSeqAlignment(
+            [SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
+             for name, sequence in named_sequences.items()]), **kwargs)
 
     @classmethod
     def from_seq_records(cls, seq_records: Iterable[SeqRecord], **kwargs):
