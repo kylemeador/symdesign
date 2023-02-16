@@ -265,7 +265,7 @@ def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = d
         local: Whether to run a local alignment. Only use for generally similar sequences!
         top_alignment: Only include the highest scoring alignment
     Returns:
-        The resulting alignment(s). Will be Alignment object if top_alignment is True else PairwiseAlignments
+        The resulting alignment(s). Will be an Alignment object if top_alignment is True else PairwiseAlignments object
     """
     matrix_ = _substitution_matrices_cache.get(matrix)
     if matrix_ is None:
@@ -1036,8 +1036,11 @@ def get_equivalent_indices(target: Sequence = None, query: Sequence = None, alig
         query: The second sequence to compare
         alignment: An existing Bio.Align.Alignment object
     Returns:
-        The pair of sequence indices were the sequences align.
-            Ex: sequence1 = 'ABCDEF', sequence2 = 'ABDEF', returns [0, 1, 3, 4, 5], [0, 1, 2, 3, 4]
+        The pair of indices where the sequences align.
+            Ex: sequence1 = A B C D E F ...
+                sequence2 = A B - D E F ...
+            returns        [0,1,  3,4,5, ...],
+                           [0,1,  2,3,4, ...]
     """
     if alignment is None:
         if target is not None and query is not None:
@@ -1049,7 +1052,7 @@ def get_equivalent_indices(target: Sequence = None, query: Sequence = None, alig
         else:
             raise ValueError(f"Can't {get_equivalent_indices.__name__} without passing either 'alignment' or "
                              f"'target' and 'query'")
-    else:
+    else:  # Todo this may not be ever useful since the alignment needs to go into the generate_mutations()
         raise NotImplementedError(f"Set {get_equivalent_indices.__name__} up with an Alignment object from Bio.Align")
 
     target_mutations = ''.join([mutation['to'] for mutation in mutations.values()])
@@ -1488,26 +1491,30 @@ class MultipleSequenceAlignment:
 
     @property
     def query_indices(self) -> np.ndarray:
-        """Returns the query as a boolean array (1, length) where gaps ("-") are False"""
+        """View the query as a boolean array (1, sequence_length) where gap positions, "-", are False"""
         try:
             return self._sequence_indices[0]
         except AttributeError:
             self._sequence_indices = self.array != b'-'
-            # self._sequence_indices = np.isin(self.array, b'-', invert=True)
             return self._sequence_indices[0]
 
     @property
     def sequence_indices(self) -> np.ndarray:
-        """Returns the alignment as a boolean array (number_of_sequences, length) where gaps ("-") are False"""
+        """View the alignment as a boolean array (number_of_sequences, sequence_length) where gap positions, "-", are
+        False
+        """
         try:
             return self._sequence_indices
         except AttributeError:
             self._sequence_indices = self.array != b'-'
-            # self._sequence_indices = np.isin(self.array, b'-', invert=True)
             return self._sequence_indices
 
     @sequence_indices.setter
     def sequence_indices(self, sequence_indices: np.ndarray):
+        """Set the indices that should be included in the sequence alignment"""
+        if sequence_indices.shape != (self.number_of_sequences, self.length):
+            raise ValueError(f"The shape of the sequence_indices {sequence_indices.shape}, isn't equal to the alignment"
+                             f" {(self.number_of_sequences, self.length)}")
         self._sequence_indices = sequence_indices
 
     @property
@@ -1555,6 +1562,7 @@ class MultipleSequenceAlignment:
 
     @property
     def gaps_per_postion(self) -> np.ndarray:
+        """This represents the number of gaped letters at each position in the sequence"""
         try:
             return self._gaps_per_position
         except AttributeError:

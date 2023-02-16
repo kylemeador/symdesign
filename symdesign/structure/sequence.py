@@ -25,7 +25,9 @@ from symdesign import metrics, utils as sdutils
 from symdesign.sequence import alignment_programs_literal, alignment_programs, hhblits, get_lod, \
     MultipleSequenceAlignment, mutation_dictionary, numerical_profile, numerical_translation_alph1_bytes, \
     numerical_translation_alph1_gapped_bytes, parse_hhblits_pssm, ProfileDict, ProfileEntry, protein_letters_alph1, \
-    protein_letters_alph3, protein_letters_3to1, profile_types, write_sequence_to_fasta, write_sequences
+    protein_letters_alph3, protein_letters_3to1, profile_types, write_sequence_to_fasta, write_sequences, \
+    get_equivalent_indices
+
 # import dependencies.bmdca as bmdca
 putils = sdutils.path
 
@@ -777,16 +779,25 @@ class SequenceProfile(ABC):
         Sets:
             self.msa.sequence_indices (np.ndarray)
         """
+        sequence_indices = self.msa.sequence_indices
         # generate the disordered indices which are positions in reference that are missing in structure
         # disorder_indices = [index - 1 for index in self.disorder]
         if len(self.reference_sequence) != self.msa.query_length:
-            raise ValueError(f'The {self.name} reference_sequence ({len(self.reference_sequence)}) and '
-                             f'MultipleSequenceAlignment query ({self.msa.query_length}) should be the same length')
-        sequence_indices = self.msa.sequence_indices
+            self.log.info(f'The {self.name} .reference_sequence length, {len(self.reference_sequence)} != '
+                          f'{self.msa.query_length}, the MultipleSequenceAlignment query length')
+            query_indices, reference_indices = get_equivalent_indices(self.msa.query, self.reference_sequence)
+            sequence_indices = sequence_indices[query_indices]
+            self.log.critical(f'For MSA alignment to the reference sequence, found the corresponding MSA query indices:'
+                              f' {query_indices}')
+            self.log.critical(f'MSA aligned sequence_indices: {sequence_indices}')
+            # alignment = generate_alignment(self.reference_sequence, self.msa.query)
+            # reference_sequence, msa_sequence = alignment
+
+        # Generate the disordered indices which are positions in reference that are missing in structure
         disordered_indices = [index - zero_offset for index in self.disorder]
         self.log.debug(f'Removing disordered indices (reference_sequence indices) from the MultipleSequenceAlignment: '
                        f'{disordered_indices}')  # f'{",".join(map(str, disordered_indices))}')
-        # Get all non-zero indices. Then, remove the disordered indices from these indices
+        # Get all non-zero/False, numerical indices. Then, select the disordered indices from these indices
         msa_disordered_indices = np.flatnonzero(self.msa.query_indices)[disordered_indices]
         # These selected indices are where the msa is populated, but the structure sequence is missing
         sequence_indices[:, msa_disordered_indices] = False
