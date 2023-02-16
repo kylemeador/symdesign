@@ -1233,11 +1233,14 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
         #  }
         logger.critical(f'Found the prediction_result keys: {list(np_prediction_result.keys())}')
         # monomer
-        #
+        # ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_lddt', 'structure_module', 'plddt',
+        #  'ranking_confidence']
         # multimer
         # ['distogram', 'experimentally_resolved', 'masked_msa', 'num_recycles', 'predicted_aligned_error',
         #  'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs',
         #  'max_predicted_aligned_error', 'ptm', 'iptm', 'ranking_confidence']
+        # Where ['predicted_lddt'] has the key ['logits'] which probably ?contains the raw logit values produced by
+        # model heads? for the binned distogram rankings?
         # logger.critical(f'Found the prediction_result keys: shapes: '
         #                 f'{dict((type_, res.shape) if isinstance(res, np.ndarray)
         #                 for type_, res in np_prediction_result.items())}')
@@ -1254,6 +1257,11 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
             # _scores['predicted_interface_template_modeling_score'][model_index] = np_prediction_result['iptm']
             _scores[model_name]['predicted_interface_template_modeling_score'].append(np_prediction_result['iptm'])
             _scores[model_name]['predicted_template_modeling_score'].append(np_prediction_result['ptm'])
+        elif 'ptm' in model_name:
+            _scores[model_name]['predicted_aligned_error'] = \
+                np_prediction_result['predicted_aligned_error']  # [:length, :length]
+            _scores[model_name]['predicted_template_modeling_score'].append(np_prediction_result['ptm'])
+
         ranking_confidences[model_name] = np_prediction_result['ranking_confidence']
 
         # Add the predicted LDDT in the b-factor column.

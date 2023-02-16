@@ -2251,10 +2251,10 @@ class PoseProtocol(PoseData):
         # Commit the newly acquired metrics
         self.job.current_session.commit()
         """Design scores (entity_/asu_design_scores) contain the following features
-        {'predicted_aligned_error': (n_residues,)
+        {'predicted_aligned_error': (n_residues,)  # multimer/monomer_ptm
          'plddt': (n_residues,)
-         'predicted_interface_template_modeling_score': float
-         'predicted_template_modeling_score': float
+         'predicted_interface_template_modeling_score': float  # multimer
+         'predicted_template_modeling_score': float  # multimer/monomer_ptm
          'rmsd_prediction_ensemble: (number_of_models)}
         """
         # Prepare the features to feed to the model
@@ -2339,10 +2339,10 @@ class PoseProtocol(PoseData):
                     entity_scores_by_design[str(design)].append({'rmsd_prediction_ensemble': rmsds, **combined_scores})
 
                 """Each design in entity_scores_by_design contains the following features
-                {'predicted_aligned_error': (n_residues, n_residues)
+                {'predicted_aligned_error': (n_residues, n_residues)  # multimer/monomer_ptm
                  'plddt': (n_residues,)
-                 'predicted_interface_template_modeling_score': float
-                 'predicted_template_modeling_score': float
+                 'predicted_interface_template_modeling_score': float  # multimer
+                 'predicted_template_modeling_score': float  # multimer/monomer_ptm
                  'rmsd_prediction_ensemble: (number_of_models)}
                 """
                 sequence_length = entity_slice.stop - entity_slice.start
@@ -4153,11 +4153,16 @@ class PoseProtocol(PoseData):
 
         score_types_mean = ['rmsd_prediction_ensemble']
         if 'multimer' in model_type:
+            measure_pae = True
             score_types_mean += ['predicted_interface_template_modeling_score',
                                  'predicted_template_modeling_score']
         elif 'ptm' in model_type:
+            measure_pae = True
             score_types_mean += ['predicted_template_modeling_score']
+        else:
+            measure_pae = False
 
+        # Todo KeyError, [0] was missing
         representative_plddt_per_model = scores[0]['plddt']  # This shouldn't fail as we always collect
         number_models = len(representative_plddt_per_model)
         number_of_residues = len(representative_plddt_per_model[0])
@@ -4169,7 +4174,7 @@ class PoseProtocol(PoseData):
             # rmsd_metrics = describe_metrics(rmsds)
             scalar_scores = {score_type: sum(metrics_[score_type]) / number_models
                              for score_type in score_types_mean}
-            if interface_indices:
+            if interface_indices and measure_pae:
                 # Index the resulting pae to get the error at the interface residues in particular
                 indices1, indices2 = interface_indices
                 interface_pae_means = [model_pae[indices1][:, indices2].mean()
@@ -4177,15 +4182,15 @@ class PoseProtocol(PoseData):
                 scalar_scores['predicted_aligned_error_interface'] = sum(interface_pae_means) / number_models
             protocol_logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
 
+            array_scores = {'plddt': metrics_['plddt'][:pose_length]}
             # Process 'predicted_aligned_error'. Input is 2D, so we average over each residue first then add to
             # the container and take the average over each model
-            for idx, model_pae in enumerate(metrics_['predicted_aligned_error']):
-                pae_container[idx, :] = model_pae.mean(axis=0)
-            # Next, average pae over each model
-            array_scores = {
-                'predicted_aligned_error': pae_container.mean(axis=0)[:pose_length],
-                'plddt': metrics_['plddt'][:pose_length]
-            }
+            if measure_pae:
+                for idx, model_pae in enumerate(metrics_['predicted_aligned_error']):
+                    pae_container[idx, :] = model_pae.mean(axis=0)
+                # Next, average pae over each model
+                array_scores['predicted_aligned_error']: pae_container.mean(axis=0)[:pose_length],
+
             protocol_logger.debug(f'Found array_scores with contents:\n{array_scores}')
             # residue_scores.append(array_scores)
             # design_scores.append(scalar_scores)
