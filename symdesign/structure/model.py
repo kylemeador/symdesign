@@ -1882,6 +1882,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # sequence_deletion_indices = sequence_or_query_indices * gaped_query_indices
             sequence_deletion_indices = sequence_indices * gaped_query_indices
             # Perform a cumulative sum of the "deletion" indices,
+            self.log.critical(f"Created sequence_deletion_indices_sum: {np.nonzero(sequence_deletion_indices[:2]).tolist()}")
             sequence_deletion_indices_sum = np.cumsum(sequence_deletion_indices, axis=1)
             self.log.critical(f"Created sequence_deletion_indices_sum: {sequence_deletion_indices_sum[:2, :100].tolist()}")
             # then remove any summation that is in gaped query
@@ -1891,7 +1892,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             self.log.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
             deletion_matrix[:, 1:] = deletion_matrix[:, 1:] - deletion_matrix[:, :-1]
             deletion_matrix = deletion_matrix[:, query_indices]
-            self.log.critical(f"Created subtracted, indexed, deletion_matrix: {deletion_matrix[:2].tolist()}")
+            self.log.critical(f"Created subtracted, indexed, deletion_matrix: {deletion_matrix[-2:].tolist()}")
 
             # msa_gap_indices = ~sequence_indices
             # # iterator_np = np.cumsum(msa_gap_indices, axis=1) * msa_gap_indices
@@ -1915,13 +1916,13 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                             deletion_vec.append(deletion_count)
                             deletion_count = 0
                 _deletion_matrix.append(deletion_vec)
-            self.log.critical(f"Created AF _deletion_matrix: {_deletion_matrix[:2]}")
+            self.log.critical(f"Created AF _deletion_matrix: {_deletion_matrix[-2:]}")
             # End AF implementation
             num_alignments = self.msa.number_of_sequences
             species_ids = self.msa.sequence_identifiers
             # Set the msa.alphabet_type to ensure the numerical_alignment is embedded correctly
             self.msa.alphabet_type = protein_letters_alph1_unknown_gapped
-            msa_numeric = self.msa.numerical_alignment
+            msa_numeric = self.msa.numerical_alignment[:, query_indices]
         elif os.path.exists(self.msa_file):
             with open(self.msa_file, 'r') as f:
                 uniclust_lines = f.read()
