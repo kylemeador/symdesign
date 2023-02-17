@@ -610,9 +610,9 @@ class StructureBase(SymmetryMixin, ABC):
     state_attributes: set[str] = set()
 
     def __init__(self, parent: StructureBase = None, log: Log | Logger | bool = True, coords: np.ndarray | Coords = None
-                 , biological_assembly=None, cryst_record=None, entity_info=None, file_path=None, header=None,
-                 multimodel=None, resolution=None, reference_sequence=None, sequence=None, entities=None,
-                 pose_format=None, query_by_sequence=True, entity_names=None, rename_chains=None, **kwargs):
+                 , biological_assembly=None, cryst_record=None, entities=None, entity_info=None, entity_names=None,
+                 file_path=None, header=None, metadata=None, multimodel=None, pose_format=None, query_by_sequence=True,
+                 rename_chains=None,resolution=None, reference_sequence=None, sequence=None, **kwargs):
         self._copier = False
         if parent:  # Initialize StructureBase from parent
             self._parent = parent
@@ -645,8 +645,9 @@ class StructureBase(SymmetryMixin, ABC):
         try:
             super().__init__(**kwargs)
         except TypeError:
-            raise TypeError("The argument(s) passed to the StructureBase object weren't recognized and aren't "
-                            f'accepted by the object class: {", ".join(kwargs.keys())}')
+            raise TypeError(
+                "The argument(s) passed to the StructureBase object weren't recognized and aren't "
+                f'accepted by the object class: {", ".join(kwargs.keys())}')
 
     @property
     def parent(self) -> StructureBase | None:
