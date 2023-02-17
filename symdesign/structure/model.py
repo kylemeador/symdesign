@@ -33,8 +33,9 @@ from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, query, sql
 from symdesign.sequence import default_substitution_matrix_array, default_substitution_matrix_translation_table, \
     generate_alignment, generate_mutations, get_equivalent_indices, numeric_to_sequence, \
-    numerical_translation_alph1_unknown_gapped_bytes, numerical_translation_alph3_unknown_gapped_bytes,\
-    protein_letters_alph1, protein_letters_3to1_extended, protein_letters_1to3_extended, profile_types
+    numerical_translation_alph1_unknown_gapped_bytes, numerical_translation_alph3_unknown_gapped_bytes, \
+    protein_letters_alph1, protein_letters_3to1_extended, protein_letters_1to3_extended, profile_types, \
+    protein_letters_alph1_unknown_gapped
 import symdesign.third_party.alphafold.alphafold.data.feature_processing as af_feature_processing
 import symdesign.third_party.alphafold.alphafold.data.parsers as af_data_parsers
 import symdesign.third_party.alphafold.alphafold.data.msa_pairing as af_msa_pairing
@@ -1858,24 +1859,48 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             valid_feats = af_msa_pairing.MSA_FEATURES + ('msa_species_identifiers',)
             return {f'{k}_all_seq': v for k, v in msa_feats.items() if k in valid_feats}
 
-        # When no msa_used, construct our own
-        if no_msa or not self.msa_file:
+        # Multiple sequence alignment processing
+        msas = tuple
+        if no_msa or self.msa is None or self.msa_file is None:
+            # When no msa_used, construct our own
             num_alignments = 1
+            deletion_matrix = np.zeros((num_alignments, number_of_residues), dtype=np.int32)
             species_ids = ['']  # Must include an empty '' as the first "reference" sequence
-            msa_features = {
-                'deletion_matrix_int': np.zeros((num_alignments, number_of_residues), dtype=np.int32),
-                # When not single sequence, GET THIS FROM THE MATRIX PROBABLY USING CODE IN COLLAPSE PROFILE cumcount...
-                # 'msa': sequences_to_numeric([sequence], translation_table=HHBLITS_AA_TO_ID).astype(dtype=np.int32),
-                'msa': sequences_to_numeric([sequence],
-                                            translation_table=numerical_translation_alph1_unknown_gapped_bytes)
-                .astype(dtype=np.int32),
-                'num_alignments': np.full(number_of_residues, num_alignments, dtype=np.int32),
-                # Fill by the number of residues how many sequences are in the MSA
-                'msa_species_identifiers': np.array([id_.encode('utf-8') for id_ in species_ids], dtype=np.object_)
-            }
-            if heteromer:
-                # Make a deepcopy just incase this screws up something
-                msa_features.update(make_msa_features_multimeric(deepcopy(msa_features)))
+            msa_numeric = sequences_to_numeric([sequence], translation_table=
+            numerical_translation_alph1_unknown_gapped_bytes).astype(dtype=np.int32)
+        elif self.msa:
+            # Create the deletion_matrix_int by using the gaped sequence_indices (inverse of sequence_indices)
+            # and taking the cumulative sum of them. Finally after selecting for only the sequence_indices, perform
+            # a subtraction of position idx+1 by position idx
+            sequence_indices = self.msa.sequence_indices
+            msa_gap_indices = ~sequence_indices
+            # iterator_np = np.cumsum(msa_gap_indices, axis=1) * msa_gap_indices
+            gap_sum = np.cumsum(~msa_gap_indices)[sequence_indices]
+            deletion_matrix = np.zeros_like(gap_sum)
+            deletion_matrix[1:] = gap_sum[1:] - gap_sum[:-1]
+            self.log.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
+            # Alphafold implementation
+            # Count the number of deletions w.r.t. query.
+            _deletion_matrix = []
+            query = self.msa.query_with_gaps
+            for sequence in self.msa.sequences:
+                deletion_vec = []
+                deletion_count = 0
+                for seq_res, query_res in zip(sequence, query):
+                    if seq_res != '-' or query_res != '-':
+                        if query_res == '-':
+                            deletion_count += 1
+                        else:
+                            deletion_vec.append(deletion_count)
+                            deletion_count = 0
+                _deletion_matrix.append(deletion_vec)
+            self.log.critical(f"Created AF _deletion_matrix: {_deletion_matrix[:2]}")
+            # End AF implementation
+            num_alignments = self.msa.number_of_sequences
+            species_ids = self.msa.sequence_identifiers
+            # Set the msa.alphabet_type to ensure the numerical_alignment is embedded correctly
+            self.msa.alphabet_type = protein_letters_alph1_unknown_gapped
+            msa_numeric = self.msa.numerical_alignment
         elif os.path.exists(self.msa_file):
             with open(self.msa_file, 'r') as f:
                 uniclust_lines = f.read()
@@ -1885,7 +1910,11 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             else:
                 raise ValueError(f"Currently, the multiple sequence alignment file type '{extension}' isn't supported\n"
                                  f"\tOffending file located at: {self.msa_file}")
-            msa_features = af_pipeline.make_msa_features((uniclust30_msa,))  # <- I can use a single one...
+            msas = (uniclust30_msa,)
+        else:
+            raise ValueError(f"Couldn't acquire the msa features...")
+        if msas:
+            msa_features = af_pipeline.make_msa_features(msas)  # <- I can use a single one...
             #                                           (uniref90_msa, bfd_msa, mgnify_msa))
             if heteromer:
                 # Todo ensure that uniref90 runner was used...
@@ -1904,8 +1933,21 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 msa_features = af_pipeline.make_msa_features((uniref90_msa,))
                 msa_features.update(make_msa_features_multimeric(msa_features))
         else:
-            raise ValueError(f"Couldn't acquire the msa features...")
+            self.log.critical(f"species_ids: {species_ids[:5]}")
+            msa_features = {
+                'deletion_matrix_int': deletion_matrix,
+                # When not single sequence, GET THIS FROM THE MATRIX PROBABLY USING CODE IN COLLAPSE PROFILE cumcount...
+                # 'msa': sequences_to_numeric([sequence], translation_table=HHBLITS_AA_TO_ID).astype(dtype=np.int32),
+                'msa': msa_numeric,
+                'num_alignments': np.full(number_of_residues, num_alignments, dtype=np.int32),
+                # Fill by the number of residues how many sequences are in the MSA
+                'msa_species_identifiers': np.array([id_.encode('utf-8') for id_ in species_ids], dtype=np.object_)
+            }
+            if heteromer:
+                # Make a deepcopy just incase this screws up something
+                msa_features.update(make_msa_features_multimeric(deepcopy(msa_features)))
 
+        # Template processing
         if templates:
             template_features = self.get_alphafold_template_features()
         else:

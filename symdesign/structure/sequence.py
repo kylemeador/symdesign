@@ -953,29 +953,31 @@ class SequenceProfile(ABC):
         Takes ~5-10 seconds depending on the size of the msa
 
         Calculate HCI for each sequence in the MSA (which are different lengths). This is the Hydro Collapse array. For
-        each sequence, make a Gap mask (# msa sequences x alignment length) to account for gaps from each individual
-        sequence. Apply the mask using the map between the Gap mask and the Hydro Collapse array. Finally, drop the
+        each sequence, make a Gap mask, with full shape (number_of_sequences, alignment_length) to account for gaps in
+        each sequence. Apply the mask using a map between the Gap mask and the Hydro Collapse array. Finally, drop the
         columns from the array that are gaps in the reference sequence.
 
         iter array   -   Gap mask      -       Hydro Collapse array     -     Aligned HCI     - -     Final HCI
 
         ------------
 
-        iter - - - - - - 0 is gap    - - - -     compute for each     -     account for gaps   -  (drop idx 2)
+        iter - - - - - - 0 is gap    - -     compute for each     -     account for gaps   -  (drop idx 2)
 
-        it 1 2 3 4  - - 0 | 1 | 2 - - - - - - - - - 0 | 1 | 2 - - - - - - - - 0 | 1 | 2 - - - - - - - 0 | 1 | 3 | ... N
+        it 1 2 3 4  - - 0 | 1 | 2 - - - - - - - 0 | 1 | 2 - - - - - - 0 | 1 | 2 - - - - - - - 0 | 1 | 3 | ... N
 
-        0 0 1 2 2  - - 1 | 1 | 0 - - - -   - - - - 0.5 0.2 0.5 - -   =   - - 0.5 0.2 0.0 -  ->   - - 0.5 0.2 0.4 ... 0.3
+        0 0 1 2 2  - - 1 | 1 | 0 - - -   - - - 0.5 0.2 0.5 - -  = - - 0.5 0.2 0.0 -  ->   - - 0.5 0.2 0.4 ... 0.3
 
-        1 0 0 1 2  - - 0 | 1 | 1 - - - -   - - - - 0.4 0.7 0.4 - -   =   - - 0.0 0.4 0.7 -  ->   - - 0.0 0.4 0.4 ... 0.1
+        1 0 0 1 2  - - 0 | 1 | 1 - - -   - - - 0.4 0.7 0.4 - -  = - - 0.0 0.4 0.7 -  ->   - - 0.0 0.4 0.4 ... 0.1
 
-        2 0 0 1 2  - - 0 | 1 | 1 - - - -   - - - - 0.3 0.6 0.3 - -   =   - - 0.0 0.3 0.6 -  ->   - - 0.0 0.3 0.4 ... 0.0
+        2 0 0 1 2  - - 0 | 1 | 1 - - -   - - - 0.3 0.6 0.3 - -  = - - 0.0 0.3 0.6 -  ->   - - 0.0 0.3 0.4 ... 0.0
 
-        After iteration cumulative summation, the Hydro Collapse array index is accessed by the iterator. This is then
-        multiplied by the gap mask to place np.nan value if there is a 0 index (i.e. a gap) and the Hydro Collapse array
-        value otherwise. After, the element at index 2 in the Aligned HCI is dropped from the array when the aligned
-        sequence is removed of gaps and only the iterations will be left, essentially giving the HCI for the sequence
-        profile in the native context, however adjusted to the specific context of the protein/design sequence at hand
+        Where index 0 is the MSA query sequence
+
+        After iteration cumulative summation, the iterator is multiplied by the gap mask. Next the Hydro Collapse array
+        value is accessed by the gaped iterator. This places the Hydro Collapse array or np.nan (if there is a 0 index,
+        i.e. a gap). After calculation, the element at index 2 is dropped from the array when the aligned sequence gaps
+        are removed. Finally, only the indices of the query sequence are left in the profile, essentially giving the HCI
+        for each sequence in the native context, adjusted to the specific context of the protein sequence at hand
 
         Args:
             msa: The multiple sequence alignment (file or object) to use for collapse.
@@ -1016,7 +1018,8 @@ class SequenceProfile(ABC):
                     metrics.hydrophobic_collapse_index(non_gapped_sequence, **kwargs)
             # Todo this should be possible now metrics.hydrophobic_collapse_index(self.msa.array)
 
-            iterator_np = np.cumsum(self.msa.sequence_indices, axis=1) * self.msa.sequence_indices
+            msa_sequence_indices = self.msa.sequence_indices
+            iterator_np = np.cumsum(msa_sequence_indices, axis=1) * msa_sequence_indices
             aligned_hci_np = np.take_along_axis(evolutionary_collapse_np, iterator_np, axis=1)
             # Select only the query sequence indices
             # sequence_hci_np = aligned_hci_np[:, self.msa.query_indices]

@@ -128,9 +128,9 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
                     entity.msa_file = api_db.alignments.retrieve_file(name=uniprot_id)
                     entity.msa = msa
         except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
-            # raise error
             protocol_logger.info(f'{entity.name} {entity.__class__.__name__}.reference_sequence and provided alignment '
                                  f'at {entity.msa_file} are different lengths: {error}')
+            raise ValueError("This error shouldn't be reachable anymore")
             warn = True
 
     if warn_metrics and warn:
