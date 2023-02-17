@@ -1882,7 +1882,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # sequence_deletion_indices = sequence_or_query_indices * gaped_query_indices
             sequence_deletion_indices = sequence_indices * gaped_query_indices
             # Perform a cumulative sum of the "deletion" indices,
-            self.log.critical(f"Created sequence_deletion_indices_sum: {np.nonzero(sequence_deletion_indices[:2]).tolist()}")
+            self.log.critical(f"Created sequence_deletion_indices_sum: {np.nonzero(sequence_deletion_indices[:2])}")
             sequence_deletion_indices_sum = np.cumsum(sequence_deletion_indices, axis=1)
             self.log.critical(f"Created sequence_deletion_indices_sum: {sequence_deletion_indices_sum[:2, :100].tolist()}")
             # then remove any summation that is in gaped query
