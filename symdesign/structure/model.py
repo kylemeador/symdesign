@@ -1873,12 +1873,31 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # and taking the cumulative sum of them. Finally, after selecting for only the sequence_indices, perform
             # a subtraction of position idx+1 by position idx
             sequence_indices = self.msa.sequence_indices
-            msa_gap_indices = ~sequence_indices
-            # iterator_np = np.cumsum(msa_gap_indices, axis=1) * msa_gap_indices
-            gap_sum = np.cumsum(~msa_gap_indices, axis=1)[sequence_indices]
-            deletion_matrix = np.zeros_like(gap_sum)
-            deletion_matrix[1:] = gap_sum[1:] - gap_sum[:-1]
-            self.log.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
+            # query_indices = self.msa.query_indices
+            # # Find where there is some sequence information
+            # # sequence_or_query_indices = (sequence_indices + query_indices) > 0
+            # gaped_query_indices = ~query_indices
+            gaped_query_indices = ~self.msa.query_indices
+            # Find where there is sequence information but not query information
+            # sequence_deletion_indices = sequence_or_query_indices * gaped_query_indices
+            sequence_deletion_indices = sequence_indices * gaped_query_indices
+            # Perform a cumulative sum of the "deletion" indices,
+            sequence_deletion_indices_sum = np.cumsum(sequence_deletion_indices, axis=1)
+            # then remove any summation that is in gaped query
+            sequence_deletion_indices_sum *= gaped_query_indices
+            # ONLY THING LEFT TO DO IS TO REMOVE THE NON-DELETION PROXIMAL CUMSUM, i.e: 0, 8, *8, *8,
+            # Which is accomplished by the subtraction of position idx+1 by position idx
+            sequence_deletion_indices_sum[:, 1:] = sequence_deletion_indices_sum[:, 1:] \
+                - sequence_deletion_indices_sum[:, :-1]
+            self.log.critical(f"Created deletion_matrix: {sequence_deletion_indices_sum[:2].tolist()}")
+
+            # msa_gap_indices = ~sequence_indices
+            # # iterator_np = np.cumsum(msa_gap_indices, axis=1) * msa_gap_indices
+            # # gap_sum = np.cumsum(msa_gap_indices, axis=1)[sequence_indices]
+            # gap_sum = np.cumsum(msa_gap_indices, axis=1) * sequence_indices
+            # deletion_matrix = np.zeros_like(gap_sum)
+            # deletion_matrix[:, 1:] = gap_sum[:, 1:] - gap_sum[:, :-1]
+            # self.log.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
             # Alphafold implementation
             # Count the number of deletions w.r.t. query.
             _deletion_matrix = []
