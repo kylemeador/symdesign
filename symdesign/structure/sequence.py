@@ -813,7 +813,7 @@ class SequenceProfile(ABC):
         # sequence_indices[:, msa_disordered_indices] = False
         sequence_indices[0, msa_disordered_indices] = False
         msa.sequence_indices = sequence_indices
-        self.log.critical(f'980 Found {len(np.flatnonzero(sequence_indices[0]))} indices utilized in design')
+        # self.log.critical(f'980 Found {len(np.flatnonzero(sequence_indices[0]))} indices utilized in design')
 
     # def fit_secondary_structure_profile_to_structure(self):
     #     """

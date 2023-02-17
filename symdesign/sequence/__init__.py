@@ -1597,7 +1597,7 @@ class MultipleSequenceAlignment:
             raise ValueError(f"The shape of the sequence_indices {sequence_indices.shape}, isn't equal to the alignment"
                              f" {(self.number_of_sequences, self.length)}")
         self._sequence_indices = sequence_indices
-        logger.critical(f'981 Found {len(np.flatnonzero(self.sequence_indices[0]))} indices utilized in design')
+        # logger.critical(f'981 Found {len(np.flatnonzero(self.sequence_indices[0]))} indices utilized in design')
 
     @property
     def numerical_alignment(self) -> np.ndarray:
