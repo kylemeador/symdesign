@@ -483,6 +483,7 @@ class SequenceProfile(ABC):
 
     @msa.setter
     def msa(self, msa: MultipleSequenceAlignment):
+        """Set the SequenceProfile MultipleSequenceAlignment object using a file path or an initialized instance"""
         if isinstance(msa, MultipleSequenceAlignment):
             self._msa = copy(msa)
             self.fit_msa_to_structure()
@@ -1008,24 +1009,24 @@ class SequenceProfile(ABC):
                 #                       f'either link to the Master Database, call {msa_generation_function}, or pass '
                 #                       f'the location of a multiple sequence alignment. '
                 #                       f'Supported formats:\n{pretty_format_table(msa_supported_types.items())}')
-
+            msa = self.msa
             # Make the output array. Use one additional length to add np.nan value at the 0 index for gaps
-            evolutionary_collapse_np = np.zeros((self.msa.number_of_sequences, self.msa.length + 1))
+            evolutionary_collapse_np = np.zeros((msa.number_of_sequences, msa.length + 1))
             evolutionary_collapse_np[:, 0] = np.nan  # np.nan for all missing indices
-            for idx, record in enumerate(self.msa.alignment):
-                non_gapped_sequence = str(record.seq).replace('-', '')
+            for idx, sequence in enumerate(msa.sequences):
+                non_gapped_sequence = str(sequence).replace('-', '')
                 evolutionary_collapse_np[idx, 1:len(non_gapped_sequence) + 1] = \
                     metrics.hydrophobic_collapse_index(non_gapped_sequence, **kwargs)
             # Todo this should be possible now metrics.hydrophobic_collapse_index(self.msa.array)
 
-            msa_sequence_indices = self.msa.sequence_indices
+            msa_sequence_indices = msa.sequence_indices
             iterator_np = np.cumsum(msa_sequence_indices, axis=1) * msa_sequence_indices
             aligned_hci_np = np.take_along_axis(evolutionary_collapse_np, iterator_np, axis=1)
             # Select only the query sequence indices
             # sequence_hci_np = aligned_hci_np[:, self.msa.query_indices]
             # print('aligned_hci_np', aligned_hci_np.shape, aligned_hci_np)
             # print('self.msa.query_indices', self.msa.query_indices.shape, self.msa.query_indices)
-            self._collapse_profile = aligned_hci_np[:, self.msa.query_indices]
+            self._collapse_profile = aligned_hci_np[:, msa.query_indices]
             # self._collapse_profile = pd.DataFrame(aligned_hci_np[:, self.msa.query_indices],
             #                                       columns=list(range(1, self.msa.query_length + 1)))  # One-indexed
             # summary = pd.concat([sequence_hci_df, pd.concat([sequence_hci_df.mean(), sequence_hci_df.std()], axis=1,

@@ -1860,20 +1860,21 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             return {f'{k}_all_seq': v for k, v in msa_feats.items() if k in valid_feats}
 
         # Multiple sequence alignment processing
+        msa = self.msa
         msas = tuple()
-        if no_msa or self.msa is None or self.msa_file is None:
+        if no_msa or msa is None or self.msa_file is None:
             # When no msa_used, construct our own
             num_alignments = 1
             deletion_matrix = np.zeros((num_alignments, number_of_residues), dtype=np.int32)
             species_ids = ['']  # Must include an empty '' as the first "reference" sequence
             msa_numeric = sequences_to_numeric([sequence], translation_table=
             numerical_translation_alph1_unknown_gapped_bytes).astype(dtype=np.int32)
-        elif self.msa:
+        elif msa:
             # Create the deletion_matrix_int by using the gaped sequence_indices (inverse of sequence_indices)
             # and taking the cumulative sum of them. Finally, after selecting for only the sequence_indices, perform
             # a subtraction of position idx+1 by position idx
-            sequence_indices = self.msa.sequence_indices
-            query_indices = self.msa.query_indices
+            sequence_indices = msa.sequence_indices
+            query_indices = msa.query_indices
             # Find where there is some sequence information
             # sequence_or_query_indices = (sequence_indices + query_indices) > 0
             gaped_query_indices = ~query_indices
@@ -1882,7 +1883,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # sequence_deletion_indices = sequence_or_query_indices * gaped_query_indices
             sequence_deletion_indices = sequence_indices * gaped_query_indices
             # Perform a cumulative sum of the "deletion" indices,
-            self.log.critical(f"Created sequence_deletion_indices_sum: {np.nonzero(sequence_deletion_indices[:2])}")
+            self.log.critical(f"Created sequence_deletion_indices: {np.nonzero(sequence_deletion_indices[:2])}")
             sequence_deletion_indices_sum = np.cumsum(sequence_deletion_indices, axis=1)
             self.log.critical(f"Created sequence_deletion_indices_sum: {sequence_deletion_indices_sum[:2, :100].tolist()}")
             # then remove any summation that is in gaped query
@@ -1904,8 +1905,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # Alphafold implementation
             # Count the number of deletions w.r.t. query.
             _deletion_matrix = []
-            query = self.msa.query_with_gaps
-            for sequence in self.msa.sequences:
+            query = msa.query_with_gaps
+            for sequence in msa.sequences:
                 deletion_vec = []
                 deletion_count = 0
                 for seq_res, query_res in zip(sequence, query):
@@ -1918,11 +1919,11 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 _deletion_matrix.append(deletion_vec)
             self.log.critical(f"Created AF _deletion_matrix: {_deletion_matrix[-2:]}")
             # End AF implementation
-            num_alignments = self.msa.number_of_sequences
-            species_ids = self.msa.sequence_identifiers
+            num_alignments = msa.number_of_sequences
+            species_ids = msa.sequence_identifiers
             # Set the msa.alphabet_type to ensure the numerical_alignment is embedded correctly
-            self.msa.alphabet_type = protein_letters_alph1_unknown_gapped
-            msa_numeric = self.msa.numerical_alignment[:, query_indices]
+            msa.alphabet_type = protein_letters_alph1_unknown_gapped
+            msa_numeric = msa.numerical_alignment[:, query_indices]
         elif os.path.exists(self.msa_file):
             with open(self.msa_file, 'r') as f:
                 uniclust_lines = f.read()

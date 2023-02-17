@@ -1552,7 +1552,7 @@ class MultipleSequenceAlignment:
         Maps the instance .alphabet characters to their resulting sequence index
         """
         try:
-            return self._numerical_alignment
+            return self._numerical_alignment  # [:, self.query_indices]
         except AttributeError:
             try:
                 translation_type = self._numeric_translation_type
@@ -1561,7 +1561,7 @@ class MultipleSequenceAlignment:
                 translation_type = self._numeric_translation_type
 
             self._numerical_alignment = np.vectorize(translation_type.__getitem__)(self.array)
-            return self._numerical_alignment
+            return self._numerical_alignment  # [:, self.query_indices]
 
     @property
     def array(self) -> np.ndarray:
