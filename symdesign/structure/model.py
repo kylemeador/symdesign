@@ -1876,6 +1876,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # Set the msa.alphabet_type to ensure the numerical_alignment is embedded correctly
             msa.alphabet_type = protein_letters_alph1_unknown_gapped
             msa_numeric = msa.numerical_alignment[:, msa.query_indices]
+            self.log.critical(f'982 Found {len(np.flatnonzero(msa.query_indices))} indices utilized in design')
+
         elif os.path.exists(self.msa_file):
             with open(self.msa_file, 'r') as f:
                 uniclust_lines = f.read()

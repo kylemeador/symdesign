@@ -1446,7 +1446,7 @@ class MultipleSequenceAlignment:
         deletion_matrix = sequence_deletion_indices_sum * gaped_query_indices
         # ONLY THING LEFT TO DO IS TO REMOVE THE NON-DELETION PROXIMAL CUMSUM, i.e: 0, 8, *8, *8,
         # Which is accomplished by the subtraction of position idx+1 by position idx
-        logger.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
+        # logger.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
         deletion_matrix[:, 1:] = deletion_matrix[:, 1:] - deletion_matrix[:, :-1]
         self._deletion_matrix = deletion_matrix[:, query_indices]
         logger.critical(f"Created subtracted, indexed, deletion_matrix: {self._deletion_matrix[-2:].tolist()}")
@@ -1597,6 +1597,7 @@ class MultipleSequenceAlignment:
             raise ValueError(f"The shape of the sequence_indices {sequence_indices.shape}, isn't equal to the alignment"
                              f" {(self.number_of_sequences, self.length)}")
         self._sequence_indices = sequence_indices
+        logger.critical(f'981 Found {len(np.flatnonzero(self.sequence_indices[0]))} indices utilized in design')
 
     @property
     def numerical_alignment(self) -> np.ndarray:

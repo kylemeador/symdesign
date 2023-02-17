@@ -797,9 +797,9 @@ class SequenceProfile(ABC):
             sequence_indices[0] = False
             # Set the query indices that align to be True
             sequence_indices[0, aligned_query_indices] = True
-            # self.log.debug(f'For MSA alignment to the reference sequence, found the corresponding MSA query indices:'
-            #                f' {query_indices}')
-            # self.log.debug(f'MSA aligned sequence_indices: {sequence_indices}')
+            self.log.critical(f'For MSA alignment to the reference sequence, found the corresponding MSA query indices:'
+                           f' {query_indices}')
+            self.log.critical(f'MSA aligned sequence_indices: {sequence_indices}')
             # alignment = generate_alignment(self.reference_sequence, self.msa.query)
             # reference_sequence, msa_sequence = alignment
 
@@ -813,6 +813,7 @@ class SequenceProfile(ABC):
         # sequence_indices[:, msa_disordered_indices] = False
         sequence_indices[0, msa_disordered_indices] = False
         msa.sequence_indices = sequence_indices
+        self.log.critical(f'980 Found {len(np.flatnonzero(sequence_indices[0]))} indices utilized in design')
 
     # def fit_secondary_structure_profile_to_structure(self):
     #     """
