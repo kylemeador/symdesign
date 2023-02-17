@@ -1870,12 +1870,12 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             numerical_translation_alph1_unknown_gapped_bytes).astype(dtype=np.int32)
         elif self.msa:
             # Create the deletion_matrix_int by using the gaped sequence_indices (inverse of sequence_indices)
-            # and taking the cumulative sum of them. Finally after selecting for only the sequence_indices, perform
+            # and taking the cumulative sum of them. Finally, after selecting for only the sequence_indices, perform
             # a subtraction of position idx+1 by position idx
             sequence_indices = self.msa.sequence_indices
             msa_gap_indices = ~sequence_indices
             # iterator_np = np.cumsum(msa_gap_indices, axis=1) * msa_gap_indices
-            gap_sum = np.cumsum(~msa_gap_indices)[sequence_indices]
+            gap_sum = np.cumsum(~msa_gap_indices, axis=1)[sequence_indices]
             deletion_matrix = np.zeros_like(gap_sum)
             deletion_matrix[1:] = gap_sum[1:] - gap_sum[:-1]
             self.log.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
