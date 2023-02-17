@@ -1282,6 +1282,7 @@ numerical_profile = np.ndarray  # Type[np.ndarray]
 class MultipleSequenceAlignment:
     _alphabet_type: alphabet_types_literal
     _array: np.ndarray
+    _deletion_matrix: np.ndarray
     _frequencies: np.ndarray
     _gaps_per_position: np.ndarray
     _numerical_alignment: np.ndarray
@@ -1338,90 +1339,142 @@ class MultipleSequenceAlignment:
         """
         if alignment is None:
             raise NotImplementedError(f"Can't create a {MultipleSequenceAlignment.__name__} with alignment=None")
+
+        self.alignment = alignment
+        self.number_of_sequences = len(alignment)
+        self.length = alignment.get_alignment_length()
+        self.alphabet = alphabet
+        self.number_of_characters = len(alphabet)
+        if aligned_sequence is None:
+            aligned_sequence = str(alignment[0].seq)
+        # Add Info to 'meta' record as needed and populate an amino acid count dict (one-indexed)
+        self.query = aligned_sequence.replace('-', '')
+        self.query_length = len(self.query)
+        self.query_with_gaps = aligned_sequence
+
+        numerical_alignment = self.numerical_alignment
+        self.counts = np.zeros((self.length, self.number_of_characters))
+        # invert the "typical" format to length of the alignment in axis 0, and the numerical letters in axis 1
+        for residue_idx in range(self.length):
+            self.counts[residue_idx, :] = \
+                np.bincount(numerical_alignment[:, residue_idx], minlength=self.number_of_characters)
+
+        # self.observations = find_column_observations(self.counts, **kwargs)
+        self._gap_index = 0
+        if count_gaps:
+            self.observations = [self.number_of_sequences for _ in range(self.length)]
         else:
-            self.alignment = alignment
-            self.number_of_sequences = len(alignment)
-            self.length = alignment.get_alignment_length()
-            self.alphabet = alphabet
-            self.number_of_characters = len(alphabet)
-            if aligned_sequence is None:
-                aligned_sequence = str(alignment[0].seq)
-            # Add Info to 'meta' record as needed and populate an amino acid count dict (one-indexed)
-            self.query = aligned_sequence.replace('-', '')
-            self.query_length = len(self.query)
-            self.query_with_gaps = aligned_sequence
+            # gap_observations = [_aa_counts['-'] for _aa_counts in self.counts]  # list[dict]
+            # gap_observations = [_aa_counts[0] for _aa_counts in self.counts]  # list[list]
+            # self.observations = [counts - gap for counts, gap in zip(self.observations, gap_observations)]
+            # Find where gaps and unknown start. They are always at the end
+            if 'gapped' in self.alphabet_type:
+                self._gap_index -= 1
+            if 'unknown' in self.alphabet_type:
+                self._gap_index -= 1
 
-            numerical_alignment = self.numerical_alignment
-            self.counts = np.zeros((self.length, self.number_of_characters))
-            # invert the "typical" format to length of the alignment in axis 0, and the numerical letters in axis 1
-            for residue_idx in range(self.length):
-                self.counts[residue_idx, :] = \
-                    np.bincount(numerical_alignment[:, residue_idx], minlength=self.number_of_characters)
+            self.observations = self.counts[:, :self._gap_index].sum(axis=1)
+            if not np.any(self.observations):  # Check if an observation is 0
+                raise ValueError("Can't have a MSA column (sequence index) with 0 observations. Found at ("
+                                 f'{",".join(map(str, np.flatnonzero(self.observations)))}')
+                #                f'{",".join(str(idx) for idx, pos in enumerate(self.observations) if not pos)}')
 
-            # self.observations = find_column_observations(self.counts, **kwargs)
-            self._gap_index = 0
-            if count_gaps:
-                self.observations = [self.number_of_sequences for _ in range(self.length)]
-            else:
-                # gap_observations = [_aa_counts['-'] for _aa_counts in self.counts]  # list[dict]
-                # gap_observations = [_aa_counts[0] for _aa_counts in self.counts]  # list[list]
-                # self.observations = [counts - gap for counts, gap in zip(self.observations, gap_observations)]
-                # Find where gaps and unknown start. They are always at the end
-                if 'gapped' in self.alphabet_type:
-                    self._gap_index -= 1
-                if 'unknown' in self.alphabet_type:
-                    self._gap_index -= 1
+        if weight_alignment_by_sequence:
+            # create a 1/ obs * counts = positional_weights
+            #               alignment.length - 0   1   2  ...
+            #      / obs 0 [[32]   count seq 0 '-' -  2   0   0  ...   [[ 64   0   0 ...]  \
+            # 1 / |  obs 1  [33] * count seq 1 'A' - 10  10   0  ... =  [330 330   0 ...]   |
+            #      \ obs 2  [33]   count seq 2 'C' -  8   8   1  ...    [270 270  33 ...]] /
+            #   ...   ...]               ...  ... ... ...
+            position_weights = 1 / (self.observations[None, :] * self.counts)
+            # take_along_axis from this with the transposed numerical_alignment (na) where each successive na idx
+            # is the sequence position at the na and therefore is grabbing the position_weights by that index
+            # finally sum along each sequence
+            # The position_weights count seq idx must be taken by a sequence index. This happens to be on NA axis 1
+            # at the moment so specified with .T and take using axis=0. Keeping both as axis=0 doen't index
+            # correctly. Maybe this is a case where 'F' array ordering is needed?
+            sequence_weights = np.take_along_axis(position_weights, numerical_alignment.T, axis=0).sum(axis=0)
+            logger.critical('sequence_weights', sequence_weights)
+            self._counts = [[0 for letter in alphabet] for _ in range(self.length)]  # list[list]
+            for record in self.alignment:
+                for i, aa in enumerate(record.seq):
+                    self._counts[i][numerical_translation_alph1_gapped[aa]] += 1
+                    # self.counts[i][aa] += 1
+            logger.critical('OLD self._counts', self._counts)
+            self._observations = [sum(_aa_counts[:self._gap_index]) for _aa_counts in self._counts]  # list[list]
 
-                self.observations = self.counts[:, :self._gap_index].sum(axis=1)
-                if not np.any(self.observations):  # Check if an observation is 0
-                    raise ValueError("Can't have a MSA column (sequence index) with 0 observations. Found at ("
-                                     f'{",".join(map(str, np.flatnonzero(self.observations)))}')
-                    #                f'{",".join(str(idx) for idx, pos in enumerate(self.observations) if not pos)}')
+            sequence_weights_ = weight_sequences(self._counts, self.alignment, self._observations)
+            logger.critical('OLD sequence_weights_', sequence_weights_)
 
-            if weight_alignment_by_sequence:
-                # create a 1/ obs * counts = positional_weights
-                #               alignment.length - 0   1   2  ...
-                #      / obs 0 [[32]   count seq 0 '-' -  2   0   0  ...   [[ 64   0   0 ...]  \
-                # 1 / |  obs 1  [33] * count seq 1 'A' - 10  10   0  ... =  [330 330   0 ...]   |
-                #      \ obs 2  [33]   count seq 2 'C' -  8   8   1  ...    [270 270  33 ...]] /
-                #   ...   ...]               ...  ... ... ...
-                position_weights = 1 / (self.observations[None, :] * self.counts)
-                # take_along_axis from this with the transposed numerical_alignment (na) where each successive na idx
-                # is the sequence position at the na and therefore is grabbing the position_weights by that index
-                # finally sum along each sequence
-                # The position_weights count seq idx must be taken by a sequence index. This happens to be on NA axis 1
-                # at the moment so specified with .T and take using axis=0. Keeping both as axis=0 doen't index
-                # correctly. Maybe this is a case where 'F' array ordering is needed?
-                sequence_weights = np.take_along_axis(position_weights, numerical_alignment.T, axis=0).sum(axis=0)
-                print('sequence_weights', sequence_weights)
-                self._counts = [[0 for letter in alphabet] for _ in range(self.length)]  # list[list]
-                for record in self.alignment:
-                    for i, aa in enumerate(record.seq):
-                        self._counts[i][numerical_translation_alph1_gapped[aa]] += 1
-                        # self.counts[i][aa] += 1
-                print('OLD self._counts', self._counts)
-                self._observations = [sum(_aa_counts[:self._gap_index]) for _aa_counts in self._counts]  # list[list]
+        if sequence_weights is not None:  # overwrite the current counts with weighted counts
+            self.sequence_weights = sequence_weights
+            # Todo update this as well
+            self._counts = [[0 for letter in alphabet] for _ in range(self.length)]  # list[list]
+            for record in self.alignment:
+                for i, aa in enumerate(record.seq):
+                    self._counts[i][numerical_translation_alph1_gapped[aa]] += sequence_weights_[i]
+                    # self.counts[i][aa] += sequence_weights[i]
+            logger.critical('OLD sequence_weight self._counts', self._counts)
 
-                sequence_weights_ = weight_sequences(self._counts, self.alignment, self._observations)
-                print('OLD sequence_weights_', sequence_weights_)
+            # add each sequence weight to the indices indicated by the numerical_alignment
+            self.counts = np.zeros((self.length, len(protein_letters_alph1_gapped)))
+            for idx in range(self.number_of_sequences):
+                self.counts[:, numerical_alignment[idx]] += sequence_weights[idx]
+            logger.critical('sequence_weight self.counts', self.counts)
+        else:
+            self.sequence_weights = []
 
-            if sequence_weights is not None:  # overwrite the current counts with weighted counts
-                self.sequence_weights = sequence_weights
-                # Todo update this as well
-                self._counts = [[0 for letter in alphabet] for _ in range(self.length)]  # list[list]
-                for record in self.alignment:
-                    for i, aa in enumerate(record.seq):
-                        self._counts[i][numerical_translation_alph1_gapped[aa]] += sequence_weights_[i]
-                        # self.counts[i][aa] += sequence_weights[i]
-                print('OLD sequence_weight self._counts', self._counts)
+        # Set up the deletion matrix
+        # Create the deletion_matrix_int by using the gaped sequence_indices (inverse of sequence_indices)
+        # and taking the cumulative sum of them. Finally, after selecting for only the sequence_indices, perform
+        # a subtraction of position idx+1 by position idx
+        sequence_indices = self.sequence_indices
+        query_indices = self.query_indices
+        # Find where there is some sequence information
+        # sequence_or_query_indices = (sequence_indices + query_indices) > 0
+        gaped_query_indices = ~query_indices
+        # gaped_query_indices = ~self.query_indices
+        # Find where there is sequence information but not query information
+        # sequence_deletion_indices = sequence_or_query_indices * gaped_query_indices
+        sequence_deletion_indices = sequence_indices * gaped_query_indices
+        # Perform a cumulative sum of the "deletion" indices,
+        # logger.critical(f"Created sequence_deletion_indices: {np.nonzero(sequence_deletion_indices[:2])}")
+        sequence_deletion_indices_sum = np.cumsum(sequence_deletion_indices, axis=1)
+        logger.critical(f"Created sequence_deletion_indices_sum: "
+                        f"{sequence_deletion_indices_sum[:2, -100:].tolist()}")
+        # Then remove any summation that is in gaped query
+        deletion_matrix = sequence_deletion_indices_sum * gaped_query_indices
+        # ONLY THING LEFT TO DO IS TO REMOVE THE NON-DELETION PROXIMAL CUMSUM, i.e: 0, 8, *8, *8,
+        # Which is accomplished by the subtraction of position idx+1 by position idx
+        logger.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
+        deletion_matrix[:, 1:] = deletion_matrix[:, 1:] - deletion_matrix[:, :-1]
+        self._deletion_matrix = deletion_matrix[:, query_indices]
+        logger.critical(f"Created subtracted, indexed, deletion_matrix: {deletion_matrix[-2:].tolist()}")
 
-                # add each sequence weight to the indices indicated by the numerical_alignment
-                self.counts = np.zeros((self.length, len(protein_letters_alph1_gapped)))
-                for idx in range(self.number_of_sequences):
-                    self.counts[:, numerical_alignment[idx]] += sequence_weights[idx]
-                print('sequence_weight self.counts', self.counts)
-            else:
-                self.sequence_weights = []
+        # msa_gap_indices = ~sequence_indices
+        # # iterator_np = np.cumsum(msa_gap_indices, axis=1) * msa_gap_indices
+        # # gap_sum = np.cumsum(msa_gap_indices, axis=1)[sequence_indices]
+        # gap_sum = np.cumsum(msa_gap_indices, axis=1) * sequence_indices
+        # deletion_matrix = np.zeros_like(gap_sum)
+        # deletion_matrix[:, 1:] = gap_sum[:, 1:] - gap_sum[:, :-1]
+        # logger.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
+        # Alphafold implementation
+        # Count the number of deletions w.r.t. query.
+        _deletion_matrix = []
+        query = self.query_with_gaps
+        for sequence in self.sequences:
+            deletion_vec = []
+            deletion_count = 0
+            for seq_res, query_res in zip(sequence, query):
+                if seq_res != '-' or query_res != '-':
+                    if query_res == '-':
+                        deletion_count += 1
+                    else:
+                        deletion_vec.append(deletion_count)
+                        deletion_count = 0
+            _deletion_matrix.append(deletion_vec)
+        logger.critical(f"Created AF _deletion_matrix: {_deletion_matrix[-2:]}")
+        # End AF implementation
 
     @classmethod
     def from_stockholm(cls, file, **kwargs):
@@ -1573,11 +1626,16 @@ class MultipleSequenceAlignment:
             return self._array
 
     @property
+    def deletion_matrix(self) -> np.ndarray:
+        """Return the number of deletions at every query aligned sequence index for each sequence in the alignment"""
+        return self._deletion_matrix
+
+    @property
     def frequencies(self) -> np.ndarray:
         """Access the per residue (axis=0) amino acid frequencies (axis=1) bounded between 0 and 1"""
         # self._frequencies = [[count/observation for count in amino_acid_counts[:self._gap_index]]  # don't use the gap
         #                      for amino_acid_counts, observation in zip(self._counts, self._observations)]
-        # print('OLD self._frequencies', self._frequencies)
+        # logger.critical('OLD self._frequencies', self._frequencies)
 
         # self.frequencies = np.zeros((self.length, len(protein_letters_alph1)))  # self.counts.shape)
         # for residue_idx in range(self.length):

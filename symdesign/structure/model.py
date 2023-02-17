@@ -1870,60 +1870,12 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             msa_numeric = sequences_to_numeric([sequence], translation_table=
             numerical_translation_alph1_unknown_gapped_bytes).astype(dtype=np.int32)
         elif msa:
-            # Create the deletion_matrix_int by using the gaped sequence_indices (inverse of sequence_indices)
-            # and taking the cumulative sum of them. Finally, after selecting for only the sequence_indices, perform
-            # a subtraction of position idx+1 by position idx
-            sequence_indices = msa.sequence_indices
-            query_indices = msa.query_indices
-            # Find where there is some sequence information
-            # sequence_or_query_indices = (sequence_indices + query_indices) > 0
-            gaped_query_indices = ~query_indices
-            # gaped_query_indices = ~self.msa.query_indices
-            # Find where there is sequence information but not query information
-            # sequence_deletion_indices = sequence_or_query_indices * gaped_query_indices
-            sequence_deletion_indices = sequence_indices * gaped_query_indices
-            # Perform a cumulative sum of the "deletion" indices,
-            self.log.critical(f"Created sequence_deletion_indices: {np.nonzero(sequence_deletion_indices[:2])}")
-            sequence_deletion_indices_sum = np.cumsum(sequence_deletion_indices, axis=1)
-            self.log.critical(f"Created sequence_deletion_indices_sum: {sequence_deletion_indices_sum[:2, :100].tolist()}")
-            # then remove any summation that is in gaped query
-            deletion_matrix = sequence_deletion_indices_sum * gaped_query_indices
-            # ONLY THING LEFT TO DO IS TO REMOVE THE NON-DELETION PROXIMAL CUMSUM, i.e: 0, 8, *8, *8,
-            # Which is accomplished by the subtraction of position idx+1 by position idx
-            self.log.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
-            deletion_matrix[:, 1:] = deletion_matrix[:, 1:] - deletion_matrix[:, :-1]
-            deletion_matrix = deletion_matrix[:, query_indices]
-            self.log.critical(f"Created subtracted, indexed, deletion_matrix: {deletion_matrix[-2:].tolist()}")
-
-            # msa_gap_indices = ~sequence_indices
-            # # iterator_np = np.cumsum(msa_gap_indices, axis=1) * msa_gap_indices
-            # # gap_sum = np.cumsum(msa_gap_indices, axis=1)[sequence_indices]
-            # gap_sum = np.cumsum(msa_gap_indices, axis=1) * sequence_indices
-            # deletion_matrix = np.zeros_like(gap_sum)
-            # deletion_matrix[:, 1:] = gap_sum[:, 1:] - gap_sum[:, :-1]
-            # self.log.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
-            # Alphafold implementation
-            # Count the number of deletions w.r.t. query.
-            _deletion_matrix = []
-            query = msa.query_with_gaps
-            for sequence in msa.sequences:
-                deletion_vec = []
-                deletion_count = 0
-                for seq_res, query_res in zip(sequence, query):
-                    if seq_res != '-' or query_res != '-':
-                        if query_res == '-':
-                            deletion_count += 1
-                        else:
-                            deletion_vec.append(deletion_count)
-                            deletion_count = 0
-                _deletion_matrix.append(deletion_vec)
-            self.log.critical(f"Created AF _deletion_matrix: {_deletion_matrix[-2:]}")
-            # End AF implementation
+            deletion_matrix = msa.deletion_matrix
             num_alignments = msa.number_of_sequences
             species_ids = msa.sequence_identifiers
             # Set the msa.alphabet_type to ensure the numerical_alignment is embedded correctly
             msa.alphabet_type = protein_letters_alph1_unknown_gapped
-            msa_numeric = msa.numerical_alignment[:, query_indices]
+            msa_numeric = msa.numerical_alignment[:, msa.query_indices]
         elif os.path.exists(self.msa_file):
             with open(self.msa_file, 'r') as f:
                 uniclust_lines = f.read()
