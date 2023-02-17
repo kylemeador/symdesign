@@ -1890,7 +1890,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # Which is accomplished by the subtraction of position idx+1 by position idx
             self.log.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
             deletion_matrix[:, 1:] = deletion_matrix[:, 1:] - deletion_matrix[:, :-1]
-            deletion_matrix = deletion_matrix[query_indices]
+            deletion_matrix = deletion_matrix[:, query_indices]
             self.log.critical(f"Created subtracted, indexed, deletion_matrix: {deletion_matrix[:2].tolist()}")
 
             # msa_gap_indices = ~sequence_indices
