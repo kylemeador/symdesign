@@ -82,10 +82,10 @@ numerical_translation_alph3_unknown_gapped_bytes = \
     defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph3_unknown_gapped), count()))
 extended_protein_letters_and_gap_literal = Literal[get_args(protein_letters_alph1_extended_literal), '-']
 extended_protein_letters_and_gap: tuple[str, ...] = get_args(extended_protein_letters_and_gap_literal)
-alphabet_types = Literal['protein_letters_alph1', 'protein_letters_alph3', 'protein_letters_alph1_gapped',
-                         'protein_letters_alph3_gapped', 'protein_letters_alph1_unknown',
-                         'protein_letters_alph3_unknown', 'protein_letters_alph1_unknown_gapped',
-                         'protein_letters_alph3_unknown_gapped']
+alphabet_types_literal = Literal[
+    'protein_letters_alph1', 'protein_letters_alph3', 'protein_letters_alph1_gapped',
+    'protein_letters_alph3_gapped', 'protein_letters_alph1_unknown', 'protein_letters_alph3_unknown',
+    'protein_letters_alph1_unknown_gapped', 'protein_letters_alph3_unknown_gapped']
 alphabet_to_type = {'ACDEFGHIKLMNPQRSTVWY': protein_letters_alph1,
                     'ARNDCQEGHILKMFPSTWYV': protein_letters_alph3,
                     'ACDEFGHIKLMNPQRSTVWY-': protein_letters_alph1_gapped,
@@ -155,14 +155,13 @@ def create_numeric_translation_table(alphabet: Sequence[str], bytes_: bool = Tru
     return dict(zip(alphabet, count()))
 
 
-def get_sequence_to_numeric_translation_table(alphabet_type: alphabet_types) -> defaultdict[str, int] | dict[str, int]:
+def get_sequence_to_numeric_translation_table(alphabet_type: alphabet_types_literal) -> defaultdict[str, int] | dict[str, int]:
     """Given an amino acid alphabet type, return the corresponding numerical translation table.
     If a table is passed, just return it
 
     Returns:
         The integer mapping to the sequence of the requested alphabet
     """
-    wrong_alphabet_type = f"Parameter alphabet_type option '{alphabet_type}' isn't viable. Attempting to create it"
     # try:
     #     match alphabet_type:
     #         case 'protein_letters_alph1':
@@ -210,7 +209,8 @@ def get_sequence_to_numeric_translation_table(alphabet_type: alphabet_types) -> 
             numeric_translation_table = alphabet_to_type[alphabet_type]
         except KeyError:
             # raise ValueError(wrong_alphabet_type)
-            logger.warning(wrong_alphabet_type)
+            logger.warning(
+                f"Parameter alphabet_type option '{alphabet_type}' isn't viable. Attempting to create it")
             numeric_translation_table = create_numeric_translation_table(alphabet_type)
 
     return numeric_translation_table
@@ -1280,11 +1280,12 @@ numerical_profile = np.ndarray  # Type[np.ndarray]
 
 
 class MultipleSequenceAlignment:
-    _alphabet_type: str
+    _alphabet_type: alphabet_types_literal
     _array: np.ndarray
     _frequencies: np.ndarray
     _gaps_per_position: np.ndarray
     _numerical_alignment: np.ndarray
+    _sequence_identifiers: list[str]
     _sequence_indices: np.ndarray
     _numeric_translation_type: dict[str, int]
     """Given an amino acid alphabet type, return the corresponding numerical translation table"""
@@ -1472,7 +1473,7 @@ class MultipleSequenceAlignment:
     #         self.frequencies[residue] = {aa: count / total_column_weight for aa, count in amino_acid_counts.items()}
 
     @property
-    def alphabet_type(self) -> str:
+    def alphabet_type(self) -> alphabet_types_literal:
         """The type of alphabet that the alignment is mapped to numerically"""
         try:
             return self._alphabet_type
@@ -1488,6 +1489,18 @@ class MultipleSequenceAlignment:
                 self._alphabet_type += '_gapped'
 
             return self._alphabet_type
+
+    @alphabet_type.setter
+    def alphabet_type(self, alphabet_type: alphabet_types_literal):
+        """Set the alphabet_type to allow interpretation of .numeric_sequence to the correct encoding"""
+        self._alphabet_type = alphabet_type
+
+        alphabet_type_dependent_attrs = ['_numeric_sequence', '_numeric_translation_type']
+        for attr in alphabet_type_dependent_attrs:
+            try:
+                self.__delattr__(attr)
+            except AttributeError:
+                continue
 
     @property
     def query_indices(self) -> np.ndarray:
@@ -1527,7 +1540,7 @@ class MultipleSequenceAlignment:
             return self._numerical_alignment
         except AttributeError:
             try:
-                translation_type = self._numeric_translation_type  # Todo clean setting of this with self.alphabet_type
+                translation_type = self._numeric_translation_type
             except AttributeError:
                 self._numeric_translation_type = get_sequence_to_numeric_translation_table(self.alphabet_type)
                 translation_type = self._numeric_translation_type
@@ -1584,3 +1597,11 @@ class MultipleSequenceAlignment:
         #             for profile, background in backgrounds.items()}
         # observed = {profile: np.where(np.take_along_axis(background, transposed_alignment, axis=1) > 0, 1, 0).T
         #             for profile, background in backgrounds.items()}
+
+    def sequence_identifiers(self) -> list[str]:
+        """Return the identifiers associated with each sequence in the alignment"""
+        try:
+            return self._sequence_identifiers
+        except AttributeError:
+            self._sequence_identifiers = [sequence.id for sequence in self.alignment]
+            return self._sequence_identifiers

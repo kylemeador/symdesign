@@ -16,7 +16,7 @@ from . import sql
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, validate_type, verify_choice, header_string
 from symdesign.structure.utils import DesignError
-from symdesign.sequence import alphabet_types, get_sequence_to_numeric_translation_table, MultipleSequenceAlignment, \
+from symdesign.sequence import alphabet_types_literal, get_sequence_to_numeric_translation_table, MultipleSequenceAlignment, \
     protein_letters_literal
 from symdesign import utils, flags
 putils = utils.path
@@ -1895,7 +1895,7 @@ hydrophobicity_scale = \
 
 def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrophobicity: str = 'standard',
                                custom: dict[protein_letters_literal, int | float] = None,
-                               alphabet_type: alphabet_types = None,
+                               alphabet_type: alphabet_types_literal = None,
                                lower_window: int = 3, upper_window: int = 9, **kwargs) -> np.ndarray:
     """Calculate hydrophobic collapse index for sequence(s) of interest and return an HCI array
 
