@@ -1448,7 +1448,9 @@ class MultipleSequenceAlignment:
         # Which is accomplished by the subtraction of position idx+1 by position idx
         # logger.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
         deletion_matrix[:, 1:] = deletion_matrix[:, 1:] - deletion_matrix[:, :-1]
-        self._deletion_matrix = deletion_matrix[:, query_indices]
+        # self._deletion_matrix = deletion_matrix[:, query_indices]
+        # Finally, clear any information in the gaped_query_indices by multiplying by query_indices mask
+        self._deletion_matrix = deletion_matrix * query_indices
         logger.critical(f"Created subtracted, indexed, deletion_matrix: {self._deletion_matrix[-2:].tolist()}")
 
         # msa_gap_indices = ~sequence_indices
