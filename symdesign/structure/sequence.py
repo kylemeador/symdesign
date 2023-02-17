@@ -486,7 +486,7 @@ class SequenceProfile(ABC):
         """Set the SequenceProfile MultipleSequenceAlignment object using a file path or an initialized instance"""
         if isinstance(msa, MultipleSequenceAlignment):
             self._msa = copy(msa)
-            self.fit_msa_to_structure()
+            self._fit_msa_to_structure()
         else:
             self.log.warning(f"The passed msa (type: {msa.__class__.__name__}) isn't of the required type "
                              f"{MultipleSequenceAlignment.__name__}")
@@ -773,27 +773,31 @@ class SequenceProfile(ABC):
                        f'{"".join(res["type"] for res in structure_evolutionary_profile.values())}')
         self.evolutionary_profile = structure_evolutionary_profile
 
-    def fit_msa_to_structure(self):
+    def _fit_msa_to_structure(self):
         """From a multiple sequence alignment to the reference sequence, align the profile to the Structure sequence.
         Removes the view of all data not present in the structure
 
         Sets:
             self.msa.sequence_indices (np.ndarray)
         """
-        sequence_indices = self.msa.sequence_indices
+        msa = self.msa
+        sequence_indices = msa.sequence_indices
         # Get all non-zero/False, numerical indices for the query
-        msa_query_indices = np.flatnonzero(self.msa.query_indices)
-        if len(self.reference_sequence) != self.msa.query_length:
+        msa_query_indices = np.flatnonzero(msa.query_indices)
+        if len(self.reference_sequence) != msa.query_length:
             self.log.info(f'The {self.name} .reference_sequence length, {len(self.reference_sequence)} != '
-                          f'{self.msa.query_length}, the MultipleSequenceAlignment query length')
-            query_indices, reference_indices = get_equivalent_indices(self.msa.query, self.reference_sequence)
-            sequence_indices = np.zeros_like(sequence_indices)
+                          f'{msa.query_length}, the MultipleSequenceAlignment query length')
+            query_indices, reference_indices = get_equivalent_indices(msa.query, self.reference_sequence)
+            # # Set all indices to a baseline of zero
+            # sequence_indices = np.zeros_like(sequence_indices)
             # sequence_indices = sequence_indices[:, query_indices]
             aligned_query_indices = msa_query_indices[query_indices]
-            sequence_indices[:, aligned_query_indices] = True
-            self.log.critical(f'For MSA alignment to the reference sequence, found the corresponding MSA query indices:'
-                              f' {query_indices}')
-            self.log.critical(f'MSA aligned sequence_indices: {sequence_indices}')
+            # sequence_indices[:, aligned_query_indices] = True
+            # Set the query indices that align to be True
+            sequence_indices[0, aligned_query_indices] = True
+            # self.log.debug(f'For MSA alignment to the reference sequence, found the corresponding MSA query indices:'
+            #                f' {query_indices}')
+            # self.log.debug(f'MSA aligned sequence_indices: {sequence_indices}')
             # alignment = generate_alignment(self.reference_sequence, self.msa.query)
             # reference_sequence, msa_sequence = alignment
 
@@ -804,8 +808,9 @@ class SequenceProfile(ABC):
         # Select the disordered indices from these indices
         msa_disordered_indices = msa_query_indices[disordered_indices]
         # These selected indices are where the msa is populated, but the structure sequence is missing
-        sequence_indices[:, msa_disordered_indices] = False
-        self.msa.sequence_indices = sequence_indices
+        # sequence_indices[:, msa_disordered_indices] = False
+        sequence_indices[0, msa_disordered_indices] = False
+        msa.sequence_indices = sequence_indices
 
     # def fit_secondary_structure_profile_to_structure(self):
     #     """
