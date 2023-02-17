@@ -8,7 +8,7 @@ from collections import defaultdict
 from itertools import count
 from math import log2
 from pathlib import Path
-from typing import Sequence, AnyStr, Iterable, Literal, Any, TypedDict, get_args
+from typing import Sequence, AnyStr, Iterable, Literal, Any, TypedDict, get_args, Generator
 
 import numpy as np
 from Bio import AlignIO, SeqIO
@@ -1473,6 +1473,21 @@ class MultipleSequenceAlignment:
     #         self.frequencies[residue] = {aa: count / total_column_weight for aa, count in amino_acid_counts.items()}
 
     @property
+    def sequences(self) -> Generator[str, None, None]:
+        """Iterate over the sequences present in the alignment"""
+        for record in self.alignment:
+            yield record.seq
+
+    @property
+    def sequence_identifiers(self) -> list[str]:
+        """Return the identifiers associated with each sequence in the alignment"""
+        try:
+            return self._sequence_identifiers
+        except AttributeError:
+            self._sequence_identifiers = [sequence.id for sequence in self.alignment]
+            return self._sequence_identifiers
+
+    @property
     def alphabet_type(self) -> alphabet_types_literal:
         """The type of alphabet that the alignment is mapped to numerically"""
         try:
@@ -1597,11 +1612,3 @@ class MultipleSequenceAlignment:
         #             for profile, background in backgrounds.items()}
         # observed = {profile: np.where(np.take_along_axis(background, transposed_alignment, axis=1) > 0, 1, 0).T
         #             for profile, background in backgrounds.items()}
-
-    def sequence_identifiers(self) -> list[str]:
-        """Return the identifiers associated with each sequence in the alignment"""
-        try:
-            return self._sequence_identifiers
-        except AttributeError:
-            self._sequence_identifiers = [sequence.id for sequence in self.alignment]
-            return self._sequence_identifiers
