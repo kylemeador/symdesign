@@ -1449,7 +1449,7 @@ class MultipleSequenceAlignment:
         logger.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
         deletion_matrix[:, 1:] = deletion_matrix[:, 1:] - deletion_matrix[:, :-1]
         self._deletion_matrix = deletion_matrix[:, query_indices]
-        logger.critical(f"Created subtracted, indexed, deletion_matrix: {deletion_matrix[-2:].tolist()}")
+        logger.critical(f"Created subtracted, indexed, deletion_matrix: {self._deletion_matrix[-2:].tolist()}")
 
         # msa_gap_indices = ~sequence_indices
         # # iterator_np = np.cumsum(msa_gap_indices, axis=1) * msa_gap_indices

@@ -793,6 +793,8 @@ class SequenceProfile(ABC):
             # sequence_indices = sequence_indices[:, query_indices]
             aligned_query_indices = msa_query_indices[query_indices]
             # sequence_indices[:, aligned_query_indices] = True
+            # Set all query indices False
+            sequence_indices[0] = False
             # Set the query indices that align to be True
             sequence_indices[0, aligned_query_indices] = True
             # self.log.debug(f'For MSA alignment to the reference sequence, found the corresponding MSA query indices:'
@@ -801,7 +803,7 @@ class SequenceProfile(ABC):
             # alignment = generate_alignment(self.reference_sequence, self.msa.query)
             # reference_sequence, msa_sequence = alignment
 
-        # Generate the disordered indices which are positions in reference that are missing in structure
+        # Remove disordered indices (positions in .reference that are missing in .sequence)
         disordered_indices = [index - zero_offset for index in self.disorder]
         self.log.debug(f'Removing disordered indices (reference_sequence indices) from the MultipleSequenceAlignment: '
                        f'{disordered_indices}')  # f'{",".join(map(str, disordered_indices))}')
