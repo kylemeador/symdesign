@@ -26,7 +26,7 @@ from symdesign.sequence import alignment_programs_literal, alignment_programs, h
     MultipleSequenceAlignment, mutation_dictionary, numerical_profile, numerical_translation_alph1_bytes, \
     numerical_translation_alph1_gapped_bytes, parse_hhblits_pssm, ProfileDict, ProfileEntry, protein_letters_alph1, \
     protein_letters_alph3, protein_letters_3to1, profile_types, write_sequence_to_fasta, write_sequences, \
-    get_equivalent_indices
+    get_equivalent_indices, generate_mutations
 
 # import dependencies.bmdca as bmdca
 putils = sdutils.path
@@ -592,7 +592,7 @@ class SequenceProfile(ABC):
 
             # Check the profile and try to generate again if it is incorrect
             first = True
-            while not self.verify_evolutionary_profile():
+            while not self._verify_evolutionary_profile():
                 if first:
                     self.log.info(f'Generating a new profile for {self.name}')
                     self.add_evolutionary_profile(force=True)
@@ -625,7 +625,7 @@ class SequenceProfile(ABC):
 
         self.calculate_profile(**kwargs)
 
-    def verify_evolutionary_profile(self) -> bool:
+    def _verify_evolutionary_profile(self) -> bool:
         """Returns True if the evolutionary_profile and Structure sequences are equivalent"""
         if self.number_of_residues != len(self.evolutionary_profile):
             self.log.warning(f'{self.name}: Profile and {self.__class__.__name__} are different lengths. Profile='
@@ -749,27 +749,70 @@ class SequenceProfile(ABC):
 
         return profile
 
-    def fit_evolutionary_profile_to_structure(self):
+    @staticmethod
+    def create_null_entries(entry_numbers: list[int], nan: bool = False, **kwargs) -> ProfileDict:
+        """Make a blank profile
+
+        Args:
+            entry_numbers: The numbers to generate null entries for
+            nan: Whether to fill the null profile with np.nan
+        Returns:
+            Dictionary containing profile information with the specified entries as the index, values as PSSM
+            Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'info': 3.20, 'weight': 0.73},
+                 2: {}, ...}
+            Importantly, there is no 'type' key. This must be added
+        """
+        # offset = 0 if zero_index else zero_offset
+
+        if nan:
+            _profile_entry = nan_profile_entry
+        else:
+            _profile_entry = blank_profile_entry
+
+        return {entry: _profile_entry.copy() for entry in entry_numbers}
+
+    def _fit_evolutionary_profile_to_structure(self):
         """From an evolutionary profile generated according to a reference sequence, align the profile to the Structure
         sequence, removing information for residues not present in the Structure
 
         Sets:
             self.evolutionary_profile (ProfileDict)
         """
-        # Generate the disordered indices which are positions in reference that are missing in structure
-        disorder = self.disorder
+        # # Generate the disordered indices which are positions in reference that are missing in structure
+        # disorder = self.disorder
+        evolutionary_profile_sequence = ''.join(data['type'] for data in self.evolutionary_profile.values())
+        evolutionary_mutations = generate_mutations(evolutionary_profile_sequence, self.sequence, only_gaps=True)
+        self.log.critical(f'evolutionary_mutations: {evolutionary_mutations}')
         # Removal of these positions from self.evolutionary_profile will produce a properly indexed profile
         new_residue_number = count(1)
         structure_evolutionary_profile = {next(new_residue_number): residue_data
                                           for residue_number, residue_data in self.evolutionary_profile.items()
-                                          if residue_number not in disorder}
+                                          if residue_number not in evolutionary_mutations}  # disorder}
+        # Get any mutations that are present in the structure but not the profile
+        last_profile_number = next(new_residue_number) - 1  # Subtract 1 due to next() call
+        # last_residue_number_seq = self.number_of_residues
+        # # last_profile_number/last_residue_number_seq: 289, 295
+        # input(f'last_profile_number/last_residue_number_seq: {last_profile_number}/{last_residue_number_seq}')
+        extra_structure_sequence = [index for index in evolutionary_mutations
+                                    if index < zero_offset or index > last_profile_number]
+        if extra_structure_sequence:
+            extra_profile_entries = self.create_null_entries(extra_structure_sequence)
+            for residue_number, residue_data in extra_profile_entries.items():
+                residue_data['type'] = evolutionary_mutations[residue_number]['to']
+            structure_evolutionary_profile.update(extra_profile_entries)
+            # Renumber the structure_evolutionary_profile to offset all to 1
+            new_residue_number = count(1)
+            structure_evolutionary_profile = {next(new_residue_number): residue_data
+                                              for residue_data in structure_evolutionary_profile.values()}
+            self.log.debug(f'structure_evolutionary_profile.keys(): {structure_evolutionary_profile.keys()}')
         # for residue_number, residue_data in self.evolutionary_profile.items():
         #     if residue_number not in disorder:
         #         structure_evolutionary_profile[next(new_residue_number)] = residue_data
         #         # new_residue_number += 1
 
-        self.log.debug(f'{self.fit_evolutionary_profile_to_structure.__name__}:\n\tOld:\n'
-                       f'{"".join(res["type"] for res in self.evolutionary_profile.values())}\n\tNew:\n'
+        self.log.debug(f'{self._fit_evolutionary_profile_to_structure.__name__}:\n\tOld:\n'
+                       # f'{"".join(res["type"] for res in self.evolutionary_profile.values())}\n\tNew:\n'
+                       f'{evolutionary_profile_sequence}\n\tNew:\n'
                        f'{"".join(res["type"] for res in structure_evolutionary_profile.values())}')
         self.evolutionary_profile = structure_evolutionary_profile
 
