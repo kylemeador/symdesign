@@ -4151,11 +4151,15 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             # this logic block
             new_residue.number = new_residue.number_pdb = next_residue.number - 1
 
-        if self.secondary_structure:
+        try:
+            secondary_structure = self._secondary_structure
+        except AttributeError:  # When not set yet
+            self.calculate_secondary_structure()  # The new_residue will be included
+        else:  # Insert the new ss with a coiled assumption
             # ASSUME the insertion is disordered and coiled segment
             new_residue.secondary_structure = DEFAULT_SS_COIL_IDENTIFIER
-            self.secondary_structure = \
-                self.secondary_structure[:index] + DEFAULT_SS_COIL_IDENTIFIER + self.secondary_structure[index:]
+            self._secondary_structure = \
+                secondary_structure[:index] + DEFAULT_SS_COIL_IDENTIFIER + secondary_structure[index:]
 
         # Reindex the coords/residues map
         self._set_coords_indexed()  # index_residues_to_coords()
@@ -4800,8 +4804,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         except AttributeError:
             # if self.residues[0].secondary_structure:
             try:
-                self.secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
-            except AttributeError:
+                self._secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
+            except AttributeError:  # When residue.secondary_structure not set
                 self.calculate_secondary_structure()
             # self._secondary_structure = self.fill_secondary_structure()
             return self._secondary_structure
