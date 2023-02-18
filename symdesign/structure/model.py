@@ -1794,13 +1794,26 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
     def get_alphafold_template_features(self, symmetric: bool = False, heteromer: bool = False, **kwargs) \
             -> af_pipeline.FeatureDict:
-        if symmetric or heteromer:
-            raise NotImplementedError("Can't get multimeric features in "
-                                      f"{self.get_alphafold_template_features.__name__}")
-        # Create a stack with 1, number_residues, feature dimension length
+        # if symmetric or heteromer:
+        #     # raise NotImplementedError("Can't get multimeric features in "
+        #     #                           f"{self.get_alphafold_template_features.__name__}")
+        #     # Create a stack with 1, oligomeric.number_of_residues, feature dimension length
+        #     # as found in HmmsearchHitFeaturizer(TemplateHitFeaturizer).get_templates()
+        #     sequence = self.oligomer.sequence
+        #     template_features = {
+        #         'template_all_atom_positions': np.array([self.oligomer.alphafold_coords], dtype=np.float32),
+        #         'template_all_atom_masks': np.array([self.oligomer.alphafold_atom_mask], dtype=np.int32),
+        #         'template_sequence': np.array([sequence.encode()], dtype=object),
+        #         'template_aatype': np.array([sequence_to_one_hot(sequence,
+        #                                                          numerical_translation_alph3_unknown_gaped_bytes)],
+        #                                     dtype=np.int32),
+        #         'template_domain_names': np.array([self.name.encode()], dtype=object)
+        #     }
+        # else:
+        # Create a stack with 1, number_of_residues, feature dimension length
         # as found in HmmsearchHitFeaturizer(TemplateHitFeaturizer).get_templates()
         template_features = {
-            'template_all_atom_positions': np.array([self.alphafold_coords], dtype=np.int32),
+            'template_all_atom_positions': np.array([self.alphafold_coords], dtype=np.float32),
             'template_all_atom_masks': np.array([self.alphafold_atom_mask], dtype=np.int32),
             'template_sequence': np.array([self.sequence.encode()], dtype=object),
             'template_aatype': np.array([sequence_to_one_hot(self.sequence,
@@ -1830,9 +1843,11 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 raise ValueError(f"Couldn't {self.get_alphafold_features.__name__} with both 'symmetric' and "
                                  f"'heteromer' True. Only run with symmetric True if this {self.__class__.__name__} "
                                  "instance alone should be predicted as a multimer")
-            if templates:
-                raise ValueError(f"Couldn't {self.get_alphafold_features.__name__} with both 'symmetric' and "
-                                 f"'templates' True. Templates not set up for multimer")
+        # if templates:
+        #     if symmetric:
+        #         # raise ValueError(f"Couldn't {self.get_alphafold_features.__name__} with both 'symmetric' and "
+        #         logger.warning(f"Couldn't {self.get_alphafold_features.__name__} with both 'symmetric' and "
+        #                        f"'templates' True. Templates not set up for multimer")
         # elif symmetric:
         #     # Set multimer True as we need to make_msa_features_multimeric
         #     multimer = True
@@ -1930,9 +1945,12 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         # Template processing
         if templates:
-            template_features = self.get_alphafold_template_features()
+            template_features = self.get_alphafold_template_features()  # symmetric=symmetric, heteromer=heteromer)
         else:
             template_features = empty_placeholder_template_features(num_templates=0, num_res=number_of_residues)
+        # Debug features
+        for feat, values in template_features.items():
+            self.log.debug(f'For feature {feat}, found shape {values.shape}')
 
         entity_features = {
             **msa_features,
