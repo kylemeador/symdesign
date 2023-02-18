@@ -1464,7 +1464,7 @@ class MultipleSequenceAlignment:
             The MultipleSequenceAlignment object for the provided sequences
         """
         return cls(alignment=MultipleSeqAlignment(
-            [SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
+            [SeqRecord(Seq(sequence), id=name)  # annotations={'molecule_type': 'Protein'},
              for name, sequence in named_sequences.items()]), **kwargs)
 
     @classmethod

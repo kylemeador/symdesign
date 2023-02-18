@@ -1601,7 +1601,8 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 else:  # Subtract the offset from the mutations
                     # for mutation_index in sorted(mutations.keys(), reverse=True):
                     #     mutations[mutation_index + offset] = mutations.pop(mutation_index)
-                    logger.debug('The offset is negative indicating non-reference sequence was added to the n-termini')
+                    logger.debug('The offset is negative indicating non-reference sequence (such as tag linker '
+                                 'residues), were added to the n-termini')
                     formatted_design_sequence = pretag_sequence
 
                 # Figure out tagging specification

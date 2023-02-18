@@ -1864,14 +1864,14 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         msas = tuple()
         if no_msa or msa is None or self.msa_file is None:
             # When no msa_used, construct our own
-            num_alignments = 1
-            deletion_matrix = np.zeros((num_alignments, number_of_residues), dtype=np.int32)
+            num_sequences = 1
+            deletion_matrix = np.zeros((num_sequences, number_of_residues), dtype=np.int32)
             species_ids = ['']  # Must include an empty '' as the first "reference" sequence
             msa_numeric = sequences_to_numeric([sequence], translation_table=
             numerical_translation_alph1_unknown_gapped_bytes).astype(dtype=np.int32)
         elif msa:
             deletion_matrix = msa.deletion_matrix[:, msa.query_indices]
-            num_alignments = msa.number_of_sequences
+            num_sequences = msa.number_of_sequences
             species_ids = msa.sequence_identifiers
             # Set the msa.alphabet_type to ensure the numerical_alignment is embedded correctly
             msa.alphabet_type = protein_letters_alph1_unknown_gapped
@@ -1917,7 +1917,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 # When not single sequence, GET THIS FROM THE MATRIX PROBABLY USING CODE IN COLLAPSE PROFILE cumcount...
                 # 'msa': sequences_to_numeric([sequence], translation_table=HHBLITS_AA_TO_ID).astype(dtype=np.int32),
                 'msa': msa_numeric,
-                'num_alignments': np.full(number_of_residues, num_alignments, dtype=np.int32),
+                'num_alignments': np.full(number_of_residues, num_sequences, dtype=np.int32),
                 # Fill by the number of residues how many sequences are in the MSA
                 'msa_species_identifiers': np.array([id_.encode('utf-8') for id_ in species_ids], dtype=np.object_)
             }

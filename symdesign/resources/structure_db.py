@@ -811,10 +811,10 @@ class StructureDatabase(Database):
                             entity.insert_residue_type(new_aa_type, index=residue_index, chain_id=entity.chain_id)
 
                         # Attach evolutionary info to the entity
-                        evolution_info, alignment_info = load_evolutionary_profile(api_db, entity)
-                        # Don't get the msa (no_msa=True) if the alignment_info is missing (False)
+                        evolution_loaded, alignment_loaded = load_evolutionary_profile(api_db, entity)
+                        # Don't get the msa (no_msa=True) if the alignment_loaded is missing (False)
                         # Ensure the entity.msa_file is present for this prediction to succeed with high probability
-                        features = entity.get_alphafold_features(no_msa=not alignment_info, templates=True)
+                        features = entity.get_alphafold_features(no_msa=not alignment_loaded, templates=True)
                         # template_features = entity.get_alphafold_template_features()
 
                         # Run the prediction

@@ -104,6 +104,7 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
                 warn = True
                 entity.evolutionary_profile = entity.create_null_profile()
             else:
+                protocol_logger.info(f'Adding {entity.name}.evolutionary_profile')
                 entity.evolutionary_profile = profile
                 # Ensure the file is attached as well
                 # entity.pssm_file = api_db.hhblits_profiles.retrieve_file(name=entity.name)
@@ -125,6 +126,7 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
                     measure_alignment = False
                     warn = True
                 else:
+                    protocol_logger.info(f'Adding {entity.name}.msa')
                     entity.msa_file = api_db.alignments.retrieve_file(name=uniprot_id)
                     entity.msa = msa
         except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
