@@ -1623,58 +1623,74 @@ class MultipleSequenceAlignment:
             return self._deletion_matrix
 
     def _init_deletion_matrix(self):
+        # def debug_array(name, array_):
+        #     # input(f'{name}\n{array_[1].astype(int).tolist()[317:350]}')
+        #     _, ar_len = array_.shape
+        #     input(f'{name}\n{array_[1].astype(int).tolist()[ar_len - 30:]}')
+        #
+        # def debug_array1d(name, array_):
+        #     # input(f'{name}\n{array_.astype(int).tolist()[317:350]}')
+        #     ar_len = len(array_)
+        #     input(f'{name}\n{array_.astype(int).tolist()[ar_len - 30:]}')
         # Create the deletion_matrix_int by using the gaped sequence_indices (inverse of sequence_indices)
         # and taking the cumulative sum of them. Finally, after selecting for only the sequence_indices, perform
         # a subtraction of position idx+1 by position idx
-        sequence_indices = self.sequence_indices
         query_indices = self.query_indices
-        # Find where there is some sequence information
-        # sequence_or_query_indices = (sequence_indices + query_indices) > 0
-        gaped_query_indices = ~query_indices
+        # gaped_query_indices = ~query_indices
         # gaped_query_indices = ~self.query_indices
-        # Find where there is sequence information but not query information
-        # sequence_deletion_indices = sequence_or_query_indices * gaped_query_indices
-        sequence_deletion_indices = sequence_indices * gaped_query_indices
+        # debug_array1d('gaped_query_indices', gaped_query_indices)
+        # sequence_indices = self.sequence_indices
+        # debug_array('sequence_indices', sequence_indices)
+        # Find where there is sequence information, while gaped (i.e. ~) query information
+        sequence_deletion_indices = self.sequence_indices * ~query_indices
+        # debug_array('sequence_deletion_indices', sequence_deletion_indices)
         # Perform a cumulative sum of the "deletion" indices,
         # logger.critical(f"Created sequence_deletion_indices: {np.nonzero(sequence_deletion_indices[:2])}")
         sequence_deletion_indices_sum = np.cumsum(sequence_deletion_indices, axis=1)
-        logger.critical(f"Created sequence_deletion_indices_sum: "
-                        f"{sequence_deletion_indices_sum[:2, -100:].tolist()}")
-        # Then remove any summation that is in gaped query
-        deletion_matrix = sequence_deletion_indices_sum * gaped_query_indices
-        # ONLY THING LEFT TO DO IS TO REMOVE THE NON-DELETION PROXIMAL CUMSUM, i.e: 0, 8, *8, *8,
-        # Which is accomplished by the subtraction of position idx+1 by position idx
-        # logger.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
-        deletion_matrix[:, 1:] = deletion_matrix[:, 1:] - deletion_matrix[:, :-1]
-        # self._deletion_matrix = deletion_matrix[:, query_indices]
-        # Finally, clear any information in the gaped_query_indices by multiplying by query_indices mask
-        self._deletion_matrix = deletion_matrix * query_indices
-        logger.critical(f"Created subtracted, indexed, deletion_matrix: {self._deletion_matrix[-2:].tolist()}")
+        # debug_array('sequence_deletion_indices_sum', sequence_deletion_indices_sum)
+        # logger.critical(f"Created sequence_deletion_indices_sum: "
+        #                 f"{sequence_deletion_indices_sum[:2, -100:].tolist()}")
+        # # Then remove any summation that is in gaped query
+        # deletion_matrix = sequence_deletion_indices_sum - sequence_deletion_indices  # <- subtract indices for offset !!
+        # # debug_array('deletion_matrix', deletion_matrix)
+        # # ONLY THING LEFT TO DO IS TO REMOVE THE NON-DELETION PROXIMAL CUMSUM, i.e: 0, 8, *8, *8,
+        # # Which is accomplished by the subtraction of position idx+1 by position idx
+        # # logger.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
+        # # deletion_matrix[:, 1:] = deletion_matrix[:, 1:] - deletion_matrix[:, :-1]
+        # deletion_matrix = np.diff(deletion_matrix, prepend=0)
+        # # debug_array('deletion_matrix', deletion_matrix)
+        # # self._deletion_matrix = deletion_matrix[:, query_indices]
+        # # Finally, clear any information in the gaped_query_indices by multiplying by query_indices mask
+        # self._deletion_matrix = deletion_matrix * query_indices
+        # # logger.critical(f"Created subtracted, indexed, deletion_matrix: {self._deletion_matrix[-2:].tolist()}")
+        # # debug_array('self._deletion_matrix', self._deletion_matrix)
+        # # logger.debug(f"Created subtracted, indexed, deletion_matrix: {self._deletion_matrix[1, query_indices]}")
 
-        # msa_gap_indices = ~sequence_indices
-        # # iterator_np = np.cumsum(msa_gap_indices, axis=1) * msa_gap_indices
-        # # gap_sum = np.cumsum(msa_gap_indices, axis=1)[sequence_indices]
-        # gap_sum = np.cumsum(msa_gap_indices, axis=1) * sequence_indices
-        # deletion_matrix = np.zeros_like(gap_sum)
-        # deletion_matrix[:, 1:] = gap_sum[:, 1:] - gap_sum[:, :-1]
-        # logger.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
-        # Alphafold implementation
-        # Count the number of deletions w.r.t. query.
-        _deletion_matrix = []
-        query_aligned = self.query_aligned
-        for sequence in self.sequences:
-            deletion_vec = []
-            deletion_count = 0
-            for seq_res, query_res in zip(sequence, query_aligned):
-                if seq_res != '-' or query_res != '-':
-                    if query_res == '-':
-                        deletion_count += 1
-                    else:
-                        deletion_vec.append(deletion_count)
-                        deletion_count = 0
-            _deletion_matrix.append(deletion_vec)
-        logger.critical(f"Created AF _deletion_matrix: {_deletion_matrix[-2:]}")
-        # End AF implementation
+        # Remove any indices that aren't query indices. Solving this problem in the context of the entire MSA doesn't
+        # appear possible unless using a sequence specific implementation like from Alphafold
+        repeat_deletion_matrix = sequence_deletion_indices_sum[:, query_indices]
+        # debug_array('repeat_deletion_matrix', repeat_deletion_matrix)
+        self._deletion_matrix = np.diff(repeat_deletion_matrix, prepend=0)  # <- repeat subtraction!!
+        # debug_array('diff repeat_deletion_matrix', repeat_deletion_matrix_diff)
+        logger.debug(f"Created subtracted, indexed, deletion_matrix: {self._deletion_matrix[1]}")
+
+        # # Alphafold implementation
+        # # Count the number of deletions w.r.t. query.
+        # _deletion_matrix = []
+        # query_aligned = self.query_aligned
+        # for sequence in self.sequences:
+        #     deletion_vec = []
+        #     deletion_count = 0
+        #     for seq_res, query_res in zip(sequence, query_aligned):
+        #         if seq_res != '-' or query_res != '-':
+        #             if query_res == '-':
+        #                 deletion_count += 1
+        #             else:
+        #                 deletion_vec.append(deletion_count)
+        #                 deletion_count = 0
+        #     _deletion_matrix.append(deletion_vec)
+        # logger.critical(f"Created AF _deletion_matrix: {_deletion_matrix[1]}")
+        # # End AF implementation
 
     @property
     def frequencies(self) -> np.ndarray:
