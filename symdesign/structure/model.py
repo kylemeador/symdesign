@@ -1870,14 +1870,13 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             msa_numeric = sequences_to_numeric([sequence], translation_table=
                                                numerical_translation_alph1_unknown_gaped_bytes).astype(dtype=np.int32)
         elif msa:
-            deletion_matrix = msa.deletion_matrix[:, msa.query_indices]
+            deletion_matrix = msa.deletion_matrix.astype(np.int32)  # [:, msa.query_indices]
             num_sequences = msa.number_of_sequences
             species_ids = msa.sequence_identifiers
             # Set the msa.alphabet_type to ensure the numerical_alignment is embedded correctly
             msa.alphabet_type = protein_letters_alph1_unknown_gaped
             msa_numeric = msa.numerical_alignment[:, msa.query_indices]
             # self.log.critical(f'982 Found {len(np.flatnonzero(msa.query_indices))} indices utilized in design')
-
         elif os.path.exists(self.msa_file):
             with open(self.msa_file, 'r') as f:
                 uniclust_lines = f.read()

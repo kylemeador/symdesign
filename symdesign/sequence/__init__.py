@@ -1445,9 +1445,6 @@ class MultipleSequenceAlignment:
         else:
             self.sequence_weights = []
 
-        # Set up the deletion matrix
-        self._init_deletion_matrix()
-
     @classmethod
     def from_stockholm(cls, file, **kwargs):
         try:

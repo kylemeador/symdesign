@@ -861,11 +861,12 @@ class SequenceProfile(ABC):
             for idx in terminal_indices:
                 mutations_structure_missing_from_msa.pop(idx)
             internal_sequence_characters = set(mutations_structure_missing_from_msa.values())
-            if internal_sequence_characters != '-':
+            if internal_sequence_characters != {'-'}:
                 # Todo Internal insertions?
                 raise NotImplementedError(
                     'There were internal regions which are unaccounted for in the MSA, but are present in the structure'
-                    f': {", ".join(mutations_structure_missing_from_msa.keys())}')
+                    f': {list(mutations_structure_missing_from_msa.keys())}')
+        #           f': {mutations_structure_missing_from_msa}')
 
         # Get the sequence_indices now that we have insertions
         sequence_indices = msa.sequence_indices
