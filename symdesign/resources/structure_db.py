@@ -794,6 +794,14 @@ class StructureDatabase(Database):
                         # Model_source should be an oriented, asymmetric version of the protein file
                         entity = structure.model.Entity.from_file(protein.model_source, metadata=protein)
 
+                        # Using the protein.uniprot_entity.reference_sequence would be preferred, however, it should be
+                        # realigned to the structure.reference_sequence or .sequence in order to not have large
+                        # insertions well beyond the indicated structural domain
+                        # In a similar mechanism to load_evolutionary_profile(), these need to be combined...
+                        # Example:
+                        # for entity in protein.uniprot_entities:
+                        #     entity.reference_sequence
+
                         # Remove tags from reference_sequence
                         clean_reference_sequence = expression.remove_terminal_tags(entity.reference_sequence)
                         # Todo

@@ -834,25 +834,25 @@ class SequenceProfile(ABC):
             # ^ Todo makes sure internal insertions are handled
 
             # Solve for mutations that are n- or c-terminal to the MSA
-            nterm_extra_structure_indices = [index for index in mutations_structure_missing_from_msa if index < 0]
-            if nterm_extra_structure_indices:
+            nterm_extra_structure_numbers = [index for index in mutations_structure_missing_from_msa if index < 0]
+            if nterm_extra_structure_numbers:
                 # input(f'nterm indices: {nterm_extra_structure_indices}')
                 # self.log.critical(msa.alignment[:0])
                 nterm_sequence = ''.join(mutations_structure_missing_from_msa[idx]['to']
-                                         for idx in nterm_extra_structure_indices)
+                                         for idx in nterm_extra_structure_numbers)
                 # input(f'nterm_sequence: {nterm_sequence}')
                 msa.insert(0, nterm_sequence)
-                nterm_extra_structure_indices = list(range(len(nterm_extra_structure_indices)))
+                nterm_extra_structure_indices = list(range(len(nterm_extra_structure_numbers)))
 
             # This call reflects a fresh query_length from inserts
             last_msa_number = msa.query_length  # + len(nterm_sequence)
             # input(f'last_msa_number: {last_msa_number}')
-            cterm_extra_structure_indices = [index for index in mutations_structure_missing_from_msa
+            cterm_extra_structure_numbers = [index for index in mutations_structure_missing_from_msa
                                              if index > last_msa_number]
-            if cterm_extra_structure_indices:
-                self.log.critical(f'cterm indices: {cterm_extra_structure_indices}')
+            if cterm_extra_structure_numbers:
+                self.log.critical(f'cterm indices: {cterm_extra_structure_numbers}')
                 cterm_sequence = ''.join(mutations_structure_missing_from_msa[idx]['to']
-                                         for idx in cterm_extra_structure_indices)
+                                         for idx in cterm_extra_structure_numbers)
                 self.log.critical(f'cterm_sequence: {cterm_sequence}')
                 msa.insert(last_msa_number, cterm_sequence)
                 cterm_extra_structure_indices = [last_msa_number + i for i in range(len(cterm_extra_structure_indices))]
@@ -888,12 +888,12 @@ class SequenceProfile(ABC):
             # alignment = generate_alignment(self.reference_sequence, self.msa.query)
             # reference_sequence, msa_sequence = alignment
 
-            disordered_indices = nterm_extra_structure_indices + cterm_extra_structure_indices
+            disordered_indices = nterm_extra_structure_numbers + cterm_extra_structure_numbers
             # Todo Internal insertions?
             if set(mutations_structure_missing_from_msa.keys()).difference(disordered_indices):
                 raise NotImplementedError(
-                    'There were internal regions which are unaccounted for in the MSAbut are present in'
-                    f' the structure: {set(mutations_structure_missing_from_msa.keys()).difference(disordered_indices)}')
+                    'There were internal regions which are unaccounted for in the MS, Abut are present in the structure'
+                    f': {set(mutations_structure_missing_from_msa.keys()).difference(disordered_indices)}')
             # This functionality became obsolete with the get_equivalent_indices() call
             # # Finally set the nterm/cterm disordered_indices to False
             # disordered_indices = nterm_extra_structure_indices + cterm_extra_structure_indices
