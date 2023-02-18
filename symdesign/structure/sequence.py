@@ -782,7 +782,7 @@ class SequenceProfile(ABC):
         # disorder = self.disorder
         evolutionary_profile_sequence = ''.join(data['type'] for data in self.evolutionary_profile.values())
         evolutionary_mutations = generate_mutations(evolutionary_profile_sequence, self.sequence, only_gaps=True)
-        self.log.critical(f'evolutionary_mutations: {evolutionary_mutations}')
+        self.log.debug(f'evolutionary_mutations: {evolutionary_mutations}')
         # Removal of these positions from self.evolutionary_profile will produce a properly indexed profile
         new_residue_number = count(1)
         structure_evolutionary_profile = {next(new_residue_number): residue_data
@@ -826,10 +826,11 @@ class SequenceProfile(ABC):
         msa = self.msa
         # Similar routine in fit_evolutionary_profile_to_structure()
         # See if there are any insertions in the self.sequence that are not in the MSA
+        # return_to will give the self.sequence values at the mutation site
         mutations_structure_missing_from_msa = \
-            generate_mutations(msa.query, self.sequence, only_gaps=True, zero_index=True)
+            generate_mutations(msa.query, self.sequence, only_gaps=True, return_to=True, zero_index=True)
         if mutations_structure_missing_from_msa:  # Two sequences don't align
-            self.log.critical(f'mutations_structure_missing_from_msa: {mutations_structure_missing_from_msa}')
+            self.log.debug(f'mutations_structure_missing_from_msa: {mutations_structure_missing_from_msa}')
 
             # # Get any mutations that are present in the structure but not the msa
             # ^ Todo make sure internal insertions are handled
@@ -837,7 +838,7 @@ class SequenceProfile(ABC):
             # Solve for mutations that are n- or c-terminal to the MSA
             nterm_extra_structure_numbers = [index for index in mutations_structure_missing_from_msa if index < 0]
             if nterm_extra_structure_numbers:
-                nterm_sequence = ''.join(mutations_structure_missing_from_msa[idx]['to']
+                nterm_sequence = ''.join(mutations_structure_missing_from_msa[idx]
                                          for idx in nterm_extra_structure_numbers)
                 msa.insert(0, nterm_sequence)
                 # nterm_extra_structure_indices = list(range(len(nterm_extra_structure_numbers)))
@@ -850,18 +851,21 @@ class SequenceProfile(ABC):
             if cterm_extra_structure_numbers:
                 # Todo this hasn't been debugged yet
                 self.log.critical(f'cterm indices: {cterm_extra_structure_numbers}')
-                cterm_sequence = ''.join(mutations_structure_missing_from_msa[idx]['to']
+                cterm_sequence = ''.join(mutations_structure_missing_from_msa[idx]
                                          for idx in cterm_extra_structure_numbers)
                 self.log.critical(f'cterm_sequence: {cterm_sequence}')
                 msa.insert(last_msa_number, cterm_sequence)
                 # cterm_extra_structure_indices = [last_msa_number + i for i in range(len(cterm_extra_structure_numbers))]
 
-            disordered_indices = nterm_extra_structure_numbers + cterm_extra_structure_numbers
-            # Todo Internal insertions?
-            if set(mutations_structure_missing_from_msa.keys()).difference(disordered_indices):
+            terminal_indices = nterm_extra_structure_numbers + cterm_extra_structure_numbers
+            for idx in terminal_indices:
+                mutations_structure_missing_from_msa.pop(idx)
+            internal_sequence_characters = set(mutations_structure_missing_from_msa.values())
+            if internal_sequence_characters != '-':
+                # Todo Internal insertions?
                 raise NotImplementedError(
                     'There were internal regions which are unaccounted for in the MSA, but are present in the structure'
-                    f': {set(mutations_structure_missing_from_msa.keys()).difference(disordered_indices)}')
+                    f': {", ".join(mutations_structure_missing_from_msa.keys())}')
 
         # Get the sequence_indices now that we have insertions
         sequence_indices = msa.sequence_indices
