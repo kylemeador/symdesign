@@ -28,34 +28,47 @@ putils = utils.path
 zero_offset = 1
 logger = logging.getLogger(__name__)
 # Types
-protein_letters3_alph1: tuple[str, ...] = \
-    ('ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE', 'LYS', 'LEU', 'MET', 'ASN',
-     'PRO', 'GLN', 'ARG', 'SER', 'THR', 'VAL', 'TRP', 'TYR')
-protein_letters3_extended: tuple[str, ...] = \
-    ('ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE', 'LYS', 'LEU', 'MET', 'ASN',
-     'PRO', 'GLN', 'ARG', 'SER', 'THR', 'VAL', 'TRP', 'TYR', 'ASX', 'XAA', 'GLX', 'XLE', 'SEC', 'PYL')
-protein_letters_alph1: str = 'ACDEFGHIKLMNPQRSTVWY'
-protein_letters_alph1_extended: str = 'ACDEFGHIKLMNPQRSTVWYBXZJUO'
+protein_letters3_alph1_literal = Literal[
+    'ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE', 'LYS', 'LEU', 'MET', 'ASN',
+    'PRO', 'GLN', 'ARG', 'SER', 'THR', 'VAL', 'TRP', 'TYR']
+protein_letters3_alph1_extended_literal = Literal[
+    'ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE', 'LYS', 'LEU', 'MET', 'ASN',
+    'PRO', 'GLN', 'ARG', 'SER', 'THR', 'VAL', 'TRP', 'TYR', 'ASX', 'XAA', 'GLX', 'XLE', 'SEC', 'PYL']
+protein_letters3_alph1: tuple[str, ...] = get_args(protein_letters3_alph1_literal)
+protein_letters3_alph1_extended: tuple[str, ...] = get_args(protein_letters3_alph1_extended_literal)
+protein_letters_literal = Literal[
+    'A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
+protein_letters_alph1_literal = Literal[
+    'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y']
+protein_letters_alph1_gaped_literal = Literal[
+    'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', '-']
+protein_letters_alph1_extended_literal = Literal[
+    'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y',
+    'B', 'X', 'Z', 'J', 'U', 'O']
+protein_letters_alph1_extended_and_gap_literal = Literal[
+    'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y',
+    'B', 'X', 'Z', 'J', 'U', 'O', '-']
+protein_letters_alph3_unknown_gaped_literal = Literal[
+    'A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', 'X', '-']
+protein_letters_alph1: str = ''.join(get_args(protein_letters_alph1_literal))
+"""ACDEFGHIKLMNPQRSTVWY"""
+protein_letters_alph1_extended: str = ''.join(get_args(protein_letters_alph1_extended_literal))
+"""ACDEFGHIKLMNPQRSTVWYBXZJUO"""
+protein_letters_extended_and_gap: str = ''.join(get_args(protein_letters_alph1_extended_and_gap_literal))
+"""ACDEFGHIKLMNPQRSTVWYBXZJUO-"""
 protein_letters_3to1: dict[str, str] = dict(zip(protein_letters3_alph1, protein_letters_alph1))
 protein_letters_1to3: dict[str, str] = dict(zip(protein_letters_alph1, protein_letters3_alph1))
-protein_letters_3to1_extended: dict[str, str] = dict(zip(protein_letters3_extended, protein_letters_alph1_extended))
-protein_letters_1to3_extended: dict[str, str] = dict(zip(protein_letters_alph1_extended, protein_letters3_extended))
-protein_letters_literal = \
-    Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
-_alph_3_aa: tuple[protein_letters_literal, ...] = get_args(protein_letters_literal)
-protein_letters_alph3 = ''.join(_alph_3_aa)
-protein_letters_alph1_literal = Literal[tuple(protein_letters_alph1)]
+protein_letters_3to1_extended: dict[str, str] = dict(zip(protein_letters3_alph1_extended, protein_letters_alph1_extended))
+protein_letters_1to3_extended: dict[str, str] = dict(zip(protein_letters_alph1_extended, protein_letters3_alph1_extended))
+protein_letters_alph3 = ''.join(get_args(protein_letters_literal))
 protein_letters_alph1_unknown = protein_letters_alph1 + 'X'
 protein_letters_alph3_unknown = protein_letters_alph3 + 'X'
-protein_letters_alph1_gapped = protein_letters_alph1 + '-'
-protein_letters_alph3_gapped = protein_letters_alph3 + '-'
-protein_letters_alph1_unknown_gapped = protein_letters_alph1 + 'X-'
-protein_letters_alph3_unknown_gapped = protein_letters_alph3 + 'X-'
-protein_letters_alph1_extended_literal = Literal[tuple(protein_letters_alph1_extended)]
-protein_letters_alph3_unknown_gapped_literal = \
-    Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', 'X', '-']
+protein_letters_alph1_gaped = protein_letters_alph1 + '-'
+protein_letters_alph3_gaped = protein_letters_alph3 + '-'
+protein_letters_alph1_unknown_gaped = protein_letters_alph1 + 'X-'
+protein_letters_alph3_unknown_gaped = protein_letters_alph3 + 'X-'
 # Todo the default value for many of these might have conflicting use cases
-#  For instance, a value of 20 for protein_letters_alph1_unknown_gapped would but a missing in the unknown position
+#  For instance, a value of 20 for protein_letters_alph1_unknown_gaped would but a missing in the unknown position
 #  which seems good, but protein_letters_alph1 puts in a value that is not expected to be possible in an array of only
 #  these letters
 numerical_translation_alph1 = defaultdict(lambda: 20, zip(protein_letters_alph1, count()))
@@ -66,35 +79,33 @@ numerical_translation_alph3_bytes = \
     defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph3), count()))
 sequence_translation_alph1 = defaultdict(lambda: '-', zip(count(), protein_letters_alph1))
 sequence_translation_alph3 = defaultdict(lambda: '-', zip(count(), protein_letters_alph3))
-numerical_translation_alph1_gapped = defaultdict(lambda: 20, zip(protein_letters_alph1_gapped, count()))
-numerical_translation_alph3_gapped = defaultdict(lambda: 20, zip(protein_letters_alph3_gapped, count()))
-numerical_translation_alph1_gapped_bytes = \
-    defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph1_gapped), count()))
-numerical_translation_alph3_gapped_bytes = \
-    defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph3_gapped), count()))
+numerical_translation_alph1_gaped = defaultdict(lambda: 20, zip(protein_letters_alph1_gaped, count()))
+numerical_translation_alph3_gaped = defaultdict(lambda: 20, zip(protein_letters_alph3_gaped, count()))
+numerical_translation_alph1_gaped_bytes = \
+    defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph1_gaped), count()))
+numerical_translation_alph3_gaped_bytes = \
+    defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph3_gaped), count()))
 numerical_translation_alph1_unknown_bytes = \
     defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph1_unknown), count()))
 numerical_translation_alph3_unknown_bytes = \
     defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph3_unknown), count()))
-numerical_translation_alph1_unknown_gapped_bytes = \
-    defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph1_unknown_gapped), count()))
-numerical_translation_alph3_unknown_gapped_bytes = \
-    defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph3_unknown_gapped), count()))
-extended_protein_letters_and_gap_literal = Literal[get_args(protein_letters_alph1_extended_literal), '-']
-extended_protein_letters_and_gap: tuple[str, ...] = get_args(extended_protein_letters_and_gap_literal)
+numerical_translation_alph1_unknown_gaped_bytes = \
+    defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph1_unknown_gaped), count()))
+numerical_translation_alph3_unknown_gaped_bytes = \
+    defaultdict(lambda: 20, zip((char.encode() for char in protein_letters_alph3_unknown_gaped), count()))
 alphabet_types_literal = Literal[
-    'protein_letters_alph1', 'protein_letters_alph3', 'protein_letters_alph1_gapped',
-    'protein_letters_alph3_gapped', 'protein_letters_alph1_unknown', 'protein_letters_alph3_unknown',
-    'protein_letters_alph1_unknown_gapped', 'protein_letters_alph3_unknown_gapped']
+    'protein_letters_alph1', 'protein_letters_alph3', 'protein_letters_alph1_gaped',
+    'protein_letters_alph3_gaped', 'protein_letters_alph1_unknown', 'protein_letters_alph3_unknown',
+    'protein_letters_alph1_unknown_gaped', 'protein_letters_alph3_unknown_gaped']
 alphabet_types: tuple[str, ...] = get_args(alphabet_types_literal)
 alphabet_to_type = {'ACDEFGHIKLMNPQRSTVWY': protein_letters_alph1,
                     'ARNDCQEGHILKMFPSTWYV': protein_letters_alph3,
-                    'ACDEFGHIKLMNPQRSTVWY-': protein_letters_alph1_gapped,
-                    'ARNDCQEGHILKMFPSTWYV-': protein_letters_alph3_gapped,
+                    'ACDEFGHIKLMNPQRSTVWY-': protein_letters_alph1_gaped,
+                    'ARNDCQEGHILKMFPSTWYV-': protein_letters_alph3_gaped,
                     'ACDEFGHIKLMNPQRSTVWYX': protein_letters_alph1_unknown,
                     'ARNDCQEGHILKMFPSTWYVX': protein_letters_alph3_unknown,
-                    'ACDEFGHIKLMNPQRSTVWYX-': protein_letters_alph1_unknown_gapped,
-                    'ARNDCQEGHILKMFPSTWYVX-': protein_letters_alph3_unknown_gapped}
+                    'ACDEFGHIKLMNPQRSTVWYX-': protein_letters_alph1_unknown_gaped,
+                    'ARNDCQEGHILKMFPSTWYVX-': protein_letters_alph3_unknown_gaped}
 alignment_programs_literal = Literal['hhblits', 'psiblast']
 alignment_programs: tuple[str, ...] = get_args(alignment_programs_literal)
 profile_types = Literal['evolutionary', 'fragment', '']
@@ -169,18 +180,18 @@ def get_sequence_to_numeric_translation_table(alphabet_type: alphabet_types_lite
     #             numeric_translation_table = numerical_translation_alph1_bytes
     #         case 'protein_letters_alph3':
     #             numeric_translation_table = numerical_translation_alph3_bytes
-    #         case 'protein_letters_alph1_gapped':
-    #             numeric_translation_table = numerical_translation_alph1_gapped_bytes
-    #         case 'protein_letters_alph3_gapped':
-    #             numeric_translation_table = numerical_translation_alph3_gapped_bytes
+    #         case 'protein_letters_alph1_gaped':
+    #             numeric_translation_table = numerical_translation_alph1_gaped_bytes
+    #         case 'protein_letters_alph3_gaped':
+    #             numeric_translation_table = numerical_translation_alph3_gaped_bytes
     #         case 'protein_letters_alph1_unknown':
     #             numeric_translation_table = numerical_translation_alph1_unknown_bytes
     #         case 'protein_letters_alph3_unknown':
     #             numeric_translation_table = numerical_translation_alph3_unknown_bytes
-    #         case 'protein_letters_alph1_unknown_gapped':
-    #             numeric_translation_table = numerical_translation_alph1_unknown_gapped_bytes
-    #         case 'protein_letters_alph3_unknown_gapped':
-    #             numeric_translation_table = numerical_translation_alph3_unknown_gapped_bytes
+    #         case 'protein_letters_alph1_unknown_gaped':
+    #             numeric_translation_table = numerical_translation_alph1_unknown_gaped_bytes
+    #         case 'protein_letters_alph3_unknown_gaped':
+    #             numeric_translation_table = numerical_translation_alph3_unknown_gaped_bytes
     #         case _:
     #             try:  # To see if we already have the alphabet, and just return defaultdict
     #                 numeric_translation_table = alphabet_to_type[alphabet_type]
@@ -193,18 +204,18 @@ def get_sequence_to_numeric_translation_table(alphabet_type: alphabet_types_lite
         numeric_translation_table = numerical_translation_alph1_bytes
     elif alphabet_type == 'protein_letters_alph3':
         numeric_translation_table = numerical_translation_alph3_bytes
-    elif alphabet_type == 'protein_letters_alph1_gapped':
-        numeric_translation_table = numerical_translation_alph1_gapped_bytes
-    elif alphabet_type == 'protein_letters_alph3_gapped':
-        numeric_translation_table = numerical_translation_alph3_gapped_bytes
+    elif alphabet_type == 'protein_letters_alph1_gaped':
+        numeric_translation_table = numerical_translation_alph1_gaped_bytes
+    elif alphabet_type == 'protein_letters_alph3_gaped':
+        numeric_translation_table = numerical_translation_alph3_gaped_bytes
     elif alphabet_type == 'protein_letters_alph1_unknown':
         numeric_translation_table = numerical_translation_alph1_unknown_bytes
     elif alphabet_type == 'protein_letters_alph3_unknown':
         numeric_translation_table = numerical_translation_alph3_unknown_bytes
-    elif alphabet_type == 'protein_letters_alph1_unknown_gapped':
-        numeric_translation_table = numerical_translation_alph1_unknown_gapped_bytes
-    elif alphabet_type == 'protein_letters_alph3_unknown_gapped':
-        numeric_translation_table = numerical_translation_alph3_unknown_gapped_bytes
+    elif alphabet_type == 'protein_letters_alph1_unknown_gaped':
+        numeric_translation_table = numerical_translation_alph1_unknown_gaped_bytes
+    elif alphabet_type == 'protein_letters_alph3_unknown_gaped':
+        numeric_translation_table = numerical_translation_alph3_unknown_gaped_bytes
     else:
         try:  # To see if we already have the alphabet, and return the defaultdict
             alphabet_type = alphabet_to_type[alphabet_type]
@@ -761,22 +772,19 @@ def find_orf_offset(sequence: Sequence, mutations: mutation_dictionary) -> int:
     return orf_start_idx
 
 
-protein_letters_alph3_gapped_literal = \
-    Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', '-']
-
 # class MutationEntry(TypedDict):
-#     to: protein_letters_alph3_gapped_literal
-#     from: protein_letters_alph3_gapped_literal
-MutationEntry = TypedDict('MutationEntry', {'to': protein_letters_alph3_gapped_literal,
-                                            'from': protein_letters_alph3_gapped_literal})
-# mutation_entry = dict[Literal['to', 'from'], protein_letters_alph3_gapped_literal]
-# mutation_entry = Type[dict[Literal['to', 'from'], protein_letters_alph3_gapped_literal]]
+#     to: protein_letters_alph3_gaped_literal
+#     from: protein_letters_alph3_gaped_literal
+MutationEntry = TypedDict('MutationEntry', {'to': protein_letters_literal,
+                                            'from': protein_letters_literal})
+# mutation_entry = dict[Literal['to', 'from'], protein_letters_alph3_gaped_literal]
+# mutation_entry = Type[dict[Literal['to', 'from'], protein_letters_alph3_gaped_literal]]
 """Mapping of a reference sequence amino acid type, 'to', and the resulting sequence amino acid type, 'from'"""
 mutation_dictionary = dict[int, MutationEntry]
 """The mapping of a residue number to a mutation entry containing the reference, 'to', and sequence, 'from', amino acid 
 type
 """
-sequence_dictionary = dict[int, protein_letters_alph3_gapped_literal]
+sequence_dictionary = dict[int, protein_letters_literal]
 """The mapping of a residue number to the corresponding amino acid type"""
 
 
@@ -1314,7 +1322,7 @@ class MultipleSequenceAlignment:
     # """The sequence used to perform the MultipleSequenceAlignment search. May contain gaps from alignment"""
 
     def __init__(self, alignment: MultipleSeqAlignment = None, aligned_sequence: str = None,
-                 alphabet: str = protein_letters_alph1_gapped,
+                 alphabet: str = protein_letters_alph1_gaped,
                  weight_alignment_by_sequence: bool = False, sequence_weights: list[float] = None,
                  count_gaps: bool = False, **kwargs):
         """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
@@ -1374,7 +1382,7 @@ class MultipleSequenceAlignment:
             # gap_observations = [_aa_counts[0] for _aa_counts in self.counts]  # list[list]
             # self.observations = [counts - gap for counts, gap in zip(self.observations, gap_observations)]
             # Find where gaps and unknown start. They are always at the end
-            if 'gapped' in self.alphabet_type:
+            if 'gaped' in self.alphabet_type:
                 self._gap_index -= 1
             if 'unknown' in self.alphabet_type:
                 self._gap_index -= 1
@@ -1406,7 +1414,7 @@ class MultipleSequenceAlignment:
             counts_ = [[0 for _ in alphabet] for _ in range(self.length)]  # list[list]
             for sequence in self.sequences:
                 for _count, aa in zip(counts_, sequence):
-                    _count[numerical_translation_alph1_gapped[aa]] += 1
+                    _count[numerical_translation_alph1_gaped[aa]] += 1
                     # self.counts[i][aa] += 1
             self._counts = counts_
             logger.critical('OLD self._counts', self._counts)
@@ -1421,7 +1429,7 @@ class MultipleSequenceAlignment:
             counts_ = [[0 for _ in alphabet] for _ in range(self.length)]  # list[list]
             for sequence in self.sequences:
                 for i, (_count, aa) in enumerate(zip(counts_, sequence)):
-                    _count[numerical_translation_alph1_gapped[aa]] += sequence_weights_[i]
+                    _count[numerical_translation_alph1_gaped[aa]] += sequence_weights_[i]
                     # self.counts[i][aa] += sequence_weights[i]
             self._counts = counts_
             logger.critical('OLD sequence_weight self._counts', self._counts)
@@ -1538,7 +1546,7 @@ class MultipleSequenceAlignment:
             if 'X' in self.alphabet:  # Unknown
                 self._alphabet_type += '_unknown'
             if '-' in self.alphabet:  # Gapped
-                self._alphabet_type += '_gapped'
+                self._alphabet_type += '_gaped'
 
             return self._alphabet_type
 

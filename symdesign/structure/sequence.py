@@ -24,7 +24,7 @@ from .fragment.db import alignment_types_literal, alignment_types, fragment_info
 from symdesign import metrics, utils as sdutils
 from symdesign.sequence import alignment_programs_literal, alignment_programs, hhblits, get_lod, \
     MultipleSequenceAlignment, mutation_dictionary, numerical_profile, numerical_translation_alph1_bytes, \
-    numerical_translation_alph1_gapped_bytes, parse_hhblits_pssm, ProfileDict, ProfileEntry, protein_letters_alph1, \
+    numerical_translation_alph1_gaped_bytes, parse_hhblits_pssm, ProfileDict, ProfileEntry, protein_letters_alph1, \
     protein_letters_alph3, protein_letters_3to1, profile_types, write_sequence_to_fasta, write_sequences, \
     get_equivalent_indices, generate_mutations
 
@@ -502,7 +502,7 @@ class SequenceProfile(ABC):
         except AttributeError:
             self._sequence_array = np.array(list(self.sequence), np.string_)
             self._sequence_numeric = \
-                np.vectorize(numerical_translation_alph1_gapped_bytes.__getitem__, otypes='l')(self._sequence_array)
+                np.vectorize(numerical_translation_alph1_gaped_bytes.__getitem__, otypes='l')(self._sequence_array)
             # using otypes='i' as the datatype for int32. 'f' would be for float32
             # using otypes='l' as the datatype for int64. 'd' would be for float64
             # self.log.critical(f'The sequence_numeric dtype is {self._sequence_numeric.dtype}. It should be int64')
@@ -1128,9 +1128,9 @@ class SequenceProfile(ABC):
             evolutionary_collapse_np = np.zeros((msa.number_of_sequences, msa.length + 1))
             evolutionary_collapse_np[:, 0] = np.nan  # np.nan for all missing indices
             for idx, sequence in enumerate(msa.sequences):
-                non_gapped_sequence = str(sequence).replace('-', '')
-                evolutionary_collapse_np[idx, 1:len(non_gapped_sequence) + 1] = \
-                    metrics.hydrophobic_collapse_index(non_gapped_sequence, **kwargs)
+                non_gaped_sequence = str(sequence).replace('-', '')
+                evolutionary_collapse_np[idx, 1:len(non_gaped_sequence) + 1] = \
+                    metrics.hydrophobic_collapse_index(non_gaped_sequence, **kwargs)
             # Todo this should be possible now metrics.hydrophobic_collapse_index(self.msa.array)
 
             msa_sequence_indices = msa.sequence_indices
@@ -2273,10 +2273,9 @@ def weave_mutation_dict(sorted_freq, mut_prob, resi_divergence, int_divergence, 
     return weaved_dict
 
 
-def clean_gapped_columns(alignment_dict, correct_index):  # UNUSED
+def clean_gaped_columns(alignment_dict, correct_index):  # UNUSED
     """Cleans an alignment dictionary by revising key list with correctly indexed positions. 0 indexed"""
     return {i: alignment_dict[index] for i, index in enumerate(correct_index)}
-
 
 
 msa_supported_types = {'fasta': '.fasta', 'stockholm': '.sto'}

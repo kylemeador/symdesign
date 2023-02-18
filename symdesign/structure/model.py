@@ -33,9 +33,9 @@ from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, query, sql
 from symdesign.sequence import default_substitution_matrix_array, default_substitution_matrix_translation_table, \
     generate_alignment, generate_mutations, get_equivalent_indices, numeric_to_sequence, \
-    numerical_translation_alph1_unknown_gapped_bytes, numerical_translation_alph3_unknown_gapped_bytes, \
+    numerical_translation_alph1_unknown_gaped_bytes, numerical_translation_alph3_unknown_gaped_bytes, \
     protein_letters_alph1, protein_letters_3to1_extended, protein_letters_1to3_extended, profile_types, \
-    protein_letters_alph1_unknown_gapped
+    protein_letters_alph1_unknown_gaped
 import symdesign.third_party.alphafold.alphafold.data.feature_processing as af_feature_processing
 import symdesign.third_party.alphafold.alphafold.data.parsers as af_data_parsers
 import symdesign.third_party.alphafold.alphafold.data.msa_pairing as af_msa_pairing
@@ -1804,7 +1804,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             'template_all_atom_masks': np.array([self.alphafold_atom_mask], dtype=np.int32),
             'template_sequence': np.array([self.sequence.encode()], dtype=object),
             'template_aatype': np.array([sequence_to_one_hot(self.sequence,
-                                                             numerical_translation_alph3_unknown_gapped_bytes)],
+                                                             numerical_translation_alph3_unknown_gaped_bytes)],
                                         dtype=np.int32),
             'template_domain_names': np.array([self.name.encode()], dtype=object)
         }
@@ -1868,13 +1868,13 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             deletion_matrix = np.zeros((num_sequences, number_of_residues), dtype=np.int32)
             species_ids = ['']  # Must include an empty '' as the first "reference" sequence
             msa_numeric = sequences_to_numeric([sequence], translation_table=
-            numerical_translation_alph1_unknown_gapped_bytes).astype(dtype=np.int32)
+                                               numerical_translation_alph1_unknown_gaped_bytes).astype(dtype=np.int32)
         elif msa:
             deletion_matrix = msa.deletion_matrix[:, msa.query_indices]
             num_sequences = msa.number_of_sequences
             species_ids = msa.sequence_identifiers
             # Set the msa.alphabet_type to ensure the numerical_alignment is embedded correctly
-            msa.alphabet_type = protein_letters_alph1_unknown_gapped
+            msa.alphabet_type = protein_letters_alph1_unknown_gaped
             msa_numeric = msa.numerical_alignment[:, msa.query_indices]
             # self.log.critical(f'982 Found {len(np.flatnonzero(msa.query_indices))} indices utilized in design')
 
