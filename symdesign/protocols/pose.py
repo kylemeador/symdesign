@@ -110,8 +110,9 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
                 # entity.pssm_file = api_db.hhblits_profiles.retrieve_file(name=entity.name)
                 entity.pssm_file = api_db.hhblits_profiles.retrieve_file(name=uniprot_id)
 
-        if not entity.verify_evolutionary_profile():
-            entity.fit_evolutionary_profile_to_structure()
+        # Todo this routine to self.evolutionary_profile setter
+        if not entity._verify_evolutionary_profile():
+            entity._fit_evolutionary_profile_to_structure()
         if not entity.sequence_file:
             entity.write_sequence_to_fasta('reference', out_dir=api_db.sequences.location)
 

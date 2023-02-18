@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 import subprocess
 from glob import glob
 from logging import Logger
 from pathlib import Path
 from typing import Iterable, Annotated, AnyStr
+
+import jax.numpy as jnp
 
 from . import sql
 from .database import Database, DataStore
@@ -782,18 +783,29 @@ class StructureDatabase(Database):
                 # Generate loop model commands
                 use_alphafold = True
                 if use_alphafold:
-                    # Hard code in parameters
-                    model_type = 'monomer'
+                    # # Hard code in parameters
+                    # model_type = 'monomer'
                     relaxed = self.job.predict.models_to_relax is None
                     # Set up the various model_runners to supervise the prediction task for each sequence
-                    model_runners = resources.ml.set_up_model_runners(model_type=model_type)
+                    monomer_runners = \
+                        resources.ml.set_up_model_runners(model_type='monomer', development=self.job.development)
+                    multimer_runners = \
+                        resources.ml.set_up_model_runners(model_type='multimer', development=self.job.development)
                     # I don't suppose I need to reinitialize these for different length inputs, but I'm sure I will
 
                     # Predict each
                     for idx, protein in enumerate(protein_data_to_loop_model):
                         # Model_source should be an oriented, asymmetric version of the protein file
-                        entity = structure.model.Entity.from_file(protein.model_source, metadata=protein)
+                        entity: structure.model.Entity = \
+                            structure.model.Entity.from_file(protein.model_source, metadata=protein)
 
+                        entity.make_oligomer(symmetry=protein.symmetry_group)
+                        if entity.number_of_symmetry_mates > 1:
+                            af_symmetric = True
+                            model_runners = multimer_runners
+                        else:
+                            af_symmetric = False
+                            model_runners = monomer_runners
                         # Using the protein.uniprot_entity.reference_sequence would be preferred, however, it should be
                         # realigned to the structure.reference_sequence or .sequence in order to not have large
                         # insertions well beyond the indicated structural domain
@@ -818,13 +830,15 @@ class StructureDatabase(Database):
                             new_aa_type = mutation['from']
                             entity.insert_residue_type(new_aa_type, index=residue_index, chain_id=entity.chain_id)
 
+                        # If the entity.msa_file is present, the prediction should succeed with high probability...
                         # Attach evolutionary info to the entity
                         evolution_loaded, alignment_loaded = load_evolutionary_profile(api_db, entity)
                         # Don't get the msa (no_msa=True) if the alignment_loaded is missing (False)
-                        # Ensure the entity.msa_file is present for this prediction to succeed with high probability
-                        features = entity.get_alphafold_features(no_msa=not alignment_loaded, templates=True)
-                        # template_features = entity.get_alphafold_template_features()
-
+                        features = entity.get_alphafold_features(symmetric=af_symmetric,
+                                                                 no_msa=not alignment_loaded,
+                                                                 templates=True)
+                        # Put the entity oligomeric coordinates in as a prior to bias the prediction
+                        features['prev_pos'] = jnp.asarray(entity.oligomer.alphafold_coords)
                         # Run the prediction
                         entity_structures, entity_scores = \
                             resources.ml.af_predict(features, model_runners,  # {**features, **template_features},
@@ -849,11 +863,15 @@ class StructureDatabase(Database):
                         #     entity_cb_coords = np.concatenate([mate.cb_coords for mate in entity.chains])
                         #     Tod0 entity_backbone_and_cb_coords = entity.oligomer.cb_coords
 
-                        template_cb_coords = entity.cb_coords
+                        # Only use the original indices to align
+                        new_indices = list(source_gap_mutations.keys())
+                        align_indices = [idx for idx in entity.residue_indices if idx not in new_indices]
+                        template_cb_coords = entity.cb_coords[align_indices]
                         min_rmsd = float('inf')
                         min_entity = None
                         for af_model_name, entity_ in folded_entities.items():
-                            rmsd, rot, tx = structure.coords.superposition3d(template_cb_coords, entity_.cb_coords)
+                            rmsd, rot, tx = structure.coords.superposition3d(template_cb_coords,
+                                                                             entity_.cb_coords[align_indices])
                             if rmsd < min_rmsd:
                                 min_rmsd = rmsd
                                 # Move the Alphafold model into the Pose reference frame
