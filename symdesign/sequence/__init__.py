@@ -1716,3 +1716,37 @@ class MultipleSequenceAlignment:
         #             for profile, background in backgrounds.items()}
         # observed = {profile: np.where(np.take_along_axis(background, transposed_alignment, axis=1) > 0, 1, 0).T
         #             for profile, background in backgrounds.items()}
+
+    def insert(self, at: int, sequence: str):
+        """Insert new sequence in the MultipleSequenceAlignment where the added sequence is added to all columns
+
+        Sets:
+            self.alignment: The existing alignment updated with the new sequence in alignment form
+        """
+        new_sequence = Seq(sequence)
+        new_alignment = MultipleSeqAlignment(
+            [SeqRecord(new_sequence, id=id_)  # annotations={'molecule_type': 'Protein'},
+             for id_ in self.sequence_identifiers])
+
+        begin_alignment = self.alignment[:at]
+        if len(begin_alignment):
+            new_alignment = begin_alignment + new_alignment
+
+        end_alignment = self.alignment[at:]
+        if len(end_alignment):
+            new_alignment = new_alignment + end_alignment
+
+        # Set the alignment
+        self.alignment = new_alignment
+        self.query_aligned = str(new_alignment[0].seq)
+
+        # Update alignment dependent features
+        for attr in ['_array', '_deletion_matrix', '_numerical_alignment', '_sequence_indices']:
+            try:
+                self.__delattr__(attr)
+            except AttributeError:
+                continue
+
+        # Todo: Need to additionally update:
+        #  observations_by_position, counts_by_position, gaps_by_position
+        #  which are mostly set in the __init__()
