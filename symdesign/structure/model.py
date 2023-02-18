@@ -1936,8 +1936,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 'msa_species_identifiers': np.array([id_.encode('utf-8') for id_ in species_ids], dtype=np.object_)
             }
             # Debug features
-            # for feat, values in msa_features.items():
-            #     self.log.critical(f'For feature {feat}, found shape {values.shape}')
+            for feat, values in msa_features.items():
+                self.log.debug(f'For feature {feat}, found shape {values.shape}')
 
             if heteromer:
                 # Make a deepcopy just incase this screws up something
