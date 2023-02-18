@@ -799,13 +799,6 @@ class StructureDatabase(Database):
                         entity: structure.model.Entity = \
                             structure.model.Entity.from_file(protein.model_source, metadata=protein)
 
-                        entity.make_oligomer(symmetry=protein.symmetry_group)
-                        if entity.number_of_symmetry_mates > 1:
-                            af_symmetric = True
-                            model_runners = multimer_runners
-                        else:
-                            af_symmetric = False
-                            model_runners = monomer_runners
                         # Using the protein.uniprot_entity.reference_sequence would be preferred, however, it should be
                         # realigned to the structure.reference_sequence or .sequence in order to not have large
                         # insertions well beyond the indicated structural domain
@@ -833,12 +826,23 @@ class StructureDatabase(Database):
                         # If the entity.msa_file is present, the prediction should succeed with high probability...
                         # Attach evolutionary info to the entity
                         evolution_loaded, alignment_loaded = load_evolutionary_profile(api_db, entity)
+
+                        # After all sequence modifications, create the entity.oligomer
+                        entity.make_oligomer(symmetry=protein.symmetry_group)
+                        if entity.number_of_symmetry_mates > 1:
+                            af_symmetric = True
+                            model_runners = multimer_runners
+                            previous_position_coords = jnp.asarray(entity.oligomer.alphafold_coords)
+                        else:
+                            af_symmetric = False
+                            model_runners = monomer_runners
+                            previous_position_coords = jnp.asarray(entity.alphafold_coords)
                         # Don't get the msa (no_msa=True) if the alignment_loaded is missing (False)
                         features = entity.get_alphafold_features(symmetric=af_symmetric,
                                                                  no_msa=not alignment_loaded,
                                                                  templates=True)
                         # Put the entity oligomeric coordinates in as a prior to bias the prediction
-                        features['prev_pos'] = jnp.asarray(entity.oligomer.alphafold_coords)
+                        features['prev_pos'] = previous_position_coords
                         # Run the prediction
                         entity_structures, entity_scores = \
                             resources.ml.af_predict(features, model_runners,  # {**features, **template_features},
