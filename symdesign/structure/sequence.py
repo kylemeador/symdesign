@@ -825,24 +825,22 @@ class SequenceProfile(ABC):
         """
         msa = self.msa
         # Similar routine in fit_evolutionary_profile_to_structure()
+        # See if there are any insertions in the self.sequence that are not in the MSA
         mutations_structure_missing_from_msa = \
             generate_mutations(msa.query, self.sequence, only_gaps=True, zero_index=True)
         if mutations_structure_missing_from_msa:  # Two sequences don't align
             self.log.critical(f'mutations_structure_missing_from_msa: {mutations_structure_missing_from_msa}')
 
             # # Get any mutations that are present in the structure but not the msa
-            # ^ Todo makes sure internal insertions are handled
+            # ^ Todo make sure internal insertions are handled
 
             # Solve for mutations that are n- or c-terminal to the MSA
             nterm_extra_structure_numbers = [index for index in mutations_structure_missing_from_msa if index < 0]
             if nterm_extra_structure_numbers:
-                # input(f'nterm indices: {nterm_extra_structure_indices}')
-                # self.log.critical(msa.alignment[:0])
                 nterm_sequence = ''.join(mutations_structure_missing_from_msa[idx]['to']
                                          for idx in nterm_extra_structure_numbers)
-                # input(f'nterm_sequence: {nterm_sequence}')
                 msa.insert(0, nterm_sequence)
-                nterm_extra_structure_indices = list(range(len(nterm_extra_structure_numbers)))
+                # nterm_extra_structure_indices = list(range(len(nterm_extra_structure_numbers)))
 
             # This call reflects a fresh query_length from inserts
             last_msa_number = msa.query_length  # + len(nterm_sequence)
@@ -850,67 +848,69 @@ class SequenceProfile(ABC):
             cterm_extra_structure_numbers = [index for index in mutations_structure_missing_from_msa
                                              if index > last_msa_number]
             if cterm_extra_structure_numbers:
+                # Todo this hasn't been debugged yet
                 self.log.critical(f'cterm indices: {cterm_extra_structure_numbers}')
                 cterm_sequence = ''.join(mutations_structure_missing_from_msa[idx]['to']
                                          for idx in cterm_extra_structure_numbers)
                 self.log.critical(f'cterm_sequence: {cterm_sequence}')
                 msa.insert(last_msa_number, cterm_sequence)
-                cterm_extra_structure_indices = [last_msa_number + i for i in range(len(cterm_extra_structure_indices))]
-
-            # Get the sequence_indices now that we have insertions
-            sequence_indices = msa.sequence_indices
-            # self.log.critical(sequence_indices.shape)
-            # Get all non-zero/False, numerical indices for the query
-            msa_query_indices = np.flatnonzero(msa.query_indices)
-            # if len(self.reference_sequence) != msa.query_length:
-            # if self.number_of_residues != msa.query_length:
-            #     # Todo this check isn't sufficient as the residue types might not be the same
-            #     #  see verify_evolutionary_profile and make into -> self._verify_msa_profile()
-            #     self.log.info(f'The {self.name} .sequence length, {self.number_of_residues} != '
-            #                   f'{msa.query_length}, the MultipleSequenceAlignment query length')
-
-            # query_align_indices, reference_align_indices = get_equivalent_indices(msa.query, self.reference_sequence)
-            # Todo consolidate the alignment and generate_mutations call here with the generate_mutations below
-            #  mutations = generate_mutations(target, query, blanks=True, return_all=True)
-            query_align_indices, reference_align_indices = get_equivalent_indices(msa.query, self.sequence)
-            # # Set all indices to a baseline of zero
-            # sequence_indices = np.zeros_like(sequence_indices)
-            # sequence_indices = sequence_indices[:, query_align_indices]
-            aligned_query_indices = msa_query_indices[query_align_indices]
-            # sequence_indices[:, aligned_query_indices] = True
-            # Set all query indices False
-            sequence_indices[0] = False
-            # Set the query indices that align to be True
-            sequence_indices[0, aligned_query_indices] = True
-            self.log.critical(f'For MSA alignment to the .sequence, found the corresponding MSA query indices:'
-                              f' {query_align_indices}')
-            # self.log.critical(f'MSA aligned query_align_indices: {sequence_indices[0].tolist()}')
-            # alignment = generate_alignment(self.reference_sequence, self.msa.query)
-            # reference_sequence, msa_sequence = alignment
+                # cterm_extra_structure_indices = [last_msa_number + i for i in range(len(cterm_extra_structure_numbers))]
 
             disordered_indices = nterm_extra_structure_numbers + cterm_extra_structure_numbers
             # Todo Internal insertions?
             if set(mutations_structure_missing_from_msa.keys()).difference(disordered_indices):
                 raise NotImplementedError(
-                    'There were internal regions which are unaccounted for in the MS, Abut are present in the structure'
+                    'There were internal regions which are unaccounted for in the MSA, but are present in the structure'
                     f': {set(mutations_structure_missing_from_msa.keys()).difference(disordered_indices)}')
-            # This functionality became obsolete with the get_equivalent_indices() call
-            # # Finally set the nterm/cterm disordered_indices to False
-            # disordered_indices = nterm_extra_structure_indices + cterm_extra_structure_indices
-            # # disordered_indices = list(mutations_structure_missing_from_msa.keys())
-            # if disordered_indices:
-            #     self.log.debug(f'Removing unstructured MSA query indices from the MultipleSequenceAlignment: '
-            #                    f'{disordered_indices}')
-            #     # Select the disordered indices from these indices
-            #     msa_disordered_indices = msa_query_indices[disordered_indices]
-            #     # These selected indices are where the msa is populated, but the structure sequence is missing
-            #     # sequence_indices[:, msa_disordered_indices] = False
-            #     # Todo need to find out how to resize the sequence_indices.... larger
-            #     sequence_indices[0, msa_disordered_indices] = False
 
-            # Set the updated indices
-            msa.sequence_indices = sequence_indices
-            # self.log.critical(f'980 Found {len(np.flatnonzero(sequence_indices[0]))} indices utilized in design')
+        # Get the sequence_indices now that we have insertions
+        sequence_indices = msa.sequence_indices
+        # self.log.critical(sequence_indices.shape)
+        # Get all non-zero/False, numerical indices for the query
+        msa_query_indices = np.flatnonzero(msa.query_indices)
+        # if len(self.reference_sequence) != msa.query_length:
+        # if self.number_of_residues != msa.query_length:
+        #     # Todo this check isn't sufficient as the residue types might not be the same
+        #     #  see verify_evolutionary_profile and make into -> self._verify_msa_profile()
+        #     self.log.info(f'The {self.name} .sequence length, {self.number_of_residues} != '
+        #                   f'{msa.query_length}, the MultipleSequenceAlignment query length')
+
+        # query_align_indices, reference_align_indices = get_equivalent_indices(msa.query, self.reference_sequence)
+        # Todo consolidate the alignment and generate_mutations call here with the generate_mutations below
+        #  mutations = generate_mutations(target, query, blanks=True, return_all=True)
+        query_align_indices, reference_align_indices = get_equivalent_indices(msa.query, self.sequence)
+        # # Set all indices to a baseline of zero
+        # sequence_indices = np.zeros_like(sequence_indices)
+        # sequence_indices = sequence_indices[:, query_align_indices]
+        aligned_query_indices = msa_query_indices[query_align_indices]
+        # sequence_indices[:, aligned_query_indices] = True
+        # Set all query indices False
+        sequence_indices[0] = False
+        # Set the query indices that align to be True
+        sequence_indices[0, aligned_query_indices] = True
+        self.log.critical(f'For MSA alignment to the .sequence, found the corresponding MSA query indices:'
+                          f' {query_align_indices}')
+        # self.log.critical(f'MSA aligned query_align_indices: {sequence_indices[0].tolist()}')
+        # alignment = generate_alignment(self.reference_sequence, self.msa.query)
+        # reference_sequence, msa_sequence = alignment
+
+        # This functionality became obsolete with the get_equivalent_indices() call
+        # # Finally set the nterm/cterm disordered_indices to False
+        # disordered_indices = nterm_extra_structure_indices + cterm_extra_structure_indices
+        # # disordered_indices = list(mutations_structure_missing_from_msa.keys())
+        # if disordered_indices:
+        #     self.log.debug(f'Removing unstructured MSA query indices from the MultipleSequenceAlignment: '
+        #                    f'{disordered_indices}')
+        #     # Select the disordered indices from these indices
+        #     msa_disordered_indices = msa_query_indices[disordered_indices]
+        #     # These selected indices are where the msa is populated, but the structure sequence is missing
+        #     # sequence_indices[:, msa_disordered_indices] = False
+        #     # Todo need to find out how to resize the sequence_indices.... larger
+        #     sequence_indices[0, msa_disordered_indices] = False
+
+        # Set the updated indices
+        msa.sequence_indices = sequence_indices
+        # self.log.critical(f'980 Found {len(np.flatnonzero(sequence_indices[0]))} indices utilized in design')
 
         # # Remove disordered indices (positions in .reference_sequence that are missing in .sequence)
         # disordered_indices = [index - zero_offset for index in self.disorder]
