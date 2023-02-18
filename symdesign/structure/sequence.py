@@ -860,8 +860,9 @@ class SequenceProfile(ABC):
             terminal_indices = nterm_extra_structure_numbers + cterm_extra_structure_numbers
             for idx in terminal_indices:
                 mutations_structure_missing_from_msa.pop(idx)
-            internal_sequence_characters = set(mutations_structure_missing_from_msa.values())
-            if internal_sequence_characters != {'-'}:
+            internal_sequence_characters = set(mutations_structure_missing_from_msa.values()).difference(('-',))
+            if internal_sequence_characters:  # != {'-'}:
+                logger.error(f'Found the self.structure mutation values: {mutations_structure_missing_from_msa}')
                 # Todo Internal insertions?
                 raise NotImplementedError(
                     'There were internal regions which are unaccounted for in the MSA, but are present in the structure'
