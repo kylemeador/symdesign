@@ -86,6 +86,7 @@ alphabet_types_literal = Literal[
     'protein_letters_alph1', 'protein_letters_alph3', 'protein_letters_alph1_gapped',
     'protein_letters_alph3_gapped', 'protein_letters_alph1_unknown', 'protein_letters_alph3_unknown',
     'protein_letters_alph1_unknown_gapped', 'protein_letters_alph3_unknown_gapped']
+alphabet_types: tuple[str, ...] = get_args(alphabet_types_literal)
 alphabet_to_type = {'ACDEFGHIKLMNPQRSTVWY': protein_letters_alph1,
                     'ARNDCQEGHILKMFPSTWYV': protein_letters_alph3,
                     'ACDEFGHIKLMNPQRSTVWY-': protein_letters_alph1_gapped,
@@ -206,12 +207,13 @@ def get_sequence_to_numeric_translation_table(alphabet_type: alphabet_types_lite
         numeric_translation_table = numerical_translation_alph3_unknown_gapped_bytes
     else:
         try:  # To see if we already have the alphabet, and return the defaultdict
-            numeric_translation_table = alphabet_to_type[alphabet_type]
+            alphabet_type = alphabet_to_type[alphabet_type]
         except KeyError:
+            raise KeyError(f"The alphabet '{alphabet_type}' isn't an allowed alphabet_type."
+                           f" See {', '.join(alphabet_to_type.keys())}")
             # raise ValueError(wrong_alphabet_type)
-            logger.warning(
-                f"Parameter alphabet_type option '{alphabet_type}' isn't viable. Attempting to create it")
-            numeric_translation_table = create_numeric_translation_table(alphabet_type)
+        logger.warning(f"Parameter alphabet_type option '{alphabet_type}' isn't viable. Attempting to create it")
+        numeric_translation_table = create_numeric_translation_table(alphabet_type)
 
     return numeric_translation_table
 
@@ -1286,28 +1288,30 @@ class MultipleSequenceAlignment:
     _frequencies: np.ndarray
     _gaps_per_position: np.ndarray
     _numerical_alignment: np.ndarray
+    _query_aligned: str
     _sequence_identifiers: list[str]
     _sequence_indices: np.ndarray
     _numeric_translation_type: dict[str, int]
     """Given an amino acid alphabet type, return the corresponding numerical translation table"""
     alignment: MultipleSeqAlignment
     # counts: list[dict[extended_protein_letters_and_gap, int]]
-    counts: list[list[int]] | np.ndarray
+    counts_by_position: list[list[int]] | np.ndarray
+    """The counts at each position in the alignment of each character along the sequences axis"""
     frequencies: np.ndarray
-    number_of_characters: int
+    alphabet_length: int
     """The number of sequence characters in the character alphabet"""
     number_of_sequences: int
     """The number of sequences in the alignment"""
     length: int
     """The number of individual characters found in each sequence in the alignment"""
-    observations: np.ndarray
+    observations_by_position: np.ndarray
     """The number of observations for each sequence index in the alignment"""
     query: str
     """The sequence used to perform the MultipleSequenceAlignment search"""
     query_length: int
     """The length of the query sequence. No gaps"""
-    query_with_gaps: str
-    """The sequence used to perform the MultipleSequenceAlignment search. May contain gaps from alignment"""
+    # query_aligned: str
+    # """The sequence used to perform the MultipleSequenceAlignment search. May contain gaps from alignment"""
 
     def __init__(self, alignment: MultipleSeqAlignment = None, aligned_sequence: str = None,
                  alphabet: str = protein_letters_alph1_gapped,
@@ -1341,28 +1345,30 @@ class MultipleSequenceAlignment:
             raise NotImplementedError(f"Can't create a {MultipleSequenceAlignment.__name__} with alignment=None")
 
         self.alignment = alignment
-        self.number_of_sequences = len(alignment)
-        self.length = alignment.get_alignment_length()
+        # self.number_of_sequences = len(alignment)
+        # self.length = alignment.get_alignment_length()
         self.alphabet = alphabet
-        self.number_of_characters = len(alphabet)
         if aligned_sequence is None:
-            aligned_sequence = str(alignment[0].seq)
-        # Add Info to 'meta' record as needed and populate an amino acid count dict (one-indexed)
-        self.query = aligned_sequence.replace('-', '')
-        self.query_length = len(self.query)
-        self.query_with_gaps = aligned_sequence
+            self.query_aligned = str(alignment[0].seq)
+        else:
+            self.query_aligned = aligned_sequence
 
+        # Add Info to 'meta' record as needed and populate an amino acid count dict (one-indexed)
+
+        # Todo make into a @property
+        alphabet_length = len(alphabet)
+        # Set up the counts of each position in the alignment
         numerical_alignment = self.numerical_alignment
-        self.counts = np.zeros((self.length, self.number_of_characters))
+        self.counts_by_position = np.zeros((self.length, alphabet_length))
         # invert the "typical" format to length of the alignment in axis 0, and the numerical letters in axis 1
         for residue_idx in range(self.length):
-            self.counts[residue_idx, :] = \
-                np.bincount(numerical_alignment[:, residue_idx], minlength=self.number_of_characters)
+            self.counts_by_position[residue_idx, :] = \
+                np.bincount(numerical_alignment[:, residue_idx], minlength=alphabet_length)
 
         # self.observations = find_column_observations(self.counts, **kwargs)
         self._gap_index = 0
         if count_gaps:
-            self.observations = [self.number_of_sequences for _ in range(self.length)]
+            self.observations_by_position = [self.number_of_sequences for _ in range(self.length)]
         else:
             # gap_observations = [_aa_counts['-'] for _aa_counts in self.counts]  # list[dict]
             # gap_observations = [_aa_counts[0] for _aa_counts in self.counts]  # list[list]
@@ -1373,10 +1379,10 @@ class MultipleSequenceAlignment:
             if 'unknown' in self.alphabet_type:
                 self._gap_index -= 1
 
-            self.observations = self.counts[:, :self._gap_index].sum(axis=1)
-            if not np.any(self.observations):  # Check if an observation is 0
+            self.observations_by_position = self.counts_by_position[:, :self._gap_index].sum(axis=1)
+            if not np.any(self.observations_by_position):  # Check if an observation is 0
                 raise ValueError("Can't have a MSA column (sequence index) with 0 observations. Found at ("
-                                 f'{",".join(map(str, np.flatnonzero(self.observations)))}')
+                                 f'{",".join(map(str, np.flatnonzero(self.observations_by_position)))}')
                 #                f'{",".join(str(idx) for idx, pos in enumerate(self.observations) if not pos)}')
 
         if weight_alignment_by_sequence:
@@ -1386,7 +1392,7 @@ class MultipleSequenceAlignment:
             # 1 / |  obs 1  [33] * count seq 1 'A' - 10  10   0  ... =  [330 330   0 ...]   |
             #      \ obs 2  [33]   count seq 2 'C' -  8   8   1  ...    [270 270  33 ...]] /
             #   ...   ...]               ...  ... ... ...
-            position_weights = 1 / (self.observations[None, :] * self.counts)
+            position_weights = 1 / (self.observations_by_position[None, :] * self.counts_by_position)
             # take_along_axis from this with the transposed numerical_alignment (na) where each successive na idx
             # is the sequence position at the na and therefore is grabbing the position_weights by that index
             # finally sum along each sequence
@@ -1395,11 +1401,14 @@ class MultipleSequenceAlignment:
             # correctly. Maybe this is a case where 'F' array ordering is needed?
             sequence_weights = np.take_along_axis(position_weights, numerical_alignment.T, axis=0).sum(axis=0)
             logger.critical('sequence_weights', sequence_weights)
-            self._counts = [[0 for letter in alphabet] for _ in range(self.length)]  # list[list]
-            for record in self.alignment:
-                for i, aa in enumerate(record.seq):
-                    self._counts[i][numerical_translation_alph1_gapped[aa]] += 1
+
+            # Old calculation
+            counts_ = [[0 for _ in alphabet] for _ in range(self.length)]  # list[list]
+            for sequence in self.sequences:
+                for _count, aa in zip(counts_, sequence):
+                    _count[numerical_translation_alph1_gapped[aa]] += 1
                     # self.counts[i][aa] += 1
+            self._counts = counts_
             logger.critical('OLD self._counts', self._counts)
             self._observations = [sum(_aa_counts[:self._gap_index]) for _aa_counts in self._counts]  # list[list]
 
@@ -1409,74 +1418,27 @@ class MultipleSequenceAlignment:
         if sequence_weights is not None:  # overwrite the current counts with weighted counts
             self.sequence_weights = sequence_weights
             # Todo update this as well
-            self._counts = [[0 for letter in alphabet] for _ in range(self.length)]  # list[list]
-            for record in self.alignment:
-                for i, aa in enumerate(record.seq):
-                    self._counts[i][numerical_translation_alph1_gapped[aa]] += sequence_weights_[i]
+            counts_ = [[0 for _ in alphabet] for _ in range(self.length)]  # list[list]
+            for sequence in self.sequences:
+                for i, (_count, aa) in enumerate(zip(counts_, sequence)):
+                    _count[numerical_translation_alph1_gapped[aa]] += sequence_weights_[i]
                     # self.counts[i][aa] += sequence_weights[i]
+            self._counts = counts_
             logger.critical('OLD sequence_weight self._counts', self._counts)
 
-            # add each sequence weight to the indices indicated by the numerical_alignment
-            self.counts = np.zeros((self.length, len(protein_letters_alph1_gapped)))
+            # Add each sequence weight to the indices indicated by the numerical_alignment
+            self.counts_by_position = np.zeros((self.length, len(self.alphabet)))
             for idx in range(self.number_of_sequences):
-                self.counts[:, numerical_alignment[idx]] += sequence_weights[idx]
-            logger.critical('sequence_weight self.counts', self.counts)
+                self.counts_by_position[:, numerical_alignment[idx]] += sequence_weights[idx]
+            logger.critical('sequence_weight self.counts', self.counts_by_position)
+            logger.critical('May need to refactor weight sequences() to MultipleSequenceAlignment.'
+                            'Take particular care in putting the alignment back together after .insert()/'
+                            '.delete() <- if written')
         else:
             self.sequence_weights = []
 
         # Set up the deletion matrix
-        # Create the deletion_matrix_int by using the gaped sequence_indices (inverse of sequence_indices)
-        # and taking the cumulative sum of them. Finally, after selecting for only the sequence_indices, perform
-        # a subtraction of position idx+1 by position idx
-        sequence_indices = self.sequence_indices
-        query_indices = self.query_indices
-        # Find where there is some sequence information
-        # sequence_or_query_indices = (sequence_indices + query_indices) > 0
-        gaped_query_indices = ~query_indices
-        # gaped_query_indices = ~self.query_indices
-        # Find where there is sequence information but not query information
-        # sequence_deletion_indices = sequence_or_query_indices * gaped_query_indices
-        sequence_deletion_indices = sequence_indices * gaped_query_indices
-        # Perform a cumulative sum of the "deletion" indices,
-        # logger.critical(f"Created sequence_deletion_indices: {np.nonzero(sequence_deletion_indices[:2])}")
-        sequence_deletion_indices_sum = np.cumsum(sequence_deletion_indices, axis=1)
-        logger.critical(f"Created sequence_deletion_indices_sum: "
-                        f"{sequence_deletion_indices_sum[:2, -100:].tolist()}")
-        # Then remove any summation that is in gaped query
-        deletion_matrix = sequence_deletion_indices_sum * gaped_query_indices
-        # ONLY THING LEFT TO DO IS TO REMOVE THE NON-DELETION PROXIMAL CUMSUM, i.e: 0, 8, *8, *8,
-        # Which is accomplished by the subtraction of position idx+1 by position idx
-        # logger.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
-        deletion_matrix[:, 1:] = deletion_matrix[:, 1:] - deletion_matrix[:, :-1]
-        # self._deletion_matrix = deletion_matrix[:, query_indices]
-        # Finally, clear any information in the gaped_query_indices by multiplying by query_indices mask
-        self._deletion_matrix = deletion_matrix * query_indices
-        logger.critical(f"Created subtracted, indexed, deletion_matrix: {self._deletion_matrix[-2:].tolist()}")
-
-        # msa_gap_indices = ~sequence_indices
-        # # iterator_np = np.cumsum(msa_gap_indices, axis=1) * msa_gap_indices
-        # # gap_sum = np.cumsum(msa_gap_indices, axis=1)[sequence_indices]
-        # gap_sum = np.cumsum(msa_gap_indices, axis=1) * sequence_indices
-        # deletion_matrix = np.zeros_like(gap_sum)
-        # deletion_matrix[:, 1:] = gap_sum[:, 1:] - gap_sum[:, :-1]
-        # logger.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
-        # Alphafold implementation
-        # Count the number of deletions w.r.t. query.
-        _deletion_matrix = []
-        query = self.query_with_gaps
-        for sequence in self.sequences:
-            deletion_vec = []
-            deletion_count = 0
-            for seq_res, query_res in zip(sequence, query):
-                if seq_res != '-' or query_res != '-':
-                    if query_res == '-':
-                        deletion_count += 1
-                    else:
-                        deletion_vec.append(deletion_count)
-                        deletion_count = 0
-            _deletion_matrix.append(deletion_vec)
-        logger.critical(f"Created AF _deletion_matrix: {_deletion_matrix[-2:]}")
-        # End AF implementation
+        self._init_deletion_matrix()
 
     @classmethod
     def from_stockholm(cls, file, **kwargs):
@@ -1528,6 +1490,26 @@ class MultipleSequenceAlignment:
     #         self.frequencies[residue] = {aa: count / total_column_weight for aa, count in amino_acid_counts.items()}
 
     @property
+    def query_aligned(self) -> str:
+        """The sequence used to create the MultipleSequenceAlignment potentially containing gaps from alignment"""
+        return self._query_aligned
+
+    @query_aligned.setter
+    def query_aligned(self, sequence: str):
+        """Set the aligned sequence used to query sequence databases for this Alignment"""
+        self._query_aligned = sequence
+        self.query = sequence.replace('-', '')
+        self.query_length = len(self.query)
+
+    @property
+    def number_of_sequences(self) -> int:
+        return len(self.alignment)
+
+    @property
+    def length(self) -> int:
+        return self.alignment.get_alignment_length()
+
+    @property
     def sequences(self) -> Generator[str, None, None]:
         """Iterate over the sequences present in the alignment"""
         for record in self.alignment:
@@ -1563,7 +1545,10 @@ class MultipleSequenceAlignment:
     @alphabet_type.setter
     def alphabet_type(self, alphabet_type: alphabet_types_literal):
         """Set the alphabet_type to allow interpretation of .numeric_sequence to the correct encoding"""
-        self._alphabet_type = alphabet_type
+        if alphabet_type in alphabet_types:
+            self._alphabet_type = alphabet_type
+        else:  # We got the alphabet, not its name
+            self._alphabet_type = alphabet_to_type[alphabet_type]
 
         alphabet_type_dependent_attrs = ['_numeric_sequence', '_numeric_translation_type']
         for attr in alphabet_type_dependent_attrs:
@@ -1613,8 +1598,8 @@ class MultipleSequenceAlignment:
             try:
                 translation_type = self._numeric_translation_type
             except AttributeError:
-                self._numeric_translation_type = get_sequence_to_numeric_translation_table(self.alphabet_type)
-                translation_type = self._numeric_translation_type
+                translation_type = self._numeric_translation_type = \
+                    get_sequence_to_numeric_translation_table(self.alphabet_type)
 
             self._numerical_alignment = np.vectorize(translation_type.__getitem__)(self.array)
             return self._numerical_alignment  # [:, self.query_indices]
@@ -1625,13 +1610,71 @@ class MultipleSequenceAlignment:
         try:
             return self._array
         except AttributeError:
-            self._array = np.array([list(record) for record in self.alignment], np.string_)
+            self._array = np.array([list(sequence) for sequence in self.sequences], np.string_)
             return self._array
 
     @property
     def deletion_matrix(self) -> np.ndarray:
         """Return the number of deletions at every query aligned sequence index for each sequence in the alignment"""
-        return self._deletion_matrix
+        try:
+            return self._deletion_matrix
+        except AttributeError:
+            self._init_deletion_matrix()
+            return self._deletion_matrix
+
+    def _init_deletion_matrix(self):
+        # Create the deletion_matrix_int by using the gaped sequence_indices (inverse of sequence_indices)
+        # and taking the cumulative sum of them. Finally, after selecting for only the sequence_indices, perform
+        # a subtraction of position idx+1 by position idx
+        sequence_indices = self.sequence_indices
+        query_indices = self.query_indices
+        # Find where there is some sequence information
+        # sequence_or_query_indices = (sequence_indices + query_indices) > 0
+        gaped_query_indices = ~query_indices
+        # gaped_query_indices = ~self.query_indices
+        # Find where there is sequence information but not query information
+        # sequence_deletion_indices = sequence_or_query_indices * gaped_query_indices
+        sequence_deletion_indices = sequence_indices * gaped_query_indices
+        # Perform a cumulative sum of the "deletion" indices,
+        # logger.critical(f"Created sequence_deletion_indices: {np.nonzero(sequence_deletion_indices[:2])}")
+        sequence_deletion_indices_sum = np.cumsum(sequence_deletion_indices, axis=1)
+        logger.critical(f"Created sequence_deletion_indices_sum: "
+                        f"{sequence_deletion_indices_sum[:2, -100:].tolist()}")
+        # Then remove any summation that is in gaped query
+        deletion_matrix = sequence_deletion_indices_sum * gaped_query_indices
+        # ONLY THING LEFT TO DO IS TO REMOVE THE NON-DELETION PROXIMAL CUMSUM, i.e: 0, 8, *8, *8,
+        # Which is accomplished by the subtraction of position idx+1 by position idx
+        # logger.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
+        deletion_matrix[:, 1:] = deletion_matrix[:, 1:] - deletion_matrix[:, :-1]
+        # self._deletion_matrix = deletion_matrix[:, query_indices]
+        # Finally, clear any information in the gaped_query_indices by multiplying by query_indices mask
+        self._deletion_matrix = deletion_matrix * query_indices
+        logger.critical(f"Created subtracted, indexed, deletion_matrix: {self._deletion_matrix[-2:].tolist()}")
+
+        # msa_gap_indices = ~sequence_indices
+        # # iterator_np = np.cumsum(msa_gap_indices, axis=1) * msa_gap_indices
+        # # gap_sum = np.cumsum(msa_gap_indices, axis=1)[sequence_indices]
+        # gap_sum = np.cumsum(msa_gap_indices, axis=1) * sequence_indices
+        # deletion_matrix = np.zeros_like(gap_sum)
+        # deletion_matrix[:, 1:] = gap_sum[:, 1:] - gap_sum[:, :-1]
+        # logger.critical(f"Created deletion_matrix: {deletion_matrix[:2].tolist()}")
+        # Alphafold implementation
+        # Count the number of deletions w.r.t. query.
+        _deletion_matrix = []
+        query_aligned = self.query_aligned
+        for sequence in self.sequences:
+            deletion_vec = []
+            deletion_count = 0
+            for seq_res, query_res in zip(sequence, query_aligned):
+                if seq_res != '-' or query_res != '-':
+                    if query_res == '-':
+                        deletion_count += 1
+                    else:
+                        deletion_vec.append(deletion_count)
+                        deletion_count = 0
+            _deletion_matrix.append(deletion_vec)
+        logger.critical(f"Created AF _deletion_matrix: {_deletion_matrix[-2:]}")
+        # End AF implementation
 
     @property
     def frequencies(self) -> np.ndarray:
@@ -1645,8 +1688,8 @@ class MultipleSequenceAlignment:
         #     self.frequencies[residue_idx, :] = self.counts[:, :self._gap_index] / self.observations
         try:
             return self._frequencies
-        except AttributeError:  # Don't use gapped indices
-            self._frequencies = self.counts[:, :self._gap_index] / self.observations[:, None]
+        except AttributeError:  # Don't use gaped indices
+            self._frequencies = self.counts_by_position[:, :self._gap_index] / self.observations_by_position[:, None]
         return self._frequencies
 
     @property
@@ -1655,7 +1698,7 @@ class MultipleSequenceAlignment:
         try:
             return self._gaps_per_position
         except AttributeError:
-            self._gaps_per_position = self.number_of_sequences - self.observations
+            self._gaps_per_position = self.number_of_sequences - self.observations_by_position
         return self._gaps_per_position
 
     def get_probabilities_from_profile(self, profile: numerical_profile) -> np.ndarry:
