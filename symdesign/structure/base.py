@@ -570,9 +570,10 @@ class SymmetryMixin:
     def symmetric_dependents(self, symmetric_dependents: str):
         """Set the attribute name where dependent Structure instances occupy"""
         try:
+            # set() COULD BE USED WHEN MULTIPLE self._symmetric_dependents.add(symmetric_dependents.lower())
             self._symmetric_dependents = symmetric_dependents.lower()
         except AttributeError:
-            raise ValueError(f"Can't set the symmetric_dependents with {type(symmetric_dependents).__name__}. "
+            raise ValueError(f"Can't set '.symmetric_dependents' with {type(symmetric_dependents).__name__}. "
                              f"Must be a string")
 
 
@@ -734,11 +735,10 @@ class StructureBase(SymmetryMixin, ABC):
             # This Structure is a symmetric parent, update dependent coords to update the parent
             self.log.debug(f'Updating symmetric dependent coords')
             for dependent in self.symmetric_dependents:
-                if dependent.is_symmetric():  # Todo move check to symmetric_dependents.setter?
-                    dependent._parent_is_updating = True
-                    # self.log.debug(f'Setting {dependent.name} _symmetric_dependent coords')
-                    dependent.coords = coords[dependent.atom_indices]
-                    dependent._parent_is_updating = False
+                dependent._parent_is_updating = True
+                # self.log.debug(f'Setting {dependent.name} _symmetric_dependent coords')
+                dependent.coords = coords[dependent.atom_indices]
+                dependent._parent_is_updating = False
 
         # Setting this after because symmetric dependents use these coords
         self._coords.replace(self._atom_indices, coords)

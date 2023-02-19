@@ -1404,6 +1404,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     @symmetry.setter
     def symmetry(self, symmetry: str | None):
         self._symmetry = symmetry
+        if self.is_dependent():
+            # Set the parent Structure.symmetric_dependents to the entities attribute
+            self.parent.symmetric_dependents = 'entities'
 
     @property
     def number_of_symmetric_residues(self) -> int:  # Todo present in SymmetricModel
@@ -1997,7 +2000,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         else:
             return entity_features
 
-    def orient(self, symmetry: str = None):  # similar function in Model
+    def orient(self, symmetry: str = None):  # Similar function in Model
         """Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
 
         Returns the same Structure, just oriented. Therefore, all member chains will be their original parsed lengths
@@ -2074,16 +2077,17 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         orient_fixed_seq = orient_fixed_struct.sequence
         moving_seq = moving_struct.sequence
 
-        if orient_fixed_struct.number_of_residues == moving_struct.number_of_residues and orient_fixed_seq == moving_seq:
-            # do an apples to apples comparison
-            # length alone is inaccurate if chain is missing first residue and self is missing it's last...
-            _, rot, tx = superposition3d(orient_fixed_struct.cb_coords, moving_struct.cb_coords)
-        else:  # do an alignment, get selective indices, then follow with superposition
-            self.log.warning(f'Chain {moving_struct.chain_id} and Oriented Chain {orient_fixed_struct.chain_id} require'
-                             f' alignment to {self.orient.__name__}')
-            fixed_indices, moving_indices = get_equivalent_indices(orient_fixed_seq, moving_seq)
-            _, rot, tx = superposition3d(orient_fixed_struct.cb_coords[fixed_indices],
-                                         moving_struct.cb_coords[moving_indices])
+        # if orient_fixed_struct.number_of_residues == moving_struct.number_of_residues \
+        #         and orient_fixed_seq == moving_seq:
+        #     # Do an apples to apples comparison
+        #     # length alone is inaccurate if chain is missing first residue and self is missing it's last...
+        #     _, rot, tx = superposition3d(orient_fixed_struct.cb_coords, moving_struct.cb_coords)
+        # else:  # Do an alignment, get selective indices, then follow with superposition
+        self.log.debug(f'{self.orient.__name__}(): existing Chain {moving_struct.chain_id} and '
+                       f'oriented Chain {orient_fixed_struct.chain_id} are being aligned for superposition')
+        fixed_indices, moving_indices = get_equivalent_indices(orient_fixed_seq, moving_seq)
+        _, rot, tx = superposition3d(orient_fixed_struct.cb_coords[fixed_indices],
+                                     moving_struct.cb_coords[moving_indices])
 
         self.transform(rotation=rot, translation=tx)
         clean_orient_input_output()
@@ -3047,7 +3051,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                         for chain_id, formatted_sequence in formated_reference_sequence.items()
                         for line_number in range(1, 1 + math.ceil(len(formatted_sequence)/seq_res_len)))
 
-    def orient(self, symmetry: str = None):  # similar function in Entity
+    def orient(self, symmetry: str = None):  # Similar function in Entity
         """Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
 
         Returns the same Structure, just oriented. Therefore, all member chains will be their original parsed lengths
@@ -3134,17 +3138,17 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         orient_fixed_seq = orient_fixed_struct.sequence
         moving_seq = moving_struct.sequence
 
-        if orient_fixed_struct.number_of_residues == moving_struct.number_of_residues \
-                and orient_fixed_seq == moving_seq:
-            # do an apples to apples comparison
-            # length alone is inaccurate if chain is missing first residue and self is missing it's last...
-            _, rot, tx = superposition3d(orient_fixed_struct.cb_coords, moving_struct.cb_coords)
-        else:  # do an alignment, get selective indices, then follow with superposition
-            self.log.warning(f'{moving_struct.name} and {orient_fixed_struct.name} require alignment to '
-                             f'{self.orient.__name__}')
-            fixed_indices, moving_indices = get_equivalent_indices(orient_fixed_seq, moving_seq)
-            _, rot, tx = superposition3d(orient_fixed_struct.cb_coords[fixed_indices],
-                                         moving_struct.cb_coords[moving_indices])
+        # if orient_fixed_struct.number_of_residues == moving_struct.number_of_residues \
+        #         and orient_fixed_seq == moving_seq:
+        #     # Do an apples to apples comparison
+        #     # length alone is inaccurate if chain is missing first residue and self is missing it's last...
+        #     _, rot, tx = superposition3d(orient_fixed_struct.cb_coords, moving_struct.cb_coords)
+        # else:  # Do an alignment, get selective indices, then follow with superposition
+        self.log.debug(f'{self.orient.__name__}(): existing Chain {moving_struct.chain_id} and '
+                       f'oriented Chain {orient_fixed_struct.chain_id} are being aligned for superposition')
+        fixed_indices, moving_indices = get_equivalent_indices(orient_fixed_seq, moving_seq)
+        _, rot, tx = superposition3d(orient_fixed_struct.cb_coords[fixed_indices],
+                                     moving_struct.cb_coords[moving_indices])
 
         self.transform(rotation=rot, translation=tx)
         clean_orient_input_output()
@@ -3468,8 +3472,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 reference_sequence_length = len(data['reference_sequence'])
                 if reference_sequence_length > max_reference_sequence:
                     max_reference_sequence = reference_sequence_length
+            # Find the minimum chain sequence length
             min_chain_sequence = 0
-            # Remove all previously found chains
             for chain in self.chains:
                 chain_sequence_length = chain.number_of_residues
                 if chain_sequence_length < min_chain_sequence:
@@ -4274,9 +4278,7 @@ class SymmetricModel(Models):
 
         # Ensure that the symmetric system is set up properly
         if self.is_symmetric():  # True if symmetry keyword args were passed
-            # Set the symmetric_dependents to the entities attribute
-            self.symmetric_dependents = 'entities'
-            # Ensure the number of Modela matches the SymEntry groups
+            # Ensure the number of Entity instances matches the SymEntry groups
             number_of_entities = self.number_of_entities
             if number_of_entities != self.sym_entry.number_of_groups:
                 raise SymmetryError(
@@ -4344,27 +4346,6 @@ class SymmetricModel(Models):
                                         f'symmetry={symmetry}, uc_dimensions={uc_dimensions}, and '
                                         f'dimension={self.dimension}\n'
                                         f'See the warning {error} for more diagnosis...')
-
-            # if symmetry in utils.symmetry.layer_group_cryst1_fmt_dict:  # not available yet for non-Nanohedra PG's
-            #     self.dimension = 2
-            #     self.symmetry = symmetry
-            # elif symmetry in space_group_cryst1_fmt_dict:  # not available yet for non-Nanohedra SG's
-            #     self.dimension = 3
-            #     self.symmetry = symmetry
-            # elif symmetry in possible_symmetries:
-            #     self.symmetry = possible_symmetries[symmetry]
-            #     self.point_group_symmetry = possible_symmetries[symmetry]
-            #     self.dimension = 0
-
-            # elif self.uc_dimensions is not None:
-            #     raise utils.DesignError('Symmetry %s is not available yet! If you didn\'t provide it, the symmetry '
-            #                             'was likely set from a PDB file. Get the symmetry operations from the '
-            #                             'international tables and add to the pickled operators if this displeases '
-            #                             'you!' % symmetry)
-            # else:  # when a point group besides T, O, or I is provided
-            #     raise utils.DesignError('Symmetry %s is not available yet! Get the canonical symm operators from %s '
-            #                             'and add to the pickled operators if this displeases you!'
-            #                             % (symmetry, putils.orient_dir))
         else:  # No symmetry was provided
             # Since this is now subclassed by Pose, lets ignore this error since self.symmetry is explicitly False
             # raise utils.SymmetryError('A SymmetricModel was initiated without any symmetry! Ensure you specify the
@@ -4464,6 +4445,9 @@ class SymmetricModel(Models):
     @symmetry.setter
     def symmetry(self, symmetry: str | None):
         self._symmetry = symmetry
+        # Now, this is only done in the Entity class when a dependent becomes symmetry aware
+        # # Set the symmetric_dependents to the entities attribute
+        # self.symmetric_dependents = 'entities'
 
     @property
     def point_group_symmetry(self) -> str | None:
@@ -5951,7 +5935,8 @@ class SymmetricModel(Models):
             symmetry: The symmetry of the Structure
         """
         if self.is_symmetric():
-            raise NotImplementedError(f"{self.orient.__name__} isn't available for {self.__class__.__name__}")
+            raise NotImplementedError(f"{self.orient.__name__} isn't available for symmetric {self.__class__.__name__} "
+                                      "instances")
             # Todo is this method at all useful? Could there be a situation where the symmetry is right,
             #  but the axes aren't in their canonical locations?
         else:

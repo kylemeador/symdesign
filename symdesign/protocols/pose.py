@@ -1602,7 +1602,7 @@ class PoseProtocol(PoseData):
         if len(self.symmetry_definition_files) != len(self.entity_data) or self.job.force:
             putils.make_path(self.data_path)
             for entity in self.pose.entities:
-                if entity.is_oligomeric():  # make symmetric energy in line with SymDesign energies v
+                if entity.is_symmetric():  # make symmetric energy in line with SymDesign energies v
                     entity.make_sdf(out_path=self.data_path,
                                     modify_sym_energy_for_cryst=True if self.sym_entry.dimension in [2, 3] else False)
                 # Todo monitor if Rosetta energy modifier changed from 2x for crystal set up and adjust accordingly

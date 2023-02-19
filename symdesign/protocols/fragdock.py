@@ -347,7 +347,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     entity_count = count(1)
     for idx, (model, symmetry) in enumerate(zip(models, sym_entry.groups)):
         for entity in model.entities:
-            if entity.is_oligomeric():
+            if entity.is_symmetric():  # oligomeric():
                 pass
             else:
                 entity.make_oligomer(symmetry=symmetry)
