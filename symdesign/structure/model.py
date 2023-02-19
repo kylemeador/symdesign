@@ -1003,7 +1003,6 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     _chains: list | list[Entity]
     _oligomer: Model  # Todo list[Entity] | Structures:
     _is_captain: bool
-    _is_oligomeric: bool
     _number_of_symmetry_mates: int
     # Metrics class attributes
     # _df: pd.Series  # Metrics
@@ -1018,7 +1017,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     max_symmetry_chain: str | None
     rotation_d: dict[str, dict[str, int | np.ndarray]] | dict
     """Maps mate entities to their rotation matrix"""
-    symmetry: str | None
+    # symmetry: str | None
     _uniprot_ids: tuple[str, ...] | None
 
     @classmethod
@@ -1088,7 +1087,6 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         if len(chains) > 1:
             # Todo handle chains with imperfect symmetry by using the actual chain and forgoing the transform
             #  Need to make a copy of the chain and make it an "Entity mate"
-            self._is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
             number_of_residues = self.number_of_residues
             self_seq = self.sequence
             ca_coords = self.ca_coords
@@ -1105,12 +1103,12 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 self._chain_transforms.append(dict(rotation=rot, translation=tx))
                 # Todo when capable of asymmetric symmetrization
                 # self.chains.append(chain)
+            # Inherent to Entity type is a single sequence. Therefore, must be symmetric
             self.number_of_symmetry_mates = len(chains)
             self.symmetry = f'D{self.number_of_symmetry_mates / 2}' if self.is_dihedral() \
                 else f'C{self.number_of_symmetry_mates}'
         else:
             self.symmetry = None
-            self._is_oligomeric = False
 
         # reference_sequence must be set up after self.chains
         if metadata is None:
@@ -1136,7 +1134,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
         """Set the Coords object while propagating changes to symmetric "mate" chains"""
-        if self._is_oligomeric and self._is_captain:
+        if self.is_symmetric() and self._is_captain:
             # **This routine handles imperfect symmetry**
             self.log.debug('Entity captain is updating coords')
             # Must do these before super().coords.fset()
@@ -1394,6 +1392,19 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     # @chain_ids.setter
     # def chain_ids(self, chain_ids: list[str]):
     #     self._chain_ids = chain_ids
+
+    @property  # Todo in SymmetricModel, exactly
+    def symmetry(self) -> str | None:
+        """The overall symmetric state, ie, the symmetry result"""
+        try:
+            return self._symmetry
+        except AttributeError:
+            return None
+
+    @symmetry.setter
+    def symmetry(self, symmetry: str | None):
+        self._symmetry = symmetry
+
     @property
     def number_of_symmetric_residues(self) -> int:  # Todo present in SymmetricModel
         """Describes the number of Residues when accounting for symmetry mates"""
@@ -1445,10 +1456,6 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         """Is the Entity instance a mate?"""
         return not self._is_captain
 
-    def is_oligomeric(self) -> bool:
-        """Is the Entity oligomeric?"""
-        return self._is_oligomeric
-
     # def _remove_chain_transforms(self):
     #     """Remove _chains and _chain_transforms, set prior_ca_coords in preparation for coordinate movement"""
     #     self._chains.clear()  # useful for mate chains...
@@ -1496,7 +1503,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         try:
             return self._oligomer
         except AttributeError:
-            # if not self._is_oligomeric:
+            # if not self.is_symmetric():
             #     self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
             #                      'instead' % self.name)
             self._oligomer = Model.from_chains(self.chains, entities=False, log=self.log)
@@ -1577,7 +1584,6 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             translation2: The second translation to apply, expected array shape (3,)
         Sets:
             self._chain_transforms (list[transformation_mapping])
-            self._is_oligomeric=True (bool)
             self.number_of_symmetry_mates (int)
             self.symmetry (str)
         """
@@ -1606,7 +1612,6 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         # self._is_captain = True
         # Todo should this be set here. NO! set in init
         #  or prevent self._mate from becoming oligomer?
-        self._is_oligomeric = True
         if rotation is None:
             rotation = inv_rotation = utils.symmetry.identity_matrix
         else:
@@ -1779,7 +1784,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             }
         """
         return {
-            # 'symmetry_group': self.symmetry if self.is_oligomeric() else 'asymmetric',
+            # 'symmetry_group': self.symmetry if self.is_symmetric() else 'asymmetric',
             # 'name': self.name,
             # 'n_terminal_helix': self.is_termini_helical(),
             # 'c_terminal_helix': self.is_termini_helical(termini='c'),
@@ -1957,7 +1962,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             **sequence_features,
             **template_features
         }
-        if symmetric and self.is_symmetric():  # is_oligomeric():
+        if symmetric and self.is_symmetric():
             # Hard code in chain_id as we are using a multimeric predict on the oligomeric version
             chain_id = 'A'
             entity_features = af_pipeline_multimer.convert_monomer_features(entity_features, chain_id=chain_id)
@@ -4448,9 +4453,9 @@ class SymmetricModel(Models):
         self.dimension = getattr(self.sym_entry, 'dimension', None)
         # self.number_of_symmetry_mates = getattr(self.sym_entry, 'number_of_operations', 1)
 
-    @property
+    @property  # Todo in Entity, exactly
     def symmetry(self) -> str | None:
-        """The overall symmetric state, ie, the symmetry result. Uses SymEntry.resulting_symmetry"""
+        """The overall symmetric state, ie, the symmetry result"""
         try:
             return self._symmetry
         except AttributeError:
@@ -5002,7 +5007,7 @@ class SymmetricModel(Models):
         """
         # number_of_atoms = self.number_of_atoms
         for entity, entity_symmetric_centers_of_mass in zip(self.entities, self.center_of_mass_symmetric_entities):
-            if not entity.is_oligomeric():
+            if not entity.is_symmetric():
                 self._oligomeric_model_indices[entity] = []
                 continue
             # Need to slice through the specific Entity coords once we have the model
@@ -5044,7 +5049,7 @@ class SymmetricModel(Models):
         #  This version is viable for asymmetric coordinate, symmetric models
         # number_of_atoms = self.number_of_atoms
         # for entity in zip(self.entities):
-        #     if not entity.is_oligomeric():
+        #     if not entity.is_symmetric():
         #         self._oligomeric_model_indices[entity] = []
         #         continue
         #
@@ -7274,7 +7279,7 @@ class Pose(SymmetricModel, Metrics):
             # is_thermophilic.append(thermophile)
             #
             # pose_metrics.update({
-            #     f'entity{idx}_symmetry_group': entity.symmetry if entity.is_oligomeric() else 'asymmetric',
+            #     f'entity{idx}_symmetry_group': entity.symmetry if entity.is_symmetric() else 'asymmetric',
             #     f'entity{idx}_name': entity.name,
             #     f'entity{idx}_number_of_residues': entity.number_of_residues,
             #     f'entity{idx}_radius': entity.distance_from_reference(),
@@ -7574,7 +7579,7 @@ class Pose(SymmetricModel, Metrics):
             entity2_indices = self.make_indices_symmetric(entity2_indices)
             # Solve for entity2_indices to query
             if entity1 == entity2:  # We don't want symmetry interactions with the asu model or intra-oligomeric models
-                if entity1.is_oligomeric() and not oligomeric_interfaces:  # Remove oligomeric protomers (contains asu)
+                if entity1.is_symmetric() and not oligomeric_interfaces:  # Remove oligomeric protomers (contains asu)
                     remove_indices = self.get_oligomeric_atom_indices(entity1)
                     self.log.debug(f'Removing {len(remove_indices)} indices from symmetric query due to oligomer')
                 else:  # Just remove asu
@@ -7843,7 +7848,7 @@ class Pose(SymmetricModel, Metrics):
                     self.log.info(f'Including oligomeric models: '
                                   f'{", ".join(map(str, self.oligomeric_model_indices.get(entity1)))}')
                 # If querying nascent interfaces, we don't want interactions with the intra-oligomeric contacts
-                elif entity1.is_oligomeric():  # Remove oligomeric protomers (contains asu)
+                elif entity1.is_symmetric():  # Remove oligomeric protomers (contains asu)
                     skip_models = self.oligomeric_model_indices.get(entity1)
                     self.log.info(f'Skipping oligomeric models: {", ".join(map(str, skip_models))}')
                 # else:  # Probably a C1
