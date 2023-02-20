@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 import subprocess
 from glob import glob
 from logging import Logger
@@ -434,48 +435,6 @@ class StructureDatabase(Database):
                 model.file_path = pose.file_path  # <- set to orient_asu.location in write_entities_and_asu()
             # Use entry_entity only if not processed before
             else:  # They are missing, retrieve the proper files using PDB ID's
-                # entry = structure_identifier.split('_')
-                # # In case entry_entity is from a new program_output directory, the entity name is probably 1ABC_1
-                # if len(entry) == 2:
-                #     entry, entity = entry
-                #     # entry_entity = structure_identifier
-                #     logger.debug(f'Fetching entry {entry}, entity {entity} from PDB')
-                # else:
-                #     entry = structure_identifier
-                #     entity = None
-                #     logger.debug(f'Fetching entry {entry} from PDB')
-                #
-                # asu = False
-                # # if symmetry == 'C1':
-                # #     # Todo modify if monomers are removed from qs_bio
-                # #     assembly = query_qs_bio(entry)
-                # #     # assembly = None  # 1 is the default
-                # #     # asu = True <- NOT NECESSARILY A MONOMERIC FILE!
-                # # else:
-                # assembly = query_qs_bio(entry)
-                # # Get the specified file_path for the assembly state of interest
-                # file_path = fetch_pdb_file(entry, assembly=assembly, asu=asu, out_dir=models_dir)
-                #
-                # if not file_path:
-                #     logger.warning(f"Couldn't locate the file '{file_path}', there may have been an issue "
-                #                    'downloading it from the PDB. Attempting to copy from job data source...')
-                #     # Todo
-                #     raise NotImplementedError("This functionality hasn't been written yet. Use the canonical_pdb1/2 "
-                #                               'attribute of PoseJob to pull the pdb file source.')
-                # # Remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
-                # file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
-                # model = structure.model.Model.from_pdb(file_path, name=file_name)  # , sym_entry=sym_entry
-                # if entity:  # Replace Structure from fetched file with the Entity Structure
-                #     # structure_identifier will be formatted the exact same as the desired EntityID
-                #     # if it was provided correctly
-                #     entity = model.entity(structure_identifier)
-                #     if entity:
-                #         model = entity
-                #     else:  # we couldn't find the specified EntityID
-                #         logger.warning(f"For {structure_identifier}, couldn't locate the specified Entity '{entity}'. The "
-                #                        f'available Entities are {", ".join(entity.name for entity in model.entities)}')
-                #         continue
-
                 models = self.download_structures([structure_identifier], out_dir=models_dir)
                 # Todo include Entity specific parsing from download_structure in orient_existing_file, then
                 #  consolidate their overlap
@@ -737,21 +696,19 @@ class StructureDatabase(Database):
             occurred (True) or if files are not reported as having this modeling yet
         """
         api_db = self.job.api_db  # resources.wrapapi.api_database_factory()
-        self.refined.make_path()
-        refine_names = self.refined.retrieve_names()
-        refine_dir = self.refined.location
         self.full_models.make_path()
+        self.refined.make_path()
         full_model_names = self.full_models.retrieve_names()
-        full_model_dir = self.full_models.location
+        # full_model_dir = self.full_models.location
         # Identify the entities to refine and to model loops before proceeding
-        protein_data_to_refine, protein_data_to_loop_model, sym_def_files = [], [], {}
+        protein_data_to_loop_model, sym_def_files = [], {}
         for data in metadata:  # If data is here, it's model_source file should've been oriented...
             sym_def_files[data.symmetry_group] = utils.SymEntry.sdf_lookup(data.symmetry_group)
-            if data.entity_id not in refine_names:  # Assumes oriented_asu structure name is the same
-                protein_data_to_refine.append(data)
-            if data.entity_id not in full_model_names:  # Assumes oriented_asu structure name is the same
+            entity_name = data.entity_id
+            if entity_name not in full_model_names:  # Assumes oriented_asu structure name is the same
                 protein_data_to_loop_model.append(data)
-
+            # else:
+            #     data.model_source = self.full_models.path_to(name=entity_name)
         # Query user and set up commands to perform refinement on missing entities
         if CommandDistributer.is_sbatch_available():
             shell = CommandDistributer.sbatch
@@ -795,6 +752,7 @@ class StructureDatabase(Database):
 
                     # Predict each
                     for idx, protein in enumerate(protein_data_to_loop_model):
+                        entity_name = protein.entity_id
                         # Model_source should be an oriented, asymmetric version of the protein file
                         entity: structure.model.Entity = \
                             structure.model.Entity.from_file(protein.model_source, metadata=protein)
@@ -884,9 +842,13 @@ class StructureDatabase(Database):
 
                         # Indicate that this ProteinMetadata has been processed for loop modeling
                         protein.loop_modeled = True
+                        protein.refined = relaxed
                         # Save the min_model asu (now aligned with entity, which was oriented prior)
-                        protein.model_source = min_entity.write(out_path=self.full_models.path_to(name=protein.entity_id))
-
+                        full_model_file = self.full_models.path_to(name=entity_name)
+                        min_entity.write(out_path=full_model_file)
+                        if relaxed:
+                            refined_path = self.refined.path_to(name=entity_name)
+                            shutil.copy(full_model_file, refined_path)
                 else:  # rosetta_loop_model
                     raise NotImplementedError(f'This has not been updated to use ProteinMetadata')
                     flags_file = os.path.join(full_model_dir, 'loop_model_flags')
@@ -964,6 +926,17 @@ class StructureDatabase(Database):
                     for protein in protein_data_to_refine:
                         protein.loop_modeled = True
                         protein.model_source = self.refined.path_to(name=protein.entity_id)
+
+        refine_names = self.refined.retrieve_names()
+        refine_dir = self.refined.location
+        # Identify the entities to refine before proceeding
+        protein_data_to_refine = []
+        for data in metadata:  # If data is here, it's model_source file should've been oriented...
+            if entity_name not in refine_names:  # Assumes oriented_asu structure name is the same
+                protein_data_to_refine.append(data)
+            # else:
+            #     data.model_source = self.refined.path_to(name=entity_name)
+
         # Assume pre_refine is True until we find it isn't
         pre_refine = True
         if protein_data_to_refine:  # if files found unrefined, we should proceed

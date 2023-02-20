@@ -328,14 +328,18 @@ def main():
                 info_messages += ['The following can be run at any time regardless of evolutionary script progress']
             info_messages += preprocess_instructions
 
-            # Set these attributes. Todo set for each instance individually inside preprocess_metadata_for_design ?
-            for data in metadata:  # entities:
-                data.loop_modeled = initial_loop_model
-                data.refined = initial_refinement
-
         check_if_script_and_exit()
         # After completion of indicated scripts, the next time command is entered
         # these checks will not raise and the program will proceed
+
+        # def set_model_source(metadata):
+        for data in metadata:
+            if data.refined:
+                data.model_source = job.structure_db.refined.path_to(data.entity_id)
+            elif data.loop_modeled:
+                data.model_source = job.structure_db.full_models.path_to(data.entity_id)
+            else:  # oriented asu:
+                data.model_source = job.structure_db.oriented_asu.path_to(data.entity_id)
 
     def initialize_metadata(possibly_new_uniprot_to_prot_data: dict[tuple[str, ...], sql.ProteinMetadata] = None,
                             existing_uniprot_entities: Iterable[wrapapi.UniProtEntity] = None,
