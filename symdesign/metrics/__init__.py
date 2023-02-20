@@ -6,7 +6,7 @@ import operator
 import warnings
 from itertools import repeat
 from json import loads
-from typing import AnyStr, Any, Sequence, Iterable, Mapping
+from typing import AnyStr, Any, Sequence, Iterable, Mapping, Literal
 
 import numpy as np
 import pandas as pd
@@ -16,9 +16,7 @@ from . import sql
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, validate_type, verify_choice, header_string
 from symdesign.structure.utils import DesignError
-from symdesign.sequence import alphabet_types_literal, get_sequence_to_numeric_translation_table, MultipleSequenceAlignment, \
-    protein_letters_literal
-from symdesign import utils, flags
+from symdesign import flags, sequence, utils
 putils = utils.path
 
 logger = logging.getLogger(__name__)
@@ -932,7 +930,7 @@ def sum_per_residue_metrics(df: pd.DataFrame, rename_columns: Mapping[str, str] 
     return summed_df
 
 
-def calculate_sequence_observations_and_divergence(alignment: MultipleSequenceAlignment,
+def calculate_sequence_observations_and_divergence(alignment: sequence.MultipleSequenceAlignment,
                                                    backgrounds: dict[str, np.ndarray]) \
         -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
     #                                                select_indices: list[int] = None) \
@@ -1886,27 +1884,29 @@ def window_function(data: Sequence[int | float], windows: Iterable[int] = None, 
 
 hydrophobicity_scale = \
     {'expanded': {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 1, 'N': 0,
-                  'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 1, 'Y': 1, 'B': 0, 'J': 0, 'O': 0, 'U': 0,
+                  'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 1, 'Y': 0, 'B': 0, 'J': 0, 'O': 0, 'U': 0,
                   'X': 0, 'Z': 0},
      'standard': {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 0, 'N': 0,
                   'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 0, 'Y': 0, 'B': 0, 'J': 0, 'O': 0, 'U': 0,
                   'X': 0, 'Z': 0}}
+hydrophobicity_scale_literal = Literal['expanded', 'standard']
 
 
-def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrophobicity: str = 'standard',
-                               custom: dict[protein_letters_literal, int | float] = None,
-                               alphabet_type: alphabet_types_literal = None,
+def hydrophobic_collapse_index(seq: Sequence[str | int] | np.ndarry,
+                               hydrophobicity: hydrophobicity_scale_literal = 'standard',
+                               custom: dict[sequence.protein_letters_literal, int | float] = None,
+                               alphabet_type: sequence.alphabet_types_literal = None,
                                lower_window: int = 3, upper_window: int = 9, **kwargs) -> np.ndarray:
     """Calculate hydrophobic collapse index for sequence(s) of interest and return an HCI array
 
     Args:
-        sequence: The sequence to measure. Can be a character based sequence (or array of sequences with shape
+        seq: The sequence to measure. Can be a character based sequence (or array of sequences with shape
             (sequences, residues)), an integer based sequence, or a sequence profile like array (residues, alphabet)
             where each character in the alphabet contains a typical distribution of amino acid observations
-        hydrophobicity: The hydrophobicity scale to consider. Either 'standard' (FILV), 'expanded' (FMILYVW),
-            or provide one with 'custom' keyword argument
+        hydrophobicity: The hydrophobicity scale to consider. Either 'standard' (FILV), 'expanded' (FMILVW),
+            or provide one with the keyword argument, "custom"
         custom: A user defined mapping of amino acid type, hydrophobicity value pairs
-        alphabet_type: The amino acid alphabet if the sequence consists of integer characters
+        alphabet_type: The amino acid alphabet if seq consists of integer characters
         lower_window: The smallest window used to measure
         upper_window: The largest window used to measure
     Returns:
@@ -1921,42 +1921,49 @@ def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrop
     else:
         hydrophobicity_values = custom
 
-    missing_alphabet = f'Must pass an alphabet_type when calculating {hydrophobic_collapse_index.__name__} using ' \
-                       f'integer sequence values'
-    if isinstance(sequence[0], int):  # This is an integer sequence. An alphabet is required
+    def solve_alphabet() -> sequence.alphabets_literal:
         if alphabet_type is None:
-            raise ValueError(missing_alphabet)
+            raise ValueError(
+                f'{hydrophobic_collapse_index.__name__}: Must pass keyword "alphabet_type" when calculating '
+                f'using integer sequence values')
         else:
-            alphabet = get_sequence_to_numeric_translation_table(alphabet_type)
+            alphabet_ = sequence.alphabet_type_to_alphabet.get(alphabet_type)
+            if alphabet_ is None:
+                if sequence.alphabet_to_alphabet_type.get(alphabet_type):
+                    alphabet_ = alphabet_type
+                else:
+                    raise ValueError(
+                        f"{hydrophobic_collapse_index.__name__}: alphabet_type '{alphabet_type}' isn't a viable "
+                        f'alphabet_type. Choose from {", ".join(sequence.alphabet_types)} or pass an alphabet')
 
+            return alphabet_
+
+    if isinstance(seq[0], int):  # This is an integer sequence. An alphabet is required
+        alphabet = solve_alphabet()
         values = [hydrophobicity_values[aa] for aa in alphabet]
-        sequence_array = [values[aa_int] for aa_int in sequence]
+        sequence_array = [values[aa_int] for aa_int in seq]
         # raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
-    elif isinstance(sequence[0], str):  # This is a string array # if isinstance(sequence[0], str):
-        sequence_array = [hydrophobicity_values.get(aa, 0) for aa in sequence]
+    elif isinstance(seq[0], str):  # This is a string array # if isinstance(sequence[0], str):
+        sequence_array = [hydrophobicity_values.get(aa, 0) for aa in seq]
         # raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
-    elif isinstance(sequence, (torch.Tensor, np.ndarray)):  # This is an integer sequence. An alphabet is required
-        if sequence.dtype in utils.np_torch_int_float_types:
-            if alphabet_type is None:
-                raise ValueError(missing_alphabet)
-            else:
-                alphabet = get_sequence_to_numeric_translation_table(alphabet_type)
-
+    elif isinstance(seq, (torch.Tensor, np.ndarray)):  # This is an integer sequence. An alphabet is required
+        if seq.dtype in utils.np_torch_int_float_types:
+            alphabet = solve_alphabet()
             # torch.Tensor and np.ndarray can multiply by np.ndarray
             values = np.array([hydrophobicity_values[aa] for aa in alphabet])
-            if sequence.ndim == 2:
+            if seq.ndim == 2:
                 # print('HCI debug')
-                # print('array.shape', sequence.shape, 'values.shape', values.shape)
+                # print('array.shape', seq.shape, 'values.shape', values.shape)
                 # The array must have shape (number_of_residues, alphabet_length)
-                sequence_array = sequence * values
+                sequence_array = seq * values
                 # Ensure each position is a combination of the values for each amino acid
                 sequence_array = sequence_array.sum(axis=-1)
                 # print('sequence_array', sequence_array)
             else:
-                raise ValueError(f"Can't process a {sequence.ndim}-dimensional array yet")
+                raise ValueError(f"Can't process a {seq.ndim}-dimensional array yet")
         else:  # We assume it is a sequence array with bytes?
             # The array must have shape (number_of_residues, alphabet_length)
-            sequence_array = sequence * np.vectorize(hydrophobicity_values.__getitem__)(sequence)
+            sequence_array = seq * np.vectorize(hydrophobicity_values.__getitem__)(seq)
             # Ensure each position is a combination of the values for each amino acid in the array
             sequence_array = sequence_array.mean(axis=-2)
         # elif isinstance(sequence, Sequence):
@@ -1964,7 +1971,7 @@ def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrop
     else:
         raise ValueError(f'The provided sequence must comprise the canonical amino acid string characters or '
                          f'integer values corresponding to numerical amino acid conversions. '
-                         f'Got type={type(sequence[0]).__name__} instead')
+                         f'Got type={type(seq[0]).__name__} instead')
 
     window_array = window_function(sequence_array, lower=lower_window, upper=upper_window)
 

@@ -3192,7 +3192,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     #     This is useful for transfer of ownership, or changes in the Model state that should be overwritten
     #     """
     #     for structure_type in self.structure_containers:
-    #         for structure in getattr(self, structure_type):  # Iterate over each Structure in each structure_container
+    #         # Iterate over each Structure in each structure_container
+    #         for structure in self.__getattribute__(structure_type):
     #             structure.reset_state()
 
     def insert_residue_type(self, residue_type: str, index: int = None, chain_id: str = None):  # Todo Entity,Structures
@@ -5869,7 +5870,7 @@ class SymmetricModel(Models):
             self._no_reset = True
             self.coords = np.concatenate([entity.coords for entity in entities])
             del self._no_reset
-            # If imperfect symmetry, below may find some use
+            # If imperfect symmetry, adapting below may provide some benefit
             # self._process_model(entities=entities, chains=False, **kwargs)
 
     def make_oligomers(self, transformations: list[transformation_mapping] = None):
@@ -7057,7 +7058,7 @@ class Pose(SymmetricModel, Metrics):
                                      f"{type(entity).__name__} {entity.name}")
 
                 hydrophobic_collapse_profile.append(
-                    metrics.hydrophobic_collapse_index(profile_array, alphabet_type=protein_letters_alph1, **kwargs))
+                    metrics.hydrophobic_collapse_index(profile_array, alphabet_type='protein_letters_alph1', **kwargs))
             else:
                 missing.append(1)
                 msa_metrics = False
