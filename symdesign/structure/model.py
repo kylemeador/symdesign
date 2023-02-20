@@ -2564,9 +2564,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         """Update attributes specified by keyword args for all Structure container members. Entity specific handling"""
         # As this was causing error with keeping mate chains, mates, just return
         return
-        # The below code mirrors the _update_structure_container_attributes() from Structure, mius the [1:] slice
+        # The below code mirrors the _update_structure_container_attributes() from Structure, minus the [1:] slice
         # for structure_type in self.structure_containers:
-        #     for structure in getattr(self, structure_type)[1:]:  # only operate on [1:] slice since index 0 is different
+        #     for structure in self.__getattribute__(structure_type)[1:]:  # only operate on [1:] since index 0 is self
         #         for kwarg, value in kwargs.items():
         #             setattr(structure, kwarg, value)
 
@@ -2574,7 +2574,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         """Copy all member Structures that reside in Structure containers. Entity specific handling of chains index 0"""
         # self.log.debug('In Entity copy_structure_containers()')
         for structure_type in self.structure_containers:
-            structures = getattr(self, structure_type)
+            structures = self.__getattribute__(structure_type)
             for idx, structure in enumerate(structures[1:], 1):  # Only operate on [1:] slice since index 0 is different
                 # structures[idx] = copy(structure)
                 structure.entity_spawn = True
@@ -2749,7 +2749,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # Todo standardize path with some state variable?
         # self.api_db = api_db if api_db else resources.wrapapi.api_database_factory()
 
-        self.structure_containers.extend(['chains', 'entities'])
 
         # Only pass arguments if they are not None
         if entities is not None:  # if no entities are requested a False argument could be provided
@@ -2757,38 +2756,21 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         if chains is not None:  # if no chains are requested a False argument could be provided
             kwargs['chains'] = chains
 
-        # Finish processing the model
+        # self.structure_containers.extend(['chains', 'entities'])
+        # Process structure_containers for the Model
         self._process_model(**kwargs)
-        # below was depreciated in favor of single call above using kwargs unpacking
-        # if self.residues:  # we should have residues if Structure init, otherwise we have None
-        #     if entities is not None:  # if no entities are requested a False argument could be provided
-        #         kwargs['entities'] = entities
-        #     if chains is not None:  # if no chains are requested a False argument could be provided
-        #         kwargs['chains'] = chains
-        #     self._process_model(**kwargs)
-        # elif chains:  # pass the chains which should be a Structure type and designate whether entities should be made
-        #     self._process_model(chains=chains, entities=entities, **kwargs)
-        # elif entities:  # pass the entities which should be a Structure type and designate whether chains should be made
-        #     self._process_model(entities=entities, chains=chains, **kwargs)
-        # else:
-        #     raise ValueError(f'{self.__class__.__name__} couldn't be initialized as there is no specified Structure '
-        #                      'type')
 
-        if reference_sequence is not None:  # Was parsed from file
-            # self.chains is viable at this point
+        # self.chains, self.entities (could) be viable at this point
+        if reference_sequence is not None:  # reference_sequence was parsed from file
             self.set_reference_sequence_from_seqres(reference_sequence)
+        # After structure containers are created, initialize fragment_db so the db is available to container
+        self.fragment_db = fragment_db
 
         # if metadata and isinstance(metadata, PDB):
         #     self.copy_metadata(metadata)
 
-        # Need to set up after load Entities so that they can have this added to their SequenceProfile
-        self.fragment_db = fragment_db  # kwargs.get('fragment_db', None)
-
     def _process_model(self, pose_format: bool = False, chains: bool | list[Chain] | Structures = True,
-                       rename_chains: bool = False, entities: bool | list[Entity] | Structures = True,
-                       **kwargs):
-        #               atoms: Union[Atoms, List[Atom]] = None, residues: Union[Residues, List[Residue]] = None,
-        #               coords: Union[List[List], np.ndarray, Coords] = None,
+                       rename_chains: bool = False, entities: bool | list[Entity] | Structures = True, **kwargs):
         """Process various types of Structure containers to update the Model with the corresponding information
 
         Args:
@@ -2802,8 +2784,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             query_by_sequence: bool = True - Whether the PDB API should be queried for an Entity name by matching sequence. Only used
                 if entity_names not provided
         """
-        # self.log.debug('_process_model')
-        # Add lists together, only one is populated from class construction
+        # self.log.debug(f'{self._process_model.__name__} start')
+
+        # If this function is extended, it is important to call clear on structure_containers before setting any more
+        # # Calling clear as we should only set those containers that are used
+        # self.structure_containers.clear()
+
+        # Add lists together. Only one should be populated from class construction, Todo ensure this constraint is True
         structures = (chains if isinstance(chains, (list, Structures)) else []) + \
                      (entities if isinstance(entities, (list, Structures)) else [])
         if structures:  # Create from existing
@@ -2814,19 +2801,31 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 coords.append(structure.coords)
             self._assign_residues(residues, atoms=atoms, coords=coords)
 
+        def reset_passed_structures(structs: list[Structure]):
+            struct0, *other_structs = structs
+            struct0.reset_state()
+            struct0._start_indices(at=0, dtype='atom')
+            struct0._start_indices(at=0, dtype='residue')
+            for prior_struct, struct in zip(structs, other_structs):
+                struct.reset_state()
+                struct._start_indices(at=prior_struct.atom_indices[-1] + 1, dtype='atom')
+                struct._start_indices(at=prior_struct.residue_indices[-1] + 1, dtype='residue')
+
         if chains:  # Create the instance from existing chains
+            self.structure_containers.append('chains')
             if isinstance(chains, (list, Structures)):
                 self.chains = chains.copy()  # Copy the passed chains
                 self._copy_structure_containers()  # Copy each Chain in chains
                 # Reindex all residue and atom indices
-                chain0 = self.chains[0]
-                chain0.reset_state()
-                chain0._start_indices(at=0, dtype='atom')
-                chain0._start_indices(at=0, dtype='residue')
-                for prior_idx, chain in enumerate(self.chains[1:]):
-                    chain.reset_state()
-                    chain._start_indices(at=self.chains[prior_idx].atom_indices[-1] + 1, dtype='atom')
-                    chain._start_indices(at=self.chains[prior_idx].residue_indices[-1] + 1, dtype='residue')
+                reset_passed_structures(self.chains)
+                # chain0, *other_chains = self.chains
+                # chain0.reset_state()
+                # chain0._start_indices(at=0, dtype='atom')
+                # chain0._start_indices(at=0, dtype='residue')
+                # for prior_chain, chain in zip(self.chains, other_chains):
+                #     chain.reset_state()
+                #     chain._start_indices(at=prior_chain.atom_indices[-1] + 1, dtype='atom')
+                #     chain._start_indices(at=prior_chain.residue_indices[-1] + 1, dtype='residue')
 
                 # Set the parent attribute for all containers
                 self._update_structure_container_attributes(_parent=self)
@@ -2834,11 +2833,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self.chain_ids.extend([chain.chain_id for chain in self.chains])
             else:  # Create Chain instances from Residues
                 self._create_chains()
-                # # this isn't super accurate
-                # # Ideally we get correct solution from PDB or UniProt API.
-                # # If no _reference_sequence passed then this will be nothing, so that isn't great.
-                # # It should be at least the structure sequence
-                # self._reference_sequence = dict(zip(self.chain_ids, self._reference_sequence.values()))
 
             if rename_chains:
                 self.rename_chains()
@@ -2846,18 +2840,20 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                            f'Loaded chain_ids: {",".join(self.chain_ids)}')
 
         if entities:  # Create the instance from existing entities
+            self.structure_containers.append('entities')
             if isinstance(entities, (list, Structures)):
                 self.entities = entities.copy()  # Copy the passed entities
                 self._copy_structure_containers()  # Copy each Entity in entities
                 # Reindex all residue and atom indices
-                entity0 = self.entities[0]
-                entity0.reset_state()
-                entity0._start_indices(at=0, dtype='atom')
-                entity0._start_indices(at=0, dtype='residue')
-                for prior_idx, entity in enumerate(self.entities[1:]):
-                    entity.reset_state()
-                    entity._start_indices(at=self.entities[prior_idx].atom_indices[-1] + 1, dtype='atom')
-                    entity._start_indices(at=self.entities[prior_idx].residue_indices[-1] + 1, dtype='residue')
+                reset_passed_structures(self.entities)
+                # entity0, *other_entities = self.entities
+                # entity0.reset_state()
+                # entity0._start_indices(at=0, dtype='atom')
+                # entity0._start_indices(at=0, dtype='residue')
+                # for prior_entity, entity in zip(self.entities, other_entities):
+                #     entity.reset_state()
+                #     entity._start_indices(at=prior_entity.atom_indices[-1] + 1, dtype='atom')
+                #     entity._start_indices(at=prior_entity.residue_indices[-1] + 1, dtype='residue')
 
                 # Set the parent attribute for all containers
                 self._update_structure_container_attributes(_parent=self)
@@ -2876,12 +2872,12 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
                 # Update chains to entities after everything is set
                 self.chains = self.entities
-                # self.chain_ids = [chain.name for chain in self.chains]
-            else:  # Create Entities from Chain.Residues
-                # self.log.debug('_process_model create_entities')
+            else:  # Create Entity instances from Chain and Chain.residue_indices
+                # self.log.debug(f'{self._process_model.__name__} -> _create_entities')
                 self._create_entities(**kwargs)
 
-            if not self.chain_ids:  # set according to self.entities
+            if not self.chain_ids:
+                # Set chain_ids according to self.entities as this wasn't used by self.chains (probably False)
                 self.chain_ids.extend([entity.chain_id for entity in self.entities])
 
         if pose_format:
@@ -2948,10 +2944,12 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         # self._fragment_db = fragment_db
         if self._fragment_db:
-            for chain in self.entities:
-                chain.fragment_db = self._fragment_db
-            for chain in self.chains:
-                chain.fragment_db = self._fragment_db
+            for structure_type in self.structure_containers:
+                for structure in self.__getattribute__(structure_type):
+                # for entity in self.entities:
+                    structure.fragment_db = self._fragment_db
+                # for chain in self.chains:
+                #     chain.fragment_db = self._fragment_db
 
     @property
     def chain_breaks(self) -> list[int]:
@@ -3172,7 +3170,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # Remove delete_indices from each Structure atom_indices. If other structures, must update their atom_indices!
         for structure_type in self.structure_containers:
             residue_found = False
-            for structure in getattr(self, structure_type):  # Iterate over each Structure in each structure_container
+            # Iterate over each Structure in each structure_container
+            for structure in self.__getattribute__(structure_type):
                 try:
                     structure_atom_indices = structure.atom_indices
                     atom_delete_index = structure_atom_indices.index(delete_indices[0])
@@ -3209,7 +3208,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         # Must update other Structures indices
         for structure_type in self.structure_containers:
-            structures = getattr(self, structure_type)
+            structures = self.__getattribute__(structure_type)
             idx = 0
             # Iterate over Structures in each structure_container
             for idx, structure in enumerate(structures, idx):

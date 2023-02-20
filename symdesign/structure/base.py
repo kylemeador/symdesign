@@ -3477,7 +3477,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def _update_structure_container_attributes(self, **kwargs):
         """Update attributes specified by keyword args for all Structure container members"""
         for structure_type in self.structure_containers:
-            for structure in getattr(self, structure_type):
+            for structure in self.__getattribute__(structure_type):
                 for kwarg, value in kwargs.items():
                     setattr(structure, kwarg, value)
 
@@ -5388,7 +5388,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """Copy all member Structures that reside in Structure containers"""
         # self.log.debug('In Structure copy_structure_containers()')
         for structure_type in self.structure_containers:
-            structures = getattr(self, structure_type)
+            structures = self.__getattribute__(structure_type)
             for idx, structure in enumerate(structures):
                 structures[idx] = structure.copy()
 
