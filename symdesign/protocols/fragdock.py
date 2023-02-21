@@ -3335,12 +3335,9 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             # Save all pose transformation information
             # From here out, the transforms used should be only those of interest for outputting/sequence design
             # filter_transforms_by_indices() <- This is done above
+
             # Format pose transformations for output
             blank_parameter = list(repeat([None, None, None], number_of_transforms))
-            _full_ext_tx1 = blank_parameter if full_ext_tx1 is None else full_ext_tx1.squeeze()
-            _full_ext_tx2 = blank_parameter if full_ext_tx2 is None else full_ext_tx2.squeeze()
-
-            set_mat1_number, set_mat2_number, *_extra = sym_entry.setting_matrices_numbers
             rotations1 = scipy.spatial.transform.Rotation.from_matrix(full_rotation1)
             rotations2 = scipy.spatial.transform.Rotation.from_matrix(full_rotation2)
             # Get all rotations in terms of the degree of rotation along the z-axis
@@ -3369,11 +3366,16 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 z_heights2 = full_int_tx2[:, -1]
             else:
                 z_heights2 = blank_parameter
+
+            set_mat1_number, set_mat2_number, *_extra = sym_entry.setting_matrices_numbers
             # if sym_entry.unit_cell:
             #     full_uc_dimensions = full_uc_dimensions[passing_symmetric_clash_indices_perturb]
             #     full_ext_tx1 = full_ext_tx1[:]
             #     full_ext_tx2 = full_ext_tx2[:]
             #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+            _full_ext_tx1 = blank_parameter if full_ext_tx1 is None else full_ext_tx1.squeeze()
+            _full_ext_tx2 = blank_parameter if full_ext_tx2 is None else full_ext_tx2.squeeze()
+
             for idx, pose_job in enumerate(pose_jobs):
                 # Add the next set of coordinates
                 update_pose_coords(idx)
@@ -3480,21 +3482,17 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 logger.info(f'Wrote trajectory metrics to {trajectory_metrics_csv}')
 
         # Extract transformation parameters for output
-
+        nonlocal number_of_transforms
         # Create PoseJob names
         pose_names = [create_pose_name(idx) for idx in range(number_of_transforms)]
 
         # Add the names to the database
         while True:
-            # entity_names = [entity.name for model in models for entity in model.entities]
             pose_jobs = [PoseJob.from_name(pose_name, project=project, protocol=protocol_name)
                          for idx, pose_name in enumerate(pose_names)]
-            #                               entity_names=entity_names,
-            #                               pose_transformation=create_specific_transformation(idx))
-            # Commit all new PoseJobs to the current session to generate ids
             session = job.current_session
             session.add_all(pose_jobs)
-            try:
+            try:  # Flush PoseJobs to the current session to generate ids
                 session.flush()
             except SQLAlchemyError:  # We already inserted this PoseJob.project/.name
                 session.rollback()
@@ -3519,16 +3517,16 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                     # with the new set
                     existing_indices_, pose_names = zip(*sorted(pose_names_, key=lambda name: name[0]))
                     # Select poses_df/residues_df by existing_indices_
-                    poses_df_ = poses_df_[existing_indices_]
-                    residues_df_ = residues_df_[existing_indices_]
+                    poses_df_ = poses_df_.loc[existing_indices_, :]
+                    residues_df_ = residues_df_.loc[existing_indices_, :]
                     logger.critical(f'Reset the new poses with attributes:\n'
                                     f'\tpose_names={pose_names}\n'
                                     f'\texisting_indices_={existing_indices_}\n'
                                     f'\tposes_df_.index={poses_df_.index.tolist()}\n'
                                     f'\tresidues_df_.index={residues_df_.index.tolist()}\n'
                                     f'')
-                    raise NotImplementedError(f'Need to verify the above output is as expected for the removal of '
-                                              f'transforms that were duplicated from the poses_df/residues_df metrics')
+                    number_of_transforms = len(existing_indices_)
+                    filter_transforms_by_indices(list(existing_indices_))
             else:
                 break
 
