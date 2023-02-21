@@ -784,12 +784,13 @@ class SequenceProfile(ABC):
         evolutionary_mutations = generate_mutations(evolutionary_profile_sequence, self.sequence, only_gaps=True)
         # self.log.debug(f'evolutionary_mutations: {evolutionary_mutations}')
         # Removal of these positions from self.evolutionary_profile will produce a properly indexed profile
+        last_profile_number = len(evolutionary_profile_sequence)
         new_residue_number = count(1)
         structure_evolutionary_profile = {next(new_residue_number): residue_data
                                           for residue_number, residue_data in self.evolutionary_profile.items()
                                           if residue_number not in evolutionary_mutations}  # disorder}
         # Get any mutations that are present in the structure but not the profile
-        last_profile_number = next(new_residue_number) - 1  # Subtract 1 due to next() call
+        # last_profile_number = next(new_residue_number) - 1  # Subtract 1 due to next() call
         # last_residue_number_seq = self.number_of_residues
         # # last_profile_number/last_residue_number_seq: 289, 295
         # input(f'last_profile_number/last_residue_number_seq: {last_profile_number}/{last_residue_number_seq}')
