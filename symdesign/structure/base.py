@@ -4050,20 +4050,20 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         # Remove indices from the Residue, and Structure atom_indices
         residue_atom_indices = residue.atom_indices
-        residue_delete_index = residue_atom_indices.index(delete_indices[0])
+        residue_atom_delete_index = residue_atom_indices.index(delete_indices[0])
         _atom_indices = self._atom_indices
-        atom_delete_index = _atom_indices.index(delete_indices[0])
+        structure_atom_delete_index = _atom_indices.index(delete_indices[0])
         for _ in iter(delete_indices):
-            residue_atom_indices.pop(residue_delete_index)
-            _atom_indices.pop(atom_delete_index)
+            residue_atom_indices.pop(residue_atom_delete_index)
+            _atom_indices.pop(structure_atom_delete_index)
 
         # If this Structure isn't parent, then parent Structure must update the atom_indices
-        self._offset_indices(start_at=atom_delete_index, offset=-len(delete_indices))
+        self._offset_indices(start_at=structure_atom_delete_index, offset=-len(delete_indices), dtype='atom')
 
         # Re-index all succeeding Atom and Residue instance indices
         self._coords.delete(delete_indices)
         self._atoms.delete(delete_indices)
-        self._atoms.reindex(start_at=atom_delete_index)
+        # self._atoms.reindex(start_at=structure_atom_delete_index)
         self._residues.reindex_atoms(start_at=residue.index)
 
         # Reissue the atom assignments for the Residue
@@ -4282,9 +4282,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 secondary_structure[:index] + DEFAULT_SS_COIL_IDENTIFIER + secondary_structure[index:]
 
         # Reindex the coords/residues map
-        self._set_coords_indexed()  # index_residues_to_coords()
+        self._set_coords_indexed()
         self.reset_state()
-        # self._reset_sequence()  # Performed in self.reset_state()
 
         return new_residue
 

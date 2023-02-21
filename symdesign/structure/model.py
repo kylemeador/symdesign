@@ -3152,7 +3152,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         clean_orient_input_output()
 
     # Todo Make compatible with Structures
-    def mutate_residue(self, **kwargs):
+    def mutate_residue(self, **kwargs) -> list[int] | list:
         # residue: Residue = None, index: int = None, number: int = None, to: str = 'ALA',
         """Mutate a specific Residue to a new residue type. Type can be 1 or 3 letter format
 
@@ -3165,9 +3165,11 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         """
         delete_indices = super().mutate_residue(**kwargs)  # residue=residue, number=number, to=to,
         if not delete_indices:  # Probably an empty list, there are no indices to delete
-            return
+            return []
+
+        # Remove delete_indices from each Structure atom_indices
+        # If subsequent structures, update their atom_indices accordingly
         delete_length = len(delete_indices)
-        # Remove delete_indices from each Structure atom_indices. If other structures, must update their atom_indices!
         for structure_type in self.structure_containers:
             residue_found = False
             # Iterate over each Structure in each structure_container
@@ -3175,16 +3177,23 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 try:
                     structure_atom_indices = structure.atom_indices
                     atom_delete_index = structure_atom_indices.index(delete_indices[0])
-                    for _ in iter(delete_indices):
-                        structure_atom_indices.pop(atom_delete_index)
-                    structure._offset_indices(start_at=atom_delete_index, offset=-delete_length)
-                    structure.reset_state()
-                    # structure._reset_sequence()  # Performed in self.reset_state()
-                    residue_found = True
-                except (ValueError, IndexError):  # This should happen if the Atom is not in the Structure of interest
+                except ValueError:  # When delete_indices[0] isn't in structure_atom_indices
                     if residue_found:  # The Structure the Residue belongs to is already accounted for, just offset
                         structure._offset_indices(start_at=0, offset=-delete_length)
                         structure.reset_state()
+                else:
+                    try:
+                        for idx in iter(delete_indices):
+                            structure_atom_indices.pop(atom_delete_index)
+                    except IndexError:  # When atom_delete_index isn't in structure_atom_indices
+                        structure._offset_indices(start_at=0, offset=-delete_indices.index(idx))
+                        # structure.reset_state()
+                    else:
+                        structure._offset_indices(start_at=atom_delete_index, offset=-delete_length)
+                        residue_found = True
+                    structure.reset_state()
+
+        return delete_indices
 
     # def reset_state(self):  # Todo this seems to introduce errors during Pose.find_interface_residues()
     #     """Remove StructureBase attributes that are invalid for the current state for each member Structure instance
