@@ -350,6 +350,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             if entity.is_symmetric():  # oligomeric():
                 pass
             else:
+                # Remove any unstructured termini from the Entity to allow best secondary structure docking
+                entity.delete_unstructured_termini()
                 entity.make_oligomer(symmetry=symmetry)
 
             if next(entity_count) > 2:
@@ -3486,7 +3488,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # Create PoseJob names
         pose_names = [create_pose_name(idx) for idx in range(number_of_transforms)]
 
-        # Add the names to the database
+        # Add the PoseJobs to the database
         while True:
             pose_jobs = [PoseJob.from_name(pose_name, project=project, protocol=protocol_name)
                          for idx, pose_name in enumerate(pose_names)]
