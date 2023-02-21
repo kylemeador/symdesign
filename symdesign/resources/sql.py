@@ -333,7 +333,7 @@ class EntityData(Base):
     pose_id = Column(ForeignKey('pose_data.id'))
     pose = relationship('PoseJob', back_populates='entity_data')
     # Todo
-    # We shouldn't use EntityData unless a pose is provided... perhaps I should make an inti
+    # Shouldn't use EntityData unless a pose is provided... perhaps I should make an init
     # pose = ..., nullable=False)
     # # Set up many-to-one relationship with uniprot_entity table
     # uniprot_id = Column(ForeignKey('uniprot_entity.id'))
@@ -737,7 +737,7 @@ class DesignMetrics(Base):
     # Direct coupling analysis energy
     dca_energy = Column(Float)
     # -----------------------
-    # # Alphafold metrics
+    # Alphafold metrics
     plddt = Column(Float)
     predicted_aligned_error = Column(Float)
     predicted_aligned_interface = Column(Float)

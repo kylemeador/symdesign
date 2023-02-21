@@ -2551,7 +2551,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             f.write('%s\n' % '\n'.join(blueprint_lines))
         return blueprint_file
 
-    def reset_state(self):
+    def reset_state(self):  # Todo this is also useful when there are symmetric_dependents such as Pose.models... extend
         """Remove StructureBase attributes that are invalid for the current state for each member Structure instance
 
         This is useful for transfer of ownership, or changes in the Model state that should be overwritten
@@ -2729,8 +2729,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         self.biological_assembly = biological_assembly
         # self.chain_ids = []  # unique chain IDs
         self.chains = []
-        # self.cryst = cryst
-        # {space: space_group, a_b_c: (a, b, c), ang_a_b_c: (ang_a, _b, _c)}
         self.cryst_record = cryst_record
         # self.dbref = dbref if dbref else {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
         self.design = design  # assumes not a design unless explicitly found to be a design
@@ -2883,7 +2881,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         if pose_format:
             self.pose_numbering()
 
-    # def copy_metadata(self, other):  # Todo, rework for all Structure
+    # Todo, rework for all Structure
+    #  copy full attribute dict without selected elements
+    # def copy_metadata(self, other):
     #     temp_metadata = \
     #         {'api_entry': other.__dict__['api_entry'],
     #          'cryst_record': other.__dict__['cryst_record'],
@@ -2907,8 +2907,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     #     # temp_metadata.pop('number_of_atoms')
     #     # temp_metadata.pop('number_of_residues')
     #     self.__dict__.update(temp_metadata)
-
-    # def update_attributes_from_pdb(self, pdb):  # Todo copy full attribute dict without selected elements
+    #
+    # def update_attributes_from_pdb(self, pdb):
     #     # self.atoms = pdb.atoms
     #     self.resolution = pdb.resolution
     #     self.cryst_record = pdb.cryst_record
@@ -2933,6 +2933,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
     @Structure.fragment_db.setter
     def fragment_db(self, fragment_db: FragmentDatabase):
+        """Set the Structure FragmentDatabase to assist with Fragment creation, manipulation, and profiles.
+        Sets fragment_db for each dependent in 'structure_containers' attribute
+        """
         super(Model, Model).fragment_db.fset(self, fragment_db)
         # # self.log.critical(f'Found fragment_db {type(fragment_db)}. '
         # #                   f'isinstance(fragment_db, FragmentDatabase) = {isinstance(fragment_db, FragmentDatabase)}')
@@ -2953,47 +2956,49 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
     @property
     def chain_breaks(self) -> list[int]:
-        return [structure.c_terminal_residue.number for structure in self.chains]
+        """Return the index where each of the Chain instances ends, i.e. at the c-terminal Residue"""
+        return [structure.c_terminal_residue.index for structure in self.chains]
 
     @property
     def entity_breaks(self) -> list[int]:
-        return [structure.c_terminal_residue.number for structure in self.entities]
+        """Return the index where each of the Entity instances ends, i.e. at the c-terminal Residue"""
+        return [structure.c_terminal_residue.index for structure in self.entities]
 
-    @property
-    def atom_indices_per_chain(self) -> list[list[int]]:  # UNUSED
-        """Return the atom indices for each Chain in the Model"""
-        return [structure.atom_indices for structure in self.chains]
+    # @property
+    # def atom_indices_per_chain(self) -> list[list[int]]:  # UNUSED
+    #     """Return the atom indices for each Chain in the Model"""
+    #     return [structure.atom_indices for structure in self.chains]
 
     @property
     def atom_indices_per_entity(self) -> list[list[int]]:
         """Return the atom indices for each Entity in the Model"""
         return [structure.atom_indices for structure in self.entities]
 
-    @property
-    def residue_indices_per_chain(self) -> list[list[int]]:  # UNUSED
-        """Return the residue indices for each Chain in the Model"""
-        return [structure.residue_indices for structure in self.chains]
-
-    @property
-    def residue_indices_per_entity(self) -> list[list[int]]:
-        """Return the residue indices for each Entity in the Model"""
-        return [structure.residue_indices for structure in self.entities]
-
-    @property
-    def number_of_atoms_per_chain(self) -> list[int]:  # UNUSED
-        return [structure.number_of_atoms for structure in self.chains]
-
-    @property
-    def number_of_atoms_per_entity(self) -> list[int]:  # UNUSED
-        return [structure.number_of_atoms for structure in self.entities]
-
-    @property
-    def number_of_residues_per_chain(self) -> list[int]:  # UNUSED
-        return [structure.number_of_residues for structure in self.chains]
-
-    @property
-    def number_of_residues_per_entity(self) -> list[int]:  # UNUSED
-        return [structure.number_of_residues for structure in self.entities]
+    # @property
+    # def residue_indices_per_chain(self) -> list[list[int]]:  # UNUSED
+    #     """Return the residue indices for each Chain in the Model"""
+    #     return [structure.residue_indices for structure in self.chains]
+    #
+    # @property
+    # def residue_indices_per_entity(self) -> list[list[int]]:  # UNUSED
+    #     """Return the residue indices for each Entity in the Model"""
+    #     return [structure.residue_indices for structure in self.entities]
+    #
+    # @property
+    # def number_of_atoms_per_chain(self) -> list[int]:  # UNUSED
+    #     return [structure.number_of_atoms for structure in self.chains]
+    #
+    # @property
+    # def number_of_atoms_per_entity(self) -> list[int]:  # UNUSED
+    #     return [structure.number_of_atoms for structure in self.entities]
+    #
+    # @property
+    # def number_of_residues_per_chain(self) -> list[int]:  # UNUSED
+    #     return [structure.number_of_residues for structure in self.chains]
+    #
+    # @property
+    # def number_of_residues_per_entity(self) -> list[int]:  # UNUSED
+    #     return [structure.number_of_residues for structure in self.entities]
 
     def format_header(self, **kwargs) -> str:  # Todo move near format_seqres
         """Return the BIOMT and the SEQRES records based on the Model

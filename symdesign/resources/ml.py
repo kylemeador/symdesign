@@ -1231,7 +1231,7 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
         #  'ranking_confidence': (),
         #  'num_recycles': (),
         #  }
-        logger.critical(f'Found the prediction_result keys: {list(np_prediction_result.keys())}')
+        # logger.debug(f'Found the prediction_result keys: {list(np_prediction_result.keys())}')
         # monomer
         # ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_lddt', 'structure_module', 'plddt',
         #  'ranking_confidence']

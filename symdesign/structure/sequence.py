@@ -782,7 +782,7 @@ class SequenceProfile(ABC):
         # disorder = self.disorder
         evolutionary_profile_sequence = ''.join(data['type'] for data in self.evolutionary_profile.values())
         evolutionary_mutations = generate_mutations(evolutionary_profile_sequence, self.sequence, only_gaps=True)
-        self.log.debug(f'evolutionary_mutations: {evolutionary_mutations}')
+        # self.log.debug(f'evolutionary_mutations: {evolutionary_mutations}')
         # Removal of these positions from self.evolutionary_profile will produce a properly indexed profile
         new_residue_number = count(1)
         structure_evolutionary_profile = {next(new_residue_number): residue_data

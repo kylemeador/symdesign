@@ -205,6 +205,7 @@ class Fragment(ABC):
 
     @fragment_db.setter
     def fragment_db(self, fragment_db: db.FragmentDatabase):
+        """Set the Fragment instances FragmentDatabase to assist with creation and manipulation"""
         self._fragment_db = fragment_db
         if fragment_db is not None:
             self.frag_lower_range, self.frag_upper_range = fragment_db.fragment_range

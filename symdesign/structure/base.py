@@ -704,7 +704,7 @@ class StructureBase(SymmetryMixin, ABC):
         else:
             raise TypeError(f"Can't set Log to {type(log).__name__}. Must be type logging.Logger")
 
-    @property
+    @property  # Todo return StructureIndex
     def atom_indices(self) -> list[int] | None:
         """The Atoms/Coords indices which the StructureBase has access to"""
         try:
@@ -1204,19 +1204,19 @@ class Atoms:
         """
         self.atoms = np.concatenate((self.atoms, new_atoms))
 
-    def reset_state(self):
+    def reset_state(self):  # Todo StructureContainer ready
         """Remove any attributes from the Atom instances that are part of the current Structure state
 
         This is useful for transfer of ownership, or changes in the Atom state that need to be overwritten
         """
-        for atom in self:
-            atom.reset_state()
+        for struct in self:
+            struct.reset_state()
 
-    def set_attributes(self, **kwargs):
+    def set_attributes(self, **kwargs):  # Todo StructureContainer ready
         """Set Atom attributes passed by keyword to their corresponding value"""
-        for atom in self:
+        for struct in self:
             for key, value in kwargs.items():
-                setattr(atom, key, value)
+                setattr(struct, key, value)
 
     def __copy__(self) -> Atoms:  # -> Self: Todo python3.11
         cls = self.__class__
@@ -2716,8 +2716,9 @@ class Residues:
 
     def find_prev_and_next(self):
         """Set prev_residue and next_residue attributes for each Residue. One inherently sets the other in Residue"""
-        for next_idx, residue in enumerate(self.residues[:-1], 1):
-            residue.next_residue = self.residues[next_idx]
+        residues = self.residues
+        for residue, next_residue in zip(residues[:-1], residues[1:]):
+            residue.next_residue = next_residue
 
     def are_dependents(self) -> bool:
         """Check if any of the Residue instance are dependents on another Structure"""
@@ -2741,11 +2742,12 @@ class Residues:
         Args:
             start_at: The Residue index to start reindexing at
         """
-        for idx, residue in enumerate(self.residues[start_at:], start_at):
+        for idx, residue in enumerate(self.residues[start_at:].tolist(), start_at):
             residue._index = idx
 
     def reindex_atoms(self, start_at: int = 0):
-        """Index the Residue instances Atoms/Coords indices according to incremental Atoms/Coords index
+        """Index the Residue instances Atoms/Coords indices according to incremental Atoms/Coords index. Responsible
+        for updating member Atom.index attributes as well
 
         Args:
             start_at: The Residue index to start reindexing at
@@ -2754,9 +2756,9 @@ class Residues:
         if start_at > 0:
             # if start_at < self.residues.shape[0]:  # if in the Residues index range
             try:
-                prior_residue: Residue = self.residues[start_at - 1]
+                prior_residue, *other_residues = self.residues[start_at - 1:]
                 # prior_residue.start_index = start_at
-                for residue in self.residues[start_at:].tolist():
+                for residue in other_residues:
                     residue.start_index = prior_residue.end_index + 1
                     prior_residue = residue
             except IndexError:
@@ -2766,9 +2768,9 @@ class Residues:
         else:  # When start_at is 0 or less
             if start_at < 0:
                 raise NotImplementedError(f'Need to adjust {self.reindex_atoms.__name__} for negative integers')
-            prior_residue = self.residues[0]
+            prior_residue, *other_residues = self.residues
             prior_residue.start_index = start_at
-            for residue in self.residues[1:].tolist():
+            for residue in other_residues:
                 residue.start_index = prior_residue.end_index + 1
                 prior_residue = residue
 
@@ -2801,19 +2803,19 @@ class Residues:
         """
         self.residues = np.concatenate((self.residues, new_residues))
 
-    def reset_state(self):
+    def reset_state(self):  # Todo StructureContainer ready
         """Remove any attributes from the Residue instances that are part of the current Structure state
 
         This is useful for transfer of ownership, or changes in the Atom state that need to be overwritten
         """
-        for residue in self:
-            residue.reset_state()
+        for struct in self:
+            struct.reset_state()
 
-    def set_attributes(self, **kwargs):
+    def set_attributes(self, **kwargs):  # Todo StructureContainer ready
         """Set Residue attributes passed by keyword to their corresponding value"""
-        for residue in self:
+        for struct in self:
             for key, value in kwargs.items():
-                setattr(residue, key, value)
+                setattr(struct, key, value)
 
     def set_attribute_from_array(self, **kwargs):  # UNUSED
         """For each Residue, set the attribute passed by keyword to the attribute corresponding to the Residue index in
@@ -3031,17 +3033,22 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self._assign_residues(self.residues, atoms=self.atoms)  # , coords=coords)
         self.reset_state()
 
+    # Todo a separate call for each of ContainsAtomsMixin and ContainsResiduesMixin
     def get_structure_containers(self) -> dict[str, Any]:
         """Return the instance structural containers as a dictionary with attribute as key and container as value"""
-        return dict(coords=self._coords, atoms=self._atoms, residues=self._residues)  # log=self._log,
+        # Todo ContainsResiduesMixin
+        return dict(coords=self._coords, atoms=self._atoms, residues=self._residues)
+        # Todo ContainsAtomsMixin
+        # return dict(coords=self._coords, atoms=self._atoms)
 
     @property
     def fragment_db(self) -> fragment.db.FragmentDatabase:
-        """The FragmentDatabase that the Fragment was created from"""
+        """The FragmentDatabase that Fragment instances were created"""
         return self._fragment_db
 
     @fragment_db.setter
     def fragment_db(self, fragment_db: fragment.db.FragmentDatabase):
+        """Set the Structure FragmentDatabase to assist with Fragment creation, manipulation, and profiles"""
         if not isinstance(fragment_db, fragment.db.FragmentDatabase):
             # Todo add fragment_length, sql kwargs
             self.log.debug(f'fragment_db was set to the default since a {type(fragment_db).__name__} was passed which '
@@ -3119,6 +3126,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def structure_sequence(self, sequence: str):
         self._sequence = sequence
 
+    # Todo StructureIndex
     def _start_indices(self, at: int = 0, dtype: atom_or_residue_literal = None):
         """Modify Structure container indices by a set integer amount
 
@@ -3129,12 +3137,13 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         try:  # To get the indices through the public property
             indices = self.__getattribute__(f'{dtype}_indices')
         except AttributeError:
-            raise AttributeError(f'The dtype {dtype}_indices was not found the in {self.__class__.__name__} object. '
-                                 f'Possible values of dtype are "atom" or "residue"')
+            raise AttributeError(f"The 'dtype' {dtype} wasn't found from the {self.__class__.__name__}.dtype_indices. "
+                                 f"Possible values of dtype are 'atom' or 'residue'")
         offset = at - indices[0]
         # Set the indices through the private attribute
         self.__setattr__(f'_{dtype}_indices', [prior_idx + offset for prior_idx in indices])
 
+    # Todo StructureIndex
     def _insert_indices(self, at: int, new_indices: list[int], dtype: atom_or_residue_literal = None):
         """Modify Structure container indices by a set integer amount
 
@@ -3144,12 +3153,12 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             dtype: The type of indices to modify. Can be either 'atom' or 'residue'
         """
         if new_indices is None:
-            return  # new_indices = []
+            return
         try:
             indices = self.__getattribute__(f'{dtype}_indices')
         except AttributeError:
-            raise AttributeError(f'The dtype {dtype}_indices was not found the {self.__class__.__name__} object. '
-                                 f'Possible values of dtype are "atom" or "residue"')
+            raise AttributeError(f"The 'dtype' {dtype} wasn't found from the {self.__class__.__name__}.dtype_indices. "
+                                 f"Possible values of dtype are 'atom' or 'residue'")
         number_new = len(new_indices)
         self.__setattr__(f'_{dtype}_indices', indices[:at] + new_indices + [idx + number_new for idx in indices[at:]])
 
@@ -3359,8 +3368,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
         self._coords_indexed_residues, self._coords_indexed_residue_atoms = map(np.array, zip(*residues_atom_idx))
         if len(self._coords_indexed_residues) != len(self._atom_indices):
-            raise ValueError(f'The length of _coords_indexed_residues {len(self._coords_indexed_residues)} '
-                             f'!= _atom_indices {len(self._atom_indices)}')
+            raise ValueError(
+                f'The length of _coords_indexed_residues {len(self._coords_indexed_residues)} '
+                f'!= _atom_indices {len(self._atom_indices)}')
 
     @property
     def alphafold_atom_mask(self) -> np.ndarray:  # Todo ContainsResiduesMixin
@@ -3740,15 +3750,15 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             numbers: The Residue numbers of interest
             pdb: Whether to search for numbers as they were parsed
         Returns:
-            The requested Residue objects
+            The requested Residue instances, sorted in the order they appear in the Structure
         """
         if numbers is not None:
             if isinstance(numbers, Container):
                 number_source = 'number_pdb' if pdb else 'number'
                 return [residue for residue in self.residues if getattr(residue, number_source) in numbers]
             else:
-                self.log.error(f'The passed numbers type "{type(numbers).__name__}" must be a Container. Returning'
-                               f' all Residue instances instead')
+                self.log.warning(f'The passed numbers type "{type(numbers).__name__}" must be a Container. Returning '
+                                 f'all Residue instances instead')
         return self.residues
 
     def _create_residues(self):
@@ -3992,11 +4002,13 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             if residue.number == residue_number:
                 return residue.number_pdb
 
+    # Todo ContainsResiduesMixin
     def mutate_residue(self, residue: Residue = None, index: int = None, number: int = None, to: str = 'A', **kwargs) \
             -> list[int] | list:
         """Mutate a specific Residue to a new residue type. Type can be 1 or 3 letter format
+
         Args:
-            residue: A Residue object to mutate
+            residue: A Residue instance to mutate
             index: A Residue index to select the Residue instance of interest
             number: A Residue number to select the Residue instance of interest
             to: The type of amino acid to mutate to
@@ -4010,12 +4022,12 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 residue = self.residues[index]
             except IndexError:
                 raise IndexError(f'The residue index {index} is out of bounds for the {self.__class__.__name__} '
-                                 f'{self.name} with {self.number_of_residues} residues')
+                                 f'{self.name} with size of {self.number_of_residues} residues')
         elif number is not None:
             residue = self.residue(number, **kwargs)
 
         if residue is None:
-            raise stutils.DesignError(f"Can't {self.mutate_residue.__name__} without Residue instance, index, or number")
+            raise ValueError(f"Can't {self.mutate_residue.__name__} without Residue instance, index, or number")
 
         to = protein_letters_1to3.get(to.upper(), to.upper())
         if residue.type == to:  # No mutation necessary
@@ -4028,13 +4040,13 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
         if self.is_dependent():
-            # We should ensure the mutation is done by the Structure parent to account for everything correctly
+            # Ensure the mutation is done by the Structure parent to account for everything correctly
             self.parent.mutate_residue(residue, to=to)
             return []
 
         self.log.debug(f'Mutating {residue.type}{residue.number}{to}')
         residue.type = to
-        # Todo is the Atom mutation necessary?
+        # Todo is the Atom mutation necessary? Put in Residue
         for atom in residue.atoms:
             atom.residue_type = to
 
@@ -4604,7 +4616,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                     self.log.error(f'{self.name} contains {len(measured_clashes)} {measure} clashes from the following '
                                    f'Residues to the corresponding Atom:\n\t{bb_info}')
                     raise stutils.ClashError(clash_msg)
-            # else:
                 if other_clashes:
                     sc_info = '\n\t'.join(f'Residue {residue.number:5d}: {atom.get_atom_record()}'
                                           for residue, atom in other_clashes)

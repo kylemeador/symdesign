@@ -24,7 +24,7 @@ from symdesign.structure.fragment import db
 from symdesign.utils import CommandDistributer, guide, SymEntry, InputError, path as putils
 
 logger = logging.getLogger(__name__)
-gb_divisior = 10e9  # 1000000000
+gb_divisior = 1e9  # 1000000000
 
 
 def generate_sequence_mask(fasta_file: AnyStr) -> list[int]:
