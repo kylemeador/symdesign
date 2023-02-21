@@ -168,10 +168,9 @@ class PoseDirectory:
     _scouted_pdb: str | Path
     _symmetry_definition_files: list[AnyStr]
     # frag_file: str | Path
-    name: str
     # pose_file: str | Path
 
-    def __init__(self, **kwargs):  # directory: AnyStr = None, output_modifier: AnyStr = '',
+    def __init__(self, root_directory: AnyStr = None, project: str = None, name: str = None, **kwargs):
         """
 
         Args:
@@ -183,11 +182,17 @@ class PoseDirectory:
         self._info: dict = {}
         """Internal state info at load time"""
 
-        directory = os.path.join(self.job.projects, self.project, self.name)
+        # try:
+        directory = os.path.join(root_directory, project, name)
+        # except TypeError:  # Can't pass None
+        #     missing_args = ", ".join((str_ for str_, arg in (("root_directory", root_directory),
+        #                                                     ("project", project), ("name", name))
+        #                               if arg is None))
+        #     raise TypeError(f'{PoseDirectory.__name__} is missing the required arguments {missing_args}')
         # if directory is not None:
         self.pose_directory = directory
         # PoseDirectory attributes. Set after finding correct path
-        self.log_path: str | Path = os.path.join(self.pose_directory, f'{self.name}.log')
+        self.log_path: str | Path = os.path.join(self.pose_directory, f'{name}.log')
         self.designs_path: str | Path = os.path.join(self.pose_directory, putils.designs)
         # /root/Projects/project_Poses/design/designs
         self.scripts_path: str | Path = os.path.join(self.pose_directory, putils.scripts)
@@ -198,16 +203,16 @@ class PoseDirectory:
         # /root/Projects/project_Poses/design/scripts/flags
         self.data_path: str | Path = os.path.join(self.pose_directory, putils.data)
         # /root/Projects/project_Poses/design/data
-        self.scores_file: str | Path = os.path.join(self.data_path, f'{self.name}.sc')
+        self.scores_file: str | Path = os.path.join(self.data_path, f'{name}.sc')
         # /root/Projects/project_Poses/design/data/name.sc
         self.serialized_info: str | Path = os.path.join(self.data_path, putils.state_file)
         # /root/Projects/project_Poses/design/data/info.pkl
-        self.pose_path: str | Path = os.path.join(self.pose_directory, f'{self.name}.pdb')
+        self.pose_path: str | Path = os.path.join(self.pose_directory, f'{name}.pdb')
         self.asu_path: str | Path = os.path.join(self.pose_directory, putils.asu)
         # /root/Projects/project_Poses/design/asu.pdb
         # self.asu_path: str | Path = os.path.join(self.pose_directory, f'{self.name}_{putils.asu}')
         # # /root/Projects/project_Poses/design/design_name_asu.pdb
-        self.assembly_path: str | Path = os.path.join(self.pose_directory, f'{self.name}_{putils.assembly}')
+        self.assembly_path: str | Path = os.path.join(self.pose_directory, f'{name}_{putils.assembly}')
         # /root/Projects/project_Poses/design/design_name_assembly.pdb
         self.refine_pdb: str | Path = os.path.join(self.data_path, os.path.basename(self.pose_path))
         # self.refine_pdb: str | Path = f'{os.path.splitext(self.pose_path)[0]}_refine.pdb'
@@ -272,7 +277,7 @@ class PoseDirectory:
 
         if self.job.output_directory:
             self.output_path = self.job.output_directory
-            self.output_modifier = f'{self.project}-{self.name}'
+            self.output_modifier = f'{project}-{name}'
             """string with contents '{self.project}-{self.name}'"""
             self.output_pose_path = os.path.join(self.output_path, f'{self.output_modifier}.pdb')
             """/output_path/{self.output_modifier}.pdb"""
@@ -660,10 +665,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # self.specific_designs_file_paths = []
         # """Contains the various file paths for each design of interest according to self.specific_designs"""
 
-        # These arguments are for PoseDirectory. initial signifies that this is the first load of this PoseJob
-        # which can help in gathering the self.serialized_info file and converting this to the proper utils.sql
-        # table data
-        super().__init__()  # directory=pose_directory, output_modifier=output_modifier)  # Todo **kwargs)
+        # These arguments are for PoseDirectory
+        # directory = os.path.join(self.job.projects, self.project, self.name)
+        super().__init__(root_directory=self.job.projects, project=self.project, name=self.name)  # Todo **kwargs)
 
         putils.make_path(self.pose_directory, condition=self.job.construct_pose)
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from itertools import combinations
+from typing import Any
 
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -16,6 +17,7 @@ from sqlalchemy.orm import declarative_base, relationship, Session, column_prope
 
 from . import config
 from symdesign.utils import symmetry
+from .query import utils
 # from symdesign import resources
 
 
@@ -320,6 +322,21 @@ class ProteinMetadata(Base):
     symmetry_group = Column(String)  # entity_ is used in config.metrics
     # symmetry = Column(ForeignKey('symmetry_groups.id'))
 
+    @property
+    def uniprot_ids(self) -> dict[str, dict[str, Any]]:
+        """Access the UniProtID's associated with this instance"""
+        return tuple(entity.id for entity in self.uniprot_entities)
+
+    @property
+    def entity_info(self) -> dict[str, dict[str, Any]]:
+        """Format the instance for population of Structure metadata via the entity_info kwargs"""
+        return {self.entity_id:
+                dict(chains=[],
+                     dbref=dict(accession=self.uniprot_ids, db=utils.UKB),
+                     reference_sequence=self.reference_sequence,
+                     thermophilicity=self.thermophilicity)
+                }
+
 
 class EntityData(Base):
     """Used for unique Pose instances to connect multiple sources of information"""
@@ -378,6 +395,11 @@ class EntityData(Base):
     def uniprot_ids(self):
         # return [entity.uniprot_id for entity in self.meta.uniprot_entities]
         return self.meta.uniprot_ids
+
+    @property
+    def entity_info(self) -> dict[str, dict[str, Any]]:
+        """Format the instance for population of Structure metadata via the entity_info kwargs"""
+        return self.meta.entity_info
 
     @property
     def transformation(self) -> dict:  # transformation_mapping
