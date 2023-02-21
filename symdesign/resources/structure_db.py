@@ -810,9 +810,14 @@ class StructureDatabase(Database):
                             structures_to_load = entity_structures.get('relaxed', [])
                         else:
                             structures_to_load = entity_structures.get('unrelaxed', [])
-                        model_kwargs = dict(name=protein.entity_id, metadata=protein)
-                        folded_entities = {model_name: structure.model.Model.from_pdb_lines(structure_.splitlines(),
-                                                                                            **model_kwargs)
+                        # model_kwargs = dict(name=entity_name, metadata=protein)
+                        # folded_entities = {model_name: structure.model.Model.from_pdb_lines(structure_.splitlines(),
+                        #                                                                     **model_kwargs)
+                        #                    for model_name, structure_ in structures_to_load.items()}
+                        pose_kwargs = dict(name=entity_name, entity_info=protein.entity_info,
+                                           symmetry=protein.symmetry_group)
+                        folded_entities = {model_name: structure.model.Pose.from_pdb_lines(
+                                           structure_.splitlines(), **pose_kwargs)
                                            for model_name, structure_ in structures_to_load.items()}
                         if relaxed:  # Set b-factor data as relaxed get overwritten
                             model_plddts = {model_name: scores['plddt'][:entity.number_of_residues]

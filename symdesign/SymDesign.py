@@ -978,8 +978,8 @@ def main():
                         # Set this attribute to carry through Nanohedra
                         entity.metadata = data
                         entities.append(entity)
-
-                    structures.append(Pose.from_entities(entities, name=structure_name, symmetry=symmetry))
+                    # Don't include symmetry as this will be initialized by fragdock.fragment_dock()
+                    structures.append(Pose.from_entities(entities, name=structure_name))  # , symmetry=symmetry))
                 grouped_structures.append(structures)
 
             # Make all possible structure pairs given input entities by finding entities from entity_names

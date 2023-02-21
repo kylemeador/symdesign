@@ -890,9 +890,13 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     @property
     def pose_kwargs(self) -> dict[str, Any]:
         """Returns the kwargs necessary to initialize the Pose"""
+        entity_info = {}
+        for data in self.entity_data:
+            entity_info.update(data.entity_info)
+
         return dict(sym_entry=self.sym_entry, log=self.log, design_selector=self.design_selector,
                     # entity_metadata=self.entity_data,
-                    entity_names=[data.meta.entity_id for data in self.entity_data],  # self.entity_names,
+                    entity_info=entity_info,
                     transformations=[data.transformation for data in self.entity_data],  # self.pose_transformation,
                     ignore_clashes=self.job.design.ignore_pose_clashes, fragment_db=self.job.fragment_db,
                     pose_format=self.job.pose_format)
