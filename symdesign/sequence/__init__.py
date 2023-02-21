@@ -98,14 +98,13 @@ alphabet_types_literal = Literal[
     'protein_letters_alph3_gaped', 'protein_letters_alph1_unknown', 'protein_letters_alph3_unknown',
     'protein_letters_alph1_unknown_gaped', 'protein_letters_alph3_unknown_gaped']
 alphabet_types: tuple[str, ...] = get_args(alphabet_types_literal)
-alphabet_to_type = {'ACDEFGHIKLMNPQRSTVWY': protein_letters_alph1,
-                    'ARNDCQEGHILKMFPSTWYV': protein_letters_alph3,
-                    'ACDEFGHIKLMNPQRSTVWY-': protein_letters_alph1_gaped,
-                    'ARNDCQEGHILKMFPSTWYV-': protein_letters_alph3_gaped,
-                    'ACDEFGHIKLMNPQRSTVWYX': protein_letters_alph1_unknown,
-                    'ARNDCQEGHILKMFPSTWYVX': protein_letters_alph3_unknown,
-                    'ACDEFGHIKLMNPQRSTVWYX-': protein_letters_alph1_unknown_gaped,
-                    'ARNDCQEGHILKMFPSTWYVX-': protein_letters_alph3_unknown_gaped}
+alphabets_literal = Literal[
+    'ACDEFGHIKLMNPQRSTVWY', 'ARNDCQEGHILKMFPSTWYV', 'ACDEFGHIKLMNPQRSTVWY-', 'ARNDCQEGHILKMFPSTWYV-',
+    'ACDEFGHIKLMNPQRSTVWYX', 'ARNDCQEGHILKMFPSTWYVX', 'ACDEFGHIKLMNPQRSTVWYX-', 'ARNDCQEGHILKMFPSTWYVX-'
+]
+alphabets: tuple[str, ...] = get_args(alphabets_literal)
+alphabet_to_alphabet_type = dict(zip(alphabets, alphabet_types))
+alphabet_type_to_alphabet = dict(zip(alphabet_types, alphabets))
 alignment_programs_literal = Literal['hhblits', 'psiblast']
 alignment_programs: tuple[str, ...] = get_args(alignment_programs_literal)
 profile_types = Literal['evolutionary', 'fragment', '']
@@ -167,7 +166,7 @@ def create_numeric_translation_table(alphabet: Sequence[str], bytes_: bool = Tru
     return dict(zip(alphabet, count()))
 
 
-def get_sequence_to_numeric_translation_table(alphabet_type: alphabet_types_literal) -> defaultdict[str, int] | dict[str, int]:
+def get_numeric_translation_table(alphabet_type: alphabet_types_literal) -> defaultdict[str, int] | dict[str, int]:
     """Given an amino acid alphabet type, return the corresponding numerical translation table.
     If a table is passed, just return it
 
@@ -218,12 +217,13 @@ def get_sequence_to_numeric_translation_table(alphabet_type: alphabet_types_lite
         numeric_translation_table = numerical_translation_alph3_unknown_gaped_bytes
     else:
         try:  # To see if we already have the alphabet, and return the defaultdict
-            alphabet_type = alphabet_to_type[alphabet_type]
+            _type = alphabet_to_alphabet_type[alphabet_type]
         except KeyError:
             raise KeyError(f"The alphabet '{alphabet_type}' isn't an allowed alphabet_type."
-                           f" See {', '.join(alphabet_to_type.keys())}")
+                           f" See {', '.join(alphabet_types)}")
             # raise ValueError(wrong_alphabet_type)
-        logger.warning(f"Parameter alphabet_type option '{alphabet_type}' isn't viable. Attempting to create it")
+        logger.warning(f"{get_numeric_translation_table.__name__}: The alphabet_type '{alphabet_type}' "
+                       "isn't viable. Attempting to create it")
         numeric_translation_table = create_numeric_translation_table(alphabet_type)
 
     return numeric_translation_table
@@ -1553,7 +1553,7 @@ class MultipleSequenceAlignment:
         if alphabet_type in alphabet_types:
             self._alphabet_type = alphabet_type
         else:  # We got the alphabet, not its name
-            self._alphabet_type = alphabet_to_type[alphabet_type]
+            self._alphabet_type = alphabet_to_alphabet_type[alphabet_type]
 
         alphabet_type_dependent_attrs = ['_numeric_sequence', '_numeric_translation_type']
         for attr in alphabet_type_dependent_attrs:
@@ -1604,7 +1604,7 @@ class MultipleSequenceAlignment:
                 translation_type = self._numeric_translation_type
             except AttributeError:
                 translation_type = self._numeric_translation_type = \
-                    get_sequence_to_numeric_translation_table(self.alphabet_type)
+                    get_numeric_translation_table(self.alphabet_type)
 
             self._numerical_alignment = np.vectorize(translation_type.__getitem__)(self.array)
             return self._numerical_alignment  # [:, self.query_indices]
