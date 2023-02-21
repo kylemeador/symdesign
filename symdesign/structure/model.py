@@ -3196,6 +3196,62 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     #         for structure in self.__getattribute__(structure_type):
     #             structure.reset_state()
 
+    def delete_residues(self, **kwargs) -> list[Residue] | list:
+        """Delete Residue instances from the Structure
+
+        Keyword Args:
+            residues: Residue instances to mutate
+            indices: Residue indices to select the Residue instances of interest
+            numbers: Residue numbers to select the Residue instances of interest
+            pdb: bool = False - Whether to pull the Residue by PDB number
+        Returns:
+            Each Residue deleted
+        """
+        residues = super().delete_residues(**kwargs)  # residues=residue, numbers=number, indices=indices,
+        if not residues:  # Empty list, there are no indices to delete
+            return []
+
+        # The routine below assumes the Residue instances are sorted in ascending order
+        atom_index_offset_amount = 0
+        for residue_idx, residue in enumerate(residues):
+            # Find the Residue, Atom indices to delete
+            # Offset these indices if prior indices have already been removed
+            atom_delete_indices = [idx - atom_index_offset_amount for idx in residue.atom_indices]
+            residue_index = residue.index - residue_idx
+            delete_length = len(atom_delete_indices)
+            # Offset the next Residue Atom indices by the incrementing amount
+            atom_index_offset_amount += delete_length
+            for structure_type in self.structure_containers:
+                residue_found = False
+                # Iterate over each Structure in each structure_container
+                for structure in self.__getattribute__(structure_type):
+                    if residue_found:
+                        # The Structure the Residue belongs to is already accounted for, just offset the indices
+                        structure._offset_indices(start_at=0, offset=-delete_length, dtype='atom')
+                        structure._offset_indices(start_at=0, offset=-1, dtype='residue')
+                        structure.reset_state()
+                    # try:  # Remove atom_delete_indices, residue_indices from Structure
+                    elif residue_index not in structure._residue_indices:
+                        pass  # This structure is not the one of interest
+                        # TODO
+                        #  The atom_delete_indices need to be present in this Structure.
+                        #  As of now, there is no check that they are present in this Structure as indexing and thus
+                        #  IndexError no longer are used
+                    else:  # Remove atom_delete_indices, residue_index from Structure
+                        structure._delete_indices(atom_delete_indices, dtype='atom')
+                        structure._delete_indices([residue_index], dtype='residue')
+                        # input(f'deleted structure._residue_indices for residue={residue_idx}')
+                    # except IndexError:  # This will happen if the indices aren't in the Structure
+                    #     pass
+                    # else:
+                    #     input(f'{structure.name} Structure._atom_indices:\n{structure._atom_indices}')
+                    #     structure._offset_indices(start_at=atom_delete_indices[0], offset=-delete_length, dtype='atom')
+                    #     input(f'offset {structure.name} Structure._atom_indices:\n{structure._atom_indices}')
+                        structure.reset_state()
+                        residue_found = True
+
+        return residues
+
     def insert_residue_type(self, residue_type: str, index: int = None, chain_id: str = None):  # Todo Entity,Structures
         """Insert a standard Residue type into the Structure based on Pose numbering (1 to N) at the origin.
         No structural alignment is performed!
@@ -3234,40 +3290,40 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 structure._start_indices(at=structures[prior_idx].atom_indices[-1] + 1, dtype='atom')
                 structure._start_indices(at=structures[prior_idx].residue_indices[-1] + 1, dtype='residue')
 
-    def delete_residue(self, chain_id: str, residue_number: int):  # Todo Move to Structure
-        """"""
-        raise NotImplementedError(f'{self.delete_residue.__name__} This function requires testing')  # TODO TEST
-        # start = len(self.atoms)
-        # self.log.debug(start)
-        # residue = self.get_residue(chain, residue_number)
-        # residue.delete_atoms()  # deletes Atoms from Residue. unneccessary?
-
-        residue = self.chain(chain_id).residue(residue_number)
-        if residue is None:
-            raise ValueError(f'The residue number {residue_number} was not found')
-        delete_indices = residue.atom_indices
-        # Atoms() handles all Atom instances for the object
-        self._atoms.delete(delete_indices)
-        # self.delete_atoms(residue.atoms)  # deletes Atoms from PDB
-        # chain._residues.remove(residue)  # deletes Residue from Chain
-        # self._residues.remove(residue)  # deletes Residue from PDB
-        self.renumber()
-        self._residues.delete([residue.index])
-        self._residues.reindex(start_at=residue.index)  # .set_index()
-        # remove these indices from all Structure atom_indices including structure_containers
-        # Todo, turn this loop into Structure routine and implement for self, and structure_containers
-        atom_delete_index = self._atom_indices.index(delete_indices[0])
-        for iteration in range(len(delete_indices)):
-            self._atom_indices.pop(atom_delete_index)
-        # for structures in [self.chains, self.entities]:
-        for structure_type in self.structure_containers:
-            for structure in getattr(self, structure_type):  # iterate over Structures in each structure_container
-                try:
-                    atom_delete_index = structure.atom_indices.index(delete_indices[0])
-                    for iteration in range(len(delete_indices)):
-                        structure.atom_indices.pop(atom_delete_index)
-                except ValueError:
-                    continue
+    # def delete_residue(self, chain_id: str, residue_number: int):  # Todo Move to Structure
+    #     """"""
+    #     raise NotImplementedError(f'{self.delete_residue.__name__} This function requires testing')  # TODO TEST
+    #     # start = len(self.atoms)
+    #     # self.log.debug(start)
+    #     # residue = self.get_residue(chain, residue_number)
+    #     # residue.delete_atoms()  # deletes Atoms from Residue. unneccessary?
+    #
+    #     residue = self.chain(chain_id).residue(residue_number)
+    #     if residue is None:
+    #         raise ValueError(f'The residue number {residue_number} was not found')
+    #     delete_indices = residue.atom_indices
+    #     # Atoms() handles all Atom instances for the object
+    #     self._atoms.delete(delete_indices)
+    #     # self.delete_atoms(residue.atoms)  # deletes Atoms from PDB
+    #     # chain._residues.remove(residue)  # deletes Residue from Chain
+    #     # self._residues.remove(residue)  # deletes Residue from PDB
+    #     self.renumber()
+    #     self._residues.delete([residue.index])
+    #     self._residues.reindex(start_at=residue.index)  # .set_index()
+    #     # remove these indices from all Structure atom_indices including structure_containers
+    #     # Todo, turn this loop into Structure routine and implement for self, and structure_containers
+    #     atom_delete_index = self._atom_indices.index(delete_indices[0])
+    #     for iteration in range(len(delete_indices)):
+    #         self._atom_indices.pop(atom_delete_index)
+    #     # for structures in [self.chains, self.entities]:
+    #     for structure_type in self.structure_containers:
+    #         for structure in self.__getattribute__(structure_type):  # iterate over Structures in each structure_container
+    #             try:
+    #                 atom_delete_index = structure.atom_indices.index(delete_indices[0])
+    #                 for iteration in range(len(delete_indices)):
+    #                     structure.atom_indices.pop(atom_delete_index)
+    #             except ValueError:
+    #                 continue
 
         # self.log.debug('Deleted: %d atoms' % (start - len(self.atoms)))
         self.reset_state()
