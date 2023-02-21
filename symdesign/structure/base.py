@@ -37,26 +37,29 @@ DEFAULT_SS_PROGRAM = 'stride'
 DEFAULT_SS_COIL_IDENTIFIER = 'C'
 """Secondary structure identifier mapping
 Stride
-H:Alpha helix
-G:3-10 helix
-I:PI-helix
-E:Strand/Extended conformation 
 B/b:Isolated bridge
+E:Strand/Extended conformation 
+G:3-10 helix
+H:Alpha helix
+I:PI-helix
 T:Turn
 C:Coil (none of the above)
+SS_TURN_IDENTIFIERS = 'T'
 SS_DISORDER_IDENTIFIERS = 'C'
 
 DSSP
+B:beta bridge
+E:strand/beta bulge
 G:310 helix
 H:α helix
 I:π helix
-B:beta bridge
-E:strand/beta bulge
 T:turns
 S:high curvature (where the angle between i-2, i, and i+2 is at least 70°)
 " "(space):loop
-SS_DISORDER_IDENTIFIERS = 'S '
+SS_DISORDER_IDENTIFIERS = ' '
+SS_TURN_IDENTIFIERS = 'TS'
 """
+SS_TURN_IDENTIFIERS = 'T'
 SS_DISORDER_IDENTIFIERS = 'C'
 coords_type_literal = Literal['all', 'backbone', 'backbone_and_cb', 'ca', 'cb', 'heavy']
 directives = Literal['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding',
@@ -613,7 +616,7 @@ class StructureBase(SymmetryMixin, ABC):
     def __init__(self, parent: StructureBase = None, log: Log | Logger | bool = True, coords: np.ndarray | Coords = None
                  , biological_assembly=None, cryst_record=None, entities=None, entity_info=None, entity_names=None,
                  file_path=None, header=None, metadata=None, multimodel=None, pose_format=None, query_by_sequence=True,
-                 rename_chains=None,resolution=None, reference_sequence=None, sequence=None, **kwargs):
+                 rename_chains=None, resolution=None, reference_sequence=None, sequence=None, **kwargs):
         self._copier = False
         if parent:  # Initialize StructureBase from parent
             self._parent = parent
@@ -4176,6 +4179,58 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #     """
     #     return ''.join([protein_letters_3to1_extended.get(res.type, '-') for res in self.residues])
 
+    def delete_unstructured_termini(self):
+        """Query the Structure for unstructured termini, i.e. loops/coils and remove those residues from the structure
+
+        Uses the default secondary structure prediction program's default SS_DISORDER_IDENTIFIERS (typically coil) to
+        detect disorder. Will remove any disorder segments, as well as turns that exist between disordered segments
+        """
+        secondary_structure = working_secondary_structure = self.secondary_structure
+        number_of_residues = self.number_of_residues
+        # no_nterm_disorder_ss = secondary_structure.lstrip(SS_DISORDER_IDENTIFIERS)
+        # remove_x_nterm_residues = number_of_residues - len(no_nterm_disorder_ss)
+        # no_cterm_disorder_ss = secondary_structure.rstrip(SS_DISORDER_IDENTIFIERS)
+        # remove_x_cterm_residues = number_of_residues - len(no_cterm_disorder_ss)
+        # Todo
+        #  Could remove disorder by a relative_sasa threshold. A brief investigation shows that ~0.6 could be a
+        #  reasonable threshold when combined with other ss indicators
+        # sasa = self.relative_sasa
+        # self.log.debug(f'Found n-term relative sasa {sasa[:remove_x_nterm_residues + 10]}')
+        # self.log.debug(f'Found c-term relative sasa {sasa[-(remove_x_cterm_residues + 10):]}')
+
+        remove_x_nterm_residues = remove_x_cterm_residues = 0
+        # Remove coils. Find the next coil. If only ss present is (T)urn, then remove that as well and start again
+        for idx, termini in enumerate('NC'):
+            if idx == 1:  # c-termini
+                # Get the number of n-termini removed
+                remove_x_nterm_residues = number_of_residues - len(working_secondary_structure)
+                # Reverse the sequence to get the c-termini first
+                possible_secondary_structure = working_secondary_structure[::-1]
+            else:  # n-termini
+                possible_secondary_structure = working_secondary_structure
+
+            ss_disorder_index = possible_secondary_structure.find(SS_DISORDER_IDENTIFIERS)
+            while ss_disorder_index == 0:  # Go again
+                # Remove DISORDER ss
+                working_secondary_structure = possible_secondary_structure.lstrip(SS_DISORDER_IDENTIFIERS)
+                # Next try to remove TURN ss. Only remove if it is between DISORDER segments
+                possible_secondary_structure = working_secondary_structure.lstrip(SS_TURN_IDENTIFIERS)
+                ss_disorder_index = possible_secondary_structure.find(SS_DISORDER_IDENTIFIERS)
+
+        # Get the number of c-termini removed
+        remove_x_cterm_residues = number_of_residues - len(working_secondary_structure) - remove_x_nterm_residues
+        c_term_index = number_of_residues - remove_x_cterm_residues
+        final_secondary_structure = reversed(working_secondary_structure)
+
+        self.log.debug(f'Found n-term secondary_structure {secondary_structure[:remove_x_nterm_residues + 5]}')
+        self.log.debug(f'Found c-term secondary_structure {secondary_structure[-(remove_x_cterm_residues + 5):]}')
+        self.log.info(f'Removing {remove_x_nterm_residues} n-terminal residues, with secondary structure "'
+                      f'{secondary_structure[:remove_x_nterm_residues]}" and {remove_x_cterm_residues} c-terminal '
+                      f'residues, with secondary structure "{secondary_structure[c_term_index:]}"')
+        residues = self.residues
+        self.delete_residues(residues[:remove_x_nterm_residues])
+        self.delete_residues(residues[c_term_index:])
+
     def translate(self, translation: list[float] | np.ndarray, **kwargs):
         """Perform a translation to the Structure ensuring only the Structure container of interest is translated
         ensuring the underlying coords are not modified
@@ -4532,6 +4587,21 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
             raise stutils.DesignError('Measurement of SASA is not working, probably due to a missing Atom. '
                                       f'Debug files written to {utils.path.sasa_debug_dir}')
+
+    @property
+    def relative_sasa(self) -> list[float]:
+        """Return a per-residue array of the relative solvent accessible area for the Structure"""
+        return [residue.relative_sasa for residue in self.residues]
+
+    @property
+    def sasa_apolar(self) -> list[float]:
+        """Return a per-residue array of the polar (hydrophilic) solvent accessible area for the Structure"""
+        return [residue.sasa_apolar for residue in self.residues]
+
+    @property
+    def sasa_polar(self) -> list[float]:
+        """Return a per-residue array of the apolar (hydrophobic) solvent accessible area for the Structure"""
+        return [residue.sasa_polar for residue in self.residues]
 
     @property
     def surface_residues(self, relative_sasa_thresh: float = sasa_burial_threshold, **kwargs) -> list[Residue]:
