@@ -2868,6 +2868,12 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                         #     next(available_chain_ids)
                         self.log.debug(f'Entity {entity.name} new chain identifier {entity.chain_id}')
 
+                # If any of the entities are symmetric, ensure the new Model is aware they are
+                for entity in self.entities:
+                    if entity.is_symmetric():
+                        self.symmetric_dependents = 'entities'
+                        break
+
                 # Update chains to entities after everything is set
                 self.chains = self.entities
             else:  # Create Entity instances from Chain and Chain.residue_indices
