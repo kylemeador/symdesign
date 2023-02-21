@@ -805,7 +805,7 @@ class StructureDatabase(Database):
                         entity_structures, entity_scores = \
                             resources.ml.af_predict(features, model_runners,  # {**features, **template_features},
                                                     gpu_relax=self.job.predict.use_gpu_relax,
-                                                    models_to_relax=self.job.predict.models_to_relax)
+                                                    models_to_relax='best')  # self.job.predict.models_to_relax)
                         if relaxed:
                             structures_to_load = entity_structures.get('relaxed', [])
                         else:
