@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from collections import OrderedDict
 from itertools import combinations
 
 import numpy as np
@@ -351,6 +350,8 @@ class EntityData(Base):
     # Set up one-to-one relationship with entity_metrics table
     metrics = relationship('EntityMetrics', back_populates='entity', uselist=False)
     # Todo setup 'selectin' load for select-* modules
+    # Set up one-to-many relationship with design_entity_data table
+    design_metrics = relationship('DesignEntityMetrics', back_populates='entity')
     # Set up one-to-one relationship with entity_transform table
     transform = relationship('EntityTransform', back_populates='entity', uselist=False,
                              lazy='selectin')
@@ -598,6 +599,8 @@ class DesignData(Base):
     protocols = relationship('DesignProtocol', back_populates='design')
     # Set up one-to-one relationship with design_metrics table
     metrics = relationship('DesignMetrics', back_populates='design', uselist=False)
+    # Set up one-to-many relationship with design_entity_data table
+    entity_metrics = relationship('DesignEntityMetrics', back_populates='design')
     # Set up one-to-many relationship with residue_metrics table
     residues = relationship('ResidueMetrics', back_populates='design')
 
@@ -646,9 +649,7 @@ class DesignMetrics(Base):
     # solvation_energy_complex = Column(Float)
     # Sequence metrics
     percent_mutations = Column(Float)
-    number_of_mutations = Column(Integer)  # ResidueMetrics sum 'mutation', nullable=False)
-    # entity_percent_mutations = Column(Float)  # Has a # after entity LIST
-    # entity_number_of_mutations = Column(Integer)  # Has a # after entity LIST
+    number_of_mutations = Column(Integer)  # ResidueMetrics sum 'mutation'
     # SymDesign metrics
     interface_local_density = Column(Float)
     interface_composition_similarity = Column(Float)
@@ -748,22 +749,37 @@ class DesignMetrics(Base):
     #     return f"Trajectory(id={self.id!r}, pose={self.pose!r}, name={self.name!r})"
 
 
-# Todo make into EntityMetrics like attribute. Currently only deals with with PoseData level Metrics
-# Add metrics which are dependent on multiples. Initialize Column() when setattr() is called to get correct column name
-entity_design_metrics = dict(
-    entity_interface_connectivity=Float,
-    entity_percent_mutations=Float,
-    entity_number_of_mutations=Integer,
-)
-for idx in range(1, 1 + config.MAXIMUM_ENTITIES):
-    for metric, value in entity_design_metrics.items():
-        setattr(DesignMetrics, metric.replace('entity', f'entity{idx}'), Column(value))
 interface_design_metrics = dict(
     buried_unsatisfied_hbonds_unbound=Integer
 )
 for idx in range(1, 1 + config.MAXIMUM_INTERFACES):
     for metric, value in interface_design_metrics.items():
         setattr(DesignMetrics, f'{metric}{idx}', Column(value))
+
+
+class DesignEntityMetrics(Base):
+    __tablename__ = 'design_entity_metrics'
+    id = Column(Integer, primary_key=True)
+
+    # Set up many-to-one relationship with design_data table
+    design_id = Column(ForeignKey('design_data.id'), nullable=False, unique=True)
+    design = relationship('DesignData', back_populates='entity_metrics')
+    # Set up many-to-one relationship with entity_data table
+    entity_id = Column(ForeignKey('entity_data.id'), nullable=False, unique=True)
+    entity = relationship('EntityData', back_populates='design_metrics')
+
+    # Design descriptors
+    interface_connectivity = Column(Float)  # entity_ is in config.metrics
+    percent_mutations = Column(Float)  # entity_ is in config.metrics
+    number_of_mutations = Column(Integer)  # entity_ is in config.metrics. ResidueMetrics sum 'mutation'
+    # Alphafold metrics
+    plddt = Column(Float)  # entity_ is in config.metrics
+    predicted_aligned_error = Column(Float)  # entity_ is in config.metrics
+    predicted_aligned_interface = Column(Float)  # entity_ is in config.metrics
+    predicted_interface_template_modeling_score = Column(Float)  # entity_ is in config.metrics
+    predicted_template_modeling_score = Column(Float)  # entity_ is in config.metrics
+    rmsd_oligomer = Column(Float)  # entity_ is in config.metrics
+    rmsd_predicted_models = Column(Float)  # entity_ is in config.metrics
 
 
 class PoseResidueMetrics(Base):

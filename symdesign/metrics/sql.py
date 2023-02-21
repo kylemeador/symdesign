@@ -191,7 +191,7 @@ def format_residues_df_for_write(df: pd.DataFrame) -> pd.DataFrame:
 
 def write_dataframe(session: Session, designs: pd.DataFrame = None, residues: pd.DataFrame = None,
                     poses: pd.DataFrame = None, pose_residues: pd.DataFrame = None,
-                    update: bool = True):
+                    entity_designs: pd.DataFrame = None, update: bool = True):
     """Format each possible DataFrame type for output via csv or SQL database
 
     Args:
@@ -204,6 +204,8 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None, residues: pd
             pose metrics
         pose_residues: The typical per-residue metric DataFrame where each index is the design id and the columns are
             (residue index, residue metric)
+        entity_designs: The typical per-design metric DataFrame for Entity instances where each index is the design id
+            and the columns are design metrics
         update: Whether the output identifiers are already present in the metrics
     """
     #     job: The resources for the current job
@@ -241,6 +243,16 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None, residues: pd
         designs.replace({np.nan: None}, inplace=True)
         table = sql.DesignMetrics
         dataframe_function(session, table=table, df=designs)
+        # designs.to_sql(table, con=engine, if_exists='append', index=True)
+        # #                dtype=sql.Base.metadata.table[table])
+        logger.info(f'Wrote {table.__tablename__} metrics to DataBase')  # {job.internal_db}')
+
+    if entity_designs is not None:
+        # warn_multiple_update_results()
+        # warn = True
+        designs.replace({np.nan: None}, inplace=True)
+        table = sql.DesignEntityMetrics
+        dataframe_function(session, table=table, df=entity_designs)
         # designs.to_sql(table, con=engine, if_exists='append', index=True)
         # #                dtype=sql.Base.metadata.table[table])
         logger.info(f'Wrote {table.__tablename__} metrics to DataBase')  # {job.internal_db}')

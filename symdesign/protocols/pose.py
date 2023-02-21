@@ -2174,6 +2174,8 @@ class PoseProtocol(PoseData):
         else:
             multimer_sequence_length = None
 
+        # Get the DesignData.ids for metrics output
+        design_ids = [design.id for design in sequences]
         asu_atom_positions = jnp.asarray(self.pose.alphafold_coords)
         protocol_logger.debug(f'Found asu_atom_positions with shape: {asu_atom_positions.shape}')
         protocol_logger.debug(f'Found asu with length: {self.pose.number_of_residues}')
@@ -2253,6 +2255,9 @@ class PoseProtocol(PoseData):
                                                    model_type=model_type, interface=self.pose.interface_residues)
         residues_df = residues_df.join(predict_residues_df)
         designs_df = designs_df.join(predict_designs_df)
+        # Set the index to use the design.id for each design instance
+        residues_df.index = pd.Index(design_ids, name=sql.ResidueMetrics)
+        designs_df.index = pd.Index(design_ids, name=sql.DesignMetrics)
         self.output_metrics(designs=designs_df, residues=residues_df)
         # Commit the newly acquired metrics
         self.job.current_session.commit()
@@ -2272,7 +2277,7 @@ class PoseProtocol(PoseData):
             entity_structure_by_design = {design: [] for design in sequences}
             entity_design_dfs = []
             entity_residue_dfs = []
-            for entity in self.pose.entities:
+            for entity, data in zip(self.pose.entities, self.entity_data):
                 # Fold with symmetry True. If it isn't symmetric, symmetry won't be used
                 features = entity.get_alphafold_features(symmetric=True, no_msa=no_msa)
                 if multimer:  # Get the length
@@ -2352,15 +2357,18 @@ class PoseProtocol(PoseData):
                  'rmsd_prediction_ensemble: (number_of_models)}
                 """
                 sequence_length = entity_slice.stop - entity_slice.start
-                designs_df, residues_df = \
+                entity_designs_df, entity_residues_df = \
                     self.analyze_predict_structure_metrics(entity_scores_by_design,
                                                            sequence_length, model_type=model_type)
-                entity_residue_dfs.append(residues_df)
-                entity_design_dfs.append(designs_df)
-                # raise NotImplementedError('Metrics are not implemented yet')
-                # # Todo refactor dataframe names to use EntityData.id...
-                # # Todo Set up SQL table to use EntityData.id
-                # self.output_metrics(designs=designs_df, residues=residues_df, entity_metrics=True)
+                # Set the index to use the design.id for each design instance and EntityData.id as an additional column
+                entity_designs_df.index = pd.Index(design_ids, name=sql.DesignEntityMetrics)
+                entity_designs_df['entity_id'] = data.entity_id
+
+                metrics.sql.write_dataframe(self.job.current_session, entity_designs=entity_designs_df)
+                entity_design_dfs.append(entity_designs_df)
+
+                # These aren't currently written
+                entity_residue_dfs.append(entity_residues_df)
 
             # Combine Entity structure to compare with the Pose prediction
             entity_design_structures = [
@@ -5146,17 +5154,20 @@ class PoseProtocol(PoseData):
         designs_df['percent_mutations'] = designs_df['number_of_mutations'] / pose_length
 
         mutation_df = residues_df.loc[:, idx_slice[:, 'mutation']]
-        idx = 1
-        # prior_slice = 0
-        for idx, entity in enumerate(self.pose.entities, idx):
-            # entity_n_terminal_residue_index = entity.n_terminal_residue.index
-            # entity_c_terminal_residue_index = entity.c_terminal_residue.index
-            designs_df[f'entity{idx}_number_of_mutations'] = \
-                mutation_df.loc[:, idx_slice[residue_indices[entity.n_terminal_residue.index:  # prior_slice
-                                                             1 + entity.c_terminal_residue.index], :]].sum(axis=1)
-            # prior_slice = entity_c_terminal_residue_index
-            designs_df[f'entity{idx}_percent_mutations'] = \
-                designs_df[f'entity{idx}_number_of_mutations'] / entity.number_of_residues
+        entity_designs = {}
+        for entity_data, entity in zip(self.entity_data, self.pose.entities):
+            number_of_mutations = \
+                mutation_df.loc[:, idx_slice[residue_indices[entity.n_terminal_residue.index:
+                                                             1 + entity.c_terminal_residue.index], :]]\
+                .sum(axis=1)
+            entity_designs[entity_data.id] = dict(
+                number_of_mutations=number_of_mutations,
+                percent_mutations=number_of_mutations / entity.number_of_residues)
+
+        # Set up the DesignEntityMetrics dataframe for writing
+        design_ids = [design.id for design in self.current_designs]
+        entity_designs_df = pd.concat([pd.DataFrame(data) for data in entity_designs.items()], keys=design_ids)
+        metrics.sql.write_dataframe(self.job.current_session, entity_designs=entity_designs_df)
 
         designs_df['sequence_loss_design_per_residue'] = designs_df['sequence_loss_design'] / pose_length
         # The per residue average loss compared to the design profile
