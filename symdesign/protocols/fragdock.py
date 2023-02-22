@@ -106,18 +106,18 @@ def get_perturb_matrices(rotation_degrees: float, number: int = 10) -> np.ndarra
     return np.array(perturb_matrices)
 
 
-def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: int = 1, translation_number: int = 1,
-                                        rotation_range: Iterable[float] = None,
-                                        translation_range: Iterable[float] = None) -> dict[str, np.ndarray]:
+def create_perturbation_transformations(sym_entry: SymEntry, number_of_rotations: int = 1, number_of_translations: int = 1,
+                                        rotation_steps: Iterable[float] = None,
+                                        translation_steps: Iterable[float] = None) -> dict[str, np.ndarray]:
     """From a specified SymEntry and sampling schedule, create perturbations to degrees of freedom for each available
 
     Args:
         sym_entry: The SymEntry whose degrees of freedom should be expanded
-        rotation_number: The number of times to sample from the allowed rotation space. 1 means no perturbation
-        translation_number: The number of times to sample from the allowed translation space. 1 means no perturbation
-        rotation_range: The range to sample rotations +/- the identified rotation in degrees.
+        number_of_rotations: The number of times to sample from the allowed rotation space. 1 means no perturbation
+        number_of_translations: The number of times to sample from the allowed translation space. 1 means no perturbation
+        rotation_steps: The step to sample rotations +/- the identified rotation in degrees.
             Expected type is an iterable of length comparable to the number of rotational degrees of freedom
-        translation_range: The range to sample translations +/- the identified translation in Angstroms
+        translation_steps: The step to sample translations +/- the identified translation in Angstroms
             Expected type is an iterable of length comparable to the number of translational degrees of freedom
     Returns:
         A mapping between the perturbation type and the corresponding transformation operation
@@ -129,29 +129,42 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
     translational_dof = sym_entry.number_dof_translation
     n_dof_external = sym_entry.number_dof_external
 
-    if rotation_number < 1:
-        logger.warning(f"Can't create perturbation transformations with rotation_number of {rotation_number}. "
+    if number_of_rotations < 1:
+        logger.warning(f"Can't create perturbation transformations with rotation_number of {number_of_rotations}. "
                        f"Setting to 1")
-        rotation_number = 1
+        number_of_rotations = 1
         # raise ValueError(f"Can't create perturbation transformations with rotation_number of {rotation_number}")
-    if rotation_number == 1:
+    if number_of_rotations == 1:
         target_dof -= rotational_dof
 
-    if translation_number < 1:
-        logger.warning(f"Can't create perturbation transformations with translation_number of {translation_number}. "
+    if number_of_translations < 1:
+        logger.warning(f"Can't create perturbation transformations with translation_number of {number_of_translations}. "
                        f"Setting to 1")
-        translation_number = 1
-        # raise ValueError(f"Can't create perturbation transformations with translation_number of {translation_number}")
-    if translation_number == 1:
-        target_dof -= translational_dof
+        number_of_translations = 1
 
+    if number_of_translations == 1:
+        target_dof -= translational_dof
+        # Set to 0 so there is no deviation from the current value and remove any provided values
+        default_translation = 0
+        translation_steps = None
+    else:
+        # Default translation range is 0.5 Angstroms
+        default_translation = .5
+
+    if translation_steps is None:
+        translation_steps = tuple(repeat(default_translation, sym_entry.number_of_groups))
+        ext_translation_steps = tuple(repeat(default_translation, n_dof_external))
+    else:
+        # Todo allow this to be a parameter
+        logger.warning(f'Currently using the default value of {default_translation} for external translation steps')
+        ext_translation_steps = tuple(repeat(default_translation, n_dof_external))
     # # Make a vector of the perturbation number [1, 2, 2, 3, 3, 1] with 1 as constants on each end
     # dof_number_perturbations = [1] \
     #     + [rotation_number for dof in range(rotational_dof)] \
     # Make a vector of the perturbation number [2, 2, 3, 3]
     dof_number_perturbations = \
-        [rotation_number for dof in range(rotational_dof)] \
-        + [translation_number for dof in range(translational_dof)] \
+        [number_of_rotations for dof in range(rotational_dof)] \
+        + [number_of_translations for dof in range(translational_dof)] \
         # + [1]
     # translation_stack_size = translation_number**translational_dof
     # stack_size = rotation_number**rotational_dof * translation_stack_size
@@ -164,28 +177,19 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
     # remaining_dof = total_dof - 1
     # # Begin with 0
     # seen_dof = 0
+
+    if rotation_steps is None:
+        # Default rotation range is 1. degree
+        default_rotation = 1.
+        rotation_steps = tuple(repeat(default_rotation, sym_entry.number_of_groups))
+
     dof_idx = 0
-    # Default rotation range is 1. degree
-    default_rotation = 1.
-    # Default translation range is 0.5 Angstroms
-    default_translation = .5
-
-    if rotation_range is None:
-        rotation_range = tuple(repeat(default_rotation, sym_entry.number_of_groups))
-
-    if translation_range is None:
-        translation_range = tuple(repeat(default_translation, sym_entry.number_of_groups))
-        ext_translation_range = tuple(repeat(default_translation, n_dof_external))
-    else:
-        logger.warning(f'Currently using the default value of {default_translation} for external translation range')
-        ext_translation_range = tuple(repeat(default_translation, n_dof_external))
-
     perturbation_mapping = {}
     for idx, group in enumerate(sym_entry.groups):
         group_idx = idx + 1
         if getattr(sym_entry, f'is_internal_rot{group_idx}'):
-            rotation_step = rotation_range[idx]  # * 2
-            perturb_matrices = get_perturb_matrices(rotation_step, number=rotation_number)
+            rotation_step = rotation_steps[idx]  # * 2
+            perturb_matrices = get_perturb_matrices(rotation_step, number=number_of_rotations)
             # Repeat (tile then reshape) the matrices according to the number of perturbations raised to the power of
             # the remaining dof (remaining_dof), then tile that by how many dof have been seen (seen_dof)
             # perturb_matrices = \
@@ -217,7 +221,7 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
             # remaining dof (remaining_dof), then tile that by how many dof have been seen (seen_dof)
             internal_translation_grid = translation_grid.copy()
             translation_perturb_vector = \
-                np.linspace(-translation_range[idx], translation_range[idx], translation_number)
+                np.linspace(-translation_steps[idx], translation_steps[idx], number_of_translations)
             # internal_translation_grid[:, 2] = np.tile(np.repeat(translation_perturb_vector, number**remaining_dof),
             #                                           number**seen_dof)
             # remaining_dof -= 1
@@ -241,7 +245,7 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
     external_translation_grid = translation_grid.copy()
     for idx, ext_idx in enumerate(range(n_dof_external)):
         translation_perturb_vector = \
-            np.linspace(-ext_translation_range[idx], ext_translation_range[idx], translation_number)
+            np.linspace(-ext_translation_steps[idx], ext_translation_steps[idx], number_of_translations)
         # external_translation_grid[:, ext_idx] = np.tile(np.repeat(translation_perturb_vector,
         #                                                           number**remaining_dof),
         #                                                 number**seen_dof)
@@ -391,31 +395,31 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # Set up Building Block2
     # Get Surface Fragments With Guide Coordinates Using COMPLETE Fragment Database
     get_complete_surf_frags2_time_start = time.time()
-    complete_surf_frags2 = \
+    surf_frags2 = \
         model2.get_fragment_residues(residues=model2.surface_residues, fragment_db=job.fragment_db)
 
     # Calculate the initial match type by finding the predominant surface type
-    surf_guide_coords2 = np.array([surf_frag.guide_coords for surf_frag in complete_surf_frags2])
-    surf_residue_indices2 = np.array([surf_frag.index for surf_frag in complete_surf_frags2])
-    surf_i_indices2 = np.array([surf_frag.i_type for surf_frag in complete_surf_frags2])
+    surf_guide_coords2 = np.array([surf_frag.guide_coords for surf_frag in surf_frags2])
+    surf_residue_indices2 = np.array([surf_frag.index for surf_frag in surf_frags2])
+    surf_i_indices2 = np.array([surf_frag.i_type for surf_frag in surf_frags2])
     fragment_content2 = np.bincount(surf_i_indices2)
     initial_surf_type2 = np.argmax(fragment_content2)
     init_surf_frag_indices2 = \
-        [idx for idx, surf_frag in enumerate(complete_surf_frags2) if surf_frag.i_type == initial_surf_type2]
+        [idx for idx, surf_frag in enumerate(surf_frags2) if surf_frag.i_type == initial_surf_type2]
     init_surf_guide_coords2 = surf_guide_coords2[init_surf_frag_indices2]
-    init_surf_residue_numbers2 = surf_residue_indices2[init_surf_frag_indices2]
+    init_surf_residue_indices2 = surf_residue_indices2[init_surf_frag_indices2]
     idx = 2
     logger.debug(f'Found surface guide coordinates {idx} with shape {surf_guide_coords2.shape}')
     logger.debug(f'Found surface residue numbers {idx} with shape {surf_residue_indices2.shape}')
     logger.debug(f'Found surface indices {idx} with shape {surf_i_indices2.shape}')
-    logger.debug(f'Found {init_surf_residue_numbers2.shape[0]} initial surface {idx} fragments with type: {initial_surf_type2}')
+    logger.debug(f'Found {init_surf_residue_indices2.shape[0]} initial surface {idx} fragments with type: {initial_surf_type2}')
 
     logger.info(f'Retrieved oligomer{idx}-{model2.name} surface fragments and guide coordinates took '
                 f'{time.time() - get_complete_surf_frags2_time_start:8f}s')
 
     # logger.debug('init_surf_frag_indices2: %s' % slice_variable_for_log(init_surf_frag_indices2))
     # logger.debug('init_surf_guide_coords2: %s' % slice_variable_for_log(init_surf_guide_coords2))
-    # logger.debug('init_surf_residue_numbers2: %s' % slice_variable_for_log(init_surf_residue_numbers2))
+    # logger.debug('init_surf_residue_indices2: %s' % slice_variable_for_log(init_surf_residue_indices2))
 
     # Set up Building Block1
     get_complete_surf_frags1_time_start = time.time()
@@ -436,7 +440,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # logger.debug('Found oligomer 2 fragment content: %s' % fragment_content2)
     # logger.debug('init_surf_frag_indices2: %s' % slice_variable_for_log(init_surf_frag_indices2))
     # logger.debug('init_surf_guide_coords2: %s' % slice_variable_for_log(init_surf_guide_coords2))
-    # logger.debug('init_surf_residue_numbers2: %s' % slice_variable_for_log(init_surf_residue_numbers2))
+    # logger.debug('init_surf_residue_indices2: %s' % slice_variable_for_log(init_surf_residue_indices2))
     # logger.debug('init_surf_guide_coords1: %s' % slice_variable_for_log(init_surf_guide_coords1))
     # logger.debug('init_surf_residue_indices1: %s' % slice_variable_for_log(init_surf_residue_indices1))
 
@@ -882,7 +886,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # Set up internal translation parameters
     # zshift1/2 must be 2d array, thus the , 2:3].T instead of , 2].T
     # [:, None, 2] would also work
-    if sym_entry.is_internal_tx1:  # add the translation to Z (axis=1)
+    if sym_entry.is_internal_tx1:  # Add the translation to Z (axis=1)
         full_int_tx1 = []
         zshift1 = set_mat1[:, None, 2].T
     else:
@@ -932,7 +936,6 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     #     euler_lookup.get_eulint_from_guides(ghost_frag1_guide_coords_rot_and_set.reshape((-1, 3, 3)))
     eulerint_ghost_component1 = \
         euler_lookup.get_eulint_from_guides_as_array(ghost_frag1_guide_coords_rot_and_set.reshape((-1, 3, 3)))
-
     # Next, for component 2
     surf_frags2_guide_coords_rot_and_set = \
         transform_coordinate_sets(init_surf_guide_coords2[None, :, :, :],
@@ -1197,19 +1200,11 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
             # Stack each internal parameter along with a blank vector, this isolates the tx vector along z axis
             if full_int_tx1 is not None:
-                # stacked_internal_tx_vectors1 = np.zeros((number_passing_shifts, 3), dtype=float)
-                # stacked_internal_tx_vectors1[:, -1] = transform_passing_shifts[:, sym_entry.number_dof_external]
-                # internal_tx_params1 = transform_passing_shifts[:, None, sym_entry.number_dof_external]
-                # stacked_internal_tx_vectors1 = np.hstack((blank_vector, blank_vector, internal_tx_params1))
                 # Store transformation parameters, indexing only those that are positive in the case of lattice syms
                 full_int_tx1.extend(transform_passing_shifts[positive_indices,
                                                              sym_entry.number_dof_external].tolist())
 
             if full_int_tx2 is not None:
-                # stacked_internal_tx_vectors2 = np.zeros((number_passing_shifts, 3), dtype=float)
-                # stacked_internal_tx_vectors2[:, -1] = transform_passing_shifts[:, sym_entry.number_dof_external + 1]
-                # internal_tx_params2 = transform_passing_shifts[:, None, sym_entry.number_dof_external + 1]
-                # stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2))
                 # Store transformation parameters, indexing only those that are positive in the case of lattice syms
                 full_int_tx2.extend(transform_passing_shifts[positive_indices,
                                                              sym_entry.number_dof_external + 1].tolist())
@@ -1230,8 +1225,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
             # # Tod0 debug
             # # tx_param_list = []
-            # init_pass_ghost_numbers = init_ghost_residue_numbers1[possible_ghost_frag_indices]
-            # init_pass_surf_numbers = init_surf_residue_numbers2[possible_surf_frag_indices]
+            # init_pass_ghost_numbers = init_ghost_residue_indices1[possible_ghost_frag_indices]
+            # init_pass_surf_numbers = init_surf_residue_indices2[possible_surf_frag_indices]
             # for index in range(passing_ghost_coords.shape[0]):
             #     o = OptimalTxOLD(set_mat1, set_mat2, sym_entry.is_internal_tx1, sym_entry.is_internal_tx2,
             #                      reference_rmsds[index],
@@ -1764,7 +1759,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             # interface_ghost_frags = \
             #     complete_ghost_frags1[interface_ghost_indices1][passing_ghost_indices[sorted_overlap_indices]]
             # interface_surf_frags = \
-            #     complete_surf_frags2[surf_indices_in_interface2][passing_surf_indices[sorted_overlap_indices]]
+            #     surf_frags2[surf_indices_in_interface2][passing_surf_indices[sorted_overlap_indices]]
             # overlap_passing_ghosts = passing_ghost_indices[sorted_fragment_indices]
             # all_passing_ghost_indices.append(passing_ghost_indices[sorted_fragment_indices])
             # all_passing_surf_indices.append(passing_surf_indices[sorted_fragment_indices])
@@ -2009,10 +2004,10 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # By perturbing the transformation a random small amount, we generate transformational diversity from
         # the already identified solutions.
         perturbations = \
-            create_perturbation_transformations(sym_entry, rotation_number=job.dock.perturb_dof_steps_rot,
-                                                translation_number=job.dock.perturb_dof_steps_tx,
-                                                rotation_range=rotation_steps,
-                                                translation_range=translation_perturb_steps)
+            create_perturbation_transformations(sym_entry, number_of_rotations=job.dock.perturb_dof_steps_rot,
+                                                number_of_translations=job.dock.perturb_dof_steps_tx,
+                                                rotation_steps=rotation_steps,
+                                                translation_steps=translation_perturb_steps)
         # Extract perturbation parameters and set the original transformation parameters to a new variable
         # if sym_entry.is_internal_rot1:  # Todo 2
         nonlocal number_of_transforms, full_rotation1, full_rotation2
@@ -2176,7 +2171,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         #     # overlap_surf = passing_surf_indices[sorted_fragment_indices]
         #
         #     sorted_int_ghostfrags: list[GhostFragment] = [complete_ghost_frags1[idx] for idx in overlap_ghosts]
-        #     sorted_int_surffrags2: list[Residue] = [complete_surf_frags2[idx] for idx in overlap_surf]
+        #     sorted_int_surffrags2: list[Residue] = [surf_frags2[idx] for idx in overlap_surf]
         #     # For all matched interface fragments
         #     # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
         #     # Values are lists containing 1 / (1 + z^2) values for every (chain_id, res_num) residue fragment match
@@ -3129,21 +3124,12 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             # This was already run and aren't perturbing, so don't take metrics again
             return 0
 
-        # Collect scores according to specified job.dock.score
-        # if job.dock.score:
+        # Collect metrics for each transform
         dock_metrics = collect_dock_metrics()
         # Format metrics for each pose
-        # dock_df = pd.DataFrame.from_dict(dock_metrics)
         poses_df, residues_df = format_docking_metrics(dock_metrics)
         optimize_round += 1
 
-        # Todo 1 default True, default score?
-        #  Option could be a --weight type input or file...
-        # metric = dock_metrics.get(job.dock.score)
-        # if metric is None:
-        #     logger.critical(f"The metric {job.dock.score} wasn't collected and therefore, can't be selected")
-        #     return 0  # np.zeros(number_of_transforms)
-        #     # raise ValueError(f"The metric {job.dock.score} wasn't collected and therefore, can't be selected")
         if job.dock.proteinmpnn_score:
             weight_method = f'{putils.nanohedra}+{putils.proteinmpnn}'
         else:
@@ -3151,12 +3137,11 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
         default_weight_metric = resources.config.default_weight_parameter[weight_method]
 
-        logger.info(f'Found poses_df with columns: {poses_df.columns.tolist()}')
-        logger.info(f'Found poses_df with index: {poses_df.index.tolist()}')
+        logger.debug(f'Found poses_df with columns: {poses_df.columns.tolist()}')
+        logger.debug(f'Found poses_df with index: {poses_df.index.tolist()}')
         weighted_trajectory_s = metrics.pareto_optimize_trajectories(poses_df, weights=job.weight,
                                                                      default_sort=default_weight_metric)
-        # weighted_trajectory_s is sorted globally
-        # Todo 1 --weight type input or file...
+        # weighted_trajectory_s returns sorted based on globally best transform
 
         if number_perturbations_applied > 1:
             # Sort each perturbation cluster members by the metric
