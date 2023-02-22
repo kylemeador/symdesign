@@ -105,7 +105,7 @@ def main():
                 # exception_indices = [idx for idx, result in enumerate(results) if isinstance(result, BaseException)]
                 # _exceptions = [(pose_jobs.pop(idx), results.pop(idx)) for idx in reversed(exception_indices)]
                 # exceptions += _exceptions
-                exceptions += parse_results_for_exceptions(results)
+                exceptions += parse_results_for_exceptions(pose_jobs, results)
                 success = pose_jobs
         else:
             success = []

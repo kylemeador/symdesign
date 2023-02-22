@@ -3409,7 +3409,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                     # Todo make a copy of the Pose and add to the PoseJob, then no need for PoseJob.pose = None
                     pose_job.pose = pose
                     putils.make_path(pose_job.pose_directory)
-                    pose_job.output_pose()
+                    pose_job.output_pose(path=pose_job.pose_path)
+                    pose_job.source_path = pose_job.pose_path
                     pose_job.pose = None
                     # # Modify the pose_name to get rid of the project
                     # output_pose(pose_name)  # .replace(project_str, ''))
@@ -3500,7 +3501,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 session.rollback()
                 # Find the actual pose_jobs_to_commit and place in session
                 # pose_identifiers = [pose_job.new_pose_identifier for pose_job in pose_jobs]
-                fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.is_(project))\
+                fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.is_(project)) \
                     .where(PoseJob.name.in_(pose_names))
                 existing_pose_jobs = list(session.scalars(fetch_jobs_stmt))
                 # Note: Values are sorted by alphanumerical, not numerical
