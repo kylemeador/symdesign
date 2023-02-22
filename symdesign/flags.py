@@ -1212,6 +1212,9 @@ parser_expand_asu = {expand_asu: dict(description=expand_asu_help, help=expand_a
 generate_fragments_help = 'Generate fragment overlap for poses of interest and write fragments'
 parser_generate_fragments = \
     {generate_fragments: dict(description=generate_fragments_help, help=generate_fragments_help)}
+generate_fragments_arguments = {
+    (f'--{interface}',): dict(action='store_true', help=f'Whether to limit {generate_fragments} to interface residues')
+}
 # ---------------------------------------------------
 rename_chains_help = 'For given poses, rename the chains in the source PDB to the alphabetic order.\n' \
                      'Useful for writing a multi-model as distinct chains or fixing PDB formatting errors'
@@ -1392,6 +1395,7 @@ parser_arguments = {
     select_poses: select_poses_arguments,
     select_designs: select_designs_arguments,
     select_sequences: select_sequences_arguments,
+    generate_fragments: generate_fragments_arguments,
     multicistronic: multicistronic_arguments,
     input_: input_arguments,
     'input_mutual': input_mutual_arguments,  # add_mutually_exclusive_group

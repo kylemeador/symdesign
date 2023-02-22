@@ -425,6 +425,7 @@ class JobResources:
 
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
 
+        self.interface = kwargs.get('interface')
         # Design flags
         self.design = Design.from_flags(**kwargs)
         # self.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
