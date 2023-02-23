@@ -178,6 +178,8 @@ rename_chains = format_for_cmdline(rename_chains)
 evolution_constraint = format_for_cmdline(evolution_constraint)
 term_constraint = format_for_cmdline(term_constraint)
 design_number = format_for_cmdline(design_number)
+design_method = format_for_cmdline(design_method)
+predict_method = format_for_cmdline(predict_method)
 select_number = format_for_cmdline(select_number)
 structure_background = format_for_cmdline(structure_background)
 # design_profile = format_for_cmdline(design_profile)
@@ -500,7 +502,7 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
                     logger.debug(f'metric specifications {",".join(f"{k}={v}" for k, v in _metric_specs.items())}')
                     if metric_idx is None:
                         metric_specs = _metric_specs
-                        metric = component
+                        metric = component.strip()
                         metric_idx = idx
                         # if idx != 0:
                         # We must negate operations until the metric is found, i.e. metric > 1 is expected, but
@@ -702,11 +704,6 @@ options_arguments = {
                         help='The specific symmetry of the poses of interest.\nPreferably in a composition '
                              'formula such as T:{C3}{C3}...\nCan also provide the keyword "cryst" to use crystal'
                              ' symmetry'),
-    ('-K', f'--{temperatures}'): dict(type=float, nargs='*', default=(0.1,), metavar='FLOAT',
-                                      help='Different sampling "temperature(s)", i.e. values greater'
-                                           '\nthan 0, to use when performing design. In the form:'
-                                           '\nexp(G/T), where G = energy and T = temperature'
-                                           '\nHigher temperatures result in more diversity'),
     (f'--{reset_db}',): dict(action='store_true', help='Whether to reset the database for development')
 }
 # ---------------------------------------------------
@@ -946,15 +943,22 @@ hbnet_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
                          f'\n{boolean_positional_prevent_msg(hbnet)}')
 
 structure_background_args = ('-sb', f'--{structure_background}')
-structure_background_kwargs = dict(action=argparse.BooleanOptionalAction, default=False,
-                                   help='Whether to skip all constraints and measure the structure using only the '
-                                        'selected energy function')
+structure_background_kwargs = dict(action='store_true',  # action=argparse.BooleanOptionalAction, default=False,
+                                   help='Whether to skip all constraints and measure the structure\nusing only the '
+                                        'selected energy function\nDefault=%(default)s')
 design_number_args = ('-n', f'--{design_number}')
 design_number_kwargs = dict(type=int, default=nstruct, metavar='INT',
                             help='How many unique sequences should be generated for each input?\nDefault=%(default)s')
 scout_args = ('-sc', f'--{scout}')
-scout_kwargs = dict(action=argparse.BooleanOptionalAction, default=False,
-                    help='Whether to set up a low resolution scouting protocol to survey designability')
+scout_kwargs = dict(action='store_true',  # action=argparse.BooleanOptionalAction, default=False,
+                    help='Whether to set up a low resolution scouting protocol to'
+                         '\nsurvey designability\nDefault=%(default)s')
+temperature_args = ('-K', f'--{temperatures}')
+temperature_kwargs = dict(type=float, nargs='*', default=(0.1,), metavar='FLOAT',
+                          help='Different sampling "temperature(s)", i.e. values greater'
+                               '\nthan 0, to use when performing design. In the form:'
+                               '\nexp(G/T), where G = energy and T = temperature'
+                               '\nHigher temperatures result in more diversity')
 design_help = 'Gather poses of interest and format for sequence design using Rosetta/ProteinMPNN.' \
               '\nConstrain using evolutionary profiles of homologous sequences' \
               '\nand/or fragment profiles extracted from the PDB or neither'
@@ -967,6 +971,7 @@ design_arguments = {
     design_number_args: design_number_kwargs,
     structure_background_args: structure_background_kwargs,
     scout_args: scout_kwargs,
+    temperature_args: temperature_kwargs,
     term_constraint_args: term_constraint_kwargs
 }
 interface_design_help = 'Gather poses of interest and format for interface specific sequence design using\n' \

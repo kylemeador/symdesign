@@ -94,7 +94,7 @@ def main():
         nonlocal exceptions
         if results:
             if job.module == flags.nanohedra:
-                success = results
+                successful_pose_jobs = results
                 if job.distribute_work:
                     output_analysis = False
             else:
@@ -106,9 +106,9 @@ def main():
                 # _exceptions = [(pose_jobs.pop(idx), results.pop(idx)) for idx in reversed(exception_indices)]
                 # exceptions += _exceptions
                 exceptions += parse_results_for_exceptions(pose_jobs, results)
-                success = pose_jobs
+                successful_pose_jobs = pose_jobs
         else:
-            success = []
+            successful_pose_jobs = []
 
         # Format the output file depending on specified name and module type
         if low and high:
@@ -131,7 +131,7 @@ def main():
             logger.critical(f'The file "{exceptions_file}" contains the pose identifier of every pose that failed '
                             f'checks/filters for this job')
 
-        if success and output:
+        if successful_pose_jobs and output:
             poses_file = None
             if job.output_file:
                 # if job.module not in [flags.analysis, flags.cluster_poses]:
@@ -166,7 +166,7 @@ def main():
                         os.path.join(job_paths, putils.default_path_file.format(*default_output_tuple))
 
                 with open(poses_file, 'w') as f_out:
-                    f_out.write('%s\n' % '\n'.join(str(pose_job) for pose_job in success))
+                    f_out.write('%s\n' % '\n'.join(str(pose_job) for pose_job in successful_pose_jobs))
                 logger.critical(f'The file "{poses_file}" contains the pose identifier of every pose that passed checks'
                                 f'/filters for this job. Utilize this file to input these poses in future '
                                 f'{putils.program_name} commands such as:'
@@ -177,7 +177,7 @@ def main():
                 designs_file = \
                     os.path.join(job_paths, putils.default_specification_file.format(*default_output_tuple))
                 with open(designs_file, 'w') as f_out:
-                    f_out.write('%s\n' % '\n'.join(f'{pose_job}, {design.name}' for pose_job in success
+                    f_out.write('%s\n' % '\n'.join(f'{pose_job}, {design.name}' for pose_job in successful_pose_jobs
                                                    for design in pose_job.current_designs))
                 logger.critical(f'The file "{designs_file}" contains the pose identifier and design identifier, of '
                                 f'every design selected by this job. Utilize this file to input these designs in future'
@@ -228,7 +228,8 @@ def main():
             }
             stage = module_files.get(job.module)
             if stage and job.distribute_work:
-                if len(success) == 0:
+                commands = successful_pose_jobs
+                if len(commands) == 0:
                     exit_code = 1
                     exit(exit_code)
 
@@ -242,21 +243,22 @@ def main():
                 putils.make_path(job_paths)
                 putils.make_path(job.sbatch_scripts)
                 if job.module == flags.nanohedra:
-                    command_file = utils.write_commands([list2cmdline(cmd) for cmd in success], out_path=job_paths,
+                    command_file = utils.write_commands([list2cmdline(cmd) for cmd in commands], out_path=job_paths,
                                                         name='_'.join(default_output_tuple))
                     script_file = \
                         utils.CommandDistributer.distribute(command_file, job.module, out_path=job.sbatch_scripts,
-                                                            number_of_commands=len(success))
+                                                            number_of_commands=len(commands))
                 else:
-                    command_file = utils.write_commands([os.path.join(des.scripts_path, f'{stage}.sh') for des in success],
+                    command_file = utils.write_commands([os.path.join(pose_job.scripts_path, f'{stage}.sh')
+                                                         for pose_job in successful_pose_jobs],
                                                         out_path=job_paths, name='_'.join(default_output_tuple))
                     script_file = utils.CommandDistributer.distribute(command_file, job.module,
                                                                       out_path=job.sbatch_scripts)
 
                 if job.module == flags.design and job.initial_refinement:
                     # We should refine before design
-                    refine_file = utils.write_commands([os.path.join(design.scripts_path, f'{flags.refine}.sh')
-                                                        for design in success], out_path=job_paths,
+                    refine_file = utils.write_commands([os.path.join(pose_job.scripts_path, f'{flags.refine}.sh')
+                                                        for pose_job in successful_pose_jobs], out_path=job_paths,
                                                        name='_'.join((utils.starttime, flags.refine, design_source)))
                     script_refine_file = utils.CommandDistributer.distribute(refine_file, flags.refine,
                                                                              out_path=job.sbatch_scripts)
@@ -1600,7 +1602,6 @@ def main():
                 if job.development:
                     if job.profile_memory:
                         if profile:
-
                             # Run the profile decorator from memory_profiler
                             # Todo insert into the bottom most decorator slot
                             profile(protocol)(pose_jobs[0])
@@ -1613,6 +1614,13 @@ def main():
                 else:
                     for pose_job in pose_jobs:
                         results.append(protocol(pose_job))
+
+                # Handle the particulars of multiple PoseJob returns
+                if job.module == flags.nanohedra:
+                    results_ = []
+                    for result in results:
+                        results_.extend(result)
+                    results = results_
     # -----------------------------------------------------------------------------------------------------------------
     #  Finally, run terminate(). This formats output parameters and reports on exceptions
     # -----------------------------------------------------------------------------------------------------------------

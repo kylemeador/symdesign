@@ -9,7 +9,6 @@ from warnings import catch_warnings, simplefilter
 from collections.abc import Iterable
 from itertools import repeat, count
 from math import prod
-from typing import Container
 
 import numpy as np
 import pandas as pd
@@ -136,6 +135,7 @@ def create_perturbation_transformations(sym_entry: SymEntry, number_of_rotations
         # raise ValueError(f"Can't create perturbation transformations with rotation_number of {rotation_number}")
     if number_of_rotations == 1:
         target_dof -= rotational_dof
+        rotational_dof = 0
 
     if number_of_translations < 1:
         logger.warning(f"Can't create perturbation transformations with translation_number of {number_of_translations}. "
@@ -144,6 +144,7 @@ def create_perturbation_transformations(sym_entry: SymEntry, number_of_rotations
 
     if number_of_translations == 1:
         target_dof -= translational_dof
+        translational_dof = 0
         # Set to 0 so there is no deviation from the current value and remove any provided values
         default_translation = 0
         translation_steps = None
@@ -266,9 +267,9 @@ def create_perturbation_transformations(sym_entry: SymEntry, number_of_rotations
     #                     f'{seen_dof} != {total_dof} total_dof')
     if dof_idx != target_dof:
         logger.critical(f'The number of perturbations is unstable! '
-                        f'perturbed dof used {dof_idx} != {target_dof} the targeted dof to perturb resulting from '
-                        f'{total_dof} total_dof, {rotational_dof} rotational_dof, '
-                        f'and {translational_dof} translational_dof')
+                        f'perturbed dof used {dof_idx} != {target_dof}, the targeted dof to perturb resulting from '
+                        f'{total_dof} total_dof = {rotational_dof} rotational_dof, {translational_dof} '
+                        f'translational_dof, and {n_dof_external} external_translational_dof')
 
     return perturbation_mapping
 
@@ -529,8 +530,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     model1: Model
     model2: Model
     model1, model2 = models
-    logger.info(f'DOCKING {model1.name} TO {model2.name}\n'
-                f'Oligomer 1 Path: {model1.file_path}\nOligomer 2 Path: {model2.file_path}')
+    logger.info(f'DOCKING {model1.name} TO {model2.name}')
+    #            f'\nOligomer 1 Path: {model1.file_path}\nOligomer 2 Path: {model2.file_path}')
 
     # Set up output mechanism
     entry_string = f'NanohedraEntry{sym_entry.number}'
@@ -1831,6 +1832,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             logger.debug(f'\t{high_qual_match_count} < {min_matched}, the minimal high quality fragment matches '
                          f'(took {all_fragment_match_time:8f}s)')
             # Debug. Why are there no matches... cb_distance?
+            # I think it is the accuracy of binned euler_angle lookup
             if high_qual_match_count == 0:
                 zero_counts.append(1)
             continue
@@ -2144,7 +2146,9 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             full_ext_tx1 = full_ext_tx2 = full_ext_tx_sum = None
 
         # Apply the perturbation to each existing transformation
+        logger.info(f'Perturbing each transform {number_perturbations_applied} times')
         for idx in range(number_of_transforms):
+            logger.info(f'Perturbing transform {idx + 1}')
             # Rotate the unique rotation by the perturb_matrix_grid and set equal to the full_rotation* array
             full_rotation1 = np.matmul(original_rotation1[idx], rotation_perturbations1.swapaxes(-1, -2))  # rotation1
             full_inv_rotation1 = np.linalg.inv(full_rotation1)
@@ -2205,13 +2209,13 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         number_of_transforms = full_rotation1.shape[0]
         logger.info(f'After perturbation, found {number_of_transforms} viable solutions')
         if sym_entry.is_internal_tx1:
-            full_int_tx1 = np.zeros_like(full_rotation1, dtype=float)
+            full_int_tx1 = np.zeros((number_of_transforms, 3), dtype=float)
             # Add the translation to Z (axis=1)
             full_int_tx1[:, -1] = perturb_int_tx1
             # full_int_tx1 = stacked_internal_tx_vectors1
 
         if sym_entry.is_internal_tx2:
-            full_int_tx2 = np.zeros_like(full_rotation1, dtype=float)
+            full_int_tx2 = np.zeros((number_of_transforms, 3), dtype=float)
             # Add the translation to Z (axis=1)
             full_int_tx2[:, -1] = perturb_int_tx2
             # full_int_tx2 = stacked_internal_tx_vectors2
@@ -2250,6 +2254,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # if overlap_ghosts is None or overlap_surf is None or sorted_z_scores is None:
         # Remove old fragments
         pose.fragment_queries = {}
+        pose.fragment_pairs.clear()
         # Query fragments
         pose.generate_interface_fragments()
         # else:  # Process with provided data
@@ -2492,7 +2497,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                     # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.calculate_metrics()
                     # # Remove saved pose attributes from the prior iteration calculations
                     # pose.ss_sequence_indices.clear(), pose.ss_type_sequence.clear()
-                    # pose.fragment_metrics.clear(), pose.fragment_pairs.clear()
+                    # pose.fragment_metrics.clear()
                     # for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
                     #     try:
                     #         delattr(pose, attribute)
@@ -3007,6 +3012,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
         pose_ids = list(range(number_of_transforms))
         for idx in pose_ids:
+            logger.info(f'Metrics for Pose {idx + 1}/{number_of_transforms}')
             # Add the next set of coordinates
             update_pose_coords(idx)
 
@@ -3032,7 +3038,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
             # Remove saved pose attributes from the prior iteration calculations
             pose.ss_sequence_indices.clear(), pose.ss_type_sequence.clear()
-            pose.fragment_metrics.clear(), pose.fragment_pairs.clear()
+            pose.fragment_metrics.clear()
             for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
                 try:
                     delattr(pose, attribute)
@@ -3490,7 +3496,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                     # # Modify the pose_name to get rid of the project
                     # output_pose(pose_name)  # .replace(project_str, ''))
                     # # pose_paths.append(output_pose(pose_name))
-                    logger.info(f'\tSUCCESSFUL DOCKED POSE: {pose_job.pose_directory}')
+                    logger.info(f'OUTPUT POSE: {pose_job.pose_directory}')
 
                 # Update the sql.EntityData with transformations
                 external_translation_x1, external_translation_y1, external_translation_z1 = _full_ext_tx1[idx]

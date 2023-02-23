@@ -7231,11 +7231,12 @@ class Pose(SymmetricModel, Metrics):
         self.center_residue_indices = pose_metrics.pop('center_indices', [])
         pose_metrics.pop('total_indices')
 
-        number_interface_residues = len(self.interface_residues)
+        interface_residues = self.interface_residues
+        number_interface_residues = len(interface_residues)
         number_interface_residues_non_fragment = \
             max(number_interface_residues - pose_metrics['number_fragment_residues_center'], 0)
         # Interface B Factor
-        int_b_factor = sum(residue.b_factor for residue in self.interface_residues)
+        int_b_factor = sum(residue.b_factor for residue in interface_residues)
         try:  # If interface_distance is different from interface query and fragment generation these can be < 0 or > 1
             percent_residues_fragment_interface_center = \
                 min(pose_metrics['number_fragment_residues_center'] / number_interface_residues, 1)
@@ -7311,8 +7312,9 @@ class Pose(SymmetricModel, Metrics):
         # is_thermophilic = []
         minimum_radius, maximum_radius = float('inf'), 0.
         entity_metrics = []
+        dimension = self.dimension
         for idx, entity in enumerate(self.entities, idx):
-            if self.dimension and self.dimension > 0:
+            if dimension and dimension > 0:
                 raise NotImplementedError('Need to add keyword reference= to Structure.distance_from_reference() call')
             _entity_metrics = sql.EntityMetrics(**entity.calculate_metrics())  # Todo add reference=
             # entity.calculate_metrics()  # Todo add reference=

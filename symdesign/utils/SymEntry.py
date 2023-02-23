@@ -505,7 +505,7 @@ class SymEntry:
             return self._number_dof_rotation
         except AttributeError:
             self._number_dof_rotation = \
-                sum([getattr(self, f'is_internal_rot{idx}') for idx, group in enumerate(self.groups, 1)])
+                sum([self.__getattribute__(f'is_internal_rot{idx}') for idx, group in enumerate(self.groups, 1)])
             return self._number_dof_rotation
 
     @property
@@ -525,7 +525,7 @@ class SymEntry:
             return self._number_dof_translation
         except AttributeError:
             self._number_dof_translation = \
-                sum([getattr(self, f'is_internal_tx{idx}') for idx, group in enumerate(self.groups, 1)])
+                sum([self.__getattribute__(f'is_internal_tx{idx}') for idx, group in enumerate(self.groups, 1)])
             return self._number_dof_translation
 
     @property
