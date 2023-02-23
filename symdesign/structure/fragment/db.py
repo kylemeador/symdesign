@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from typing import Annotated, Literal, get_args, Type, Union
 
 import numpy as np
@@ -115,15 +116,31 @@ class FragmentDatabase(info.FragmentInfo):
             (stacked_bb_coords[prior_idx:idx], stacked_guide_coords[prior_idx:idx],
              np.array(ijk_types[prior_idx:idx]), stacked_rmsds[prior_idx:idx])
 
+    # Todo
+    #  An ideal measure of the central importance would weight central fragment observations to new center
+    #  fragments higher than repeated observations. Say mapped residue 45 to paired 201. If there are two
+    #  observations of this pair, just different ijk indices, then these would take the additive form:
+    #  SUMi->n 1/i*2
+    #  If the observation went from residue 45 to paired residue 204, they constitute separate, but less important
+    #  observations as these are part of the same SS and it is implied that if 201 contacts, 204 (and 198) are
+    #  possible. In the case where the interaction goes from a residue to a different secondary structure, then
+    #  this is the most important, say residue 45 to residue 322 on a separate helix. This indicates that
+    #  residue 45 is ideally placed to interact with a separate SS and add them separately to the score
+    #  |
+    #  How the data structure to build this relationship looks is likely a graph, which has significant overlap
+    #  to work I did on the consensus sequence higher order relationships in 8/20. I may find some ground in
+    #  the middle of these two ideas where the graph theory could take hold and a more useful scoring metric
+    #  could emerge, also possibly with a differentiable equation I could relate pose transformations to
+    #  favorable fragments found in the interface.
     def calculate_match_metrics(self, fragment_matches: list[fragment_info_type]) -> dict:
         """Return the various metrics calculated by overlapping fragments at the interface of two proteins
 
         Args:
-            fragment_matches: [{'mapped': entity1_resnum, 'paired': entity2_resnum,
+            fragment_matches: [{'mapped': entity1_index, 'paired': entity2_index,
                                 'cluster': tuple(int, int, int), 'match': score_term}, ...]
         Returns:
-            {'mapped': {'center': {'indices': (set[int]), 'score': (float), 'number': (int)},
-                        'total': {'indices': (set[int]), 'score': (float), 'number': (int)},
+            {'mapped': {'center': {'indices': (set[int]), 'score': (float),},
+                        'total': {'indices': (set[int]), 'score': (float),},
                         'match_scores': {residue number(int): (list[score (float)]), ...},
                         'index_count': {index (int): count (int), ...},
                         'multiple_ratio': (float)}
@@ -140,97 +157,65 @@ class FragmentDatabase(info.FragmentInfo):
         fragment_j_index_count_d = fragment_i_index_count_d.copy()
         total_fragment_content = fragment_i_index_count_d.copy()
 
-        entity1_center_match_scores, entity2_center_match_scores = {}, {}
-        entity1_match_scores, entity2_match_scores = {}, {}
-        separated_fragment_metrics = {'mapped': {'center': {'indices': set()}, 'total': {'indices': set()}},
-                                      'paired': {'center': {'indices': set()}, 'total': {'indices': set()}},
-                                      'total': {'observations': len(fragment_matches), 'center': {}, 'total': {}}}
+        # entity1_center_match_scores, entity2_center_match_scores = {}, {}
+        # entity1_match_scores, entity2_match_scores = {}, {}
+        entity1_center_match_scores = defaultdict(list)
+        entity2_center_match_scores = defaultdict(list)
+        entity1_match_scores = defaultdict(list)
+        entity2_match_scores = defaultdict(list)
+        total_observations = len(fragment_matches)
+        separated_fragment_metrics = {}
+        # separated_fragment_metrics = {'mapped': {'center': {'indices': set()}, 'total': {'indices': set()}},
+        #                               'paired': {'center': {'indices': set()}, 'total': {'indices': set()}},
+        #                               'total': {'observations': len(fragment_matches), 'center': {}, 'total': {}}}
         for fragment in fragment_matches:
             center_residx1, center_residx2, match_score = fragment['mapped'], fragment['paired'], fragment['match']
-            separated_fragment_metrics['mapped']['center']['indices'].add(center_residx1)
-            separated_fragment_metrics['paired']['center']['indices'].add(center_residx2)
-            # i, j, k = list(map(int, fragment['cluster'].split('_')))
             i, j, k = fragment['cluster']
             fragment_i_index_count_d[i] += 1
             fragment_j_index_count_d[j] += 1
-            # TODO an ideal measure of the central importance would weight central fragment observations to new center
-            #  fragments higher than repeated observations. Say mapped residue 45 to paired 201. If there are two
-            #  observations of this pair, just different ijk indices, then these would take the SUMi->n 1/i*2 additive form.
-            #  If the observation went from residue 45 to paired residue 204, they constitute separate, but less important
-            #  observations as these are part of the same SS and it is implied that if 201 contacts, 204 (and 198) are
-            #  possible. In the case where the interaction goes from a residue to a different secondary structure, then
-            #  this is the most important, say residue 45 to residue 322 on a separate helix. This indicates that
-            #  residue 45 is ideally placed to interact with a separate SS and add them separately to the score
-            #  |
-            #  How the data structure to build this relationship looks is likely a graph, which has significant overlap to
-            #  work I did on the consensus sequence higher order relationships in 8/20. I may find some ground in the middle
-            #  of these two ideas where the graph theory could take hold and a more useful scoring metric could emerge,
-            #  also possibly with a differentiable equation I could relate pose transformations to favorable fragments found
-            #  in the interface.
-            if center_residx1 not in entity1_center_match_scores:
-                entity1_center_match_scores[center_residx1] = [match_score]
-            else:
-                entity1_center_match_scores[center_residx1].append(match_score)
 
-            if center_residx2 not in entity2_center_match_scores:
-                entity2_center_match_scores[center_residx2] = [match_score]
-            else:
-                entity2_center_match_scores[center_residx2].append(match_score)
+            entity1_center_match_scores[center_residx1].append(match_score)
+            entity2_center_match_scores[center_residx2].append(match_score)
 
-            for resnum1, resnum2 in [(center_residx1 + j, center_residx2 + j) for j in self.fragment_range]:
-                separated_fragment_metrics['mapped']['total']['indices'].add(resnum1)
-                separated_fragment_metrics['paired']['total']['indices'].add(resnum2)
+            for idx1, idx2 in [(center_residx1 + j, center_residx2 + j) for j in self.fragment_range]:
+                entity1_match_scores[idx1].append(match_score)
+                entity2_match_scores[idx2].append(match_score)
 
-                if resnum1 not in entity1_match_scores:
-                    entity1_match_scores[resnum1] = [match_score]
-                else:
-                    entity1_match_scores[resnum1].append(match_score)
-
-                if resnum2 not in entity2_match_scores:
-                    entity2_match_scores[resnum2] = [match_score]
-                else:
-                    entity2_match_scores[resnum2].append(match_score)
-
-        separated_fragment_metrics['mapped']['center_match_scores'] = entity1_center_match_scores
-        separated_fragment_metrics['paired']['center_match_scores'] = entity2_center_match_scores
-        separated_fragment_metrics['mapped']['match_scores'] = entity1_match_scores
-        separated_fragment_metrics['paired']['match_scores'] = entity2_match_scores
-        separated_fragment_metrics['mapped']['index_count'] = fragment_i_index_count_d
-        separated_fragment_metrics['paired']['index_count'] = fragment_j_index_count_d
         # -------------------------------------------
         # Score the interface individually
-        mapped_total_score = nanohedra_fragment_match_score(separated_fragment_metrics['mapped']['match_scores'])
-        mapped_center_score = nanohedra_fragment_match_score(separated_fragment_metrics['mapped']['center_match_scores'])
-        paired_total_score = nanohedra_fragment_match_score(separated_fragment_metrics['paired']['match_scores'])
-        paired_center_score = nanohedra_fragment_match_score(separated_fragment_metrics['paired']['center_match_scores'])
+        mapped_center_score = nanohedra_fragment_match_score(entity1_center_match_scores)
+        paired_center_score = nanohedra_fragment_match_score(entity2_center_match_scores)
+        mapped_total_score = nanohedra_fragment_match_score(entity1_match_scores)
+        paired_total_score = nanohedra_fragment_match_score(entity2_match_scores)
         # Combine
         all_residue_score = mapped_total_score + paired_total_score
         center_residue_score = mapped_center_score + paired_center_score
         # -------------------------------------------
+        entity1_indices = set(entity1_center_match_scores.keys())
+        entity1_total_indices = set(entity1_match_scores.keys())
+        entity2_indices = set(entity2_center_match_scores.keys())
+        entity2_total_indices = set(entity2_match_scores.keys())
         # Get individual number of CENTRAL residues with overlapping fragments given z_value criteria
-        mapped_central_residues_with_fragment_overlap = len(separated_fragment_metrics['mapped']['center']['indices'])
-        paired_central_residues_with_fragment_overlap = len(separated_fragment_metrics['paired']['center']['indices'])
+        mapped_central_residues_with_fragment_overlap = len(entity1_indices)
+        paired_central_residues_with_fragment_overlap = len(entity2_indices)
         # Combine
         central_residues_with_fragment_overlap = \
             mapped_central_residues_with_fragment_overlap + paired_central_residues_with_fragment_overlap
         # -------------------------------------------
         # Get the individual number of TOTAL residues with overlapping fragments given z_value criteria
-        mapped_total_indices_with_fragment_overlap = len(separated_fragment_metrics['mapped']['total']['indices'])
-        paired_total_indices_with_fragment_overlap = len(separated_fragment_metrics['paired']['total']['indices'])
+        mapped_total_indices_with_fragment_overlap = len(entity1_total_indices)
+        paired_total_indices_with_fragment_overlap = len(entity2_total_indices)
         # Combine
         total_indices_with_fragment_overlap = \
             mapped_total_indices_with_fragment_overlap + paired_total_indices_with_fragment_overlap
         # -------------------------------------------
         # Get the individual multiple fragment observation ratio observed for each side of the fragment query
-        mapped_multiple_frag_ratio = \
-            separated_fragment_metrics['total']['observations'] / mapped_central_residues_with_fragment_overlap
-        paired_multiple_frag_ratio = \
-            separated_fragment_metrics['total']['observations'] / paired_central_residues_with_fragment_overlap
+        mapped_multiple_frag_ratio = total_observations / mapped_central_residues_with_fragment_overlap
+        paired_multiple_frag_ratio = total_observations / paired_central_residues_with_fragment_overlap
         # Combine
-        multiple_frag_ratio = \
-            separated_fragment_metrics['total']['observations'] * 2 / central_residues_with_fragment_overlap
+        multiple_frag_ratio = total_observations*2 / central_residues_with_fragment_overlap
         # -------------------------------------------
-        # Turn individual index counts into paired counts # and percentages <- not accurate if summing later, need counts
+        # Turn individual index counts into paired counts
         for index, count in fragment_i_index_count_d.items():
             total_fragment_content[index] += count
             # separated_fragment_metrics['mapped']['index'][index_count] = count / separated_fragment_metrics['number']
@@ -241,25 +226,48 @@ class FragmentDatabase(info.FragmentInfo):
         # for index, count in total_fragment_content.items():
         #     total_fragment_content[index] = count / (separated_fragment_metrics['total']['observations'] * 2)
         # -------------------------------------------
-        # if paired:
-        separated_fragment_metrics['mapped']['center']['score'] = mapped_center_score
-        separated_fragment_metrics['paired']['center']['score'] = paired_center_score
-        separated_fragment_metrics['mapped']['center']['number'] = mapped_central_residues_with_fragment_overlap
-        separated_fragment_metrics['paired']['center']['number'] = paired_central_residues_with_fragment_overlap
-        separated_fragment_metrics['mapped']['total']['score'] = mapped_total_score
-        separated_fragment_metrics['paired']['total']['score'] = paired_total_score
-        separated_fragment_metrics['mapped']['total']['number'] = mapped_total_indices_with_fragment_overlap
-        separated_fragment_metrics['paired']['total']['number'] = paired_total_indices_with_fragment_overlap
-        separated_fragment_metrics['mapped']['multiple_ratio'] = mapped_multiple_frag_ratio
-        separated_fragment_metrics['paired']['multiple_ratio'] = paired_multiple_frag_ratio
-        #     return separated_fragment_metrics
-        # else:
-        separated_fragment_metrics['total']['center']['score'] = center_residue_score
-        separated_fragment_metrics['total']['center']['number'] = central_residues_with_fragment_overlap
-        separated_fragment_metrics['total']['total']['score'] = all_residue_score
-        separated_fragment_metrics['total']['total']['number'] = total_indices_with_fragment_overlap
-        separated_fragment_metrics['total']['multiple_ratio'] = multiple_frag_ratio
-        separated_fragment_metrics['total']['index_count'] = total_fragment_content
+        separated_fragment_metrics['mapped'] = dict(
+            center=dict(score=mapped_center_score,
+                        # number=mapped_central_residues_with_fragment_overlap,
+                        indices=entity1_indices),
+            # center_match_scores=entity1_center_match_scores,
+            # match_scores=entity1_match_scores,
+            # index_count=fragment_i_index_count_d,
+            total=dict(score=mapped_total_score,
+                       # number=mapped_total_indices_with_fragment_overlap,
+                       indices=entity1_total_indices),
+            multiple_ratio=mapped_multiple_frag_ratio
+        )
+        separated_fragment_metrics['paired'] = dict(
+            center=dict(score=paired_center_score,
+                        # number=paired_central_residues_with_fragment_overlap,
+                        indices=entity1_indices),
+            # center_match_scores=entity2_center_match_scores,
+            # match_scores=entity2_match_scores,
+            # index_count=fragment_j_index_count_d,
+            total=dict(score=paired_total_score,
+                       # number=paired_total_indices_with_fragment_overlap,
+                       indices=entity2_total_indices),
+            multiple_ratio=paired_multiple_frag_ratio
+        )
+        # separated_fragment_metrics['mapped']['center']['score'] = mapped_center_score
+        # separated_fragment_metrics['mapped']['center']['number'] = mapped_central_residues_with_fragment_overlap
+        # separated_fragment_metrics['mapped']['total']['score'] = mapped_total_score
+        # separated_fragment_metrics['mapped']['total']['number'] = mapped_total_indices_with_fragment_overlap
+        # separated_fragment_metrics['mapped']['multiple_ratio'] = mapped_multiple_frag_ratio
+        # separated_fragment_metrics['paired']['center']['score'] = paired_center_score
+        # separated_fragment_metrics['paired']['center']['number'] = paired_central_residues_with_fragment_overlap
+        # separated_fragment_metrics['paired']['total']['score'] = paired_total_score
+        # separated_fragment_metrics['paired']['total']['number'] = paired_total_indices_with_fragment_overlap
+        # separated_fragment_metrics['paired']['multiple_ratio'] = paired_multiple_frag_ratio
+
+        separated_fragment_metrics['total'] = dict(
+            observations=total_observations,
+            multiple_ratio=multiple_frag_ratio,
+            index_count=total_fragment_content,
+            center=dict(score=center_residue_score, number=central_residues_with_fragment_overlap),
+            total=dict(score=all_residue_score, number=total_indices_with_fragment_overlap)
+        )
 
         return separated_fragment_metrics
 
@@ -349,24 +357,19 @@ fragment_factory: Annotated[FragmentDatabaseFactory,
  specified by the "source" keyword argument"""
 
 
-def nanohedra_fragment_match_score(fragment_metrics: dict) -> float:
+def nanohedra_fragment_match_score(per_residue_match_scores: dict[int, list[float]]) -> float:
     """Calculate the Nanohedra score from a dictionary with the 'center' residues and 'match_scores'
 
     Args:
-        fragment_metrics: {'center': {'residues' (int): (set)},
-                           'total': {'residues' (int): (set)},
-                           'center_match_scores': {residue number(int): (list[score (float)]), ...},
-                           'match_scores': {residue number(int): (list[score (float)]), ...},
-                           'index_count': {index (int): count (int), ...}}
+        per_residue_match_scores: The residue mapped to its match score measurements
     Returns:
         The Nanohedra score
     """
-    # Generate Nanohedra score for all match scores
     score = 0
-    for residue_number, res_scores in fragment_metrics.items():
+    for residue_number, scores in per_residue_match_scores.items():
         n = 1
-        for peripheral_score in sorted(res_scores, reverse=True):
-            score += peripheral_score * (1 / float(n))
+        for observation in sorted(scores, reverse=True):
+            score += observation / n
             n *= 2
 
     return score
