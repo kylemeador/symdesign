@@ -580,8 +580,10 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     fragment_content1 = np.bincount([surf_frag.i_type for surf_frag in surf_frags1])
     initial_surf_type1 = np.argmax(fragment_content1)
     init_surf_frags1 = [surf_frag for surf_frag in surf_frags1 if surf_frag.i_type == initial_surf_type1]
-    # init_surf_guide_coords1 = np.array([surf_frag.guide_coords for surf_frag in init_surf_frags1])
-    # init_surf_residue_indices1 = np.array([surf_frag.index for surf_frag in init_surf_frags1])
+    # For reverse/forward matching these two arrays must be made
+    if forward_reverse:
+        init_surf_guide_coords1 = np.array([surf_frag.guide_coords for surf_frag in init_surf_frags1])
+        init_surf_residue_indices1 = np.array([surf_frag.index for surf_frag in init_surf_frags1])
     # surf_frag1_indices = [surf_frag.index for surf_frag in surf_frags1]
     idx = 1
     # logger.debug(f'Found surface guide coordinates {idx} with shape {surf_guide_coords1.shape}')
@@ -711,32 +713,59 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
     # Get component 2 ghost fragments and associated data from complete fragment database
     bb_cb_coords2 = model2.backbone_and_cb_coords
-    bb_cb_tree2 = BallTree(bb_cb_coords2)
-    get_complete_ghost_frags2_time_start = time.time()
-    complete_ghost_frags2 = []
-    for frag in complete_surf_frags2:
-        complete_ghost_frags2.extend(frag.get_ghost_fragments(clash_tree=bb_cb_tree2))
-    init_ghost_frags2 = [ghost_frag for ghost_frag in complete_ghost_frags2 if ghost_frag.j_type == initial_surf_type1]
-    init_ghost_guide_coords2 = np.array([ghost_frag.guide_coords for ghost_frag in init_ghost_frags2])
-    # init_ghost_residue_numbers2 = np.array([ghost_frag.index for ghost_frag in init_ghost_frags2])
-    # ghost_frag2_residues = [ghost_frag.index for ghost_frag in complete_ghost_frags2]
 
-    idx = 2
+    # Whether to use the overlap potential on the same component to filter ghost fragments
+    if forward_reverse:
+        bb_cb_tree2 = BallTree(bb_cb_coords2)
+        get_complete_ghost_frags2_time_start = time.time()
+        ghost_frags_by_residue2 = \
+            [frag.get_ghost_fragments(clash_tree=bb_cb_tree2) for frag in surf_frags2]
+
+        complete_ghost_frags2: list[GhostFragment] = \
+            [ghost for ghosts in ghost_frags_by_residue2 for ghost in ghosts]
+        # complete_ghost_frags2 = []
+        # for frag in surf_frags2:
+        #     complete_ghost_frags2.extend(frag.get_ghost_fragments(clash_tree=bb_cb_tree2))
+
+        if job.dock.contiguous_ghosts:
+            # Prioritize search at those fragments which have same component, ghost fragment overlap
+            contiguous_ghost_indices2 = make_contiguous_ghosts(ghost_frags_by_residue2, surf_frags2,
+                                                               # distance=cb_distance,
+                                                               initial_z_value=initial_z_value)
+            initial_ghost_frags2 = [complete_ghost_frags2[idx] for idx in contiguous_ghost_indices2.tolist()]
+            init_ghost_guide_coords2 = np.array([ghost_frag.guide_coords for ghost_frag in initial_ghost_frags2])
+            # init_ghost_rmsds2 = np.array([ghost_frag.rmsd for ghost_frag in initial_ghost_frags2])
+            init_ghost_residue_indices2 = np.array([ghost_frag.index for ghost_frag in initial_ghost_frags2])
+            # init_ghost_guide_coords1, init_ghost_rmsds1, init_ghost_residue_indices1 = \
+            #     make_contiguous_ghosts(ghost_frags_by_residue1, surf_frags)
+        else:
+            # init_ghost_frag_indices2 = \
+            #     [idx for idx, ghost_frag in enumerate(complete_ghost_frags2) if ghost_frag.j_type == initial_surf_type1]
+            # init_ghost_guide_coords2: np.ndarray = ghost_guide_coords2[init_ghost_frag_indices2]
+            # # init_ghost_rmsds2: np.ndarray = ghost_rmsds2[init_ghost_frag_indices2]
+            # init_ghost_residue_indices2: np.ndarray = ghost_residue_indices2[init_ghost_frag_indices2]
+            initial_ghost_frags2 = [ghost_frag for ghost_frag in complete_ghost_frags2 if
+                                    ghost_frag.j_type == initial_surf_type1]
+            init_ghost_guide_coords2 = np.array([ghost_frag.guide_coords for ghost_frag in initial_ghost_frags2])
+            init_ghost_residue_indices2 = np.array([ghost_frag.index for ghost_frag in initial_ghost_frags2])
+
+        idx = 2
+        logger.debug(
+            f'Found {len(init_ghost_guide_coords2)} initial ghost {idx} fragments with type {initial_surf_type1}')
+        # logger.debug('init_ghost_guide_coords2: %s' % slice_variable_for_log(init_ghost_guide_coords2))
+        # logger.debug('init_ghost_residue_indices2: %s' % slice_variable_for_log(init_ghost_residue_indices2))
+        # ghost2_residue_array = np.repeat(init_ghost_residue_indices2, len(init_surf_residue_indices1))
+        # surface1_residue_array = np.tile(init_surf_residue_indices1, len(init_ghost_residue_indices2))
+        logger.info(f'Retrieved oligomer{idx}-{model2.name} ghost fragments and guide coordinates '
+                    f'took {time.time() - get_complete_ghost_frags2_time_start:8f}s')
+
     # logger.debug(f'Found ghost guide coordinates {idx} with shape {ghost_guide_coords2.shape}')
     # logger.debug(f'Found ghost residue numbers {idx} with shape {ghost_residue_numbers2.shape}')
     # logger.debug(f'Found ghost indices {idx} with shape {ghost_j_indices2.shape}')
     # logger.debug(f'Found ghost rmsds {idx} with shape {ghost_rmsds2.shape}')
-    logger.debug(f'Found {len(init_ghost_guide_coords2)} initial ghost {idx} fragments with type {initial_surf_type1}')
-    # logger.debug('init_ghost_guide_coords2: %s' % slice_variable_for_log(init_ghost_guide_coords2))
-    # logger.debug('init_ghost_residue_numbers2: %s' % slice_variable_for_log(init_ghost_residue_numbers2))
     # Prepare precomputed arrays for fast pair lookup
-    # ghost1_residue_array = np.repeat(init_ghost_residue_numbers1, len(init_surf_residue_numbers2))
-    # ghost2_residue_array = np.repeat(init_ghost_residue_numbers2, len(init_surf_residue_indices1))
-    # surface1_residue_array = np.tile(init_surf_residue_indices1, len(init_ghost_residue_numbers2))
-    # surface2_residue_array = np.tile(init_surf_residue_numbers2, len(init_ghost_residue_numbers1))
-
-    logger.info(f'Retrieved oligomer{idx}-{model2.name} ghost fragments and guide coordinates '
-                f'took {time.time() - get_complete_ghost_frags2_time_start:8f}s')
+    # ghost1_residue_array = np.repeat(init_ghost_residue_indices1, len(init_surf_residue_indices2))
+    # surface2_residue_array = np.tile(init_surf_residue_indices2, len(init_ghost_residue_indices1))
 
     logger.info('Obtaining rotation/degeneracy matrices\n')
 
@@ -976,6 +1005,22 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # Reshape with the first axis (0) containing all the guide coordinate rotations stacked
     eulerint_surf_component2 = \
         euler_lookup.get_eulint_from_guides_as_array(surf_frags2_guide_coords_rot_and_set.reshape((-1, 3, 3)))
+    if forward_reverse:
+        surf_frag1_guide_coords_rot_and_set = \
+            transform_coordinate_sets(init_surf_guide_coords1[None, :, :, :],
+                                      rotation=rotation_matrices1[:, None, :, :],
+                                      rotation2=set_mat1[None, None, :, :])
+        ghost_frags2_guide_coords_rot_and_set = \
+            transform_coordinate_sets(init_ghost_guide_coords2[None, :, :, :],
+                                      rotation=rotation_matrices2[:, None, :, :],
+                                      rotation2=set_mat2[None, None, :, :])
+        eulerint_surf_component1 = \
+            euler_lookup.get_eulint_from_guides_as_array(surf_frag1_guide_coords_rot_and_set.reshape((-1, 3, 3)))
+        eulerint_ghost_component2 = \
+            euler_lookup.get_eulint_from_guides_as_array(ghost_frags2_guide_coords_rot_and_set.reshape((-1, 3, 3)))
+
+        stacked_surf_euler_int1 = eulerint_surf_component1.reshape((rotation_matrices_len1, -1, 3))
+        stacked_ghost_euler_int2 = eulerint_ghost_component2.reshape((rotation_matrices_len2, -1, 3))
     # eulerint_surf_component2_1, eulerint_surf_component2_2, eulerint_surf_component2_3 = \
     #     euler_lookup.get_eulint_from_guides(surf_frags2_guide_coords_rot_and_set.reshape((-1, 3, 3)))
 
@@ -1038,6 +1083,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         degen1_count = idx1//number_of_rotations1 + 1
         rot_mat1 = rotation_matrices1[idx1]
         rotation_ghost_euler_ints1 = stacked_ghost_euler_int1[idx1]
+        if forward_reverse:
+            rotation_surf_euler_ints1 = stacked_surf_euler_int1[idx1]
         for idx2 in range(rotations_to_perform2):
             # Rotate oligomer2 surface and ghost fragment guide coordinates using rot_mat2 and set_mat2
             rot2_count = idx2%number_of_rotations2 + 1
@@ -1063,6 +1110,10 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             # #                                                                                  1, 3),
             # #                                                eulerint_surf_component1.reshape(number_of_rotations1,
             # #                                                                                 1, 3))
+            if forward_reverse:
+                euler_matched_ghost_indices_rev2, euler_matched_surf_indices_rev1 = \
+                    euler_lookup.lookup_by_euler_integers_as_array(stacked_ghost_euler_int2[idx2],
+                                                                   rotation_surf_euler_ints1)
             # Todo 3 resolve. eulerints
 
     # Todo 3 resolve. Below uses guide coords
@@ -1109,47 +1160,48 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             logger.debug(f'\tEuler search took {time.time() - euler_start:8f}s for '
                          f'{total_ghost_surf_combinations} ghost/surf pairs')
 
-            # Ensure pairs are similar between euler_matched_surf_indices2 and euler_matched_ghost_indices_rev2
-            # by indexing the residue_numbers
-            # forward_reverse_comparison_start = time.time()
-            # # logger.debug(f'Euler indices forward, index 0: {euler_matched_surf_indices2[:10]}')
-            # forward_surface_numbers2 = init_surf_residue_numbers2[euler_matched_surf_indices2]
-            # # logger.debug(f'Euler indices forward, index 1: {euler_matched_ghost_indices1[:10]}')
-            # forward_ghosts_numbers1 = init_ghost_residue_numbers1[euler_matched_ghost_indices1]
-            # # logger.debug(f'Euler indices reverse, index 0: {euler_matched_ghost_indices_rev2[:10]}')
-            # reverse_ghosts_numbers2 = init_ghost_residue_numbers2[euler_matched_ghost_indices_rev2]
-            # # logger.debug(f'Euler indices reverse, index 1: {euler_matched_surf_indices_rev1[:10]}')
-            # reverse_surface_numbers1 = init_surf_residue_indices1[euler_matched_surf_indices_rev1]
+            if forward_reverse:
+                # Ensure pairs are similar between euler_matched_surf_indices2 and euler_matched_ghost_indices_rev2
+                # by indexing the residue_numbers
+                # forward_reverse_comparison_start = time.time()
+                # logger.debug(f'Euler indices forward, index 0: {euler_matched_surf_indices2[:10]}')
+                forward_surface_indices2 = init_surf_residue_indices2[euler_matched_surf_indices2]
+                # logger.debug(f'Euler indices forward, index 1: {euler_matched_ghost_indices1[:10]}')
+                forward_ghosts_indices1 = init_ghost_residue_indices1[euler_matched_ghost_indices1]
+                # logger.debug(f'Euler indices reverse, index 0: {euler_matched_ghost_indices_rev2[:10]}')
+                reverse_ghosts_indices2 = init_ghost_residue_indices2[euler_matched_ghost_indices_rev2]
+                # logger.debug(f'Euler indices reverse, index 1: {euler_matched_surf_indices_rev1[:10]}')
+                reverse_surface_indices1 = init_surf_residue_indices1[euler_matched_surf_indices_rev1]
 
-            # Make an index indicating where the forward and reverse euler lookups have the same residue pairs
-            # Important! This method only pulls out initial fragment matches that go both ways, i.e. component1
-            # surface (type1) matches with component2 ghost (type1) and vice versa, so the expanded checks of
-            # for instance the surface loop (i type 3,4,5) with ghost helical (i type 1) matches is completely
-            # unnecessary during euler look up as this will never be included
-            # Also, this assumes that the ghost fragment display is symmetric, i.e. 1 (i) 1 (j) 10 (K) has an
-            # inverse transform at 1 (i) 1 (j) 230 (k) for instance
+                # Make an index indicating where the forward and reverse euler lookups have the same residue pairs
+                # Important! This method only pulls out initial fragment matches that go both ways, i.e. component1
+                # surface (type1) matches with component2 ghost (type1) and vice versa, so the expanded checks of
+                # for instance the surface loop (i type 3,4,5) with ghost helical (i type 1) matches is completely
+                # unnecessary during euler look up as this will never be included
+                # Also, this assumes that the ghost fragment display is symmetric, i.e. 1 (i) 1 (j) 10 (K) has an
+                # inverse transform at 1 (i) 1 (j) 230 (k) for instance
 
-            # prior = 0
-            # number_overlapping_pairs = euler_matched_ghost_indices1.shape[0]
-            # possible_overlaps = np.ones(number_overlapping_pairs, dtype=np.bool8)
-            # # Residue numbers are in order for forward_surface_numbers2 and reverse_ghosts_numbers2
-            # for residue in init_surf_residue_numbers2:
-            #     # Where the residue number of component 2 is equal pull out the indices
-            #     forward_index = np.flatnonzero(forward_surface_numbers2 == residue)
-            #     reverse_index = np.flatnonzero(reverse_ghosts_numbers2 == residue)
-            #     # Next, use residue number indices to search for the same residue numbers in the extracted pairs
-            #     # The output array slice is only valid if the forward_index is the result of
-            #     # forward_surface_numbers2 being in ascending order, which for check_lookup_table is True
-            #     current = prior + forward_index.shape[0]
-            #     possible_overlaps[prior:current] = \
-            #         np.in1d(forward_ghosts_numbers1[forward_index], reverse_surface_numbers1[reverse_index])
-            #     prior = current
+                prior = 0
+                number_overlapping_pairs = euler_matched_ghost_indices1.shape[0]
+                possible_overlaps = np.ones(number_overlapping_pairs, dtype=np.bool8)
+                # Residue numbers are in order for forward_surface_indices2 and reverse_ghosts_indices2
+                for residue_index in init_surf_residue_indices2:
+                    # Where the residue number of component 2 is equal pull out the indices
+                    forward_index = np.flatnonzero(forward_surface_indices2 == residue_index)
+                    reverse_index = np.flatnonzero(reverse_ghosts_indices2 == residue_index)
+                    # Next, use residue number indices to search for the same residue numbers in the extracted pairs
+                    # The output array slice is only valid if the forward_index is the result of
+                    # forward_surface_indices2 being in ascending order, which for check_lookup_table is True
+                    current = prior + forward_index.shape[0]
+                    possible_overlaps[prior:current] = \
+                        np.in1d(forward_ghosts_indices1[forward_index], reverse_surface_indices1[reverse_index])
+                    prior = current
 
             # # Use for residue number debugging
             # possible_overlaps = np.ones(number_overlapping_pairs, dtype=np.bool8)
 
-            # forward_ghosts_numbers1[possible_overlaps]
-            # forward_surface_numbers2[possible_overlaps]
+            # forward_ghosts_indices1[possible_overlaps]
+            # forward_surface_indices2[possible_overlaps]
 
             # indexing_possible_overlap_time = time.time() - indexing_possible_overlap_start
 
@@ -1158,27 +1210,33 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             #             f'possible overlap pairs found only {number_of_successful} possible out of '
             #             f'{number_overlapping_pairs} (took {time.time() - forward_reverse_comparison_start:8f}s)')
 
-            # Get optimal shift parameters for initial (Ghost Fragment, Surface Fragment) guide coordinate pairs
-            # Take the boolean index of the indices
-            # possible_ghost_frag_indices = euler_matched_ghost_indices1[possible_overlaps]
-            # # possible_surf_frag_indices = euler_matched_surf_indices2[possible_overlaps]
-
-            # reference_rmsds = init_ghost_rmsds1[possible_ghost_frag_indices]
             # passing_ghost_coords = ghost_guide_coords_rot_and_set1[possible_ghost_frag_indices]
             # passing_surf_coords = surf_guide_coords_rot_and_set2[euler_matched_surf_indices2[possible_overlaps]]
+
+            # Get optimal shift parameters for initial (Ghost Fragment, Surface Fragment) guide coordinate pairs
             # # Todo these are from Guides
             # passing_ghost_coords = ghost_guide_coords_rot_and_set1[euler_matched_ghost_indices1]
             # passing_surf_coords = surf_guide_coords_rot_and_set2[euler_matched_surf_indices2]
             # # Todo these are from Guides
             # Todo debug With EulerInteger calculation
-            passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[idx1, euler_matched_ghost_indices1]
-            # passing_ghost_coords = transform_coordinate_sets(init_ghost_guide_coords1[euler_matched_ghost_indices1],
-            #                                                  rotation=rot_mat1, rotation2=set_mat1)
-            passing_surf_coords = surf_frags2_guide_coords_rot_and_set[idx2, euler_matched_surf_indices2]
-            # passing_surf_coords = transform_coordinate_sets(init_surf_guide_coords2[euler_matched_surf_indices2],
-            #                                                 rotation=rot_mat2, rotation2=set_mat2)
+            if forward_reverse:
+                # Take the boolean index of the indices
+                possible_ghost_frag_indices = euler_matched_ghost_indices1[possible_overlaps]
+                # possible_surf_frag_indices = euler_matched_surf_indices2[possible_overlaps]
+                passing_ghost_coords = \
+                    ghost_frag1_guide_coords_rot_and_set[idx1, possible_ghost_frag_indices]
+                passing_surf_coords = \
+                    surf_frags2_guide_coords_rot_and_set[idx2, euler_matched_surf_indices2[possible_overlaps]]
+                reference_rmsds = init_ghost_rmsds1[possible_ghost_frag_indices]
+            else:
+                passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[idx1, euler_matched_ghost_indices1]
+                # passing_ghost_coords = transform_coordinate_sets(init_ghost_guide_coords1[euler_matched_ghost_indices1],
+                #                                                  rotation=rot_mat1, rotation2=set_mat1)
+                passing_surf_coords = surf_frags2_guide_coords_rot_and_set[idx2, euler_matched_surf_indices2]
+                # passing_surf_coords = transform_coordinate_sets(init_surf_guide_coords2[euler_matched_surf_indices2],
+                #                                                 rotation=rot_mat2, rotation2=set_mat2)
+                reference_rmsds = init_ghost_rmsds1[euler_matched_ghost_indices1]
             # Todo debug With EulerInteger calculation
-            reference_rmsds = init_ghost_rmsds1[euler_matched_ghost_indices1]
 
             optimal_shifts_start = time.time()
             transform_passing_shifts = \
