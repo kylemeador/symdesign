@@ -250,7 +250,7 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None, residues: pd
     if entity_designs is not None:
         # warn_multiple_update_results()
         # warn = True
-        designs.replace({np.nan: None}, inplace=True)
+        entity_designs.replace({np.nan: None}, inplace=True)
         table = sql.DesignEntityMetrics
         dataframe_function(session, table=table, df=entity_designs)
         # designs.to_sql(table, con=engine, if_exists='append', index=True)

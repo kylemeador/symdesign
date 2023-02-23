@@ -895,8 +895,8 @@ class SequenceProfile(ABC):
         sequence_indices[0] = False
         # Set the query indices that align to be True
         sequence_indices[0, aligned_query_indices] = True
-        self.log.critical(f'For MSA alignment to the .sequence, found the corresponding MSA query indices:'
-                          f' {query_align_indices}')
+        self.log.debug(f'For MSA alignment to the .sequence, found the corresponding MSA query indices:'
+                       f' {query_align_indices}')
         # self.log.critical(f'MSA aligned query_align_indices: {sequence_indices[0].tolist()}')
         # alignment = generate_alignment(self.reference_sequence, self.msa.query)
         # reference_sequence, msa_sequence = alignment

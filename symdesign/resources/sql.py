@@ -783,11 +783,14 @@ class DesignEntityMetrics(Base):
     __tablename__ = 'design_entity_metrics'
     id = Column(Integer, primary_key=True)
 
+    __table_args__ = (
+        UniqueConstraint('design_id', 'entity_id', name='_design_id_entity_id_uc'),
+    )
     # Set up many-to-one relationship with design_data table
-    design_id = Column(ForeignKey('design_data.id'), nullable=False, unique=True)
+    design_id = Column(ForeignKey('design_data.id'), nullable=False)  # , unique=True)
     design = relationship('DesignData', back_populates='entity_metrics')
     # Set up many-to-one relationship with entity_data table
-    entity_id = Column(ForeignKey('entity_data.id'), nullable=False, unique=True)
+    entity_id = Column(ForeignKey('entity_data.id'), nullable=False)  # , unique=True)
     entity = relationship('EntityData', back_populates='design_metrics')
 
     # Design descriptors

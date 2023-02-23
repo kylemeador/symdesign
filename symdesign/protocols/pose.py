@@ -2365,9 +2365,9 @@ class PoseProtocol(PoseData):
                     self.analyze_predict_structure_metrics(entity_scores_by_design,
                                                            sequence_length, model_type=model_type)
                 # Set the index to use the design.id for each design instance and EntityData.id as an additional column
-                entity_designs_df.index = pd.Index(design_ids, name=sql.DesignEntityMetrics)
-                entity_designs_df['entity_id'] = data.entity_id
-
+                entity_designs_df.index = pd.MultiIndex.from_product([design_ids, [data.entity_id]],
+                                                                     names=[sql.DesignEntityMetrics.design_id.name,
+                                                                            sql.DesignEntityMetrics.entity_id.name])
                 metrics.sql.write_dataframe(self.job.current_session, entity_designs=entity_designs_df)
                 entity_design_dfs.append(entity_designs_df)
 
@@ -5170,7 +5170,9 @@ class PoseProtocol(PoseData):
 
         # Set up the DesignEntityMetrics dataframe for writing
         design_ids = [design.id for design in self.current_designs]
-        entity_designs_df = pd.concat([pd.DataFrame(data) for data in entity_designs.items()], keys=design_ids)
+        entity_designs_df = pd.concat([pd.DataFrame(data) for data in entity_designs.values()], keys=design_ids)
+        entity_designs_df.index = entity_designs_df.index.rename(['design_id', 'entity_id'])
+        # entity_designs_df.reset_index(level=-1, inplace=True)
         metrics.sql.write_dataframe(self.job.current_session, entity_designs=entity_designs_df)
 
         designs_df['sequence_loss_design_per_residue'] = designs_df['sequence_loss_design'] / pose_length
