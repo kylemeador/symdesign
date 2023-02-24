@@ -7365,7 +7365,7 @@ class Pose(SymmetricModel, Metrics):
 
         radius_ratio_sum = min_ratio_sum = max_ratio_sum = residue_ratio_sum = 0.
         counter = 1
-        index_combinations = combinations(range(1, 1 + len(entity_metrics)), 2)
+        # index_combinations = combinations(range(1, 1 + len(entity_metrics)), 2)
         for counter, (metrics1, metrics2) in enumerate(combinations(entity_metrics, 2), counter):
             radius_ratio = metrics1.radius / metrics2.radius
             min_ratio = metrics1.min_radius / metrics2.min_radius
@@ -7375,11 +7375,15 @@ class Pose(SymmetricModel, Metrics):
             min_ratio_sum += abs(1 - min_ratio)
             max_ratio_sum += abs(1 - max_ratio)
             residue_ratio_sum += abs(1 - residue_ratio)
-            entity_idx1, entity_idx2 = next(index_combinations)
-            pose_metrics.update({f'entity_radius_ratio_{entity_idx1}v{entity_idx2}': radius_ratio,
-                                 f'entity_min_radius_ratio_{entity_idx1}v{entity_idx2}': min_ratio,
-                                 f'entity_max_radius_ratio_{entity_idx1}v{entity_idx2}': max_ratio,
-                                 f'entity_number_of_residues_ratio_{entity_idx1}v{entity_idx2}': residue_ratio})
+            # entity_idx1, entity_idx2 = next(index_combinations)
+            # Todo
+            #  These could be useful in the PoseMetrics selection section to calculate on the fly
+            #  They are cumbersome and not recommended DB etiquette
+            #   (i.e. take up unnecessary db space, should be a table)
+            # pose_metrics.update({f'entity_radius_ratio_{entity_idx1}v{entity_idx2}': radius_ratio,
+            #                      f'entity_min_radius_ratio_{entity_idx1}v{entity_idx2}': min_ratio,
+            #                      f'entity_max_radius_ratio_{entity_idx1}v{entity_idx2}': max_ratio,
+            #                      f'entity_number_of_residues_ratio_{entity_idx1}v{entity_idx2}': residue_ratio})
 
         # # Old-style
         # for counter, (entity_idx1, entity_idx2) in enumerate(combinations(range(1, self.number_of_entities + 1),

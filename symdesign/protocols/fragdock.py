@@ -26,7 +26,7 @@ from .pose import load_evolutionary_profile, PoseJob
 from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, job as symjob, sql
 from symdesign.sequence import protein_letters_alph1
-from symdesign.structure.base import Structure
+from symdesign.structure.base import Structure, Residue
 from symdesign.structure.coords import transform_coordinate_sets
 from symdesign.structure.fragment import GhostFragment
 from symdesign.structure.fragment.metrics import rmsd_z_score, z_value_from_match_score
@@ -633,7 +633,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             [idx for idx, ghost_frag in enumerate(complete_ghost_frags1) if ghost_frag.j_type == initial_surf_type2]
         init_ghost_guide_coords1: np.ndarray = ghost_guide_coords1[init_ghost_frag_indices1]
         init_ghost_rmsds1: np.ndarray = ghost_rmsds1[init_ghost_frag_indices1]
-        # init_ghost_residue_numbers1: np.ndarray = ghost_residue_indices1[init_ghost_frag_indices1]
+        init_ghost_residue_indices1: np.ndarray = ghost_residue_indices1[init_ghost_frag_indices1]
 
     idx = 1
     logger.debug(f'Found ghost guide coordinates {idx} with shape: {ghost_guide_coords1.shape}')

@@ -254,15 +254,15 @@ for idx in range(1, 1 + config.MAXIMUM_INTERFACES):
     for metric, value in interface_pose_metrics.items():
         setattr(PoseMetrics, metric.replace('interface_', f'interface{idx}_'), Column(value))
 
-ratio_design_metrics = dict(
-    entity_radius_ratio_v=Float,
-    entity_min_radius_ratio_v=Float,
-    entity_max_radius_ratio_v=Float,
-    entity_number_of_residues_ratio_v=Float,
-)
-for idx1, idx2 in combinations(range(1, 1 + config.MAXIMUM_ENTITIES), 2):
-    for metric, value in ratio_design_metrics.items():
-        setattr(PoseMetrics, metric.replace('_v', f'_{idx1}v{idx2}'), Column(value))
+# ratio_design_metrics = dict(
+#     entity_radius_ratio_v=Float,
+#     entity_min_radius_ratio_v=Float,
+#     entity_max_radius_ratio_v=Float,
+#     entity_number_of_residues_ratio_v=Float,
+# )
+# for idx1, idx2 in combinations(range(1, 1 + config.MAXIMUM_ENTITIES), 2):
+#     for metric, value in ratio_design_metrics.items():
+#         setattr(PoseMetrics, metric.replace('_v', f'_{idx1}v{idx2}'), Column(value))
 
 # # class PoseEntityAssociation(Base):
 # pose_entity_association = Table(
