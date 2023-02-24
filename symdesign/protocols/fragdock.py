@@ -485,9 +485,17 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     cb_distance = 9.  # change to 8.?
     """The distance to measure for interface atoms"""
     # Testing if this is too strict when strict overlaps are used
-    cluster_transforms = not job.dock.contiguous_ghosts  # True
+    cluster_translations = not job.dock.contiguous_ghosts  # True
+    translation_cluster_epsilon = 1
+    # 1 works well at recapitulating the results without it while reducing number of checks
+    # More stringent -> 0.75
+    cluster_transforms = False  # True
+    transformation_cluster_epsilon = 1
+    # 1 seems to work well at recapitulating the results without it
+    # less stringent -> 0.75, removes about 20% found solutions
+    # stringent -> 0.5, removes about %50 found solutions
+    forward_reverse = False  # True
     # Todo 3 set above as parameters?
-    translation_epsilon = 1  # 1 seems to work well at recapitulating the results without it. More stringent -> 0.75
     high_quality_z_value = z_value_from_match_score(high_quality_match_value)
     low_quality_z_value = z_value_from_match_score(low_quality_match_value)
 
@@ -1272,10 +1280,10 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 logger.info(f'\tNo transforms were found passing optimal shift criteria '
                             f'(took {optimal_shifts_time:8f}s)')
                 continue
-            elif cluster_transforms:
+            elif cluster_translations:
                 cluster_time_start = time.time()
                 translation_cluster = \
-                    DBSCAN(eps=translation_epsilon, min_samples=min_matched).fit(transform_passing_shifts)
+                    DBSCAN(eps=translation_cluster_epsilon, min_samples=min_matched).fit(transform_passing_shifts)
                 transform_passing_shifts = transform_passing_shifts[translation_cluster.labels_ != outlier]
                 cluster_time = time.time() - cluster_time_start
                 logger.debug(f'Clustering {pre_cluster_passing_shifts} possible transforms (took {cluster_time:8f}s)')
@@ -1492,7 +1500,10 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         #  guide coordinate sets of a similar tx and a 3 degree step of rotation.
         # Must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
         transform_neighbor_tree, transform_cluster = \
-            cluster.cluster_transformation_pairs(*create_transformation_group(), minimum_members=min_matched)
+            cluster.cluster_transformation_pairs(*create_transformation_group(),
+                                                 distance=transformation_cluster_epsilon,
+                                                 minimum_members=min_matched
+                                                 )
         # cluster_representative_indices, cluster_labels = \
         #     find_cluster_representatives(transform_neighbor_tree, transform_cluster)
         del transform_neighbor_tree
