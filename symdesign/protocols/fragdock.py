@@ -2074,6 +2074,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
     # Remove non-viable transforms from the original transformations due to clashing
     filter_transforms_by_indices(passing_transforms_indices)
+    number_of_transforms = passing_transforms_indices.shape[0]
 
     # def filter_degen_rot_counts_by_indices(degen_: Iterable[tuple[int, int]], rot_: Iterable[tuple[int, int]],
     #                                        tx_: Iterable[tuple[int, int]], indices_: Iterable[int]) \
@@ -2427,8 +2428,284 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     #             **pose.calculate_metrics(),  # Also calculates entity.metrics
     #             'dock_collapse_violation': collapse_violation[idx],
     #         })
-    def collect_dock_metrics() -> dict[str, np.ndarray]:
-        """Perform analysis on the docked Pose instances"""
+
+    def format_docking_metrics(metrics_: dict[str, np.ndarray]) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """From the current pool of docked poses and their collected metrics, format the metrics for selection/output"""
+        idx_slice = pd.IndexSlice
+        # Unpack scores for output
+        collapse_violation = list(repeat(None, number_of_transforms))
+        if job.dock.proteinmpnn_score:
+            per_residue_design_indices = metrics_['design_indices']
+            # if job.dock.proteinmpnn_score:
+            per_residue_dock_cross_entropy = metrics_['dock_cross_entropy']
+            per_residue_design_cross_entropy = metrics_['design_cross_entropy']
+            per_residue_evolution_cross_entropy = metrics_['evolution_cross_entropy']
+            per_residue_fragment_cross_entropy = metrics_['fragment_cross_entropy']
+            # else:
+            #     per_residue_design_cross_entropy = per_residue_evolution_cross_entropy = \
+            #         per_residue_fragment_cross_entropy = pose_length_nan
+
+            # if job.design.sequences:  # This is used for design only
+            #     generated_sequences = dock_metrics['sequences']
+            #     per_residue_complex_sequence_loss = dock_metrics['proteinmpnn_loss_complex']
+            #     per_residue_unbound_sequence_loss = dock_metrics['proteinmpnn_loss_unbound']
+            # else:
+            #     generated_sequences = per_residue_complex_sequence_loss = per_residue_unbound_sequence_loss = None
+
+            if collapse_profile.size:
+                per_residue_dock_islands = metrics_['collapse_new_positions']
+                per_residue_dock_island_significance = metrics_['collapse_new_position_significance']
+                per_residue_dock_collapse_significance_by_contact_order_z = \
+                    metrics_['collapse_significance_by_contact_order_z']
+                per_residue_dock_collapse_increase_significance_by_contact_order_z = \
+                    metrics_['collapse_increase_significance_by_contact_order_z']
+                per_residue_dock_collapse_increased_z = metrics_['collapse_increased_z']
+                per_residue_dock_collapse_deviation_magnitude = metrics_['collapse_deviation_magnitude']
+                per_residue_dock_sequential_peaks_collapse_z = metrics_['collapse_sequential_peaks_z']
+                per_residue_dock_collapse_sequential_z = metrics_['collapse_sequential_z']
+                per_residue_dock_hydrophobic_collapse = metrics_['hydrophobic_collapse']
+                collapse_violation = metrics_['collapse_violation']
+            else:
+                per_residue_dock_islands = per_residue_dock_island_significance = \
+                    per_residue_dock_collapse_significance_by_contact_order_z = \
+                    per_residue_dock_collapse_increase_significance_by_contact_order_z = \
+                    per_residue_dock_collapse_increased_z = per_residue_dock_collapse_deviation_magnitude = \
+                    per_residue_dock_sequential_peaks_collapse_z = per_residue_dock_collapse_sequential_z = \
+                    per_residue_dock_hydrophobic_collapse = pose_length_nan
+        else:
+            per_residue_design_cross_entropy = per_residue_dock_cross_entropy = per_residue_evolution_cross_entropy = \
+                per_residue_fragment_cross_entropy = per_residue_design_indices = pose_length_nan
+
+        # Get metrics for each Pose
+        # Set up data structures
+        pose_metrics = []  # {}
+        per_residue_data = []  # {}
+        # nan_blank_data = list(repeat(np.nan, pose_length))
+        # unbound_errat = []
+        # for idx, entity in enumerate(pose.entities):
+        #     _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
+        #     unbound_errat.append(oligomeric_errat[:entity.number_of_residues])
+
+        torch_numeric_sequence = torch.from_numpy(pose.sequence_numeric)
+        if evolutionary_profile_array is not None:
+            # evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
+            # batch_evolutionary_profile = np.tile(evolutionary_profile_array, (number_of_sequences, 1, 1))
+            # torch_log_evolutionary_profile = torch.from_numpy(np.log(batch_evolutionary_profile))
+            torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
+            per_residue_evolutionary_profile_loss = \
+                resources.ml.sequence_nllloss(torch_numeric_sequence, torch_log_evolutionary_profile)
+            profile_loss = {
+                # 'sequence_loss_design': per_residue_design_profile_loss,
+                'sequence_loss_evolution': per_residue_evolutionary_profile_loss,
+            }
+        else:
+            profile_loss = {}
+
+        sequence_params = {
+            **pose.per_residue_contact_order(),
+            # 'errat_deviation': np.concatenate(unbound_errat),
+            'type': tuple(pose.sequence),
+            **profile_loss
+            # Todo 1 each pose...
+            #  'sequence_loss_fragment': per_residue_fragment_profile_loss
+        }
+
+        pose_ids = list(range(number_of_transforms))
+        for idx in pose_ids:
+            logger.info(f'Metrics for Pose {idx + 1}/{number_of_transforms}')
+            # Add the next set of coordinates
+            update_pose_coords(idx)
+
+            # if number_perturbations_applied > 1:
+            add_fragments_to_pose()  # <- here generating fragments fresh
+
+            # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
+            for entity in pose.entities:
+                entity.fragment_map = None
+                # entity.alpha.clear()
+
+            # Load fragment_profile (and fragment_metrics) into the analysis
+            pose.calculate_fragment_profile()
+            # This could be an empty array if no fragments were found
+            fragment_profile_array = pose.fragment_profile.as_array()
+            with catch_warnings():
+                simplefilter('ignore', category=RuntimeWarning)
+                # np.log causes -inf at 0, thus we correct these to a 'large' number
+                corrected_frag_array = np.nan_to_num(np.log(fragment_profile_array), copy=False,
+                                                     nan=np.nan, neginf=metrics.zero_probability_frag_value)
+            per_residue_fragment_profile_loss = \
+                resources.ml.sequence_nllloss(torch_numeric_sequence, torch.from_numpy(corrected_frag_array))
+
+            # Remove saved pose attributes from the prior iteration calculations
+            pose.ss_sequence_indices.clear(), pose.ss_type_sequence.clear()
+            pose.fragment_metrics.clear()
+            for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
+                try:
+                    delattr(pose, attribute)
+                except AttributeError:
+                    pass
+
+            # Save pose metrics
+            # pose_metrics[pose_id] = {
+            pose_metrics.append({
+                **pose.calculate_metrics(),  # Also calculates entity.metrics
+                'dock_collapse_violation': collapse_violation[idx],
+            })
+
+            if job.dock.proteinmpnn_score:
+                design_dock_params = {
+                    # This is required to save the interface_residues
+                    'interface_residue': per_residue_design_indices[idx],
+                    'proteinmpnn_dock_cross_entropy_loss': per_residue_dock_cross_entropy[idx],
+                    'proteinmpnn_v_design_probability_cross_entropy_loss': per_residue_design_cross_entropy[idx],
+                    'proteinmpnn_v_evolution_probability_cross_entropy_loss': per_residue_evolution_cross_entropy[
+                        idx],
+                    'proteinmpnn_v_fragment_probability_cross_entropy_loss': per_residue_fragment_cross_entropy[
+                        idx],
+                }
+                if collapse_profile.size:
+                    design_dock_params.update({
+                        'dock_collapse_new_positions': per_residue_dock_islands[idx],
+                        'dock_collapse_new_position_significance': per_residue_dock_island_significance[idx],
+                        'dock_collapse_significance_by_contact_order_z':
+                            per_residue_dock_collapse_significance_by_contact_order_z[idx],
+                        'dock_collapse_increase_significance_by_contact_order_z':
+                            per_residue_dock_collapse_increase_significance_by_contact_order_z[idx],
+                        'dock_collapse_increased_z': per_residue_dock_collapse_increased_z[idx],
+                        'dock_collapse_deviation_magnitude': per_residue_dock_collapse_deviation_magnitude[idx],
+                        'dock_collapse_sequential_peaks_z': per_residue_dock_sequential_peaks_collapse_z[idx],
+                        'dock_collapse_sequential_z': per_residue_dock_collapse_sequential_z[idx],
+                        'dock_hydrophobic_collapse': per_residue_dock_hydrophobic_collapse[idx],
+                    })
+            else:
+                design_dock_params = {}
+
+            # per_residue_data[pose_id] = {
+            per_residue_data.append({
+                **sequence_params,
+                **design_dock_params,
+                'sequence_loss_fragment': per_residue_fragment_profile_loss
+            })
+
+        # Initialize the main scoring DataFrame
+        poses_df = pd.DataFrame.from_dict(dict(zip(pose_ids, pose_metrics)), orient='index')
+        # transforms_df = pd.DataFrame.from_dict(dict(zip(pose_ids, pose_transformations)), orient='index')
+        # poses_df = poses_df.join(transforms_df)
+
+        # Collect sequence metrics on every designed Pose
+        # if job.dock.proteinmpnn_score:
+        # Construct residues_df
+        # residues_df = pd.concat({pose_id: pd.DataFrame(data, index=residue_indices)
+        #                          for pose_id, data in per_residue_data.items()}) \
+        #     .unstack().swaplevel(0, 1, axis=1)
+        residues_df = pd.concat({pose_id: pd.DataFrame(data, index=residue_indices)
+                                 for pose_id, data in zip(pose_ids, per_residue_data)}) \
+            .unstack().swaplevel(0, 1, axis=1)
+
+        # Calculate new metrics from combinations of other metrics
+        # Add summed residue information to make poses_df
+        # if job.dock.proteinmpnn_score:
+        #     _per_res_columns = [
+        #         'dock_hydrophobic_collapse',  # dock by default not included
+        #         'dock_collapse_deviation_magnitude',
+        #     ]
+        #     _mean_columns = [
+        #         'dock_hydrophobicity',
+        #         'dock_collapse_variance'
+        #     ]
+        if job.dock.proteinmpnn_score:
+            per_res_columns = [
+                # collapse_profile required
+                'dock_hydrophobic_collapse',  # dock by default not included
+                'dock_collapse_deviation_magnitude',
+                # proteinmpnn_score required
+                'proteinmpnn_dock_cross_entropy_loss'
+                'proteinmpnn_v_design_probability_cross_entropy_loss',
+                'proteinmpnn_v_evolution_probability_cross_entropy_loss'
+            ]
+            mean_columns = [
+                # collapse_profile required
+                'dock_hydrophobicity',
+                'dock_collapse_variance',
+                # proteinmpnn_score required
+                'proteinmpnn_dock_cross_entropy_per_residue'
+                'proteinmpnn_v_design_probability_cross_entropy_per_residue',
+                'proteinmpnn_v_evolution_probability_cross_entropy_per_residue'
+            ]
+            _rename = dict(zip(per_res_columns, mean_columns))
+        else:
+            mean_columns = []
+            _rename = {}
+
+        summed_poses_df = metrics.sum_per_residue_metrics(
+            residues_df, rename_columns=_rename, mean_metrics=mean_columns)
+        poses_df = poses_df.join(summed_poses_df)
+        # # Need to remove sequence as it is in pose.calculate_metrics()
+        # poses_df = poses_df.join(summed_poses_df.drop('sequence', axis=1))
+        if job.dock.proteinmpnn_score:
+            poses_df = poses_df.drop(['interface_residue'], axis=1)
+
+            interface_df = residues_df.loc[:, idx_slice[:, 'interface_residue']].droplevel(1, axis=1)
+            # Update the total loss according to those residues that were actually specified as designable
+            poses_df['proteinmpnn_v_design_probability_cross_entropy_loss'] = \
+                (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_design_probability_cross_entropy_loss']]
+                 .droplevel(1, axis=1) * interface_df).mean(axis=1)
+            poses_df['proteinmpnn_v_evolution_probability_cross_entropy_loss'] = \
+                (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_evolution_probability_cross_entropy_loss']]
+                 .droplevel(1, axis=1) * interface_df).mean(axis=1)
+            poses_df['proteinmpnn_v_fragment_probability_cross_entropy_loss'] = \
+                (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_fragment_probability_cross_entropy_loss']]
+                 .droplevel(1, axis=1) * interface_df).mean(axis=1)
+
+            # scores_df['collapse_new_positions'] /= scores_df['pose_length']
+            # scores_df['collapse_new_position_significance'] /= scores_df['pose_length']
+            poses_df['dock_collapse_significance_by_contact_order_z_mean'] = \
+                poses_df['dock_collapse_significance_by_contact_order_z'] / \
+                (residues_df.loc[:, idx_slice[:, 'dock_collapse_significance_by_contact_order_z']] != 0) \
+                    .sum(axis=1)
+            # if measure_alignment:
+            dock_collapse_increased_df = residues_df.loc[:, idx_slice[:, 'dock_collapse_increased_z']]
+            total_increased_collapse = (dock_collapse_increased_df != 0).sum(axis=1)
+            # scores_df['dock_collapse_increase_significance_by_contact_order_z_mean'] = \
+            #     scores_df['dock_collapse_increase_significance_by_contact_order_z'] / \
+            #     total_increased_collapse
+            poses_df['dock_collapse_increased_z_mean'] = \
+                dock_collapse_increased_df.sum(axis=1) / total_increased_collapse
+            # poses_df['dock_collapse_variance'] = \
+            #     poses_df['dock_collapse_deviation_magnitude'] / pose_length
+            poses_df['dock_collapse_sequential_peaks_z_mean'] = \
+                poses_df['dock_collapse_sequential_peaks_z'] / total_increased_collapse
+            poses_df['dock_collapse_sequential_z_mean'] = \
+                poses_df['dock_collapse_sequential_z'] / total_increased_collapse
+
+            # Update the per_residue loss according to those residues involved in the scoring
+            poses_df['proteinmpnn_v_fragment_probability_cross_entropy_per_residue'] = \
+                poses_df['proteinmpnn_v_fragment_probability_cross_entropy_loss'] \
+                / poses_df['number_residues_interface_fragment_total']
+            # poses_df['proteinmpnn_v_design_probability_cross_entropy_per_residue'] = \
+            #     poses_df['proteinmpnn_v_design_probability_cross_entropy_loss'] / pose_length
+            # poses_df['proteinmpnn_v_evolution_probability_cross_entropy_per_residue'] = \
+            #     poses_df['proteinmpnn_v_evolution_probability_cross_entropy_loss'] / pose_length
+
+        # scores_df = metrics.columns_to_new_column(scores_df, metrics.delta_pairs, mode='sub')
+        # scores_df = metrics.columns_to_new_column(scores_df, metrics.division_pairs, mode='truediv')
+        # if job.design.structures:
+        #     scores_df['interface_composition_similarity'] = \
+        #         scores_df.apply(metrics.interface_composition_similarity, axis=1)
+        # poses_df.drop(metrics.clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
+
+        logger.debug(f'Found poses_df with columns: {poses_df.columns.tolist()}')
+        logger.debug(f'Found poses_df with index: {poses_df.index.tolist()}')
+        return poses_df, residues_df
+
+    def collect_dock_metrics() -> tuple[pd.DataFrame, pd.DataFrame]:  # -> dict[str, np.ndarray]:
+        """Perform analysis on the docked Pose instances
+
+        Returns:
+            A tuple of DataFrames representing the per-pose and the per-residue metrics
+        """
+        logger.info(f'Collecting metrics for all Poses identified so far')
+
         # Initialize proteinmpnn for dock/design analysis
         if job.dock.proteinmpnn_score:
             # Retrieve the ProteinMPNN model
@@ -3008,282 +3285,17 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
             calculation_method = 'docking analysis'
             # This is used for understanding dock fit only
-            sequences_and_scores = check_dock_for_designability(**proteinmpnn_kwargs,
-                                                                return_containers=all_returns,
-                                                                setup_args=(device,),
-                                                                setup_kwargs=parameters)
+            scores = check_dock_for_designability(**proteinmpnn_kwargs,
+                                                  return_containers=all_returns,
+                                                  setup_args=(device,),
+                                                  setup_kwargs=parameters)
             logger.info(f'ProteinMPNN {calculation_method} took {time.time() - proteinmpnn_time_start:8f}')
         else:  # Interface metrics be captured in format_docking_metrics, return empty
-            sequences_and_scores = {}
+            scores = {}
 
-        return sequences_and_scores
-
-    def format_docking_metrics(metrics_: dict[str, np.ndarray]) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """From the current pool of docked poses and their collected metrics, format the metrics for selection/output"""
-        idx_slice = pd.IndexSlice
-        # Unpack scores for output
-        collapse_violation = list(repeat(None, number_of_transforms))
-        if job.dock.proteinmpnn_score:
-            per_residue_design_indices = metrics_['design_indices']
-            # if job.dock.proteinmpnn_score:
-            per_residue_dock_cross_entropy = metrics_['dock_cross_entropy']
-            per_residue_design_cross_entropy = metrics_['design_cross_entropy']
-            per_residue_evolution_cross_entropy = metrics_['evolution_cross_entropy']
-            per_residue_fragment_cross_entropy = metrics_['fragment_cross_entropy']
-            # else:
-            #     per_residue_design_cross_entropy = per_residue_evolution_cross_entropy = \
-            #         per_residue_fragment_cross_entropy = pose_length_nan
-
-            # if job.design.sequences:  # This is used for design only
-            #     generated_sequences = dock_metrics['sequences']
-            #     per_residue_complex_sequence_loss = dock_metrics['proteinmpnn_loss_complex']
-            #     per_residue_unbound_sequence_loss = dock_metrics['proteinmpnn_loss_unbound']
-            # else:
-            #     generated_sequences = per_residue_complex_sequence_loss = per_residue_unbound_sequence_loss = None
-
-            if collapse_profile.size:
-                per_residue_dock_islands = metrics_['collapse_new_positions']
-                per_residue_dock_island_significance = metrics_['collapse_new_position_significance']
-                per_residue_dock_collapse_significance_by_contact_order_z = \
-                    metrics_['collapse_significance_by_contact_order_z']
-                per_residue_dock_collapse_increase_significance_by_contact_order_z = \
-                    metrics_['collapse_increase_significance_by_contact_order_z']
-                per_residue_dock_collapse_increased_z = metrics_['collapse_increased_z']
-                per_residue_dock_collapse_deviation_magnitude = metrics_['collapse_deviation_magnitude']
-                per_residue_dock_sequential_peaks_collapse_z = metrics_['collapse_sequential_peaks_z']
-                per_residue_dock_collapse_sequential_z = metrics_['collapse_sequential_z']
-                per_residue_dock_hydrophobic_collapse = metrics_['hydrophobic_collapse']
-                collapse_violation = metrics_['collapse_violation']
-            else:
-                per_residue_dock_islands = per_residue_dock_island_significance = \
-                    per_residue_dock_collapse_significance_by_contact_order_z = \
-                    per_residue_dock_collapse_increase_significance_by_contact_order_z = \
-                    per_residue_dock_collapse_increased_z = per_residue_dock_collapse_deviation_magnitude = \
-                    per_residue_dock_sequential_peaks_collapse_z = per_residue_dock_collapse_sequential_z = \
-                    per_residue_dock_hydrophobic_collapse = pose_length_nan
-        else:
-            per_residue_design_cross_entropy = per_residue_dock_cross_entropy = per_residue_evolution_cross_entropy = \
-                per_residue_fragment_cross_entropy = per_residue_design_indices = pose_length_nan
-
-        # Get metrics for each Pose
-        # Set up data structures
-        pose_metrics = []  # {}
-        per_residue_data = []  # {}
-        # nan_blank_data = list(repeat(np.nan, pose_length))
-        # unbound_errat = []
-        # for idx, entity in enumerate(pose.entities):
-        #     _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
-        #     unbound_errat.append(oligomeric_errat[:entity.number_of_residues])
-
-        torch_numeric_sequence = torch.from_numpy(pose.sequence_numeric)
-        if evolutionary_profile_array is not None:
-            # evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
-            # batch_evolutionary_profile = np.tile(evolutionary_profile_array, (number_of_sequences, 1, 1))
-            # torch_log_evolutionary_profile = torch.from_numpy(np.log(batch_evolutionary_profile))
-            torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
-            per_residue_evolutionary_profile_loss = \
-                resources.ml.sequence_nllloss(torch_numeric_sequence, torch_log_evolutionary_profile)
-            profile_loss = {
-                # 'sequence_loss_design': per_residue_design_profile_loss,
-                'sequence_loss_evolution': per_residue_evolutionary_profile_loss,
-            }
-        else:
-            profile_loss = {}
-
-        sequence_params = {
-            **pose.per_residue_contact_order(),
-            # 'errat_deviation': np.concatenate(unbound_errat),
-            'type': tuple(pose.sequence),
-            **profile_loss
-            # Todo 1 each pose...
-            #  'sequence_loss_fragment': per_residue_fragment_profile_loss
-        }
-
-        pose_ids = list(range(number_of_transforms))
-        for idx in pose_ids:
-            logger.info(f'Metrics for Pose {idx + 1}/{number_of_transforms}')
-            # Add the next set of coordinates
-            update_pose_coords(idx)
-
-            # if number_perturbations_applied > 1:
-            add_fragments_to_pose()  # <- here generating fragments fresh
-
-            # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
-            for entity in pose.entities:
-                entity.fragment_map = None
-                # entity.alpha.clear()
-
-            # Load fragment_profile (and fragment_metrics) into the analysis
-            pose.calculate_fragment_profile()
-            # This could be an empty array if no fragments were found
-            fragment_profile_array = pose.fragment_profile.as_array()
-            with catch_warnings():
-                simplefilter('ignore', category=RuntimeWarning)
-                # np.log causes -inf at 0, thus we correct these to a 'large' number
-                corrected_frag_array = np.nan_to_num(np.log(fragment_profile_array), copy=False,
-                                                     nan=np.nan, neginf=metrics.zero_probability_frag_value)
-            per_residue_fragment_profile_loss = \
-                resources.ml.sequence_nllloss(torch_numeric_sequence, torch.from_numpy(corrected_frag_array))
-
-            # Remove saved pose attributes from the prior iteration calculations
-            pose.ss_sequence_indices.clear(), pose.ss_type_sequence.clear()
-            pose.fragment_metrics.clear()
-            for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
-                try:
-                    delattr(pose, attribute)
-                except AttributeError:
-                    pass
-
-            # Save pose metrics
-            # pose_metrics[pose_id] = {
-            pose_metrics.append({
-                **pose.calculate_metrics(),  # Also calculates entity.metrics
-                'dock_collapse_violation': collapse_violation[idx],
-            })
-
-            if job.dock.proteinmpnn_score:
-                design_dock_params = {
-                    # This is required to save the interface_residues
-                    'interface_residue': per_residue_design_indices[idx],
-                    'proteinmpnn_dock_cross_entropy_loss': per_residue_dock_cross_entropy[idx],
-                    'proteinmpnn_v_design_probability_cross_entropy_loss': per_residue_design_cross_entropy[idx],
-                    'proteinmpnn_v_evolution_probability_cross_entropy_loss': per_residue_evolution_cross_entropy[
-                        idx],
-                    'proteinmpnn_v_fragment_probability_cross_entropy_loss': per_residue_fragment_cross_entropy[
-                        idx],
-                }
-                if collapse_profile.size:
-                    design_dock_params.update({
-                        'dock_collapse_new_positions': per_residue_dock_islands[idx],
-                        'dock_collapse_new_position_significance': per_residue_dock_island_significance[idx],
-                        'dock_collapse_significance_by_contact_order_z':
-                            per_residue_dock_collapse_significance_by_contact_order_z[idx],
-                        'dock_collapse_increase_significance_by_contact_order_z':
-                            per_residue_dock_collapse_increase_significance_by_contact_order_z[idx],
-                        'dock_collapse_increased_z': per_residue_dock_collapse_increased_z[idx],
-                        'dock_collapse_deviation_magnitude': per_residue_dock_collapse_deviation_magnitude[idx],
-                        'dock_collapse_sequential_peaks_z': per_residue_dock_sequential_peaks_collapse_z[idx],
-                        'dock_collapse_sequential_z': per_residue_dock_collapse_sequential_z[idx],
-                        'dock_hydrophobic_collapse': per_residue_dock_hydrophobic_collapse[idx],
-                    })
-            else:
-                design_dock_params = {}
-
-            # per_residue_data[pose_id] = {
-            per_residue_data.append({
-                **sequence_params,
-                **design_dock_params,
-                'sequence_loss_fragment': per_residue_fragment_profile_loss
-            })
-
-        # Initialize the main scoring DataFrame
-        poses_df = pd.DataFrame.from_dict(dict(zip(pose_ids, pose_metrics)), orient='index')
-        # transforms_df = pd.DataFrame.from_dict(dict(zip(pose_ids, pose_transformations)), orient='index')
-        # poses_df = poses_df.join(transforms_df)
-
-        # Collect sequence metrics on every designed Pose
-        # if job.dock.proteinmpnn_score:
-        # Construct residues_df
-        # residues_df = pd.concat({pose_id: pd.DataFrame(data, index=residue_indices)
-        #                          for pose_id, data in per_residue_data.items()}) \
-        #     .unstack().swaplevel(0, 1, axis=1)
-        residues_df = pd.concat({pose_id: pd.DataFrame(data, index=residue_indices)
-                                 for pose_id, data in zip(pose_ids, per_residue_data)}) \
-            .unstack().swaplevel(0, 1, axis=1)
-
-        # Calculate new metrics from combinations of other metrics
-        # Add summed residue information to make poses_df
-        # if job.dock.proteinmpnn_score:
-        #     _per_res_columns = [
-        #         'dock_hydrophobic_collapse',  # dock by default not included
-        #         'dock_collapse_deviation_magnitude',
-        #     ]
-        #     _mean_columns = [
-        #         'dock_hydrophobicity',
-        #         'dock_collapse_variance'
-        #     ]
-        if job.dock.proteinmpnn_score:
-            per_res_columns = [
-                # collapse_profile required
-                'dock_hydrophobic_collapse',  # dock by default not included
-                'dock_collapse_deviation_magnitude',
-                # proteinmpnn_score required
-                'proteinmpnn_dock_cross_entropy_loss'
-                'proteinmpnn_v_design_probability_cross_entropy_loss',
-                'proteinmpnn_v_evolution_probability_cross_entropy_loss'
-            ]
-            mean_columns = [
-                # collapse_profile required
-                'dock_hydrophobicity',
-                'dock_collapse_variance',
-                # proteinmpnn_score required
-                'proteinmpnn_dock_cross_entropy_per_residue'
-                'proteinmpnn_v_design_probability_cross_entropy_per_residue',
-                'proteinmpnn_v_evolution_probability_cross_entropy_per_residue'
-            ]
-            _rename = dict(zip(per_res_columns, mean_columns))
-        else:
-            mean_columns = []
-            _rename = {}
-
-        summed_poses_df = metrics.sum_per_residue_metrics(
-            residues_df, rename_columns=_rename, mean_metrics=mean_columns)
-        poses_df = poses_df.join(summed_poses_df)
-        # # Need to remove sequence as it is in pose.calculate_metrics()
-        # poses_df = poses_df.join(summed_poses_df.drop('sequence', axis=1))
-        if job.dock.proteinmpnn_score:
-            poses_df = poses_df.drop(['interface_residue'], axis=1)
-
-            interface_df = residues_df.loc[:, idx_slice[:, 'interface_residue']].droplevel(1, axis=1)
-            # Update the total loss according to those residues that were actually specified as designable
-            poses_df['proteinmpnn_v_design_probability_cross_entropy_loss'] = \
-                (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_design_probability_cross_entropy_loss']]
-                 .droplevel(1, axis=1) * interface_df).mean(axis=1)
-            poses_df['proteinmpnn_v_evolution_probability_cross_entropy_loss'] = \
-                (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_evolution_probability_cross_entropy_loss']]
-                 .droplevel(1, axis=1) * interface_df).mean(axis=1)
-            poses_df['proteinmpnn_v_fragment_probability_cross_entropy_loss'] = \
-                (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_fragment_probability_cross_entropy_loss']]
-                 .droplevel(1, axis=1) * interface_df).mean(axis=1)
-
-            # scores_df['collapse_new_positions'] /= scores_df['pose_length']
-            # scores_df['collapse_new_position_significance'] /= scores_df['pose_length']
-            poses_df['dock_collapse_significance_by_contact_order_z_mean'] = \
-                poses_df['dock_collapse_significance_by_contact_order_z'] / \
-                (residues_df.loc[:, idx_slice[:, 'dock_collapse_significance_by_contact_order_z']] != 0) \
-                    .sum(axis=1)
-            # if measure_alignment:
-            dock_collapse_increased_df = residues_df.loc[:, idx_slice[:, 'dock_collapse_increased_z']]
-            total_increased_collapse = (dock_collapse_increased_df != 0).sum(axis=1)
-            # scores_df['dock_collapse_increase_significance_by_contact_order_z_mean'] = \
-            #     scores_df['dock_collapse_increase_significance_by_contact_order_z'] / \
-            #     total_increased_collapse
-            poses_df['dock_collapse_increased_z_mean'] = \
-                dock_collapse_increased_df.sum(axis=1) / total_increased_collapse
-            # poses_df['dock_collapse_variance'] = \
-            #     poses_df['dock_collapse_deviation_magnitude'] / pose_length
-            poses_df['dock_collapse_sequential_peaks_z_mean'] = \
-                poses_df['dock_collapse_sequential_peaks_z'] / total_increased_collapse
-            poses_df['dock_collapse_sequential_z_mean'] = \
-                poses_df['dock_collapse_sequential_z'] / total_increased_collapse
-
-            # Update the per_residue loss according to those residues involved in the scoring
-            poses_df['proteinmpnn_v_fragment_probability_cross_entropy_per_residue'] = \
-                poses_df['proteinmpnn_v_fragment_probability_cross_entropy_loss'] \
-                / poses_df['number_fragment_residues_total']
-            # poses_df['proteinmpnn_v_design_probability_cross_entropy_per_residue'] = \
-            #     poses_df['proteinmpnn_v_design_probability_cross_entropy_loss'] / pose_length
-            # poses_df['proteinmpnn_v_evolution_probability_cross_entropy_per_residue'] = \
-            #     poses_df['proteinmpnn_v_evolution_probability_cross_entropy_loss'] / pose_length
-
-        # scores_df = metrics.columns_to_new_column(scores_df, metrics.delta_pairs, mode='sub')
-        # scores_df = metrics.columns_to_new_column(scores_df, metrics.division_pairs, mode='truediv')
-        # if job.design.structures:
-        #     scores_df['interface_composition_similarity'] = \
-        #         scores_df.apply(metrics.interface_composition_similarity, axis=1)
-        # poses_df.drop(metrics.clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
-
-        return poses_df, residues_df
+        # return scores
+        # Format metrics for each pose
+        return format_docking_metrics(scores)
 
     def optimize_found_transformations_by_metrics() -> float:
         """Perform a cycle of (optional) transformation perturbation, and then score and select those which are ranked
@@ -3292,97 +3304,90 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         Returns:
             The mean value of the acquired metric for all found poses
         """
-        nonlocal number_of_transforms, optimize_round, poses_df, residues_df
-        logger.info(f'{optimize_found_transformations_by_metrics.__name__} round {optimize_round + 1}')
-        if optimize_round == 0:
-            pass  # Score the first set before perturbation
-        elif job.dock.perturb_dof_rot or job.dock.perturb_dof_tx:
+        nonlocal poses_df, residues_df
+        # nonlocal number_of_transforms, optimize_round, poses_df, residues_df
+        # # Set the cluster number to the incoming number_of_transforms
+        # number_of_transform_clusters = number_of_transforms
+        # total_dof_applied = sym_entry.total_dof
+        # if optimize_round == 0:
+        #     pass  # Score the first set before perturbation
+        # elif job.dock.perturb_dof_rot or job.dock.perturb_dof_tx:
+        # if job.dock.perturb_dof_rot or job.dock.perturb_dof_tx:
+        if any((sym_entry.number_dof_rotation, sym_entry.number_dof_translation)):
             nonlocal rotation_steps, translation_perturb_steps
-            if any((sym_entry.number_dof_rotation, sym_entry.number_dof_translation)):
-                # Perform perturbations to the allowed degrees of freedom
-                logger.info(f'Perturbing transformations round {optimize_round}')
-                number_of_perturbs_per_cluster, total_dof_applied = perturb_transformations()
-                # Sets number_perturbations_applied, number_of_transforms,
-                #  full_rotation1, full_rotation2, full_int_tx1, full_int_tx2,
-                #  full_optimal_ext_dof_shifts, full_ext_tx1, full_ext_tx2
-                # Modify the perturbation amount by half as the space is searched to completion
-                rotation_steps = tuple(step * .5 for step in rotation_steps)
-                translation_perturb_steps = tuple(step * .5 for step in translation_perturb_steps)
-            else:  # The DOF are not such that perturbation would be of much benefit
-                raise NotImplementedError(f"Can't perturb external dof only quite yet")
+            # Perform perturbations to the allowed degrees of freedom
+            logger.info(f'Perturbing transformations')  # round {optimize_round}')
+            # Modify the perturbation amount by half as the space is searched to completion
+            # Reduce rotation_step before as the original step size was already searched
+            rotation_steps = tuple(step * .5 for step in rotation_steps)
+            number_of_perturbs_per_cluster, total_dof_applied = perturb_transformations()
+            # Sets number_perturbations_applied, number_of_transforms,
+            #  full_rotation1, full_rotation2, full_int_tx1, full_int_tx2,
+            #  full_optimal_ext_dof_shifts, full_ext_tx1, full_ext_tx2
+            # Reduce translation_perturb_steps after as the original step size was never searched
+            translation_perturb_steps = tuple(step * .5 for step in translation_perturb_steps)
+        else:  # The DOF are not such that perturbation would be of much benefit
+            raise NotImplementedError(f"Can't perturb external dof only quite yet")
 
-                # Perform optimization by means of optimal_tx
-                def minimize_translations():
-                    """"""
-                    # The application of total_dof_applied might not be necessary as this optimizes fully
-                    total_dof_applied = sym_entry.total_dof
-                    # Remake the optimal shifts given each of the passing ghost fragment/surface fragment pairs
-                    optimal_ext_dof_shifts = np.zeros((number_of_transforms, 3), dtype=float)
-                    for idx in range(number_of_transforms):
-                        update_pose_coords(idx)
-                        add_fragments_to_pose()
-                        passing_ghost_coords = []
-                        passing_surf_coords = []
-                        reference_rmsds = []
-                        for ghost_frag, surf_frag, match_score in pose.fragment_pairs:
-                            passing_ghost_coords.append(ghost_frag.guide_coords)
-                            passing_surf_coords.append(surf_frag.guide_coords)
-                            reference_rmsds.append(ghost_frag.rmsd)
+            # Perform optimization by means of optimal_tx
+            def minimize_translations():
+                """"""
+                # The application of total_dof_applied might not be necessary as this optimizes fully
+                total_dof_applied = sym_entry.total_dof
+                # Remake the optimal shifts given each of the passing ghost fragment/surface fragment pairs
+                optimal_ext_dof_shifts = np.zeros((number_of_transforms, 3), dtype=float)
+                for idx in range(number_of_transforms):
+                    update_pose_coords(idx)
+                    add_fragments_to_pose()
+                    passing_ghost_coords = []
+                    passing_surf_coords = []
+                    reference_rmsds = []
+                    for ghost_frag, surf_frag, match_score in pose.fragment_pairs:
+                        passing_ghost_coords.append(ghost_frag.guide_coords)
+                        passing_surf_coords.append(surf_frag.guide_coords)
+                        reference_rmsds.append(ghost_frag.rmsd)
 
-                        transform_passing_shifts = \
-                            optimal_tx.solve_optimal_shifts(passing_ghost_coords, passing_surf_coords, reference_rmsds)
-                        mean_transform = transform_passing_shifts.mean(axis=0)
+                    transform_passing_shifts = \
+                        optimal_tx.solve_optimal_shifts(passing_ghost_coords, passing_surf_coords, reference_rmsds)
+                    mean_transform = transform_passing_shifts.mean(axis=0)
 
-                        # Inherent in minimize_translations() call
-                        if sym_entry.unit_cell:
-                            # Must take the optimal_ext_dof_shifts and multiply the column number by the corresponding row
-                            # in the sym_entry.external_dof#
-                            # optimal_ext_dof_shifts[0] scalar * sym_entry.group_external_dof[0] (1 row, 3 columns)
-                            # Repeat for additional DOFs, then add all up within each row.
-                            # For a single DOF, multiplication won't matter as only one matrix element will be available
-                            #
-                            # # Must find positive indices before external_dof1 multiplication in case negatives there
-                            # positive_indices = \
-                            #     np.flatnonzero(np.all(transform_passing_shifts[:, :sym_entry.number_dof_external] >= 0, axis=1))
-                            # number_passing_shifts = positive_indices.shape[0]
-                            optimal_ext_dof_shifts[idx, :sym_entry.number_dof_external] = \
-                                mean_transform[:sym_entry.number_dof_external]
+                    # Inherent in minimize_translations() call due to DOF requirements of preceding else:
+                    if sym_entry.unit_cell:
+                        # Must take the optimal_ext_dof_shifts and multiply the column number by the corresponding row
+                        # in the sym_entry.external_dof#
+                        # optimal_ext_dof_shifts[0] scalar * sym_entry.group_external_dof[0] (1 row, 3 columns)
+                        # Repeat for additional DOFs, then add all up within each row.
+                        # For a single DOF, multiplication won't matter as only one matrix element will be available
+                        #
+                        # # Must find positive indices before external_dof1 multiplication in case negatives there
+                        # positive_indices = \
+                        #     np.flatnonzero(np.all(transform_passing_shifts[:, :sym_entry.number_dof_external] >= 0, axis=1))
+                        # number_passing_shifts = positive_indices.shape[0]
+                        optimal_ext_dof_shifts[idx, :sym_entry.number_dof_external] = \
+                            mean_transform[:sym_entry.number_dof_external]
 
-                minimize_translations()
-        elif optimize_round >= 1:
-            # This was already run and aren't perturbing, so don't take metrics again
-            return 0
+            minimize_translations()
+        # elif optimize_round >= 1:
+        #     # This was already run and aren't perturbing, so don't take metrics again
+        #     return None
 
-        # Collect metrics for each transform
-        # logger.info(f'Collecting docking metrics')
-        dock_metrics = collect_dock_metrics()
-        # Todo
-        #  enable precise metric acquisition
-        # dock_metrics = collect_dock_metrics(score_functions)
-        # Format metrics for each pose
-        logger.info(f'Collecting metrics for all Poses identified so far')
-        poses_df, residues_df = format_docking_metrics(dock_metrics)
-        # optimize_round += 1
+        weighted_trajectory_s = _prioritize_design_indices_and_return_selection_metric()
 
-        logger.debug(f'Found poses_df with columns: {poses_df.columns.tolist()}')
-        logger.debug(f'Found poses_df with index: {poses_df.index.tolist()}')
-        weighted_trajectory_df = metrics.prioritize_design_indices_sql(poses_df, filter=job.dock.filter,
-                                                                       weight=job.dock.weight,
-                                                                       default_weight=default_weight_metric)
-        weighted_trajectory_s = weighted_trajectory_df[metrics.selection_weight_column]
-        # weighted_trajectory_s = metrics.pareto_optimize_trajectories(poses_df, weights=job.dock.weight,
-        #                                                              default_sort=default_weight_metric)
-        # weighted_trajectory_s is sorted with best transform in index 0, regardless of whether it is ascending or not
-
+        # Sort each perturbation cluster members by the metric
         if number_perturbations_applied > 1:
-            # Sort each perturbation cluster members by the metric
             # Round down the sqrt of the number_perturbations_applied
-            top_perturb_hits = int(math.sqrt(number_perturbations_applied) + .5)
-            transform_hits_scores = []
+            # top_perturb_hits = int(math.sqrt(number_perturbations_applied) + .5)
+            # Used to progressively limit search as clusters deepen
+            if optimize_round == 1:
+                top_perturb_hits = total_dof_applied
+            else:
+                top_perturb_hits = 1
+            # top_perturb_hits = int(total_dof_applied/optimize_round + .5)
+
             top_transform_cluster_indices: list[int] = []
             perturb_passing_indices: list[list[int]] = []
-            # number_of_transform_clusters is approximate here due to clashing perturbations
-            number_of_transform_clusters = int(number_of_transforms // number_perturbations_applied)
+            # # number_of_transform_clusters is approximate here due to clashing perturbations
+            # number_of_transform_clusters = int(number_of_transforms // number_perturbations_applied)
             # for idx in range(number_of_transform_clusters):
             lower_perturb_idx = 0
             for number_of_perturbs in number_of_perturbs_per_cluster:
@@ -3414,33 +3419,43 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 # Scale the selected indices into the transformation indices reference
                 # perturb_passing_indices.append((idx*number_perturbations_applied + top_candidate_indices).tolist())
 
-            # # WHAT IS BELOW FOR?
-            # # number_to_return = number_of_transforms ** root_to_take
-            # selected_transform_scores = np.array(transform_hits_scores)
-            # number_selected = int(math.sqrt(len(selected_transform_scores)) + .5)
-            # selected_transform_indices = selected_transform_scores.argsort()[:number_selected]
-            # perturb_passing_indices = np.array(perturb_passing_indices)
-            # perturb_passing_indices = perturb_passing_indices[selected_transform_indices]
-        else:
-            number_of_transform_clusters = number_of_transforms
-            top_transform_cluster_indices = list(range(number_of_transform_clusters))
-        # else:  # OLD IDEAS
-        #     # Select based on the top number of hits
-        #     # for idx in range(number):
-        #     # Todo sqrt() was chosen haphazardly, might be better to set a percent
-        #     top_perturb_cluster_hits = math.sqrt(number_of_transforms)
-        #     perturb_passing_indices = metric.argsort()[:top_perturb_cluster_hits].tolist()
+            # cluster_divisor = 1
+            # # if optimize_round == 1:
+            # #     cluster_divisor = 1
+            # # elif optimize_round == 2:
+            if optimize_round == 2:
+                # Reduce the top_transform_cluster_indices to the best remaining in each optimize_round 1 cluster
+                top_scores = weighted_trajectory_s.loc[top_transform_cluster_indices]
+                round1_number_of_clusters = int(len(top_transform_cluster_indices) / total_dof_applied)
+                top_index_of_cluster = []
+                for i in range(round1_number_of_clusters):
+                    # Slice by the expanded cluster amount
+                    top_cluster_score = top_scores.iloc[total_dof_applied * i: total_dof_applied * (i+1)].argmax()
+                    top_index_of_cluster.append(total_dof_applied*i + top_cluster_score)
 
-        # Finally take from each of the top perturbation "kernels"
-        # With each additional optimize_round, there is exponential increase in the number of transforms
-        # unless there is filtering to take the top
-        # Taking the sqrt (or equivalent function), needs to be incremented for each perturbation increase
-        # so this doesn't get out of hand as the amount grows
-        # For example, iteration 1 gets no sqrt, iteration 2 gets sqrt, 3 gets cube root
-        # root_to_take = 1/iteration
-        top_cluster_root_to_take = 1 / optimize_round
-        # Take the metric at each of the top positions and sort these
-        top_cluster_hits = int((number_of_transform_clusters**top_cluster_root_to_take) + .5)
+                top_transform_cluster_indices = [top_transform_cluster_indices[idx] for idx in top_index_of_cluster]
+            # #     cluster_divisor = 1
+            # # else:
+            # #     # # Start division by the total_dof_applied at round 2
+            # #     # cluster_divisor = (total_dof_applied / (optimize_round-1))
+            # #     cluster_divisor = 1
+        else:
+            top_transform_cluster_indices = list(range(number_of_transforms))
+            # if job.dock.filter:
+            #     cluster_divisor = 1  # The Poses were already filtered
+            # else:  # Use this to scale the results by as many hits as there are DOF
+            #     cluster_divisor = total_dof_applied
+
+        # # Finally take from each of the top perturbation "kernels"
+        # # With each additional optimize_round, there is exponential increase in the number of transforms
+        # # unless there is filtering to take the top
+        # # Taking the sqrt (or equivalent function), needs to be incremented for each perturbation increase
+        # # so this doesn't get out of hand as the amount grows
+        # # For example, iteration 1 gets no sqrt, iteration 2 gets sqrt, 3 gets cube root
+        # # root_to_take = 1/iteration
+        # top_cluster_root_to_take = 1 / optimize_round
+        # # Take the metric at each of the top positions and sort these
+        # top_cluster_hits = int((number_of_transform_clusters**top_cluster_root_to_take) + .5)
 
         # Operation NOTE:
         # During the perturbation selection, this is the sqrt of the number_of_transform_clusters
@@ -3449,15 +3464,24 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # This is a lot of sampling for the other 14 that were never chosen. They might've
         # not been discovered without the perturb since the top score came from one of the 81
         # possible perturb transforms
+        # if optimize_round > 1:
+        #     cluster_divisor = (total_dof_applied / (optimize_round-1))
+        # else:
+        #     cluster_divisor = total_dof_applied
+        # Divide the clusters by the total applied degrees of freedom
+        # top_cluster_hits = int(number_of_transform_clusters/cluster_divisor + .5)
+        #
+        # # Grab the cluster range indices
+        # cluster_representative_indexer = np.isin(weighted_trajectory_s.index, top_transform_cluster_indices)
+        # selected_cluster_indices = \
+        #     weighted_trajectory_s[cluster_representative_indexer][:top_cluster_hits].index.tolist()
+        # # selected_cluster_hits = top_transform_cluster_indices[:top_cluster_overall_hits]
+        # # # Use .loc here as we have a list used to index...
+        # # selected_cluster_indices = weighted_trajectory_s.loc[selected_cluster_hits].index.tolist()
 
         # Grab the cluster range indices
         cluster_representative_indexer = np.isin(weighted_trajectory_s.index, top_transform_cluster_indices)
-        selected_cluster_indices = \
-            weighted_trajectory_s[cluster_representative_indexer][:top_cluster_hits].index.tolist()
-        # selected_cluster_hits = top_transform_cluster_indices[:top_cluster_overall_hits]
-        # # Use .loc here as we have a list used to index...
-        # selected_cluster_indices = weighted_trajectory_s.loc[selected_cluster_hits].index.tolist()
-
+        selected_cluster_indices = weighted_trajectory_s[cluster_representative_indexer].index.tolist()
         # For each of the top perturbation clusters, add all the indices picked from the above logic
         if number_perturbations_applied > 1:
             selected_indices = []
@@ -3467,18 +3491,16 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         else:
             selected_indices = selected_cluster_indices
 
-        number_of_transforms = len(selected_indices)
-        logger.info(f'Found {number_of_transforms} transformations after '
-                    f'{optimize_found_transformations_by_metrics.__name__} round {optimize_round}')
+        # Handle results
+        # Use .loc here as we have a list used to index...
+        transforms_with_metrics = weighted_trajectory_s.loc[selected_indices]
+        logger.info(f'Found transforms_with_metrics: {transforms_with_metrics}')
         # Filter hits down
         filter_transforms_by_indices(selected_indices)
         # filter_degen_rot_counts_by_indices()
         # Narrow down the metrics by the selected_indices. If this is the last cycle, they will be written
         poses_df = poses_df.loc[selected_indices]
         residues_df = residues_df.loc[selected_indices]
-        # Use .loc here as we have a list used to index...
-        transforms_with_metrics = weighted_trajectory_s.loc[selected_indices]
-        logger.info(f'Found transforms_with_metrics: {transforms_with_metrics}')
 
         return transforms_with_metrics.mean()
         # if metric.dim == 3:
@@ -3496,24 +3518,53 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # -----------------------------------------------------------------------------------------------------------------
     # Below creates perturbations to sampled transformations and scores the resulting Pose
     # -----------------------------------------------------------------------------------------------------------------
-    # Set nonlocal perturbation/metric variables that are used in optimize_found_transformations_by_metrics()
-    number_of_transforms = passing_transforms_indices.shape[0]
-    number_perturbations_applied = 1
-    optimize_round = 0
-    poses_df = residues_df = pd.DataFrame()
     # Initialize docking score search
+    poses_df = residues_df = pd.DataFrame()
     last_result: float = 0.
-    result: float = sys.maxsize
-    threshold = 0.1  # 1 <- to lenient with pareto_optimize_trajectories
-    logger.info(f'Starting optimize with result/last_result: {result}/{last_result}')
-    # The condition sum(translation_perturb_steps) < 0.1 is True after 4 optimization rounds...
-    while abs(last_result - result) > threshold or sum(translation_perturb_steps) < 0.1:
-        last_result = result
-        # Perform a possible iteration of dock perturbation
-        result = optimize_found_transformations_by_metrics()
-        # gradient = calculate_gradient(last_gradient)
-        logger.info(f'Found optimize result of {result}. last_result: {last_result}')
-    logger.info(f'Optimization complete, found a final number of {number_of_transforms} best Poses')
+    threshold = 0.05  # 0.1 <- not convergent # 1 <- too lenient with pareto_optimize_trajectories
+
+    # Collect metrics and filter/weight for each active transform
+    def _prioritize_design_indices_and_return_selection_metric():
+        nonlocal poses_df, residues_df
+        poses_df, residues_df = collect_dock_metrics()
+        # logger.info(f'Collecting docking metrics')
+        # Todo
+        #  enable precise metric acquisition
+        # dock_metrics = collect_dock_metrics(score_functions)
+        weighted_trajectory_df = metrics.prioritize_design_indices_sql(poses_df, filter=job.dock.filter,
+                                                                       weight=job.dock.weight,
+                                                                       default_weight=default_weight_metric)
+        weighted_trajectory_s = weighted_trajectory_df[metrics.selection_weight_column]
+        # weighted_trajectory_s = metrics.pareto_optimize_trajectories(poses_df, weights=job.dock.weight,
+        #                                                              default_sort=default_weight_metric)
+        # weighted_trajectory_s is sorted with best transform in index 0, regardless of whether it is ascending or not
+        return weighted_trajectory_s
+
+    weighted_trajectory_s = _prioritize_design_indices_and_return_selection_metric()
+
+    result: float = weighted_trajectory_s.mean()  # sys.maxsize
+    # if job.dock.perturb_dof_rot or job.dock.perturb_dof_tx:
+    if job.dock.perturb_dof:
+        # Set nonlocal perturbation/metric variables that are used in optimize_found_transformations_by_metrics()
+        number_of_original_transforms = number_of_transforms
+        number_perturbations_applied = 1
+        optimize_round = 1
+        logger.info(f'Starting optimize with {number_of_transforms} transformations')
+        # logger.info(f'Starting optimize with result/last_result: {result}/{last_result}')
+        # The condition sum(translation_perturb_steps) < 0.1 is True after 4 optimization rounds...
+        # Todo ensure that the abs doesn't produce worse values
+        while abs(last_result - result) > threshold or sum(translation_perturb_steps) > 0.1:
+            logger.info(f'{optimize_found_transformations_by_metrics.__name__} round {optimize_round}')
+            last_result = result
+            # Perform scoring and a possible iteration of dock perturbation
+            result = optimize_found_transformations_by_metrics()
+            # gradient = calculate_gradient(last_gradient)
+            number_of_transforms = len(full_rotation1)
+            logger.info(f'Found {number_of_transforms} transformations after '
+                        f'{optimize_found_transformations_by_metrics.__name__} round {optimize_round} '
+                        f'with result={result}. last_result={last_result}')
+            optimize_round += 1
+        logger.info(f'Optimization complete, found a final number of {number_of_transforms} transformations')
 
     def terminate(pose: Pose, poses_df_: pd.DataFrame, residues_df_: pd.DataFrame):
         """Finalize any remaining work and return to the caller"""
@@ -3764,7 +3815,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         project_str = f'{project}{os.sep}'
         project_pose_names = [f'{project_str}{pose_name}' for pose_name in pose_names]
 
-        # Populate the database with pose information
+        # Populate the database with pose information. Has access to nonlocal session
         populate_pose_metadata()
 
         # Todo 2 modernize with the new SQL database and 6D transform aspirations
@@ -3792,75 +3843,6 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                                               out_path=project_dir)
         logger.info(f'Found {len(cluster_map)} unique clusters from {len(pose_names)} pose inputs. '
                     f'Wrote cluster map to {job.cluster.map}')
-
-        # # Define functions for outputting docked poses
-        # def output_pose(pose_name: AnyStr, uc_dimensions: np.ndarray = None):
-        #     """Format the current Pose for output using the job parameters
-        #
-        #     Args:
-        #         pose_name: The particular identifier for the pose
-        #         uc_dimensions: If this is a lattice, the crystal dimensions
-        #     """
-        #     # _out_dir: The directory to write files
-        #     out_dir = os.path.join(project_dir, pose_name)
-        #     putils.make_path(out_dir)
-        #
-        #     # Set the ASU, then write to a file
-        #     pose.set_contacting_asu(distance=cb_distance)
-        #     if sym_entry.unit_cell:  # 2, 3 dimensions
-        #         cryst_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
-        #     else:
-        #         cryst_record = None
-        #
-        #     if job.write_structures:
-        #         pose_path = os.path.join(out_dir, putils.asu)
-        #         # pose_path = os.path.join(out_dir, f'{pose_name}_{putils.asu}.pdb')
-        #         pose.write(out_path=pose_path, header=cryst_record)
-        #     else:
-        #         pose_path = None
-        #
-        #     if job.write_trajectory:
-        #         nonlocal idx
-        #         if idx % 2 == 0:
-        #             new_pose = pose.copy()
-        #             # new_pose = pose.models[0]copy()
-        #             for entity in new_pose.chains[1:]:  # new_pose.entities[1:]:
-        #                 entity.chain_id = 'D'
-        #                 # Todo make more reliable
-        #                 # Todo NEED TO MAKE SymmetricModel copy .entities and .chains correctly!
-        #             trajectory_models.append_model(new_pose)
-        #
-        #     # Todo 3 group by input model... not entities
-        #     # Write Model1, Model2
-        #     if job.write_oligomers:
-        #         for entity in pose.entities:
-        #             entity.write(oligomer=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))
-        #
-        #     # Write assembly files
-        #     if job.output_assembly:
-        #         # if sym_entry.unit_cell:  # 2, 3 dimensions
-        #         if job.output_surrounding_uc:
-        #             assembly_path = os.path.join(out_dir, f'{pose_name}_{putils.surrounding_unit_cells}')
-        #         else:
-        #             assembly_path = os.path.join(out_dir, f'{pose_name}_{putils.assembly}')
-        #         # else:  # 0 dimension
-        #         #     assembly_path = os.path.join(out_dir, f'{pose_name}_{putils.assembly}')
-        #         pose.write(assembly=True, out_path=assembly_path, header=cryst_record,
-        #                    surrounding_uc=job.output_surrounding_uc)
-        #
-        #     # Write fragment files
-        #     if job.write_fragments:
-        #         # Make directories to output matched fragment files
-        #         matching_fragments_dir = os.path.join(out_dir, putils.frag_dir)
-        #         putils.make_path(matching_fragments_dir)
-        #         # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
-        #         # high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
-        #         # low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
-        #         pose.write_fragment_pairs(out_path=matching_fragments_dir)
-        #
-        #     logger.info(f'\tSUCCESSFUL DOCKED POSE: {out_dir}')
-        #
-        #     return pose_path
 
         # Write trajectory if specified
         if job.write_trajectory:
