@@ -162,7 +162,7 @@ def predict_best_pose_from_transformation_cluster(train_trajectories_file, train
     # standard_scale_traj_df[train_traj_df.columns] = standard_scale.transform(train_traj_df)
 
     # select the metrics which the linear model should be trained on
-    nano_traj = train_traj_df.loc[:, metrics.nanohedra_metrics]
+    nano_traj = train_traj_df.loc[:, metrics.fragment_metrics]
 
     # select the Rosetta metrics to train model on
     # potential_training_metrics = set(train_traj_df.columns).difference(nanohedra_metrics)
@@ -218,6 +218,6 @@ def chose_top_pose_from_model(test_trajectories_file, clustered_poses, model):  
     test_docking_df = pd.read_csv(test_trajectories_file, index_col=0, header=[0, 1, 2])
 
     for cluster_representative, designs in clustered_poses.items():
-        trajectory_df = test_docking_df.loc[designs, metrics.nanohedra_metrics]
+        trajectory_df = test_docking_df.loc[designs, metrics.fragment_metrics]
         trajectory_df['model_predict'] = model.predict(trajectory_df)
         trajectory_df.sort_values('model_predict')

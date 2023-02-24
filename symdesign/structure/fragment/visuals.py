@@ -115,12 +115,12 @@ metrics_of_interest = [
     'designed_residues_total',
     'collapse_violation_design_residues',
     'nanohedra_score_normalized',
-    'interface_b_factor_per_residue',
+    'interface_b_factor',
     'percent_residues_fragment_center',
     'interface_energy',
     'multiple_fragment_ratio',
-    'number_of_fragments',
-    'percent_mutations',  # 'number_of_mutations',
+    'number_fragments_interface',
+    'percent_mutations',  # 'number_mutations',
 ]
 
 
@@ -151,11 +151,11 @@ if __name__ == '__main__':
         'designed_residues_total',
         # 'collapse_violation_design_residues',
         'nanohedra_score_normalized',
-        # 'interface_b_factor_per_residue',
+        # 'interface_b_factor',
         'percent_residues_fragment_center',
         # 'interface_energy',
         'multiple_fragment_ratio',
-        'number_of_fragments',
-        # 'percent_mutations',  # 'number_of_mutations',
+        'number_fragments_interface',
+        # 'percent_mutations',  # 'number_mutations',
     ]
     plot_df_correlation(nano_df, metrics_of_interest)

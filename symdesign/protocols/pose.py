@@ -996,7 +996,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     #                          f'{type(fragment_observations).__name__}')
     #
     # @property
-    # def number_of_fragments(self) -> int:
+    # def number_fragments_interface(self) -> int:
     #     return len(self.fragment_observations) if self.fragment_observations else 0
 
     # Both pre_* properties are really implemented to take advantage of .setter
@@ -2510,7 +2510,7 @@ class PoseProtocol(PoseData):
             interaction_energy_complex=0,
             interaction_energy_per_residue=0,
             interface_separation=0,
-            number_of_hbonds=0,
+            number_hbonds=0,
             rmsd_complex=0,  # Todo calculate this here instead of Rosetta using superposition3d
             rosetta_reference_energy=0,
             shape_complementarity=0,
@@ -2542,7 +2542,7 @@ class PoseProtocol(PoseData):
             # source_df['interaction_energy_per_residue'] = \
             #     source_df['interaction_energy_complex'] / len(self.pose.interface_residues)
             # source_df['interface_separation'] = 0
-            # source_df['number_of_hbonds'] = 0
+            # source_df['number_hbonds'] = 0
             # source_df['rmsd_complex'] = 0
             # source_df['rosetta_reference_energy'] = 0
             # source_df['shape_complementarity'] = 0
@@ -2570,7 +2570,7 @@ class PoseProtocol(PoseData):
                 #     hbonds_columns.append(column)
 
             # Check proper input
-            metric_set = metrics.necessary_metrics.difference(set(scores_df.columns))
+            metric_set = metrics.rosetta_required.difference(set(scores_df.columns))
             if metric_set:
                 raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
 
@@ -2653,7 +2653,7 @@ class PoseProtocol(PoseData):
             # source_df['interaction_energy_per_residue'] = \
             #     source_df['interaction_energy_complex'] / len(self.pose.interface_residues)
             # source_df['interface_separation'] = 0
-            # source_df['number_of_hbonds'] = 0
+            # source_df['number_hbonds'] = 0
             # source_df['rmsd_complex'] = 0
             # source_df['rosetta_reference_energy'] = 0
             # source_df['shape_complementarity'] = 0
@@ -2978,24 +2978,24 @@ class PoseProtocol(PoseData):
 
         # Calculate mutational content
         mutation_df = residues_df.loc[:, idx_slice[:, 'mutation']]
-        # scores_df['number_of_mutations'] = mutation_df.sum(axis=1)
-        scores_df['percent_mutations'] = scores_df['number_of_mutations'] / pose_length
+        # scores_df['number_mutations'] = mutation_df.sum(axis=1)
+        scores_df['percent_mutations'] = scores_df['number_mutations'] / pose_length
 
         idx = 1
         # prior_slice = 0
         for idx, entity in enumerate(self.pose.entities, idx):
             # entity_n_terminal_residue_index = entity.n_terminal_residue.index
             # entity_c_terminal_residue_index = entity.c_terminal_residue.index
-            scores_df[f'entity{idx}_number_of_mutations'] = \
+            scores_df[f'entity{idx}_number_mutations'] = \
                 mutation_df.loc[:, idx_slice[residue_indices[entity.n_terminal_residue.index:  # prior_slice
                                                              1 + entity.c_terminal_residue.index], :]].sum(axis=1)
             # prior_slice = entity_c_terminal_residue_index
             scores_df[f'entity{idx}_percent_mutations'] = \
-                scores_df[f'entity{idx}_number_of_mutations'] / entity.number_of_residues
+                scores_df[f'entity{idx}_number_mutations'] / entity.number_of_residues
 
-        # scores_df['number_of_mutations'] = \
+        # scores_df['number_mutations'] = \
         #     pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
-        # scores_df['percent_mutations'] = scores_df['number_of_mutations'] / pose_length
+        # scores_df['percent_mutations'] = scores_df['number_mutations'] / pose_length
 
         # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
         # interior_residue_df = residues_df.loc[:, idx_slice[:, 'interior']]
@@ -3039,8 +3039,8 @@ class PoseProtocol(PoseData):
 
         scores_df = metrics.columns_to_new_column(scores_df, summation_pairs)
         scores_df = metrics.columns_to_new_column(scores_df, metrics.rosetta_delta_pairs, mode='sub')
-        # Add number_interface_residues for div_pairs and int_comp_similarity
-        # scores_df['number_interface_residues'] = other_pose_metrics.pop('number_interface_residues')
+        # Add number_residues_interface for div_pairs and int_comp_similarity
+        # scores_df['number_residues_interface'] = other_pose_metrics.pop('number_residues_interface')
         scores_df = metrics.columns_to_new_column(scores_df, metrics.rosetta_division_pairs, mode='truediv')
         scores_df['interface_composition_similarity'] = \
             scores_df.apply(metrics.interface_composition_similarity, axis=1)
@@ -4463,7 +4463,7 @@ class PoseProtocol(PoseData):
                 per_res_columns.append(column)
 
         # Check proper input
-        metric_set = metrics.necessary_metrics.difference(set(scores_df.columns))
+        metric_set = metrics.rosetta_required.difference(set(scores_df.columns))
         if metric_set:
             self.log.debug(f'Score columns present before required metric check: {scores_df.columns.to_list()}')
             raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
@@ -4584,8 +4584,8 @@ class PoseProtocol(PoseData):
         # scores_df.columns = scores_df.columns.map(dict((f'buns{idx}_unbound', f'buried_unsatisfied_hbonds_unbound{idx}')
         #                                                for idx in range(1, 1 + len(buns_columns))))\
         #     .fillna(scores_df.columns)
-        # Add number_interface_residues for div_pairs and int_comp_similarity
-        # scores_df['number_interface_residues'] = other_pose_metrics.pop('number_interface_residues')
+        # Add number_residues_interface for div_pairs and int_comp_similarity
+        # scores_df['number_residues_interface'] = other_pose_metrics.pop('number_residues_interface')
         scores_df = metrics.columns_to_new_column(scores_df, metrics.rosetta_delta_pairs, mode='sub')
         scores_df = metrics.columns_to_new_column(scores_df, metrics.rosetta_division_pairs, mode='truediv')
 
@@ -5059,7 +5059,7 @@ class PoseProtocol(PoseData):
             designs: The designs to perform analysis on. By default, fetches all available structures
         Returns:
             A per-design metric DataFrame where each index is the design id and the columns are design metrics
-            Including metrics 'interface_area_total' and 'number_interface_residues' which are used in other analysis
+            Including metrics 'interface_area_total' and 'number_residues_interface' which are used in other analysis
                 functions
         """
         #     designs_df: The typical per-design metric DataFrame where each index is the design id and the columns are
@@ -5109,7 +5109,7 @@ class PoseProtocol(PoseData):
         # designs_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
         pose_df = self.pose.df
-        designs_df['number_interface_residues'] = pose_df['number_interface_residues']
+        designs_df['number_residues_interface'] = pose_df['number_residues_interface']
 
         # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
         # if 'interface_area_total' in designs_df and 'area_total_complex' in designs_df:
@@ -5121,7 +5121,7 @@ class PoseProtocol(PoseData):
         designs_df = metrics.columns_to_new_column(designs_df, metrics.division_pairs, mode='truediv')
         designs_df['interface_composition_similarity'] = \
             designs_df.apply(metrics.interface_composition_similarity, axis=1)
-        designs_df = designs_df.drop(['number_interface_residues'], axis=1)
+        designs_df = designs_df.drop(['number_residues_interface'], axis=1)
         #                               'interface_area_total']
 
         return designs_df
@@ -5154,19 +5154,19 @@ class PoseProtocol(PoseData):
 
         pose_df = self.pose.df
         # Calculate mutational content
-        # designs_df['number_of_mutations'] = mutation_df.sum(axis=1)
-        designs_df['percent_mutations'] = designs_df['number_of_mutations'] / pose_length
+        # designs_df['number_mutations'] = mutation_df.sum(axis=1)
+        designs_df['percent_mutations'] = designs_df['number_mutations'] / pose_length
 
         mutation_df = residues_df.loc[:, idx_slice[:, 'mutation']]
         entity_designs = {}
         for entity_data, entity in zip(self.entity_data, self.pose.entities):
-            number_of_mutations = \
+            number_mutations = \
                 mutation_df.loc[:, idx_slice[residue_indices[entity.n_terminal_residue.index:
                                                              1 + entity.c_terminal_residue.index], :]]\
                 .sum(axis=1)
             entity_designs[entity_data.id] = dict(
-                number_of_mutations=number_of_mutations,
-                percent_mutations=number_of_mutations / entity.number_of_residues)
+                number_mutations=number_mutations,
+                percent_mutations=number_mutations / entity.number_of_residues)
 
         # Set up the DesignEntityMetrics dataframe for writing
         design_ids = [design.id for design in self.current_designs]
@@ -5179,8 +5179,9 @@ class PoseProtocol(PoseData):
         # The per residue average loss compared to the design profile
         designs_df['sequence_loss_evolution_per_residue'] = designs_df['sequence_loss_evolution'] / pose_length
         # The per residue average loss compared to the evolution profile
+        # Todo modify this when fragments come from elsewhere, not just interface
         designs_df['sequence_loss_fragment_per_residue'] = \
-            designs_df['sequence_loss_fragment'] / pose_df['number_fragment_residues_total']
+            designs_df['sequence_loss_fragment'] / pose_df['number_residues_interface_fragment_total']
         # The per residue average loss compared to the fragment profile
 
         # designs_df['collapse_new_positions'] /= pose_length

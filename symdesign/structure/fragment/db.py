@@ -279,8 +279,8 @@ class FragmentDatabase(info.FragmentInfo):
             metrics:
         Returns:
             {center_indices, total_indices,
-             nanohedra_score, nanohedra_score_center, multiple_fragment_ratio, number_fragment_residues_total,
-             number_fragment_residues_center, number_of_fragments,
+             nanohedra_score, nanohedra_score_center, multiple_fragment_ratio, number_residues_fragment_total,
+             number_residues_fragment_center, number_fragments,
              percent_fragment_helix, percent_fragment_strand, percent_fragment_coil}
         """
         return {
@@ -289,9 +289,9 @@ class FragmentDatabase(info.FragmentInfo):
             'nanohedra_score': metrics['total']['total']['score'],
             'nanohedra_score_center': metrics['total']['center']['score'],
             'multiple_fragment_ratio': metrics['total']['multiple_ratio'],
-            'number_fragment_residues_total': metrics['total']['total']['number'],
-            'number_fragment_residues_center': metrics['total']['center']['number'],
-            'number_of_fragments': metrics['total']['observations'],
+            'number_residues_fragment_total': metrics['total']['total']['number'],
+            'number_residues_fragment_center': metrics['total']['center']['number'],
+            'number_fragments': metrics['total']['observations'],
             # Todo ensure these metrics are accounted for if using a different cluster index
             'percent_fragment_helix': (metrics['total']['index_count'][1] / (metrics['total']['observations'] * 2)),
             'percent_fragment_strand': (metrics['total']['index_count'][2] / (metrics['total']['observations'] * 2)),

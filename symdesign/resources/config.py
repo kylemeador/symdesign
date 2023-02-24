@@ -248,7 +248,7 @@ metrics = {
     'entity_id':  # 'entity_name':
         dict(description='The name of the entity',
              direction=None, function=None, filter=None),
-    'entity_number_of_mutations':
+    'entity_number_mutations':
         dict(description='The number of mutations made',
              direction=min_, function=rank, filter=True),
     'entity_number_of_residues':
@@ -334,7 +334,7 @@ metrics = {
     'interface_area_total':
         dict(description='Total interface buried surface area',
              direction=max_, function=rank, filter=True),
-    'interface_b_factor_per_residue':
+    'interface_b_factor':
         dict(description='The average B-factor from each atom, from each interface residue',
              direction=max_, function=rank, filter=True),
     'interface_bound_activation_energy':
@@ -431,29 +431,29 @@ metrics = {
     'nanohedra_score_normalized':
         dict(description='The Nanohedra Score normalized by number of fragment residues',
              direction=max_, function=rank, filter=True),
-    'number_fragment_residues_total':
+    'number_residues_interface_fragment_total':
         dict(description='The number of residues in the interface with fragment observationsfound',
              direction=max_, function=rank, filter=True),
-    'number_fragment_residues_center':
+    'number_residues_interface_fragment_center':
         dict(description='The number of interface residues that belong to a central fragment residue',
              direction=max_, function=rank, filter=None),
-    'number_design_residues':
+    'number_residues_design':
         dict(description='The number of residues selected for sequence design',
              direction=max_, function=normalize, filter=True),
-    'number_interface_residues':
+    'number_residues_interface':
         dict(description='The total number of interface residues found in the pose (default is residue CB within 8A)',
              direction=max_, function=rank, filter=True),
-    'number_interface_residues_non_fragment':
+    'number_residues_interface_non_fragment':
         dict(description='The number of interface residues that are missing central fragment observations',
              direction=max_, function=rank, filter=True),
-    'number_of_hbonds':
+    'number_hbonds':
         dict(description='The number of residues making H-bonds in the total interface. Residues may make '
                          'more than one H-bond',
              direction=max_, function=rank, filter=True),
-    'number_of_fragments':
+    'number_fragments_interface':
         dict(description='The number of fragments found in the pose interface',
              direction=max_, function=normalize, filter=True),
-    'number_of_mutations':
+    'number_mutations':
         dict(description='The number of mutations made to the pose (ie. wild-type residue to any other '
                          'amino acid)',
              direction=min_, function=normalize, filter=True),
@@ -626,11 +626,14 @@ metrics = {
         dict(description='Root Mean Square Deviation of all CA atoms between the refined (relaxed) and '
                          'designed states',
              direction=min_, function=normalize, filter=True),
+    'rmsd_oligomer':
+        dict(description='Root Mean Square Deviation of all CA atoms between the designed and predicted oligomer',
+             direction=min_, function=normalize, filter=True),
     'rmsd_prediction_deviation':
         dict(description='The deviation in the rmsd_prediction_ensemble between the Entity and Pose structure '
                          'predictions',
              direction=min_, function=normalize, filter=True),
-    'rmsd_prediction_ensemble':
+    'rmsd_predicted_models':
         dict(description='The average Root Mean Square Deviation for all CA atoms from each predicted model',
              direction=min_, function=normalize, filter=True),
     'rosetta_reference_energy':

@@ -1792,7 +1792,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # 'n_terminal_helix': self.is_termini_helical(),
             # 'c_terminal_helix': self.is_termini_helical(termini='c'),
             # 'thermophile': thermophile
-            'number_of_residues': self.number_of_residues,
+            # 'number_of_residues': self.number_of_residues,
             'radius': self.distance_from_reference(**kwargs),
             'min_radius': self.distance_from_reference(measure='min', **kwargs),
             'max_radius': self.distance_from_reference(measure='max', **kwargs),
@@ -6166,25 +6166,10 @@ class Pose(SymmetricModel, Metrics):
         """Calculate metrics for the instance
 
         Returns:
-            {'nanohedra_score_normalized',
-             'nanohedra_score_center_normalized',
-             'nanohedra_score',
-             'nanohedra_score_center',
-             'number_fragment_residues_total',
-             'number_fragment_residues_center',
-             'multiple_fragment_ratio',
-             'percent_fragment_helix',
-             'percent_fragment_strand',
-             'percent_fragment_coil',
-             'number_of_fragments',
-             'percent_residues_fragment_interface_total',
-             'percent_residues_fragment_interface_center'
-             'number_interface_residues',
-             'number_interface_residues_non_fragment',
-             'pose_length',
-             'minimum_radius',
-             'maximum_radius',
-             'interface_b_factor_per_residue',
+            {'entity_max_radius_average_deviation',
+             'entity_min_radius_average_deviation',
+             'entity_radius_average_deviation',
+             'interface_b_factor',
              'interface1_secondary_structure_fragment_topology',
              'interface1_secondary_structure_fragment_count',
              'interface1_secondary_structure_topology',
@@ -6192,7 +6177,27 @@ class Pose(SymmetricModel, Metrics):
              'interface2_secondary_structure_fragment_topology',
              'interface2_secondary_structure_fragment_count',
              'interface2_secondary_structure_topology',
-             'interface2_secondary_structure_count'}
+             'interface2_secondary_structure_count',
+             'maximum_radius',
+             'minimum_radius',
+             'multiple_fragment_ratio',
+             'nanohedra_score_normalized',
+             'nanohedra_score_center_normalized',
+             'nanohedra_score',
+             'nanohedra_score_center',
+             'number_residues_interface_fragment_total',
+             'number_residues_interface_fragment_center',
+             'number_fragments_interface',
+             'number_residues_interface',
+             'number_residues_interface_non_fragment',
+             'percent_fragment_helix',
+             'percent_fragment_strand',
+             'percent_fragment_coil',
+             'percent_residues_fragment_interface_total',
+             'percent_residues_fragment_interface_center',
+             'percent_residues_non_fragment_interface',
+             'pose_length',
+             }
         """
         # Todo add any additional metrics to a dictionary
         #  return {**self.interface_metrics()}
@@ -7188,26 +7193,10 @@ class Pose(SymmetricModel, Metrics):
 
         Returns:
             Metrics measured as:
-            {'nanohedra_score_normalized',
-             'nanohedra_score_center_normalized',
-             'nanohedra_score',
-             'nanohedra_score_center',
-             'number_fragment_residues_total',
-             'number_fragment_residues_center',
-             'multiple_fragment_ratio',
-             'percent_fragment_helix',
-             'percent_fragment_strand',
-             'percent_fragment_coil',
-             'number_of_fragments',
-             'percent_residues_fragment_interface_total',
-             'percent_residues_fragment_interface_center',
-             'percent_residues_non_fragment_interface',
-             'number_interface_residues',
-             'number_interface_residues_non_fragment',
-             'pose_length',
-             'minimum_radius',
-             'maximum_radius',
-             'interface_b_factor_per_residue',
+            {'entity_max_radius_average_deviation',
+             'entity_min_radius_average_deviation',
+             'entity_radius_average_deviation',
+             'interface_b_factor',
              'interface1_secondary_structure_fragment_topology',
              'interface1_secondary_structure_fragment_count',
              'interface1_secondary_structure_topology',
@@ -7216,44 +7205,69 @@ class Pose(SymmetricModel, Metrics):
              'interface2_secondary_structure_fragment_count',
              'interface2_secondary_structure_topology',
              'interface2_secondary_structure_count',
-             'entity_radius_ratio_#v#',
-             'entity_min_radius_ratio_#v#',
-             'entity_max_radius_ratio_#v#',
-             'entity_number_of_residues_ratio_#v#',
-             'entity_radius_average_deviation',
-             'entity_min_radius_average_deviation',
-             'entity_max_radius_average_deviation',
-             'entity_number_of_residues_average_deviation'
+             'maximum_radius',
+             'minimum_radius',
+             'multiple_fragment_ratio',
+             'nanohedra_score_normalized',
+             'nanohedra_score_center_normalized',
+             'nanohedra_score',
+             'nanohedra_score_center',
+             'number_residues_interface_fragment_total',
+             'number_residues_interface_fragment_center',
+             'number_fragments_interface',
+             'number_residues_interface',
+             'number_residues_interface_non_fragment',
+             'percent_fragment_helix',
+             'percent_fragment_strand',
+             'percent_fragment_coil',
+             'percent_residues_fragment_interface_total',
+             'percent_residues_fragment_interface_center',
+             'percent_residues_non_fragment_interface',
+             'pose_length',
              }
+             # 'entity_radius_ratio_#v#',
+             # 'entity_min_radius_ratio_#v#',
+             # 'entity_max_radius_ratio_#v#',
+             # 'entity_number_of_residues_ratio_#v#',
+             # 'entity_number_of_residues_average_deviation,
         """
         pose_metrics = self.get_fragment_metrics(total_interface=True)
         # Remove *_indices from further analysis
         self.center_residue_indices = pose_metrics.pop('center_indices', [])
         pose_metrics.pop('total_indices')
+        number_residues_fragment_center = pose_metrics.pop('number_residues_fragment_center')
+        number_residues_fragment_total = pose_metrics.pop('number_residues_fragment_total')
 
         interface_residues = self.interface_residues
-        number_interface_residues = len(interface_residues)
-        number_interface_residues_non_fragment = \
-            max(number_interface_residues - pose_metrics['number_fragment_residues_center'], 0)
+        number_residues_interface = len(interface_residues)
+        number_residues_interface_non_fragment = number_residues_interface - number_residues_fragment_center
+        # if number_residues_interface_non_fragment < 0:
+        #     raise ValueError(f'Fragment metrics are broken due to "number_residues_interface_non_fragment" > 1')
         # Interface B Factor
         int_b_factor = sum(residue.b_factor for residue in interface_residues)
         try:  # If interface_distance is different from interface query and fragment generation these can be < 0 or > 1
-            percent_residues_fragment_interface_center = \
-                min(pose_metrics['number_fragment_residues_center'] / number_interface_residues, 1)
+            percent_residues_fragment_interface_center = number_residues_fragment_center / number_residues_interface
+            # This value can be more than 1 so not a percent...
+            # percent_residues_fragment_interface_total = number_residues_fragment_total / number_residues_interface
             percent_residues_fragment_interface_total = \
-                min(pose_metrics['number_fragment_residues_total'] / number_interface_residues, 1)
-            percent_interface_residues_non_fragment = \
-                min(number_interface_residues_non_fragment / number_interface_residues, 1)
-            ave_b_factor = int_b_factor / number_interface_residues
+                min(number_residues_fragment_total / number_residues_interface, 1)
+            percent_interface_residues_non_fragment = number_residues_interface_non_fragment / number_residues_interface
+            # if percent_residues_fragment_interface_center > 1:
+            #     raise ValueError(f'Fragment metrics are broken due to "percent_residues_fragment_interface_center" > 1')
+            # if percent_interface_residues_non_fragment > 1:
+            #     raise ValueError(f'Fragment metrics are broken due to "percent_interface_residues_non_fragment" > 1')
+            ave_b_factor = int_b_factor / number_residues_interface
         except ZeroDivisionError:
             self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your design?')
             ave_b_factor = percent_residues_fragment_interface_center = percent_residues_fragment_interface_total = \
                 percent_interface_residues_non_fragment = 0.
 
         pose_metrics.update({
-            'interface_b_factor_per_residue': ave_b_factor,
-            'number_interface_residues': number_interface_residues,
-            'number_interface_residues_non_fragment': number_interface_residues_non_fragment,
+            'interface_b_factor': ave_b_factor,
+            'number_residues_interface': number_residues_interface,
+            'number_residues_interface_fragment_center': number_residues_fragment_center,
+            'number_residues_interface_fragment_total': number_residues_fragment_total,
+            'number_residues_interface_non_fragment': number_residues_interface_non_fragment,
             'percent_residues_non_fragment_interface': percent_interface_residues_non_fragment,
             'percent_residues_fragment_interface_total': percent_residues_fragment_interface_total,
             'percent_residues_fragment_interface_center': percent_residues_fragment_interface_center})
@@ -7363,23 +7377,23 @@ class Pose(SymmetricModel, Metrics):
         # pose_metrics['pose_length'] = \
         #     sum(pose_metrics[f'entity{idx}_number_of_residues'] for idx in range(1, self.number_of_entities + 1))
 
-        radius_ratio_sum = min_ratio_sum = max_ratio_sum = residue_ratio_sum = 0.
+        radius_ratio_sum = min_ratio_sum = max_ratio_sum = 0.  # residue_ratio_sum
         counter = 1
         # index_combinations = combinations(range(1, 1 + len(entity_metrics)), 2)
         for counter, (metrics1, metrics2) in enumerate(combinations(entity_metrics, 2), counter):
             radius_ratio = metrics1.radius / metrics2.radius
             min_ratio = metrics1.min_radius / metrics2.min_radius
             max_ratio = metrics1.max_radius / metrics2.max_radius
-            residue_ratio = metrics1.number_of_residues / metrics2.number_of_residues
+            # residue_ratio = metrics1.number_of_residues / metrics2.number_of_residues
             radius_ratio_sum += abs(1 - radius_ratio)
             min_ratio_sum += abs(1 - min_ratio)
             max_ratio_sum += abs(1 - max_ratio)
-            residue_ratio_sum += abs(1 - residue_ratio)
-            # entity_idx1, entity_idx2 = next(index_combinations)
             # Todo
             #  These could be useful in the PoseMetrics selection section to calculate on the fly
             #  They are cumbersome and not recommended DB etiquette
             #   (i.e. take up unnecessary db space, should be a table)
+            # residue_ratio_sum += abs(1 - residue_ratio)
+            # entity_idx1, entity_idx2 = next(index_combinations)
             # pose_metrics.update({f'entity_radius_ratio_{entity_idx1}v{entity_idx2}': radius_ratio,
             #                      f'entity_min_radius_ratio_{entity_idx1}v{entity_idx2}': min_ratio,
             #                      f'entity_max_radius_ratio_{entity_idx1}v{entity_idx2}': max_ratio,
@@ -7409,7 +7423,8 @@ class Pose(SymmetricModel, Metrics):
         pose_metrics.update({'entity_radius_average_deviation': radius_ratio_sum / counter,
                              'entity_min_radius_average_deviation': min_ratio_sum / counter,
                              'entity_max_radius_average_deviation': max_ratio_sum / counter,
-                             'entity_number_of_residues_average_deviation': residue_ratio_sum / counter})
+                             # 'entity_number_of_residues_average_deviation': residue_ratio_sum / counter
+                             })
         return pose_metrics
 
     def per_residue_interface_errat(self) -> dict[str, list[float]]:
@@ -8246,22 +8261,23 @@ class Pose(SymmetricModel, Metrics):
             entity1: The first Entity object to identify the interface if per_interface=True
             entity2: The second Entity object to identify the interface if per_interface=True
         Returns:
-            A mapping of the following metrics for the requested structural region. Will include a single mapping if
-                total_interface, a mapping for each interface if by_interface, and a mapping for each Entity if
-                by_entity:
+            A mapping of the following metrics for the requested structural region -
                 {'center_indices',
                  'total_indices',
                  'nanohedra_score',
                  'nanohedra_score_center',
                  'nanohedra_score_normalized',
                  'nanohedra_score_center_normalized',
-                 'number_fragment_residues_total',
-                 'number_fragment_residues_center',
+                 'number_residues_fragment_total',
+                 'number_residues_fragment_center',
                  'multiple_frag_ratio',
-                 'number_of_fragments'
+                 'number_fragments_interface'
                  'percent_fragment_helix'
                  'percent_fragment_strand'
-                 'percent_fragment_coil'}
+                 'percent_fragment_coil'
+                 }
+            Will include a single mapping if total_interface, a mapping for each interface if by_interface, and a
+            mapping for each Entity if by_entity
         """
         # Todo consolidate return to (dict[(dict)]) like by_entity
         # Todo incorporate 'fragment_cluster_ids': ','.join(clusters),
@@ -8277,7 +8293,7 @@ class Pose(SymmetricModel, Metrics):
         if by_interface:
             metric_d = deepcopy(fragment.metrics.fragment_metric_template)
             if entity1 is None or entity2 is None:
-                self.log.error(f"{self.get_fragment_metrics.__name__}: entity1 and entity2 can't be None")
+                self.log.error(f"{self.get_fragment_metrics.__name__}: 'entity1' and 'entity2' can't be None")
             else:
                 for query_pair, _metrics in self.fragment_metrics.items():
                     # Check either orientation as the function query could vary from self.fragment_metrics
@@ -8301,7 +8317,7 @@ class Pose(SymmetricModel, Metrics):
                     metric_d[entity]['nanohedra_score'] += _metrics[align_type]['total']['score']
                     metric_d[entity]['nanohedra_score_center'] += _metrics[align_type]['center']['score']
                     metric_d[entity]['multiple_fragment_ratio'] += _metrics[align_type]['multiple_ratio']
-                    metric_d[entity]['number_of_fragments'] += _metrics['total']['observations']
+                    metric_d[entity]['number_fragments_interface'] += _metrics['total']['observations']
                     metric_d[entity]['percent_fragment_helix'] += _metrics[align_type]['index_count'][1]
                     metric_d[entity]['percent_fragment_strand'] += _metrics[align_type]['index_count'][2]
                     metric_d[entity]['percent_fragment_coil'] += _metrics[align_type]['index_count'][3] \
@@ -8309,17 +8325,17 @@ class Pose(SymmetricModel, Metrics):
 
             # Finally, tabulate based on the total for each Entity
             for entity, _metrics in metric_d.items():
-                _metrics['number_fragment_residues_total'] = len(_metrics['total_indices'])
-                _metrics['number_fragment_residues_center'] = len(_metrics['center_indices'])
-                number_of_fragments = _metrics['number_of_fragments']
-                _metrics['percent_fragment_helix'] /= number_of_fragments
-                _metrics['percent_fragment_strand'] /= number_of_fragments
-                _metrics['percent_fragment_coil'] /= number_of_fragments
+                _metrics['number_residues_fragment_total'] = len(_metrics['total_indices'])
+                _metrics['number_residues_fragment_center'] = len(_metrics['center_indices'])
+                number_fragments_interface = _metrics['number_fragments_interface']
+                _metrics['percent_fragment_helix'] /= number_fragments_interface
+                _metrics['percent_fragment_strand'] /= number_fragments_interface
+                _metrics['percent_fragment_coil'] /= number_fragments_interface
                 try:
                     _metrics['nanohedra_score_normalized'] = \
-                        _metrics['nanohedra_score'] / _metrics['number_fragment_residues_total']
+                        _metrics['nanohedra_score'] / _metrics['number_residues_fragment_total']
                     _metrics['nanohedra_score_center_normalized'] = \
-                        _metrics['nanohedra_score_center'] / _metrics['number_fragment_residues_center']
+                        _metrics['nanohedra_score_center'] / _metrics['number_residues_fragment_center']
                 except ZeroDivisionError:
                     self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your '
                                      f'design?')
@@ -8337,16 +8353,16 @@ class Pose(SymmetricModel, Metrics):
                 metric_d['nanohedra_score'] += _metrics['total']['total']['score']
                 metric_d['nanohedra_score_center'] += _metrics['total']['center']['score']
                 metric_d['multiple_fragment_ratio'] += _metrics['total']['multiple_ratio']
-                metric_d['number_of_fragments'] += _metrics['total']['observations']
+                metric_d['number_fragments_interface'] += _metrics['total']['observations']
                 metric_d['percent_fragment_helix'] += _metrics['total']['index_count'][1]
                 metric_d['percent_fragment_strand'] += _metrics['total']['index_count'][2]
                 metric_d['percent_fragment_coil'] += _metrics['total']['index_count'][3] \
                     + _metrics['total']['index_count'][4] + _metrics['total']['index_count'][5]
 
             # Finally, tabulate based on the total
-            metric_d['number_fragment_residues_total'] = len(metric_d['total_indices'])
-            metric_d['number_fragment_residues_center'] = len(metric_d['center_indices'])
-            total_observations = metric_d['number_of_fragments'] * 2  # 2x observations in ['total']['index_count']
+            metric_d['number_residues_fragment_total'] = len(metric_d['total_indices'])
+            metric_d['number_residues_fragment_center'] = len(metric_d['center_indices'])
+            total_observations = metric_d['number_fragments_interface'] * 2  # 2x observations in ['total']['index_count']
             try:
                 metric_d['percent_fragment_helix'] /= total_observations
                 metric_d['percent_fragment_strand'] /= total_observations
@@ -8356,9 +8372,9 @@ class Pose(SymmetricModel, Metrics):
                     metric_d['percent_fragment_coil'] = 0.
             try:
                 metric_d['nanohedra_score_normalized'] = \
-                    metric_d['nanohedra_score'] / metric_d['number_fragment_residues_total']
+                    metric_d['nanohedra_score'] / metric_d['number_residues_fragment_total']
                 metric_d['nanohedra_score_center_normalized'] = \
-                    metric_d['nanohedra_score_center']/metric_d['number_fragment_residues_center']
+                    metric_d['nanohedra_score_center']/metric_d['number_residues_fragment_center']
             except ZeroDivisionError:
                 self.log.debug(f'{self.name}: No fragment residues were found')
                 metric_d['nanohedra_score_normalized'] = metric_d['nanohedra_score_center_normalized'] = 0.

@@ -47,9 +47,9 @@ sasa_metrics_rename_mapping = dict([*zip(per_residue_interface_states, interface
 # Ex: 0.45, 0.22, 0.04, 0.19, 0.01, 0.2, 0.04, 0.19, 0.01, 0.19, 0.01, 0.21, 0.06, 0.17, 0.01, 0.21, -0.04, 0.22
 bsa_tolerance = 0.25
 energy_metrics_rename_mapping = dict(zip(per_residue_energy_states, energy_metric_names))
-# other_metrics_rename_mapping = dict(hbond='number_of_hbonds', design_residue='total_design_residues')
+# other_metrics_rename_mapping = dict(hbond='number_hbonds', design_residue='total_design_residues')
 renamed_design_metrics = {
-    'design_residue': 'number_design_residues', 'hbond': 'number_of_hbonds', 'mutation': 'number_of_mutations',
+    'design_residue': 'number_residues_design', 'hbond': 'number_hbonds', 'mutation': 'number_mutations',
     'type': 'sequence' 
 }
 
@@ -61,27 +61,16 @@ collapse_thresholds = {
 collapse_reported_std = .05
 idx_slice = pd.IndexSlice
 filter_df = pd.DataFrame(config.metrics)
-pose_metrics = [
-    'nanohedra_score_normalized',
-    'nanohedra_score_center_normalized',
-    'nanohedra_score',
-    'nanohedra_score_center',
-    'number_fragment_residues_total',
-    'number_fragment_residues_center',
-    'multiple_fragment_ratio',
-    'percent_fragment_helix',
-    'percent_fragment_strand',
-    'percent_fragment_coil',
-    'number_of_fragments',
-    'percent_residues_fragment_interface_total',
-    'percent_residues_fragment_interface_center',
-    'percent_residues_non_fragment_interface',
-    'number_interface_residues',
-    'number_interface_residues_non_fragment',
-    'pose_length',
-    'minimum_radius',
-    'maximum_radius',
-    'interface_b_factor_per_residue',
+pose_metrics = {
+    # 'entity_max_radius_ratio_v',
+    # 'entity_min_radius_ratio_v',
+    # 'entity_number_of_residues_ratio_v',
+    # 'entity_radius_ratio_v',
+    'entity_max_radius_average_deviation',
+    'entity_min_radius_average_deviation',
+    # 'entity_number_of_residues_average_deviation'
+    'entity_radius_average_deviation',
+    'interface_b_factor',
     'interface1_secondary_structure_fragment_topology',
     'interface1_secondary_structure_fragment_count',
     'interface1_secondary_structure_topology',
@@ -90,47 +79,78 @@ pose_metrics = [
     'interface2_secondary_structure_fragment_count',
     'interface2_secondary_structure_topology',
     'interface2_secondary_structure_count',
-    'entity_radius_ratio_v',
-    'entity_min_radius_ratio_v',
-    'entity_max_radius_ratio_v',
-    'entity_number_of_residues_ratio_v',
-    'entity_radius_average_deviation',
-    'entity_min_radius_average_deviation',
-    'entity_max_radius_average_deviation',
-    'entity_number_of_residues_average_deviation'
-]
-nanohedra_metrics = ['multiple_fragment_ratio', 'nanohedra_score', 'nanohedra_score_center',
-                     'nanohedra_score_normalized', 'nanohedra_score_center_normalized',
-                     'number_fragment_residues_center', 'number_fragment_residues_total',
-                     'number_interface_residues', 'number_of_fragments',
-                     'percent_fragment_helix', 'percent_fragment_strand', 'percent_fragment_coil',
-                     'percent_residues_fragment_interface_total', 'percent_residues_fragment_interface_center',
-                     'number_interface_residues_non_fragment']
+    'maximum_radius',
+    'minimum_radius',
+    'multiple_fragment_ratio',
+    'nanohedra_score_normalized',
+    'nanohedra_score_center_normalized',
+    'nanohedra_score',
+    'nanohedra_score_center',
+    'number_residues_interface_fragment_total',
+    'number_residues_interface_fragment_center',
+    'number_fragments_interface',
+    'number_residues_interface',
+    'number_residues_interface_non_fragment',
+    'percent_fragment_helix',
+    'percent_fragment_strand',
+    'percent_fragment_coil',
+    'percent_residues_fragment_interface_total',
+    'percent_residues_fragment_interface_center',
+    'percent_residues_non_fragment_interface',
+    'pose_length',
+}
+fragment_metrics = {
+    'interface1_secondary_structure_fragment_topology',
+    'interface1_secondary_structure_fragment_count',
+    'interface1_secondary_structure_topology',
+    'interface1_secondary_structure_count',
+    'interface2_secondary_structure_fragment_topology',
+    'interface2_secondary_structure_fragment_count',
+    'interface2_secondary_structure_topology',
+    'interface2_secondary_structure_count',
+    'maximum_radius',
+    'minimum_radius',
+    'multiple_fragment_ratio',
+    'nanohedra_score_normalized',
+    'nanohedra_score_center_normalized',
+    'nanohedra_score',
+    'nanohedra_score_center',
+    'number_residues_interface_fragment_total',
+    'number_residues_interface_fragment_center',
+    'number_fragments_interface',
+    'number_residues_interface',
+    'number_residues_interface_non_fragment',
+    'percent_fragment_helix',
+    'percent_fragment_strand',
+    'percent_fragment_coil',
+    'percent_residues_fragment_interface_total',
+    'percent_residues_fragment_interface_center',
+    'percent_residues_non_fragment_interface',
+}
 # These metrics are necessary for all calculations performed during the analysis script.
 # They are formatted differently from Rosetta output. If missing, something will fail
-necessary_metrics = {'buried_unsatisfied_hbonds_complex', 'buns1_unbound', 'contact_count', 'coordinate_constraint',
-                     'favor_residue_energy', 'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound',
-                     # 'interface_connectivity1',
-                     'interface_separation',
-                     # 'interface_energy_1_bound', 'interface_energy_1_unbound',  'interface_energy_complex',
-                     'interaction_energy_complex', 'rosetta_reference_energy', 'shape_complementarity',
-                     # putils.protocol,
-                     # 'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
-                     # 'sasa_hydrophobic_1_bound', 'sasa_polar_1_bound', 'sasa_total_1_bound',
-                     # 'solvation_energy_complex', 'solvation_energy_1_bound', 'solvation_energy_1_unbound'
-                     }
-#                      'buns2_unbound',
-#                      'hbonds_res_selection_2_bound', 'interface_connectivity2',
-#                      'interface_energy_2_bound', 'interface_energy_2_unbound',
-#                      'sasa_hydrophobic_2_bound', 'sasa_polar_2_bound', 'sasa_total_2_bound',
-#                      'solvation_energy_2_bound', 'solvation_energy_2_unbound',
-#                      }
-#                    'rmsd'
-#                      'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total',
-#                      'fsp_total_stability', 'full_stability_complex',
-#                      'number_of_hbonds', 'number_interface_residues',
-#                      'average_fragment_z_score', 'nanohedra_score', 'number_of_fragments',
-#                      'interface_b_factor_per_res',
+rosetta_required = {
+    'buried_unsatisfied_hbonds_complex', 'buns1_unbound', 'contact_count', 'coordinate_constraint',
+    'favor_residue_energy', 'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound',
+    'interface_separation', 'interaction_energy_complex', 'rosetta_reference_energy', 'shape_complementarity',
+    # 'interface_connectivity1',
+    # 'interface_energy_1_bound', 'interface_energy_1_unbound',  'interface_energy_complex',
+    # putils.protocol,
+    # 'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
+    # 'sasa_hydrophobic_1_bound', 'sasa_polar_1_bound', 'sasa_total_1_bound',
+    # 'solvation_energy_complex', 'solvation_energy_1_bound', 'solvation_energy_1_unbound'
+    # 'buns2_unbound',
+    # 'hbonds_res_selection_2_bound', 'interface_connectivity2',
+    # 'interface_energy_2_bound', 'interface_energy_2_unbound',
+    # 'sasa_hydrophobic_2_bound', 'sasa_polar_2_bound', 'sasa_total_2_bound',
+    # 'solvation_energy_2_bound', 'solvation_energy_2_unbound',
+    # 'rmsd'
+    # 'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total',
+    # 'fsp_total_stability', 'full_stability_complex',
+    # 'number_hbonds', 'number_residues_interface',
+    # 'average_fragment_z_score', 'nanohedra_score', 'number_fragments_interface',
+    # 'interface_b_factor_per_res',
+}
 columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation',
                      'shape_complementarity_core_median_dist': 'interface_core_separation',
                      'ref': 'rosetta_reference_energy',
@@ -229,7 +249,7 @@ rosetta_delta_pairs = {
 }
 #     'int_energy_context_delta': ('int_energy_context_complex', 'int_energy_context_oligomer'),
 #     'full_stability_delta': ('full_stability_complex', 'full_stability_oligomer')}
-#     'number_of_hbonds': ('hbonds_res_selection_complex', 'hbonds_oligomer')}
+#     'number_hbonds': ('hbonds_res_selection_complex', 'hbonds_oligomer')}
 
 
 # divide columns using tuple [0] / [1] to make divide column
@@ -240,9 +260,9 @@ rosetta_division_pairs = {
 division_pairs = {
     'percent_interface_area_hydrophobic': ('interface_area_hydrophobic', 'interface_area_total'),
     'percent_interface_area_polar': ('interface_area_polar', 'interface_area_total'),
-    'percent_core': ('core', 'number_interface_residues'),
-    'percent_rim': ('rim', 'number_interface_residues'),
-    'percent_support': ('support', 'number_interface_residues'),
+    'percent_core': ('core', 'number_residues_interface'),
+    'percent_rim': ('rim', 'number_residues_interface'),
+    'percent_support': ('support', 'number_residues_interface'),
 }  # Rosetta
 
 # All Rosetta based score terms ref is most useful to keep for whole pose to give "unfolded ground state"
@@ -259,7 +279,7 @@ protocols_of_interest = {putils.design_profile, putils.structure_background, put
 protocol_column_types = ['mean', 'sequence_design']  # 'stats',
 # Specific columns of interest to distinguish between design trajectories
 significance_columns = ['buried_unsatisfied_hbonds',
-                        'contact_count', 'interface_energy', 'interface_area_total', 'number_of_hbonds',
+                        'contact_count', 'interface_energy', 'interface_area_total', 'number_hbonds',
                         'percent_interface_area_hydrophobic', 'shape_complementarity', 'interface_solvation_energy']
 # sequence_columns = ['divergence_evolution_per_residue', 'divergence_fragment_per_residue',
 #                     'observed_evolution', 'observed_fragment']
@@ -1267,7 +1287,7 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dic
     for metric_name, filter_ops in metrics.items():
         if isinstance(filter_ops, list):
             # Where the metrics = {metric: [(operation, pre_operation, pre_kwargs, value),], ...}
-            for idx, filter_op in enumerate(filter_ops):
+            for idx, filter_op in enumerate(filter_ops, 1):
                 operation, pre_operation, pre_kwargs, value = filter_op
                 print_filters.append((metric_name, f'{flags.operator_strings[operation]} {value}'))
 
@@ -1276,7 +1296,8 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dic
                 except KeyError:  # metric_name is missing from df
                     logger.error(f"The metric {metric_name} wasn't available in the DataFrame")
                     filtered_df = df
-                filtered_indices[f'{metric_name}{idx}'] = filtered_df.index.to_list()
+                # Add and index as the metric_name could be used a couple of times
+                filtered_indices[f'{metric_name}-{idx}'] = filtered_df.index.to_list()
             # Currently below operations aren't necessary because of how index_intersection works
             #  indices = operation1(pre_operation(**kwargs)[metric], value)
             #  AND if more than one argument, only 2 args are possible...

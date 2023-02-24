@@ -160,7 +160,7 @@ class PoseMetrics(Base):
     pose = relationship('PoseJob', back_populates='metrics')
 
     # design_ids = relationship('DesignMetrics', back_populates='pose')
-    number_of_designs = Column(Integer)
+    number_designs = Column(Integer)  # Todo integrate with full pose metric acquisition
     # Dock features
     proteinmpnn_dock_cross_entropy_loss = Column(Float)
     proteinmpnn_dock_cross_entropy_per_residue = Column(Float)
@@ -185,61 +185,38 @@ class PoseMetrics(Base):
     dock_collapse_variance = Column(Float)
     dock_collapse_violation = Column(Boolean)
     dock_hydrophobicity = Column(Float)
-    # Fragment features
+    # Pose features
+    #  Fragment features
+    interface_secondary_structure_fragment_topology = Column(String(120))
+    interface_secondary_structure_fragment_count = Column(Integer)
     nanohedra_score_normalized = Column(Float)
     nanohedra_score_center_normalized = Column(Float)
     nanohedra_score = Column(Float)
     nanohedra_score_center = Column(Float)
-    number_fragment_residues_total = Column(Integer)
-    number_fragment_residues_center = Column(Integer)
     multiple_fragment_ratio = Column(Float)
+    number_residues_interface_fragment_total = Column(Integer)
+    number_residues_interface_fragment_center = Column(Integer)
+    number_fragments_interface = Column(Integer)
+    number_residues_interface_non_fragment = Column(Float)
     percent_fragment_helix = Column(Float)
     percent_fragment_strand = Column(Float)
     percent_fragment_coil = Column(Float)
-    number_of_fragments = Column(Integer)
     percent_residues_fragment_interface_total = Column(Float)
     percent_residues_fragment_interface_center = Column(Float)
     percent_residues_non_fragment_interface = Column(Float)
-    number_interface_residues_non_fragment = Column(Float)
-    # design_dimension = Column(Integer)
-    # entity_max_radius = Column(Float)  # Has a # after entity LIST
-    # entity_min_radius = Column(Float)  # Has a # after entity LIST
-    # entity_name = Column(String(30))  # Has a # after entity LIST
-    # entity_number_of_residues = Column(Integer)  # Has a # after entity LIST
-    # entity_radius = Column(Float)  # Has a # after entity LIST
-    # entity_symmetry_group = Column(String(4))  # Has a # after entity LIST
-    # entity_n_terminal_helix = Column(Boolean)  # Has a # after entity LIST
-    # entity_c_terminal_helix = Column(Boolean)  # Has a # after entity LIST
-    # entity_n_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
-    # entity_c_terminal_orientation = Column(Boolean)  # Has a # after entity LIST
-    # entity_thermophilicity = Column(Boolean)  # Has a # after entity LIST
-    # interface1_secondary_structure_fragment_count = Column(Integer)  # Added after the fact
-    # interface1_secondary_structure_fragment_topology = Column(String)  # Added after the fact
-    # interface1_secondary_structure_count = Column(Integer)  # Added after the fact
-    # interface1_secondary_structure_topology = Column(String)  # Added after the fact
-    # interface2_secondary_structure_fragment_count = Column(Integer)  # Added after the fact
-    # interface2_secondary_structure_fragment_topology = Column(String)  # Added after the fact
-    # interface2_secondary_structure_count = Column(Integer)  # Added after the fact
-    # interface2_secondary_structure_topology = Column(String)  # Added after the fact
-    # entity_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
-    # entity_min_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
-    # entity_max_radius_ratio_v = Column(Float)  # Has a #v# after ratio LIST
-    # entity_number_of_residues_ratio_v = Column(Float)  # Has a #v# after ratio LIST
+    #  Fragment features end
     entity_max_radius_average_deviation = Column(Float)
     entity_min_radius_average_deviation = Column(Float)
-    entity_number_of_residues_average_deviation = Column(Float)
+    # entity_number_of_residues_average_deviation = Column(Float)
     entity_radius_average_deviation = Column(Float)
-    interface_b_factor_per_residue = Column(Float)
-    interface_secondary_structure_fragment_topology = Column(String(120))
-    interface_secondary_structure_fragment_count = Column(Integer)
+    interface_b_factor = Column(Float)
     interface_secondary_structure_topology = Column(String(120))
     interface_secondary_structure_count = Column(Integer)
-    minimum_radius = Column(Float)
     maximum_radius = Column(Float)
-    number_interface_residues = Column(Integer)
-    # number_design_residues = Column(Integer)
-    # sequence = Column(String(config.MAXIMUM_SEQUENCE))
+    minimum_radius = Column(Float)
+    number_residues_interface = Column(Integer)
     pose_length = Column(Integer)
+    # Pose features end
     pose_thermophilicity = Column(Float)
     """Thermophilicity implies this is a spectrum, while thermophilic implies binary"""
 
@@ -424,7 +401,7 @@ class EntityMetrics(Base):
     entity_id = Column(ForeignKey('entity_data.id'))
     entity = relationship('EntityData', back_populates='metrics')
 
-    number_of_residues = Column(Integer)  # entity_ is used in config.metrics
+    # number_of_residues = Column(Integer)  # entity_ is used in config.metrics
     max_radius = Column(Float)  # entity_ is used in config.metrics
     min_radius = Column(Float)  # entity_ is used in config.metrics
     radius = Column(Float)  # entity_ is used in config.metrics
@@ -645,10 +622,10 @@ class DesignMetrics(Base):
     design = relationship('DesignData', back_populates='metrics')
 
     # Pose features
-    # number_interface_residues = Column(Integer)
+    # number_residues_interface = Column(Integer)
     contact_order = Column(Float)
     # Design metrics
-    number_design_residues = Column(Integer)  # ResidueMetrics sum 'design_residue', nullable=False)
+    number_residues_design = Column(Integer)  # ResidueMetrics sum 'design_residue', nullable=False)
     # Rosetta metrics
     buried_unsatisfied_hbond_density = Column(Float)
     buried_unsatisfied_hbonds = Column(Integer)
@@ -670,8 +647,8 @@ class DesignMetrics(Base):
     # solvation_energy = Column(Float)
     # solvation_energy_complex = Column(Float)
     # Sequence metrics
+    number_mutations = Column(Integer)  # ResidueMetrics sum 'mutation'
     percent_mutations = Column(Float)
-    number_of_mutations = Column(Integer)  # ResidueMetrics sum 'mutation'
     # SymDesign metrics
     interface_local_density = Column(Float)
     interface_composition_similarity = Column(Float)
@@ -687,7 +664,7 @@ class DesignMetrics(Base):
     interface_solvation_energy_complex = Column(Float)
     interface_solvation_energy_bound = Column(Float)
     interface_solvation_energy_unbound = Column(Float)
-    number_of_hbonds = Column(Integer)
+    number_hbonds = Column(Integer)
     # column name is changed
     area_hydrophobic_complex = Column(Float)
     area_hydrophobic_unbound = Column(Float)
@@ -796,7 +773,7 @@ class DesignEntityMetrics(Base):
     # Design descriptors
     interface_connectivity = Column(Float)  # entity_ is in config.metrics
     percent_mutations = Column(Float)  # entity_ is in config.metrics
-    number_of_mutations = Column(Integer)  # entity_ is in config.metrics. ResidueMetrics sum 'mutation'
+    number_mutations = Column(Integer)  # entity_ is in config.metrics. ResidueMetrics sum 'mutation'
     # Alphafold metrics
     plddt = Column(Float)  # entity_ is in config.metrics
     predicted_aligned_error = Column(Float)  # entity_ is in config.metrics

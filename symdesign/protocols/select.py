@@ -369,7 +369,7 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #     # if job.metric == 'score':
     #     #     metric_design_dir_pairs = [(pose_job.score, pose_job.path) for pose_job in pose_jobs]
     #     # elif job.metric == 'fragments_matched':
-    #     #     metric_design_dir_pairs = [(pose_job.number_of_fragments, pose_job.path)
+    #     #     metric_design_dir_pairs = [(pose_job.number_fragments_interface, pose_job.path)
     #     #                                for pose_job in pose_jobs]
     #     # else:  # This is impossible with the argparse options
     #     #     raise NotImplementedError(f'The metric "{job.metric}" is not supported!')
