@@ -1529,32 +1529,24 @@ def prioritize_design_indices_sql(df: pd.DataFrame | AnyStr, filter: dict = None
         simple_df = simple_df.loc[final_indices, :]
 
     # {column: {'direction': min_, 'value': 0.3, 'idx_slice': ['0001', '0002', ...]}, ...}
-    if weight is not None:
-        if weight and isinstance(weight, dict):
+    # if weight is not None or default_weight in simple_df.columns:
+    if weight:
+        if isinstance(weight, dict):
             # These were passed as parsed values
             weights = weight
         else:  # --weight was provided, but as a boolean-esq dict. Query the user for them
             available_metrics = simple_df.columns.to_list()
             weights = query_user_for_metrics(available_metrics, df=simple_df, mode='weight', level='design')
-
         logger.info(f'Using weighting parameters:\n\t%s' % '\n\t'.join(utils.pretty_format_table(weights.items())))
-        design_ranking_s = pareto_optimize_trajectories(simple_df, weights=weights, **kwargs)
-        # design_ranking_s.name = selection_weight_column
-        # final_df = pd.merge(design_ranking_s, simple_df, left_index=True, right_index=True)
-        simple_df[selection_weight_column] = design_ranking_s
-        final_df = simple_df
-        # final_df = pd.concat([simple_df], keys=[('pose', 'metric')], axis=1)
-        # simple_df = pd.concat([simple_df], keys=df.columns.levels[0:1])
-        # weighted_df = pd.concat([design_ranking_s], keys=[('-'.join(weights), 'sum', 'selection_weight')], axis=1)
-        # final_df = pd.merge(weighted_df, simple_df, left_index=True, right_index=True)
-        # final_df = pd.merge(weighted_df, df, left_index=True, right_index=True)
+    elif default_weight in simple_df.columns:
+        weights = None
     else:
-        if default_weight in simple_df.columns:
-            final_df = simple_df.loc[simple_df.sort_values(default_weight, ascending=True).index, :]
-            final_df[selection_weight_column] = simple_df[default_weight]
-        else:
-            raise KeyError(f"Couldn't find the metric key {default_weight} in the DataFrame. Available metric "
-                           f"keys:\n\t{simple_df.columns.tolist()}")
+        raise KeyError(f"No 'weight' provided and couldn't find the metric key {default_weight} in the DataFrame. "
+                       f"Available metric keys:\n\t{simple_df.columns.tolist()}")
+    ranking_s = pareto_optimize_trajectories(simple_df, weights=weights, default_weight=default_weight, **kwargs)
+    # Using the sorted indices of the ranking_s, rename, then join the existing df indices to it
+    # This maintains ranking order
+    final_df = ranking_s.rename(selection_weight_column).to_frame().join(simple_df)
 
     return final_df
 
