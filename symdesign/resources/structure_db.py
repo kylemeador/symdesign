@@ -930,8 +930,11 @@ class StructureDatabase(Database):
                     # Indicate that this ProteinMetadata has been processed
                     for protein in protein_data_to_refine:
                         protein.loop_modeled = True
-                        protein.model_source = self.refined.path_to(name=protein.entity_id)
-
+                        # protein.model_source = self.refined.path_to(name=protein.entity_id)
+            else:
+                # Indicate that this ProteinMetadata has been processed
+                for protein in protein_data_to_loop_model:
+                    protein.loop_modeled = False
         refine_names = self.refined.retrieve_names()
         refine_dir = self.refined.location
         # Identify the entities to refine before proceeding
@@ -1005,7 +1008,11 @@ class StructureDatabase(Database):
                 # Indicate that this ProteinMetadata has been processed
                 for protein in protein_data_to_refine:
                     protein.refined = True
-                    protein.model_source = self.refined.path_to(name=protein.entity_id)
+                    # protein.model_source = self.refined.path_to(name=protein.entity_id)
+            else:
+                # Indicate that this ProteinMetadata has been processed
+                for protein in protein_data_to_refine:
+                    protein.refined = False
 
         return info_messages, pre_refine, pre_loop_model
 
