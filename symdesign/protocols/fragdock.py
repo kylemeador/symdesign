@@ -3235,9 +3235,13 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
         logger.debug(f'Found poses_df with columns: {poses_df.columns.tolist()}')
         logger.debug(f'Found poses_df with index: {poses_df.index.tolist()}')
-        weighted_trajectory_s = metrics.pareto_optimize_trajectories(poses_df, weights=job.weight,
-                                                                     default_sort=default_weight_metric)
-        # weighted_trajectory_s returns sorted based on globally best transform
+        weighted_trajectory_df = metrics.prioritize_design_indices_sql(poses_df, filter=job.dock.filter,
+                                                                       weight=job.dock.weight,
+                                                                       default_weight=default_weight_metric)
+        weighted_trajectory_s = weighted_trajectory_df[metrics.selection_weight_column]
+        # weighted_trajectory_s = metrics.pareto_optimize_trajectories(poses_df, weights=job.dock.weight,
+        #                                                              default_sort=default_weight_metric)
+        # weighted_trajectory_s is sorted with best transform in index 0, regardless of whether it is ascending or not
 
         if number_perturbations_applied > 1:
             # Sort each perturbation cluster members by the metric

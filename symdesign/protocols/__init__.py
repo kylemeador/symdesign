@@ -822,6 +822,8 @@ def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = No
         weights: The weights to use in sequence selection
         number: The number of sequences to consider for each design
         protocols: Whether particular design protocol(s) should be chosen
+    Keyword Args:
+        default_weight: str = 'interface_energy': The metric to sort the dataframe by default if no weights are provided
     Returns:
         The selected designs for the Pose trajectories
     """

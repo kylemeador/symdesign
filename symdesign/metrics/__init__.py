@@ -1324,7 +1324,7 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict = None,
         weight: Whether to rank the designs by metric values or a mapping of value and weight pairs where the total
             weight will be the sum of all individual weights
         protocol: Whether specific design protocol(s) should be chosen
-        default_weight: If there is no weight provided, what is the default metric name to use to sort results
+        default_weight: If there is no weight provided, what is the default metric to sort results
     Returns:
         The sorted DataFrame based on the provided filters and weights. DataFrame contains size 3 MultiIndex columns
     """
@@ -1398,8 +1398,7 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict = None,
         final_indices = index_intersection(filtered_indices.values())
         logger.info(f'Number of designs passing all filters: {len(final_indices)}')
         if len(final_indices) == 0:
-            raise DesignError('There are no poses left after filtering! Try choosing less stringent values or make '
-                              'better designs!')
+            raise DesignError('There are no poses left after filtering. Try choosing less stringent values')
         simple_df = simple_df.loc[final_indices, :]
 
     # {column: {'direction': min_, 'value': 0.3, 'idx_slice': ['0001', '0002', ...]}, ...}
@@ -1448,7 +1447,9 @@ def prioritize_design_indices_sql(df: pd.DataFrame | AnyStr, filter: dict = None
         weight: Whether to rank the designs by metric values or a mapping of value and weight pairs where the total
             weight will be the sum of all individual weights
         protocol: Whether specific design protocol(s) should be chosen
-        default_weight: If there is no weight provided, what is the default metric name to use to sort results
+        default_weight: If there is no weight provided, what is the default metric to sort results
+    Keyword Args:
+        weight_function: str = 'rank' - The function to use when weighting design indices
     Returns:
         The sorted DataFrame based on the provided filters and weights. DataFrame contains simple Index columns
     """
@@ -1697,7 +1698,7 @@ def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = 
 
 def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = None,
                                  function: config.weight_functions_literal = 'rank',
-                                 default_sort: str = 'interface_energy', **kwargs) -> pd.Series:
+                                 default_weight: str = 'interface_energy', **kwargs) -> pd.Series:
     """From a provided DataFrame with individual design trajectories, select trajectories based on provided metric and
     weighting parameters
 
@@ -1705,7 +1706,7 @@ def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = N
         df: The designs x metrics DataFrame (single index metrics column) to select trajectories from
         weights: {'metric': value, ...}. If not provided, sorts by default_sort
         function: The function to use for weighting. Either 'rank' or 'normalize' is possible
-        default_sort: The metric to sort the dataframe by default if no weights are provided
+        default_weight: The metric to weight the dataframe by default if no weights are provided
     Returns:
         A sorted pandas.Series with the best indices first in the Series.index, and the resulting optimization values
         in the corresponding value.
@@ -1768,16 +1769,16 @@ def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = N
             weighted_df = pd.concat(metric_df, axis=1)
             return weighted_df.sum(axis=1).sort_values(ascending=False)
 
-    if default_sort in df.columns:
+    if default_weight in df.columns:
         # For sort_values(), this sorts the right direction, while for rank() it sorts incorrectly
         sort_direction = dict(max=False, min=True)  # max - ascending=False, min - ascending=True
 
         # Just sort by the default
-        direction = filter_df.loc['direction', default_sort]
+        direction = filter_df.loc['direction', default_weight]
         # return df.sort_values(default_sort, ascending=sort_direction[direction])
-        return df[default_sort].sort_values(ascending=sort_direction[direction])
+        return df[default_weight].sort_values(ascending=sort_direction[direction])
     else:
-        raise KeyError(f"There wasn't a metric named '{default_sort}' which was specified as the default")
+        raise KeyError(f"There wasn't a metric named '{default_weight}' which was specified as the default")
 
 
 def window_function(data: Sequence[int | float], windows: Iterable[int] = None, lower: int = None,

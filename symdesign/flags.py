@@ -61,6 +61,8 @@ perturb_dof_rot = 'perturb_dof_rot'
 perturb_dof_tx = 'perturb_dof_tx'
 perturb_dof_steps_rot = 'perturb_dof_steps_rot'
 perturb_dof_steps_tx = 'perturb_dof_steps_tx'
+dock_filter = 'dock_filter'
+dock_filter_file = 'dock_filter_file'
 dock_weight = 'dock_weight'
 dock_weight_file = 'dock_weight_file'
 cluster_map = 'cluster_map'
@@ -97,9 +99,9 @@ design_namespace = {
     sequences, structures, interface, neighbors
 }
 dock_namespace = {
-    contiguous_ghosts, dock_weight, dock_weight_file, initial_z_value, match_value, min_matched, perturb_dof,
-    perturb_dof_rot, perturb_dof_tx, perturb_dof_steps, perturb_dof_steps_rot, perturb_dof_steps_tx, proteinmpnn_score,
-    quick, rotation_step1, rotation_step2
+    contiguous_ghosts, dock_filter, dock_filter_file, dock_weight, dock_weight_file, initial_z_value, match_value,
+    min_matched, perturb_dof, perturb_dof_rot, perturb_dof_tx, perturb_dof_steps, perturb_dof_steps_rot,
+    perturb_dof_steps_tx, proteinmpnn_score, quick, rotation_step1, rotation_step2
 }  # score,
 predict_namespace = {
     models_to_relax, num_predictions_per_model, predict_assembly, predict_entities, predict_method, use_gpu_relax
@@ -115,7 +117,7 @@ namespaces = dict(design=design_namespace,
 # Modify specific flags from their prefix to their suffix
 modify_options = {
     'design': [design_method, design_number],
-    'dock': [dock_weight, dock_weight_file],
+    'dock': [dock_filter, dock_filter_file, dock_weight, dock_weight_file],
     'predict': [predict_assembly, predict_entities, predict_method],  # entities{predict_entities, 'entities'}],
     'cluster': [cluster_map, cluster_mode, cluster_number],
 }
@@ -206,6 +208,8 @@ perturb_dof_rot = format_for_cmdline(perturb_dof_rot)
 perturb_dof_tx = format_for_cmdline(perturb_dof_tx)
 perturb_dof_steps_rot = format_for_cmdline(perturb_dof_steps_rot)
 perturb_dof_steps_tx = format_for_cmdline(perturb_dof_steps_tx)
+dock_filter = format_for_cmdline(dock_filter)
+dock_filter_file = format_for_cmdline(dock_filter_file)
 dock_weight = format_for_cmdline(dock_weight)
 dock_weight_file = format_for_cmdline(dock_weight_file)
 ca_only = format_for_cmdline(ca_only)
@@ -808,18 +812,26 @@ refine_arguments = {
 nanohedra_help = f'Run {nanohedra.title()}.py'
 parser_nanohedra = {nanohedra: dict(description=nanohedra_help, help=nanohedra_help)}
 default_perturbation_steps = 3
+dock_filter_args = (f'--{dock_filter}',)
+dock_filter_kwargs = dict(nargs='*', default=None,
+                          help='Whether to filter dock trajectory according to metrics')
+dock_filter_file_args = (f'--{dock_filter_file}',)
+dock_filter_file_kwargs = dict(type=os.path.abspath,
+                               help='Whether to filter dock trajectory according to metrics provided in a file')
 dock_weight_args = (f'--{dock_weight}',)
 dock_weight_kwargs = dict(nargs='*', default=None,
-                          help='Whether to weight dock trajectory according to metrics')
+                          help='Whether to filter dock trajectory according to metrics')
 dock_weight_file_args = (f'--{dock_weight_file}',)
 dock_weight_file_kwargs = dict(type=os.path.abspath,
-                               help='Whether to weight dock trajectory according to metrics provided in a file')
+                               help='Whether to filter dock trajectory according to metrics provided in a file')
 nanohedra_arguments = {
-    (f'--{contiguous_ghosts}',): dict(action=argparse.BooleanOptionalAction, default=False,
+    (f'--{contiguous_ghosts}',): dict(action='store_true',  # argparse.BooleanOptionalAction, default=False,
                                       help='Whether to prioritize docking with ghost fragments that form continuous'
-                                           '\nsegments on a single component'),
+                                           '\nsegments on a single component\nDefault=%(default)s'),
     # (f'--{dock_only}',): dict(action=argparse.BooleanOptionalAction, default=False,
     #                           help='Whether docking should be performed without sequence design'),
+    dock_filter_args: dock_filter_kwargs,
+    dock_filter_file_args: dock_filter_file_kwargs,
     dock_weight_args: dock_weight_kwargs,
     dock_weight_file_args: dock_weight_file_kwargs,
     evolution_constraint_args: evolution_constraint_kwargs,
