@@ -196,7 +196,7 @@ class DBInfo:
         self.session: sessionmaker = sessionmaker(self.engine, future=True)
 
         # The below functions are recommended to help overcome issues with SQLite transaction scope
-        # See:
+        # See: https://docs.sqlalchemy.org/en/20/dialects/sqlite.html#pysqlite-serializable
         @event.listens_for(self.engine, "connect")
         def do_connect(dbapi_connection, connection_record):
             # Disable pysqlite's emitting of the BEGIN statement entirely
