@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from . import sql
+from . import pose, sql
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, validate_type, verify_choice, header_string
 from symdesign.structure.utils import DesignError
