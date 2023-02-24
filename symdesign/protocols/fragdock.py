@@ -495,6 +495,20 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         if sym_entry.unit_cell:
             logger.critical(f"{create_perturbation_transformations.__name__} hasn't been tested for lattice symmetries")
 
+    # Get score functions from input
+    if job.dock.weight and isinstance(job.dock.weight, dict):
+        # Todo actually use these during optimize_found_transformations_by_metrics()
+        #  score_functions = metrics.pose.format_metric_functions(job.dock.weight.keys())
+        default_weight_metric = None
+    else:
+        #  score_functions = {}
+        if job.dock.proteinmpnn_score:
+            weight_method = f'{putils.nanohedra}+{putils.proteinmpnn}'
+        else:
+            weight_method = putils.nanohedra
+
+        default_weight_metric = resources.config.default_weight_parameter[weight_method]
+
     # Initialize incoming Structures
     models = list(models)
     """The Structure instances to be used in docking"""
@@ -536,7 +550,14 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # Set up output mechanism
     entry_string = f'NanohedraEntry{sym_entry.number}'
     building_blocks = '-'.join(model.name for model in models)
-    project = f'{entry_string}_{building_blocks}'  # _{putils.pose_directory}'
+    if job.prefix:
+        project = f'{job.prefix}{building_blocks}'
+    else:
+        project = building_blocks
+    if job.suffix:
+        project = f'{project}{job.suffix}'
+
+    project = f'{entry_string}_{project}'
     project_dir = os.path.join(job.projects, project)
     putils.make_path(project_dir)
     if job.write_trajectory:
@@ -1881,6 +1902,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         data['chains'] = [next(chain_gen)]
 
     pose = Pose.from_entities([entity for model in models for entity in model.entities],
+                              log=None,
                               name='asu', entity_info=entity_info,  # entity_names=entity_names,  # log=logger,
                               sym_entry=sym_entry, surrounding_uc=job.output_surrounding_uc,
                               fragment_db=job.fragment_db, ignore_clashes=True, rename_chains=True)
@@ -2063,7 +2085,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # Calculate the vectorized uc_dimensions
         full_uc_dimensions = sym_entry.get_uc_dimensions(full_optimal_ext_dof_shifts)
 
-    def perturb_transformations() -> list[int]:
+    def perturb_transformations() -> tuple[list[int], int]:
         """From existing transformation parameters, sample parameters within a range of spatial perturbation"""
         perturb_rotation1, perturb_rotation2, perturb_int_tx1, perturb_int_tx2, perturb_optimal_ext_dof_shifts = \
             [], [], [], [], []
@@ -2338,6 +2360,62 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # else:
     #     reference_mean = reference_std = None
 
+    # Todo
+    #  enable precise metric acquisition
+    # def collect_dock_metrics(score_functions: dict[str, Callable]) -> dict[str, np.ndarray]:
+    #     """Perform analysis on the docked Pose instances"""
+    #     pose_functions = {}
+    #     residue_functions = {}
+    #     for score, function in score_functions:
+    #         if getattr(sql.PoseMetrics, score, None):
+    #             pose_functions[score] = function
+    #         else:
+    #             residue_functions[score] = function
+    #
+    #     pose_metrics = []
+    #     per_residue_metrics = []
+    #     for idx in range(number_of_transforms):
+    #         # Add the next set of coordinates
+    #         update_pose_coords(idx)
+    #
+    #         # if number_perturbations_applied > 1:
+    #         add_fragments_to_pose()  # <- here generating fragments fresh
+    #
+    #         pose_metrics.append({score: function(pose) for score, function in pose_functions})
+    #         per_residue_metrics.append({score: function(pose) for score, function in residue_functions})
+    #
+    #         # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
+    #         for entity in pose.entities:
+    #             entity.fragment_map = None
+    #             # entity.alpha.clear()
+    #
+    #         # Load fragment_profile (and fragment_metrics) into the analysis
+    #         pose.calculate_fragment_profile()
+    #         # This could be an empty array if no fragments were found
+    #         fragment_profile_array = pose.fragment_profile.as_array()
+    #         with catch_warnings():
+    #             simplefilter('ignore', category=RuntimeWarning)
+    #             # np.log causes -inf at 0, thus we correct these to a 'large' number
+    #             corrected_frag_array = np.nan_to_num(np.log(fragment_profile_array), copy=False,
+    #                                                  nan=np.nan, neginf=metrics.zero_probability_frag_value)
+    #         per_residue_fragment_profile_loss = \
+    #             resources.ml.sequence_nllloss(torch_numeric_sequence, torch.from_numpy(corrected_frag_array))
+    #
+    #         # Remove saved pose attributes from the prior iteration calculations
+    #         pose.ss_sequence_indices.clear(), pose.ss_type_sequence.clear()
+    #         pose.fragment_metrics.clear()
+    #         for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
+    #             try:
+    #                 delattr(pose, attribute)
+    #             except AttributeError:
+    #                 pass
+    #
+    #         # Save pose metrics
+    #         # pose_metrics[pose_id] = {
+    #         pose_metrics.append({
+    #             **pose.calculate_metrics(),  # Also calculates entity.metrics
+    #             'dock_collapse_violation': collapse_violation[idx],
+    #         })
     def collect_dock_metrics() -> dict[str, np.ndarray]:
         """Perform analysis on the docked Pose instances"""
         # Initialize proteinmpnn for dock/design analysis
@@ -3265,17 +3343,15 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             return 0
 
         # Collect metrics for each transform
+        # logger.info(f'Collecting docking metrics')
         dock_metrics = collect_dock_metrics()
+        # Todo
+        #  enable precise metric acquisition
+        # dock_metrics = collect_dock_metrics(score_functions)
         # Format metrics for each pose
+        logger.info(f'Collecting metrics for all Poses identified so far')
         poses_df, residues_df = format_docking_metrics(dock_metrics)
-        optimize_round += 1
-
-        if job.dock.proteinmpnn_score:
-            weight_method = f'{putils.nanohedra}+{putils.proteinmpnn}'
-        else:
-            weight_method = putils.nanohedra
-
-        default_weight_metric = resources.config.default_weight_parameter[weight_method]
+        # optimize_round += 1
 
         logger.debug(f'Found poses_df with columns: {poses_df.columns.tolist()}')
         logger.debug(f'Found poses_df with index: {poses_df.index.tolist()}')
@@ -3380,6 +3456,9 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         else:
             selected_indices = selected_cluster_indices
 
+        number_of_transforms = len(selected_indices)
+        logger.info(f'Found {number_of_transforms} transformations after '
+                    f'{optimize_found_transformations_by_metrics.__name__} round {optimize_round}')
         # Filter hits down
         filter_transforms_by_indices(selected_indices)
         # filter_degen_rot_counts_by_indices()
