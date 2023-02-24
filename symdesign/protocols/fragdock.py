@@ -3462,10 +3462,10 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # Filter hits down
         filter_transforms_by_indices(selected_indices)
         # filter_degen_rot_counts_by_indices()
-        number_of_transforms = len(selected_indices)
-        logger.info(f'Found {number_of_transforms} transformations after '
-                    f'{optimize_found_transformations_by_metrics.__name__} round {optimize_round}')
-        # # Use .loc here as we have a list used to index...
+        # Narrow down the metrics by the selected_indices. If this is the last cycle, they will be written
+        poses_df = poses_df.loc[selected_indices]
+        residues_df = residues_df.loc[selected_indices]
+        # Use .loc here as we have a list used to index...
         transforms_with_metrics = weighted_trajectory_s.loc[selected_indices]
         logger.info(f'Found transforms_with_metrics: {transforms_with_metrics}')
 
