@@ -3553,7 +3553,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # logger.info(f'Starting optimize with result/last_result: {result}/{last_result}')
         # The condition sum(translation_perturb_steps) < 0.1 is True after 4 optimization rounds...
         # Todo ensure that the abs doesn't produce worse values
-        while abs(last_result - result) > threshold or sum(translation_perturb_steps) > 0.1:
+        while abs(last_result - result) > threshold and sum(translation_perturb_steps) > 0.1:
             logger.info(f'{optimize_found_transformations_by_metrics.__name__} round {optimize_round}')
             last_result = result
             # Perform scoring and a possible iteration of dock perturbation
