@@ -271,7 +271,7 @@ def create_perturbation_transformations(sym_entry: SymEntry, number_of_rotations
                         f'{total_dof} total_dof = {rotational_dof} rotational_dof, {translational_dof} '
                         f'translational_dof, and {n_dof_external} external_translational_dof')
 
-    return perturbation_mapping
+    return perturbation_mapping, target_dof
 
 
 def make_contiguous_ghosts(ghost_frags_by_residue: list[list[GhostFragment]], residues: list[Residue],
@@ -2095,7 +2095,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # Expand successful poses from coarse search of transformational space to randomly perturbed offset
         # By perturbing the transformation a random small amount, we generate transformational diversity from
         # the already identified solutions.
-        perturbations = \
+        perturbations, n_perturbed_dof = \
             create_perturbation_transformations(sym_entry, number_of_rotations=job.dock.perturb_dof_steps_rot,
                                                 number_of_translations=job.dock.perturb_dof_steps_tx,
                                                 rotation_steps=rotation_steps,
@@ -2230,7 +2230,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # total_number_of_perturbations = number_of_transforms * number_perturbations_applied
         # Get the shape of the passing perturbations
         perturbation_shape = [len(perturb) for perturb in perturb_rotation1]
-        return perturbation_shape
+        return perturbation_shape, n_perturbed_dof
 
     # Calculate metrics on input Pose before any manipulation
     pose_length = pose.number_of_residues
@@ -3209,13 +3209,57 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             pass  # Score the first set before perturbation
         elif job.dock.perturb_dof_rot or job.dock.perturb_dof_tx:
             nonlocal rotation_steps, translation_perturb_steps
-            # Perform perturbations to the allowed degrees of freedom
-            logger.info('Performing transformation perturbations')
-            # number_perturbations_applied = 1
-            number_of_perturbs_per_cluster = perturb_transformations()
-            # Modify the perturbation amount by half as the space is searched to completion
-            rotation_steps = (step * .5 for step in rotation_steps)
-            translation_perturb_steps = (step * .5 for step in translation_perturb_steps)
+            if any((sym_entry.number_dof_rotation, sym_entry.number_dof_translation)):
+                # Perform perturbations to the allowed degrees of freedom
+                logger.info(f'Perturbing transformations round {optimize_round}')
+                number_of_perturbs_per_cluster, total_dof_applied = perturb_transformations()
+                # Sets number_perturbations_applied, number_of_transforms,
+                #  full_rotation1, full_rotation2, full_int_tx1, full_int_tx2,
+                #  full_optimal_ext_dof_shifts, full_ext_tx1, full_ext_tx2
+                # Modify the perturbation amount by half as the space is searched to completion
+                rotation_steps = tuple(step * .5 for step in rotation_steps)
+                translation_perturb_steps = tuple(step * .5 for step in translation_perturb_steps)
+            else:  # The DOF are not such that perturbation would be of much benefit
+                raise NotImplementedError(f"Can't perturb external dof only quite yet")
+
+                # Perform optimization by means of optimal_tx
+                def minimize_translations():
+                    """"""
+                    # The application of total_dof_applied might not be necessary as this optimizes fully
+                    total_dof_applied = sym_entry.total_dof
+                    # Remake the optimal shifts given each of the passing ghost fragment/surface fragment pairs
+                    optimal_ext_dof_shifts = np.zeros((number_of_transforms, 3), dtype=float)
+                    for idx in range(number_of_transforms):
+                        update_pose_coords(idx)
+                        add_fragments_to_pose()
+                        passing_ghost_coords = []
+                        passing_surf_coords = []
+                        reference_rmsds = []
+                        for ghost_frag, surf_frag, match_score in pose.fragment_pairs:
+                            passing_ghost_coords.append(ghost_frag.guide_coords)
+                            passing_surf_coords.append(surf_frag.guide_coords)
+                            reference_rmsds.append(ghost_frag.rmsd)
+
+                        transform_passing_shifts = \
+                            optimal_tx.solve_optimal_shifts(passing_ghost_coords, passing_surf_coords, reference_rmsds)
+                        mean_transform = transform_passing_shifts.mean(axis=0)
+
+                        # Inherent in minimize_translations() call
+                        if sym_entry.unit_cell:
+                            # Must take the optimal_ext_dof_shifts and multiply the column number by the corresponding row
+                            # in the sym_entry.external_dof#
+                            # optimal_ext_dof_shifts[0] scalar * sym_entry.group_external_dof[0] (1 row, 3 columns)
+                            # Repeat for additional DOFs, then add all up within each row.
+                            # For a single DOF, multiplication won't matter as only one matrix element will be available
+                            #
+                            # # Must find positive indices before external_dof1 multiplication in case negatives there
+                            # positive_indices = \
+                            #     np.flatnonzero(np.all(transform_passing_shifts[:, :sym_entry.number_dof_external] >= 0, axis=1))
+                            # number_passing_shifts = positive_indices.shape[0]
+                            optimal_ext_dof_shifts[idx, :sym_entry.number_dof_external] = \
+                                mean_transform[:sym_entry.number_dof_external]
+
+                minimize_translations()
         elif optimize_round >= 1:
             # This was already run and aren't perturbing, so don't take metrics again
             return 0
