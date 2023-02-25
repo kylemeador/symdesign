@@ -1040,7 +1040,7 @@ def main():
                 # logger.debug([list2cmdline(cmd) for cmd in commands])
                 # utils.write_shell_script(list2cmdline(commands), name=flags.nanohedra, out_path=job.job_paths)
                 terminate(results=commands)
-        else:
+        else:  # Load from existing files, usually Structural files in a directory or in the program already
             if args.range:
                 try:
                     low, high = map(float, args.range.split('-'))
@@ -1123,26 +1123,30 @@ def main():
                     if args.specification_file:
                         for pose_job, _designs, _directives in zip(pose_jobs, designs, directives):
                             pose_job.use_specific_designs(_designs, _directives)
-                else:
+                else:  # args.project or args.single:
                     paths, job.location = utils.collect_designs(projects=args.project, singles=args.single)
                     #                                                  directory = symdesign_directory,
                     if paths:  # There are files present
-                        # pose_jobs = [PoseJob.from_directory(path) for path in file_paths[range_slice]]
-                        for path in paths:
-                            name, project, *_ = reversed(path.split(os.sep))
-                            pose_identifiers.append(f'{project}{os.sep}{name}')
-                    # elif args.project:
-                    #     job.location = args.project
-                    #     projects = [os.path.basename(project) for project in args.project]
-                    #     fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.in_(projects))
-                    # else:  # args.single:
-                    #     job.location = args.project
-                    #     singles = [os.path.basename(single) for single in args.project]
-                    #     for single in singles:
-                    #         name, project, *_ = reversed(single.split(os.sep))
-                    #         pose_identifiers.append(f'{project}{os.sep}{name}')
-                    fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
-                    pose_jobs = list(session.scalars(fetch_jobs_stmt))
+                        if job.load_to_db:
+                            # These are not part of the db, but exist in a program_output
+                            pose_jobs = [PoseJob.from_directory(path) for path in paths[range_slice]]
+                        else:
+                            for path in paths:
+                                name, project, *_ = reversed(path.split(os.sep))
+                                pose_identifiers.append(f'{project}{os.sep}{name}')
+                            # elif args.project:
+                            #     job.location = args.project
+                            #     projects = [os.path.basename(project) for project in args.project]
+                            #     fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.in_(projects))
+                            # else:  # args.single:
+                            #     job.location = args.project
+                            #     singles = [os.path.basename(single) for single in args.project]
+                            #     for single in singles:
+                            #         name, project, *_ = reversed(single.split(os.sep))
+                            #         pose_identifiers.append(f'{project}{os.sep}{name}')
+
+                            fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
+                            pose_jobs = list(session.scalars(fetch_jobs_stmt))
             elif select_from_directory:
                 # Can make an empty pose_jobs when the program_root is args.directory
                 job.location = args.directory

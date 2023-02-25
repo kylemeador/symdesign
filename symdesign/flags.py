@@ -86,12 +86,13 @@ project_name = 'project_name'
 profile_memory = 'profile_memory'
 preprocessed = 'preprocessed'
 quick = 'quick'
-reset_db = 'reset_db'
 pose_format = 'pose_format'
 use_gpu_relax = 'use_gpu_relax'
 design_method = 'design_method'
 predict_method = 'predict_method'
 predict_assembly = 'predict_assembly'
+reset_db = 'reset_db'
+load_to_db = 'load_to_db'
 # Set up JobResources namespaces for different categories of flags
 design_namespace = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, design_method, evolution_constraint,
@@ -245,6 +246,7 @@ process_rosetta_metrics = format_for_cmdline(process_rosetta_metrics)
 pose_format = format_for_cmdline(pose_format)
 use_gpu_relax = format_for_cmdline(use_gpu_relax)
 reset_db = format_for_cmdline(reset_db)
+load_to_db = format_for_cmdline(load_to_db)
 
 select_modules = (
     select_poses,
@@ -1257,17 +1259,21 @@ parser_input = {input_: dict(description=input_help)}  # , help=input_help
 parser_input_group = dict(title=f'{"_" * len(input_title)}\n{input_title}',
                           description=f'\nSpecify where/which poses should be included in processing\n'
                                       f'{directory_needed}')
+load_to_db_args = (f'--{load_to_db}',)
+load_to_db_kwargs = dict(action='store_true',
+                         help=f'Use this input flag to load files existing in a {putils.program_output} to the DB')
 input_arguments = {
     cluster_map_args: cluster_map_kwargs,
     ('-df', f'--{dataframe}'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
                                     help=f'A DataFrame created by {program_name} analysis containing\n'
-                                         f'pose metrics. File is output in .csv format'),
+                                         'pose metrics. File is output in .csv format'),
     ('--fuse-chains',): dict(type=str, nargs='*', default=[], metavar='A:B C:D',
                              help='The name of a pair of chains to fuse during design. Paired\n'
                                   'chains should be separated by a colon, with the n-terminal\n'
                                   'preceding the c-terminal chain. Fusion instances should be\n'
                                   'separated by a space\n'
                                   'Ex --fuse-chains A:B C:D'),
+    load_to_db_args: load_to_db_kwargs,
     # ('-N', f'--{nanohedra}V1-output'): dict(action='store_true', dest=nanohedra_output,
     #                                         help='Is the input a Nanohedra wersion 1 docking output?'),
     (f'--{poses}',): dict(type=os.path.abspath, nargs='*',  # dest=putils.specification_file,

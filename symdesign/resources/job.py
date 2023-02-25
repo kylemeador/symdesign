@@ -246,7 +246,6 @@ class JobResources:
         if self.module == flags.protocol:
             self.protocol_module = True
             self.modules = kwargs.get(flags.modules)
-            self.check_protocol_module_arguments()
         else:
             self.protocol_module = False
             # Instead of setting this, let self.module be used dynamically with property
@@ -341,6 +340,7 @@ class JobResources:
             # self.db: Engine = create_engine(f'sqlite:///{self.internal_db}', echo=True, future=True)
         else:  # When --no-database is provided as a flag
             self.db = None
+        self.load_to_db = kwargs.get('load_to_db')
         self.reset_db = kwargs.get('reset_db')
         if self.reset_db:
             # All tables are deleted
