@@ -1,3 +1,3 @@
-from symdesign.SymDesign import main
+from symdesign.SymDesign import app
 
-main()
+app()

@@ -1629,9 +1629,13 @@ def main():
         terminate(results=results)
 
 
-if __name__ == '__main__':
+def app():
     try:
         main()
     except KeyboardInterrupt:
         print('\nRun Ended By KeyboardInterrupt\n')
         exit(2)
+
+
+if __name__ == '__main__':
+    app()
