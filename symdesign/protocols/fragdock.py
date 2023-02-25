@@ -3550,12 +3550,12 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     poses_df = poses_df.loc[selected_indices]
     residues_df = residues_df.loc[selected_indices]
 
+    # Set nonlocal perturbation/metric variables that are used in optimize_found_transformations_by_metrics()
+    number_of_original_transforms = number_of_transforms
+    number_perturbations_applied = 1
     # if job.dock.perturb_dof_rot or job.dock.perturb_dof_tx:
     if job.dock.perturb_dof:
         result: float = weighted_trajectory_s.mean()  # sys.maxsize
-        # Set nonlocal perturbation/metric variables that are used in optimize_found_transformations_by_metrics()
-        number_of_original_transforms = number_of_transforms
-        number_perturbations_applied = 1
         optimize_round = 1
         logger.info(f'Starting optimize with {number_of_transforms} transformations')
         # logger.info(f'Starting optimize with result/last_result: {result}/{last_result}')
