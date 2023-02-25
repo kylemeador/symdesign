@@ -630,6 +630,10 @@ class JobResources:
         else:
             self.cluster = False
 
+        # Finally perform checks on desired work to see if viable
+        if self.protocol_module:
+            self.check_protocol_module_arguments()
+
     @property
     def modules(self) -> list[str]:
         """Return the modules slated to run during the job"""
@@ -764,9 +768,21 @@ class JobResources:
         #     # 'custom_script',
         #     # flags.select_sequences,
         # ]
+
+        def check_gpu() -> str | bool:
+            available_devices = jax.local_devices()
+            for idx, device in enumerate(available_devices):
+                if device.platform == 'gpu':
+                    # self.gpu_available = True  # Todo could be useful
+                    return device.device_kind
+                    # device_id = idx
+                    # return True
+            return False
+
         problematic_modules = []
         not_recognized_modules = []
         nanohedra_prior = False
+        gpu_device_kind = None
         for idx, module in enumerate(self.modules):
             if module in protocol_module_allowed_modules:
                 if module == flags.nanohedra:
@@ -776,23 +792,26 @@ class JobResources:
                     nanohedra_prior = True
                     continue
                 elif module == flags.predict_structure:
-                    # Check for GPU access
-                    gpu = False
-                    available_devices = jax.local_devices()
-                    for idx, device in enumerate(available_devices):
-                        if device.platform == 'gpu':
-                            device_kind = device.device_kind
-                            device_id = idx
-                            gpu = True
+                    if gpu_device_kind is None:
+                        # Check for GPU access
+                        gpu_device_kind = check_gpu()
 
-                    if gpu:
-                        logger.info(f'Running on {device_kind} GPU')
-                        DEVICE = 'gpu'
+                    if gpu_device_kind:
+                        logger.info(f'Running {flags.predict_structure} on {gpu_device_kind} GPU')
                         # disable GPU on tensorflow
                         tf.config.set_visible_devices([], 'GPU')
                     else:  # device.platform == 'cpu':
                         logger.warning(f'No GPU detected, will {flags.predict_structure} using CPU')
-                        DEVICE = 'cpu'
+                elif module == flags.design:
+                    if self.design.method == putils.proteinmpnn:
+                        if gpu_device_kind is None:
+                            # Check for GPU access
+                            gpu_device_kind = check_gpu()
+
+                        if gpu_device_kind:
+                            logger.info(f'Running {flags.design} on {gpu_device_kind} GPU')
+                        else:  # device.platform == 'cpu':
+                            logger.warning(f'No GPU detected, will {flags.design} using CPU')
 
                 if nanohedra_prior:
                     if module in flags.select_modules:
@@ -804,9 +823,8 @@ class JobResources:
                             if not self.weight:  # not self.filter or
                                 logger.critical(f'Using {module} after {flags.nanohedra} without specifying the flag '
                                                 # f'{flags.format_args(flags.filter_args)} or '
-                                                f'{flags.format_args(flags.weight_args)} defaults to selection parameters '
-                                                f'{config.default_weight_parameter[flags.nanohedra]}')
-                                # raise InputError('Using selection flag --total as input after nanohedra isn't allowed')
+                                                f'{flags.format_args(flags.weight_args)} defaults to selection '
+                                                f'parameters {config.default_weight_parameter[flags.nanohedra]}')
                 nanohedra_prior = False
             # elif module in disallowed_modules:
             #     problematic_modules.append(module)
