@@ -3541,10 +3541,18 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         return weighted_trajectory_s
 
     weighted_trajectory_s = _prioritize_design_indices_and_return_selection_metric()
+    # Get selected indices and reduce
+    selected_indices = weighted_trajectory_s.index.tolist()
+    # Filter hits down
+    filter_transforms_by_indices(selected_indices)
+    # filter_degen_rot_counts_by_indices()
+    # Narrow down the metrics by the selected_indices. If this is the last cycle, they will be written
+    poses_df = poses_df.loc[selected_indices]
+    residues_df = residues_df.loc[selected_indices]
 
-    result: float = weighted_trajectory_s.mean()  # sys.maxsize
     # if job.dock.perturb_dof_rot or job.dock.perturb_dof_tx:
     if job.dock.perturb_dof:
+        result: float = weighted_trajectory_s.mean()  # sys.maxsize
         # Set nonlocal perturbation/metric variables that are used in optimize_found_transformations_by_metrics()
         number_of_original_transforms = number_of_transforms
         number_perturbations_applied = 1
