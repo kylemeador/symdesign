@@ -380,7 +380,7 @@ logging_cfg = {
         },
     },
     'loggers': {
-        'symdesign': {
+        program_name.lower(): {
             'level': 'INFO',  # 'WARNING',
             'handlers': ['console', 'main_file'],
             'propagate': 'no'

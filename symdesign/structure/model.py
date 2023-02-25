@@ -1933,7 +1933,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 msa_features = af_pipeline.make_msa_features((uniref90_msa,))
                 msa_features.update(make_msa_features_multimeric(msa_features))
         else:
-            self.log.critical(f"species_ids: {species_ids[:5]}")
+            self.log.debug(f"Found the first 5 species_ids: {species_ids[:5]}")
             msa_features = {
                 'deletion_matrix_int': deletion_matrix,
                 # When not single sequence, GET THIS FROM THE MATRIX PROBABLY USING CODE IN COLLAPSE PROFILE cumcount...

@@ -1102,7 +1102,19 @@ class RunModel:
 
 def set_up_model_runners(model_type: af_model_literal = 'monomer', num_predictions_per_model: int = 1,
                          num_ensemble: int = 1, development: bool = False) -> dict[str, RunModel]:
-    """"""
+    """Produce Alphafold RunModel class loaded with their training parameters
+
+    Args:
+        model_type: The type of model to load. Should be one of the viable Alphafold models including:
+            'monomer', 'monomer_casp14', 'monomer_ptm', 'multimer'
+        num_predictions_per_model: The number of predictions to make for each Alphafold model. Essentially duplicates
+            the original models 'num_predictions_per_model' times
+        num_ensemble: The number of model ensembles to make. Typically, 1 is sufficient, but during CASP14, 8 were used
+        development: Whether a smaller subset of models should be used for increased testing performance
+    Returns:
+        A dictionary of the model name to the RunModel instance for each 'model_type'/'num_predictions_per_model'
+        requested
+    """
     model_runners = {}
     model_names = afconfig.MODEL_PRESETS[model_type]  # FLAGS.model_preset]
     for model_name in model_names:
@@ -1123,7 +1135,7 @@ def set_up_model_runners(model_type: af_model_literal = 'monomer', num_predictio
             model_runners[f'{model_name}_pred_{i}'] = model_runner
 
     num_models = len(model_runners)
-    logger.info(f'Predicting with {num_models} models: {list(model_runners.keys())}')
+    logger.info(f'Loaded {num_models} Alphafold models: {list(model_runners.keys())}')
 
     return model_runners
 
