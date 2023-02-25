@@ -296,9 +296,9 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                       for design in pose_job.current_designs]
         total_df = load_total_dataframe(pose_jobs, pose=True)
         selected_poses_df = \
-            metrics.prioritize_design_indices(total_df.loc[loc_result, :], filter=job.filter, weight=job.weight,
-                                              protocol=job.protocol, function=job.weight_function,
-                                              default_weight=default_weight_metric)
+            metrics.prioritize_design_indices(total_df.loc[loc_result, :], filters=job.filter, weights=job.weight,
+                                              protocols=job.protocol, default_weight=default_weight_metric,
+                                              function=job.weight_function)
         # Remove excess pose instances
         number_chosen = 0
         selected_indices, selected_poses = [], set()
@@ -325,9 +325,10 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         else:
             df = pd.concat([total_df], axis=1, keys=['pose', 'metric'])
         # Figure out designs from dataframe, filters, and weights
-        selected_poses_df = metrics.prioritize_design_indices(df, filter=job.filter, weight=job.weight,
-                                                              protocol=job.protocol, function=job.weight_function,
-                                                              default_weight=default_weight_metric)
+        selected_poses_df = metrics.prioritize_design_indices(df, filters=job.filter, weights=job.weight,
+                                                              protocols=job.protocol,
+                                                              default_weight=default_weight_metric,
+                                                              function=job.weight_function)
         # Remove excess pose instances
         number_chosen = 0
         selected_indices, selected_poses = [], set()
@@ -531,9 +532,9 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                       for design in pose_job.current_designs]
         total_df = load_total_dataframe(pose_jobs)
         selected_poses_df = \
-            metrics.prioritize_design_indices(total_df.loc[loc_result, :], filter=job.filter, weight=job.weight,
-                                              protocol=job.protocol, function=job.weight_function,
-                                              default_weight=default_weight_metric)
+            metrics.prioritize_design_indices(total_df.loc[loc_result, :], filters=job.filter, weights=job.weight,
+                                              protocols=job.protocol, default_weight=default_weight_metric,
+                                              function=job.weight_function)
         # Specify the result order according to any filtering, weighting, and number
         selected_poses = {}
         for pose_job, design in selected_poses_df.index.to_list()[:job.select_number]:
@@ -557,9 +558,10 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         else:
             df = pd.concat([total_df], axis=1, keys=['pose', 'metric'])
         # Figure out designs from dataframe, filters, and weights
-        selected_poses_df = metrics.prioritize_design_indices(df, filter=job.filter, weight=job.weight,
-                                                              protocol=job.protocol, function=job.weight_function,
-                                                              default_weight=default_weight_metric)
+        selected_poses_df = metrics.prioritize_design_indices(df, filters=job.filter, weights=job.weight,
+                                                              protocols=job.protocol,
+                                                              default_weight=default_weight_metric,
+                                                              function=job.weight_function)
         selected_designs = selected_poses_df.index.to_list()
         job.select_number = \
             len(selected_designs) if len(selected_designs) < job.select_number else job.select_number
@@ -1142,8 +1144,8 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # design_ids = [design.id for pose_job in pose_jobs for design in pose_job.current_designs]
     #     total_df = load_sql_poses_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
     #     selected_poses_df = \
-    #         metrics.prioritize_design_indices_sql(total_df, filter=job.filter, weight=job.weight,
-    #                                               protocol=job.protocol, function=job.weight_function)
+    #         metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight,
+    #                                           protocols=job.protocol, function=job.weight_function)
     #     # Remove excess pose instances
     #     number_chosen = 0
     #     selected_indices, selected_poses = [], set()
@@ -1180,9 +1182,8 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # This will create a total_df that is the number_of_entities X larger than the number of poses
     total_df = pose_designs_mean_df.join(poses_df)
     selected_poses_df = \
-        metrics.prioritize_design_indices_sql(total_df, filter=job.filter, weight=job.weight,
-                                              protocol=job.protocol, function=job.weight_function,
-                                              default_weight=default_weight_metric)
+        metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight, protocols=job.protocol,
+                                          default_weight=default_weight_metric, function=job.weight_function)
     # Remove excess pose instances
     selected_pose_ids = utils.remove_duplicates(selected_poses_df['pose_id'].tolist())[:job.select_number]
     selected_poses = [session.get(PoseJob, id_) for id_ in selected_pose_ids]
@@ -1270,8 +1271,8 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     design_ids = [design.id for pose_job in pose_jobs for design in pose_job.current_designs]
     #     total_df = load_sql_designs_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
     #     selected_poses_df = \
-    #         metrics.prioritize_design_indices_sql(total_df, filter=job.filter, weight=job.weight,
-    #                                               protocol=job.protocol, function=job.weight_function)
+    #         metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight,
+    #                                           protocols=job.protocol, function=job.weight_function)
     #     # Specify the result order according to any filtering, weighting, and number
     #     results = {}
     #     for pose_id, design in selected_poses_df.index.to_list()[:job.select_number]:
@@ -1295,8 +1296,8 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #     else:
     #         df = pd.concat([total_df], axis=1, keys=['pose', 'metric'])
     #     # Figure out designs from dataframe, filters, and weights
-    #     selected_poses_df = metrics.prioritize_design_indices_sql(df, filter=job.filter, weight=job.weight,
-    #                                                               protocol=job.protocol, function=job.weight_function)
+    #     selected_poses_df = metrics.prioritize_design_indices(df, filters=job.filter, weights=job.weight,
+    #                                                           protocols=job.protocol, function=job.weight_function)
     #     selected_designs = selected_poses_df.index.to_list()
     #     job.select_number = \
     #         len(selected_designs) if len(selected_designs) < job.select_number else job.select_number
@@ -1313,9 +1314,8 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     metrics_df = load_sql_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
     total_df = metrics_df
     selected_designs_df = \
-        metrics.prioritize_design_indices_sql(total_df, filter=job.filter, weight=job.weight,
-                                              protocol=job.protocol, function=job.weight_function,
-                                              default_weight=default_weight_metric)
+        metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight, protocols=job.protocol,
+                                          default_weight=default_weight_metric, function=job.weight_function)
     # # Groupby the design_id to remove extra instances of 'entity_id'
     # # This will turn these values into average which is fine since we just want the order
     # pose_designs_mean_df = selected_designs_df.groupby('design_id').mean()

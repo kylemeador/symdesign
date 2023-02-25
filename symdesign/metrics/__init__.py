@@ -271,7 +271,8 @@ rosetta_terms = ['lk_ball_wtd', 'omega', 'p_aa_pp', 'pro_close', 'rama_prepro', 
                  'hbond_bb_sc', 'hbond_lr_bb', 'hbond_sc', 'hbond_sr_bb', 'ref']
 
 # Current protocols in use in interface_design.xml
-protocols = ['design_profile_switch', 'favor_profile_switch', 'limit_to_profile_switch', 'structure_background_switch']
+rosetta_design_protocols = [
+    'design_profile_switch', 'favor_profile_switch', 'limit_to_profile_switch', 'structure_background_switch']
 # Todo adapt to any user protocol!
 protocols_of_interest = {putils.design_profile, putils.structure_background, putils.hbnet_design_profile}
 # protocols_of_interest = ['combo_profile', 'limit_to_profile', 'no_constraint']  # Used for P432 models
@@ -1329,9 +1330,9 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dic
 selection_weight_column = 'selection_weight'
 
 
-def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict = None,
-                              weight: dict = None, protocol: str | list[str] = None,
-                              default_weight: str = 'interface_energy', **kwargs) -> pd.DataFrame:
+def prioritize_design_indices(df: pd.DataFrame | AnyStr, filters: dict = None, weights: dict = None,
+                              protocols: str | list[str] = None, default_weight: str = 'interface_energy', **kwargs) \
+        -> pd.DataFrame:
     """Return a filtered/sorted DataFrame (both optional) with indices that pass a set of filters and/or are ranked
     according to a feature importance. Both filter and weight instructions are provided or queried from the user
 
@@ -1340,14 +1341,16 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict = None,
 
     Args:
         df: DataFrame to filter/weight indices
-        filter: Whether to remove viable candidates by certain metric values or a mapping of value and filter threshold
+        filters: Whether to remove viable candidates by certain metric values or a mapping of value and filter threshold
             pairs
-        weight: Whether to rank the designs by metric values or a mapping of value and weight pairs where the total
+        weights: Whether to rank the designs by metric values or a mapping of value and weight pairs where the total
             weight will be the sum of all individual weights
-        protocol: Whether specific design protocol(s) should be chosen
+        protocols: Whether specific design protocol(s) should be chosen
         default_weight: If there is no weight provided, what is the default metric to sort results
+    Keyword Args:
+        weight_function: str = 'rank' - The function to use when weighting design indices
     Returns:
-        The sorted DataFrame based on the provided filters and weights. DataFrame contains size 3 MultiIndex columns
+        The sorted DataFrame based on the provided filters and weights. DataFrame contains simple Index columns
     """
     # Grab pose info from the DateFrame and drop all classifiers in top two rows.
     if isinstance(df, pd.DataFrame):
@@ -1359,45 +1362,46 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict = None,
 
     logger.info(f'Number of starting designs: {len(df)}')
 
-    if protocol is not None:
-        if isinstance(protocol, str):
+    if protocols is not None:
+        raise NotImplementedError(f"Can't handle filtering by protocol yet. Fix upstream protocol inclusion in df")
+        if isinstance(protocols, str):
             # Add protocol to a list
-            protocol = [protocol]
+            protocols = [protocols]
 
         try:
-            protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
+            protocol_df = df.loc[:, idx_slice[protocols, protocol_column_types, :]]
         except KeyError:
-            logger.warning(f'Protocol "{protocol}" was not found in the set of designs...')
+            logger.warning(f'Protocol "{protocols}" was not found in the set of designs...')
             available_protocols = df.columns.get_level_values(0).unique()
             while True:
-                protocol = input(f'What protocol would you like to choose?{describe_string}'
+                protocols = input(f'What protocol would you like to choose?{describe_string}'
                                  f'\nAvailable options are: {", ".join(available_protocols)}{input_string}')
-                if protocol in available_protocols:
-                    protocol = [protocol]  # todo make multiple protocols available for input ^
+                if protocols in available_protocols:
+                    protocols = [protocols]  # todo make multiple protocols available for input ^
                     break
-                elif protocol in describe:
+                elif protocols in describe:
                     describe_data(df=df)
                 else:
-                    print(f'Invalid protocol {protocol}. Please choose one of {", ".join(available_protocols)}')
-            protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
+                    print(f'Invalid protocol {protocols}. Please choose one of {", ".join(available_protocols)}')
+            protocol_df = df.loc[:, idx_slice[protocols, protocol_column_types, :]]
         protocol_df.dropna(how='all', inplace=True, axis=0)  # drop completely empty rows in case of groupby ops
         # ensure 'dock'ing data is present in all protocols
         simple_df = pd.merge(df.loc[:, idx_slice[['pose'], ['dock'], :]], protocol_df, left_index=True, right_index=True)
         logger.info(f'Number of designs after protocol selection: {len(simple_df)}')
     else:
-        protocol = ['pose']  # Todo change to :?
-        simple_df = df.loc[:, idx_slice[protocol, df.columns.get_level_values(1) != 'std', :]]
+        protocols = ['pose']  # Todo change to :?
+        simple_df = df.loc[:, idx_slice[protocols, df.columns.get_level_values(1) != 'std', :]]
 
     # This is required for a multi-index column where the different protocols are in the top row of the df columns
     simple_df = pd.concat([simple_df.loc[:, idx_slice[prot, :, :]].droplevel(0, axis=1).droplevel(0, axis=1)
-                           for prot in protocol])
+                           for prot in protocols])
     simple_df.dropna(how='all', inplace=True, axis=0)
     # simple_df = simple_df.droplevel(0, axis=1).droplevel(0, axis=1)  # simplify headers
 
-    if filter is not None:
-        if filter and isinstance(filter, dict):
+    if filters is not None:
+        if filters and isinstance(filters, dict):
             # These were passed as parsed values
-            filters = filter
+            pass
         else:  # --filter was provided, but as a boolean-esq dict. Query the user for them
             available_filters = simple_df.columns.to_list()
             filters = query_user_for_metrics(available_filters, df=simple_df, mode='filter', level='design')
@@ -1423,142 +1427,14 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict = None,
         simple_df = simple_df.loc[final_indices, :]
 
     # {column: {'direction': min_, 'value': 0.3, 'idx_slice': ['0001', '0002', ...]}, ...}
-    if weight is not None:
-        if weight and isinstance(weight, dict):
-            # These were passed as parsed values
-            weights = weight
-        else:  # --weight was provided, but as a boolean-esq dict. Query the user for them
-            available_metrics = simple_df.columns.to_list()
-            weights = query_user_for_metrics(available_metrics, df=simple_df, mode='weight', level='design')
-
-        logger.info(f'Using weighting parameters:\n\t%s' % '\n\t'.join(utils.pretty_format_table(weights.items())))
-        design_ranking_s = pareto_optimize_trajectories(simple_df, weights=weights, **kwargs)
-        # design_ranking_s.name = selection_weight_column
-        # final_df = pd.merge(design_ranking_s, simple_df, left_index=True, right_index=True)
-        simple_df[selection_weight_column] = design_ranking_s
-        final_df = pd.concat([simple_df], keys=[('pose', 'metric')], axis=1)
-        # simple_df = pd.concat([simple_df], keys=df.columns.levels[0:1])
-        # weighted_df = pd.concat([design_ranking_s], keys=[('-'.join(weights), 'sum', 'selection_weight')], axis=1)
-        # final_df = pd.merge(weighted_df, simple_df, left_index=True, right_index=True)
-        # final_df = pd.merge(weighted_df, df, left_index=True, right_index=True)
-    else:
-        if default_weight in simple_df.columns:
-            final_df = simple_df.loc[simple_df.sort_values(default_weight, ascending=True).index, :]
-            final_df[selection_weight_column] = simple_df[default_weight]
-        else:
-            raise KeyError(f"Couldn't find the metric key {default_weight} in the DataFrame. Available metric "
-                           f"keys:\n\t{simple_df.columns.tolist()}")
-
-    return final_df
-
-
-def prioritize_design_indices_sql(df: pd.DataFrame | AnyStr, filter: dict = None,
-                                  weight: dict = None, protocol: str | list[str] = None,
-                                  default_weight: str = 'interface_energy', **kwargs) -> pd.DataFrame:
-    """Return a filtered/sorted DataFrame (both optional) with indices that pass a set of filters and/or are ranked
-    according to a feature importance. Both filter and weight instructions are provided or queried from the user
-
-    Caution: Expects that if DataFrame is provided by filename there is particular formatting, i.e. 3 column
-    MultiIndices, 1 index indices. If the DF file varies from this, this function will likely cause errors
-
-    Args:
-        df: DataFrame to filter/weight indices
-        filter: Whether to remove viable candidates by certain metric values or a mapping of value and filter threshold
-            pairs
-        weight: Whether to rank the designs by metric values or a mapping of value and weight pairs where the total
-            weight will be the sum of all individual weights
-        protocol: Whether specific design protocol(s) should be chosen
-        default_weight: If there is no weight provided, what is the default metric to sort results
-    Keyword Args:
-        weight_function: str = 'rank' - The function to use when weighting design indices
-    Returns:
-        The sorted DataFrame based on the provided filters and weights. DataFrame contains simple Index columns
-    """
-    # Grab pose info from the DateFrame and drop all classifiers in top two rows.
-    if isinstance(df, pd.DataFrame):
-        if 3 - df.columns.nlevels > 0:
-            df = pd.concat([df], axis=1, keys=[tuple('pose' for _ in range(3 - df.columns.nlevels))])
-    else:
-        df = pd.read_csv(df, index_col=0, header=[0, 1, 2])
-        df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
-
-    logger.info(f'Number of starting designs: {len(df)}')
-
-    if protocol is not None:
-        raise NotImplementedError(f"Can't handle filtering by protocol yet. Fix upstream protocol inclusion in df")
-        if isinstance(protocol, str):
-            # Add protocol to a list
-            protocol = [protocol]
-
-        try:
-            protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
-        except KeyError:
-            logger.warning(f'Protocol "{protocol}" was not found in the set of designs...')
-            available_protocols = df.columns.get_level_values(0).unique()
-            while True:
-                protocol = input(f'What protocol would you like to choose?{describe_string}'
-                                 f'\nAvailable options are: {", ".join(available_protocols)}{input_string}')
-                if protocol in available_protocols:
-                    protocol = [protocol]  # todo make multiple protocols available for input ^
-                    break
-                elif protocol in describe:
-                    describe_data(df=df)
-                else:
-                    print(f'Invalid protocol {protocol}. Please choose one of {", ".join(available_protocols)}')
-            protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
-        protocol_df.dropna(how='all', inplace=True, axis=0)  # drop completely empty rows in case of groupby ops
-        # ensure 'dock'ing data is present in all protocols
-        simple_df = pd.merge(df.loc[:, idx_slice[['pose'], ['dock'], :]], protocol_df, left_index=True, right_index=True)
-        logger.info(f'Number of designs after protocol selection: {len(simple_df)}')
-    else:
-        protocol = ['pose']  # Todo change to :?
-        simple_df = df.loc[:, idx_slice[protocol, df.columns.get_level_values(1) != 'std', :]]
-
-    # This is required for a multi-index column where the different protocols are in the top row of the df columns
-    simple_df = pd.concat([simple_df.loc[:, idx_slice[prot, :, :]].droplevel(0, axis=1).droplevel(0, axis=1)
-                           for prot in protocol])
-    simple_df.dropna(how='all', inplace=True, axis=0)
-    # simple_df = simple_df.droplevel(0, axis=1).droplevel(0, axis=1)  # simplify headers
-
-    if filter is not None:
-        if filter and isinstance(filter, dict):
-            # These were passed as parsed values
-            filters = filter
-        else:  # --filter was provided, but as a boolean-esq dict. Query the user for them
-            available_filters = simple_df.columns.to_list()
-            filters = query_user_for_metrics(available_filters, df=simple_df, mode='filter', level='design')
-        # # Todo this formatting isn't correct with new stype. Move to filter_df_for_index_by_value()
-        # logger.info(f'Using filter parameters:\n%s' % '\n\t'.join(utils.pretty_format_table(filters.items())))
-
-        # When df is not ranked by percentage
-        # _filters = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
-        #             for metric, value in filters.items()}
-
-        # Filter the DataFrame to include only those values which are le/ge the specified filter
-        filtered_indices = filter_df_for_index_by_value(simple_df, filters)  # **_filters)
-        # filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
-        logger.info('Number of designs passing filters:\n\t%s' %
-                    '\n\t'.join(utils.pretty_format_table([(metric, len(indices))
-                                                           for metric, indices in filtered_indices.items()])))
-        # logger.info('Number of designs passing filters:\n\t%s'
-        #             % '\n\t'.join(f'{len(indices):6d} - {metric}' for metric, indices in filtered_indices.items()))
-        final_indices = index_intersection(filtered_indices.values())
-        logger.info(f'Number of designs passing all filters: {len(final_indices)}')
-        if len(final_indices) == 0:
-            raise DesignError('There are no poses left after filtering! Try choosing less stringent values or make '
-                              'better designs!')
-        simple_df = simple_df.loc[final_indices, :]
-
-    # {column: {'direction': min_, 'value': 0.3, 'idx_slice': ['0001', '0002', ...]}, ...}
     # if weight is not None or default_weight in simple_df.columns:
-    if weight:
-        if isinstance(weight, dict):
+    if weights:
+        if isinstance(weights, dict):
             # These were passed as parsed values
-            weights = weight
+            pass
         else:  # --weight was provided, but as a boolean-esq dict. Query the user for them
             available_metrics = simple_df.columns.to_list()
             weights = query_user_for_metrics(available_metrics, df=simple_df, mode='weight', level='design')
-        logger.info(f'Using weighting parameters:\n\t%s' % '\n\t'.join(utils.pretty_format_table(weights.items())))
     elif default_weight in simple_df.columns:
         weights = None
     else:

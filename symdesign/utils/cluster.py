@@ -176,7 +176,7 @@ def predict_best_pose_from_transformation_cluster(train_trajectories_file, train
     # assign each metric a weight proportional to it's share of the total weight
     rosetta_select_metrics = {item: 1 / len(rosetta_metrics) for item in rosetta_metrics}
     # weighting scheme inherently standardizes the weights between [0, 1] by taking a linear combination of the metrics
-    targets = metrics.prioritize_design_indices(train_trajectories_file, weight=rosetta_select_metrics)  # weight=True)
+    targets = metrics.prioritize_design_indices(train_trajectories_file, weights=rosetta_select_metrics)  # weight=True)
 
     # for proper MultiTask model training, must scale the selected metrics. This is performed on trajectory_df above
     # targets2d = train_traj_df.loc[:, rosetta_select_metrics.keys()]

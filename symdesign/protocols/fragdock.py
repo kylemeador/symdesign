@@ -3531,9 +3531,9 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # Todo
         #  enable precise metric acquisition
         # dock_metrics = collect_dock_metrics(score_functions)
-        weighted_trajectory_df = metrics.prioritize_design_indices_sql(poses_df, filter=job.dock.filter,
-                                                                       weight=job.dock.weight,
-                                                                       default_weight=default_weight_metric)
+        weighted_trajectory_df = metrics.prioritize_design_indices(poses_df, filters=job.dock.filter,
+                                                                   weights=job.dock.weight,
+                                                                   default_weight=default_weight_metric)
         weighted_trajectory_s = weighted_trajectory_df[metrics.selection_weight_column]
         # weighted_trajectory_s = metrics.pareto_optimize_trajectories(poses_df, weights=job.dock.weight,
         #                                                              default_sort=default_weight_metric)
