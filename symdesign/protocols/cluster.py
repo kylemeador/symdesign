@@ -316,10 +316,19 @@ def cluster_poses_by_value(identifier_pairs: Iterable[tuple[Any, Any]], values: 
     return clustered_poses
 
 
-def return_transform_group_as_concatenated_guide_coordinates(*transforms: dict[str: np.ndarray]) -> np.ndarray:
-    """For each incoming transformation, transform guide coordinates according to the specified transformations"""
+number_of_coordinate_values = 9
+
+
+def apply_transform_groups_to_guide_coordinates(*transforms: tuple[dict[str: np.ndarray]]) -> list[np.ndarray]:
+    """For each incoming transformation, transform guide coordinates according to the specified transformations
+
+    Args:
+        transforms: The individual transformation groups that should be applied to a guide coordinate
+    Returns:
+        Guide coordinates transformed for each passed transform in each passed transform group
+    """
     # Make a blank set of guide coordinates for each incoming transformation
-    number_of_coordinate_values = 9
+    # number_of_coordinate_values = 9
     guide_coords = np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]])
     try:
         allowed_keys = ['rotation', 'translation']
@@ -331,20 +340,24 @@ def return_transform_group_as_concatenated_guide_coordinates(*transforms: dict[s
         try:
             tiled_length = max(operation_lengths)
         except ValueError:  # operation_lengths is empty
-            raise KeyError(f'Must pass one of the values {" or ".join(allowed_keys)}')
+            raise KeyError(
+                f'{apply_transform_groups_to_guide_coordinates.__name__}: Must pass one of the values '
+                f'{" or ".join(allowed_keys)}')
 
         tiled_guide_coords = np.tile(guide_coords, (tiled_length, 1, 1))
     except IndexError:  # transforms[0] failed
-        raise IndexError(f'No arguments passed for transforms')
+        raise IndexError(
+            f'{apply_transform_groups_to_guide_coordinates.__name__}: No arguments passed for transforms')
 
     transformed_guide_coords_sets = \
-        [transform_coordinate_sets(tiled_guide_coords, **transform).reshape(-1, number_of_coordinate_values)
-         for transform in transforms]
+        [transform_coordinate_sets(tiled_guide_coords, **transform) for transform in transforms]
 
-    return np.concatenate(transformed_guide_coords_sets, axis=1)
+    return transformed_guide_coords_sets
+    # return np.concatenate(transformed_guide_coords_sets, axis=1)
 
 
-def cluster_transformation_pairs(*transforms: dict[str, np.ndarray], distance: float = 1., minimum_members: int = 2) \
+def cluster_transformation_pairs(*transforms: tuple[dict[str, np.ndarray]], distance: float = 1.,
+                                 minimum_members: int = 2) \
         -> tuple[sklearn.neighbors._unsupervised.NearestNeighbors, sklearn.cluster._dbscan.DBSCAN]:
     """Cluster a group of transformation parameters sets to find those which occupy essentially the same space
 
@@ -358,7 +371,9 @@ def cluster_transformation_pairs(*transforms: dict[str, np.ndarray], distance: f
         The sklearn tree with the calculated nearest neighbors, the DBSCAN clustering object
         Representative indices, DBSCAN cluster membership indices
     """
-    transformed_guide_coords = return_transform_group_as_concatenated_guide_coordinates(*transforms)
+    transformed_guide_coord_pairs = apply_transform_groups_to_guide_coordinates(*transforms)
+    transformed_guide_coords = np.concatenate(
+        [coords.reshape(-1, number_of_coordinate_values) for coords in transformed_guide_coord_pairs], axis=1)
 
     # Create a tree structure describing the distances of all transformed points relative to one another
     nearest_neightbors_ball_tree = sklearn.neighbors.NearestNeighbors(algorithm='ball_tree', radius=distance)
@@ -460,7 +475,7 @@ def cluster_pose_by_transformations(compositions: list[PoseJob], **kwargs) -> di
     # return composition_map
 
 
-def cluster_by_transformations(*transforms: dict[str, np.ndarray], values: list[Any] = None, **kwargs) \
+def cluster_by_transformations(*transforms: tuple[dict[str, np.ndarray]], values: list[Any] = None, **kwargs) \
         -> dict[Any, list[Any]]:
     """From a set of objects with associated transformational parameters, identify and cluster the unique objects by
     representatives and members
