@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
+import math
 from collections import defaultdict
 from typing import Annotated, Literal, get_args, Type, Union
 
 import numpy as np
+import scipy.spatial.transform
 
 from . import info
 from symdesign import utils, structure
@@ -373,6 +375,137 @@ def nanohedra_fragment_match_score(per_residue_match_scores: dict[int, list[floa
             n *= 2
 
     return score
+
+
+class TransformHasher:
+    def __init__(self, box_width: float, translation_bin_width: float = 0.1,  rotation_bin_width: float = 0.5,
+                 dimensions: int = 6):
+        """"""
+        self.box_width = box_width
+        self.dimensions = dimensions
+        self.translation_bin_width = translation_bin_width  # Angstrom minimum amount of search difference
+        self.rotation_bin_width = rotation_bin_width  # Degree to bin euler angles
+        logger.debug(f'translation_bin_size: {self.translation_bin_width}')
+        # half_box_width = raidus1 - radius2
+        # box_width = half_box_width * 2
+        half_box_width = box_width / 2
+        self.box_lower = np.array([-half_box_width, -half_box_width, -half_box_width])
+        logger.debug(f'self.box_lower: {self.box_lower}')
+        # box_upper = self.box_lower * -1
+
+        # Create dimsizes_
+        number_of_bins = math.ceil(box_width / self.translation_bin_width)
+        # number_tx_dimensions = np.full(3, number_of_bins, np.int)
+        number_tx_bins = [number_of_bins, number_of_bins, number_of_bins]
+        self.index_with_360 = [0, 2]
+        number_of_rot_bins_360, remainder360 = divmod(360, self.rotation_bin_width)
+        number_of_rot_bins_180, remainder180 = divmod(180, self.rotation_bin_width)
+        # The number of bins always should be an integer. Ensure quotient is an integer for both 360/X and 180/X
+        # otherwise the bins wouldn't space correctly as they wrap around
+        if remainder180 != 0 or remainder360 != 0:
+            raise ValueError(
+                f"The value of the rotation_bin_size {self.rotation_bin_width} must be an integer denominator of"
+                f" both 360 and 180. Got 360/rotation_bin_size={360 / self.rotation_bin_width},"
+                f" 180/rotation_bin_size={180 / self.rotation_bin_width}")
+        # Keeping with convention, keep the smaller euler angle on the second axis...
+        # number_euler_dimensions = \
+        #     np.array([number_of_rot_bins_360, number_of_rot_bins_180, number_of_rot_bins_360], np.int)
+        number_euler_bins = [number_of_rot_bins_360, number_of_rot_bins_180, number_of_rot_bins_360]
+
+        # Create dimprods_ . The form of this is different given the placement of the "theta" angle in the last position
+        # of the euler array in SixDHasher.cc and using the conventional 2nd position here
+        # dimension_products = np.ones(6, np.int)
+        # for i in range(2, 7):  # [-2,-3,-4,-5,-6]
+        #     dimension_products[-i] =
+        dimension_products = [1, 0, 0, 0, 0, 0]
+        try:
+            for idx, (product, dimension_size) in enumerate(zip(dimension_products,
+                                                                number_euler_bins
+                                                                + number_tx_bins), 1):
+                dimension_products[idx] = product * dimension_size
+        except IndexError:  # Reached the end of dimension_products
+            # Reverse the order for future usage
+            self.dimension_products = dimension_products[::-1]
+
+        self.number_tx_bins = np.array(number_tx_bins)
+        self.number_euler_bins = np.array(number_euler_bins)
+
+    def transforms_to_bin_integers(self, rotations: np.ndarray, translations: np.ndarray) -> np.ndarray:
+        """From transformations consisting of stacked rotations and translations, identify the bin that each
+        transformation falls into along each transformation dimension
+
+
+        Args:
+            rotations: Array with shape (N, 3, 3) where each N is the rotation paired with the translation N
+            translations: Array with shape (N, 3) where each N is the translation paired with the rotation N
+        Returns:
+            Array with shape (number_of_transforms, dimensions) representing the unique bins along each dimension,
+                that each transform occupies
+        """
+        #     -> tuple[int, int, int, int, int, int]:
+        # For each of the translations, set in reference to the lower bound and divide by the bin widths to find the bin
+        translation_bin_int = (translations - self.box_lower) // self.translation_bin_width
+        rotation = scipy.spatial.transform.Rotation.from_matrix(rotations)
+        euler_angles = rotation.as_euler('xyz', degrees=True)  # xyz lowercase denotes the rotation is external
+        rotation_bin_int = euler_angles // self.rotation_bin_width
+        # Using the modulo operator should enable the returned euler_angles, which are in the range:
+        # -180,180, -90,90, and -180,180
+        # To be the correct bin
+        rotation_bin_int %= self.number_euler_bins
+        # rotation_bin_int[:, self.index_with_360] %= self.number_euler_bins
+        logger.debug(f'euler_angles: {euler_angles[:3]}')
+        logger.debug(f'rotation_bin_int: {rotation_bin_int[:3]}')
+        logger.debug(f'translation_bin_int: {translation_bin_int[:3]}')
+
+        return np.concatenate((translation_bin_int.astype(int), rotation_bin_int.astype(int)), axis=1)
+
+    def hash_bin_integers(self, bin_integers: np.ndarray) -> np.ndarray:
+        """
+
+        Args:
+            bin_integers: Array with shape (number_of_transforms, dimensions) representing the unique bins along each
+                dimension, that each transform occupies
+        Returns:
+            An integer hashing the binned integers which describe a position in the described 3D space
+        """
+        # # This is used for boost library c++ stuff
+        # self.max_int32_prime = 999879
+        # return (bin_integers * self.dimension_products).sum(axis=-1) % self.max_int32_prime
+        # logger.debug(f'bin_integers[:3]: {bin_integers[:3]}')
+        return (bin_integers * self.dimension_products).sum(axis=-1)
+
+    def hash_to_bins(self, index: int | np.ndarray) -> np.ndarray:
+        """From a hash or multiple hashes describing a transformation, return the bins that that hash belongs too
+
+        Args:
+            index: The hash(es) to calculate bins for
+        Returns:
+            Array with shape (number_of_transforms, dimensions) representing the unique bins along each dimension,
+                that each hash maps to the transformation space
+        """
+        try:
+            bins = np.zeros((len(index), self.dimensions))
+        except TypeError:  # int doesn't have len()
+            bins = [0 for _ in range(self.dimensions)]
+            for idx, product in enumerate(self.dimension_products):
+                bins[idx], index = divmod(index, product)
+            bins = np.array(bins)
+        else:
+            for idx, product in enumerate(self.dimension_products):
+                bins[:, idx], index = divmod(index, product)
+
+        return bins
+
+    def transforms_to_hash(self, rotations: np.ndarray, translations: np.ndarray) -> np.ndarray:
+        """From pairs of rotations and translations, create a hash to describe the complete transformation
+
+        Args:
+            rotations: Array with shape (N, 3, 3) where each N is the rotation paired with the translation N
+            translations: Array with shape (N, 3) where each N is the translation paired with the rotation N
+        Returns:
+            An integer hashing the transforms which relates to distinct orientational offset in the described space
+        """
+        return self.hash_bin_integers(self.transforms_to_bin_integers(rotations, translations))
 
 
 # @jitclass

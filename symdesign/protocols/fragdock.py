@@ -27,8 +27,9 @@ from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, job as symjob, sql
 from symdesign.sequence import protein_letters_alph1
 from symdesign.structure.base import Structure, Residue
-from symdesign.structure.coords import transform_coordinate_sets
+from symdesign.structure.coords import transform_coordinate_sets, superposition3d
 from symdesign.structure.fragment import GhostFragment
+from symdesign.structure.fragment.db import TransformHasher
 from symdesign.structure.fragment.metrics import rmsd_z_score, z_value_from_match_score
 from symdesign.structure.fragment.visuals import write_fragment_pairs_as_accumulating_states
 from symdesign.structure.model import Pose, Model, Models
@@ -3495,6 +3496,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         else:
             selected_indices = selected_cluster_indices
 
+        current_transformation_ids = create_transformation_hash()
         # Handle results
         # Use .loc here as we have a list used to index...
         transforms_with_metrics = weighted_trajectory_s.loc[selected_indices]
@@ -3519,13 +3521,44 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         #
         # return metric
 
-    # -----------------------------------------------------------------------------------------------------------------
-    # Below creates perturbations to sampled transformations and scores the resulting Pose
-    # -----------------------------------------------------------------------------------------------------------------
-    # Initialize docking score search
-    poses_df = residues_df = pd.DataFrame()
-    last_result: float = 0.
-    threshold = 0.05  # 0.1 <- not convergent # 1 <- too lenient with pareto_optimize_trajectories
+    # Set up the transformation hasher to assist in scoring/pose output
+    radius1 = model1.distance_from_reference(measure='max')
+    radius2 = model2.distance_from_reference(measure='max')
+    # Assume the maximum distance the box could get is the radius of each plus the interface distance
+    box_width = radius1 + radius2 + cb_distance
+    model_transform_hasher = TransformHasher(box_width)
+
+    def create_transformation_hash() -> list[int]:
+        """Using the currently available transformation parameters for the two Model instances, create the
+        transformation hash to describe the orientation of the second model in relation to the first. This hash will be
+        unique over the sampling space when discrete differences exceed the TransformHasher.rotation_bin_width and
+        .translation_bin_width
+
+        Returns:
+            An integer hashing the currently active transforms to distinct orientational offset in the described space
+        """
+        # Needs to be completed outside of individual naming function as it is stacked
+        # transforms = create_transformation_group()
+        # input(f'len(transforms[0]["rotation"]): {len(transforms[0]["rotation"])}')
+        guide_coordinates_model1, guide_coordinates_model2 = \
+            cluster.apply_transform_groups_to_guide_coordinates(*create_transformation_group())
+        # input(guide_coordinates_model1[:3])
+        rotations = [None for _ in range(len(guide_coordinates_model1))]
+        # input(len(rotations))
+        translations = rotations.copy()
+        # Only turn the outermost array into a list. Keep the guide coordinate 3x3 arrays as arrays for superposition3d
+        for transform_idx, (guide_coord2, guide_coord1) in enumerate(
+                zip(list(guide_coordinates_model2), list(guide_coordinates_model1))):
+            # Reverse the orientation so that the rot, tx indicate the movement of guide_coord1 onto guide_coord2
+            rmsd, rot, tx = superposition3d(guide_coord2, guide_coord1)
+            rotations[transform_idx] = rot  # rotations.append(rot)
+            translations[transform_idx] = tx  # translations.append(tx)
+
+        # input(f'rotations[:3]: {rotations[:3]}')
+        # input(f'translations[:3]: {translations[:3]}')
+        hashed_transforms = model_transform_hasher.transforms_to_hash(rotations, translations)
+
+        return hashed_transforms
 
     # Collect metrics and filter/weight for each active transform
     def _prioritize_design_indices_and_return_selection_metric():
@@ -3553,6 +3586,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # Narrow down the metrics by the selected_indices. If this is the last cycle, they will be written
     poses_df = poses_df.loc[selected_indices]
     residues_df = residues_df.loc[selected_indices]
+    current_transformation_ids = create_transformation_hash()
+    total_results_df.index = pd.Index(current_transformation_ids)
 
     # Set nonlocal perturbation/metric variables that are used in optimize_found_transformations_by_metrics()
     number_of_original_transforms = number_of_transforms
@@ -3583,35 +3618,30 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # Create all the pose_names using the transformations
         perturbation_identifier = '-p_'
 
-        def create_pose_name(_idx: int) -> str:
-            """Create a PoseID from the sampling conditions
-
-            Args:
-                _idx: The current sampling index
-            Returns:
-                The PoseID with format NanohedraEntry#_building-blocks/degeneracy-rotation-transform-perturb
-                if perturbation used -> 'NanohedraEntry#_****-****/d_#_#-r_#_#-t_#-p_#'
-                if not, -> 'NanohedraEntry#_****-****/d_#_#-r_#_#-t_#'
-            """
-            # # Todo implement 6D hash for generation of docking names
-            # Needs to be completed outside of individual naming function as it is stacked
-            # guide_coordinate_pairing = \
-            #     cluster.return_transform_group_as_concatenated_guide_coordinates(*create_transformation_group())
-
-            # transform_idx, perturb_idx = divmod(_idx, number_perturbations_applied)
-            # if number_perturbations_applied > 1:
-            #     perturb_str = f'-p_{perturb_idx + 1}'  # f'{perturbation_identifier}{perturb_idx + 1}'
-            # else:
-            #     perturb_str = ''
-            #
-            # _pose_name = f'd_{"_".join(map(str, degen_counts[transform_idx]))}' \
-            #              f'-r_{"_".join(map(str, rot_counts[transform_idx]))}' \
-            #              f'-t_{tx_counts[transform_idx]}'  # translation idx
-
-            _pose_name = 1 + _idx  # f''
-            perturb_str = ''
-            # return f'{building_blocks}-{_pose_name}{perturb_str}'
-            return f'{_pose_name}{perturb_str}'
+        # def create_pose_name(_idx: int) -> str:
+        #     """Create a PoseID from the sampling conditions
+        #
+        #     Args:
+        #         _idx: The current sampling index
+        #     Returns:
+        #         The PoseID with format NanohedraEntry#_building-blocks/degeneracy-rotation-transform-perturb
+        #         if perturbation used -> 'NanohedraEntry#_****-****/d_#_#-r_#_#-t_#-p_#'
+        #         if not, -> 'NanohedraEntry#_****-****/d_#_#-r_#_#-t_#'
+        #     """
+        #     # transform_idx, perturb_idx = divmod(_idx, number_perturbations_applied)
+        #     # if number_perturbations_applied > 1:
+        #     #     perturb_str = f'-p_{perturb_idx + 1}'  # f'{perturbation_identifier}{perturb_idx + 1}'
+        #     # else:
+        #     #     perturb_str = ''
+        #     #
+        #     # _pose_name = f'd_{"_".join(map(str, degen_counts[transform_idx]))}' \
+        #     #              f'-r_{"_".join(map(str, rot_counts[transform_idx]))}' \
+        #     #              f'-t_{tx_counts[transform_idx]}'  # translation idx
+        #
+        #     _pose_name = 1 + _idx  # f''
+        #     perturb_str = ''
+        #     # return f'{building_blocks}-{_pose_name}{perturb_str}'
+        #     return f'{_pose_name}{perturb_str}'
 
         def populate_pose_metadata():
             """Add all required PoseJob information to output the created Pose instances for persistent storage"""
@@ -3769,7 +3799,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # Extract transformation parameters for output
         nonlocal number_of_transforms
         # Create PoseJob names
-        pose_names = [create_pose_name(idx) for idx in range(number_of_transforms)]
+        # pose_names = [create_pose_name(idx) for idx in range(number_of_transforms)]
+        pose_names = create_transformation_hash()
 
         # Add the PoseJobs to the database
         while True:
