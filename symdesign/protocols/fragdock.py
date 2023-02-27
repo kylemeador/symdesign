@@ -491,6 +491,9 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # 1 works well at recapitulating the results without it while reducing number of checks
     # More stringent -> 0.75
     cluster_transforms = False  # True
+    """Whether the entire transformation space should be clustered. This was found to be redundant with a translation
+    clustering search only, and instead, decreases Pose solutions at the edge of oligomeric search slices  
+    """
     transformation_cluster_epsilon = 1
     # 1 seems to work well at recapitulating the results without it
     # less stringent -> 0.75, removes about 20% found solutions
@@ -969,10 +972,6 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     #     full_rotation1, full_int_tx1, full_setting1, full_ext_tx1 = transformation1.values()
     #     transformation2 = unpickle(kwargs.get('transformation_file2'))
     #     full_rotation2, full_int_tx2, full_setting2, full_ext_tx2 = transformation2.values()
-    #     # make arbitrary degen, rot, and tx counts
-    #     degen_counts = [(idx, idx) for idx in range(1, len(full_rotation1) + 1)]
-    #     rot_counts = [(idx, idx) for idx in range(1, len(full_rotation1) + 1)]
-    #     tx_counts = list(range(1, len(full_rotation1) + 1))
     # else:
 
     # Set up internal translation parameters
@@ -1008,7 +1007,6 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     number_of_init_surf = init_surf_guide_coords2.shape[0]
     total_ghost_surf_combinations = number_of_init_ghost * number_of_init_surf
     # fragment_pairs = []
-    rot_counts, degen_counts, tx_counts = [], [], []
     full_rotation1, full_rotation2 = [], []
     rotation_matrices1, rotation_matrices2 = rotation_matrices
     rotation_matrices_len1, rotation_matrices_len2 = rotation_matrices1.shape[0], rotation_matrices2.shape[0]
@@ -1330,14 +1328,9 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 full_int_tx2.extend(transform_passing_shifts[positive_indices,
                                                              sym_entry.number_dof_external + 1].tolist())
 
-            # full_int_tx1.append(stacked_internal_tx_vectors1[positive_indices])
-            # full_int_tx2.append(stacked_internal_tx_vectors2[positive_indices])
             full_rotation1.append(np.tile(rot_mat1, (number_passing_shifts, 1, 1)))
             full_rotation2.append(np.tile(rot_mat2, (number_passing_shifts, 1, 1)))
 
-            degen_counts.extend([(degen1_count, degen2_count) for _ in range(number_passing_shifts)])
-            rot_counts.extend([(rot1_count, rot2_count) for _ in range(number_passing_shifts)])
-            tx_counts.extend(list(range(1, number_passing_shifts + 1)))
             logger.debug(f'\tOptimal shift search took {optimal_shifts_time:8f}s for '
                          f'{euler_matched_ghost_indices1.shape[0]} guide coordinate pairs')
             logger.info(f'\t{number_passing_shifts if number_passing_shifts else "No"} initial interface '
@@ -2081,19 +2074,6 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     filter_transforms_by_indices(passing_transforms_indices)
     number_of_transforms = passing_transforms_indices.shape[0]
 
-    # def filter_degen_rot_counts_by_indices(degen_: Iterable[tuple[int, int]], rot_: Iterable[tuple[int, int]],
-    #                                        tx_: Iterable[tuple[int, int]], indices_: Iterable[int]) \
-    #         -> Generator[tuple[list[tuple[int, int]], list[tuple[int, int]], list[tuple[int, int]]], None, None]:
-    #     #     -> tuple[list[tuple[int, int]], list[tuple[int, int]], list[tuple[int, int]]]:
-    #     # nonlocal degen_counts, rot_counts, tx_counts
-    #     return zip(*[(degen_[idx], rot_[idx], tx_[idx]) for idx in indices_])
-    #
-    # # passing_transforms_indices = np.flatnonzero(passing_transforms)
-    # # degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
-    # #                                             for idx in passing_transforms_indices.tolist()])
-    # degen_counts, rot_counts, tx_counts = \
-    #     filter_degen_rot_counts_by_indices(degen_counts, rot_counts, tx_counts,
-    #                                        passing_transforms_indices.tolist())
     # # all_passing_ghost_indices = [all_passing_ghost_indices[idx] for idx in passing_symmetric_clash_indices.tolist()]
     # # all_passing_surf_indices = [all_passing_surf_indices[idx] for idx in passing_symmetric_clash_indices.tolist()]
     # # all_passing_z_scores = [all_passing_z_scores[idx] for idx in passing_symmetric_clash_indices.tolist()]
@@ -3376,7 +3356,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         #     # This was already run and aren't perturbing, so don't take metrics again
         #     return None
 
-        weighted_trajectory_df: pd.DataFrame = _prioritize_design_indices_and_return_selection_metric()
+        weighted_trajectory_df: pd.DataFrame = prioritize_transforms_by_selection()
         weighted_trajectory_df_index = weighted_trajectory_df.index
 
         # Sort each perturbation cluster members by the metric
@@ -3508,7 +3488,6 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         append_total_results(weighted_trajectory_df)
         # Filter hits down
         filter_transforms_by_indices(selected_indices)
-        # filter_degen_rot_counts_by_indices()
         # Narrow down the metrics by the selected_indices. If this is the last cycle, they will be written
         poses_df = poses_df.loc[selected_indices]
         residues_df = residues_df.loc[selected_indices]
@@ -3569,16 +3548,21 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         return hashed_transforms
 
     # Collect metrics and filter/weight for each active transform
-    def _prioritize_design_indices_and_return_selection_metric():
+    def prioritize_transforms_by_selection() -> pd.DataFrame:
+        """Using the active transformations, measure the Pose metrics and filter/weight according to defaults/provided
+        parameters
+
+        Returns:
+            The DataFrame that has been sorted according to the specified filters/weights
+        """
         nonlocal poses_df, residues_df
         poses_df, residues_df = collect_dock_metrics()
-        # logger.info(f'Collecting docking metrics')
         # Todo
         #  enable precise metric acquisition
         # dock_metrics = collect_dock_metrics(score_functions)
-        weighted_trajectory_df = metrics.prioritize_design_indices(poses_df, filters=job.dock.filter,
-                                                                   weights=job.dock.weight,
-                                                                   default_weight=default_weight_metric)
+        weighted_trajectory_df = \
+            metrics.prioritize_design_indices(poses_df, filters=job.dock.filter, weights=job.dock.weight,
+                                              default_weight=default_weight_metric)
         # Set the metrics_of_interest to the default weighting metric name as well as any weights that are specified
         metrics_of_interest = [metrics.selection_weight_column]
         if job.dock.weight:
@@ -3592,37 +3576,47 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # weighted_trajectory_s is sorted with best transform in index 0, regardless of whether it is ascending or not
         return weighted_trajectory_df
 
-    def append_total_results(additional_trajectory_df: pd.DataFrame):
+    def append_total_results(additional_trajectory_df: pd.DataFrame) -> pd.DataFrame:
+        """Combine existing metrics with the new metrics
+        Args:
+            additional_trajectory_df: The additional DataFrame to add to the existing global metrics
+        Returns:
+            The full global metrics DataFrame
+        """
         nonlocal total_results_df
         # Add new metrics to existing and keep the newly added if there are overlap
         total_results_df = pd.concat([total_results_df, additional_trajectory_df], axis=0)
         total_results_df.drop_duplicates(keep='last', inplace=True)
-        # input(f'total_results_df length: {len(total_results_df)}')
         return total_results_df
 
-    def calculate_gradient(metrics_: pd.DataFrame, indices: list[int | str]) -> float | pd.Series:
-        """"""
+    def calculate_results_for_stopping(target_df: pd.DataFrame, indices: list[int | str]) -> float | pd.Series:
+        """Given a DataFrame with metrics from a round of optimization, calculate the optimization results to report on whether a stopping condition has been met
 
-        # # Combine existing metrics with the new metrics
-        # total_metrics.combine_first(metrics_)
+        Args:
+            target_df: The DataFrame that resulted from the most recent optimization
+            indices: The indices which have been selected from the target_df
+        Returns:
+            The resulting values from the DataFrame based on the target metrics
+        """
         # Find the value of the new metrics in relation to the old to calculate the result from optimization
         if job.dock.weight:
-            selected_metrics_df = metrics_.loc[:, list(job.dock.weight.keys())]
+            selected_metrics_df = target_df.loc[:, list(job.dock.weight.keys())]
         else:
-            selected_metrics_df = metrics_.loc[:, metrics.selection_weight_column]
+            selected_metrics_df = target_df.loc[:, metrics.selection_weight_column]
 
         selected_metrics_df = selected_metrics_df.loc[indices]
-        other_metrics_df = selected_metrics_df.drop(indices)
+        # other_metrics_df = selected_metrics_df.drop(indices)
         # Find the difference between the selected and the other
         return selected_metrics_df.mean(axis=0)
         # other_metrics_df.mean(axis=1)
 
-    weighted_trajectory_df = _prioritize_design_indices_and_return_selection_metric()
+    # Initialize output DataFrames
+    poses_df = residues_df = pd.DataFrame()
+    weighted_trajectory_df = prioritize_transforms_by_selection()
     # Get selected indices and reduce
     selected_indices = weighted_trajectory_df.index.tolist()
     # Filter hits down
     filter_transforms_by_indices(selected_indices)
-    # filter_degen_rot_counts_by_indices()
     # Narrow down the metrics by the selected_indices. If this is the last cycle, they will be written
     poses_df = poses_df.loc[selected_indices]
     # Set the weighted_trajectory_df as total_results_df to keep a record of global results
@@ -3630,18 +3624,17 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     residues_df = residues_df.loc[selected_indices]
     current_transformation_ids = create_transformation_hash()
     total_results_df.index = pd.Index(current_transformation_ids)
-
     # -----------------------------------------------------------------------------------------------------------------
     # Below creates perturbations to sampled transformations and scores the resulting Pose
     # -----------------------------------------------------------------------------------------------------------------
-    # Initialize docking score search
-    poses_df = residues_df = pd.DataFrame()
-    last_result: float = 0.
     # Set nonlocal perturbation/metric variables that are used in optimize_found_transformations_by_metrics()
-    number_of_original_transforms = number_of_transforms
+    number_of_transforms = number_of_original_transforms = len(full_rotation1)
     number_perturbations_applied = 1
-    # if job.dock.perturb_dof_rot or job.dock.perturb_dof_tx:
     if job.dock.perturb_dof:
+        # Initialize docking score search
+        optimize_round = 1
+        logger.info(f'Starting optimize with {number_of_transforms} transformations')
+        last_result: float = 0.
         result: float = weighted_trajectory_df.mean(axis=0)  # sys.maxsize
         # threshold = 0.05  # 0.1 <- not convergent # 1 <- too lenient with pareto_optimize_trajectories
         threshold_percent = 0.05
@@ -3650,9 +3643,6 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         else:
             thresholds = tuple(result_ * threshold_percent for result_ in (*result,))
 
-        optimize_round = 1
-        logger.info(f'Starting optimize with {number_of_transforms} transformations')
-        # logger.info(f'Starting optimize with result/last_result: {result}/{last_result}')
         # The condition sum(translation_perturb_steps) < 0.1 is True after 4 optimization rounds...
         # To ensure that the abs doesn't produce worse values, need to compare results in an unbounded scale
         # (i.e. not between 0-1), which also indicates using a global scale. This way, iteration can tell if they are
@@ -3664,9 +3654,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             last_result = result
             # Perform scoring and a possible iteration of dock perturbation
             weighted_trajectory_df, passing_transform_ids = optimize_found_transformations_by_metrics()
-            # passing_transform_ids = optimize_found_transformations_by_metrics()
             # Set the weighted_trajectory_df as total_results_df to keep global results
-            result = calculate_gradient(weighted_trajectory_df, passing_transform_ids)
+            result = calculate_results_for_stopping(weighted_trajectory_df, passing_transform_ids)
             number_of_transforms = len(full_rotation1)
             logger.info(f'Found {number_of_transforms} transformations after '
                         f'{optimize_found_transformations_by_metrics.__name__} round {optimize_round} '
@@ -3676,33 +3665,65 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
     def terminate(pose: Pose, poses_df_: pd.DataFrame, residues_df_: pd.DataFrame):
         """Finalize any remaining work and return to the caller"""
-        # Create all the pose_names using the transformations
-        perturbation_identifier = '-p_'
 
-        # def create_pose_name(_idx: int) -> str:
-        #     """Create a PoseID from the sampling conditions
-        #
-        #     Args:
-        #         _idx: The current sampling index
-        #     Returns:
-        #         The PoseID with format NanohedraEntry#_building-blocks/degeneracy-rotation-transform-perturb
-        #         if perturbation used -> 'NanohedraEntry#_****-****/d_#_#-r_#_#-t_#-p_#'
-        #         if not, -> 'NanohedraEntry#_****-****/d_#_#-r_#_#-t_#'
-        #     """
-        #     # transform_idx, perturb_idx = divmod(_idx, number_perturbations_applied)
-        #     # if number_perturbations_applied > 1:
-        #     #     perturb_str = f'-p_{perturb_idx + 1}'  # f'{perturbation_identifier}{perturb_idx + 1}'
-        #     # else:
-        #     #     perturb_str = ''
-        #     #
-        #     # _pose_name = f'd_{"_".join(map(str, degen_counts[transform_idx]))}' \
-        #     #              f'-r_{"_".join(map(str, rot_counts[transform_idx]))}' \
-        #     #              f'-t_{tx_counts[transform_idx]}'  # translation idx
-        #
-        #     _pose_name = 1 + _idx  # f''
-        #     perturb_str = ''
-        #     # return f'{building_blocks}-{_pose_name}{perturb_str}'
-        #     return f'{_pose_name}{perturb_str}'
+        # Extract transformation parameters for output
+        nonlocal number_of_transforms
+        # Create PoseJob pose_names using the transformations
+        pose_names = create_transformation_hash()
+
+        # Add the PoseJobs to the database
+        while True:
+            pose_jobs = [PoseJob.from_name(pose_name, project=project, protocol=protocol_name)
+                         for pose_name in map(str, pose_names)]
+            session.add_all(pose_jobs)
+            try:  # Flush PoseJobs to the current session to generate ids
+                session.flush()
+            except SQLAlchemyError:  # We already inserted this PoseJob.project/.name
+                session.rollback()
+                # Find the actual pose_jobs_to_commit and place in session
+                # pose_identifiers = [pose_job.new_pose_identifier for pose_job in pose_jobs]
+                fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.is_(project)) \
+                    .where(PoseJob.name.in_(pose_names))
+                existing_pose_jobs = list(session.scalars(fetch_jobs_stmt))
+                # Note: Values are sorted by alphanumerical, not numerical
+                # ex, design 11 is processed before design 2
+                existing_pose_names = {pose_job_.name for pose_job_ in existing_pose_jobs}
+                new_pose_names = set(pose_names).difference(existing_pose_names)
+                if not new_pose_names:  # No new PoseJobs
+                    return existing_pose_jobs
+                else:
+                    pose_names_ = []
+                    for name in new_pose_names:
+                        pose_name_index = pose_names.index(name)
+                        if pose_name_index != -1:
+                            pose_names_.append((pose_name_index, name))
+                    # Finally, sort all the names to ensure that the indices from the first pass are accurate
+                    # with the new set
+                    existing_indices_, pose_names = zip(*sorted(pose_names_, key=lambda name: name[0]))
+                    # Select poses_df/residues_df by existing_indices_
+                    poses_df_ = poses_df_.loc[existing_indices_, :]
+                    residues_df_ = residues_df_.loc[existing_indices_, :]
+                    logger.critical(f'Reset the new poses with attributes:\n'
+                                    f'\tpose_names={pose_names}\n'
+                                    f'\texisting_indices_={existing_indices_}\n'
+                                    f'\tposes_df_.index={poses_df_.index.tolist()}\n'
+                                    f'\tresidues_df_.index={residues_df_.index.tolist()}\n'
+                                    f'')
+                    number_of_transforms = len(existing_indices_)
+                    filter_transforms_by_indices(list(existing_indices_))
+            else:
+                break
+
+        # trajectory = TrajectoryMetadata(poses=pose_jobs, protocol=protocol)
+        # session.add(trajectory)
+
+        # Format output data, fix missing
+        if job.db:
+            pose_ids = [pose.id for pose in pose_jobs]
+        else:
+            pose_ids = pose_names
+        project_str = f'{project}{os.sep}'
+        project_pose_names = [f'{project_str}{pose_name}' for pose_name in pose_names]
 
         def populate_pose_metadata():
             """Add all required PoseJob information to output the created Pose instances for persistent storage"""
@@ -3857,74 +3878,13 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 poses_df_.to_csv(trajectory_metrics_csv)
                 logger.info(f'Wrote trajectory metrics to {trajectory_metrics_csv}')
 
-        # Extract transformation parameters for output
-        nonlocal number_of_transforms
-        # Create PoseJob names
-        # pose_names = [create_pose_name(idx) for idx in range(number_of_transforms)]
-        pose_names = create_transformation_hash()
-
-        # Add the PoseJobs to the database
-        while True:
-            pose_jobs = [PoseJob.from_name(pose_name, project=project, protocol=protocol_name)
-                         for idx, pose_name in enumerate(pose_names)]
-            session = job.current_session
-            session.add_all(pose_jobs)
-            try:  # Flush PoseJobs to the current session to generate ids
-                session.flush()
-            except SQLAlchemyError:  # We already inserted this PoseJob.project/.name
-                session.rollback()
-                # Find the actual pose_jobs_to_commit and place in session
-                # pose_identifiers = [pose_job.new_pose_identifier for pose_job in pose_jobs]
-                fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.is_(project)) \
-                    .where(PoseJob.name.in_(pose_names))
-                existing_pose_jobs = list(session.scalars(fetch_jobs_stmt))
-                # Note: Values are sorted by alphanumerical, not numerical
-                # ex, design 11 is processed before design 2
-                existing_pose_names = {pose_job_.name for pose_job_ in existing_pose_jobs}
-                new_pose_names = set(pose_names).difference(existing_pose_names)
-                if not new_pose_names:  # No new PoseJobs
-                    return existing_pose_jobs
-                else:
-                    pose_names_ = []
-                    for name in new_pose_names:
-                        pose_name_index = pose_names.index(name)
-                        if pose_name_index != -1:
-                            pose_names_.append((pose_name_index, name))
-                    # Finally, sort all the names to ensure that the indices from the first pass are accurate
-                    # with the new set
-                    existing_indices_, pose_names = zip(*sorted(pose_names_, key=lambda name: name[0]))
-                    # Select poses_df/residues_df by existing_indices_
-                    poses_df_ = poses_df_.loc[existing_indices_, :]
-                    residues_df_ = residues_df_.loc[existing_indices_, :]
-                    logger.critical(f'Reset the new poses with attributes:\n'
-                                    f'\tpose_names={pose_names}\n'
-                                    f'\texisting_indices_={existing_indices_}\n'
-                                    f'\tposes_df_.index={poses_df_.index.tolist()}\n'
-                                    f'\tresidues_df_.index={residues_df_.index.tolist()}\n'
-                                    f'')
-                    number_of_transforms = len(existing_indices_)
-                    filter_transforms_by_indices(list(existing_indices_))
-            else:
-                break
-
-        # trajectory = TrajectoryMetadata(poses=pose_jobs, protocol=protocol)
-        # session.add(trajectory)
-
-        # Finalize docking run
-        # Format output data, fix missing
-        if job.db:
-            pose_ids = [pose.id for pose in pose_jobs]
-        else:
-            pose_ids = pose_names
-        project_str = f'{project}{os.sep}'
-        project_pose_names = [f'{project_str}{pose_name}' for pose_name in pose_names]
-
         # Populate the database with pose information. Has access to nonlocal session
         populate_pose_metadata()
 
         # Todo 2 modernize with the new SQL database and 6D transform aspirations
         # Cluster by perturbation if perturb_dof:
         if number_perturbations_applied > 1:
+            perturbation_identifier = '-p_'
             cluster_type_str = 'ByPerturbation'
             seed_transforms = utils.remove_duplicates(
                 [pose_name.split(perturbation_identifier)[0] for pose_name in pose_names])
