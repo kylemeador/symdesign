@@ -1263,7 +1263,7 @@ def main():
                                     existing_protein_metadata=existing_protein_metadata)
 
             # Populate all_entities to set up sequence dependent resources
-            all_entities = []
+            all_structures = []
             # Orient entities, then load each entity to all_structures for further database processing
             for symmetry, entities in preprocess_entities_by_symmetry.items():
                 if not entities:  # Useful in a case where symmetry groups are the same or group is None
@@ -1272,7 +1272,7 @@ def main():
                 # job.structure_db.orient_structures(
                 #     [entity.name for entity in entities], symmetry=symmetry)
                 # Can't do this ^ as structure_db.orient_structures sets .name, .symmetry, and .file_path on each Entity
-                all_entities.extend(job.structure_db.orient_structures(
+                all_structures.extend(job.structure_db.orient_structures(
                     [entity.name for entity in entities], symmetry=symmetry))
                 # Todo orient Entity individually, which requires symmetric oligomer be made
                 #  This could be found from Pose._assign_pose_transformation() or new mechanism
@@ -1280,10 +1280,11 @@ def main():
                 #  job.structure_db.orient_entities(entities, symmetry=symmetry)
 
             # Indicate for the ProteinMetadata the characteristics of the Structure in the database
-            for entity in all_entities:
-                protein_metadata = all_uniprot_id_to_prot_data[entity.uniprot_ids]
-                # Importantly, we add oriented attribute to aid in any future processing
-                protein_metadata.model_source = entity.file_path
+            for structure in all_structures:
+                for entity in structure.entities:
+                    protein_metadata = all_uniprot_id_to_prot_data[entity.uniprot_ids]
+                    # Importantly, we add oriented attribute to aid in any future processing
+                    protein_metadata.model_source = entity.file_path
 
             # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
             initialize_entities(uniprot_entities, all_uniprot_id_to_prot_data.values())

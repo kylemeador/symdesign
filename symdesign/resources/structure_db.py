@@ -852,6 +852,7 @@ class StructureDatabase(Database):
                         full_model_file = self.full_models.path_to(name=entity_name)
                         min_entity.write(out_path=full_model_file)
                         if relaxed:
+                            protein.refined = True
                             refined_path = self.refined.path_to(name=entity_name)
                             shutil.copy(full_model_file, refined_path)
                 else:  # rosetta_loop_model
@@ -935,6 +936,7 @@ class StructureDatabase(Database):
                 # Indicate that this ProteinMetadata has been processed
                 for protein in protein_data_to_loop_model:
                     protein.loop_modeled = False
+
         refine_names = self.refined.retrieve_names()
         refine_dir = self.refined.location
         # Identify the entities to refine before proceeding

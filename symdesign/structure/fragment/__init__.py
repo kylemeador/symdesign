@@ -340,6 +340,9 @@ class Fragment(ABC):
         if self.ghost_fragments is None:
             self.find_ghost_fragments(**kwargs)
         else:
+            # This routine is necessary when the ghost_fragments are already generated on a residue,
+            # but that residue is copied.
+            # Todo Perhaps, this routine should be called by the copy function...
             self.log.debug('Using previously generated ghost fragments. Updating their .aligned_fragment attribute')
             for ghost in self.ghost_fragments:
                 ghost.aligned_fragment = self
@@ -548,7 +551,7 @@ def find_fragment_overlap(fragments1: Iterable[Fragment], fragments2: Sequence[F
     # interface_surf_frag_guide_coords = np.array([residue.guide_coords for residue in interface_residues2])
 
     # Check for matching Euler angles
-    # TODO create a stand alone function
+    # Todo create a stand alone function
     # logger.debug('Starting Euler Lookup')
     if euler_lookup is None:
         # euler_lookup = euler_factory()

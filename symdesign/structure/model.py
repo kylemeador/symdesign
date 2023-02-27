@@ -964,7 +964,7 @@ class Chain(SequenceProfile, Structure):
         try:
             return self._reference_sequence
         except AttributeError:
-            self.log.info('The reference sequence could not be found. Using the observed Residue sequence instead')
+            self.log.info("The reference sequence couldn't be found. Using the Structure sequence instead")
             self._reference_sequence = self.sequence
             return self._reference_sequence
 
@@ -1278,8 +1278,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             if not self._reference_sequence:
                 self._reference_sequence = self._retrieve_sequence_from_api()
                 if self._reference_sequence is None:
-                    self.log.warning('The reference sequence could not be found. Using the observed Residue sequence '
-                                     'instead')
+                    self.log.info("The reference sequence couldn't be found. Using the Structure sequence instead")
                     self._reference_sequence = self.sequence
             return self._reference_sequence
 
@@ -1708,7 +1707,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         return super().format_header(**kwargs) + self.format_seqres(**kwargs)
         # return super().format_header(**kwargs) + self.format_biomt(**kwargs) + self.format_seqres(**kwargs)
 
-    def format_seqres(self, asu: bool = True, **kwargs) -> str:
+    def format_seqres(self, asu: bool = True, **kwargs) -> str:  # Todo similar function in Model
         """Format the reference sequence present in the SEQRES remark for writing to the output header
 
         Args:
@@ -1717,7 +1716,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             The PDB formatted SEQRES record
         """
         asu_slice = 1 if asu else None  # This is the only difference from Model
-        formated_reference_sequence = \
+        formatted_reference_sequence = \
             {chain.chain_id: ' '.join(protein_letters_1to3_extended.get(aa, 'XXX')
                                       for aa in chain.reference_sequence)
              for chain in self.chains[:asu_slice]}
@@ -1725,7 +1724,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         return '%s\n' \
             % '\n'.join(f'SEQRES{line_number:4d} {chain_id:1s}{chain_lengths[chain_id]:5d}  '
                         f'{formatted_sequence[seq_res_len * (line_number-1):seq_res_len * line_number]}         '
-                        for chain_id, formatted_sequence in formated_reference_sequence.items()
+                        for chain_id, formatted_sequence in formatted_reference_sequence.items()
                         for line_number in range(1, 1 + math.ceil(len(formatted_sequence) / seq_res_len)))
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
@@ -2747,7 +2746,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # Todo standardize path with some state variable?
         # self.api_db = api_db if api_db else resources.wrapapi.api_database_factory()
 
-
         # Only pass arguments if they are not None
         if entities is not None:  # if no entities are requested a False argument could be provided
             kwargs['entities'] = entities
@@ -3043,13 +3041,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         """
         return ''.join(chain.reference_sequence for chain in self.chains)
 
-    def format_seqres(self, **kwargs) -> str:
+    def format_seqres(self, **kwargs) -> str:  # Todo similar function in Entity
         """Format the reference sequence present in the SEQRES remark for writing to the output header
 
         Returns:
             The PDB formatted SEQRES record
         """
-        formated_reference_sequence = \
+        formatted_reference_sequence = \
             {chain.chain_id: ' '.join(protein_letters_1to3_extended.get(aa, 'XXX')
                                       for aa in chain.reference_sequence)
              for chain in self.chains}
@@ -3057,7 +3055,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         return '%s\n' \
             % '\n'.join(f'SEQRES{line_number:4d} {chain_id:1s}{chain_lengths[chain_id]:5d}  '
                         f'{formatted_sequence[seq_res_len * (line_number-1):seq_res_len * line_number]}         '
-                        for chain_id, formatted_sequence in formated_reference_sequence.items()
+                        for chain_id, formatted_sequence in formatted_reference_sequence.items()
                         for line_number in range(1, 1 + math.ceil(len(formatted_sequence)/seq_res_len)))
 
     def orient(self, symmetry: str = None):  # Similar function in Entity

@@ -1444,8 +1444,12 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         _full_int_tx2 = None
 
     # Define functions for making active transformation arrays and removing indices from them
-    def create_transformation_group() -> tuple[dict, dict]:
-        """Create the transformation mapping for each transformation in the current docking trajectory"""
+    def create_transformation_group() -> tuple[dict[str, np.ndarray | None], dict[str, np.ndarray | None]]:
+        """Create the transformation mapping for each transformation in the current docking trajectory
+
+        Returns:
+            Every stacked transformation operation for the two separate models being docked in two separate dictionaries
+        """
         return (
             dict(rotation=full_rotation1, translation=None if full_int_tx1 is None else full_int_tx1[:, None, :],
                  rotation2=set_mat1, translation2=None if full_ext_tx1 is None else full_ext_tx1[:, None, :]),

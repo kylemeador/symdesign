@@ -396,13 +396,15 @@ class EulerLookup:
     # @njit
     def get_eulint_from_guides_as_array(self, guide_coords: np.ndarray) -> np.ndarray:
         """Take a set of guide atoms (3 xyz positions) and return integer indices for the euler angles describing the
-        orientations of the axes they form. Note that the positions are in a 3D array. Each guide_ats[i,:,:] is a 3x3
+        orientations of the axes they form. Note that the positions are in a 3D array. Each guide_coords[i,:,:] is a 3x3
         array with the vectors stored *in columns*, i.e. one vector is in [i,:,j]. Use known scale value to normalize,
         to save repeated sqrt calculations
         """
         # Todo Alternative
-        e_array = np.zeros(guide_coords.shape)
+        e_array = np.zeros_like(guide_coords)
+        # Subtract the guide coord origin from the other two dimensions to get unit basis vectors
         e_array[:, :2, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
+        # Cross the basis vectors to get the orthogonal vector
         e_array[:, 2, :] = np.cross(e_array[:, 0], e_array[:, 1])
         # Bound by a min of -1 and max of 1 as arccos is valid in the domain of [1 to -1]
         e_array[:, 2, 2] = np.minimum(1, e_array[:, 2, 2])
@@ -603,7 +605,7 @@ class EulerLookupV1:
         rot[2, 2] = min(rot[2, 2], 1.)
         rot[2, 2] = max(rot[2, 2], -1.)
 
-        # if |rot[2,2]|~1, let the 3rd angle (which becomes degernate with the 1st) be zero
+        # if |rot[2,2]|~1, let the 3rd angle (which becomes degenerate with the 1st) be zero
         if rot[2, 2] > 1. - tolerance:
             e3 = 0.
             e1 = np.arctan2(rot[1, 0], rot[0, 0])
