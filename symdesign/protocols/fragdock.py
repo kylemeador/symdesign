@@ -3541,9 +3541,12 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             rotations[transform_idx] = rot  # rotations.append(rot)
             translations[transform_idx] = tx  # translations.append(tx)
 
-        # input(f'rotations[:3]: {rotations[:3]}')
-        # input(f'translations[:3]: {translations[:3]}')
+        # logger.debug(f'before rotations[:3]: {rotations[:3]}')
+        # logger.debug(f'before translations[:3]: {translations[:3]}')
         hashed_transforms = model_transform_hasher.transforms_to_hash(rotations, translations)
+        # rotations, translations = model_transform_hasher.hash_to_transforms(hashed_transforms)
+        # logger.debug(f'after rotations[:3]: {rotations[:3]}')
+        # logger.debug(f'after translations[:3]: {translations[:3]}')
 
         return hashed_transforms
 
