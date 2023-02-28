@@ -1493,9 +1493,6 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         #  Can I use cluster.cluster_transformation_pairs distance graph to provide feedback on other aspects of the
         #  dock? Seems that I could use the distances to expedite clashing checks, especially for more time consuming
         #  expansion checks such as the full material...
-        # Todo tune DBSCAN epsilon (distance) to be reflective of the data, should be related to radius in
-        #  NearestNeighbors but smaller by some amount. Ideal amount would be the distance between two transformed
-        #  guide coordinate sets of a similar tx and a 3 degree step of rotation.
         # Must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
         transform_neighbor_tree, transform_cluster = \
             cluster.cluster_transformation_pairs(*create_transformation_group(),
