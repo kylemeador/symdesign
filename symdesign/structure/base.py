@@ -2900,8 +2900,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def __init__(self, atoms: list[Atom] | Atoms = None,
                  residues: list[Residue] | Residues = None, residue_indices: list[int] = None,
                  name: str = None, file_path: AnyStr = None,
-                 biomt: list = None, biomt_header: str = None,
-                 **kwargs):
+                 biological_assembly: str | int = None, biomt: list = None, biomt_header: str = None, **kwargs):
         """ Todo Docstring
 
         Args:
@@ -2925,6 +2924,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # self._coords_indexed_residues = None
         # self._residues = None
         # self._residue_indices = None
+        self.biological_assembly = biological_assembly
         self.biomt = biomt if biomt else []  # list of vectors to format
         self.biomt_header = biomt_header if biomt_header else ''  # str with already formatted header
         self.file_path = file_path

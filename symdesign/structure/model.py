@@ -2701,7 +2701,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         return cls(model=model, **kwargs)
 
     def __init__(self, model: Structure = None,
-                 biological_assembly: str | int = None,
                  chains: list[Chain] | Structures | bool = None, entities: list[Entity] | Structures | bool = None,
                  cryst_record: str = None, design: bool = False,
                  # dbref: dict[str, dict[str, str]] = None,
@@ -2733,7 +2732,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         self.api_entry = None
         # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
         #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-        self.biological_assembly = biological_assembly
         # self.chain_ids = []  # unique chain IDs
         self.chains = []
         self.cryst_record = cryst_record
@@ -3668,6 +3666,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             entity_chains = [chain for chain in chains if chain]
             entity_data = {
                 **data,  # Place the original data in the new dictionary
+                'biological_assembly': self.biological_assembly,
                 'chains': entity_chains,  # Overwrite chains in data dictionary
                 'uniprot_ids': uniprot_ids,
             }
