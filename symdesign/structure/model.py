@@ -3606,7 +3606,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     data.update(entity_api_data[entity_name])
 
         # Finish processing by cleaning data and preparing for Entity()
-        for entity_name, data in self.entity_info.items():
+        for entity_name, data in list(self.entity_info.items()):
             # For each Entity, get matching Chain instances
             # Add any missing information to the individual data dictionary
             # dbref = data.get('dbref', None)
