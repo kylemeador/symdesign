@@ -27,7 +27,7 @@ import torch
 # from Bio.PDB import PDBParser, Superimposer
 
 # from Query.utils import validate_input
-# from . import CommandDistributer, ProteinExpression  # Doesn't work due to circular imports
+# from . import distribute, ProteinExpression  # Doesn't work due to circular imports
 from . import path as putils
 
 # Globals
@@ -696,7 +696,7 @@ def calculate_mp_cores(cores: int = None, mpi: bool = False, jobs: int = None) -
         return min((cores or infinity), (jobs or infinity))
 
     if mpi:  # Todo grab an environmental variable for mpi cores?
-        return int(max_cpus_to_use / 6)  # CommandDistributer.mpi)
+        return int(max_cpus_to_use / 6)  # distribute.mpi)
     else:
         return max_cpus_to_use
 
@@ -1209,5 +1209,5 @@ def condensed_to_square(k, n):
     return i, j
 
 # from . import cluster
-# from . import CommandDistributer
+# from . import distribute
 from . import SymEntry, symmetry

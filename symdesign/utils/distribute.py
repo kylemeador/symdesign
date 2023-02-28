@@ -183,6 +183,7 @@ def run(cmd: list[str] | AnyStr, log_file_name: str, program: str = None, srun: 
             p = subprocess.Popen(command, stdout=log_f, stderr=log_f)
             p.communicate()
     else:
+        logger.info(f'Command: {subprocess.list2cmdline(command)}\n')
         p = subprocess.Popen(command)
         p.communicate()
 

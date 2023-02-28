@@ -21,7 +21,7 @@ from . import config, sql, structure_db, wrapapi
 from symdesign import flags, sequence, structure, utils
 from symdesign.sequence import hhblits
 from symdesign.structure.fragment import db
-from symdesign.utils import CommandDistributer, guide, SymEntry, InputError, path as putils
+from symdesign.utils import distribute, guide, SymEntry, InputError, path as putils
 
 logger = logging.getLogger(__name__)
 gb_divisior = 1e9  # 1000000000
@@ -928,9 +928,9 @@ class JobResources:
     def can_process_evolutionary_profiles() -> bool:
         """Return True if the current computer has the computational requirements to collect evolutionary profiles"""
         # Run specific checks
-        if psutil.virtual_memory().available <= CommandDistributer.hhblits_memory_threshold:
+        if psutil.virtual_memory().available <= distribute.hhblits_memory_threshold:
             logger.critical(f'The available RAM is insufficient to run {putils.hhblits}. Required memory: '
-                            f'{CommandDistributer.hhblits_memory_threshold / gb_divisior:.2f} GB\n')
+                            f'{distribute.hhblits_memory_threshold / gb_divisior:.2f} GB\n')
             #                 '\tPlease allocate the job to a computer with more memory or the process will fail, '
             #                 f'otherwise, submit the job with --no-{flags.evolution_constraint}')
             # exit(1)
@@ -1014,9 +1014,9 @@ class JobResources:
                 # Run commands in this process
                 if self.multi_processing:
                     zipped_args = zip(hhblits_cmds, repeat(hhblits_log_file))
-                    # utils.CommandDistributer.run(cmd, hhblits_log_file)
+                    # utils.distribute.run(cmd, hhblits_log_file)
                     # Todo calculate how many cores are available to use given memory limit
-                    utils.mp_starmap(utils.CommandDistributer.run, zipped_args, processes=self.cores)
+                    utils.mp_starmap(utils.distribute.run, zipped_args, processes=self.cores)
                 else:
                     with open(hhblits_log_file, 'w') as f:
                         for cmd in hhblits_cmds:
@@ -1042,18 +1042,17 @@ class JobResources:
                 hhblits_cmd_file = utils.write_commands(hhblits_cmds, name=f'{utils.starttime}-{putils.hhblits}',
                                                         out_path=self.profiles)
                 hhblits_script = \
-                    CommandDistributer.distribute(file=hhblits_cmd_file, out_path=self.sbatch_scripts,
-                                                  scale=putils.hhblits, max_jobs=len(hhblits_cmds),
-                                                  number_of_commands=len(hhblits_cmds),
-                                                  log_file=hhblits_log_file,
-                                                  finishing_commands=[list2cmdline(reformat_msa_cmd1),
-                                                                      list2cmdline(reformat_msa_cmd2)])
+                    distribute.distribute(file=hhblits_cmd_file, out_path=self.sbatch_scripts,
+                                          scale=putils.hhblits, max_jobs=len(hhblits_cmds),
+                                          number_of_commands=len(hhblits_cmds), log_file=hhblits_log_file,
+                                          finishing_commands=[list2cmdline(reformat_msa_cmd1),
+                                                              list2cmdline(reformat_msa_cmd2)])
                 hhblits_job_info_message = \
                     f'Enter the following to distribute {putils.hhblits} jobs:\n\t'
-                if CommandDistributer.is_sbatch_available():
-                    hhblits_job_info_message += f'{CommandDistributer.sbatch} {hhblits_script}'
+                if distribute.is_sbatch_available():
+                    hhblits_job_info_message += f'{distribute.sbatch} {hhblits_script}'
                 else:
-                    hhblits_job_info_message += f'{CommandDistributer.default_shell} {hhblits_script}'
+                    hhblits_job_info_message += f'{distribute.default_shell} {hhblits_script}'
                 info_messages.append(hhblits_job_info_message)
 
         if bmdca_cmds:
@@ -1065,11 +1064,10 @@ class JobResources:
             #      for entity in entities.values()]
             bmdca_cmd_file = \
                 utils.write_commands(bmdca_cmds, name=f'{utils.starttime}-bmDCA', out_path=self.profiles)
-            bmdca_script = utils.CommandDistributer.distribute(file=bmdca_cmd_file, out_path=self.sbatch_scripts,
-                                                               scale='bmdca', max_jobs=len(bmdca_cmds),
-                                                               number_of_commands=len(bmdca_cmds),
-                                                               log_file=os.path.join(self.profiles,
-                                                                                     'generate_couplings.log'))
+            bmdca_script = utils.distribute.distribute(file=bmdca_cmd_file, out_path=self.sbatch_scripts,
+                                                       scale='bmdca', max_jobs=len(bmdca_cmds),
+                                                       number_of_commands=len(bmdca_cmds),
+                                                       log_file=os.path.join(self.profiles, 'generate_couplings.log'))
             # reformat_msa_cmd_file = \
             #     SDUtils.write_commands(reformat_msa_cmds, name='%s-reformat_msa' % SDUtils.starttime,
             #                            out_path=self.profiles)
@@ -1077,10 +1075,10 @@ class JobResources:
             #                              scale='script', max_jobs=len(reformat_msa_cmds),
             #                              log_file=os.path.join(self.profiles, 'generate_profiles.log'),
             #                              number_of_commands=len(reformat_msa_cmds))
-            if CommandDistributer.is_sbatch_available():
-                shell = CommandDistributer.sbatch
+            if distribute.is_sbatch_available():
+                shell = distribute.sbatch
             else:
-                shell = CommandDistributer.default_shell
+                shell = distribute.default_shell
 
             print('\n' * 2)
             # Todo add bmdca_sbatch to hhblits_cmds finishing_commands kwarg
