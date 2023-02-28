@@ -1119,6 +1119,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                     self.set_reference_sequence_from_seqres(reference_sequence)
                 else:  # Assumeing a string from create_entities()
                     self._reference_sequence = reference_sequence
+                if chains:
+                    # Set each of the constructing chains, chain.reference_sequence
+                    for chain in chains:
+                        chain._reference_sequence = reference_sequence
             # Todo remove self.thermophilicity once sql load more streamlined
             self.thermophilicity = thermophilicity
             if uniprot_ids is not None:
@@ -1126,6 +1130,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         else:
             if metadata.reference_sequence is not None:
                 self._reference_sequence = metadata.reference_sequence
+                if chains:
+                    # Set each of the constructing chains, chain.reference_sequence
+                    for chain in chains:
+                        chain._reference_sequence = reference_sequence
             # Todo remove self.thermophilicity once sql load more streamlined
             self.thermophilicity = metadata.thermophilicity
             if metadata.uniprot_entities is not None:
