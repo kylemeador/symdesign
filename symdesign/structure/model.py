@@ -3674,11 +3674,16 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 if self.nucleotides_present:
                     self.log.warning(f"Nucleotide chain was removed from Structure")
                 else:
-                    self.log.warning(f'Missing associated chains for the Entity {entity_name} with data: '
-                                     f"self.chain_ids={self.chain_ids}, entity_data['chains']={entity_chains}, "
-                                     f"data['chains']={data_chains}, "
-                                     f'{", ".join(f"{k}={v}" for k, v in data.items())}')
-                    raise DesignError(f"The Entity couldn't be processed as currently configured")
+                    # This occurred when there were 2 entity records in the entity_info but only 1 in the Structure
+                    self.log.debug(f'Missing associated chains for the Entity {entity_name} with data: '
+                                   f"self.chain_ids={self.chain_ids}, entity_data['chains']={entity_chains}, "
+                                   f"data['chains']={data_chains}, "
+                                   f'{", ".join(f"{k}={v}" for k, v in data.items())}')
+                    # Drop this section in the entity_info
+                    self.entity_info.pop(entity_name)
+                    self.log.warning(f'Dropping Entity {entity_name} from {self.__class__.__name__} as no Structure '
+                                     f'information exists for it')
+                    # raise DesignError(f"The Entity couldn't be processed as currently configured")
                 continue
             #     raise utils.DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and '
             #                             'api_entry=%s, original_chain_ids=%s'
