@@ -709,7 +709,12 @@ class StructureDatabase(Database):
         # full_model_dir = self.full_models.location
         # Identify the entities to refine and to model loops before proceeding
         protein_data_to_loop_model, sym_def_files = [], {}
-        for data in metadata:  # If data is here, it's model_source file should've been oriented...
+        for data in metadata:
+            if not data.model_source:
+                logger.info(f"{self.preprocess_metadata_for_design.__name__}: Couldn't find the "
+                            f"ProteinMetadata.model_source for {data.entity_id}. Skipping preprocessing")
+                continue
+            # If data is here, it's model_source file should've been oriented...
             sym_def_files[data.symmetry_group] = utils.SymEntry.sdf_lookup(data.symmetry_group)
             entity_name = data.entity_id
             if entity_name not in full_model_names:  # Assumes oriented_asu structure name is the same
@@ -948,7 +953,12 @@ class StructureDatabase(Database):
         refine_dir = self.refined.location
         # Identify the entities to refine before proceeding
         protein_data_to_refine = []
-        for data in metadata:  # If data is here, it's model_source file should've been oriented...
+        for data in metadata:
+            if not data.model_source:
+                logger.info(f"{self.preprocess_metadata_for_design.__name__}: Couldn't find the "
+                            f"ProteinMetadata.model_source for {data.entity_id}. Skipping preprocessing")
+                continue
+            # If data is here, it's model_source file should've been oriented...
             if entity_name not in refine_names:  # Assumes oriented_asu structure name is the same
                 protein_data_to_refine.append(data)
             # else:
