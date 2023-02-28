@@ -2413,7 +2413,14 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     #         })
 
     def format_docking_metrics(metrics_: dict[str, np.ndarray]) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """From the current pool of docked poses and their collected metrics, format the metrics for selection/output"""
+        """From the current pool of docked poses and their collected metrics, format the metrics for selection/output
+
+        Args:
+            metrics_: A dictionary of metric name to metric value where the values are per-residue measurements the
+                length of the active transformation pool
+        Returns:
+            A tuple of DataFrames representing the per-pose and the per-residue metrics. Each has indices from 0-N
+        """
         idx_slice = pd.IndexSlice
         # Unpack scores for output
         collapse_violation = list(repeat(None, number_of_transforms))
@@ -2685,7 +2692,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         """Perform analysis on the docked Pose instances
 
         Returns:
-            A tuple of DataFrames representing the per-pose and the per-residue metrics
+            A tuple of DataFrames representing the per-pose and the per-residue metrics. Each has indices from 0-N
         """
         logger.info(f'Collecting metrics for all Poses identified so far')
 
@@ -3370,33 +3377,18 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             # for idx in range(number_of_transform_clusters):
             lower_perturb_idx = 0
             for number_of_perturbs in number_of_perturbs_per_cluster:
-                # Slice the scores for the local perturbation group
-                # perturb_metric = metric[idx * number_perturbations_applied: (idx+1) * number_perturbations_applied]
-                # perturb_metric = weighted_trajectory_s.iloc[list(range(idx * number_perturbations_applied,
-                #                                                        (idx+1) * number_perturbations_applied))]
                 # Set up the cluster range
                 upper_perturb_idx = lower_perturb_idx + number_of_perturbs
                 perturb_indices = list(range(lower_perturb_idx, upper_perturb_idx))
                 lower_perturb_idx = upper_perturb_idx
                 # Grab the cluster range indices
                 perturb_indexer = np.isin(weighted_trajectory_df_index, perturb_indices)
-                # perturb_metric = weighted_trajectory_s.loc[list(range(lower_perturb_idx, upper_perturb_idx))]
+                # Slice the cluster range indices by the top hits
                 selected_perturb_indices = \
                     weighted_trajectory_df_index[perturb_indexer][:top_perturb_hits].tolist()
                 # Save the top transform and the top X transforms from each cluster
                 top_transform_cluster_indices.append(selected_perturb_indices[0])
                 perturb_passing_indices.append(selected_perturb_indices)
-
-                # # Sort the slice (argsort gives ascending order) and take the top number of hits (need reverse slice
-                # # with perturb_metric having better indices first (pandas))
-                #
-                # top_candidate_indices = perturb_metric.argsort()[-top_perturb_cluster_hits:]
-                # transform_hits_scores.append(perturb_metric[top_candidate_indices])
-                # # perturb_metric[top_candidate_indices]
-                # Save the top X transforms from each cluster
-                # top_transform_cluster_indices.append(top_candidate_indices[0])
-                # Scale the selected indices into the transformation indices reference
-                # perturb_passing_indices.append((idx*number_perturbations_applied + top_candidate_indices).tolist())
 
             # cluster_divisor = 1
             # # if optimize_round == 1:
@@ -3474,9 +3466,12 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # Handle results
         # Using the current transforms, create a hash to uniquely label them and apply to the indices
         current_transformation_ids = create_transformation_hash()
-        weighted_trajectory_df.index = \
-            weighted_trajectory_df.index.map(dict(zip(range(len(weighted_trajectory_df_index)),
-                                                      pd.Index(current_transformation_ids))))
+        # Only select transform ids that passed filters
+        weighted_current_transforms = [current_transformation_ids[idx] for idx in weighted_trajectory_df_index.tolist()]
+        weighted_trajectory_df.index = pd.Index(weighted_current_transforms)
+        # weighted_trajectory_df.index = \
+        #     weighted_trajectory_df.index.map(dict(zip(weighted_trajectory_df_index,
+        #                                               pd.Index(current_transformation_ids))))
         # Add these results to the total
         append_total_results(weighted_trajectory_df)
         # Filter hits down
@@ -3596,17 +3591,17 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         """
         # Find the value of the new metrics in relation to the old to calculate the result from optimization
         if job.dock.weight:
-            selected_metrics_df = target_df.loc[:, list(job.dock.weight.keys())]
+            selected_columns = list(job.dock.weight.keys())
         else:
-            selected_metrics_df = target_df.loc[:, metrics.selection_weight_column]
+            selected_columns = metrics.selection_weight_column
 
-        selected_metrics_df = selected_metrics_df.loc[indices]
+        selected_metrics_df = target_df.loc[indices, selected_columns]
         # other_metrics_df = selected_metrics_df.drop(indices)
         # Find the difference between the selected and the other
         return selected_metrics_df.mean(axis=0)
         # other_metrics_df.mean(axis=1)
 
-    # Initialize output DataFrames
+    # Initialize output DataFrames which are set in prioritize_transforms_by_selection()
     poses_df = residues_df = pd.DataFrame()
     weighted_trajectory_df = prioritize_transforms_by_selection()
     # Get selected indices and reduce
