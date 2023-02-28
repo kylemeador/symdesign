@@ -494,6 +494,9 @@ def main():
         #     entity.make_oligomer(symmetry=entity.symmetry)
         return all_uniprot_id_to_prot_data, uniprot_entities
 
+    # -----------------------------------------------------------------------------------------------------------------
+    # Start Program
+    # -----------------------------------------------------------------------------------------------------------------
     resubmit_command_message = f'After completion of sbatch script(s), re-submit your {putils.program_name} ' \
                                f'command:\n\tpython {" ".join(sys.argv)}'
     # -----------------------------------------------------------------------------------------------------------------

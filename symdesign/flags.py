@@ -645,7 +645,7 @@ output_directory_args = ('-Od', f'--{output_directory}', '--outdir')
 output_file_args = ('-Of', f'--{output_file}')
 quick_args = (f'--{quick}',)
 setup_args = ('--setup',)
-setup_kwargs = dict(action='store_true', help='Show the %(prog)s set up instructions')
+setup_kwargs = dict(action='store_true', help=f'Show the {program_name} set up instructions')
 symmetry_args = ('-S', '--symmetry')
 sym_entry_args = ('-E', f'--{sym_entry}', '--entry', '-entry')
 sym_entry_kwargs = dict(type=int, default=None, metavar='INT',
@@ -665,12 +665,13 @@ options_arguments = {
     ('-C', '--cores'): dict(type=int, default=cpu_count(logical=False) - 1, metavar='INT',
                             help=f'Number of cores to use with flag --{multi_processing}\n'
                                  'If run on a cluster, cores will reflect the cluster allocation,\n'
-                                 'otherwise, will use #physical_cores-1\nDefault=%(default)s'),
+                                 'otherwise, will use #physical_cores-1\nDefault=%(default)s (this system)'),
     ('--database',): dict(action=argparse.BooleanOptionalAction, default=True,
-                          help=f'Whether to utilize the SQL database for intermediate result processing\n'
+                          help=f'Whether to utilize the SQL database for result processing\n'
                                f'{boolean_positional_prevent_msg("database")}'),
     (f'--{development}',): dict(action='store_true',
-                                help='Run in development mode. This should only be used for active development'),
+                                help="Run in development mode. Only use if you're actively\n"
+                                     "developing and understand the side effects"),
     evolution_constraint_args: evolution_constraint_kwargs,
     term_constraint_args: term_constraint_kwargs,
     distribute_args: dict(action='store_true',
@@ -688,19 +689,20 @@ options_arguments = {
     # ('-ic', f'--{ignore_clashes}'): dict(action=argparse.BooleanOptionalAction, default=False,
     ('-ic', f'--{ignore_clashes}'):
         dict(action='store_true',
-             help='Whether ANY identified backbone/Cb clashes should be ignored and allowed to process'),
+             help='Whether ANY backbone/Cb clashes should be ignored during checking'),
     ('-ipc', f'--{ignore_pose_clashes}'):
-        dict(action='store_true', help='Whether asu/pose clashes should be ignored and allowed to process'),
+        dict(action='store_true', help='Whether asu/pose clashes should be ignored during checking'),
     ('-isc', f'--{ignore_symmetric_clashes}'):
-        dict(action='store_true', help='Whether symmetric clashes should be ignored and allowed to process'),
+        dict(action='store_true', help='Whether symmetric clashes should be ignored during checking'),
     ('--log-level',): dict(type=int, default=default_logging_level, choices=set(range(1, 6)),
                            help='What level of log messages should be displayed to stdout?'
                                 '\n1-debug, 2-info, 3-warning, 4-error, 5-critical\nDefault=%(default)s'),
     ('--mpi',): dict(type=int, metavar='INT',
-                     help='If commands should be run as MPI parallel processes, how many '
-                          'processes\nshould be invoked for each job?\nDefault=%(default)s'),
+                     help='If commands should be run as MPI parallel processes,\n'
+                          'how many processes should be invoked for each job?\nDefault=%(default)s'),
     (f'--{project_name}',): dict(type=str, metavar='STR',
-                                 help='If desired, the name of the initialized project\nDefault is inferred from file'),
+                                 help='If desired, the name of the initialized project\n'
+                                      'Default is inferred from input'),
     ('-M', f'--{multi_processing}'): dict(action='store_true', help='Should job be run with multiple processors?'),
     (f'--{profile_memory}',): dict(action='store_true',
                                    help='Use memory_profiler.profile() to understand memory usage of a module. Must be '
@@ -710,7 +712,7 @@ options_arguments = {
                           'test quickly. This should only be used for active development'),  # Todo DEV branch
     setup_args: setup_kwargs,
     (f'--{skip_logging}',): dict(action='store_true',
-                                 help='Skip logging output to files and direct all logging to stream?'),
+                                 help='Skip logging to files and direct all logging to stream'),
     sym_entry_args: sym_entry_kwargs,
     symmetry_args: dict(type=str, default=None, metavar='RESULT:{GROUP1}{GROUP2}...',
                         help='The specific symmetry of the poses of interest.\nPreferably in a composition '
@@ -1400,13 +1402,12 @@ module_parsers = {
     predict_structure: parser_predict_structure,
     protocol: parser_protocol,
     residue_selector: parser_residue_selector,
-    # residue_selector: parser_residue_selector
 }
 input_parsers = dict(input=parser_input_group,
                      input_mutual=parser_input_mutual_group)  # _mutual
 output_parsers = dict(output=parser_output_group)
 option_parsers = dict(options=parser_options_group)
-residue_selector_parsers = dict(residue_selector=parser_residue_selector_group)
+residue_selector_parsers = {residue_selector: parser_residue_selector_group}
 # all_flags_parsers = dict(all_flags=parser_all_flags_group)
 all_flags_arguments = {}
 # all_flags_arguments = {
@@ -1487,6 +1488,7 @@ subparsers = argparsers[parser_module].add_subparsers(**module_subargparser)  # 
 argparsers[parser_guide].add_argument(*guide_args, **guide_kwargs)
 argparsers[parser_guide].add_argument(*help_args, **help_kwargs)
 argparsers[parser_guide].add_argument(*setup_args, **setup_kwargs)
+# Add all modules to the guide_subparsers
 guide_subparsers = argparsers[parser_guide].add_subparsers(**module_subargparser)
 module_suparsers: dict[str, argparse.ArgumentParser] = {}
 for parser_name, parser_kwargs in module_parsers.items():
@@ -1509,7 +1511,7 @@ for parser_name, parser_kwargs in module_parsers.items():
         for args, kwargs in arguments.items():
             module_suparsers[parser_name].add_argument(*args, **kwargs)
         # Add each subparser to a guide_subparser as well
-        guide_subparser = guide_subparsers.add_parser(name=parser_name, add_help=False, **parser_kwargs[parser_name])
+        guide_subparser = guide_subparsers.add_parser(name=parser_name, add_help=False)  #, **parser_kwargs[parser_name])
         guide_subparser.add_argument(*guide_args, **guide_kwargs)
 
 # print(module_suparsers['nanohedra'])
@@ -1520,7 +1522,7 @@ for parser_name, parser_kwargs in module_parsers.items():
 
 # Set up option ArgumentParser with options arguments
 parser = argparsers[parser_options]
-option_group = None
+option_group = None  # Must get added before mutual groups can be added
 for parser_name, parser_kwargs in option_parsers.items():
     arguments = parser_arguments.get(parser_name, {})
     if arguments:
@@ -1536,7 +1538,7 @@ for parser_name, parser_kwargs in option_parsers.items():
 
 # Set up residue selector ArgumentParser with residue selector arguments
 parser = argparsers[parser_residue_selector]
-residue_selector_group = None
+residue_selector_group = None  # Must get added before mutual groups can be added
 for parser_name, parser_kwargs in residue_selector_parsers.items():
     arguments = parser_arguments.get(parser_name, {})
     if arguments:
@@ -1566,7 +1568,7 @@ for parser_name, parser_kwargs in input_parsers.items():
 
 # Set up output ArgumentParser with output arguments
 parser = argparsers[parser_output]
-output_group = None  # must get added before mutual groups can be added
+output_group = None  # Must get added before mutual groups can be added
 for parser_name, parser_kwargs in output_parsers.items():
     arguments = parser_arguments.get(parser_name, {})
     if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
@@ -1602,7 +1604,7 @@ parser = argparsers[parser_entire]
 # Therefore, we repeat the above set-up here...
 
 # Set up entire ArgumentParser with input arguments
-input_group = None  # must get added before mutual groups can be added
+input_group = None  # Must get added before mutual groups can be added
 for parser_name, parser_kwargs in input_parsers.items():
     arguments = parser_arguments.get(parser_name, {})
     if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
