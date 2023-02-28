@@ -394,7 +394,7 @@ class StructureDatabase(Database):
         pose_kwargs = dict(sym_entry=sym_entry, ignore_clashes=True)
         for structure_identifier in structure_identifiers:
             # First, check if the structure_identifier ASU has been processed
-            # # NOT SURE WHY I WROTE THIS - This happens when files are passed WITHOUT symmetry, i.e. C1
+            # # NOT SURE WHY I WROTE THIS -> This happens when files are passed WITHOUT symmetry, i.e. C1
             if structure_identifier in orient_asu_names:  # orient_asu file exists, just load
                 orient_asu_file = self.oriented_asu.retrieve_file(name=structure_identifier)
                 pose = structure.model.Pose.from_file(orient_asu_file, name=structure_identifier, **pose_kwargs)
@@ -402,12 +402,16 @@ class StructureDatabase(Database):
                 model = pose.assembly
                 model.name = structure_identifier
                 model.file_path = orient_asu_file  # pose.file_path
+                # Set each Entity file_path as well
+                for entity in model.entities:
+                    entity_asu_path = self.oriented_asu.retrieve_file(name=entity.name)
+                    entity.file_path = entity_asu_path
                 for entity in pose.entities:
                     entity_asu_path = self.oriented_asu.retrieve_file(name=entity.name)
                     if entity_asu_path is None:
                         entity.write(out_path=entity_asu_path)
                     entity.file_path = entity_asu_path
-            # # NOT SURE WHY I WROTE THIS - This happens when files are passed WITH symmetry
+            # # NOT SURE WHY I WROTE THIS -> This happens when files are passed WITH symmetry
             elif structure_identifier in orient_names:  # orient file exists, load, save asu
                 orient_file = self.oriented.retrieve_file(name=structure_identifier)
                 # These name=structure_identifier should be the default parsing method anyway...
@@ -433,10 +437,14 @@ class StructureDatabase(Database):
                 model = pose.assembly
                 model.name = structure_identifier
                 model.file_path = pose.file_path  # <- set to orient_asu.location in write_entities_and_asu()
+                # Set each Entity file_path as well
+                for entity in model.entities:
+                    entity_asu_path = self.oriented_asu.retrieve_file(name=entity.name)
+                    entity.file_path = entity_asu_path
             # Use entry_entity only if not processed before
             else:  # They are missing, retrieve the proper files using PDB ID's
                 models = self.download_structures([structure_identifier], out_dir=models_dir)
-                # Todo include Entity specific parsing from download_structure in orient_existing_file, then
+                # Todo include Entity specific parsing from download_structures() in orient_existing_file(), then
                 #  consolidate their overlap
                 if models:  # Not empty list. Get the first model and throw away the rest
                     model, *_ = models
