@@ -1287,6 +1287,7 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dic
     print_filters = []
     for metric_name, filter_ops in metrics.items():
         if isinstance(filter_ops, list):
+            multiple_ops = True if len(filter_ops) > 1 else False
             # Where the metrics = {metric: [(operation, pre_operation, pre_kwargs, value),], ...}
             for idx, filter_op in enumerate(filter_ops, 1):
                 operation, pre_operation, pre_kwargs, value = filter_op
@@ -1297,8 +1298,12 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dic
                 except KeyError:  # metric_name is missing from df
                     logger.error(f"The metric {metric_name} wasn't available in the DataFrame")
                     filtered_df = df
-                # Add and index as the metric_name could be used a couple of times
-                filtered_indices[f'{metric_name}-{idx}'] = filtered_df.index.to_list()
+                if multiple_ops:
+                    # Add and index as the metric_name could be used a couple of times
+                    filter_name = f'{metric_name}({idx})'
+                else:
+                    filter_name = metric_name
+                filtered_indices[filter_name] = filtered_df.index.to_list()
             # Currently below operations aren't necessary because of how index_intersection works
             #  indices = operation1(pre_operation(**kwargs)[metric], value)
             #  AND if more than one argument, only 2 args are possible...
@@ -1416,7 +1421,7 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filters: dict = None, w
         filtered_indices = filter_df_for_index_by_value(simple_df, filters)  # **_filters)
         # filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
         logger.info('Number of designs passing filters:\n\t%s' %
-                    '\n\t'.join(utils.pretty_format_table([(metric, len(indices))
+                    '\n\t'.join(utils.pretty_format_table([(metric, '=', len(indices))
                                                            for metric, indices in filtered_indices.items()])))
         # logger.info('Number of designs passing filters:\n\t%s'
         #             % '\n\t'.join(f'{len(indices):6d} - {metric}' for metric, indices in filtered_indices.items()))
