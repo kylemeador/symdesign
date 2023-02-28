@@ -569,7 +569,9 @@ def main():
     module_parser = flags.argparsers[flags.parser_module]
     args, additional_args = module_parser.parse_known_args()
     remove_dummy = False
-    if args.module == flags.nanohedra:
+    if args.module == flags.all_flags:
+        sys.argv = ['symdesign', '--help']
+    elif args.module == flags.nanohedra:
         if args.query:  # We need to submit before we check for additional_args as query comes with additional args
             nanohedra.cmdline.query_mode([__file__, '-query'] + additional_args)
             exit()
@@ -612,7 +614,9 @@ def main():
 
     if additional_args:
         exit(f"\nSuspending run. Found flag(s) that aren't recognized: {', '.join(additional_args)}\n"
-             'Please correct them and resubmit your command. Try adding -h/--help if unsure about formatting\n')
+             'Please correct/remove them and resubmit your command. Try adding -h/--help for available formatting\n'
+             f"If you want to view all {putils.program_name} flags, "
+             f"replace the MODULE '{args.module}' with '{flags.all_flags}'")
 
     if remove_dummy:  # Remove the dummy input
         del args.file

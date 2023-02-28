@@ -93,6 +93,7 @@ predict_method = 'predict_method'
 predict_assembly = 'predict_assembly'
 reset_db = 'reset_db'
 load_to_db = 'load_to_db'
+all_flags = 'all_flags'
 # Set up JobResources namespaces for different categories of flags
 design_namespace = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, design_method, evolution_constraint,
@@ -247,6 +248,7 @@ pose_format = format_for_cmdline(pose_format)
 use_gpu_relax = format_for_cmdline(use_gpu_relax)
 reset_db = format_for_cmdline(reset_db)
 load_to_db = format_for_cmdline(load_to_db)
+all_flags = format_for_cmdline(all_flags)
 
 select_modules = (
     select_poses,
@@ -649,6 +651,10 @@ sym_entry_args = ('-E', f'--{sym_entry}', '--entry', '-entry')
 sym_entry_kwargs = dict(type=int, default=None, metavar='INT',
                         help=f'The entry number of {nanohedra.title()} docking combinations to use.\n'
                              f'See {nanohedra} --query for possible symmetries')
+# ---------------------------------------------------
+all_flags_help = f'Display all program flags'
+parser_all_flags = {all_flags: dict(description=all_flags_help, add_help=False)}  # help=all_flags_help,
+parser_all_flags_group = dict(description=f'\n{all_flags_help}')
 # ---------------------------------------------------
 options_help = f'Additional options control symmetry, the extent of file output,\nvarious runtime ' \
                'considerations, and miscellaneous programmatic options'
@@ -1362,6 +1368,7 @@ output_arguments = {
 # If using mutual groups, for the dict "key" (parser name), you must add "_mutual" immediately after the submodule
 # string that own the group. i.e nanohedra"_mutual*" indicates nanohedra owns, or interface_design"_mutual*", etc
 module_parsers = {
+    all_flags: parser_all_flags,
     orient: parser_orient,
     refine: parser_refine,
     nanohedra: parser_nanohedra,
@@ -1400,7 +1407,14 @@ input_parsers = dict(input=parser_input_group,
 output_parsers = dict(output=parser_output_group)
 option_parsers = dict(options=parser_options_group)
 residue_selector_parsers = dict(residue_selector=parser_residue_selector_group)
+# all_flags_parsers = dict(all_flags=parser_all_flags_group)
+all_flags_arguments = {}
+# all_flags_arguments = {
+#     **options_arguments, **output_arguments, **input_arguments, **input_mutual_arguments
+#    # **residue_selector_arguments,
+# }
 parser_arguments = {
+    all_flags: all_flags_arguments,
     options: options_arguments,
     residue_selector: residue_selector_arguments,
     refine: refine_arguments,
