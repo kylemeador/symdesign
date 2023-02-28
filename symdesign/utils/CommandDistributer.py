@@ -282,13 +282,20 @@ def distribute(file: AnyStr, scale: protocols_literal, out_path: AnyStr = os.get
             array = f'array=1-{int(number_of_commands / process_scale[scale] + 0.5)}%{max_jobs}'
             new_f.write(f'{sb_flag}{array}\n\n')
         new_f.write(f'python {cmd_dist} --stage {scale} distribute {f"--log_file {log_file} " if log_file else ""}'
-                    f'--success_file {success_file} --failure_file {failure_file} --command_file {file}\n')
-        if batch and finishing_commands:
-            new_f.write('# Wait for all to complete\n'
-                        'wait\n'
-                        '\n'
-                        '# Then execute\n'
-                        '%s\n' % '\n'.join(finishing_commands))
+                    f'--success_file {success_file} --failure_file {failure_file} --command_file {file}')
+        if finishing_commands:
+            if batch:
+                new_f.write('\n# Wait for all to complete\n'
+                            'wait\n'
+                            '\n'
+                            '# Then execute\n'
+                            '%s\n' % '\n'.join(finishing_commands))
+            else:
+                new_f.write('&&\n# Wait for all to complete, then execute\n'
+                            '%s\n' % '\n'.join(finishing_commands))
+        else:
+            new_f.write('\n')
+
     return filename
 
 
