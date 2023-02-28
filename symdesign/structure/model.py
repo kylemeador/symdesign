@@ -6864,8 +6864,6 @@ class Pose(SymmetricModel, Metrics):
             raise NotImplementedError(f"Can't design with Rosetta from this method yet...")
         elif method == putils.proteinmpnn:  # Design with vanilla version of ProteinMPNN
             pose_length = self.number_of_residues
-            size = number
-            batch_length = ml.PROTEINMPNN_DESIGN_BATCH_LEN
             # Set up parameters and model sampling type based on symmetry
             if self.is_symmetric():
                 # number_of_symmetry_mates = pose.number_of_symmetry_mates
@@ -6908,8 +6906,13 @@ class Pose(SymmetricModel, Metrics):
             # Solve decoding order
             parameters['randn'] = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
 
-            # # number_of_batches = size // batch_length
-            # number_of_batches = int(math.ceil(size/batch_length) or 1)  # Select at least 1
+            # Set up the model with the desired weights
+            size = number
+            proteinmpnn_model = ml.proteinmpnn_factory(**kwargs)
+            device = proteinmpnn_model.device
+            batch_length = ml.calculate_proteinmpnn_batch_length(proteinmpnn_model, number_of_residues)
+            # batch_length = ml.PROTEINMPNN_DESIGN_BATCH_LEN
+            logger.info(f'Found ProteinMPNN batch_length={batch_length}')
 
             generated_sequences = np.empty((size, len(temperatures), pose_length), dtype=np.int64)
             per_residue_complex_sequence_loss = np.empty_like(generated_sequences, dtype=np.float32)
@@ -6925,9 +6928,6 @@ class Pose(SymmetricModel, Metrics):
 
             # Data has shape (batch_length, number_of_temperatures, pose_length)
             number_of_temps = len(temperatures)
-            # Set up the model with the desired weights
-            proteinmpnn_model = ml.proteinmpnn_factory(**kwargs)
-            device = proteinmpnn_model.device
             # design_start = time.time()
             sequences_and_scores = \
                 _proteinmpnn_batch_design(proteinmpnn_model, temperatures=temperatures, pose_length=pose_length,

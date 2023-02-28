@@ -12,6 +12,7 @@ import warnings
 from math import ceil
 from typing import Annotated, Iterable, Container, Literal, Type, Callable, Sequence, Any
 
+import psutil
 from Bio import BiopythonDeprecationWarning
 import jax.numpy as jnp
 import numpy as np
@@ -36,36 +37,66 @@ proteinmpnn_default_translation_table = numerical_translation_alph1_unknown_byte
 mpnn_alphabet = 'ACDEFGHIKLMNPQRSTVWYX'  # structure.utils.protein_letters_alph1_unknown
 mpnn_alphabet_length = len(mpnn_alphabet)
 MPNN_NULL_IDX = 20
-# Todo set this value based on model parameters
-# def calculate_batch_size(element_memory: int = 4) -> int:
-#     """
-#
-#     Args:
-#         element_memory: Where each element is np.int/float32
-#
-#     Returns:
-#
-#     """
-#     number_of_elements_available = mpnn_memory_constraint / element_memory
-#     logger.debug(f'The number_of_elements_available is: {number_of_elements_available}')
-#     number_of_mpnn_model_parameters = sum([math.prod(param.size()) for param in mpnn_model.parameters()])
-#     model_elements = number_of_mpnn_model_parameters
-#     # Todo use 5 as ideal CB is added by the model later with ca_only = False
-#     model_elements += prod((number_of_residues, num_model_residues, 3))  # X,
-#     model_elements += number_of_residues  # S.shape
-#     model_elements += number_of_residues  # chain_mask.shape
-#     model_elements += number_of_residues  # chain_encoding.shape
-#     model_elements += number_of_residues  # residue_idx.shape
-#     model_elements += number_of_residues  # mask.shape
-#     model_elements += number_of_residues  # residue_mask.shape
-#     model_elements += prod((number_of_residues, 21))  # omit_AA_mask.shape
-#     model_elements += number_of_residues  # pssm_coef.shape
-#     model_elements += prod((number_of_residues, 20))  # pssm_bias.shape
-#     model_elements += prod((number_of_residues, 20))  # pssm_log_odds_mask.shape
-#     model_elements += number_of_residues  # tied_beta.shape
-#     model_elements += prod((number_of_residues, 21))  # bias_by_res.shape
-#     logger.debug(f'The number of model_elements is: {model_elements}')
+
+
+def get_device_memory(device: str | int | None) -> int:
+    if device.type == 'cpu':
+        memory_constraint = psutil.virtual_memory().available
+        logger.debug(f'The available cpu memory is: {memory_constraint}')
+    else:
+        free_memory, gpu_memory_total = torch.cuda.mem_get_info()
+        logger.debug(f'The available gpu memory is: {free_memory}')
+        memory_reserved = torch.cuda.memory_reserved()
+        logger.debug(f'The reserved gpu memory is: {memory_reserved}')
+        memory_constraint = free_memory + memory_reserved
+    return memory_constraint
+
+
+def calculate_proteinmpnn_batch_length(model: ProteinMPNN, number_of_residues: int, element_memory: int = 4) -> int:
+    """
+
+    Args:
+        model: The ProteinMPNN model
+        number_of_residues: The number of residues used in the ProteinMPNN model
+        element_memory: Where each element is np.int64, np.float32, etc.
+    Returns:
+
+    """
+    memory_constraint = get_device_memory(model.device)
+
+    number_of_elements_available = memory_constraint // element_memory
+    logger.debug(f'The number_of_elements_available is: {number_of_elements_available}')
+    number_of_model_parameter_elements = sum([math.prod(param.size()) for param in model.parameters()])
+    logger.debug(f'The number_of_model_parameter_elements is: {number_of_model_parameter_elements}')
+    model_elements = number_of_model_parameter_elements
+    # Todo use 5 as ideal CB is added by the model later with ca_only = False
+    num_model_residues = 5
+    model_elements += math.prod((number_of_residues, num_model_residues, 3))  # X,
+    model_elements += number_of_residues  # S.shape
+    model_elements += number_of_residues  # chain_mask.shape
+    model_elements += number_of_residues  # chain_encoding.shape
+    model_elements += number_of_residues  # residue_idx.shape
+    model_elements += number_of_residues  # mask.shape
+    model_elements += number_of_residues  # residue_mask.shape
+    model_elements += math.prod((number_of_residues, 21))  # omit_AA_mask.shape
+    model_elements += number_of_residues  # pssm_coef.shape
+    model_elements += math.prod((number_of_residues, 20))  # pssm_bias.shape
+    model_elements += math.prod((number_of_residues, 20))  # pssm_log_odds_mask.shape
+    model_elements += number_of_residues  # tied_beta.shape
+    model_elements += math.prod((number_of_residues, 21))  # bias_by_res.shape
+    logger.debug(f'The number of model_elements is: {model_elements}')
+
+    number_of_batches = number_of_elements_available // model_elements
+    return number_of_batches // proteinmpnn_batch_divisor
+
+
+# This heuristic was decided based on successful runs and the batch_length at which they succeeded
+proteinmpnn_batch_divisor = 400
 # 6 - Works for 24 GiB mem with 6264 residue T input, 7 is too much
+# 1 - Works for 5.61 GiB mem with 6264 residue T input, 2 is too much
+# (5.66 GiB - 2.74 GiB) for sample() with 6264 residue T input
+# (2.74 GiB - 1.25 GiB) for log_probs() with 6264 residue T input
+#
 PROTEINMPNN_DESIGN_BATCH_LEN = 6
 PROTEINMPNN_SCORE_BATCH_LEN = 6
 # # Use these options to bring down GPU memory when using Tensor instances with fixed size to a model
@@ -696,19 +727,27 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         log_probs_start_time = time.time()
         if X_unbound is not None:
             # unbound_log_prob_start_time = time.time()
+            # logger.critical(f'Starting unbound calc: '
+            #                 f'available memory={get_device_memory(proteinmpnn.device)/gb_divisor}')
             unbound_log_probs = \
                 proteinmpnn(X_unbound, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
                             None,  # This argument is provided but with below args, is not used
                             use_input_decoding_order=True, decoding_order=decoding_order)
+            # logger.critical(f'After unbound calc: '
+            #                 f'available memory={get_device_memory(proteinmpnn.device)/gb_divisor}')
             _per_residue_unbound_sequence_loss.append(
                 sequence_nllloss(_batch_sequences, unbound_log_probs[:, :pose_length]).cpu().numpy())
             # logger.debug(f'Unbound log probabilities calculation took '
             #              f'{time.time() - unbound_log_prob_start_time:8f}s')
 
+        # logger.critical(f'Starting bound calc: '
+        #                 f'available memory={get_device_memory(proteinmpnn.device) / gb_divisor}')
         complex_log_probs = \
             proteinmpnn(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
                         None,  # This argument is provided but with below args, is not used
                         use_input_decoding_order=True, decoding_order=decoding_order)
+        # logger.critical(f'After bound calc: '
+        #                 f'available memory={get_device_memory(proteinmpnn.device) / gb_divisor}')
         # complex_log_probs is
         # tensor([[[-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
         #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],

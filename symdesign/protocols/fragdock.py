@@ -2696,24 +2696,17 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             # Set up model sampling type based on symmetry
             if pose.is_symmetric():
                 # number_of_symmetry_mates = pose.number_of_symmetry_mates
-                mpnn_sample = mpnn_model.tied_sample
+                # mpnn_sample = mpnn_model.tied_sample
                 number_of_residues = pose_length * pose.number_of_symmetry_mates
             else:
-                mpnn_sample = mpnn_model.sample
+                # mpnn_sample = mpnn_model.sample
                 number_of_residues = pose_length
 
             # Modulate memory requirements
-            device = mpnn_model.device
-            if device.type == 'cpu':
-                mpnn_memory_constraint = psutil.virtual_memory().available
-                logger.debug(f'The available cpu memory is: {mpnn_memory_constraint}')
-            else:
-                mpnn_memory_constraint, gpu_memory_total = torch.cuda.mem_get_info()
-                logger.debug(f'The available gpu memory is: {mpnn_memory_constraint}')
-
             size = full_rotation1.shape[0]  # This is the number of transformations, i.e. the number_of_designs
             # The batch_length indicates how many models could fit in the allocated memory
-            batch_length = ml.PROTEINMPNN_DESIGN_BATCH_LEN
+            batch_length = ml.calculate_proteinmpnn_batch_length(mpnn_model, number_of_residues)
+            logger.info(f'Found ProteinMPNN batch_length={batch_length}')
 
             # Set up parameters to run ProteinMPNN design
             if job.design.ca_only:
