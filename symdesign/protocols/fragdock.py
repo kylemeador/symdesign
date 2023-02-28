@@ -1606,6 +1606,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
         return {'overlap_counts': overlap_counts}
 
+    logger.info(f'Testing found transforms for ASU clashes')
     # Using the inverse transform of the model2 backbone and cb (surface fragment) coordinates, check for clashes
     # with the model1 backbone and cb coordinates BinaryTree
     ball_tree_kwargs = dict(binarytree=oligomer1_backbone_cb_tree,
@@ -3617,12 +3618,12 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     weighted_trajectory_df = prioritize_transforms_by_selection()
     # Get selected indices and reduce
     selected_indices = weighted_trajectory_df.index.tolist()
+    current_transformation_ids = create_transformation_hash()
     # Filter hits down
     filter_transforms_by_indices(selected_indices)
     # Narrow down the metrics by the selected_indices. If this is the last cycle, they will be written
     poses_df = poses_df.loc[selected_indices]
     residues_df = residues_df.loc[selected_indices]
-    current_transformation_ids = create_transformation_hash()
     # Reorder the transformation identifiers
     passing_transform_ids = [current_transformation_ids[idx] for idx in selected_indices]
     # -----------------------------------------------------------------------------------------------------------------
@@ -3670,7 +3671,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # Set the passing transformation identifiers as the trajectory metrics index
     # These should all be the same order as w/ or w/o optimize_found_transformations_by_metrics() the order of
     # passing_transform_ids is fetched from the order of the selected_indices and each _df is sorted accordingly
-    passing_index = pd.Index(passing_transform_ids, name=sql.PoseMetrics.pose_id.name)
+    pose_names = [f'{pose_name:d}' for pose_name in passing_transform_ids]
+    passing_index = pd.Index(pose_names, name=sql.PoseMetrics.pose_id.name)
     poses_df.index = passing_index
     residues_df.index = passing_index
 
@@ -3678,14 +3680,14 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         """Finalize any remaining work and return to the caller"""
 
         # Extract transformation parameters for output
-        nonlocal number_of_transforms
+        nonlocal number_of_transforms, pose_names
         # Create PoseJob pose_names using the transformations
         # pose_names = create_transformation_hash()
-        pose_names = passing_transform_ids
+        # pose_names = [f'{pose_name:d}' for pose_name in passing_transform_ids]
 
         # Add the PoseJobs to the database
         while True:
-            pose_jobs = [PoseJob.from_name(f'{pose_name:d}', project=project, protocol=protocol_name)
+            pose_jobs = [PoseJob.from_name(pose_name, project=project, protocol=protocol_name)
                          for pose_name in pose_names]
             session.add_all(pose_jobs)
             try:  # Flush PoseJobs to the current session to generate ids
@@ -3713,15 +3715,17 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                     # with the new set
                     existing_indices_, pose_names = zip(*sorted(pose_names_, key=lambda name: name[0]))
                     # Select poses_df/residues_df by existing_indices_
-                    poses_df_ = poses_df_.loc[existing_indices_, :]
-                    residues_df_ = residues_df_.loc[existing_indices_, :]
+                    # poses_df_ = poses_df_.loc[existing_indices_, :]
+                    # residues_df_ = residues_df_.loc[existing_indices_, :]
+                    poses_df_ = poses_df_.loc[pose_names, :]
+                    residues_df_ = residues_df_.loc[pose_names, :]
                     logger.critical(f'Reset the new poses with attributes:\n'
                                     f'\tpose_names={pose_names}\n'
                                     f'\texisting_indices_={existing_indices_}\n'
                                     f'\tposes_df_.index={poses_df_.index.tolist()}\n'
                                     f'\tresidues_df_.index={residues_df_.index.tolist()}\n'
                                     f'')
-                    number_of_transforms = len(existing_indices_)
+                    number_of_transforms = len(pose_names)
                     filter_transforms_by_indices(list(existing_indices_))
             else:
                 break
@@ -3933,8 +3937,9 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # Clean up, save data/output results
     # Todo 1 atomize session for concurrent database access
     # with job.db.session(expire_on_commit=False) as session:
+    session = job.current_session
     pose_jobs = terminate(pose, poses_df, residues_df)
-    job.current_session.commit()
+    session.commit()
     logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
     return pose_jobs
