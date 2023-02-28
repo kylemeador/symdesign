@@ -41,7 +41,7 @@ from symdesign.protocols.pose import PoseJob
 from symdesign.resources.job import job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from symdesign.resources.query.utils import validate_input_return_response_value
-from symdesign.resources import sql, wrapapi
+from symdesign.resources import distribute, sql, wrapapi
 from symdesign.structure.fragment.db import fragment_factory, euler_factory
 from symdesign.structure.model import Entity, Model, Pose
 # from symdesign.structure import utils as stutils
@@ -233,11 +233,11 @@ def main():
                     exit_code = 1
                     exit(exit_code)
 
-                if utils.distribute.is_sbatch_available():
-                    shell = utils.distribute.sbatch
+                if distribute.is_sbatch_available():
+                    shell = distribute.sbatch
                     logger.critical(sbatch_warning)
                 else:
-                    shell = utils.distribute.default_shell
+                    shell = distribute.default_shell
                     logger.critical(script_warning)
 
                 putils.make_path(job_paths)
@@ -245,22 +245,20 @@ def main():
                 if job.module == flags.nanohedra:
                     command_file = utils.write_commands([list2cmdline(cmd) for cmd in commands], out_path=job_paths,
                                                         name='_'.join(default_output_tuple))
-                    script_file = \
-                        utils.distribute.distribute(command_file, job.module, out_path=job.sbatch_scripts,
-                                                    number_of_commands=len(commands))
+                    script_file = distribute.distribute(command_file, job.module, out_path=job.sbatch_scripts,
+                                                        number_of_commands=len(commands))
                 else:
                     command_file = utils.write_commands([os.path.join(pose_job.scripts_path, f'{stage}.sh')
                                                          for pose_job in successful_pose_jobs],
                                                         out_path=job_paths, name='_'.join(default_output_tuple))
-                    script_file = utils.distribute.distribute(command_file, job.module, out_path=job.sbatch_scripts)
+                    script_file = distribute.distribute(command_file, job.module, out_path=job.sbatch_scripts)
 
                 if job.module == flags.design and job.initial_refinement:
                     # We should refine before design
                     refine_file = utils.write_commands([os.path.join(pose_job.scripts_path, f'{flags.refine}.sh')
                                                         for pose_job in successful_pose_jobs], out_path=job_paths,
                                                        name='_'.join((utils.starttime, flags.refine, design_source)))
-                    script_refine_file = \
-                        utils.distribute.distribute(refine_file, flags.refine, out_path=job.sbatch_scripts)
+                    script_refine_file = distribute.distribute(refine_file, flags.refine, out_path=job.sbatch_scripts)
                     logger.info(f'Once you are satisfied, enter the following to distribute:\n\t{shell} '
                                 f'{script_refine_file}\nTHEN:\n\t{shell} {script_file}')
                 else:
@@ -288,7 +286,7 @@ def main():
         def check_if_script_and_exit():
             if info_messages:
                 # Entity processing commands are needed
-                if utils.distribute.is_sbatch_available():
+                if distribute.is_sbatch_available():
                     logger.critical(sbatch_warning)
                 else:
                     logger.critical(script_warning)
@@ -542,7 +540,7 @@ def main():
     #         flags.query_user_for_flags(mode=args.flags_module)
     # ---------------------------------------------------
     # elif args.module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs
-    #     utils.distribute.distribute(**vars(args))
+    #     distribute.distribute(**vars(args))
     # ---------------------------------------------------
     # elif args.residue_selector:  # Todo
     #     def generate_sequence_template(pdb_file):

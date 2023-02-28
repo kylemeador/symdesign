@@ -568,7 +568,7 @@ def write_shell_script(command: str, name: str = 'script', out_path: AnyStr = os
     """
     if status_wrap:
         modifier = '&&'
-        _base_cmd = ['python', putils.command_distributer, '--stage', name, 'status', '--info', status_wrap]
+        _base_cmd = ['python', putils.distributer_tool, '--stage', name, 'status', '--info', status_wrap]
         check = subprocess.list2cmdline(_base_cmd + ['--check', modifier, '\n'])
         _set = subprocess.list2cmdline(_base_cmd + ['--set'])
     else:

@@ -17,11 +17,11 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
 
-from . import config, sql, structure_db, wrapapi
+from . import config, distribute, sql, structure_db, wrapapi
 from symdesign import flags, sequence, structure, utils
 from symdesign.sequence import hhblits
 from symdesign.structure.fragment import db
-from symdesign.utils import distribute, guide, SymEntry, InputError, path as putils
+from symdesign.utils import guide, SymEntry, InputError, path as putils
 
 logger = logging.getLogger(__name__)
 gb_divisior = 1e9  # 1000000000
@@ -1014,12 +1014,13 @@ class JobResources:
                 # Run commands in this process
                 if self.multi_processing:
                     zipped_args = zip(hhblits_cmds, repeat(hhblits_log_file))
-                    # utils.distribute.run(cmd, hhblits_log_file)
+                    # distribute.run(cmd, hhblits_log_file)
                     # Todo calculate how many cores are available to use given memory limit
-                    utils.mp_starmap(utils.distribute.run, zipped_args, processes=self.cores)
+                    utils.mp_starmap(distribute.run, zipped_args, processes=self.cores)
                 else:
                     with open(hhblits_log_file, 'w') as f:
                         for cmd in hhblits_cmds:
+                            logger.info(f'Starting command: {subprocess.list2cmdline(cmd)}')
                             p = subprocess.Popen(cmd, stdout=f, stderr=f)
                             p.communicate()
 
@@ -1064,10 +1065,10 @@ class JobResources:
             #      for entity in entities.values()]
             bmdca_cmd_file = \
                 utils.write_commands(bmdca_cmds, name=f'{utils.starttime}-bmDCA', out_path=self.profiles)
-            bmdca_script = utils.distribute.distribute(file=bmdca_cmd_file, out_path=self.sbatch_scripts,
-                                                       scale='bmdca', max_jobs=len(bmdca_cmds),
-                                                       number_of_commands=len(bmdca_cmds),
-                                                       log_file=os.path.join(self.profiles, 'generate_couplings.log'))
+            bmdca_script = distribute.distribute(file=bmdca_cmd_file, out_path=self.sbatch_scripts,
+                                                 scale='bmdca', max_jobs=len(bmdca_cmds),
+                                                 number_of_commands=len(bmdca_cmds),
+                                                 log_file=os.path.join(self.profiles, 'generate_couplings.log'))
             # reformat_msa_cmd_file = \
             #     SDUtils.write_commands(reformat_msa_cmds, name='%s-reformat_msa' % SDUtils.starttime,
             #                            out_path=self.profiles)

@@ -11,7 +11,7 @@ from typing import Iterable, Annotated, AnyStr
 
 import jax.numpy as jnp
 
-from . import sql
+from . import distribute, sql
 from .database import Database, DataStore
 from .query.utils import boolean_choice
 from symdesign import flags, resources, structure, utils
@@ -529,10 +529,10 @@ class StructureDatabase(Database):
         structures_to_loop_model = []
 
         # Query user and set up commands to perform refinement on missing entities
-        if utils.distribute.is_sbatch_available():
-            shell = utils.distribute.sbatch
+        if distribute.is_sbatch_available():
+            shell = distribute.sbatch
         else:
-            shell = utils.distribute.default_shell
+            shell = distribute.default_shell
 
         info_messages = []
         # Assume pre_refine is True until we find it isn't
@@ -581,10 +581,10 @@ class StructureDatabase(Database):
                         utils.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
                                              name=f'{utils.starttime}-refine_entities')
                     refine_script = \
-                        utils.distribute.distribute(commands_file, flags.refine, out_path=script_out_path,
-                                                    log_file=os.path.join(refine_dir, f'{putils.refine}.log'),
-                                                    max_jobs=int(len(refine_cmds)/2 + .5),
-                                                    number_of_commands=len(refine_cmds))
+                        distribute.distribute(commands_file, flags.refine, out_path=script_out_path,
+                                              log_file=os.path.join(refine_dir, f'{putils.refine}.log'),
+                                              max_jobs=int(len(refine_cmds)/2 + .5),
+                                              number_of_commands=len(refine_cmds))
                     refine_script_message = f'Once you are satisfied, run the following to distribute refine jobs:' \
                                             f'\n\t{shell} {refine_script}'
                     info_messages.append(refine_script_message)
@@ -672,10 +672,10 @@ class StructureDatabase(Database):
                         utils.write_commands(loop_model_cmds, name=f'{utils.starttime}-loop_model_entities',
                                              out_path=full_model_dir)
                     loop_model_script = \
-                        utils.distribute.distribute(loop_cmds_file, flags.refine, out_path=script_out_path,
-                                                    log_file=os.path.join(full_model_dir, 'loop_model.log'),
-                                                    max_jobs=int(len(loop_model_cmds)/2 + .5),
-                                                    number_of_commands=len(loop_model_cmds))
+                        distribute.distribute(loop_cmds_file, flags.refine, out_path=script_out_path,
+                                              log_file=os.path.join(full_model_dir, 'loop_model.log'),
+                                              max_jobs=int(len(loop_model_cmds)/2 + .5),
+                                              number_of_commands=len(loop_model_cmds))
                     multi_script_warning = "\n***Run this script AFTER completion of the refinement script***\n" \
                         if info_messages else ""
                     loop_model_sbatch_message = 'Once you are satisfied, run the following to distribute loop_modeling'\
@@ -717,10 +717,10 @@ class StructureDatabase(Database):
             # else:
             #     data.model_source = self.full_models.path_to(name=entity_name)
         # Query user and set up commands to perform refinement on missing entities
-        if utils.distribute.is_sbatch_available():
-            shell = utils.distribute.sbatch
+        if distribute.is_sbatch_available():
+            shell = distribute.sbatch
         else:
-            shell = utils.distribute.default_shell
+            shell = distribute.default_shell
 
         info_messages = []
         # Query user and set up commands to perform loop modelling on missing entities
@@ -924,10 +924,10 @@ class StructureDatabase(Database):
                             utils.write_commands(loop_model_cmds, name=f'{utils.starttime}-loop_model_entities',
                                                  out_path=full_model_dir)
                         loop_model_script = \
-                            utils.distribute.distribute(loop_cmds_file, flags.refine, out_path=script_out_path,
-                                                                log_file=os.path.join(full_model_dir, 'loop_model.log'),
-                                                                max_jobs=int(len(loop_model_cmds)/2 + .5),
-                                                                number_of_commands=len(loop_model_cmds))
+                            distribute.distribute(loop_cmds_file, flags.refine, out_path=script_out_path,
+                                                  log_file=os.path.join(full_model_dir, 'loop_model.log'),
+                                                  max_jobs=int(len(loop_model_cmds)/2 + .5),
+                                                  number_of_commands=len(loop_model_cmds))
                         loop_model_script_message = 'Once you are satisfied, run the following to distribute ' \
                                                     f'loop_modeling jobs:\n\t{shell} {loop_model_script}'
                         info_messages.append(loop_model_script_message)
@@ -1000,10 +1000,10 @@ class StructureDatabase(Database):
                         utils.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
                                              name=f'{utils.starttime}-refine_entities')
                     refine_script = \
-                        utils.distribute.distribute(commands_file, flags.refine, out_path=script_out_path,
-                                                    log_file=os.path.join(refine_dir, f'{putils.refine}.log'),
-                                                    max_jobs=int(len(refine_cmds)/2 + .5),
-                                                    number_of_commands=len(refine_cmds))
+                        distribute.distribute(commands_file, flags.refine, out_path=script_out_path,
+                                              log_file=os.path.join(refine_dir, f'{putils.refine}.log'),
+                                              max_jobs=int(len(refine_cmds)/2 + .5),
+                                              number_of_commands=len(refine_cmds))
                     multi_script_warning = "\n***Run this script AFTER completion of the loop modeling script***\n" \
                         if info_messages else ""
                     refine_script_message = f'Once you are satisfied, run the following to distribute refine jobs:' \
