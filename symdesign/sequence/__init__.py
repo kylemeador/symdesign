@@ -1037,14 +1037,14 @@ def numeric_to_sequence(numeric_sequence: np.ndarray, translation_table: dict[st
             raise ValueError(f"The 'alphabet_order' {alphabet_order} isn't valid. Choose from either 1 or 3")
 
 
-def get_equivalent_indices(target: Sequence = None, query: Sequence = None, alignment: Sequence = None) \
+def get_equivalent_indices(target: Sequence = None, query: Sequence = None, mutation_allowed: bool = False) \
         -> tuple[list[int], list[int]]:
     """From two sequences, find the indices where both sequences are equal
 
     Args:
         target: The first sequence to compare
         query: The second sequence to compare
-        alignment: An existing Bio.Align.Alignment object
+        mutation_allowed: Whether equivalent indices can exist at mutation sites
     Returns:
         The pair of indices where the sequences align.
             Ex: sequence1 = A B C D E F ...
@@ -1052,18 +1052,20 @@ def get_equivalent_indices(target: Sequence = None, query: Sequence = None, alig
             returns        [0,1,  3,4,5, ...],
                            [0,1,  2,3,4, ...]
     """
-    if alignment is None:
-        if target is not None and query is not None:
-            # # Get all mutations from the alignment of sequence1 and sequence2
-            mutations = generate_mutations(target, query, blanks=True, return_all=True)
-            # alignment = generate_alignment(target, query)
-            # alignment.inverse_indices
-            # return
-        else:
-            raise ValueError(f"Can't {get_equivalent_indices.__name__} without passing either 'alignment' or "
-                             f"'target' and 'query'")
-    else:  # Todo this may not be ever useful since the alignment needs to go into the generate_mutations()
-        raise NotImplementedError(f"Set {get_equivalent_indices.__name__} up with an Alignment object from Bio.Align")
+    # alignment: Sequence = None
+    #     alignment: An existing Bio.Align.Alignment object
+    # if alignment is None:
+    if target is not None and query is not None:
+        # # Get all mutations from the alignment of sequence1 and sequence2
+        mutations = generate_mutations(target, query, blanks=True, return_all=True)
+        # alignment = generate_alignment(target, query)
+        # alignment.inverse_indices
+        # return
+    else:
+        raise ValueError(f"Can't {get_equivalent_indices.__name__} without passing either 'alignment' or "
+                         f"'target' and 'query'")
+    # else:  # Todo this may not be ever useful since the alignment needs to go into the generate_mutations()
+    #     raise NotImplementedError(f"Set {get_equivalent_indices.__name__} up with an Alignment object from Bio.Align")
 
     target_mutations = ''.join([mutation['to'] for mutation in mutations.values()])
     query_mutations = ''.join([mutation['from'] for mutation in mutations.values()])
@@ -1084,8 +1086,12 @@ def get_equivalent_indices(target: Sequence = None, query: Sequence = None, alig
             # from_idx += 1
             next(from_idx)
         elif mutation['to'] != mutation['from']:
-            next(from_idx)
-            next(to_idx)
+            if mutation_allowed:
+                sequence1_indices.append(next(from_idx))
+                sequence2_indices.append(next(to_idx))
+            else:
+                next(from_idx)
+                next(to_idx)
             # to_idx += 1
             # from_idx += 1
         else:  # What else is there

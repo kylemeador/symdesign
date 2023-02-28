@@ -885,7 +885,8 @@ class SequenceProfile(ABC):
         # query_align_indices, reference_align_indices = get_equivalent_indices(msa.query, self.reference_sequence)
         # Todo consolidate the alignment and generate_mutations call here with the generate_mutations below
         #  mutations = generate_mutations(target, query, blanks=True, return_all=True)
-        query_align_indices, reference_align_indices = get_equivalent_indices(msa.query, self.sequence)
+        query_align_indices, reference_align_indices = \
+            get_equivalent_indices(msa.query, self.sequence, mutation_allowed=True)
         # # Set all indices to a baseline of zero
         # sequence_indices = np.zeros_like(sequence_indices)
         # sequence_indices = sequence_indices[:, query_align_indices]
