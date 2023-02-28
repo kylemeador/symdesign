@@ -457,8 +457,10 @@ class JobResources:
             self.design.scout = False
             self.design.term_constraint = False
 
-        # Explicitly set to false if not designing
-        if self.design.evolution_constraint and flags.design not in self.modules:
+        # Explicitly set to false if not designing or predicting
+        if self.design.evolution_constraint and \
+                (flags.design not in self.modules or
+                 flags.predict_structure not in self.modules):
             self.design.evolution_constraint = False
 
         # self.dock_only: bool = kwargs.get('dock_only')
