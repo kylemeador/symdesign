@@ -1284,7 +1284,6 @@ def main():
                 for entity in structure.entities:
                     protein_metadata = all_uniprot_id_to_prot_data[entity.uniprot_ids]
                     # Importantly, we add oriented attribute to aid in any future processing
-                    print(entity.file_path)
                     protein_metadata.model_source = entity.file_path
 
             # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
