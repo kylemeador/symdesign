@@ -15,7 +15,7 @@ putils = utils.path
 # Globals
 logger = logging.getLogger(__name__)
 alignment_types_literal = Literal['mapped', 'paired']
-alignment_types: tuple[alignment_types_literal] = get_args(alignment_types_literal)
+alignment_types: tuple[str, ...] = get_args(alignment_types_literal)
 fragment_info_keys = Literal[alignment_types_literal, 'match', 'cluster']
 fragment_info_type = Type[dict[fragment_info_keys, Union[int, float, tuple[int, int, int]]]]
 RELOAD_DB = 123
@@ -28,7 +28,7 @@ class Representative:
 
     def __init__(self, struct: 'structure.base.Structure', fragment_db: FragmentDatabase):
         for item in self.register:
-            setattr(self, item, getattr(struct, item))
+            self.__setattr__(item, getattr(struct, item))
 
         for idx, index in enumerate(range(*fragment_db.fragment_range)):
             if index == 0:
@@ -732,7 +732,7 @@ class EulerLookup:
         #                    return_bool: bool = False
         """Returns a tuple with the index of the first fragment and second fragment where they overlap
         """
-        # ensure the atoms are passed as an array of (n, 3x3) matrices
+        # Ensure the atoms are passed as an array of (n, 3x3) matrices
         try:
             for idx, guide_coords in enumerate([guide_coords1, guide_coords2]):
                 indices_len, *remainder = guide_coords.shape

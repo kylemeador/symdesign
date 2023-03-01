@@ -23,7 +23,7 @@ from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementatio
 
 from . import fragment
 from .base import Structure, Structures, Residue, StructureBase, atom_or_residue_literal, sasa_burial_threshold
-from .coords import Coords, superposition3d, transform_coordinate_sets
+from .coords import Coords, superposition3d, superposition3d_quat, transform_coordinate_sets
 from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type
 from .sequence import SequenceProfile, Profile, pssm_as_array, default_fragment_contribution, sequence_to_numeric, \
     sequence_to_one_hot, sequences_to_numeric
@@ -2118,8 +2118,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         ca_coords = self.ca_coords
         for chain in self.chains[1:]:
             # System must be transformed to the origin
-            rmsd, quat, tx = superposition3d(ca_coords, chain.ca_coords, quaternion=True)
-            # rmsd, quat, tx = superposition3d(cb_coords-center_of_mass, chain.cb_coords-center_of_mass, quaternion=True)
+            rmsd, quat, tx = superposition3d_quat(ca_coords, chain.ca_coords)
+            # rmsd, quat, tx = superposition3d_quat(cb_coords-center_of_mass, chain.cb_coords-center_of_mass)
             self.log.debug(f'rmsd={rmsd} quaternion={quat} translation={tx}')
             # python pseudo
             w = abs(quat[3])
