@@ -3472,7 +3472,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # weighted_trajectory_df.index = \
         #     weighted_trajectory_df.index.map(dict(zip(weighted_trajectory_df_index,
         #                                               pd.Index(current_transformation_ids))))
-        # Add these results to the total
+        # Add the weighted_trajectory_df to the total_results_df to keep global results
         append_total_results(weighted_trajectory_df)
         # Filter hits down
         filter_transforms_by_indices(selected_indices)
@@ -3577,7 +3577,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         nonlocal total_results_df
         # Add new metrics to existing and keep the newly added if there are overlap
         total_results_df = pd.concat([total_results_df, additional_trajectory_df], axis=0)
-        total_results_df.drop_duplicates(keep='last', inplace=True)
+        total_results_df = total_results_df[~total_results_df.index.duplicated(keep='last')]
         return total_results_df
 
     def calculate_results_for_stopping(target_df: pd.DataFrame, indices: list[int | str]) -> float | pd.Series:
@@ -3609,11 +3609,12 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     current_transformation_ids = create_transformation_hash()
     # Filter hits down
     filter_transforms_by_indices(selected_indices)
-    # Narrow down the metrics by the selected_indices. If this is the last cycle, they will be written
+    # Narrow down the metrics by the selected_indices. If no perturbations, they will be written
     poses_df = poses_df.loc[selected_indices]
     residues_df = residues_df.loc[selected_indices]
     # Reorder the transformation identifiers
     passing_transform_ids = [current_transformation_ids[idx] for idx in selected_indices]
+    """The transformation hash indices that are passing in the order of the --dock-weight selection"""
     # -----------------------------------------------------------------------------------------------------------------
     # Below creates perturbations to sampled transformations and scores the resulting Pose
     # -----------------------------------------------------------------------------------------------------------------
@@ -3622,14 +3623,19 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     number_perturbations_applied = 1
     if job.dock.perturb_dof:
         # Set the weighted_trajectory_df as total_results_df to keep a record of global results
+        # total_results_df = poses_df <- this contains all filtered results too
         total_results_df = weighted_trajectory_df
         total_results_df.index = pd.Index(passing_transform_ids)
         # Initialize docking score search
         optimize_round = 1
         logger.info(f'Starting optimize with {number_of_transforms} transformations')
+        if job.dock.weight:
+            selected_columns = list(job.dock.weight.keys())
+        else:
+            selected_columns = metrics.selection_weight_column
         last_result: float = 0.
-        # result: float = weighted_trajectory_df.mean(axis=0)  # sys.maxsize
-        result = calculate_results_for_stopping(total_results_df, passing_transform_ids)  # sys.maxsize
+        result = weighted_trajectory_df.loc[:, selected_columns].mean(axis=0)
+        # result = calculate_results_for_stopping(total_results_df, passing_transform_ids)
         # threshold = 0.05  # 0.1 <- not convergent # 1 <- too lenient with pareto_optimize_trajectories
         threshold_percent = 0.05
         if isinstance(result, float):
@@ -3648,8 +3654,10 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             last_result = result
             # Perform scoring and a possible iteration of dock perturbation
             weighted_trajectory_df, passing_transform_ids = optimize_found_transformations_by_metrics()
-            # Set the weighted_trajectory_df as total_results_df to keep global results
-            result = calculate_results_for_stopping(total_results_df, passing_transform_ids)
+            # # De-duplicate the passing_transform_ids if the optimization has surpassed their bin size
+            # passing_transform_ids = utils.remove_duplicates(passing_transform_ids)
+            # result = calculate_results_for_stopping(total_results_df, passing_transform_ids)
+            result = weighted_trajectory_df.loc[:, selected_columns].mean(axis=0)
             number_of_transforms = len(full_rotation1)
             logger.info(f'Found {number_of_transforms} transformations after '
                         f'{optimize_found_transformations_by_metrics.__name__} round {optimize_round} '
@@ -3659,10 +3667,17 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # Set the passing transformation identifiers as the trajectory metrics index
     # These should all be the same order as w/ or w/o optimize_found_transformations_by_metrics() the order of
     # passing_transform_ids is fetched from the order of the selected_indices and each _df is sorted accordingly
-    pose_names = [f'{pose_name:d}' for pose_name in passing_transform_ids]
-    passing_index = pd.Index(pose_names, name=sql.PoseMetrics.pose_id.name)
-    poses_df.index = passing_index
-    residues_df.index = passing_index
+    _pose_names = [f'{identifier:d}' for identifier in passing_transform_ids]
+    passing_index = pd.Index(_pose_names, name=sql.PoseMetrics.pose_id.name)
+    # Deduplicate the indices by keeping the first instance
+    # The above sorting ensures that the first instance is the "best"
+    deduplicated_indices = ~passing_index.duplicated(keep='first')
+    poses_df = poses_df[deduplicated_indices]
+    residues_df = residues_df[deduplicated_indices]
+    poses_df.index = residues_df.index = passing_index[deduplicated_indices]
+    pose_names = poses_df.index.tolist()
+    number_of_transforms = len(pose_names)
+    filter_transforms_by_indices(np.flatnonzero(deduplicated_indices))
 
     def terminate(pose: Pose, poses_df_: pd.DataFrame, residues_df_: pd.DataFrame):
         """Finalize any remaining work and return to the caller"""
