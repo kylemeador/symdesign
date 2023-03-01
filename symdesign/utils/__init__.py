@@ -123,11 +123,16 @@ long_start_date = datestamp()
 starttime = timestamp()
 log_handler = {1: StreamHandler, 2: FileHandler, 3: NullHandler}
 logging_level_literal = Literal[
+    1, 2, 3, 4, 5, 10, 20, 30, 40, 50,
+    '1', '2', '3', '4', '5', '10', '20', '30', '40', '50',
     'debug', 'info', 'warning', 'error', 'critical', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL',
-    1, 2, 3, 4, 5, 10, 20, 30, 40, 50]
+]
 log_level_keys: tuple[str | int, ...] = get_args(logging_level_literal)
+logging_levels = [DEBUG, INFO, WARNING, ERROR, CRITICAL]
 log_level = dict(zip(log_level_keys, [DEBUG, INFO, WARNING, ERROR, CRITICAL, DEBUG, INFO, WARNING, ERROR, CRITICAL,
-                                      DEBUG, INFO, WARNING, ERROR, CRITICAL, DEBUG, INFO, WARNING, ERROR, CRITICAL]))
+                                      DEBUG, INFO, WARNING, ERROR, CRITICAL, DEBUG, INFO, WARNING, ERROR, CRITICAL,
+                                      DEBUG, INFO, WARNING, ERROR, CRITICAL, DEBUG, INFO, WARNING, ERROR, CRITICAL
+                                      ]))
 """log_level = {
 'debug': DEBUG, 'info': INFO, 'warning': WARNING, 'error': ERROR, 'critical': CRITICAL,
 'DEBUG': DEBUG, 'INFO': INFO, 'WARNING': WARNING, 'ERROR': ERROR, 'CRITICAL': CRITICAL,
