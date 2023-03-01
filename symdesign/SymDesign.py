@@ -1231,7 +1231,7 @@ def main():
                                 entity.secondary_structure = parsed_secondary_structure
                             else:
                                 # entity = Entity.from_file(data.model_source, name=data.entity_id, metadata=data)
-                                entity.stride(to_file=job.api_db.stride.path_to(name=data.entity_id))
+                                entity.stride(to_file=job.api_db.stride.path_to(name=entity.name))
                             protein_metadata.n_terminal_helix = entity.is_termini_helical()
                             protein_metadata.c_terminal_helix = entity.is_termini_helical('c')
                             # for uniprot_id in entity.uniprot_ids:
