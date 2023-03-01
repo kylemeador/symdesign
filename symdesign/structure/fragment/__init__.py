@@ -13,7 +13,7 @@ from sklearn.neighbors._ball_tree import BinaryTree, BallTree
 
 from symdesign import utils, structure
 from . import db, info, metrics
-from ..coords import transform_coordinate_sets, superposition3d
+from ..coords import guide_superposition, superposition3d, transform_coordinate_sets
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -495,9 +495,17 @@ class ResidueFragment(Fragment, ABC):
     def transformation(self) -> tuple[np.ndarray, np.ndarray]:  # dict[str, np.ndarray]:
         """The transformation of the ResidueFragment from the FragmentDatabase to its current position"""
         # return dict(rotation=self.rotation, translation=self.translation)
-        _, self.rotation, self.translation = \
-            superposition3d(self.backbone_coords, self._fragment_coords)
+        # *Slower than the below functions
+        # rotation, *_ = Rotation.align_vectors(self.backbone_coords, self._fragment_coords)
+        # self.rotation = rotation.as_matrix()
+        # self.translation = self.backbone_coords.mean(axis=0)\
+        #     - np.matmul(self.rotation, self._fragment_coords.mean(axis=0))
+        # *Slower
+        # _, self.rotation, self.translation = \
+        #     superposition3d(self.backbone_coords, self._fragment_coords)
         #     superposition3d(self._fragment_coords, self._fragment_coords)
+        self.rotation, self.translation = \
+            guide_superposition(self.backbone_coords, self._fragment_coords)
         return self.rotation, self.translation
         # return dict(rotation=self.rotation, translation=self.translation)
 
@@ -511,7 +519,6 @@ class ResidueFragment(Fragment, ABC):
     #     return self.chain_id, self.number
 
 
-# @njit
 def find_fragment_overlap(fragments1: Iterable[Fragment], fragments2: Sequence[Fragment],
                           clash_coords: np.ndarray = None, min_match_value: float = 2.,  # .2,
                           euler_lookup: db.EulerLookup = None, **kwargs) -> list[tuple[GhostFragment, Fragment, float]]:

@@ -23,11 +23,6 @@ import numpy as np
 import psutil
 import torch
 
-# from numba import njit
-# from Bio.PDB import PDBParser, Superimposer
-
-# from Query.utils import validate_input
-# from . import distribute, ProteinExpression  # Doesn't work due to circular imports
 from . import path as putils
 
 # Globals
