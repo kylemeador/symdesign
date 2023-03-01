@@ -3928,6 +3928,7 @@ class PoseProtocol(PoseData):
 
         # analysis_start = time.time()
         designs_df, residues_df = self.analyze_proteinmpnn_metrics(design_ids, sequences_and_scores)
+        self.analyze_design_entities_per_residue(residues_df)
         # self.log.debug(f"Took {time.time() - analysis_start:8f}s for analyze_proteinmpnn_metrics. "
         #                f"{time.time() - design_start:8f}s total")
         self.output_metrics(designs=designs_df, residues=residues_df)
@@ -4771,6 +4772,7 @@ class PoseProtocol(PoseData):
         # }
 
         mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
+        self.analyze_design_entities_per_residue(mpnn_residues_df)
 
         designs_df = designs_df.join(mpnn_designs_df)
         # This call is redundant with the analyze_proteinmpnn_metrics(design_names, sequences_and_scores) above
@@ -4901,8 +4903,8 @@ class PoseProtocol(PoseData):
         # residues_df = self.analyze_pose_metrics()
         # self.output_metrics(residues=residues_df)
         pose_name = self.pose.name
-        designs_df, residues_df = \
-            self.analyze_pose_metrics(novel_interface=False if not self.pose_source.protocols else True)
+        designs_df, residues_df = self.analyze_pose_metrics()
+        #     self.analyze_pose_metrics(novel_interface=False if not self.pose_source.protocols else True)
         if scores:
             # pose_source_id = self.pose_source.id
             scores_with_identifier = {pose_name: scores}
@@ -4982,7 +4984,7 @@ class PoseProtocol(PoseData):
 
         # Score using proteinmpnn
         sequences = [self.pose.sequence]
-        proteinmpnn_scores = self.pose.score([self.pose.sequence])
+        proteinmpnn_scores = self.pose.score(sequences)
         design_residues = np.zeros((1, pose_length), dtype=bool)
         # design_residues[interface_residue_indices] = 1
         sequences_and_scores = {
@@ -4991,7 +4993,8 @@ class PoseProtocol(PoseData):
             **proteinmpnn_scores
         }
         mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics([pose_name], sequences_and_scores)
-
+        design_ids = [self.pose_source.id]
+        self.analyze_design_entities_per_residue(mpnn_residues_df, design_ids)
         designs_df = designs_df.join(mpnn_designs_df)
         # sequences_df = self.analyze_sequence_metrics_per_design(sequences=[self.pose.sequence],
         #                                                         design_ids=[pose_source_id])
@@ -5161,24 +5164,6 @@ class PoseProtocol(PoseData):
         # designs_df['number_mutations'] = mutation_df.sum(axis=1)
         designs_df['percent_mutations'] = designs_df['number_mutations'] / pose_length
 
-        mutation_df = residues_df.loc[:, idx_slice[:, 'mutation']]
-        entity_designs = {}
-        for entity_data, entity in zip(self.entity_data, self.pose.entities):
-            number_mutations = \
-                mutation_df.loc[:, idx_slice[residue_indices[entity.n_terminal_residue.index:
-                                                             1 + entity.c_terminal_residue.index], :]]\
-                .sum(axis=1)
-            entity_designs[entity_data.id] = dict(
-                number_mutations=number_mutations,
-                percent_mutations=number_mutations / entity.number_of_residues)
-
-        # Set up the DesignEntityMetrics dataframe for writing
-        design_ids = [design.id for design in self.current_designs]
-        entity_designs_df = pd.concat([pd.DataFrame(data) for data in entity_designs.values()], keys=design_ids)
-        entity_designs_df.index = entity_designs_df.index.rename(['design_id', 'entity_id'])
-        # entity_designs_df.reset_index(level=-1, inplace=True)
-        metrics.sql.write_dataframe(self.job.current_session, entity_designs=entity_designs_df)
-
         designs_df['sequence_loss_design_per_residue'] = designs_df['sequence_loss_design'] / pose_length
         # The per residue average loss compared to the design profile
         designs_df['sequence_loss_evolution_per_residue'] = designs_df['sequence_loss_evolution'] / pose_length
@@ -5215,6 +5200,40 @@ class PoseProtocol(PoseData):
                 continue
 
         return designs_df
+
+    def analyze_design_entities_per_residue(self, residues_df: pd.DataFrame, design_ids: Iterable[int] = None):
+        """Gather sequence metrics on a per-entity basis and write to the database
+
+        Args:
+            residues_df: A per-residue metric DataFrame where each index is the design id and the columns are
+                (residue index, residue metric)
+            design_ids: If the identifiers should be specified, provide them, otherwise will use self.current_designs
+        Returns:
+            None
+        """
+        residue_indices = list(range(self.pose.number_of_residues))
+        mutation_df = residues_df.loc[:, idx_slice[:, 'mutation']]
+        # logger.debug(mutation_df)
+        entity_designs = {}
+        for entity_data, entity in zip(self.entity_data, self.pose.entities):
+            number_mutations = \
+                mutation_df.loc[:, idx_slice[residue_indices[entity.n_terminal_residue.index:
+                                                             1 + entity.c_terminal_residue.index], :]]\
+                .sum(axis=1)
+            entity_designs[entity_data.id] = dict(
+                number_mutations=number_mutations,
+                percent_mutations=number_mutations / entity.number_of_residues)
+
+        # Set up the DesignEntityMetrics dataframe for writing
+        # logger.debug(entity_designs)
+        # logger.debug([pd.DataFrame(data) for data in entity_designs.values()])
+        if design_ids is None:
+            design_ids = [design.id for design in self.current_designs]
+        # logger.debug(f'Found the design ids: {design_ids}')
+        entity_designs_df = pd.concat([pd.DataFrame(data) for data in entity_designs.values()], keys=design_ids)
+        entity_designs_df.index = entity_designs_df.index.rename(['design_id', 'entity_id'])
+        # entity_designs_df.reset_index(level=-1, inplace=True)
+        metrics.sql.write_dataframe(self.job.current_session, entity_designs=entity_designs_df)
 
     def analyze_pose_metrics_per_design(self, residues_df: pd.DataFrame, designs_df: pd.DataFrame = None,
                                         designs: Iterable[Pose] | Iterable[AnyStr] = None) -> pd.Series:
