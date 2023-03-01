@@ -692,7 +692,7 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Start Logging
     # -----------------------------------------------------------------------------------------------------------------
-    if args.log_level == 1:  # Debugging
+    if args.log_level == logging.DEBUG:  # Debugging
         # Root logs to stream with level debug
         # logger = utils.start_log(level=job.log_level)
         # utils.start_log(level=job.log_level)

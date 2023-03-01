@@ -17,7 +17,7 @@ from itertools import repeat
 from logging import Logger, DEBUG, INFO, WARNING, ERROR, CRITICAL, getLogger, StreamHandler, FileHandler, NullHandler, \
     Formatter, root as root_logger
 from operator import getitem
-from typing import Any, Callable, Iterable, AnyStr, Sequence, Iterator, Literal, Type
+from typing import Any, Callable, Iterable, AnyStr, Sequence, Iterator, Literal, Type, get_args
 
 import numpy as np
 import psutil
@@ -122,14 +122,23 @@ short_start_date = datestamp(short=True)
 long_start_date = datestamp()
 starttime = timestamp()
 log_handler = {1: StreamHandler, 2: FileHandler, 3: NullHandler}
-log_level = {1: DEBUG, 2: INFO, 3: WARNING, 4: ERROR, 5: CRITICAL,
-             10: DEBUG, 20: INFO, 30: WARNING, 40: ERROR, 50: CRITICAL}
-logging_levels: Literal[1, 2, 3, 4, 5, 10, 20, 30, 40, 50]
+logging_level_literal = Literal[
+    'debug', 'info', 'warning', 'error', 'critical', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL',
+    1, 2, 3, 4, 5, 10, 20, 30, 40, 50]
+log_level_keys: tuple[str | int, ...] = get_args(logging_level_literal)
+log_level = dict(zip(log_level_keys, [DEBUG, INFO, WARNING, ERROR, CRITICAL, DEBUG, INFO, WARNING, ERROR, CRITICAL,
+                                      DEBUG, INFO, WARNING, ERROR, CRITICAL, DEBUG, INFO, WARNING, ERROR, CRITICAL]))
+"""log_level = {
+'debug': DEBUG, 'info': INFO, 'warning': WARNING, 'error': ERROR, 'critical': CRITICAL,
+'DEBUG': DEBUG, 'INFO': INFO, 'WARNING': WARNING, 'ERROR': ERROR, 'CRITICAL': CRITICAL,
+1: DEBUG, 2: INFO, 3: WARNING, 4: ERROR, 5: CRITICAL,
+10: DEBUG, 20: INFO, 30: WARNING, 40: ERROR, 50: CRITICAL}
+"""
 
 
-def start_log(name: str = '', handler: int = 1, level: logging_levels = 2, location: AnyStr = os.getcwd(),
+def start_log(name: str = '', handler: int = 1, level: logging_level_literal = 2, location: AnyStr = os.getcwd(),
               propagate: bool = False, format_log: bool = True, no_log_name: bool = False,
-              handler_level: logging_levels = None) -> Logger:
+              handler_level: logging_level_literal = None) -> Logger:
     """Create a logger to handle program messages
 
     Args:
@@ -191,7 +200,7 @@ def start_log(name: str = '', handler: int = 1, level: logging_levels = 2, locat
 # logger.handlers[0].addFilter(emit_info_and_lower)
 
 
-def set_logging_to_level(level: logging_levels = None, handler_level: logging_levels = None):
+def set_logging_to_level(level: logging_level_literal = None, handler_level: logging_level_literal = None):
     """For each Logger in current run time, set the Logger or the Logger.handlers level to level
 
     level is debug by default if no arguments are specified

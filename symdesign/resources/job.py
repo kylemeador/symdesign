@@ -255,7 +255,7 @@ class JobResources:
         # self.command_only: bool = kwargs.get('command_only', False)
         """Whether to reissue commands, only if distribute_work=False"""
         self.log_level: bool = kwargs.get('log_level')
-        self.debug: bool = True if self.log_level == 1 else False
+        self.debug: bool = True if self.log_level == logging.DEBUG else False
         self.force: bool = kwargs.get(putils.force)
         self.development: bool = kwargs.get(putils.development)
         self.profile_memory: bool = kwargs.get(putils.profile)

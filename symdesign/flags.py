@@ -14,8 +14,8 @@ from symdesign.sequence import constants
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
-from symdesign.utils import handle_errors, InputError, remove_digit_table, path as putils, pretty_format_table, \
-    to_iterable
+from symdesign.utils import handle_errors, InputError, log_level, remove_digit_table, path as putils, \
+    pretty_format_table, to_iterable
 from symdesign.utils.path import biological_interfaces, default_logging_level, ex_path, fragment_dbs
 # These attributes ^ shouldn't be moved here. Below should be with proper handling of '-' vs. '_'
 from symdesign.utils.path import submodule_guide, submodule_help, force, sym_entry, program_output, projects, \
@@ -694,7 +694,7 @@ options_arguments = {
         dict(action='store_true', help='Whether asu/pose clashes should be ignored during checking'),
     ('-isc', f'--{ignore_symmetric_clashes}'):
         dict(action='store_true', help='Whether symmetric clashes should be ignored during checking'),
-    ('--log-level',): dict(type=int, default=default_logging_level, choices=set(range(1, 6)),
+    ('--log-level',): dict(type=log_level.get, default=default_logging_level, choices=log_level.keys(),
                            help='What level of log messages should be displayed to stdout?'
                                 '\n1-debug, 2-info, 3-warning, 4-error, 5-critical\nDefault=%(default)s'),
     ('--mpi',): dict(type=int, metavar='INT',
