@@ -633,8 +633,8 @@ class JobResources:
             self.cluster = False
 
         # Finally perform checks on desired work to see if viable
-        if self.protocol_module:
-            self.check_protocol_module_arguments()
+        # if self.protocol_module:
+        self.check_protocol_module_arguments()
 
     @property
     def modules(self) -> list[str]:
