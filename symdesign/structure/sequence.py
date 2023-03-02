@@ -785,7 +785,25 @@ class SequenceProfile(ABC):
         # self.log.debug(f'evolutionary_mutations: {evolutionary_mutations}')
         # Removal of these positions from self.evolutionary_profile will produce a properly indexed profile
         last_profile_number = len(evolutionary_profile_sequence)
-        new_residue_number = count(1)
+        # Insert n-terminal residues
+        nterm_extra_structure_sequence = [index for index in evolutionary_mutations if index < zero_offset]
+        if nterm_extra_structure_sequence:
+            number_of_nterm_entries = len(nterm_extra_structure_sequence)
+            extra_profile_entries = self.create_null_entries(range(1, 1 + number_of_nterm_entries))
+            for mutation_res_num, residue_data in zip(nterm_extra_structure_sequence, extra_profile_entries.values()):
+                residue_data['type'] = evolutionary_mutations[mutation_res_num]['to']
+
+            # Renumber the structure_evolutionary_profile to offset all to 1
+            new_residue_number = count(1)
+            structure_evolutionary_profile = {next(new_residue_number): residue_data
+                                              for residue_data in extra_profile_entries.values()}
+        else:
+            number_of_nterm_entries = 1
+            new_residue_number = count(number_of_nterm_entries)
+            structure_evolutionary_profile = {}
+        self.log.debug(f'structure_evolutionary_profile.keys(): {structure_evolutionary_profile.keys()}')
+
+        # new_residue_number = count(number_of_nterm_entries)
         structure_evolutionary_profile = {next(new_residue_number): residue_data
                                           for residue_number, residue_data in self.evolutionary_profile.items()
                                           if residue_number not in evolutionary_mutations}  # disorder}
@@ -794,18 +812,18 @@ class SequenceProfile(ABC):
         # last_residue_number_seq = self.number_of_residues
         # # last_profile_number/last_residue_number_seq: 289, 295
         # input(f'last_profile_number/last_residue_number_seq: {last_profile_number}/{last_residue_number_seq}')
-        extra_structure_sequence = [index for index in evolutionary_mutations
-                                    if index < zero_offset or index > last_profile_number]
-        if extra_structure_sequence:
-            extra_profile_entries = self.create_null_entries(extra_structure_sequence)
+        cterm_extra_structure_sequence = [index for index in evolutionary_mutations if index > last_profile_number]
+        if cterm_extra_structure_sequence:
+            extra_profile_entries = self.create_null_entries(cterm_extra_structure_sequence)
             for residue_number, residue_data in extra_profile_entries.items():
                 residue_data['type'] = evolutionary_mutations[residue_number]['to']
+            # Update cterminal residues at the end
             structure_evolutionary_profile.update(extra_profile_entries)
-            # Renumber the structure_evolutionary_profile to offset all to 1
-            new_residue_number = count(1)
-            structure_evolutionary_profile = {next(new_residue_number): residue_data
-                                              for residue_data in structure_evolutionary_profile.values()}
-            self.log.debug(f'structure_evolutionary_profile.keys(): {structure_evolutionary_profile.keys()}')
+            # # Renumber the structure_evolutionary_profile to offset all to 1
+            # new_residue_number = count(1)
+            # structure_evolutionary_profile = {next(new_residue_number): residue_data
+            #                                   for residue_data in structure_evolutionary_profile.values()}
+        self.log.debug(f'structure_evolutionary_profile.keys(): {structure_evolutionary_profile.keys()}')
         # for residue_number, residue_data in self.evolutionary_profile.items():
         #     if residue_number not in disorder:
         #         structure_evolutionary_profile[next(new_residue_number)] = residue_data
