@@ -827,9 +827,9 @@ class SequenceProfile(ABC):
 
         self.log.debug(f'structure_evolutionary_profile.keys(): {structure_evolutionary_profile.keys()}')
 
-        terminal_indices = nterm_extra_structure_sequence + cterm_extra_structure_sequence
-        for idx in terminal_indices:
-            evolutionary_gaps.pop(idx)
+        terminal_entries = nterm_extra_structure_sequence + cterm_extra_structure_sequence
+        for entry in terminal_entries:
+            evolutionary_gaps.pop(entry)
         internal_sequence_characters = set(evolutionary_gaps.values()).difference(('-',))
         if internal_sequence_characters:  # != {'-'}:
             # Todo Internal insertions?

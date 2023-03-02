@@ -567,6 +567,9 @@ def setup_pose_batch_for_proteinmpnn(batch_length: int, device, **parameters) ->
     return batch_parameters
 
 
+gb_divisor = 1e9
+
+
 # @batch_calculation(size=size, batch_length=batch_length,
 #                    setup=setup_pose_batch_for_proteinmpnn,
 #                    compute_failure_exceptions=(RuntimeError, np.core._exceptions._ArrayMemoryError))
@@ -984,7 +987,7 @@ def jnp_to_np(jax_dict: dict[str, Any]) -> dict[str, Any]:
 
 
 # The following code was modified from Alphafold to allow injection of prev_pos into model initialization
-# Key difference is the replacement of the Alphafold class with AlphafoldInitalGuess class, largely based on ideas from
+# Key difference is the replacement of the Alphafold class with AlphafoldInitialGuess class, largely based on ideas from
 # the preprint "Improving de novo Protein Binder Design with Deep Learning" bioRxiv
 # -------------------------------------------------------------------------
 # Copyright 2021 DeepMind Technologies Limited

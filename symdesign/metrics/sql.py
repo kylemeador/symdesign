@@ -235,8 +235,6 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None, residues: pd
         # #              dtype=sql.Base.metadata.table[table])
         logger.info(f'Wrote {table.__tablename__} metrics to DataBase')  # {job.internal_db}')
 
-        # return result
-
     if designs is not None:
         # warn_multiple_update_results()
         # warn = True
@@ -256,8 +254,6 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None, residues: pd
         # designs.to_sql(table, con=engine, if_exists='append', index=True)
         # #                dtype=sql.Base.metadata.table[table])
         logger.info(f'Wrote {table.__tablename__} metrics to DataBase')  # {job.internal_db}')
-
-        # return result
 
     if residues is not None:
         # warn_multiple_update_results()
@@ -284,5 +280,3 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None, residues: pd
         # stmt = select(sql.DesignMetrics).where(sql.DesignMetrics.pose.in_(pose_ids))  # text('''SELECT * from residues''')
         # results = session.scalars(stmt)  # execute(stmt)
         logger.info(f'Wrote {table.__tablename__} metrics to DataBase')  # {job.internal_db}')
-
-    # return result
