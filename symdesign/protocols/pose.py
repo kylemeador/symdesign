@@ -1671,8 +1671,8 @@ class PoseProtocol(PoseData):
             pre_threaded_file = os.path.join(self.data_path, f'{sequence_id}.pdb')
             design_files.append(pose_copy.write(out_path=pre_threaded_file))
 
-        design_files_file = os.path.join(self.scripts_path, f'{starttime}_{self.protocol}_files.txt')
         putils.make_path(self.scripts_path)
+        design_files_file = os.path.join(self.scripts_path, f'{starttime}_{self.protocol}_files.txt')
 
         # # Modify each sequence score to reflect the new "decoy" name
         # # Todo update as a consequence of new SQL
@@ -2196,6 +2196,7 @@ class PoseProtocol(PoseData):
         # protocol_logger.critical(f'Found asu_atom_positions[0] with values: {asu_atom_positions[0].tolist()}')
         model_features = {'prev_pos': asu_atom_positions}
         # model_features = {'prev_pos': jnp.asarray(self.pose.alphafold_coords)}
+        putils.make_path(self.designs_path)
         asu_design_structures = []  # structure_by_design = {}
         asu_design_scores = {}  # []  # scores_by_design = {}
         for design, sequence in sequences.items():
