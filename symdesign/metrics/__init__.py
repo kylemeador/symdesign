@@ -8,7 +8,7 @@ from itertools import repeat
 from json import loads
 from typing import AnyStr, Any, Sequence, Iterable, Mapping, Literal
 
-from numba import jit
+# from numba import jit
 import numpy as np
 import pandas as pd
 import torch
@@ -1893,7 +1893,7 @@ def index_intersection(index_groups: Iterable[Iterable[Any]]) -> list[Any]:
     return list(final_indices)
 
 
-@jit(nopython=True)  # , cache=True)
+# @jit(nopython=True)  # , cache=True)
 def z_score(sample: float | np.ndarray, mean: float | np.ndarray, stdev: float | np.ndarray) -> float | np.ndarray:
     """From sample(s), calculate the positional z-score, i.e. z-score = (sample - mean) / stdev
 

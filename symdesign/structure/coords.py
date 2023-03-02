@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Sequence, Iterable
 
-from numba import jit
+# from numba import jit
 import numpy as np
 from scipy.spatial.transform import Rotation
 
@@ -103,7 +103,7 @@ class Coords:
     copy = __copy__
 
 
-@jit(nopython=True)  # , cache=True)
+# @jit(nopython=True)  # , cache=True)
 def guide_superposition(fixed_coords: np.ndarray, moving_coords: np.ndarray, number_of_points: int = 4) \
         -> tuple[np.ndarray, np.ndarray]:
     """TTakes two xyz coordinate sets (same length), and attempts to superimpose them using rotation and translation
@@ -246,7 +246,7 @@ def guide_superposition(fixed_coords: np.ndarray, moving_coords: np.ndarray, num
     return rotation_matrix, translation
 
 
-@jit(nopython=True)  # , cache=True)
+# @jit(nopython=True)  # , cache=True)
 def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
     """Takes two xyz coordinate sets (same length), and attempts to superimpose them using rotation and translation
     operations to minimize the root mean squared distance (RMSD) between them. The found transformation operations
@@ -412,7 +412,7 @@ def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray) -> tupl
     return rmsd, rotation_matrix, translation
 
 
-@jit(nopython=True)  # , cache=True)
+# @jit(nopython=True)  # , cache=True)
 def superposition3d_quat(fixed_coords: np.ndarray, moving_coords: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
     """Takes two xyz coordinate sets (same length), and attempts to superimpose them using rotation and translation
     operations to minimize the root mean squared distance (RMSD) between them. The found transformation operations
