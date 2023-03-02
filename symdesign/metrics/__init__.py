@@ -1893,7 +1893,7 @@ def index_intersection(index_groups: Iterable[Iterable[Any]]) -> list[Any]:
     return list(final_indices)
 
 
-@jit(nopython=True, cache=True)
+@jit(nopython=True)  # , cache=True)
 def z_score(sample: float | np.ndarray, mean: float | np.ndarray, stdev: float | np.ndarray) -> float | np.ndarray:
     """From sample(s), calculate the positional z-score, i.e. z-score = (sample - mean) / stdev
 

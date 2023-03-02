@@ -17,7 +17,7 @@ fragment_metric_template = \
          percent_fragment_coil=0.)
 
 
-@jit(nopython=True, cache=True)
+@jit(nopython=True)  # , cache=True)
 def calculate_match(coords1: float | np.ndarray = None, coords2: float | np.ndarray = None,
                     coords_rmsd_reference: float | np.ndarray = None) -> float | np.ndarray:
     """Calculate the match score(s) between two sets of coordinates given a reference rmsd
@@ -36,7 +36,7 @@ def calculate_match(coords1: float | np.ndarray = None, coords2: float | np.ndar
     return match_score_from_z_value(_rmsd(coords1, coords2) / coords_rmsd_reference)
 
 
-@jit(nopython=True, cache=True)
+@jit(nopython=True)  # , cache=True)
 def rmsd_z_score(coords1: float | np.ndarray = None, coords2: float | np.ndarray = None,
                  coords_rmsd_reference: float | np.ndarray = None) -> float | np.ndarray:
     """Calculate the overlap between two sets of coordinates given a reference rmsd
@@ -56,7 +56,7 @@ def rmsd_z_score(coords1: float | np.ndarray = None, coords2: float | np.ndarray
     # return np.where(z_values < max_z_value, z_values, False)
 
 
-@jit(nopython=True, cache=True)
+@jit(nopython=True)  # , cache=True)
 def _rmsd(coords1: float | np.ndarray = None, coords2: float | np.ndarray = None) -> float | np.ndarray:
     """Calculate the root-mean-square deviation (RMSD). Arguments can be single vectors or array-like
 
@@ -83,13 +83,13 @@ def _rmsd(coords1: float | np.ndarray = None, coords2: float | np.ndarray = None
     return np.sqrt(((coords1 - coords2) ** 2).sum(axis=-1).sum(axis=-1) / set_len)
 
 
-@jit(nopython=True, cache=True)
+@jit(nopython=True)  # , cache=True)
 def z_value_from_match_score(match_score: float | np.ndarray) -> float | np.ndarray:
     """Given a match score, convert to a z-value. sqrt(1/match_score - 1)"""
     return np.sqrt(1/match_score - 1)
 
 
-@jit(nopython=True, cache=True)
+@jit(nopython=True)  # , cache=True)
 def match_score_from_z_value(z_value: float | np.ndarray) -> float | np.ndarray:
     """Return the match score from a fragment z-value -> 1 / (1 + z_value**2). Bounded between 0 and 1"""
     return 1 / (1 + z_value**2)
