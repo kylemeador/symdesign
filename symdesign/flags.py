@@ -42,9 +42,6 @@ modules = 'modules'
 score = 'score'
 module = 'module'
 method = 'method'
-num_predictions_per_model = 'num_predictions_per_model'
-predict_entities = 'predict_entities'
-models_to_relax = 'models_to_relax'
 interface = 'interface'
 neighbors = 'neighbors'
 # dock_only = 'dock_only'
@@ -91,6 +88,10 @@ use_gpu_relax = 'use_gpu_relax'
 design_method = 'design_method'
 predict_method = 'predict_method'
 predict_assembly = 'predict_assembly'
+predict_pose = 'predict_pose'
+num_predictions_per_model = 'num_predictions_per_model'
+predict_entities = 'predict_entities'
+models_to_relax = 'models_to_relax'
 reset_db = 'reset_db'
 load_to_db = 'load_to_db'
 all_flags = 'all_flags'
@@ -106,7 +107,8 @@ dock_namespace = {
     perturb_dof_steps_tx, proteinmpnn_score, quick, rotation_step1, rotation_step2
 }  # score,
 predict_namespace = {
-    models_to_relax, num_predictions_per_model, predict_assembly, predict_entities, predict_method, use_gpu_relax
+    models_to_relax, num_predictions_per_model, predict_assembly, predict_entities, predict_method, predict_pose,
+    use_gpu_relax
 }
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -120,7 +122,7 @@ namespaces = dict(design=design_namespace,
 modify_options = {
     'design': [design_method, design_number],
     'dock': [dock_filter, dock_filter_file, dock_weight, dock_weight_file],
-    'predict': [predict_assembly, predict_entities, predict_method],  # entities{predict_entities, 'entities'}],
+    'predict': [predict_assembly, predict_entities, predict_method, predict_pose],
     'cluster': [cluster_map, cluster_mode, cluster_number],
 }
 
@@ -151,7 +153,7 @@ def format_args(flag_args: Sequence[str]) -> str:
     """Create a string to format different flags for their various acceptance options on the command line
 
     Args:
-        flag_args: Typically a tuple of allowed flag "keywords" specified using "-" or "--'
+        flag_args: Typically a tuple of allowed flag "keywords" specified using "-" or "--"
     Returns:
         The flag arguments formatted with a "/" between each allowed version
     """
@@ -162,7 +164,9 @@ as_objects = format_for_cmdline(as_objects)
 query_codes1 = format_for_cmdline(query_codes1)
 query_codes2 = format_for_cmdline(query_codes2)
 predict_structure = format_for_cmdline(predict_structure)
+predict_method = format_for_cmdline(predict_method)
 num_predictions_per_model = format_for_cmdline(num_predictions_per_model)
+predict_pose = format_for_cmdline(predict_pose)
 predict_assembly = format_for_cmdline(predict_assembly)
 predict_entities = format_for_cmdline(predict_entities)
 models_to_relax = format_for_cmdline(models_to_relax)
@@ -183,7 +187,6 @@ evolution_constraint = format_for_cmdline(evolution_constraint)
 term_constraint = format_for_cmdline(term_constraint)
 design_number = format_for_cmdline(design_number)
 design_method = format_for_cmdline(design_method)
-predict_method = format_for_cmdline(predict_method)
 select_number = format_for_cmdline(select_number)
 structure_background = format_for_cmdline(structure_background)
 # design_profile = format_for_cmdline(design_profile)
@@ -784,7 +787,10 @@ protocol_arguments = {
 # ---------------------------------------------------
 predict_structure_help = 'Predict the 3D structure from specified sequence(s)'
 parser_predict_structure = \
-    {predict_structure: dict(description=predict_structure_help, help=predict_structure_help)}
+    {predict_structure: dict(description=f'{predict_structure_help}\nPrediction occurs on designed sequences by '
+                                         f'default.\nIf prediction should be performed on the Pose, use'
+                                         f' {format_args(predict_pose)}',
+                             help=predict_structure_help)}
 predict_structure_arguments = {
     ('-m', f'--{predict_method}'):
         dict(choices={'alphafold', 'thread'}, default='alphafold',  # 'thread',
@@ -796,6 +802,8 @@ predict_structure_arguments = {
     ('-A', f'--{predict_assembly}'):
         dict(action='store_true', help='Whether the assembly state should be predicted\ninstead of the ASU'),
     ('-E', f'--{predict_entities}'):
+        dict(action='store_true', help='Whether individual entities should be predicted\ninstead of the entire Pose'),
+    (f'--{predict_pose}',):
         dict(action='store_true', help='Whether individual entities should be predicted\ninstead of the entire Pose'),
     (f'--{models_to_relax}',):
         dict(type=str.lower, default='best',

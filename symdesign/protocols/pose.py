@@ -1705,6 +1705,12 @@ class PoseProtocol(PoseData):
             sequences = {design: design.sequence for design in self.get_designs_without_structure()}
             self.current_designs.extend(sequences.keys())
 
+        if self.job.predict.pose:
+            # pose_sequence = {self.pose_source: self.pose_source.sequence}
+            sequences = {self.pose_source: self.pose_source.sequence, **sequences}
+        if not sequences:
+            raise DesignError(f"Couldn't find any sequences to {self.predict_structure.__name__}")
+
         # match self.job.predict.method:  # Todo python 3.10
         #     case 'thread':  # , 'proteinmpnn']:
         #         self.thread_sequences_to_backbone(sequences)
