@@ -843,8 +843,9 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
     else:
         mutations = {idx: {'from': char1, 'to': char2} for idx, (char1, char2) in sequence_iterator if char1 != char2}
 
-    # Find last index of reference
-    ending_index_of_seq1 = starting_idx_of_seq1 + align_seq_1.rfind(reference[-1])
+    # Find last index of reference (including internal gaps)
+    starting_key_of_seq1 = idx_offset
+    ending_key_of_seq1 = starting_key_of_seq1 + align_seq_1.rfind(reference[-1])
     remove_mutation_list = []
     if only_gaps:  # Remove the actual mutations, keep internal and external gap indices and the reference sequence
         keep_gaps = True
@@ -855,11 +856,11 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
 
     if remove_termini:  # Remove indices outside of sequence 1
         remove_mutation_list.extend([entry for entry in mutations
-                                     if entry < idx_offset or ending_index_of_seq1 < entry])
+                                     if entry < starting_key_of_seq1 or entry > ending_key_of_seq1])
 
     if remove_query_gaps:  # Remove indices where sequence 2 is gaped
         remove_mutation_list.extend([entry for entry, mutation in mutations.items()
-                                     if 0 < entry <= ending_index_of_seq1 and mutation['to'] == '-'])
+                                     if starting_key_of_seq1 < entry <= ending_key_of_seq1 and mutation['to'] == '-'])
     for entry in remove_mutation_list:
         mutations.pop(entry, None)
 
