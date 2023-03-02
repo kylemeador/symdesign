@@ -1036,7 +1036,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 # structure to check if insertions are compatible
                 all_insertions = {residue: {'to': aa} for residue, aa in enumerate(design_sequence, 1)}
                 all_insertions.update(generate_mutations(design_sequence, designed_atom_sequences[idx],
-                                                         blanks=True))
+                                                         keep_gaps=True))
                 # Reduce to sequence only
                 inserted_sequences[design_string] = \
                     f'{"".join([res["to"] for res in all_insertions.values()])}\n{design_sequence}'
@@ -1802,17 +1802,17 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 # structure to check if insertions are compatible
                 # all_insertions = {residue: {'to': aa} for residue, aa in enumerate(tagged_sequence)}
                 # all_insertions.update(generate_mutations(design_sequence, ''.join(designed_atom_sequences[idx]),
-                #                                          blanks=True))
+                #                                          keep_gaps=True))
                 # generated_insertion_mutations = \
                 #     generate_mutations(tagged_sequence, ''.join(designed_atom_sequences[idx]),
-                #                        blanks=True, zero_index=True)
+                #                        keep_gaps=True, zero_index=True)
                 # logger.debug(f'generated_insertion_mutations: {generated_insertion_mutations}')
                 # all_insertions.update(generated_insertion_mutations)
                 # formatted_comparison = {}
                 # for mutation_index in sorted(all_insertions.keys()):
                 generated_insertion_mutations = \
                     generate_mutations(tagged_sequence, ''.join(designed_atom_sequences[idx]),
-                                       return_all=True, blanks=True, zero_index=True)
+                                       return_all=True, keep_gaps=True, zero_index=True)
                 # for mutations in generated_insertion_mutations.values():
                 #     reference = mutations['from']
                 #     query = mutations['to']

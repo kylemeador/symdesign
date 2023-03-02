@@ -788,7 +788,7 @@ sequence_dictionary = dict[int, protein_letters_literal]
 """The mapping of a residue number to the corresponding amino acid type"""
 
 
-def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True, blanks: bool = False,
+def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True, keep_gaps: bool = False,
                        remove_termini: bool = True, remove_query_gaps: bool = True, only_gaps: bool = False,
                        zero_index: bool = False,
                        return_all: bool = False, return_to: bool = False, return_from: bool = False) \
@@ -803,7 +803,7 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
         reference: Reference sequence to align mutations against. Character values are returned to the "from" key
         query: Query sequence. Character values are returned to the "to" key
         offset: Whether sequences are different lengths. Will create an alignment of the two sequences
-        blanks: Include all gaped indices, i.e. outside the reference sequence or missing characters in the sequence
+        keep_gaps: Return gaped indices, i.e. outside the aligned sequences or missing internal characters
         remove_termini: Remove indices that are outside the reference sequence boundaries
         remove_query_gaps: Remove indices where there are gaps present in the query sequence
         only_gaps: Only include reference indices that are missing query residues. All "to" values will be a gap "-"
@@ -839,19 +839,19 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
     sequence_iterator = enumerate(zip(align_seq_1, align_seq_2), -starting_idx_of_seq1 + idx_offset)
     # Extract differences from the alignment
     if return_all:
-        mutations = {idx: {'from': seq1, 'to': seq2} for idx, (seq1, seq2) in sequence_iterator}
+        mutations = {idx: {'from': char1, 'to': char2} for idx, (char1, char2) in sequence_iterator}
     else:
-        mutations = {idx: {'from': seq1, 'to': seq2} for idx, (seq1, seq2) in sequence_iterator if seq1 != seq2}
+        mutations = {idx: {'from': char1, 'to': char2} for idx, (char1, char2) in sequence_iterator if char1 != char2}
 
     # Find last index of reference
     ending_index_of_seq1 = starting_idx_of_seq1 + align_seq_1.rfind(reference[-1])
     remove_mutation_list = []
     if only_gaps:  # Remove the actual mutations, keep internal and external gap indices and the reference sequence
-        blanks = True
+        keep_gaps = True
         remove_mutation_list.extend([entry for entry, mutation in mutations.items()
-                                     if idx_offset < entry <= ending_index_of_seq1 and mutation['to'] != '-'])
-    if blanks:  # Leave all types of blanks, otherwise check for each requested type
-        remove_termini, remove_query_gaps = False, False
+                                     if mutation['from'] != '-' or mutation['to'] != '-'])
+    if keep_gaps:  # Leave all types of keep_gaps, otherwise check for each requested type
+        remove_termini = remove_query_gaps = False
 
     if remove_termini:  # Remove indices outside of sequence 1
         remove_mutation_list.extend([entry for entry in mutations
@@ -949,8 +949,8 @@ def generate_mutations_from_reference(reference: Sequence[str], sequences: dict[
             Character values are returned to the "to" key
     Keyword Args:
         offset: bool = True - Whether sequences are different lengths. Will create an alignment of the two sequences
-        blanks: bool = False - Include all gaped indices, i.e. outside the reference sequence or missing characters
-            in the sequence
+        keep_gaps: bool = False - Return gaped indices, i.e. outside the aligned sequences or missing internal
+            characters
         remove_termini: bool = True - Remove indices that are outside the reference sequence boundaries
         remove_query_gaps: bool = True - Remove indices where there are gaps present in the query sequence
         only_gaps: bool = False - Only include reference indices that are missing query residues.
@@ -1057,7 +1057,7 @@ def get_equivalent_indices(target: Sequence = None, query: Sequence = None, muta
     # if alignment is None:
     if target is not None and query is not None:
         # # Get all mutations from the alignment of sequence1 and sequence2
-        mutations = generate_mutations(target, query, blanks=True, return_all=True)
+        mutations = generate_mutations(target, query, keep_gaps=True, return_all=True)
         # alignment = generate_alignment(target, query)
         # alignment.inverse_indices
         # return
