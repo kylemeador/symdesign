@@ -785,7 +785,7 @@ class SequenceProfile(ABC):
         evolutionary_profile_sequence = ''.join(data['type'] for data in self.evolutionary_profile.values())
         evolutionary_gaps = \
             generate_mutations(evolutionary_profile_sequence, self.sequence, only_gaps=True, return_to=True)
-        # self.log.debug(f'evolutionary_gaps: {evolutionary_gaps}')
+        self.log.debug(f'evolutionary_gaps: {evolutionary_gaps}')
 
         # Insert n-terminal residues
         nterm_extra_structure_sequence = [entry for entry in evolutionary_gaps if entry < zero_offset]
@@ -805,17 +805,17 @@ class SequenceProfile(ABC):
             new_residue_number = count(number_of_nterm_entries)
             nterm_extra_profile_entries = {}
 
-        structure_evolutionary_profile = {
-            **nterm_extra_profile_entries,
-            **{next(new_residue_number): residue_data for entry, residue_data in self.evolutionary_profile.items()
-               if entry not in evolutionary_gaps}
-        }
-
         # With the current inability to detect an internal structure insertion compared to the evolutionary profile,
         # this last_profile_number is sufficient. If there is need to get internal mutations, those could be solved
         # before the c-term segments and the number of n-term and internal segments could be added to find the ground
         # truth last_profile_number
         last_profile_number = len(evolutionary_profile_sequence)
+        # This code also suffers from the above logic...
+        structure_evolutionary_profile = {
+            **nterm_extra_profile_entries,
+            **{next(new_residue_number): residue_data for entry, residue_data in self.evolutionary_profile.items()
+               if entry not in evolutionary_gaps}
+        }
         cterm_extra_structure_sequence = [entry for entry in evolutionary_gaps if entry > last_profile_number]
         if cterm_extra_structure_sequence:
             extra_profile_entries = self.create_null_entries(cterm_extra_structure_sequence)
