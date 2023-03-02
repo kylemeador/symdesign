@@ -850,7 +850,7 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
     if only_gaps:  # Remove the actual mutations, keep internal and external gap indices and the reference sequence
         keep_gaps = True
         remove_mutation_list.extend([entry for entry, mutation in mutations.items()
-                                     if mutation['from'] != '-' or mutation['to'] != '-'])
+                                     if mutation['from'] != '-' and mutation['to'] != '-'])
     if keep_gaps:  # Leave all types of keep_gaps, otherwise check for each requested type
         remove_termini = remove_query_gaps = False
 
