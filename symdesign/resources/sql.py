@@ -888,8 +888,8 @@ class ResidueMetrics(Base):
     # Direct coupling analysis energy
     dca_energy = Column(Float)
     # Folding metrics
-    plddt = Column(float)
-    predicted_aligned_error = Column(float)
+    plddt = Column(Float)
+    predicted_aligned_error = Column(Float)
 
 
 # class Mysql:
