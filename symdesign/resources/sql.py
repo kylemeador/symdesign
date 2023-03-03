@@ -743,7 +743,7 @@ class DesignMetrics(Base):
     predicted_aligned_interface = Column(Float)
     predicted_interface_template_modeling_score = Column(Float)
     predicted_template_modeling_score = Column(Float)
-    rmsd_predicted_models = Column(Float)
+    rmsd_prediction_ensemble = Column(Float)
     # def __repr__(self):
     #     return f"Trajectory(id={self.id!r}, pose={self.pose!r}, name={self.name!r})"
 
@@ -781,7 +781,7 @@ class DesignEntityMetrics(Base):
     predicted_interface_template_modeling_score = Column(Float)  # entity_ is in config.metrics
     predicted_template_modeling_score = Column(Float)  # entity_ is in config.metrics
     rmsd_oligomer = Column(Float)  # entity_ is in config.metrics
-    rmsd_predicted_models = Column(Float)  # entity_ is in config.metrics
+    rmsd_prediction_ensemble = Column(Float)  # entity_ is in config.metrics
 
 
 class PoseResidueMetrics(Base):
@@ -887,6 +887,9 @@ class ResidueMetrics(Base):
     observed_interface = Column(Boolean)
     # Direct coupling analysis energy
     dca_energy = Column(Float)
+    # Folding metrics
+    plddt = Column(float)
+    predicted_aligned_error = Column(float)
 
 
 # class Mysql:

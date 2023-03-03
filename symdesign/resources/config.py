@@ -232,48 +232,9 @@ metrics = {
         dict(description='Whether the entity c-termini is closer to the assembly core or surface (1 is away, -1 is '
                          'towards',
              direction=max_, function=rank, filter=True),
-    'entity_max_radius':
-        dict(description='The furthest point the entity reaches from the assembly core',
-             direction=min_, function=rank, filter=True),
-    'entity_min_radius':
-        dict(description='The closest point the entity approaches the assembly core',
-             direction=max_, function=rank, filter=True),
-    'entity_n_terminal_helix':
-        dict(description='Whether the entity has a n-terminal helix',
-             direction=max_, function=boolean, filter=True),
-    'entity_n_terminal_orientation':
-        dict(description='Whether the entity n-termini is closer to the assembly core or surface (1 is away, -1 is '
-                         'towards)',
-             direction=max_, function=rank, filter=True),
     'entity_id':  # 'entity_name':
         dict(description='The name of the entity',
              direction=None, function=None, filter=None),
-    'entity_number_mutations':
-        dict(description='The number of mutations made',
-             direction=min_, function=rank, filter=True),
-    'entity_number_of_residues':
-        dict(description='The number of residues',
-             direction=min_, function=rank, filter=True),
-    'entity_percent_mutations':
-        dict(description='The percentage of the entity that has been mutated',
-             direction=min_, function=rank, filter=True),
-    'entity_radius':
-        dict(description='The center of mass of the entity from the assembly core',
-             direction=min_, function=rank, filter=True),
-    'entity_symmetry_group':
-        dict(description='The symmetry notation of the entity',
-             direction=None, function=None, filter=True),
-    'entity_thermophilicity':
-        dict(description='The extent to which the domains in the Entity are thermophilic',
-             direction=max_, function=boolean, filter=None),
-    'entity_max_radius_ratio_v':
-        dict(description='The ratio of the maximum radius from a reference of component 1 versus 2',
-             direction=None, function=None, filter=None),
-    'entity_min_radius_ratio_v':
-        dict(description='The ratio of the minimum radius from a reference of component 1 versus 2',
-             direction=None, function=None, filter=None),
-    'entity_number_of_residues_ratio_v':
-        dict(description='', direction=None, function=None, filter=None),
     'entity_interface_connectivity':
         dict(description='How embedded is the entity interface in the rest of the protein?',
              direction=max_, function=normalize, filter=True),
@@ -281,33 +242,74 @@ metrics = {
         dict(description='The Stride based secondary structure names of each unique element where possible '
                          'values are - H:Alpha helix, G:3-10 helix, I:PI-helix, E:Extended conformation, '
                          'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
-                         # DSSP G:310 helix, H:α helix and I:π helix, B:beta bridge, E:strand/beta bulge, T:turns,
-                         #      S:high curvature (where the angle between i-2, i, and i+2 is at least 70°), and
-                         #      " "(space):loop
+             #             DSSP G:310 helix, H:α helix and I:π helix, B:beta bridge, E:strand/beta bulge, T:turns,
+             #                  S:high curvature (where the angle between i-2, i, and i+2 is at least 70°), and
+             #                  " "(space):loop
              direction=None, function=None, filter=None),
     'entity_interface_secondary_structure_topology':
         dict(description='The Stride based secondary structure names of each unique element where possible '
                          'values are - H:Alpha helix, G:3-10 helix, I:PI-helix, E:Extended conformation, '
                          'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
              direction=None, function=None, filter=None),
-    'entity_radius_ratio_v':
-        dict(description='', direction=None, function=None, filter=None),
-    # END entity#_ metrics
+    'entity_max_radius':
+        dict(description='The furthest point the entity reaches from the assembly core',
+             direction=min_, function=rank, filter=True),
     'entity_max_radius_average_deviation':
         dict(description='In a multi entity assembly, the total deviation of the max radii of each entity '
                          'from one another', direction=min_, function=rank, filter=True),
+    # 'entity_max_radius_ratio_v':
+    #     dict(description='The ratio of the maximum radius from a reference of component 1 versus 2',
+    #          direction=None, function=None, filter=None),
+    'entity_min_radius':
+        dict(description='The closest point the entity approaches the assembly core',
+             direction=max_, function=rank, filter=True),
     'entity_min_radius_average_deviation':
         dict(description='In a multi entity assembly, the total deviation of the min radii of each entity from'
                          ' one another',
+             direction=min_, function=rank, filter=True),
+    # 'entity_min_radius_ratio_v':
+    #     dict(description='The ratio of the minimum radius from a reference of component 1 versus 2',
+    #          direction=None, function=None, filter=None),
+    'entity_n_terminal_helix':
+        dict(description='Whether the entity has a n-terminal helix',
+             direction=max_, function=boolean, filter=True),
+    'entity_n_terminal_orientation':
+        dict(description='Whether the entity n-termini is closer to the assembly core or surface (1 is away, -1 is '
+                         'towards)',
+             direction=max_, function=rank, filter=True),
+    'entity_number_mutations':
+        dict(description='The number of mutations made',
+             direction=min_, function=rank, filter=True),
+    'entity_number_of_residues':
+        dict(description='The number of residues',
              direction=min_, function=rank, filter=True),
     'entity_number_of_residues_average_deviation':
         dict(description='In a multi entity assembly, the total deviation of the number of residues of each '
                          'entity from one another',
              direction=min_, function=rank, filter=True),
+    # 'entity_number_of_residues_ratio_v':
+    #     dict(description='', direction=None, function=None, filter=None),
+    'entity_percent_mutations':
+        dict(description='The percentage of the entity that has been mutated',
+             direction=min_, function=rank, filter=True),
+    'entity_radius':
+        dict(description='The center of mass of the entity from the assembly core',
+             direction=min_, function=rank, filter=True),
     'entity_radius_average_deviation':
         dict(description='In a multi entity assembly, the total deviation of the center of mass of each entity'
                          ' from one another',
              direction=min_, function=rank, filter=True),
+    # 'entity_radius_ratio_v':
+        # dict(description='', direction=None, function=None, filter=None),
+    'entity_rmsd_prediction_ensemble':
+        dict(description='The average Root Mean Square Deviation for all CA atoms from each predicted model',
+             direction=min_, function=normalize, filter=True),
+    'entity_symmetry_group':
+        dict(description='The symmetry notation of the entity',
+             direction=None, function=None, filter=True),
+    'entity_thermophilicity':
+        dict(description='The extent to which the domains in the Entity are thermophilic',
+             direction=max_, function=boolean, filter=None),
     'errat_accuracy':
         dict(description='The overall Errat score of the design',
              direction=max_, function=rank, filter=True),
@@ -633,7 +635,7 @@ metrics = {
         dict(description='The deviation in the rmsd_prediction_ensemble between the Entity and Pose structure '
                          'predictions',
              direction=min_, function=normalize, filter=True),
-    'rmsd_predicted_models':
+    'rmsd_prediction_ensemble':
         dict(description='The average Root Mean Square Deviation for all CA atoms from each predicted model',
              direction=min_, function=normalize, filter=True),
     'rosetta_reference_energy':

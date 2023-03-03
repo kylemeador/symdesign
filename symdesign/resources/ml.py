@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import functools
 import logging
 import math
@@ -1225,72 +1226,70 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
         random_seed: A random integer to seed the model. Could be provided to ensure consistency across runs
     Returns:
         The tuple of structure and score dictionaries. Where structures contains the keys 'relaxed' and
-        'unrelaxed' mapped to the model name and the model PDB string and scores contain the model name
+        'unrelaxed' mapped to the model name and the model PDB string and folding_scores contain the model name
         mapped to each of the score types 'predicted_aligned_error' (length, length), 'plddt' (length),
         'predicted_template_modeling_score' (1), and 'predicted_interface_template_modeling_score' (1)
     """
-    # _scores = {
+    num_models = len(model_runners)
+    if random_seed is None:  # Make one
+        random_seed = random.randrange(sys.maxsize // num_models)
+
+    # # Set up folding_scores dictionary
+    # scores = {
     #     'predicted_aligned_error': np.zeros((num_models, length, length), dtype=np.float32),
     #     'plddt': np.zeros((num_models, length), dtype=np.float32),
     #     'predicted_template_modeling_score': np.zeros(num_models, dtype=np.float32),
     #     'predicted_interface_template_modeling_score': np.zeros(num_models, dtype=np.float32)
     # }
-    num_models = len(model_runners)
-    if random_seed is None:  # Make one
-        random_seed = random.randrange(sys.maxsize // num_models)
+    # for model_name, model_runner in model_runners.items():
+    #     if model_runner.multimer_mode:
+    #         scores_ = {'predicted_template_modeling_score': [],
+    #                    'predicted_interface_template_modeling_score': []}
+    #     elif 'ptm' in model_name:
+    #         scores_ = {'predicted_template_modeling_score': []}
+    #     else:
+    #         raise NotImplementedError()
+    #     break
+    # else:
+    #     scores_ = {}
+    # scores = {model_name: copy.deepcopy(scores_) for model_name in model_runners}
 
-    # Set up scores dictionary
-    for model_name, model_runner in model_runners.items():
-        if model_runner.multimer_mode:  # if run_multimer_system:
-            _scores = {model_name: {'predicted_template_modeling_score': [],
-                                    'predicted_interface_template_modeling_score': []}
-                       for model_name in model_runners}
-            break
-        # elif 'monomer_ptm':
-        #    Todo _scores = {}
-        #    break
-    else:
-        _scores = {model_name: {} for model_name in model_runners}
-
+    scores = {}
     ranking_confidences = {}
     unrelaxed_proteins = {}
     unrelaxed_pdbs_ = {}
     relax_metrics = {}
     # Run the models.
     for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-        # self.log.info(f'Running model {model_name} on {design}')
-        # design_model_name = f'{design}-{model_name}'
         logger.info(f'Running model {model_name}')
-        # t_0 = time.time()
         model_random_seed = model_index + random_seed*num_models
         processed_feature_dict = \
             model_runner.process_features(features, random_seed=model_random_seed)
-        # timings[f'process_features_{model_name}'] = time.time() - t_0
 
         t_0 = time.time()
         prediction_result = model_runner.predict(processed_feature_dict,
                                                  random_seed=model_random_seed)
-        t_diff = time.time() - t_0
-        # timings[f'predict_and_compile_{model_name}'] = t_diff
-        logger.info(f'Total JAX model {model_name} structure prediction took {t_diff:.1f}s')
+        logger.info(f'Total JAX model {model_name} structure prediction took {time.time() - t_0:.1f}s')
         # if this is the first go in the model_runner, then f'(includes compilation time)' would be accurate
         # Monomer?
         #  Should take about 96 secs on a 1000 residue protein using 3 recycles...
 
         # Remove jax dependency from results.
         np_prediction_result = jnp_to_np(dict(prediction_result))
-        # {'distogram': {'bin_edges': (63,), 'logits': (774, 774, 64)},
-        #  'experimentally_resolved': {'logits': (774, 37)}, 'masked_msa': {'logits': (508, 774, 22)},
-        #  'predicted_aligned_error': (774, 774),
-        #  'predicted_lddt': {'logits': (774, 50)},
-        #  'structure_module': {'final_atom_mask': (774, 37), 'final_atom_positions': (774, 37, 3)},
-        #  'plddt': (774,), 'aligned_confidence_probs': (774, 774, 64),
-        #  'max_predicted_aligned_error': (),
-        #  'ptm': (), 'iptm': (),
-        #  'ranking_confidence': (),
-        #  'num_recycles': (),
-        #  }
         logger.debug(f'Found the prediction_results: {np_prediction_result}')
+        # logger.critical(f'Found the prediction_result keys: shapes: '
+        #                 f'{dict((type_, res.shape) if isinstance(res, np.ndarray)
+        #                 for type_, res in np_prediction_result.items())}')
+        # {'distogram': {'bin_edges': (63,), 'logits': (n_residues, n_residues, 64)},
+        #  'experimentally_resolved': {'logits': (n_residues, atom_types)},
+        #  'masked_msa': {'logits': (n_sequences, n_residues, n_amino_acid_types_gapped_unknown)},
+        #  'predicted_aligned_error': (n_residues, n_residues),
+        #  'predicted_lddt': {'logits': (n_residues, 50)},
+        #  'structure_module': {'final_atom_mask': (n_residues, atom_types),
+        #  'final_atom_positions': (n_residues, atom_types, 3)},
+        #  'plddt': (n_residues,), 'aligned_confidence_probs': (n_residues, n_residues, 64),
+        #  'max_predicted_aligned_error': (), 'ptm': (), 'iptm': (), 'ranking_confidence': (), 'num_recycles': (),
+        #  }
         # monomer
         # ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_lddt', 'structure_module', 'plddt',
         #  'ranking_confidence']
@@ -1300,26 +1299,21 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
         #  'max_predicted_aligned_error', 'ptm', 'iptm', 'ranking_confidence']
         # Where ['predicted_lddt'] has the key ['logits'] which probably ?contains the raw logit values produced by
         # model heads? for the binned distogram rankings?
-        # logger.critical(f'Found the prediction_result keys: shapes: '
-        #                 f'{dict((type_, res.shape) if isinstance(res, np.ndarray)
-        #                 for type_, res in np_prediction_result.items())}')
-        # Process incoming scores to be returned. If multimer, we need to clean up to ASU at some point
-        # This is a 2d array
-        # _scores['predicted_aligned_error'][model_index, :] = \
-        #     np_prediction_result['predicted_aligned_error'][:length, :length]
+        # Process incoming scores to be returned
         plddt = np_prediction_result['plddt']
-        _scores[model_name]['plddt'] = plddt  # [:length]
+        scores[model_name]['plddt'] = plddt  # [:length]
         # scores['predicted_template_modeling_score'][model_index] = prediction_result['ptm']
         if model_runner.multimer_mode:
-            _scores[model_name]['predicted_aligned_error'] = \
+            # This is a 2d array. Clean up to ASU at some point
+            scores[model_name]['predicted_aligned_error'] = \
                 np_prediction_result['predicted_aligned_error']  # [:length, :length]
-            # _scores['predicted_interface_template_modeling_score'][model_index] = np_prediction_result['iptm']
-            _scores[model_name]['predicted_interface_template_modeling_score'].append(np_prediction_result['iptm'])
-            _scores[model_name]['predicted_template_modeling_score'].append(np_prediction_result['ptm'])
+            # scores['predicted_interface_template_modeling_score'][model_index] = np_prediction_result['iptm']
+            scores[model_name]['predicted_interface_template_modeling_score'].append(np_prediction_result['iptm'])
+            scores[model_name]['predicted_template_modeling_score'].append(np_prediction_result['ptm'])
         elif 'ptm' in model_name:
-            _scores[model_name]['predicted_aligned_error'] = \
+            scores[model_name]['predicted_aligned_error'] = \
                 np_prediction_result['predicted_aligned_error']  # [:length, :length]
-            _scores[model_name]['predicted_template_modeling_score'].append(np_prediction_result['ptm'])
+            scores[model_name]['predicted_template_modeling_score'].append(np_prediction_result['ptm'])
 
         ranking_confidences[model_name] = np_prediction_result['ranking_confidence']
 
@@ -1334,7 +1328,7 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
         unrelaxed_proteins[model_name] = unrelaxed_protein
         unrelaxed_pdbs_[model_name] = afprotein.to_pdb(unrelaxed_protein)
 
-    # Rank by model confidence.
+    # Rank model names by model confidence.
     ranked_order = [design_model_name for design_model_name, confidence in
                     sorted(ranking_confidences.items(), key=lambda x: x[1], reverse=True)]
     # Sort the unrelaxed_pdbs accordingly
@@ -1351,17 +1345,17 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
             to_relax = ranked_order
 
         logger.info(f'Starting Amber relaxation')
+        t_0 = time.time()
         for model_name in to_relax:
             logger.info(f'Relaxing {model_name}')
-            # t_0 = time.time()
             # relaxed_pdb_str, _, violations = amber_relaxer.process(prot=unrelaxed_proteins[model_name])
             relaxed_pdb_str, violations = amber_relax(prot=unrelaxed_proteins[model_name], gpu=gpu_relax)
             relax_metrics[model_name] = {
                 'remaining_violations': violations,
                 'remaining_violations_count': sum(violations)
             }
-            # timings[f'relax_{model_name}'] = time.time() - t_0
-
             relaxed_pdbs[model_name] = relaxed_pdb_str
 
-    return {'relaxed': relaxed_pdbs, 'unrelaxed': unrelaxed_pdbs}, _scores
+        logger.info(f'Relaxation took {time.time() - t_0}')
+
+    return {'relaxed': relaxed_pdbs, 'unrelaxed': unrelaxed_pdbs}, scores
