@@ -3905,7 +3905,15 @@ class PoseProtocol(PoseData):
                                           # designs: Iterable[Pose] | Iterable[AnyStr],
                                           model_type: str = None, interface: bool = False) \
             -> tuple[pd.DataFrame, pd.DataFrame] | tuple[None, None]:
-        """From a set of metrics output by Alphafold"""
+        """From a set of metrics output by Alphafold
+        Design scores (entity_/asu_design_scores) contain the following features
+        {'predicted_aligned_error': (n_residues,)  # multimer/monomer_ptm
+         'plddt': (n_residues,)
+         'predicted_interface_template_modeling_score': float  # multimer
+         'predicted_template_modeling_score': float  # multimer/monomer_ptm
+         'rmsd_prediction_ensemble: (number_of_models)}
+
+        """
         if not scores:
             return None, None
 
@@ -3942,11 +3950,10 @@ class PoseProtocol(PoseData):
         else:
             measure_pae = False
 
-        # Todo KeyError, [0] was missing
-        representative_plddt_per_model = scores[0]['plddt']  # This shouldn't fail as we always collect
-        number_models = len(representative_plddt_per_model)
-        number_of_residues = len(representative_plddt_per_model[0])
-        pae_container = np.zeros((number_models, number_of_residues), dtype=np.int32)
+        # representative_plddt_per_model = scores[0]['plddt']  # This shouldn't fail as we always collect
+        # number_models, number_of_residues = len(representative_plddt_per_model[0])
+        # pae_container = np.zeros((number_models, number_of_residues), dtype=np.int32)
+        number_models = 1
         residue_scores = {}  # []
         design_scores = {}  # []
         for design_name, metrics_ in scores.items():
@@ -3966,10 +3973,11 @@ class PoseProtocol(PoseData):
             # Process 'predicted_aligned_error'. Input is 2D, so we average over each residue first then add to
             # the container and take the average over each model
             if measure_pae:
-                for idx, model_pae in enumerate(metrics_['predicted_aligned_error']):
-                    pae_container[idx, :] = model_pae.mean(axis=0)
-                # Next, average pae over each model
-                array_scores['predicted_aligned_error']: pae_container.mean(axis=0)[:pose_length]
+                # for idx, model_pae in enumerate(metrics_['predicted_aligned_error']):
+                #     pae_container[idx, :] = model_pae.mean(axis=0)
+                # # Next, average pae over each model
+                # array_scores['predicted_aligned_error']: pae_container.mean(axis=0)[:pose_length]
+                array_scores['predicted_aligned_error'] = metrics_['predicted_aligned_error'][:pose_length]
 
             protocol_logger.debug(f'Found array_scores with contents:\n{array_scores}')
             # residue_scores.append(array_scores)
@@ -3981,7 +3989,7 @@ class PoseProtocol(PoseData):
         # residues_df = pd.DataFrame.from_dict(dict(zip(designs, residue_scores)), orient='index')
         designs_df = pd.DataFrame.from_dict(design_scores, orient='index')
         # residues_df = pd.DataFrame.from_dict(residue_scores, orient='index')
-        residue_indices = range(number_of_residues)
+        residue_indices = range(pose_length)  # number_of_residues)
         residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
                                  for name, data in residue_scores.items()}).unstack().swaplevel(0, 1, axis=1)
 
