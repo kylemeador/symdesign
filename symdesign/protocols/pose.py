@@ -2140,7 +2140,7 @@ class PoseProtocol(PoseData):
                     combined_scores = combine_model_scores([entity_scores[model_name] for model_name in design_models])
 
                     # entity_scores_by_design.append({'rmsd_prediction_ensemble': rmsds, **combined_scores})
-                    entity_scores_by_design[str(design)].append({'rmsd_prediction_ensemble': rmsds, **combined_scores})
+                    entity_scores_by_design[str(design)] = {'rmsd_prediction_ensemble': rmsds, **combined_scores}
 
                 """Each design in entity_scores_by_design contains the following features
                 {'predicted_aligned_error': (n_residues, n_residues)  # multimer/monomer_ptm
