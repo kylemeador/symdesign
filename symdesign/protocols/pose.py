@@ -1706,8 +1706,15 @@ class PoseProtocol(PoseData):
             self.current_designs.extend(sequences.keys())
 
         if self.job.predict.pose:
-            # pose_sequence = {self.pose_source: self.pose_source.sequence}
-            sequences = {self.pose_source: self.pose_source.sequence, **sequences}
+            pose_sequence = {self.pose_source: self.pose_source.sequence}
+            if self.pose_source.structure_path is not None:
+                sequences = {**pose_sequence, **sequences}
+            elif self.job.overwrite:
+                sequences = {**pose_sequence, **sequences}
+            else:
+                protocol_logger.warning(f"The flag {flags.format_args((flags.predict_pose,))} was specified, "
+                                        f"but the pose has already been predicted. If you meant to overwrite this pose,"
+                                        f"explicitly pass {flags.format_args(('overwrite',))}")
         if not sequences:
             raise DesignError(f"Couldn't find any sequences to {self.predict_structure.__name__}")
 
