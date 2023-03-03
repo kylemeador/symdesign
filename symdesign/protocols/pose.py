@@ -2137,10 +2137,13 @@ class PoseProtocol(PoseData):
                                           f"Design {design}")
                     # Append each Entity result to the full return
                     entity_structure_by_design[design].append(design_models[minimum_model])
-                    combined_scores = combine_model_scores([entity_scores[model_name] for model_name in design_models])
+                    # Since the entity oligomer isn't going to be used, average all models scores?
+                    # combined_scores = combine_model_scores([entity_scores[model_name] for model_name in design_models])
 
                     # entity_scores_by_design.append({'rmsd_prediction_ensemble': rmsds, **combined_scores})
-                    entity_scores_by_design[str(design)] = {'rmsd_prediction_ensemble': rmsds, **combined_scores}
+                    # entity_scores_by_design[str(design)] = {'rmsd_prediction_ensemble': rmsds, **combined_scores}
+                    entity_scores_by_design[str(design)] = \
+                        {'rmsd_prediction_ensemble': rmsds, **entity_scores[minimum_model]}
 
                 """Each design in entity_scores_by_design contains the following features
                 {'predicted_aligned_error': (n_residues, n_residues)  # multimer/monomer_ptm
