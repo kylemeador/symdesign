@@ -981,14 +981,22 @@ design_number_kwargs = dict(type=int, default=nstruct, metavar='INT',
                             help='How many unique sequences should be generated for each input?\nDefault=%(default)s')
 scout_args = ('-sc', f'--{scout}')
 scout_kwargs = dict(action='store_true',  # action=argparse.BooleanOptionalAction, default=False,
-                    help='Whether to set up a low resolution scouting protocol to'
-                         '\nsurvey designability\nDefault=%(default)s')
+                    help='Whether to set up a low resolution scouting protocol to\n'
+                         'survey designability\nDefault=%(default)s')
+
+
+def temp_gt0(temp: list[str]) -> float:
+    """Convert temperatures flags to float ensuring no 0 value"""
+    temp = float(temp)
+    return temp if temp > 0 else 0.0001
+
+
 temperature_args = ('-K', f'--{temperatures}')
-temperature_kwargs = dict(type=float, nargs='*', default=(0.1,), metavar='FLOAT',
-                          help='Different sampling "temperature(s)", i.e. values greater'
-                               '\nthan 0, to use when performing design. In the form:'
-                               '\nexp(G/T), where G = energy and T = temperature'
-                               '\nHigher temperatures result in more diversity')
+temperature_kwargs = dict(type=temp_gt0, nargs='*', default=(0.1,), metavar='FLOAT',
+                          help='"temperature(s)", i.e. values to use as the denominator in the\n'
+                               'equation: exp(G/T), where G=energy and T=temperature, when\n'
+                               'performing design. Higher temperatures result in more diversity\n'
+                               'Values should be greater than 0\nDefault=%(default)s')
 design_help = 'Gather poses of interest and format for sequence design using Rosetta/ProteinMPNN.' \
               '\nConstrain using evolutionary profiles of homologous sequences' \
               '\nand/or fragment profiles extracted from the PDB or neither'
