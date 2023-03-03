@@ -3978,8 +3978,9 @@ class PoseProtocol(PoseData):
                     indices1, indices2 = interface_indices
                     # interface_pae_means = [model_pae[indices1][:, indices2].mean()
                     #                        for model_pae in metrics_['predicted_aligned_error']]
+                    # scalar_scores['predicted_aligned_error_interface'] = sum(interface_pae_means) / number_models
                     interface_pae_means = pae[indices1][:, indices2].mean()
-                    scalar_scores['predicted_aligned_error_interface'] = sum(interface_pae_means) / number_models
+                    scalar_scores['predicted_aligned_error_interface'] = interface_pae_means / number_models
             protocol_logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
 
             protocol_logger.debug(f'Found array_scores with contents:\n{array_scores}')
