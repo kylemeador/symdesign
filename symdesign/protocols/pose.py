@@ -3993,14 +3993,18 @@ class PoseProtocol(PoseData):
                     if isinstance(score, list):
                         # First average over each residue, storing in a container
                         number_models = len(score)
-                        pae_container = np.zeros((number_models, pose_length), dtype=np.float32)
-                        for idx, pae_ in enumerate(score):
-                            pae_container[idx, :] = pae_.mean(axis=0)[:pose_length]
-                        # Next, average over each model
-                        pae = pae_container.mean(axis=0)
+                        pae, *other_pae = score
+                        for pae_ in other_pae:
+                            pae += pae_
+                        pae /= number_models
+                        # pae_container = np.zeros((number_models, pose_length), dtype=np.float32)
+                        # for idx, pae_ in enumerate(score):
+                        #     pae_container[idx, :] = pae_.mean(axis=0)[:pose_length]
+                        # # Next, average over each model
+                        # pae = pae_container.mean(axis=0)
                     else:
-                        pae = score.mean(axis=0)[:pose_length]
-                    array_scores['predicted_aligned_error'] = pae
+                        pae = score
+                    array_scores['predicted_aligned_error'] = pae.mean(axis=0)[:pose_length]
 
                     if interface_indices:
                         # Index the resulting pae to get the error at the interface residues in particular
