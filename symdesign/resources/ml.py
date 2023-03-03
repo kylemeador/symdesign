@@ -1241,19 +1241,30 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
     #     'predicted_template_modeling_score': np.zeros(num_models, dtype=np.float32),
     #     'predicted_interface_template_modeling_score': np.zeros(num_models, dtype=np.float32)
     # }
-    # for model_name, model_runner in model_runners.items():
-    #     if model_runner.multimer_mode:
-    #         scores_ = {'predicted_template_modeling_score': [],
-    #                    'predicted_interface_template_modeling_score': []}
-    #     elif 'ptm' in model_name:
-    #         scores_ = {'predicted_template_modeling_score': []}
-    #     else:
-    #         raise NotImplementedError()
-    #     break
-    # else:
+    for model_name, model_runner in model_runners.items():
+        if model_runner.multimer_mode:
+            change_scores = [('iptm', 'predicted_interface_template_modeling_score'),
+                             ('ptm', 'predicted_template_modeling_score')]
+            # scores_ = {'predicted_template_modeling_score': [],
+            #            'predicted_interface_template_modeling_score': []}
+        elif 'ptm' in model_name:
+            change_scores = [('ptm', 'predicted_template_modeling_score')]
+            # scores_ = {'predicted_template_modeling_score': []}
+        else:
+            change_scores = []
+            # raise NotImplementedError()
+        break
+    else:  # Can't run without model_runners...
+        change_scores = []
     #     scores_ = {}
     # scores = {model_name: copy.deepcopy(scores_) for model_name in model_runners}
 
+    unneeded_scores = [
+        'distogram', 'experimentally_resolved', 'masked_msa', 'predicted_lddt', 'structure_module',
+        'final_atom_positions', 'ranking_confidence', 'num_recycles', 'aligned_confidence_probs',
+        'max_predicted_aligned_error',
+        # 'ptm', 'iptm', 'predicted_aligned_error', 'plddt',
+    ]
     scores = {}
     ranking_confidences = {}
     unrelaxed_proteins = {}
@@ -1277,6 +1288,14 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
         # Remove jax dependency from results.
         np_prediction_result = jnp_to_np(dict(prediction_result))
         logger.debug(f'Found the prediction_results: {np_prediction_result}')
+        # monomer
+        # ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_lddt', 'structure_module', 'plddt',
+        #  'ranking_confidence']
+        # multimer
+        # ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_lddt', 'structure_module', 'plddt',
+        #  'ranking_confidence'
+        #  'num_recycles', 'predicted_aligned_error', 'aligned_confidence_probs', 'max_predicted_aligned_error',
+        #  'ptm', 'iptm']
         # logger.critical(f'Found the prediction_result keys: shapes: '
         #                 f'{dict((type_, res.shape) if isinstance(res, np.ndarray)
         #                 for type_, res in np_prediction_result.items())}')
@@ -1290,34 +1309,24 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
         #  'plddt': (n_residues,), 'aligned_confidence_probs': (n_residues, n_residues, 64),
         #  'max_predicted_aligned_error': (), 'ptm': (), 'iptm': (), 'ranking_confidence': (), 'num_recycles': (),
         #  }
-        # monomer
-        # ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_lddt', 'structure_module', 'plddt',
-        #  'ranking_confidence']
-        # multimer
-        # ['distogram', 'experimentally_resolved', 'masked_msa', 'num_recycles', 'predicted_aligned_error',
-        #  'predicted_lddt', 'structure_module', 'plddt', 'aligned_confidence_probs',
-        #  'max_predicted_aligned_error', 'ptm', 'iptm', 'ranking_confidence']
         # Where ['predicted_lddt'] has the key ['logits'] which probably ?contains the raw logit values produced by
         # model heads? for the binned distogram rankings?
-        # Process incoming scores to be returned
-        plddt = np_prediction_result['plddt']
-        scores[model_name]['plddt'] = plddt  # [:length]
-        # scores['predicted_template_modeling_score'][model_index] = prediction_result['ptm']
-        if model_runner.multimer_mode:
-            # This is a 2d array. Clean up to ASU at some point
-            scores[model_name]['predicted_aligned_error'] = \
-                np_prediction_result['predicted_aligned_error']  # [:length, :length]
-            # scores['predicted_interface_template_modeling_score'][model_index] = np_prediction_result['iptm']
-            scores[model_name]['predicted_interface_template_modeling_score'].append(np_prediction_result['iptm'])
-            scores[model_name]['predicted_template_modeling_score'].append(np_prediction_result['ptm'])
-        elif 'ptm' in model_name:
-            scores[model_name]['predicted_aligned_error'] = \
-                np_prediction_result['predicted_aligned_error']  # [:length, :length]
-            scores[model_name]['predicted_template_modeling_score'].append(np_prediction_result['ptm'])
 
-        ranking_confidences[model_name] = np_prediction_result['ranking_confidence']
+        # plddt = np_prediction_result['plddt']
+        # scores[model_name]['plddt'] = plddt  # [:length]
+        # if model_runner.multimer_mode:
+        #     # This is a 2d array. Clean up to ASU at some point
+        #     scores[model_name]['predicted_aligned_error'] = np_prediction_result['predicted_aligned_error']
+        #     # scores['predicted_interface_template_modeling_score'][model_index] = np_prediction_result['iptm']
+        #     scores[model_name]['predicted_interface_template_modeling_score'].append(np_prediction_result['iptm'])
+        #     scores[model_name]['predicted_template_modeling_score'].append(np_prediction_result['ptm'])
+        # elif 'ptm' in model_name:
+        #     scores[model_name]['predicted_aligned_error'] = \
+        #         np_prediction_result['predicted_aligned_error']  # [:length, :length]
+        #     scores[model_name]['predicted_template_modeling_score'].append(np_prediction_result['ptm'])
 
         # Add the predicted LDDT in the b-factor column.
+        plddt = np_prediction_result['plddt']
         # Note that higher predicted LDDT value means higher model confidence.
         plddt_b_factors = np.repeat(plddt[:, None], residue_constants.atom_type_num, axis=-1)
         unrelaxed_protein = afprotein.from_prediction(
@@ -1328,6 +1337,15 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
         unrelaxed_proteins[model_name] = unrelaxed_protein
         unrelaxed_pdbs_[model_name] = afprotein.to_pdb(unrelaxed_protein)
 
+        ranking_confidences[model_name] = np_prediction_result['ranking_confidence']
+        # Process incoming scores to be returned
+        for old_score, new_score in change_scores:
+            np_prediction_result[new_score] = np_prediction_result.pop(old_score)
+        # Remove unnecessary scores
+        for score in unneeded_scores:
+            np_prediction_result.pop(score, None)
+        scores[model_name] = np_prediction_result
+
     # Rank model names by model confidence.
     ranked_order = [design_model_name for design_model_name, confidence in
                     sorted(ranking_confidences.items(), key=lambda x: x[1], reverse=True)]
@@ -1337,7 +1355,7 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
     # Relax predictions.
     relaxed_pdbs = {}
     if models_to_relax is None:
-        pass  # to_relax = []
+        pass
     else:
         if models_to_relax == 'best':
             to_relax = [ranked_order[0]]
