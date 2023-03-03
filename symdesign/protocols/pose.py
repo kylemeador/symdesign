@@ -2029,11 +2029,15 @@ class PoseProtocol(PoseData):
         predict_designs_df, predict_residues_df = \
             self.analyze_predict_structure_metrics(asu_design_scores, number_of_residues,
                                                    model_type=model_type, interface=self.pose.interface_residues)
-        residues_df = residues_df.join(predict_residues_df)
-        designs_df = designs_df.join(predict_designs_df)
+        residue_indices = list(range(number_of_residues))
         # Set the index to use the design.id for each design instance
-        residues_df.index = pd.Index(design_ids, name=sql.ResidueMetrics)
-        designs_df.index = pd.Index(design_ids, name=sql.DesignMetrics)
+        design_index = pd.Index(design_ids, name=sql.ResidueMetrics.design_id.name)
+        residue_sequences_df = pd.DataFrame([list(seq) for seq in sequences.values()], index=predict_residues_df.index,
+                                            columns=pd.MultiIndex.from_product([residue_indices,
+                                                                                [sql.ResidueMetrics.type.name]]))
+        residues_df = residues_df.join([predict_residues_df, residue_sequences_df])
+        designs_df = designs_df.join(predict_designs_df)
+        designs_df.index = residues_df.index = design_index
         self.output_metrics(designs=designs_df, residues=residues_df)
         # Commit the newly acquired metrics
         self.job.current_session.commit()
