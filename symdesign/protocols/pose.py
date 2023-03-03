@@ -1730,7 +1730,7 @@ class PoseProtocol(PoseData):
             raise NotImplementedError(f"For {self.predict_structure.__name__}, the method "
                                       f"{self.job.predict.method} isn't implemented yet")
 
-    def alphafold_predict_structure(self, sequences: dict[str, str],
+    def alphafold_predict_structure(self, sequences: dict[sql.DesignData, str],
                                     model_type: resources.ml.af_model_literal = 'monomer', **kwargs):
         """
 
@@ -1971,6 +1971,7 @@ class PoseProtocol(PoseData):
             this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
             protocol_logger.debug(f'Found this_seq_features:\n\t%s'
                                   % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
+            protocol_logger.info(f'Starting structure prediction of {design.name} sequence')
             asu_structures, asu_scores = \
                 resources.ml.af_predict({**features, **this_seq_features, **model_features},
                                         model_runners, gpu_relax=self.job.predict.use_gpu_relax,
@@ -2017,11 +2018,11 @@ class PoseProtocol(PoseData):
             """
 
         # Write the folded structure to designs_path and update DesignProtocols
-        for data, pose in zip(self.current_designs, asu_design_structures):
-            data.structure_path = pose.write(out_path=os.path.join(self.designs_path, f'{data.name}.pdb'))
-            data.protocols.append(sql.DesignProtocol(design_id=data.id,
-                                                     protocol=self.protocol,
-                                                     file=data.structure_path))
+        for design_data, pose in zip(sequences.keys(), asu_design_structures):
+            design_data.structure_path = pose.write(out_path=os.path.join(self.designs_path, f'{design_data.name}.pdb'))
+            design_data.protocols.append(sql.DesignProtocol(design_id=design_data.id,
+                                                            protocol=self.protocol,
+                                                            file=design_data.structure_path))
             # # This corrects the oligomeric specification for each Entity
             # # by using the inherent _assign_pose_transformation()
             # pose.make_oligomers()
@@ -2030,12 +2031,12 @@ class PoseProtocol(PoseData):
             #     entity.remove_mate_chains()
             pose.make_oligomers(transformations=self.transformations)
             pose.write(out_path=os.path.join(self.designs_path, f'{pose.name}-asu-check.pdb'))
+            pose.write(assembly=True, out_path=os.path.join(self.designs_path, f'{pose.name}-assembly-check.pdb'))
             for entity in pose.entities:
                 entity.write(
                     out_path=os.path.join(self.designs_path, f'{pose.name}{entity.name}-oligomer-asu-check.pdb'))
                 entity.write(oligomer=True,
                              out_path=os.path.join(self.designs_path, f'{pose.name}{entity.name}-oligomer-check.pdb'))
-            pose.write(assembly=True, out_path=os.path.join(self.designs_path, f'{pose.name}-assembly-check.pdb'))
 
         residues_df = self.analyze_residue_metrics_per_design(asu_design_structures)
         designs_df = self.analyze_design_metrics_per_design(residues_df, asu_design_structures)
