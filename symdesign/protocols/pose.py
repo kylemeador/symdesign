@@ -1992,10 +1992,8 @@ class PoseProtocol(PoseData):
             # we need to pose.make_oligomers() in the correct orientation
             # Do this all at once after every design
             if relaxed:  # Set b-factor data as relaxed get overwritten
-                model_plddts = {model_name: scores['plddt'][:number_of_residues]
-                                for model_name, scores in asu_scores.items()}
                 for model_name, model in asu_models.items():
-                    model.set_b_factor_data(model_plddts[model_name])
+                    model.set_b_factor_data(asu_scores[model_name]['plddt'][:number_of_residues])
             # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
             rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.cb_coords)
             # rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
@@ -2006,7 +2004,7 @@ class PoseProtocol(PoseData):
             # structure_by_design[design].append(asu_models[minimum_model])
             # asu_design_scores.append({'rmsd_prediction_ensemble': rmsds, **asu_scores[minimum_model]})
             # Average all models scores to get the ensemble of the predictions
-            combined_scores = combine_model_scores([asu_scores[model_name] for model_name in asu_models])
+            combined_scores = combine_model_scores(list(asu_scores.values()))
             asu_design_scores[str(design)] = {'rmsd_prediction_ensemble': rmsds, **combined_scores}
             # asu_design_scores[str(design)] = {'rmsd_prediction_ensemble': rmsds, **asu_scores[minimum_model]}
             """Each design in asu_design_scores contain the following features
@@ -2115,20 +2113,14 @@ class PoseProtocol(PoseData):
                         structures_to_load = entity_structures.get('relaxed', [])
                     else:
                         structures_to_load = entity_structures.get('unrelaxed', [])
-                    # model_plddts = {model_name: scores['plddt'][:sequence_length]
-                    #                 for model_name, scores in entity_scores.items()}
-                    # design_models = \
-                    #     load_alphafold_structures(structures_to_load, plddt=model_plddts, name=entity.name,
-                    #                               entity_info={entity.name: self.pose.entity_info[entity.name]})
+
                     model_kwargs = dict(name=entity.name, entity_info=this_entity_info)
                     # Todo should I limit the .splitlines by the entity_number_of_residues? Assembly v asu consideration
                     design_models = {model_name: Model.from_pdb_lines(structure.splitlines(), **model_kwargs)
                                      for model_name, structure in structures_to_load.items()}
                     if relaxed:  # Set b-factor data as relaxed get overwritten
-                        model_plddts = {model_name: scores['plddt'][:entity_number_of_residues]
-                                        for model_name, scores in entity_scores.items()}
                         for model_name, model in design_models.items():
-                            model.set_b_factor_data(model_plddts[model_name])
+                            model.set_b_factor_data(entity_scores[model_name]['plddt'][:entity_number_of_residues])
 
                     # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
                     rmsds, minimum_model = find_model_with_minimal_rmsd(design_models, entity_cb_coords)
@@ -2139,7 +2131,7 @@ class PoseProtocol(PoseData):
                     # Append each Entity result to the full return
                     entity_structure_by_design[design].append(design_models[minimum_model])
                     # Average all models scores to get the ensemble of the predictions
-                    combined_scores = combine_model_scores([entity_scores[model_name] for model_name in design_models])
+                    combined_scores = combine_model_scores(list(entity_scores.values()))
                     entity_scores_by_design[str(design)] = {'rmsd_prediction_ensemble': rmsds, **combined_scores}
                     # entity_scores_by_design[str(design)] = \
                     #     {'rmsd_prediction_ensemble': rmsds, **entity_scores[minimum_model]}
