@@ -1707,7 +1707,7 @@ class PoseProtocol(PoseData):
 
         if self.job.predict.pose:
             pose_sequence = {self.pose_source: self.pose_source.sequence}
-            if self.pose_source.structure_path is not None:
+            if self.pose_source.structure_path is None:
                 sequences = {**pose_sequence, **sequences}
             elif self.job.overwrite:
                 sequences = {**pose_sequence, **sequences}
