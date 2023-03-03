@@ -3971,7 +3971,7 @@ class PoseProtocol(PoseData):
                 # # Next, average pae over each model
                 # array_scores['predicted_aligned_error']: pae_container.mean(axis=0)[:pose_length]
                 pae = metrics_['predicted_aligned_error']
-                array_scores['predicted_aligned_error'] = pae[:pose_length]
+                array_scores['predicted_aligned_error'] = pae[:pose_length].mean(axis=-1)
 
                 if interface_indices:
                     # Index the resulting pae to get the error at the interface residues in particular
