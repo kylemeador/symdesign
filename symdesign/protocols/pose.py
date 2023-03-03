@@ -2038,7 +2038,7 @@ class PoseProtocol(PoseData):
         # Commit the newly acquired metrics
         self.job.current_session.commit()
         """Design scores (entity_/asu_design_scores) contain the following features
-        {'predicted_aligned_error': (n_residues,)  # multimer/monomer_ptm
+        {'predicted_aligned_error': (n_residues, n_residues)  # multimer/monomer_ptm
          'plddt': (n_residues,)
          'predicted_interface_template_modeling_score': float  # multimer
          'predicted_template_modeling_score': float  # multimer/monomer_ptm
@@ -3907,7 +3907,7 @@ class PoseProtocol(PoseData):
             -> tuple[pd.DataFrame, pd.DataFrame] | tuple[None, None]:
         """From a set of metrics output by Alphafold
         Design scores (entity_/asu_design_scores) contain the following features
-        {'predicted_aligned_error': (n_residues,)  # multimer/monomer_ptm
+        {'predicted_aligned_error': (n_residues, n_residues)  # multimer/monomer_ptm
          'plddt': (n_residues,)
          'predicted_interface_template_modeling_score': float  # multimer
          'predicted_template_modeling_score': float  # multimer/monomer_ptm
@@ -3961,15 +3961,8 @@ class PoseProtocol(PoseData):
             # rmsd_metrics = describe_metrics(rmsds)
             scalar_scores = {score_type: sum(metrics_[score_type]) / number_models
                              for score_type in score_types_mean}
-            if interface_indices and measure_pae:
-                # Index the resulting pae to get the error at the interface residues in particular
-                indices1, indices2 = interface_indices
-                interface_pae_means = [model_pae[indices1][:, indices2].mean()
-                                       for model_pae in metrics_['predicted_aligned_error']]
-                scalar_scores['predicted_aligned_error_interface'] = sum(interface_pae_means) / number_models
-            protocol_logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
-
             array_scores = {'plddt': metrics_['plddt'][:pose_length]}
+
             # Process 'predicted_aligned_error'. Input is 2D, so we average over each residue first then add to
             # the container and take the average over each model
             if measure_pae:
@@ -3977,7 +3970,17 @@ class PoseProtocol(PoseData):
                 #     pae_container[idx, :] = model_pae.mean(axis=0)
                 # # Next, average pae over each model
                 # array_scores['predicted_aligned_error']: pae_container.mean(axis=0)[:pose_length]
-                array_scores['predicted_aligned_error'] = metrics_['predicted_aligned_error'][:pose_length]
+                pae = metrics_['predicted_aligned_error']
+                array_scores['predicted_aligned_error'] = pae[:pose_length]
+
+                if interface_indices:
+                    # Index the resulting pae to get the error at the interface residues in particular
+                    indices1, indices2 = interface_indices
+                    # interface_pae_means = [model_pae[indices1][:, indices2].mean()
+                    #                        for model_pae in metrics_['predicted_aligned_error']]
+                    interface_pae_means = pae[indices1][:, indices2].mean()
+                    scalar_scores['predicted_aligned_error_interface'] = sum(interface_pae_means) / number_models
+            protocol_logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
 
             protocol_logger.debug(f'Found array_scores with contents:\n{array_scores}')
             # residue_scores.append(array_scores)
