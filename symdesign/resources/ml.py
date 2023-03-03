@@ -1269,7 +1269,6 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
     ranking_confidences = {}
     unrelaxed_proteins = {}
     unrelaxed_pdbs_ = {}
-    relax_metrics = {}
     # Run the models.
     for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
         logger.info(f'Running model {model_name}')
@@ -1354,6 +1353,7 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
 
     # Relax predictions.
     relaxed_pdbs = {}
+    # relax_metrics = {}
     if models_to_relax is None:
         pass
     else:
@@ -1367,12 +1367,16 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
         for model_name in to_relax:
             logger.info(f'Relaxing {model_name}')
             # relaxed_pdb_str, _, violations = amber_relaxer.process(prot=unrelaxed_proteins[model_name])
-            relaxed_pdb_str, violations = amber_relax(prot=unrelaxed_proteins[model_name], gpu=gpu_relax)
-            relax_metrics[model_name] = {
-                'remaining_violations': violations,
-                'remaining_violations_count': sum(violations)
-            }
-            relaxed_pdbs[model_name] = relaxed_pdb_str
+            try:
+                relaxed_pdb_str, violations = amber_relax(prot=unrelaxed_proteins[model_name], gpu=gpu_relax)
+            except ValueError:  # Minimization failed after {max_iterations} attempts.
+                continue
+            else:
+                # relax_metrics[model_name] = {
+                #     'remaining_violations': violations,
+                #     'remaining_violations_count': sum(violations)
+                # }
+                relaxed_pdbs[model_name] = relaxed_pdb_str
 
         logger.info(f'Relaxation took {time.time() - t_0:.1f}s')
 
