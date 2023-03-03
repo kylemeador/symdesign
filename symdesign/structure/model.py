@@ -1828,11 +1828,11 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         # as found in HmmsearchHitFeaturizer(TemplateHitFeaturizer).get_templates()
         template_features = {
             'template_all_atom_positions': np.array([self.alphafold_coords], dtype=np.float32),
-            'template_all_atom_masks': np.array([self.alphafold_atom_mask], dtype=np.int32),
+            'template_all_atom_masks': np.array([self.alphafold_atom_mask], dtype=np.float32),
             'template_sequence': np.array([self.sequence.encode()], dtype=object),
             'template_aatype': np.array([sequence_to_one_hot(self.sequence,
                                                              numerical_translation_alph3_unknown_gaped_bytes)],
-                                        dtype=np.int32),
+                                        dtype=np.float32),  # np.int32),
             'template_domain_names': np.array([self.name.encode()], dtype=object)
         }
         return template_features
