@@ -1374,6 +1374,6 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
             }
             relaxed_pdbs[model_name] = relaxed_pdb_str
 
-        logger.info(f'Relaxation took {time.time() - t_0}')
+        logger.info(f'Relaxation took {time.time() - t_0:.1f}s')
 
     return {'relaxed': relaxed_pdbs, 'unrelaxed': unrelaxed_pdbs}, scores
