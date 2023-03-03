@@ -28,8 +28,8 @@ dependencies:
   - flametree
 # Alphafold
   - cudnn # ==8.0.4
-  - jax # Trying these two to solve jaxlib version 0.4.2 is newer than and incompatible with jax version 0.3.25.
-  - jaxlib # Please update your jax and/or jaxlib packages
+  - jax==0.4.2 # jax/jaxlib 0.4.4 broke jnp.asarray() for me ...
+  - jaxlib==0.4.2
   - cuda-nvcc=11.3 # Used to ensure same version as cudatoolkit
   - hmmer
   - kalign2
