@@ -1911,12 +1911,7 @@ class PoseProtocol(PoseData):
                 A dictionary with format {'score_type': [score1, score2, ...], } where score1 can have a shape float,
                 (n_residues,), or (n_residues, n_residues)
             """
-            total_scores = {score_type: [] for score_type in _scores[0].keys()}
-            for score_type, container in total_scores.items():
-                for scores in _scores:
-                    container.append(scores[score_type])
-
-            return total_scores
+            return {score_type: [scores[score_type] for scores in _scores] for score_type in _scores[0].keys()}
 
         if self.job.predict.models_to_relax is not None:
             relaxed = True
@@ -3979,7 +3974,7 @@ class PoseProtocol(PoseData):
         for design_name, scores in folding_scores.items():
             protocol_logger.debug(f'Found metrics with contents:\n{scores}')
             # This shouldn't fail as plddt should always be present
-            array_scores = {'plddt': scores['plddt'][:pose_length]}
+            array_scores = {}
             scalar_scores = {}
             for score_type, score in scores.items():
                 # rmsd_metrics = describe_metrics(rmsds)
@@ -4014,6 +4009,16 @@ class PoseProtocol(PoseData):
                         # scalar_scores['predicted_aligned_error_interface'] = sum(interface_pae_means) / number_models
                         interface_pae_mean = pae[indices1][:, indices2].mean()
                         scalar_scores['predicted_aligned_error_interface'] = interface_pae_mean
+                elif score_type == 'plddt':  # Todo combine with above
+                    if isinstance(score, list):
+                        number_models = len(score)
+                        plddt, *other_plddt = score
+                        for plddt_ in other_plddt:
+                            plddt += plddt_
+                        plddt /= number_models
+                    else:
+                        plddt = score
+                    array_scores['plddt'] = plddt[:pose_length]
 
             protocol_logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
             protocol_logger.debug(f'Found array_scores with contents:\n{array_scores}')
