@@ -1940,9 +1940,21 @@ class PoseProtocol(PoseData):
                                          'size limitations')
             features = self.pose.get_alphafold_features(symmetric=True, multimer=multimer, no_msa=no_msa)
             # Todo may need to this if the pose isn't completely symmetric despite it being specified as such
-            # number_of_residues = self.pose.number_of_symmetric_residues
+            number_of_residues = self.pose.number_of_symmetric_residues
+            assembly_atom_positions = jnp.asarray(self.pose.assembly.alphafold_coords)
+            # protocol_logger.debug(f'Found assembly_atom_positions with shape: {assembly_atom_positions.shape}')
+            # protocol_logger.debug(f'Found asu with length: {number_of_residues}')
+            # protocol_logger.critical(f'Found assembly_atom_positions[0] with values: '
+            #                          '{assembly_atom_positions[0].tolist()}')
+            model_features = {'prev_pos': assembly_atom_positions}
         else:
+            number_of_residues = self.pose.number_of_residues
             features = self.pose.get_alphafold_features(symmetric=False, multimer=multimer, no_msa=no_msa)
+            asu_atom_positions = jnp.asarray(self.pose.alphafold_coords)
+            # protocol_logger.debug(f'Found asu_atom_positions with shape: {asu_atom_positions.shape}')
+            # protocol_logger.debug(f'Found asu with length: {number_of_residues}')
+            # protocol_logger.critical(f'Found asu_atom_positions[0] with values: {asu_atom_positions[0].tolist()}')
+            model_features = {'prev_pos': asu_atom_positions}
 
         if multimer:  # Get the length
             multimer_sequence_length = features['seq_length']
@@ -1951,12 +1963,7 @@ class PoseProtocol(PoseData):
 
         # Get the DesignData.ids for metrics output
         design_ids = [design.id for design in sequences]
-        asu_atom_positions = jnp.asarray(self.pose.alphafold_coords)
-        protocol_logger.debug(f'Found asu_atom_positions with shape: {asu_atom_positions.shape}')
-        protocol_logger.debug(f'Found asu with length: {self.pose.number_of_residues}')
-        # protocol_logger.critical(f'Found asu_atom_positions[0] with values: {asu_atom_positions[0].tolist()}')
-        model_features = {'prev_pos': asu_atom_positions}
-        # model_features = {'prev_pos': jnp.asarray(self.pose.alphafold_coords)}
+
         putils.make_path(self.designs_path)
         asu_design_structures = []  # structure_by_design = {}
         asu_design_scores = {}  # []  # scores_by_design = {}
@@ -1977,6 +1984,7 @@ class PoseProtocol(PoseData):
             # asu_models = load_alphafold_structures(structures_to_load, name=str(design),  # Get '.name'
             #                                        entity_info=self.pose.entity_info)
             # Load the Model in while ignoring any potential clashes
+            # Todo should I limit the .splitlines by the number_of_residues? Assembly v asu considerations
             asu_models = {model_name: Pose.from_pdb_lines(structure.splitlines(), name=str(design), **pose_kwargs)
                           for model_name, structure in structures_to_load.items()}
             # Because the pdb_lines are not oriented, we must handle orientation of incoming files to match sym_entry
@@ -2062,16 +2070,28 @@ class PoseProtocol(PoseData):
                 features = entity.get_alphafold_features(symmetric=True, no_msa=no_msa)
                 if multimer:  # Get the length
                     multimer_sequence_length = features['seq_length']
+                    entity_number_of_residues = entity.oligomer.number_of_residues
                 else:
+                    entity_number_of_residues = entity.number_of_residues
                     multimer_sequence_length = None
 
+                # If not an oligomer, then .oligomer/.chains should just pass the single entity
                 oligomer_atom_positions = jnp.asarray(entity.oligomer.alphafold_coords)
                 protocol_logger.debug(f'Found oligomer_atom_positions with shape: {oligomer_atom_positions.shape}')
-                protocol_logger.debug(f'Found oligomer with length: {entity.oligomer.number_of_residues}')
+                protocol_logger.debug(f'Found oligomer with length: {entity_number_of_residues}')
                 # protocol_logger.critical(f'Found oligomer_atom_positions[0] with values: '
                 #                          f'{oligomer_atom_positions[0].tolist()}')
                 model_features = {'prev_pos': oligomer_atom_positions}
+
+                # if multimer:
+                entity_cb_coords = np.concatenate([mate.cb_coords for mate in entity.chains])
+                # Todo
+                #  entity_backbone_and_cb_coords = entity.oligomer.cb_coords
+                # else:
+                #     entity_cb_coords = entity.cb_coords
+
                 # model_features = {'prev_pos': jnp.asarray(entity.oligomer.alphafold_coords)}
+                this_entity_info = {entity.name: self.pose.entity_info[entity.name]}
                 entity_slice = slice(entity.n_terminal_residue.index, 1 + entity.c_terminal_residue.index)
                 entity_scores_by_design = {}  # []
                 # Iterate over provided sequences. For each one, find the structure with the best model and it's scores
@@ -2099,24 +2119,17 @@ class PoseProtocol(PoseData):
                     # design_models = \
                     #     load_alphafold_structures(structures_to_load, plddt=model_plddts, name=entity.name,
                     #                               entity_info={entity.name: self.pose.entity_info[entity.name]})
-                    model_kwargs = dict(name=entity.name, entity_info={entity.name: self.pose.entity_info[entity.name]})
+                    model_kwargs = dict(name=entity.name, entity_info=this_entity_info)
+                    # Todo should I limit the .splitlines by the entity_number_of_residues? Assembly v asu consideration
                     design_models = {model_name: Model.from_pdb_lines(structure.splitlines(), **model_kwargs)
                                      for model_name, structure in structures_to_load.items()}
                     if relaxed:  # Set b-factor data as relaxed get overwritten
-                        model_plddts = {model_name: scores['plddt'][:entity.number_of_residues]
+                        model_plddts = {model_name: scores['plddt'][:entity_number_of_residues]
                                         for model_name, scores in entity_scores.items()}
                         for model_name, model in design_models.items():
                             model.set_b_factor_data(model_plddts[model_name])
 
                     # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
-                    # If the model weren't multimeric, then use this...
-                    # if multimer:
-                    entity_cb_coords = np.concatenate([mate.cb_coords for mate in entity.chains])
-                    # Todo
-                    #  entity_backbone_and_cb_coords = entity.oligomer.cb_coords
-                    # else:
-                    #     entity_cb_coords = entity.cb_coords
-
                     rmsds, minimum_model = find_model_with_minimal_rmsd(design_models, entity_cb_coords)
                     # rmsds, minimum_model = find_model_with_minimal_rmsd(design_models, entity_backbone_and_cb_coords)
                     if minimum_model is None:
