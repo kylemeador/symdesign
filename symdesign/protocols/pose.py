@@ -2071,13 +2071,13 @@ class PoseProtocol(PoseData):
                     entity_number_of_residues = entity.number_of_residues
                     multimer_sequence_length = None
 
-                # If not an oligomer, then .oligomer/.chains should just pass the single entity
-                oligomer_atom_positions = jnp.asarray(entity.oligomer.alphafold_coords)
-                protocol_logger.debug(f'Found oligomer_atom_positions with shape: {oligomer_atom_positions.shape}')
                 protocol_logger.debug(f'Found oligomer with length: {entity_number_of_residues}')
-                # protocol_logger.critical(f'Found oligomer_atom_positions[0] with values: '
-                #                          f'{oligomer_atom_positions[0].tolist()}')
-                model_features = {'prev_pos': oligomer_atom_positions}
+                # If not an oligomer, then .oligomer/.chains should just pass the single entity
+                model_features = {'prev_pos': jnp.asarray(entity.oligomer.alphafold_coords)}
+                # protocol_logger.debug(f'Found oligomer_atom_positions for "prev_pose" with shape: '
+                #                       '{model_features["prev_pos"].shape}')
+                # protocol_logger.critical(f'Found oligomeric atom_positions[0] with values: '
+                #                          f'{model_features["prev_pos"][0].tolist()}')
 
                 # if multimer:
                 entity_cb_coords = np.concatenate([mate.cb_coords for mate in entity.chains])
@@ -2089,34 +2089,36 @@ class PoseProtocol(PoseData):
                 # model_features = {'prev_pos': jnp.asarray(entity.oligomer.alphafold_coords)}
                 this_entity_info = {entity.name: self.pose.entity_info[entity.name]}
                 entity_slice = slice(entity.n_terminal_residue.index, 1 + entity.c_terminal_residue.index)
-                entity_scores_by_design = {}  # []
+                entity_scores_by_design = {}
                 # Iterate over provided sequences. Find the best structural model and it's folding_scores
                 for design, sequence in sequences.items():
                     sequence = sequence[entity_slice]
-                    # sequence_length = len(sequence)
                     this_seq_features = \
                         get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
                     protocol_logger.debug(f'Found this_seq_features:\n\t%s'
                                           % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
                     entity_structures, entity_scores = \
-                        resources.ml.af_predict({**features, **this_seq_features, **model_features},
-                                                model_runners, gpu_relax=self.job.predict.use_gpu_relax,
-                                                models_to_relax=self.job.predict.models_to_relax)
-                    # Todo remove this after debug is done
-                    output_alphafold_structures(entity_structures, design_name=f'{design}-{entity.name}')
-                    # design_model_models = \
-                    if relaxed:
-                        structures_to_load = entity_structures.get('relaxed', [])
-                    else:
-                        structures_to_load = entity_structures.get('unrelaxed', [])
+                        resources.ml.af_predict({**features, **this_seq_features, **model_features}, model_runners)
+                    # NOT using relaxation as these won't be output for design so their coarse features are all that
+                    # are desired
+                    #     gpu_relax=self.job.predict.use_gpu_relax, models_to_relax=self.job.predict.models_to_relax)
+                    # if relaxed:
+                    #     structures_to_load = entity_structures.get('relaxed', [])
+                    # else:
+                    structures_to_load = entity_structures.get('unrelaxed', [])
 
                     model_kwargs = dict(name=entity.name, entity_info=this_entity_info)
                     # Todo should I limit the .splitlines by the entity_number_of_residues? Assembly v asu consideration
                     design_models = {model_name: Model.from_pdb_lines(structure.splitlines(), **model_kwargs)
                                      for model_name, structure in structures_to_load.items()}
-                    if relaxed:  # Set b-factor data as relaxed get overwritten
-                        for model_name, model in design_models.items():
-                            model.set_b_factor_data(entity_scores[model_name]['plddt'][:entity_number_of_residues])
+                    # if relaxed:  # Set b-factor data as relaxed get overwritten
+                    #     for model_name, model in design_models.items():
+                    #         model.set_b_factor_data(entity_scores[model_name]['plddt'][:entity_number_of_residues])
+                    #     entity_structures['relaxed'] = \
+                    #         {model_name: model.get_atom_record() for model_name, model in design_models.items()}
+
+                    # Todo put these sequences into a directory in pose/designs/pose-design_id/design-entity.name.pdb?
+                    output_alphafold_structures(entity_structures, design_name=f'{design}-{entity.name}')
 
                     # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
                     rmsds, minimum_model = find_model_with_minimal_rmsd(design_models, entity_cb_coords)
