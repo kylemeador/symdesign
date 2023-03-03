@@ -2157,7 +2157,7 @@ class PoseProtocol(PoseData):
                     self.analyze_predict_structure_metrics(entity_scores_by_design,
                                                            sequence_length, model_type=model_type)
                 # Set the index to use the design.id for each design instance and EntityData.id as an additional column
-                entity_designs_df.index = pd.MultiIndex.from_product([design_ids, [data.entity_id]],
+                entity_designs_df.index = pd.MultiIndex.from_product([design_ids, [data.id]],
                                                                      names=[sql.DesignEntityMetrics.design_id.name,
                                                                             sql.DesignEntityMetrics.entity_id.name])
                 metrics.sql.write_dataframe(self.job.current_session, entity_designs=entity_designs_df)
