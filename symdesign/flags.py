@@ -985,7 +985,7 @@ scout_kwargs = dict(action='store_true',  # action=argparse.BooleanOptionalActio
                          'survey designability\nDefault=%(default)s')
 
 
-def temp_gt0(temp: list[str]) -> float:
+def temp_gt0(temp: str) -> float:
     """Convert temperatures flags to float ensuring no 0 value"""
     temp = float(temp)
     return temp if temp > 0 else 0.0001
