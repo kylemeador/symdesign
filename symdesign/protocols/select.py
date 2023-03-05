@@ -1213,7 +1213,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         logger.info(f'Selected {len(final_poses)} poses after clustering')
     else:  # Try to generate the cluster_map?
         # raise utils.InputError(f'No --{flags.cluster_map} was provided. To cluster poses, specify:'
-        logger.info(f'No {flags.cluster_map} was provided. To cluster poses, specify:'
+        logger.info(f'No {flags.cluster_map} was provided. To {flags.cluster_poses}, specify:'
                     f'"{putils.program_command} {flags.cluster_poses}" or '
                     f'"{putils.program_command} {flags.protocol} '
                     f'--{flags.modules} {flags.cluster_poses} {flags.select_poses}')

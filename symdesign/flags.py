@@ -788,8 +788,8 @@ protocol_arguments = {
 predict_structure_help = 'Predict the 3D structure from specified sequence(s)'
 parser_predict_structure = \
     {predict_structure: dict(description=f'{predict_structure_help}\nPrediction occurs on designed sequences by '
-                                         f'default.\nIf prediction should be performed on the Pose, use'
-                                         f' {format_args((predict_pose,))}',
+                                         f'default.\nIf prediction should be performed on the Pose, use '
+                                         f'--{predict_pose}',
                              help=predict_structure_help)}
 predict_structure_arguments = {
     ('-m', f'--{predict_method}'):

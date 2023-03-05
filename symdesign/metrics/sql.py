@@ -56,7 +56,7 @@ def insert_dataframe(session: Session, table: sql.Base, df: pd.DataFrame):  # ->
     # result = session.execute(insert_stmt, df.reset_index().to_dict('records'))
     start_time = time()
     session.execute(insert_stmt, df.reset_index().to_dict('records'))
-    logger.info(f'Transaction with table "{table.__tablename__}" took {time() - start_time:8f}s')
+    logger.debug(f'Transaction with table "{table.__tablename__}" took {time() - start_time:8f}s')
 
     # session.commit()
     # # foreign_key = [key.column.name for key in table_.foreign_keys]
@@ -159,7 +159,7 @@ def upsert_dataframe(session: Session, table: sql.Base, df: pd.DataFrame):  # ->
     start_time = time()
     # result = session.execute(do_update_stmt, df.reset_index().set_index('id').to_dict('records'))
     session.execute(do_update_stmt, df.reset_index().to_dict('records'))
-    logger.info(f'Transaction with table "{tablename}" took {time() - start_time:8f}s')
+    logger.debug(f'Transaction with table "{tablename}" took {time() - start_time:8f}s')
     # session.commit()
 
     # return result.scalars().all()
@@ -233,7 +233,7 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None, residues: pd
         dataframe_function(session, table=table, df=poses)
         # poses.to_sql(table, con=engine, if_exists='append', index=True)
         # #              dtype=sql.Base.metadata.table[table])
-        logger.info(f'Wrote {table.__tablename__} metrics to DataBase')  # {job.internal_db}')
+        logger.info(f'Wrote {table.__tablename__} to Database')  # {job.internal_db}')
 
     if designs is not None:
         # warn_multiple_update_results()
@@ -243,7 +243,7 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None, residues: pd
         dataframe_function(session, table=table, df=designs)
         # designs.to_sql(table, con=engine, if_exists='append', index=True)
         # #                dtype=sql.Base.metadata.table[table])
-        logger.info(f'Wrote {table.__tablename__} metrics to DataBase')  # {job.internal_db}')
+        logger.info(f'Wrote {table.__tablename__} to Database')  # {job.internal_db}')
 
     if entity_designs is not None:
         # warn_multiple_update_results()
@@ -253,7 +253,7 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None, residues: pd
         dataframe_function(session, table=table, df=entity_designs)
         # designs.to_sql(table, con=engine, if_exists='append', index=True)
         # #                dtype=sql.Base.metadata.table[table])
-        logger.info(f'Wrote {table.__tablename__} metrics to DataBase')  # {job.internal_db}')
+        logger.info(f'Wrote {table.__tablename__} to Database')  # {job.internal_db}')
 
     if residues is not None:
         # warn_multiple_update_results()
@@ -266,7 +266,7 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None, residues: pd
         # # Todo Ensure that the 'id' column is present
         # stmt = select(sql.DesignMetrics).where(sql.DesignMetrics.pose.in_(pose_ids))  # text('''SELECT * from residues''')
         # results = session.scalars(stmt)  # execute(stmt)
-        logger.info(f'Wrote {table.__tablename__} metrics to DataBase')  # {job.internal_db}')
+        logger.info(f'Wrote {table.__tablename__} to Database')  # {job.internal_db}')
 
     if pose_residues is not None:
         # warn_multiple_update_results()
@@ -279,4 +279,4 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None, residues: pd
         # # Todo Ensure that the 'id' column is present
         # stmt = select(sql.DesignMetrics).where(sql.DesignMetrics.pose.in_(pose_ids))  # text('''SELECT * from residues''')
         # results = session.scalars(stmt)  # execute(stmt)
-        logger.info(f'Wrote {table.__tablename__} metrics to DataBase')  # {job.internal_db}')
+        logger.info(f'Wrote {table.__tablename__} to Database')  # {job.internal_db}')

@@ -1698,7 +1698,10 @@ class PoseProtocol(PoseData):
         self.refine(design_files=design_files)
 
     def predict_structure(self):
-        """"""
+        """Perform structure prediction on the .current_designs. If there are no .current_designs, will use any
+        design that is missing a structure file. Additionally, add the Pose sequence to the prediction by using the
+        job.predict.pose flag
+        """
         if self.current_designs:
             sequences = {design: design.sequence for design in self.current_designs}
         else:
@@ -1712,9 +1715,8 @@ class PoseProtocol(PoseData):
             elif self.job.overwrite:
                 sequences = {**pose_sequence, **sequences}
             else:
-                protocol_logger.warning(f"The flag {flags.format_args((flags.predict_pose,))} was specified, "
-                                        f"but the pose has already been predicted. If you meant to overwrite this pose,"
-                                        f"explicitly pass {flags.format_args(('overwrite',))}")
+                protocol_logger.warning(f"The flag --{flags.predict_pose} was specified, but the pose has already been "
+                                        f"predicted. If you meant to overwrite this pose, explicitly pass --overwrite")
         if not sequences:
             raise DesignError(f"Couldn't find any sequences to {self.predict_structure.__name__}")
 
@@ -1739,15 +1741,19 @@ class PoseProtocol(PoseData):
 
     def alphafold_predict_structure(self, sequences: dict[sql.DesignData, str],
                                     model_type: resources.ml.af_model_literal = 'monomer', **kwargs):
-        """
+        """Use Alphafold to predict structures for sequences of interest. The sequences will be fit to the Pose
+        parameters, however will have sequence features unique to that sequence. By default, no multiple sequence
+        alignment will be used and the AlphafoldInitialGuess model will be used wherein the starting coordinates for
+        the Pose will be supplied as the initial guess
 
         According to Deepmind Alphafold.ipynb (2/3/23), the usage of multimer with > 3000 residues isn't validated.
         while a memory requirement of 4000 is the theoretical limit. I think it depends on the available memory
         Args:
-            sequences:
-            model_type:
+            sequences: The mapping for DesignData to sequence
+            model_type: The type of Alphafold model to use. Choose from 'monomer', 'monomer_casp14', 'monomer_ptm',
+                or 'multimer'
         Returns:
-
+            None
         """
         self.load_pose()
         number_of_residues = self.pose.number_of_residues
@@ -1867,6 +1873,7 @@ class PoseProtocol(PoseData):
             return _seq_features
 
         def output_alphafold_structures(structure_types: dict[str, dict[str, str]], design_name: str = None):
+            """From a PDB formatted string, output structures by design_name to self.designs_path"""
             if design_name is None:
                 design_name = ''
             # for design, design_scores in structures.items():
@@ -1876,8 +1883,8 @@ class PoseProtocol(PoseData):
                 structures = structure_types.get(f'{type_str}relaxed', [])
                 idx = count(1)
                 for model_name, structure in structures.items():
-                    path = os.path.join(self.designs_path, f'{design_name}-{model_name}_rank{next(idx)}'
-                                                           f'-{type_str}relaxed.pdb')
+                    path = os.path.join(self.designs_path,
+                                        f'{design_name}-{model_name}_rank{next(idx)}-{type_str}relaxed.pdb')
                     with open(path, 'w') as f:
                         f.write(structure)
                 # # Repeat for relaxed
@@ -2094,7 +2101,9 @@ class PoseProtocol(PoseData):
                 #     entity_cb_coords = entity.cb_coords
 
                 # model_features = {'prev_pos': jnp.asarray(entity.oligomer.alphafold_coords)}
-                this_entity_info = {entity.name: self.pose.entity_info[entity.name]}
+                entity_name = entity.name
+                this_entity_info = {entity_name: self.pose.entity_info[entity_name]}
+                entity_model_kwargs = dict(name=entity_name, entity_info=this_entity_info)
                 entity_slice = slice(entity.n_terminal_residue.index, 1 + entity.c_terminal_residue.index)
                 entity_scores_by_design = {}
                 # Iterate over provided sequences. Find the best structural model and it's folding_scores
@@ -2114,9 +2123,8 @@ class PoseProtocol(PoseData):
                     # else:
                     structures_to_load = entity_structures.get('unrelaxed', [])
 
-                    model_kwargs = dict(name=entity.name, entity_info=this_entity_info)
                     # Todo should I limit the .splitlines by the entity_number_of_residues? Assembly v asu consideration
-                    design_models = {model_name: Model.from_pdb_lines(structure.splitlines(), **model_kwargs)
+                    design_models = {model_name: Model.from_pdb_lines(structure.splitlines(), **entity_model_kwargs)
                                      for model_name, structure in structures_to_load.items()}
                     # if relaxed:  # Set b-factor data as relaxed get overwritten
                     #     for model_name, model in design_models.items():
@@ -2160,7 +2168,7 @@ class PoseProtocol(PoseData):
                 metrics.sql.write_dataframe(self.job.current_session, entity_designs=entity_designs_df)
                 entity_design_dfs.append(entity_designs_df)
 
-                # These aren't currently written
+                # These aren't currently written...
                 entity_residue_dfs.append(entity_residues_df)
 
             try:

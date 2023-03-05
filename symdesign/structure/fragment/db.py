@@ -328,9 +328,9 @@ class FragmentDatabaseFactory:
             try:
                 self._databases[source] = utils.unpickle(putils.biological_fragment_db_pickle)
             except ModuleNotFoundError:
-                raise RuntimeError(f"Couldn't access the serialize {FragmentDatabase.__name__} which is required for "
-                                   "operation. Please reload this by executing "
-                                   f'"{putils.pickle_program_requirements_cmd}"')
+                raise RuntimeError(
+                    f"Couldn't access the serialized {FragmentDatabase.__name__} which is required for operation. "
+                    f'Please reload this by executing "{putils.pickle_program_requirements_cmd}"')
         else:
             self._databases[source] = FragmentDatabase(source=source, **kwargs)
 

@@ -1279,14 +1279,14 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
         t_0 = time.time()
         prediction_result = model_runner.predict(processed_feature_dict,
                                                  random_seed=model_random_seed)
-        logger.info(f'Total JAX model {model_name} structure prediction took {time.time() - t_0:.1f}s')
+        logger.info(f'Prediction took {time.time() - t_0:.1f}s')
         # if this is the first go in the model_runner, then f'(includes compilation time)' would be accurate
         # Monomer?
         #  Should take about 96 secs on a 1000 residue protein using 3 recycles...
 
         # Remove jax dependency from results.
         np_prediction_result = jnp_to_np(dict(prediction_result))
-        logger.debug(f'Found the prediction_results: {np_prediction_result}')
+        # logger.debug(f'Found prediction_results: {np_prediction_result}')
         # monomer
         # ['distogram', 'experimentally_resolved', 'masked_msa', 'predicted_lddt', 'structure_module', 'plddt',
         #  'ranking_confidence']
@@ -1295,9 +1295,7 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
         #  'ranking_confidence'
         #  'num_recycles', 'predicted_aligned_error', 'aligned_confidence_probs', 'max_predicted_aligned_error',
         #  'ptm', 'iptm']
-        # logger.critical(f'Found the prediction_result keys: shapes: '
-        #                 f'{dict((type_, res.shape) if isinstance(res, np.ndarray)
-        #                 for type_, res in np_prediction_result.items())}')
+        logger.debug(f'Found the prediction_result shapes: {model_runner.eval_shape()}')
         # {'distogram': {'bin_edges': (63,), 'logits': (n_residues, n_residues, 64)},
         #  'experimentally_resolved': {'logits': (n_residues, atom_types)},
         #  'masked_msa': {'logits': (n_sequences, n_residues, n_amino_acid_types_gapped_unknown)},
@@ -1369,7 +1367,8 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
             # relaxed_pdb_str, _, violations = amber_relaxer.process(prot=unrelaxed_proteins[model_name])
             try:
                 relaxed_pdb_str, violations = amber_relax(prot=unrelaxed_proteins[model_name], gpu=gpu_relax)
-            except ValueError:  # Minimization failed after {max_iterations} attempts.
+            except ValueError as error:  # Minimization failed after {max_iterations} attempts.
+                logger.error(f'Ran into problem during Amber relax: {error}\nSkipping {model_name}')
                 continue
             else:
                 # relax_metrics[model_name] = {

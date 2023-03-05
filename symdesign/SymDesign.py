@@ -759,8 +759,8 @@ def main():
     #     job.number = 1
     elif job.module == flags.nanohedra:
         if not job.sym_entry:
-            raise utils.InputError(f'When running {flags.nanohedra}, the argument -e/--entry/--{flags.sym_entry} is '
-                                   'required')
+            raise utils.InputError(
+                f'When running {flags.nanohedra}, the argument {flags.format_args(flags.sym_entry_args)} is required')
     elif job.module == flags.generate_fragments:  # Ensure we write fragments out
         job.write_fragments = True
     # elif job.module == flags.interface_design:
