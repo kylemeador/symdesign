@@ -1430,7 +1430,7 @@ class MultipleSequenceAlignment:
             sequence_weights_ = weight_sequences(self._counts, self.alignment, self._observations)
             logger.critical('OLD sequence_weights_', sequence_weights_)
 
-        if sequence_weights is not None:  # overwrite the current counts with weighted counts
+        if sequence_weights is not None:  # Overwrite the current counts with weighted counts
             self.sequence_weights = sequence_weights
             # Todo update this as well
             counts_ = [[0 for _ in alphabet] for _ in range(self.length)]  # list[list]

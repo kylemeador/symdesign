@@ -567,7 +567,8 @@ class JobResources:
             if os.path.exists(output_directory):
                 if not self.overwrite:
                     exit(f'The specified output directory "{output_directory}" already exists, this will overwrite '
-                         f'your old data! Please specify a new name with with -Od/--{flags.output_directory}, '
+                         'your old data! Please specify a new name with with '
+                         f'{flags.format_args(flags.output_directory_args)}, '
                          '--prefix or --suffix, or append --overwrite to your command')
             else:
                 putils.make_path(output_directory)
@@ -578,7 +579,7 @@ class JobResources:
                 and not self.overwrite:
             exit(f'The specified output file "{self.output_file}" already exists, this will overwrite your old '
                  f'data! Please specify a new name with with {flags.format_args(flags.output_file_args)}, '
-                 'or append --overwrite to your command')
+                 'or append --overwrite to your command')  # Todo --prefix/--suffix?
 
         # When we are performing expand-asu, make sure we set output_assembly to True
         if self.module == flags.expand_asu:

@@ -1375,7 +1375,7 @@ output_arguments = {
     ('-Ot', f'--{output_trajectory}'):
         dict(action=argparse.BooleanOptionalAction, default=False,
              help=f'For all structures generated, write them as a single multimodel file'),
-    ('--overwrite',): dict(action='store_true', help='Whether to overwrite existing structures upon job fulfillment'),
+    ('--overwrite',): dict(action='store_true', help='Whether to overwrite existing structural info'),
     ('-Pf', f'--{pose_format}'): dict(action='store_true',
                                       help='Whether outputs should be converted to pose formatting,\n'
                                            'where instead of using the original numbering each\n'

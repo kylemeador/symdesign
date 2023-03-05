@@ -509,7 +509,8 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
              # space_group=space_group,
              # uc_dimensions=uc_dimensions,
              )
-    parsed_info.update(**kwargs)  # explictly overwrites any parsing if argument was passed
+    # Explictly overwrite any parsing if argument was passed to caller
+    parsed_info.update(**kwargs)
     return parsed_info
 
 
