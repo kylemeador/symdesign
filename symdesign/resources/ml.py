@@ -1295,7 +1295,7 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
         #  'ranking_confidence'
         #  'num_recycles', 'predicted_aligned_error', 'aligned_confidence_probs', 'max_predicted_aligned_error',
         #  'ptm', 'iptm']
-        logger.debug(f'Found the prediction_result shapes: {model_runner.eval_shape()}')
+        # logger.debug(f'Found the prediction_result shapes: {model_runner.eval_shape(np_prediction_result)}')
         # {'distogram': {'bin_edges': (63,), 'logits': (n_residues, n_residues, 64)},
         #  'experimentally_resolved': {'logits': (n_residues, atom_types)},
         #  'masked_msa': {'logits': (n_sequences, n_residues, n_amino_acid_types_gapped_unknown)},
