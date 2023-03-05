@@ -5,6 +5,7 @@ import logging
 import math
 import os
 import subprocess
+import sys
 import time
 from copy import deepcopy
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product, count
@@ -3545,14 +3546,12 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self.log.debug(f"Integration of nucleotides hasn't been worked out yet, API information not useful")
 
             max_reference_sequence = 0
-            # Remove all previously found chains. This is also done in _get_entity_info_from_atoms
             for data in self.entity_info.values():
-                data['chains'] = []
                 reference_sequence_length = len(data['reference_sequence'])
                 if reference_sequence_length > max_reference_sequence:
                     max_reference_sequence = reference_sequence_length
             # Find the minimum chain sequence length
-            min_chain_sequence = 0
+            min_chain_sequence = sys.maxsize
             for chain in self.chains:
                 chain_sequence_length = chain.number_of_residues
                 if chain_sequence_length < min_chain_sequence:
@@ -3562,10 +3561,10 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             # Provide an expected tolerance and length_difference
             # We could be highly mutated compared to the reference, so lets set the tolerance threshold to a percentage
             # of the maximum. This value seems to be close given Sanders and Sanders? 1994 (BLOSUM matrix publicaiton)
-            tolerance = .3
+            tolerance = .2  # .3 <- some ProteinMPNN sequences failed this bar
             # Because we are using a reference sequence which could be much longer than the chain sequence find an
             # expected length proportion
-            length_proportion = (max_reference_sequence - min_chain_sequence) / max_reference_sequence
+            length_proportion = (max_reference_sequence-min_chain_sequence) / max_reference_sequence
             self._get_entity_info_from_atoms(tolerance=tolerance, length_difference=length_proportion, **kwargs)
         else:
             entity_api_entry = {}
@@ -3719,7 +3718,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         entity_start_idx = 1
         if self.entity_info:
             start_with_info = True
-            # Remove any existing chain ID information
+            warn_parameters_msg = f"The 'tolerance'={tolerance} and 'length_difference'={length_difference} parameters"\
+                                  f" aren't compatible with the chain.sequence and the soon to be Entity sequence"
+            # Remove existing chain IDs
             for data in self.entity_info.values():
                 data['chains'] = []
             entity_idx = count(entity_start_idx + len(self.entity_info))
@@ -3728,6 +3729,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             entity_idx = count(entity_start_idx)
 
         for chain in self.chains:
+            # If the passed parameters don't cover the sequences provided
+            warn_bad_parameters = False
             chain_id = chain.chain_id
             chain_sequence = chain.sequence
             numeric_chain_seq = sequence_to_numeric(
@@ -3750,13 +3753,12 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 # Start with the Structure sequence as this is going to be a closer match
                 entity_sequence = struct_sequence = data.get('sequence', False)
                 if not struct_sequence:  # No Structure sequence in entity_info
-                    entity_sequence = data['reference_sequence']  # ref_sequence =
+                    entity_sequence = data['reference_sequence']
                 #     reference_sequence = True
                 # else:
                 #     reference_sequence = False
 
                 if chain_sequence == entity_sequence:
-                    # score = len(chain.sequence)
                     self.log.debug(f'Chain {chain_id} matches Entity {entity_name} sequence exactly')
                     data['chains'].append(chain_id)
                     break
@@ -3767,14 +3769,15 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     large_sequence_length, small_sequence_length = len_seq, len_chain_seq
                 else:  # len_seq < len_chain_seq
                     small_sequence_length, large_sequence_length = len_seq, len_chain_seq
-                # large_sequence_length = max(len_seq, len_chain_seq)
-                # small_sequence_length = min(len_seq, len_chain_seq)
 
                 # Align to find their match
+                # generate_alignment('AAAAAAAAAA', "PPPPPPPPPP").score -> -10
                 alignment = generate_alignment(chain_sequence, entity_sequence)
                 # score = alignment.score  # Grab score value
                 # Find score and bound between 0-1. 1 should be max if it perfectly aligns
                 match_score = alignment.score / perfect_score
+                if match_score <= 0:  # Throw these away
+                    continue
                 length_proportion = (large_sequence_length-small_sequence_length) / large_sequence_length
                 self.log.debug(f'Chain {chain_id} to Entity {entity_name} has {match_score:.2f} identity '
                                f'and {length_proportion:.2f} length difference with tolerance={tolerance} '
@@ -3795,16 +3798,17 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                                 best_entity = entity_name
                             # Run again to ensure that the there isn't a better choice
                             continue
-                        else:
-                            # These should match perfectly at check above unless there is asymmetry in model
-                            # Todo
-                            #  self.asymmetric = True
+                        else:  # These should've matched perfectly unless there are mutations from model
                             data['chains'].append(chain_id)
                             break
-                    else:
+                    else:  # The entity isn't unique, add to the possible chain IDs
                         data['chains'].append(chain_id)
-                        # The entity is not unique, do not add
                         break
+                elif start_with_info and match_score > best_score:
+                    # Set the best_score and best_entity
+                    best_score = match_score
+                    best_entity = entity_name
+                    warn_bad_parameters = True
             else:  # We didn't find a match, this is new
                 if start_with_info:
                     # self.log.warning(f"Couldn't find a matching Entity from those existing for Chain {chain_id}")
@@ -3812,11 +3816,12 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     try:
                         data = self.entity_info[best_entity]
                     except UnboundLocalError:
-                        raise DesignError('The "tolerance" and "length_difference" parameters are not compatible with '
-                                          'your chain.sequence and your soon to be Entity sequence')
+                        raise DesignError(warn_parameters_msg)
                     data['sequence'] = struct_sequence
                     data['chains'].append(chain_id)
                     del best_entity
+                    if warn_bad_parameters:
+                        self.log.warning(warn_parameters_msg)
                 else:  # No existing entity matches, add new entity
                     entity_name = f'{self.name}_{next(entity_idx)}'
                     self.log.debug(f'Chain {chain_id} is a new Entity "{entity_name}"')
