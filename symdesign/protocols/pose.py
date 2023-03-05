@@ -730,7 +730,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # self.designs.append(sql.DesignData(name=name, design_parent=None))
         # Set up original DesignData entry for the pose baseline
         if pose_source is None:
-            pose_source = sql.DesignData(name=name, pose=self, design_parent=None, structure_path=source_path)
+            pose_source = sql.DesignData(name=name, pose=self, design_parent=None)  # , structure_path=source_path)
         else:
             pose_source = sql.DesignData(name=name, pose=self, design_parent=pose_source,
                                          structure_path=pose_source.source_path)
@@ -1301,8 +1301,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 return
             # elif self.job.output_to_directory:
             #     return
-            # Set the pose_path as the source_path. Propagate to the PoseJob parent DesignData
-            self.source_path = self.pose_source.structure_path = self.pose_path
+            # # Propagate to the PoseJob parent DesignData
+            # self.source_path = self.pose_source.structure_path = self.pose_path
+            # Set the pose_path as the source_path
+            self.source_path = self.pose_path
             self.output_pose(path=self.source_path)
 
     def output_pose(self, path: AnyStr = None):  # Todo to PoseProtocols?

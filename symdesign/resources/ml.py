@@ -1271,7 +1271,7 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
     unrelaxed_pdbs_ = {}
     # Run the models.
     for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-        logger.info(f'Running model {model_name}')
+        logger.info(f'Running JAX model {model_name}')
         model_random_seed = model_index + random_seed*num_models
         processed_feature_dict = \
             model_runner.process_features(features, random_seed=model_random_seed)
