@@ -292,6 +292,30 @@ metrics = {
     'entity_percent_mutations':
         dict(description='The percentage of the entity that has been mutated',
              direction=min_, function=rank, filter=True),
+    'entity_plddt':
+        dict(description='From AlphaFold, whether the prediction at a residue (or average for a structure) is more '
+                         'confident in the local distance difference when compared to nearby residue neighbors',
+             direction=max_, function=normalize, filter=True),
+    'entity_predicted_aligned_error':
+        dict(description='From AlphaFold, the mean of the predicted aligned error which indicates for every pair of '
+                         'residues, where the prediction is more confident in the relative position of two residues '
+                         '(lower better). PAE is more suitable than pLDDT for judging confidence in relative domain '
+                         'placements',
+             direction=min_, function=normalize, filter=True),
+    'entity_predicted_aligned_error_interface':
+        dict(description='From AlphaFold, the mean of the predicted aligned error values over a predicted interface',
+             direction=min_, function=normalize, filter=True),
+    # 'predicted_aligned_error_median':  # Todo
+    #     dict(description='From AlphaFold, the median of the predicted aligned error values over a prediction',
+    #          direction=min_, function=normalize, filter=True),
+    'entity_predicted_interface_template_modeling_score':
+        dict(description='This can serve for a visualisation of domain packing confidence within the interface, where a'
+                         'value of 0 means most confident. See pmid:15476259',
+             direction=max_, function=normalize, filter=True),
+    'entity_predicted_template_modeling_score':
+        dict(description='This can serve for a visualisation of domain packing confidence within the structure, where a'
+                         'value of 0 means most confident. See pmid:15476259',
+             direction=max_, function=normalize, filter=True),
     'entity_radius':
         dict(description='The center of mass of the entity from the assembly core',
              direction=min_, function=rank, filter=True),
@@ -301,6 +325,13 @@ metrics = {
              direction=min_, function=rank, filter=True),
     # 'entity_radius_ratio_v':
         # dict(description='', direction=None, function=None, filter=None),
+    'entity_rmsd_oligomer':
+        dict(description='Root Mean Square Deviation of all CA atoms between the designed and predicted oligomer',
+             direction=min_, function=normalize, filter=True),
+    'entity_rmsd_prediction_deviation':
+        dict(description='The deviation in the entity_rmsd_prediction_ensemble between the Entity and Pose structure '
+                         'predictions',
+             direction=min_, function=normalize, filter=True),
     'entity_rmsd_prediction_ensemble':
         dict(description='The average Root Mean Square Deviation for all CA atoms from each predicted model',
              direction=min_, function=normalize, filter=True),
@@ -533,13 +564,13 @@ metrics = {
         dict(description='The extent to which the entities in the pose are thermophilic',
              direction=max_, function=rank, filter=True),
     'predicted_aligned_error':
-        dict(description='From AlphaFold, the mean of the predicted aligned error which provides a number for every '
-                         'pair of residues, which is lower when the prediction is more confident in the relative '
-                         'position of two residues. PAE is more suitable than pLDDT for judging confidence in relative'
-                         ' domain placements',
+        dict(description='From AlphaFold, the mean of the predicted aligned error which indicates for every pair of '
+                         'residues, where the prediction is more confident in the relative position of two residues '
+                         '(lower better). PAE is more suitable than pLDDT for judging confidence in relative domain '
+                         'placements',
              direction=min_, function=normalize, filter=True),
     'predicted_aligned_error_interface':
-        dict(description='From AlphaFold, the median of the predicted aligned error values over a prediction',
+        dict(description='From AlphaFold, the mean of the predicted aligned error values over a predicted interface',
              direction=min_, function=normalize, filter=True),
     # 'predicted_aligned_error_median':  # Todo
     #     dict(description='From AlphaFold, the median of the predicted aligned error values over a prediction',
@@ -628,9 +659,9 @@ metrics = {
         dict(description='Root Mean Square Deviation of all CA atoms between the refined (relaxed) and '
                          'designed states',
              direction=min_, function=normalize, filter=True),
-    'rmsd_oligomer':
-        dict(description='Root Mean Square Deviation of all CA atoms between the designed and predicted oligomer',
-             direction=min_, function=normalize, filter=True),
+    # 'rmsd_oligomer':
+    #     dict(description='Root Mean Square Deviation of all CA atoms between the designed and predicted oligomer',
+    #          direction=min_, function=normalize, filter=True),
     'rmsd_prediction_deviation':
         dict(description='The deviation in the rmsd_prediction_ensemble between the Entity and Pose structure '
                          'predictions',
