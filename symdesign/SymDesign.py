@@ -817,13 +817,13 @@ def main():
                         logger.warning(f'Found no {extension} files at {args.oligomer1}')
                 # Set filepaths to structure_names, reformat the file paths to the file_name for structure_names
                 structure_names1 = pdb1_filepaths
-                eventual_structure_names1 = \
-                    list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb1_filepaths]))
+                # eventual_structure_names1 = \
+                #     list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb1_filepaths]))
             elif args.pdb_codes1:
                 # Collect all provided codes required for component 1 processing
                 structure_names1 = set(utils.to_iterable(args.pdb_codes1, ensure_file=True))
                 # Make all names lowercase
-                structure_names1 = list(map(str.lower, structure_names1))
+                structure_names1 = sorted(map(str.lower, structure_names1))
             elif args.query_codes1:
                 save_query = validate_input_return_response_value(
                     'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
@@ -855,15 +855,15 @@ def main():
 
                     # Set filepaths to structure_names, reformat the file paths to the file_name for structure_names
                     structure_names2 = pdb2_filepaths
-                    eventual_structure_names2 = \
-                        list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb2_filepaths]))
+                    # eventual_structure_names2 = \
+                    #     list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb2_filepaths]))
                 else:  # The entities are the same symmetry, or we have single component and bad input
                     single_component_design = True
             elif args.pdb_codes2:
                 # Collect all provided codes required for component 2 processing
                 structure_names2 = set(utils.to_iterable(args.pdb_codes2, ensure_file=True))
                 # Make all names lowercase
-                structure_names2 = list(map(str.lower, structure_names2))
+                structure_names2 = sorted(map(str.lower, structure_names2))
             elif args.query_codes2:
                 save_query = validate_input_return_response_value(
                     'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
