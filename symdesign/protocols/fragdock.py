@@ -3385,13 +3385,11 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             # The mean value of the acquired metric for all found poses
         """
         nonlocal poses_df, residues_df
+        nonlocal total_dof_perturbed
         # nonlocal number_of_transforms, optimize_round, poses_df, residues_df
         # # Set the cluster number to the incoming number_of_transforms
         # number_of_transform_clusters = number_of_transforms
-        # total_dof_applied = sym_entry.total_dof
-        # if optimize_round == 0:
-        #     pass  # Score the first set before perturbation
-        # elif job.dock.perturb_dof_rot or job.dock.perturb_dof_tx:
+        # total_dof_perturbed = sym_entry.total_dof
         # if job.dock.perturb_dof_rot or job.dock.perturb_dof_tx:
         if any((sym_entry.number_dof_rotation, sym_entry.number_dof_translation)):
             nonlocal rotation_steps, translation_perturb_steps
@@ -3399,20 +3397,22 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             # Modify the perturbation amount by half as the space is searched to completion
             # Reduce rotation_step before as the original step size was already searched
             rotation_steps = tuple(step * .5 for step in rotation_steps)
-            number_of_perturbs_per_cluster, total_dof_applied = perturb_transformations()
+            current_transformation_ids, number_of_perturbs_per_cluster, total_dof_perturbed = perturb_transformations()
             # Sets number_perturbations_applied, number_of_transforms,
             #  full_rotation1, full_rotation2, full_int_tx1, full_int_tx2,
             #  full_optimal_ext_dof_shifts, full_ext_tx1, full_ext_tx2
             # Reduce translation_perturb_steps after as the original step size was never searched
             translation_perturb_steps = tuple(step * .5 for step in translation_perturb_steps)
-        else:  # The DOF are not such that perturbation would be of much benefit
+        # elif sym_entry.external_dof:  # The DOF are not such that perturbation would be of much benefit
+        else:
             raise NotImplementedError(f"Can't perturb external dof only quite yet")
 
             # Perform optimization by means of optimal_tx
             def minimize_translations():
                 """"""
-                # The application of total_dof_applied might not be necessary as this optimizes fully
-                total_dof_applied = sym_entry.total_dof
+                logger.info(f'Optimizing transformations')
+                # The application of total_dof_perturbed might not be necessary as this optimizes fully
+                total_dof_perturbed = sym_entry.total_dof
                 # Remake the optimal shifts given each of the passing ghost fragment/surface fragment pairs
                 optimal_ext_dof_shifts = np.zeros((number_of_transforms, 3), dtype=float)
                 for idx in range(number_of_transforms):
@@ -3445,21 +3445,20 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                         optimal_ext_dof_shifts[idx, :sym_entry.number_dof_external] = \
                             mean_transform[:sym_entry.number_dof_external]
 
+            # Using the current transforms, create a hash to uniquely label them and apply to the indices
+            current_transformation_ids = create_transformation_hash()
             minimize_translations()
-        # elif optimize_round >= 1:
-        #     # This was already run and aren't perturbing, so don't take metrics again
-        #     return None
 
         weighted_trajectory_df: pd.DataFrame = prioritize_transforms_by_selection()
         weighted_trajectory_df_index = weighted_trajectory_df.index
 
-        # Sort each perturbation cluster members by the metric
         if number_perturbations_applied > 1:
-            # Round down the sqrt of the number_perturbations_applied
+            # Sort each perturbation cluster members by the prioritized metric
+            # # Round down the sqrt of the number_perturbations_applied
             # top_perturb_hits = int(math.sqrt(number_perturbations_applied) + .5)
             # Used to progressively limit search as clusters deepen
             if optimize_round == 1:
-                top_perturb_hits = total_dof_applied
+                top_perturb_hits = total_dof_perturbed
             else:
                 top_perturb_hits = 1
             logger.info(f'Selecting the top {top_perturb_hits} transformations from each perturbation')
@@ -3471,47 +3470,71 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             # number_of_transform_clusters = int(number_of_transforms // number_perturbations_applied)
             # for idx in range(number_of_transform_clusters):
             lower_perturb_idx = 0
-            for number_of_perturbs in number_of_perturbs_per_cluster:
+            for cluster_idx, number_of_perturbs in enumerate(number_of_perturbs_per_cluster):
+                if not number_of_perturbs:
+                    # All perturbations were culled due to overlap
+                    continue
                 # Set up the cluster range
                 upper_perturb_idx = lower_perturb_idx + number_of_perturbs
                 perturb_indices = list(range(lower_perturb_idx, upper_perturb_idx))
                 lower_perturb_idx = upper_perturb_idx
                 # Grab the cluster range indices
                 perturb_indexer = np.isin(weighted_trajectory_df_index, perturb_indices)
-                # Slice the cluster range indices by the top hits
-                selected_perturb_indices = \
-                    weighted_trajectory_df_index[perturb_indexer][:top_perturb_hits].tolist()
-                # Save the top transform and the top X transforms from each cluster
-                top_transform_cluster_indices.append(selected_perturb_indices[0])
-                perturb_passing_indices.append(selected_perturb_indices)
+                if perturb_indexer.any():
+                    if optimize_round == 1:
+                        # Slice the cluster range indices by the top hits
+                        selected_perturb_indices = \
+                            weighted_trajectory_df_index[perturb_indexer][:top_perturb_hits].tolist()
+                        # if selected_perturb_indices:
+                        # Save the top transform and the top X transforms from each cluster
+                        top_transform_cluster_indices.append(selected_perturb_indices[0])
+                        perturb_passing_indices.append(selected_perturb_indices)
+                    else:  # Just grab the top hit
+                        top_transform_cluster_indices.append(weighted_trajectory_df_index[perturb_indexer][0])
+                else:  # Update that no perturb_indices present after filter
+                    number_of_perturbs_per_cluster[cluster_idx] = 0
+                #     perturb_passing_indices.append([])
 
-            # cluster_divisor = 1
-            # # if optimize_round == 1:
-            # #     cluster_divisor = 1
-            # # elif optimize_round == 2:
-            if optimize_round == 2:
-                # Reduce the top_transform_cluster_indices to the best remaining in each optimize_round 1 cluster
+            if optimize_round == 1:
+                nonlocal round1_cluster_shape
+                round1_cluster_shape = [len(indices) for indices in perturb_passing_indices]
+            elif optimize_round == 2:
+                # This is only required if perturb_passing_indices.append([]) is used above
+                # Adjust the shape to account for any perturbations that were culled due to overlap
+                cluster_start = 0
+                for cluster_idx, cluster_shape in enumerate(round1_cluster_shape):
+                    cluster_end = cluster_start + cluster_shape
+                    for number_of_perturbs in number_of_perturbs_per_cluster[cluster_start:cluster_end]:
+                        if not number_of_perturbs:
+                            # All perturbations were culled due to overlap
+                            cluster_shape -= 1
+                    # for indices in perturb_passing_indices[cluster_start:cluster_end]:
+                    #     if not indices:
+                    #         cluster_shape -= 1
+                    # Set the cluster shape with the results of the perturbation trials
+                    round1_cluster_shape[cluster_idx] = cluster_shape
+                    cluster_start = cluster_end
+
+                number_top_indices = len(top_transform_cluster_indices)  # sum(round1_cluster_shape)
+                round1_number_of_clusters = len(round1_cluster_shape)
+                logger.info(f'Reducing round 1 expanded cluster search from {number_top_indices} '
+                            f'to {round1_number_of_clusters} transformations')
                 top_scores_s = weighted_trajectory_df.loc[top_transform_cluster_indices,
-                                                          metrics.selection_weight_column]
-                round1_number_of_clusters = int(len(top_transform_cluster_indices) / total_dof_applied)
+                metrics.selection_weight_column]
+                # Filter down to the size of the original transforms from the cluster expansion
                 top_index_of_cluster = []
-                for i in range(round1_number_of_clusters):
-                    # Slice by the expanded cluster amount
-                    top_cluster_score = top_scores_s.iloc[total_dof_applied * i: total_dof_applied * (i+1)].argmax()
-                    top_index_of_cluster.append(total_dof_applied*i + top_cluster_score)
+                cluster_lower_bound = 0
+                for cluster_idx, cluster_shape in enumerate(round1_cluster_shape):
+                    if cluster_shape > 0:
+                        cluster_upper_bound = cluster_lower_bound + cluster_shape
+                        top_cluster_score = top_scores_s.iloc[cluster_lower_bound:cluster_upper_bound].argmax()
+                        top_index_of_cluster.append(cluster_lower_bound + top_cluster_score)
+                        # Set new lower bound
+                        cluster_lower_bound = cluster_upper_bound
 
                 top_transform_cluster_indices = [top_transform_cluster_indices[idx] for idx in top_index_of_cluster]
-            # #     cluster_divisor = 1
-            # # else:
-            # #     # # Start division by the total_dof_applied at round 2
-            # #     # cluster_divisor = (total_dof_applied / (optimize_round-1))
-            # #     cluster_divisor = 1
         else:
             top_transform_cluster_indices = list(range(number_of_transforms))
-            # if job.dock.filter:
-            #     cluster_divisor = 1  # The Poses were already filtered
-            # else:  # Use this to scale the results by as many hits as there are DOF
-            #     cluster_divisor = total_dof_applied
 
         # # Finally take from each of the top perturbation "kernels"
         # # With each additional optimize_round, there is exponential increase in the number of transforms
@@ -3532,9 +3555,9 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # not been discovered without the perturb since the top score came from one of the 81
         # possible perturb transforms
         # if optimize_round > 1:
-        #     cluster_divisor = (total_dof_applied / (optimize_round-1))
+        #     cluster_divisor = (total_dof_perturbed / (optimize_round-1))
         # else:
-        #     cluster_divisor = total_dof_applied
+        #     cluster_divisor = total_dof_perturbed
         # Divide the clusters by the total applied degrees of freedom
         # top_cluster_hits = int(number_of_transform_clusters/cluster_divisor + .5)
         #
@@ -3546,35 +3569,52 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # # # Use .loc here as we have a list used to index...
         # # selected_cluster_indices = weighted_trajectory_s.loc[selected_cluster_hits].index.tolist()
 
-        # Grab the cluster range indices
-        cluster_representative_indexer = np.isin(weighted_trajectory_df_index, top_transform_cluster_indices)
-        selected_cluster_indices = weighted_trajectory_df_index[cluster_representative_indexer].tolist()
-        # For each of the top perturbation clusters, add all the indices picked from the above logic
-        if number_perturbations_applied > 1:
+        # # Grab the top cluster indices in the order of the weighted_trajectory_df
+        # cluster_representative_indexer = np.isin(weighted_trajectory_df_index, top_transform_cluster_indices)
+        # selected_cluster_indices = weighted_trajectory_df_index[cluster_representative_indexer].tolist()
+        # if number_perturbations_applied > 1 and optimize_round == 1:
+        #     # For each of the top perturbation clusters, add all the indices picked from the above logic
+        #     selected_indices = []
+        #     for selected_idx in selected_cluster_indices:
+        #         reference_idx = top_transform_cluster_indices.index(selected_idx)
+        #         selected_indices.extend(perturb_passing_indices[reference_idx])
+        # else:
+        #     selected_indices = selected_cluster_indices
+
+        # Grab the top cluster indices in the transformation order
+        if number_perturbations_applied > 1 and optimize_round == 1:
+            # For each of the top perturbation clusters, add all the indices picked from the above logic
             selected_indices = []
-            for selected_idx in selected_cluster_indices:
-                reference_idx = top_transform_cluster_indices.index(selected_idx)
-                selected_indices.extend(perturb_passing_indices[reference_idx])
+            for cluster_idx, top_index in enumerate(top_transform_cluster_indices):
+                selected_indices.extend(perturb_passing_indices[cluster_idx])
         else:
-            selected_indices = selected_cluster_indices
+            selected_indices = top_transform_cluster_indices
 
         # Handle results
-        # Using the current transforms, create a hash to uniquely label them and apply to the indices
-        current_transformation_ids = create_transformation_hash()
-        # Only select transform ids that passed filters
-        weighted_current_transforms = [current_transformation_ids[idx] for idx in weighted_trajectory_df_index.tolist()]
+        # # Using the current transforms, create a hash to uniquely label them and apply to the indices
+        # current_transformation_ids = create_transformation_hash()
+
+        # Filter hits down in the order of the selected indices
+        filter_transforms_by_indices(selected_indices)
+        # Narrow down the metrics by the selected_indices. If this is the last cycle, they will be written
+        poses_df = poses_df.loc[selected_indices]
+        residues_df = residues_df.loc[selected_indices]
+        # Reset the DataFrame.index
+        poses_df.index = residues_df.index = pd.RangeIndex(len(selected_indices))
+        # selected_transformation_ids = weighted_trajectory_df_index[selected_indices].tolist()
+        selected_transformation_ids = [current_transformation_ids[idx] for idx in selected_indices]
+
+        # Filer down the current_transformation_ids by the filter passing indices and update the index
+        # logger.critical(f'Found length of current_transformation_ids: {len(current_transformation_ids)}\n'
+        #                 f'weighted_trajectory_df_index: {weighted_trajectory_df_index.tolist()}')
+        weighted_current_transforms = current_transformation_ids[weighted_trajectory_df_index]
         weighted_trajectory_df.index = pd.Index(weighted_current_transforms)
         # weighted_trajectory_df.index = \
         #     weighted_trajectory_df.index.map(dict(zip(weighted_trajectory_df_index,
         #                                               pd.Index(current_transformation_ids))))
         # Add the weighted_trajectory_df to the total_results_df to keep global results
         append_total_results(weighted_trajectory_df)
-        # Filter hits down
-        filter_transforms_by_indices(selected_indices)
-        # Narrow down the metrics by the selected_indices. If this is the last cycle, they will be written
-        poses_df = poses_df.loc[selected_indices]
-        residues_df = residues_df.loc[selected_indices]
-        selected_transformation_ids = [current_transformation_ids[idx] for idx in selected_indices]
+
         return weighted_trajectory_df, selected_transformation_ids
 
         # if metric.dim == 3:
@@ -3589,14 +3629,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         #
         # return metric
 
-    # Set up the transformation hasher to assist in scoring/pose output
-    radius1 = model1.distance_from_reference(measure='max')
-    radius2 = model2.distance_from_reference(measure='max')
-    # Assume the maximum distance the box could get is the radius of each plus the interface distance
-    box_width = radius1 + radius2 + cb_distance
-    model_transform_hasher = TransformHasher(box_width)
-
-    def create_transformation_hash() -> list[int]:
+    def create_transformation_hash() -> np.ndarray:  # list[int]:
         """Using the currently available transformation parameters for the two Model instances, create the
         transformation hash to describe the orientation of the second model in relation to the first. This hash will be
         unique over the sampling space when discrete differences exceed the TransformHasher.rotation_bin_width and
@@ -3699,17 +3732,20 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # Initialize output DataFrames which are set in prioritize_transforms_by_selection()
     poses_df = residues_df = pd.DataFrame()
     weighted_trajectory_df = prioritize_transforms_by_selection()
-    # Get selected indices and reduce
+    # # Get selected indices (sorted in original order)
+    # selected_indices = weighted_trajectory_df.index.sort_values().tolist()
+    # Get selected indices (sorted in weighted_trajectory_df order)
     selected_indices = weighted_trajectory_df.index.tolist()
-    current_transformation_ids = create_transformation_hash()
-    # Filter hits down
+    # current_transformation_ids = create_transformation_hash() DELETE
+    # Filter/sort transforms and metrics by the selected_indices
     filter_transforms_by_indices(selected_indices)
-    # Narrow down the metrics by the selected_indices. If no perturbations, they will be written
     poses_df = poses_df.loc[selected_indices]
     residues_df = residues_df.loc[selected_indices]
-    # Reorder the transformation identifiers
-    passing_transform_ids = [current_transformation_ids[idx] for idx in selected_indices]
-    """The transformation hash indices that are passing in the order of the --dock-weight selection"""
+    # # Reorder the transformation identifiers DELETE
+    # passing_transform_ids = [current_transformation_ids[idx] for idx in selected_indices] DELETE
+    # """The transformation hash indices that are passing in the order of the --dock-weight selection""" DELETE
+    passing_transform_ids = create_transformation_hash()
+    weighted_trajectory_df.index = pd.Index(passing_transform_ids)
     # -----------------------------------------------------------------------------------------------------------------
     # Below creates perturbations to sampled transformations and scores the resulting Pose
     # -----------------------------------------------------------------------------------------------------------------
@@ -3722,7 +3758,9 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         total_results_df = weighted_trajectory_df
         total_results_df.index = pd.Index(passing_transform_ids)
         # Initialize docking score search
-        optimize_round = 1
+        round1_cluster_shape = []
+        total_dof_perturbed = 1
+        optimize_round = 0
         logger.info(f'Starting optimize with {number_of_transforms} transformations')
         if job.dock.weight:
             selected_columns = list(job.dock.weight.keys())
@@ -3749,6 +3787,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             last_result = result
             # Perform scoring and a possible iteration of dock perturbation
             weighted_trajectory_df, passing_transform_ids = optimize_found_transformations_by_metrics()
+            # IMPORTANT:
+            #  passing_transform_ids is in the order of the current transformations
             # # De-duplicate the passing_transform_ids if the optimization has surpassed their bin size
             # passing_transform_ids = utils.remove_duplicates(passing_transform_ids)
             # result = calculate_results_for_stopping(total_results_df, passing_transform_ids)
@@ -3757,8 +3797,57 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             logger.info(f'Found {number_of_transforms} transformations after '
                         f'{optimize_found_transformations_by_metrics.__name__} round {optimize_round} '
                         f'with result={result}. last_result={last_result}')
-            optimize_round += 1
-        logger.info(f'Optimization complete, found a final number of {number_of_transforms} transformations')
+        else:
+            if optimize_round == 1:
+                number_top_indices = number_of_transforms
+                round1_number_of_clusters = len(round1_cluster_shape)
+                logger.info(f'Reducing round 1 expanded cluster search from {number_top_indices} '
+                            f'to {round1_number_of_clusters} transformations')
+                # Reduce the top_transform_cluster_indices to the best remaining in each optimize_round 1 cluster
+                # Todo? Could also use
+                #  top_scores_s = total_results_df.loc[passing_transform_ids, metrics.selection_weight_column].mean(
+                #      axis=0)
+                top_scores_s = weighted_trajectory_df.loc[passing_transform_ids, metrics.selection_weight_column]
+                # top_indices_of_cluster = []
+                # for i in range(round1_number_of_clusters):
+                #     # Slice by the expanded cluster amount
+                #     cluster_lower_bound = total_dof_perturbed * i
+                #     top_cluster_score = top_scores_s.iloc[cluster_lower_bound:
+                #                                           cluster_lower_bound + total_dof_perturbed].argmax()
+                #     top_indices_of_cluster.append(cluster_lower_bound + top_cluster_score)
+
+                # Filter down to the size of the original transforms from the cluster expansion
+                top_indices_of_cluster = []
+                cluster_lower_bound = 0
+                for cluster_idx, cluster_shape in enumerate(round1_cluster_shape):
+                    # This can't be less than 1 here...
+                    # if cluster_shape > 0:
+                    cluster_upper_bound = cluster_lower_bound + cluster_shape
+                    top_cluster_score = top_scores_s.iloc[cluster_lower_bound:cluster_upper_bound].argmax()
+                    top_indices_of_cluster.append(cluster_lower_bound + top_cluster_score)
+                    # Set new lower bound
+                    cluster_lower_bound = cluster_upper_bound
+
+                passing_transform_ids = top_scores_s.iloc[top_indices_of_cluster].index.tolist()
+                # Filter hits down
+                filter_transforms_by_indices(top_indices_of_cluster)
+                # Narrow down the metrics by the selected_indices. If this is the last cycle, they will be written
+                poses_df = poses_df.loc[top_indices_of_cluster]
+                residues_df = residues_df.loc[top_indices_of_cluster]
+                # Reset the DataFrame.index
+                poses_df.index = residues_df.index = pd.RangeIndex(len(top_indices_of_cluster))
+                number_of_transforms = len(passing_transform_ids)
+
+            # Grab the passing_transform_ids according to the order of provided job.dock.weight
+            passing_transform_indexer = np.isin(weighted_trajectory_df.index, passing_transform_ids)
+            weighted_transform_ids = weighted_trajectory_df.index[passing_transform_indexer].tolist()
+            ordered_indices = [passing_transform_ids.index(_id) for _id in weighted_transform_ids]
+            # Reorder hits and metrics by the ordered_indices
+            filter_transforms_by_indices(ordered_indices)
+            poses_df = poses_df.loc[ordered_indices]
+            residues_df = residues_df.loc[ordered_indices]
+
+        logger.info(f'Optimization complete, with {number_of_transforms} final transformations')
     # Set the passing transformation identifiers as the trajectory metrics index
     # These should all be the same order as w/ or w/o optimize_found_transformations_by_metrics() the order of
     # passing_transform_ids is fetched from the order of the selected_indices and each _df is sorted accordingly
