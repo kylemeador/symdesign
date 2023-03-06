@@ -1492,11 +1492,15 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             full_ext_tx_sum = full_ext_tx_sum[passing_indices]
 
     def filter_transforms_by_indices(passing_indices: np.ndarray | list[int]):
-        """Responsible for updating docking transformation parameters for transform operations.
+        """Responsible for updating docking transformation parameters for transform operations. Will set the
+        transformation in the order of the passing_indices
 
         These include:
             full_rotation1, full_rotation2, full_int_tx1, full_int_tx2, full_optimal_ext_dof_shifts, full_ext_tx1, and
             full_ext_tx2
+
+        Args:
+            passing_indices: The indices which should be kept
         """
         nonlocal full_rotation1, full_rotation2, full_int_tx1, full_int_tx2
         full_rotation1 = full_rotation1[passing_indices]
@@ -2106,8 +2110,17 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # Calculate the vectorized uc_dimensions
         full_uc_dimensions = sym_entry.get_uc_dimensions(full_optimal_ext_dof_shifts)
 
-    def perturb_transformations() -> tuple[list[int], int]:
-        """From existing transformation parameters, sample parameters within a range of spatial perturbation"""
+    def perturb_transformations() -> tuple[np.ndarray, list[int], int]:
+        """From existing transformation parameters, sample parameters within a range of spatial perturbation
+
+        Returns:
+            A tuple consisting of the elements (
+            transformation hash - Integer mapping the possible 3D space for docking to each perturbed transformation,
+            size of each perturbation cluster - Number of perturbed transformations possible from starting transform,
+            degrees of freedom sampled - How many degrees of freedom were perturbed
+            )
+        """
+        logger.info(f'Perturbing transformations')
         perturb_rotation1, perturb_rotation2, perturb_int_tx1, perturb_int_tx2, perturb_optimal_ext_dof_shifts = \
             [], [], [], [], []
 
@@ -2270,10 +2283,66 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             full_ext_tx1 = np.sum(unsqueezed_optimal_ext_dof_shifts * sym_entry.external_dof1, axis=-2)
             full_ext_tx2 = np.sum(unsqueezed_optimal_ext_dof_shifts * sym_entry.external_dof2, axis=-2)
 
-        # total_number_of_perturbations = number_of_transforms * number_perturbations_applied
-        # Get the shape of the passing perturbations
-        perturbation_shape = [len(perturb) for perturb in perturb_rotation1]
-        return perturbation_shape, n_perturbed_dof
+        transform_hashes = create_transformation_hash()
+        logger.debug(f'Found the TransformHasher.translation_bin_width={model_transform_hasher.translation_bin_width}, '
+                     f'.rotation_bin_width={model_transform_hasher.rotation_bin_width}\n'
+                     f'Current range of sampled translations={sum(translation_perturb_steps)}, '
+                     f'rotations={sum(rotation_steps)}')
+        # print(model_transform_hasher.translation_bin_width > sum(translation_perturb_steps))
+        # print(model_transform_hasher.rotation_bin_width > sum(rotation_steps))
+        if model_transform_hasher.translation_bin_width > sum(translation_perturb_steps) or \
+                model_transform_hasher.rotation_bin_width > sum(rotation_steps):
+            # The translation/rotation is smaller than bins, so further exploration only possible without minimization
+            # Get the shape of the passing perturbations
+            perturbation_shape = [len(perturb) for perturb in perturb_rotation1]
+            # sorted_unique_transform_hashes = transform_hashes
+        else:
+            # Minimize perturbation space by unique transform hashes
+            # Using the current transforms, create a hash to uniquely label them and apply to the indices
+            sorted_unique_transform_hashes, unique_indices = np.unique(transform_hashes, return_index=True)
+            # Create array to mark which are unique
+            unique_transform_hashes = np.zeros_like(transform_hashes)
+            unique_transform_hashes[unique_indices] = 1
+            # Filter by unique_indices, sorting the indices to maintain the order of the transforms
+            # filter_transforms_by_indices(unique_indices)
+            unique_indices.sort()
+            filter_transforms_by_indices(unique_indices)
+            transform_hashes = transform_hashes[unique_indices]
+            # sorted_transform_hashes = np.sort(transform_hashes, axis=None)
+            # unique_sorted_transform_hashes = np.zeros_like(sorted_transform_hashes, dtype=bool)
+            # unique_sorted_transform_hashes[1:] = sorted_transform_hashes[1:] == sorted_transform_hashes[:-1]
+            # unique_sorted_transform_hashes[0] = True
+            # # Alternative
+            # unique_transform_hashes = pd.Index(transform_hashes).duplicated('first')
+
+            # total_number_of_perturbations = number_of_transforms * number_perturbations_applied
+            # Get the shape of the passing perturbations
+            perturbation_shape = []
+            # num_zeros = 0
+            last_perturb_start = 0
+            for perturb in perturb_rotation1:
+                perturb_end = last_perturb_start + len(perturb)
+                perturbation_shape.append(unique_transform_hashes[last_perturb_start:perturb_end].sum())
+                # Use if removing zero counts...
+                # shape = unique_transform_hashes[last_perturb_start:perturb_end].sum()
+                # if shape:
+                #     perturbation_shape.append(shape)
+                # else:
+                #     num_zeros += 1
+                last_perturb_start = perturb_end
+
+            number_of_transforms = full_rotation1.shape[0]
+            logger.info(f'After culling duplicated transforms, found {number_of_transforms} viable solutions')
+            num_zeros = perturbation_shape.count(0)
+            if num_zeros:
+                logger.info(f'A total of {num_zeros} original transformations had no unique perturbations')
+                # Could use if removing zero counts... but probably less clear than above
+                # pop_zero_index = perturbation_shape.index(0)
+                # while pop_zero_index != -1:
+                #     perturbation_shape.pop(pop_zero_index)
+                #     pop_zero_index = perturbation_shape.index(0)
+
+        return transform_hashes, perturbation_shape, n_perturbed_dof
 
     # Calculate metrics on input Pose before any manipulation
     pose_length = pose.number_of_residues
