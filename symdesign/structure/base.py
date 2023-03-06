@@ -1831,7 +1831,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         for atom, index in zip(self._atoms.atoms[self._atom_indices].tolist(), self._atom_indices):
             atom.index = index
         # Clear all the indices attributes for this Residue
-        super().reset_indices()
+        self.reset_indices()  # Todo remove this
 
     @property
     def range(self) -> list[int]:
