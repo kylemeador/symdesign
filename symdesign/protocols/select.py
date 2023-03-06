@@ -114,16 +114,19 @@ def load_sql_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None,
     entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
                          sql.ProteinMetadata.c_terminal_helix,
                          sql.ProteinMetadata.thermophilicity]
-    em_c = [c for c in (*sql.EntityMetrics.__table__.columns, *entity_metadata_c) if not c.primary_key]
+    em_c = [c for c in (*sql.EntityMetrics.__table__.columns, *entity_metadata_c,
+                        *sql.DesignEntityMetrics.__table__.columns)
+            if not c.primary_key]
+    # Remove design_id
+    em_c.pop(em_c.index(sql.DesignEntityMetrics.design_id.name))
     em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
     selected_columns = (*pm_c, *dm_c, *em_c)
     selected_column_names = (*pm_names, *dm_names, *em_names)
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
     join_stmt = select(selected_columns).select_from(PoseJob).join(sql.PoseMetrics).join(sql.EntityData).join(
-        sql.EntityMetrics).join(sql.DesignData).join(sql.DesignMetrics)
+        sql.EntityMetrics).join(sql.DesignData).join(sql.DesignMetrics).join(sql.DesignEntityMetrics)
 
     if pose_ids:
-        # pose_identifiers = [pose_job.pose_identifier for pose_job in pose_jobs]
         stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
     else:
         stmt = join_stmt
@@ -168,7 +171,6 @@ def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None) -
     join_stmt = select(selected_columns).select_from(PoseJob)\
         .join(sql.PoseMetrics).join(sql.EntityData).join(sql.EntityMetrics)
     if pose_ids:
-        # pose_identifiers = [pose_job.pose_identifier for pose_job in pose_jobs]
         stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
     else:
         stmt = join_stmt
@@ -199,7 +201,6 @@ def load_sql_pose_metrics_dataframe(session: Session, pose_ids: Iterable[int] = 
     join_stmt = select(selected_columns).select_from(PoseJob)\
         .join(sql.PoseMetrics)
     if pose_ids:
-        # pose_identifiers = [pose_job.pose_identifier for pose_job in pose_jobs]
         stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
     else:
         stmt = join_stmt
@@ -234,7 +235,6 @@ def load_sql_entity_metrics_dataframe(session: Session, pose_ids: Iterable[int] 
     join_stmt = select(selected_columns).select_from(PoseJob)\
         .join(sql.EntityData).join(sql.EntityMetrics)
     if pose_ids:
-        # pose_identifiers = [pose_job.pose_identifier for pose_job in pose_jobs]
         stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
     else:
         stmt = join_stmt
@@ -258,16 +258,21 @@ def load_sql_designs_dataframe(session: Session, pose_ids: Iterable[int] = None,
     """
     # dd_c = [sql.DesignData.pose_id, sql.DesignData.design_id]
     dd_c = (sql.DesignData.pose_id,)
+    dd_names = [c.name for c in dd_c]
     dm_c = [c for c in sql.DesignMetrics.__table__.columns if not c.primary_key]
-    selected_columns = (*dd_c, *dm_c)
-    selected_column_names = [c.name for c in selected_columns]
+    dm_names = [c.name for c in dm_c]
+    em_c = [c for c in sql.DesignEntityMetrics.__table__.columns if not c.primary_key]
+    # Remove design_id
+    em_c.pop(em_c.index(sql.DesignEntityMetrics.design_id.name))
+    em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
+    selected_columns = (*dd_c, *dm_c, *em_c)
+    selected_column_names = (*dd_names, *dm_names, *em_names)
 
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
     join_stmt = select(selected_columns).select_from(sql.DesignData)\
-        .join(sql.DesignMetrics).join(PoseJob)
+        .join(sql.DesignMetrics).join(PoseJob).join(sql.DesignEntityMetrics)
     if pose_ids:
-        # pose_identifiers = [pose_job.pose_identifier for pose_job in pose_jobs]
         stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
     else:
         stmt = join_stmt
@@ -1177,10 +1182,16 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # Figure out designs from dataframe, filters, and weights
     poses_df = load_sql_poses_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
     designs_df = load_sql_designs_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
+    # designs_df has a multiplicity of number_of_entities from DesignEntityMetrics table join
     pose_designs_mean_df = designs_df.groupby('pose_id').mean()
     # Use the pose_id index to join to the poses_df
     # This will create a total_df that is the number_of_entities X larger than the number of poses
     total_df = pose_designs_mean_df.join(poses_df)
+    if job.filter:
+        df_multiplicity = len(pose_jobs[0].entity_data)
+        logger.warning('Filtering statistics have an increased representation due to included Entity metrics. '
+                       f'Typically, values reported for each filter will be ~{df_multiplicity}x over those actually '
+                       'present')
     selected_poses_df = \
         metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight, protocols=job.protocol,
                                           default_weight=default_weight_metric, function=job.weight_function)
@@ -1312,6 +1323,11 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # designs_df = load_sql_designs_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
     # pose_designs_mean_df = designs_df.groupby('pose_id').mean()
     metrics_df = load_sql_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
+    if job.filter:
+        df_multiplicity = len(pose_jobs[0].entity_data)**2
+        logger.warning('Filtering statistics have an increased representation due to included Entity metrics. '
+                       f'Typically, values reported for each filter will be ~{df_multiplicity}x over those actually '
+                       'present')
     total_df = metrics_df
     selected_designs_df = \
         metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight, protocols=job.protocol,
@@ -1399,6 +1415,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         results.append(pose_job)
 
     design_metrics_df = load_sql_designs_dataframe(session, design_ids=selected_design_ids)
+    # designs_df has a multiplicity of number_of_entities from DesignEntityMetrics table join
     design_metrics_df.set_index('design_id', inplace=True)
     # Format selected PoseJob with metrics for output
     # save_poses_df = selected_designs_df
