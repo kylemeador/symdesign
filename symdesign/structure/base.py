@@ -2663,13 +2663,21 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     def __copy__(self) -> Residue:  # -> Self Todo python3.11
         cls = self.__class__
         other = cls.__new__(cls)
-        # Todo only copy mutable objects like
-        #  _atom_indices
-        #  _bb_indices
-        #  _bb_and_cb_indices
-        #  _heavy_atom_indices
-        #  _sc_indices
         other.__dict__.update(self.__dict__)
+        # Copy mutable objects like _indices_attributes
+        other.__dict__['_atom_indices'] = self._atom_indices.copy()
+        # for attr in self._indices_attributes:
+        #     try:
+        #         other.__dict__[attr] = self.__dict__[attr].copy()
+        #     except KeyError:  # This attribute not made yet
+        #         pass
+        # # # Copy each of the key value pairs to the new, other dictionary
+        # # for attr, obj in self.__dict__.items():
+        # #     if attr in parent_attributes:
+        # #         # Perform shallow copy on these attributes. They will be handled correctly below
+        # #         other.__dict__[attr] = obj
+        # #     else:  # Perform a deeper copy
+        # #         other.__dict__[attr] = copy(obj)  # obj.copy() <- This won't work for str or bool
 
         if self.is_parent():  # This Structure is the parent, it's copy should be too
             # Set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy
@@ -3196,7 +3204,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     # Todo StructureIndex
     def _delete_indices(self, delete_indices: Iterable[int], dtype: atom_or_residue_literal = 'atom'):
-        """Reindex the Structure atom_indices by a uniform offset, starting with the index 'start_at'
+        """Remove the delete_indices from the Structure dtype_indices. Currently pops the indices len(delete_indices)
+        times which reindexes the remaining indices
 
         Args:
             delete_indices: The indices to delete
@@ -3371,7 +3380,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         if len(self._coords_indexed_residues) != len(self._atom_indices):
             raise ValueError(
                 f'The length of _coords_indexed_residues {len(self._coords_indexed_residues)} '
-                f'!= _atom_indices {len(self._atom_indices)}')
+                f'!= {len(self._atom_indices)}, the length of _atom_indices')
 
     @property
     def alphafold_atom_mask(self) -> np.ndarray:  # Todo ContainsResiduesMixin
@@ -4029,6 +4038,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         if residue is None:
             raise ValueError(f"Can't {self.mutate_residue.__name__} without Residue instance, index, or number")
+        elif self.is_dependent():
+            # Ensure the mutation is done by the Structure parent to account for everything correctly
+            return self.parent.mutate_residue(residue, to=to)
 
         to = protein_letters_1to3.get(to.upper(), to.upper())
         if residue.type == to:  # No mutation necessary
@@ -4037,14 +4049,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             try:
                 protein_letters_3to1_extended[to]
             except KeyError:
-                raise KeyError(f'The mutation type {to} is not a viable residue type')
+                raise KeyError(f"The mutation type '{to}' isn't a viable residue type")
 
         # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
-        if self.is_dependent():
-            # Ensure the mutation is done by the Structure parent to account for everything correctly
-            self.parent.mutate_residue(residue, to=to)
-            return []
-
         self.log.debug(f'Mutating {residue.type}{residue.number}{to}')
         residue.type = to
         # Todo is the Atom mutation necessary? Put in Residue
@@ -4070,7 +4077,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             residue_atom_indices.pop(residue_atom_delete_index)
             _atom_indices.pop(structure_atom_delete_index)
 
-        # If this Structure isn't parent, then parent Structure must update the atom_indices
         self._offset_indices(start_at=structure_atom_delete_index, offset=-len(delete_indices), dtype='atom')
 
         # Re-index all succeeding Atom and Residue instance indices
@@ -4082,7 +4088,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # Reissue the atom assignments for the Residue
         residue.delegate_atoms()
         self.reset_state()
-        # self._reset_sequence()  # Performed in self.reset_state()
 
         return delete_indices
 
@@ -5600,7 +5605,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 # Perform shallow copy on these attributes. They will be handled correctly below
                 other.__dict__[attr] = obj
             else:  # Perform a deeper copy
-                other.__dict__[attr] = copy(obj)  # This won't work for str or bool... obj.copy()
+                other.__dict__[attr] = copy(obj)  # obj.copy() <- This won't work for str or bool
 
         if self.is_parent():  # This Structure is the parent, it's copy should be too
             # Set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy
