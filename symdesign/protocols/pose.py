@@ -1949,16 +1949,17 @@ class PoseProtocol(PoseData):
 
             if sequence_ is None:
                 # Make an all Alanine structure backbone as the prev_pos
-                for residue in structure.residues:
-                    pose_copy.mutate_residue(residue=residue, to='A')
-            else:
-                # Mutate to a 'lame' version of sequence/structure, removing any sidechain atoms not present
-                for residue, residue_type in zip(structure.residues, sequence_):
-                    pose_copy.mutate_residue(index=residue.index, to=residue_type)
+                sequence_ = 'A' * structure.number_of_residues
+
+            # Mutate to a 'lame' version of sequence/structure, removing any sidechain atoms not present
+            for residue, residue_type in zip(structure.residues, sequence_):
+                deleted_indices = pose_copy.mutate_residue(index=residue.index, to=residue_type)
 
             if assembly:
                 af_coords = structure.assembly.alphafold_coords
-            else:  # if entity:
+            elif entity:
+                af_coords = structure.oligomer.alphafold_coords
+            else:
                 af_coords = structure.alphafold_coords
 
             return jnp.asarray(af_coords)
@@ -2120,12 +2121,12 @@ class PoseProtocol(PoseData):
                     multimer_sequence_length = features['seq_length']
                     entity_number_of_residues = entity.oligomer.number_of_residues
                 else:
-                    entity_number_of_residues = entity.number_of_residues
                     multimer_sequence_length = None
+                    entity_number_of_residues = entity.number_of_residues
 
                 protocol_logger.debug(f'Found oligomer with length: {entity_number_of_residues}')
                 # If not an oligomer, then .oligomer/.chains should just pass the single entity
-                model_features = {'prev_pos': jnp.asarray(entity.oligomer.alphafold_coords)}
+                # model_features = {'prev_pos': jnp.asarray(entity.oligomer.alphafold_coords)}
                 # protocol_logger.debug(f'Found oligomer_atom_positions for "prev_pose" with shape: '
                 #                       '{model_features["prev_pos"].shape}')
                 # protocol_logger.critical(f'Found oligomeric atom_positions[0] with values: '
