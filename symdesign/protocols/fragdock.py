@@ -3708,26 +3708,26 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         total_results_df = total_results_df[~total_results_df.index.duplicated(keep='last')]
         return total_results_df
 
-    def calculate_results_for_stopping(target_df: pd.DataFrame, indices: list[int | str]) -> float | pd.Series:
-        """Given a DataFrame with metrics from a round of optimization, calculate the optimization results to report on whether a stopping condition has been met
-
-        Args:
-            target_df: The DataFrame that resulted from the most recent optimization
-            indices: The indices which have been selected from the target_df
-        Returns:
-            The resulting values from the DataFrame based on the target metrics
-        """
-        # Find the value of the new metrics in relation to the old to calculate the result from optimization
-        if job.dock.weight:
-            selected_columns = list(job.dock.weight.keys())
-        else:
-            selected_columns = metrics.selection_weight_column
-
-        selected_metrics_df = target_df.loc[indices, selected_columns]
-        # other_metrics_df = selected_metrics_df.drop(indices)
-        # Find the difference between the selected and the other
-        return selected_metrics_df.mean(axis=0)
-        # other_metrics_df.mean(axis=1)
+    # def calculate_results_for_stopping(target_df: pd.DataFrame, indices: list[int | str]) -> float | pd.Series:
+    #     """Given a DataFrame with metrics from a round of optimization, calculate the optimization results to report on whether a stopping condition has been met
+    #
+    #     Args:
+    #         target_df: The DataFrame that resulted from the most recent optimization
+    #         indices: The indices which have been selected from the target_df
+    #     Returns:
+    #         The resulting values from the DataFrame based on the target metrics
+    #     """
+    #     # Find the value of the new metrics in relation to the old to calculate the result from optimization
+    #     if job.dock.weight:
+    #         selected_columns = list(job.dock.weight.keys())
+    #     else:
+    #         selected_columns = metrics.selection_weight_column
+    #
+    #     selected_metrics_df = target_df.loc[indices, selected_columns]
+    #     # other_metrics_df = selected_metrics_df.drop(indices)
+    #     # Find the difference between the selected and the other
+    #     return selected_metrics_df.mean(axis=0)
+    #     # other_metrics_df.mean(axis=1)
 
     # Initialize output DataFrames which are set in prioritize_transforms_by_selection()
     poses_df = residues_df = pd.DataFrame()
@@ -3756,7 +3756,6 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # Set the weighted_trajectory_df as total_results_df to keep a record of global results
         # total_results_df = poses_df <- this contains all filtered results too
         total_results_df = weighted_trajectory_df
-        total_results_df.index = pd.Index(passing_transform_ids)
         # Initialize docking score search
         round1_cluster_shape = []
         total_dof_perturbed = 1
@@ -3766,15 +3765,16 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             selected_columns = list(job.dock.weight.keys())
         else:
             selected_columns = metrics.selection_weight_column
-        last_result: float = 0.
-        result = weighted_trajectory_df.loc[:, selected_columns].mean(axis=0)
+        result = total_results_df.loc[:, selected_columns].mean(axis=0).values
         # result = calculate_results_for_stopping(total_results_df, passing_transform_ids)
         # threshold = 0.05  # 0.1 <- not convergent # 1 <- too lenient with pareto_optimize_trajectories
         threshold_percent = 0.05
         if isinstance(result, float):
             thresholds = result * threshold_percent
+            last_result = 0.
         else:  # pd.Series
-            thresholds = tuple(result_ * threshold_percent for result_ in (*result,))
+            thresholds = tuple(result * threshold_percent)
+            last_result = tuple(0. for _ in thresholds)
 
         # The condition sum(translation_perturb_steps) < 0.1 is True after 4 optimization rounds...
         # To ensure that the abs doesn't produce worse values, need to compare results in an unbounded scale
@@ -3782,7 +3782,10 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # better. It is a feature of perturb_transformations() that the same transformation is always included in grid
         # search at the moment, so the routine should never arrive at worse scores...
         # Everything below could really be expedited with a Bayseian optimization search strategy
-        while sum(translation_perturb_steps) > 0.1 and all(tuple(abs(last_result - result) > thresholds)):
+        # while sum(translation_perturb_steps) > 0.1 and all(tuple(abs(last_result - result) > thresholds)):
+        while (optimize_round < 2 or all(tuple(abs(last_result - result) > thresholds))) \
+                and sum(translation_perturb_steps) > 0.1:
+            optimize_round += 1
             logger.info(f'{optimize_found_transformations_by_metrics.__name__} round {optimize_round}')
             last_result = result
             # Perform scoring and a possible iteration of dock perturbation
@@ -3792,7 +3795,11 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             # # De-duplicate the passing_transform_ids if the optimization has surpassed their bin size
             # passing_transform_ids = utils.remove_duplicates(passing_transform_ids)
             # result = calculate_results_for_stopping(total_results_df, passing_transform_ids)
-            result = weighted_trajectory_df.loc[:, selected_columns].mean(axis=0)
+            # Todo? Could also index the
+            #  top_results_df = total_results_df.loc[passing_transform_ids, selected_columns]
+            #  result = top_results_df.mean(axis=0)
+            top_results_df = weighted_trajectory_df.loc[passing_transform_ids, selected_columns]
+            result = top_results_df.mean(axis=0).values
             number_of_transforms = len(full_rotation1)
             logger.info(f'Found {number_of_transforms} transformations after '
                         f'{optimize_found_transformations_by_metrics.__name__} round {optimize_round} '
