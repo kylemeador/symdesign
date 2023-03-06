@@ -314,8 +314,16 @@ def main():
             putils.make_path(job.refine_dir)
             putils.make_path(job.full_model_dir)
             for data in metadata:
-                shutil.copy(data.model_source, job.refine_dir)
-                shutil.copy(data.model_source, job.full_model_dir)
+                if data.model_source is None:
+                    raise ValueError(f"Couldn't find a .model_source for {metadata}")
+                try:
+                    shutil.copy(data.model_source, job.refine_dir)
+                except shutil.SameFileError:
+                    pass
+                try:
+                    shutil.copy(data.model_source, job.full_model_dir)
+                except shutil.SameFileError:
+                    pass
                 data.loop_modeled = True
                 data.refined = True
         else:

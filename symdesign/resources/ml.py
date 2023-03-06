@@ -1062,31 +1062,78 @@ class RunModel(afmodel.RunModel):
                 ) -> Mapping[str, Any]:
       """Makes a prediction by inferencing the model on the provided features.
 
-    Args:
-      feat: A dictionary of NumPy feature arrays as output by
-        RunModel.process_features.
-      random_seed: The random seed to use when running the model. In the
-        multimer model this controls the MSA sampling.
+      Args:
+        feat: A dictionary of NumPy feature arrays as output by
+          RunModel.process_features.
+        random_seed: The random seed to use when running the model. In the
+          multimer model this controls the MSA sampling.
 
-    Returns:
-      A dictionary of model outputs.
-    """
-    self.init_params(feat)
-    logging.info('Running predict with shape(feat) = %s',
-                 tree.map_structure(lambda x: x.shape, feat))
-    result = self.apply(self.params, jax.random.PRNGKey(random_seed), feat)
+      Returns:
+        A dictionary of model outputs.
+      """
+      self.init_params(feat)
+      logging.info('Running predict with shape(feat) = %s',
+                   tree.map_structure(lambda x: x.shape, feat))
+      result = self.apply(self.params, jax.random.PRNGKey(random_seed), feat)
 
-    # This block is to ensure benchmark timings are accurate. Some blocking is
-    # already happening when computing get_confidence_metrics, and this ensures
-    # all outputs are blocked on.
-    jax.tree_map(lambda x: x.block_until_ready(), result)
+      # This block is to ensure benchmark timings are accurate. Some blocking is
+      # already happening when computing get_confidence_metrics, and this ensures
+      # all outputs are blocked on.
+      jax.tree_map(lambda x: x.block_until_ready(), result)
+      # SYMDESIGN
+      result.update(
+          afmodel.get_confidence_metrics(result, multimer_mode=self.multimer_mode))
+      # SYMDESIGN
+      logging.info('Output shape was %s',
+                   tree.map_structure(lambda x: x.shape, result))
+      return result
+
     # SYMDESIGN
-    result.update(
-        afmodel.get_confidence_metrics(result, multimer_mode=self.multimer_mode))
+    def set_params(self, model_params: dict[str, Mapping[str, Mapping[str, jnp.ndarray]]]):
+        """Set a collection of parameters that a single compiled model should run
+
+        Args:
+            model_params: A dictionary of model parameters
+        Returns:
+            None
+        """
+        self.parameter_map = model_params
+
+    def predict_with_params(self, parameter_type: str,
+                            feat: features.FeatureDict,
+                            random_seed: int,
+                            ) -> Mapping[str, Any]:
+        """Makes a prediction by inferencing the model on the provided features.
+
+        Args:
+            parameter_type: The name of the parameter set to fetch
+            feat: A dictionary of NumPy feature arrays as output by
+                RunModel.process_features.
+            random_seed: The random seed to use when running the model. In the
+                multimer model this controls the MSA sampling.
+
+        Returns:
+            A dictionary of model outputs.
+        """
+        logging.info('Running predict with shape(feat) = %s',
+                     tree.map_structure(lambda x: x.shape, feat))
+        try:
+            params = self.parameter_map[parameter_type]
+        except KeyError:
+            raise KeyError(f"The parameter_type='{parameter_type}' isn't available from the viable parameter "
+                           f"sets\nCurrently available types include: {', '.join(self.parameter_map.keys())}")
+        result = self.apply(params, jax.random.PRNGKey(random_seed), feat)
+
+        # This block is to ensure benchmark timings are accurate. Some blocking is
+        # already happening when computing get_confidence_metrics, and this ensures
+        # all outputs are blocked on.
+        jax.tree_map(lambda x: x.block_until_ready(), result)
+        result.update(
+            afmodel.get_confidence_metrics(result, multimer_mode=self.multimer_mode))
+        logging.info('Output shape was %s',
+                     tree.map_structure(lambda x: x.shape, result))
+        return result
     # SYMDESIGN
-    logging.info('Output shape was %s',
-                 tree.map_structure(lambda x: x.shape, result))
-    return result
 
 
 def set_up_model_runners(model_type: af_model_literal = 'monomer', num_predictions_per_model: int = 1,
