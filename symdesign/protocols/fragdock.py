@@ -20,6 +20,7 @@ from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
+from tqdm import tqdm
 
 from . import cluster
 from .pose import load_evolutionary_profile, PoseJob
@@ -155,11 +156,14 @@ def create_perturbation_transformations(sym_entry: SymEntry, number_of_rotations
 
     if translation_steps is None:
         translation_steps = tuple(repeat(default_translation, sym_entry.number_of_groups))
-        ext_translation_steps = tuple(repeat(default_translation, n_dof_external))
-    else:
-        # Todo allow this to be a parameter
-        logger.warning(f'Currently using the default value of {default_translation} for external translation steps')
-        ext_translation_steps = tuple(repeat(default_translation, n_dof_external))
+
+    if n_dof_external:
+        if translation_steps is None:
+            logger.warning(f'Using the default value of {default_translation} for external translation steps')
+            ext_translation_steps = tuple(repeat(default_translation, n_dof_external))
+        else:
+            # Todo allow ext_translation_steps to be a parameter
+            ext_translation_steps = translation_steps
     # # Make a vector of the perturbation number [1, 2, 2, 3, 3, 1] with 1 as constants on each end
     # dof_number_perturbations = [1] \
     #     + [rotation_number for dof in range(rotational_dof)] \
@@ -2501,8 +2505,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         }
 
         pose_ids = list(range(number_of_transforms))
-        for idx in pose_ids:
-            logger.info(f'Metrics for Pose {idx + 1}/{number_of_transforms}')
+        for idx in tqdm(pose_ids, total=number_of_transforms):
+            # logger.info(f'Metrics for Pose {idx + 1}/{number_of_transforms}')
             # Add the next set of coordinates
             update_pose_coords(idx)
 
@@ -2694,7 +2698,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         Returns:
             A tuple of DataFrames representing the per-pose and the per-residue metrics. Each has indices from 0-N
         """
-        logger.info(f'Collecting metrics for all Poses identified so far')
+        logger.info(f'Collecting metrics for {number_of_transforms} active Poses')
 
         # Initialize proteinmpnn for dock/design analysis
         if job.dock.proteinmpnn_score:
@@ -3301,7 +3305,6 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         if any((sym_entry.number_dof_rotation, sym_entry.number_dof_translation)):
             nonlocal rotation_steps, translation_perturb_steps
             # Perform perturbations to the allowed degrees of freedom
-            logger.info(f'Perturbing transformations')  # round {optimize_round}')
             # Modify the perturbation amount by half as the space is searched to completion
             # Reduce rotation_step before as the original step size was already searched
             rotation_steps = tuple(step * .5 for step in rotation_steps)
@@ -3368,7 +3371,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 top_perturb_hits = total_dof_applied
             else:
                 top_perturb_hits = 1
-            # top_perturb_hits = int(total_dof_applied/optimize_round + .5)
+            logger.info(f'Selecting the top {top_perturb_hits} transformations from each perturbation')
+            # top_perturb_hits = int(total_dof_perturbed/optimize_round + .5)
 
             top_transform_cluster_indices: list[int] = []
             perturb_passing_indices: list[list[int]] = []

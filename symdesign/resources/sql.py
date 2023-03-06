@@ -314,6 +314,9 @@ class ProteinMetadata(Base):
                      thermophilicity=self.thermophilicity)
                 }
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.entity_id})'
+
 
 class EntityData(Base):
     """Used for unique Pose instances to connect multiple sources of information"""
