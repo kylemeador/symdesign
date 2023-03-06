@@ -7696,12 +7696,12 @@ class Pose(SymmetricModel, Metrics):
             sym_string = 'symmetric '
         elif entity1 == entity2:
             # Without symmetry, we can't measure this, unless intra-oligomeric contacts are desired
-            self.log.warning('Entities are the same, but no symmetry is present. The interface between them will not be'
-                             ' detected!')
-            raise NotImplementedError(f"These entities shouldn't necessarily be equal. Did you mean to have "
-                                      f"symmetry={self.symmetry}? If so, this issue needs to be addressed "
-                                      'by expanding the __eq__ method of Entity to more accurately reflect what a '
-                                      'Structure object represents programmatically')
+            self.log.warning(
+                "Entities are the same, but symmetry isn't present. The interface between them won't be detected")
+            raise NotImplementedError(
+                f"These entities shouldn't necessarily be equal. Did you mean to have symmetry={self.symmetry}? "
+                f'If so, this issue needs to be addressed by expanding the __eq__ method of Entity to more accurately '
+                f'reflect what a Structure object represents programmatically')
             # return
         else:
             sym_string = ''
@@ -8041,8 +8041,12 @@ class Pose(SymmetricModel, Metrics):
         self.log.debug('Find and split interface using active_entities: '
                        f'{", ".join(entity.name for entity in self.active_entities)}')
         entity_pair: tuple[Entity, Entity]
-        for entity_pair in combinations_with_replacement(self.active_entities, 2):
-            self.find_interface_residues(*entity_pair, **kwargs)
+        if self.is_symmetric():
+            for entity_pair in combinations_with_replacement(self.active_entities, 2):
+                self.find_interface_residues(*entity_pair, **kwargs)
+        else:
+            for entity_pair in combinations(self.active_entities, 2):
+                self.find_interface_residues(*entity_pair, **kwargs)
 
         self.check_interface_topology()
 
