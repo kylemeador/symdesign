@@ -39,8 +39,9 @@ class OptimalTx:
             self.n_dof_internal += 1
         # logger.debug('self.dof', self.dof)
 
-        self.n_dof_external = self.dof_ext.shape[0]  # Get the length of the array
-        self.n_dof = self.dof.shape[0]
+        # Get the length of the array as n_dof_external
+        self.n_dof_external = len(self.dof_ext)
+        self.n_dof = len(self.dof)
         if self.n_dof > 0:
             self.dof_convert9()
         else:
@@ -184,11 +185,12 @@ class OptimalTx:
         # shift = np.matmul(vtdinvvinv, vtdinvdelta)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
         # print('self.dof9t_dof9', self.dof9t_dof9)
         # print('tiled_array', np.tile(self.dof9t_dof9, (coords1.shape[0], 1, 1)))
-        shift = np.matmul(np.linalg.inv(np.tile(self.dof9t_dof9, (coords1.shape[0], 1, 1)) / var_tot),
-                          np.matmul(np.tile(self.dof9_t, (coords1.shape[0], 1, 1)), guide_delta) / var_tot)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
+        coords1_len = len(coords1)
+        shift = np.matmul(np.linalg.inv(np.tile(self.dof9t_dof9, (coords1_len, 1, 1)) / var_tot),
+                          np.matmul(np.tile(self.dof9_t, (coords1_len, 1, 1)), guide_delta) / var_tot)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
 
         # get error value from the ideal translation and the delta
-        resid = np.matmul(np.tile(self.dof9, (coords1.shape[0], 1, 1)), shift) - guide_delta  # (9 x n_dof) x (n_dof x 1) - (9 x 1) = (9 x 1)
+        resid = np.matmul(np.tile(self.dof9, (coords1_len, 1, 1)), shift) - guide_delta  # (9 x n_dof) x (n_dof x 1) - (9 x 1) = (9 x 1)
         error = np.sqrt(np.matmul(resid.swapaxes(-2, -1), resid) / float(self.number_of_coordinates)).flatten() \
             / coords_rmsd_reference
 

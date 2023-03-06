@@ -756,12 +756,12 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
             + [True if new_collapsing[-1] and not reference_collapse[-2] else False]
 
         # Find new collapse positions
-        new_collapse_peak_start = [0 for _ in range(collapse_bool.shape[0])]  # [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, ...]
+        new_collapse_peak_start = [0 for _ in range(len(collapse_bool))]  # [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, ...]
         # Keep track of how many discrete collapsing segments exist and where their boundaries are
         collapse_peak_start = new_collapse_peak_start.copy()  # [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, ...]
         sequential_collapse_points = np.zeros_like(collapse_bool)  # [-1, -1, -1, -1, 0, 0, 0, 0, 1, 1, ...]
         collapse_iterator = -1  # Start at -1 so that the first point eventually is equal to a 0 subtraction. Was 0
-        for prior_idx, idx in enumerate(range(1, collapse_z.shape[0])):
+        for prior_idx, idx in enumerate(range(1, len(collapse_z))):
             # Compare neighboring residues in the new_collapse and collapse_peak_start
             # Both conditions are only True when 0 -> 1 transition occurs
             if new_collapse[prior_idx] < new_collapse[idx]:
@@ -791,7 +791,7 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
         # collapse_sequential_peaks_z_sum = np.sum(sequential_collapse_weights * increased_collapse_z)
         collapse_sequential_peaks_z = sequential_collapse_weights * increased_collapse_z
         # v [1, .99, .98, .97, .96, ...]
-        sequence_length = collapse.shape[0]
+        sequence_length = len(collapse)
         sequential_weights = scale * (1 - np.arange(sequence_length)/sequence_length)
         # collapse_sequential_z_sum = np.sum(sequential_weights * increased_collapse_z)
         collapse_sequential_z = sequential_weights * increased_collapse_z

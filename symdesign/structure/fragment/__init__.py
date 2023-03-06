@@ -310,7 +310,7 @@ class Fragment(ABC):
             neighbors = clash_tree.query_radius(transformed_bb_coords.reshape(-1, 3), clash_dist)
             neighbor_counts = np.array([neighbor.size for neighbor in neighbors.tolist()])
             # reshape to original size then query for existence of any neighbors for each fragment individually
-            clashing_indices = neighbor_counts.reshape(transformed_bb_coords.shape[0], -1).any(axis=1)
+            clashing_indices = neighbor_counts.reshape(len(transformed_bb_coords), -1).any(axis=1)
             viable_indices = ~clashing_indices
 
         # self.ghost_fragments = [GhostFragment(*info) for info in zip(list(transformed_guide_coords[viable_indices]),
@@ -423,7 +423,7 @@ class MonoFragment(Fragment):
             _, self.rotation, self.translation = superposition3d(coords, self.template_coords)
             # self.guide_coords = coords
         else:
-            raise ValueError(f'{self.__class__.__name__} coords must be shape (3, 3), not {coords.shape}')
+            raise ValueError(f'{self.__class__.__name__} coords.shape ({coords.shape}) != (3, 3)')
 
     # def get_transformed_copy(self, rotation: list | np.ndarray = None, translation: list | np.ndarray = None,
     #                             rotation2: list | np.ndarray = None, translation2: list | np.ndarray = None) -> \

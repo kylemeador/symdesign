@@ -72,7 +72,7 @@ class Coords:
             self.coords[indices] = new_coords
         except ValueError as error:
             # They are probably different lengths or another numpy indexing/setting issue
-            if self.coords.shape[0] == 0:  # There are no coords, lets use set mechanism
+            if len(self.coords) == 0:  # There are no coords, lets use set mechanism
                 self.coords = new_coords
             else:
                 raise ValueError(f"The selected indices aren't the same shape as the 'new_coords': {error}")
@@ -88,7 +88,7 @@ class Coords:
         self.coords = coords
 
     def __len__(self) -> int:
-        return self.coords.shape[0]
+        return len(self.coords)
 
     def __iter__(self) -> list[float, float, float]:
         yield from self.coords.tolist()
@@ -625,8 +625,8 @@ def superposition3d_weighted(fixed_coords: np.ndarray, moving_coords: np.ndarray
     Returns:
         rmsd, rotation/quaternion_matrix, translation_vector
     """
-    number_of_points = fixed_coords.shape[0]
-    if number_of_points != moving_coords.shape[0]:
+    number_of_points = len(fixed_coords)
+    if number_of_points != len(moving_coords):
         raise ValueError(f'{superposition3d.__name__}: Inputs should have the same size. '
                          f'Input 1={number_of_points}, 2={moving_coords.shape[0]}')
 

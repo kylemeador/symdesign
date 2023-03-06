@@ -409,7 +409,7 @@ class SymEntry:
     @property
     def number_of_operations(self) -> int:
         """The number of symmetric copies in the full symmetric system"""
-        return self.expand_matrices.shape[0]
+        return len(self.expand_matrices)
 
     @property
     def group_subunit_numbers(self) -> list[int]:
@@ -559,7 +559,7 @@ class SymEntry:
         try:
             return self._number_dof_external
         except AttributeError:
-            self._number_dof_external = self.external_dof.shape[0]
+            self._number_dof_external = len(self.external_dof)
             return self._number_dof_external
 
     @property

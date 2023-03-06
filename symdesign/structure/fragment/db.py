@@ -665,7 +665,7 @@ class EulerLookup:
         # Unpack each of the integer arrays
         eulintarray1_1, eulintarray1_2, eulintarray1_3, eulintarray2_1, eulintarray2_2, eulintarray2_3 = args
 
-        indices1_len, indices2_len = eulintarray1_1.shape[0], eulintarray2_1.shape[0]
+        indices1_len, indices2_len = len(eulintarray1_1), len(eulintarray2_1)
 
         index_array1 = np.repeat(np.arange(indices1_len), indices2_len)
         index_array2 = np.tile(np.arange(indices2_len), indices1_len)
@@ -691,7 +691,7 @@ class EulerLookup:
     def lookup_by_euler_integers_as_array(self, eulintarray1: np.ndarray, eulintarray2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Returns a tuple with the index of the first fragment and second fragment where they overlap
         """
-        indices1_len, indices2_len = eulintarray1.shape[0], eulintarray2.shape[0]
+        indices1_len, indices2_len = len(eulintarray1), len(eulintarray2)
 
         index_array1 = np.repeat(np.arange(indices1_len), indices2_len)
         index_array2 = np.tile(np.arange(indices2_len), indices1_len)

@@ -284,7 +284,7 @@ def create_decoding_order(randn: torch.Tensor, chain_mask: torch.Tensor, tied_po
                 # Add all found decoding_indices
                 found_decoding_indices.extend(item)
 
-        decoding_order = torch.tensor(found_decoding_indices, device=to_device)[None].repeat(randn.shape[0], 1)
+        decoding_order = torch.tensor(found_decoding_indices, device=to_device)[None].repeat(len(randn), 1)
 
     return decoding_order
 
@@ -467,7 +467,7 @@ def batch_proteinmpnn_input(size: int = None, **kwargs) -> dict[str, np.ndarray]
         if X is None:
             raise ValueError(f'{batch_proteinmpnn_input.__name__} must pass keyword argument "X" if argument "size" '
                              f'is None')
-        size = X.shape[0]
+        size = len(X)
     # else:
     #     X = np.tile(X, (size,) + (1,)*X.ndim)
 

@@ -686,7 +686,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     logger.debug(f'Found ghost residue numbers {idx} with shape: {ghost_residue_indices1.shape}')
     logger.debug(f'Found ghost indices {idx} with shape: {ghost_j_indices1.shape}')
     logger.debug(f'Found ghost rmsds {idx} with shape: {ghost_rmsds1.shape}')
-    logger.debug(f'Found {init_ghost_guide_coords1.shape[0]} initial ghost {idx} fragments with type:'
+    logger.debug(f'Found {len(init_ghost_guide_coords1)} initial ghost {idx} fragments with type:'
                  f' {initial_surf_type2}')
 
     logger.info(f'Retrieved oligomer{idx}-{model1.name} ghost fragments and guide coordinates '
@@ -854,9 +854,10 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         rot_degen_matrices = make_rotations_degenerate(rotation_matrix, degeneracy_matrices)
         logger.debug(f'Degeneracy shape for component {idx}: {degeneracy_matrices.shape}')
         logger.debug(f'Combined rotation/degeneracy shape for component {idx}: {rot_degen_matrices.shape}')
-        number_of_degens.append(degeneracy_matrices.shape[0])
+        degen_len = len(degeneracy_matrices)
+        number_of_degens.append(degen_len)
         # logger.debug(f'Rotation shape for component {idx}: {rot_degen_matrices.shape}')
-        number_of_rotations.append(rot_degen_matrices.shape[0] // degeneracy_matrices.shape[0])
+        number_of_rotations.append(len(rot_degen_matrices) // degen_len)
         rotation_matrices.append(rot_degen_matrices)
 
     set_mat1, set_mat2 = sym_entry.setting_matrix1, sym_entry.setting_matrix2
@@ -1016,13 +1017,13 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     optimal_tx = resources.OptimalTx.from_dof(sym_entry.external_dof, zshift1=zshift1, zshift2=zshift2,
                                               max_z_value=initial_z_value)
 
-    number_of_init_ghost = init_ghost_guide_coords1.shape[0]
-    number_of_init_surf = init_surf_guide_coords2.shape[0]
+    number_of_init_ghost = len(init_ghost_guide_coords1)
+    number_of_init_surf = len(init_surf_guide_coords2)
     total_ghost_surf_combinations = number_of_init_ghost * number_of_init_surf
     # fragment_pairs = []
     full_rotation1, full_rotation2 = [], []
     rotation_matrices1, rotation_matrices2 = rotation_matrices
-    rotation_matrices_len1, rotation_matrices_len2 = rotation_matrices1.shape[0], rotation_matrices2.shape[0]
+    rotation_matrices_len1, rotation_matrices_len2 = len(rotation_matrices1), len(rotation_matrices2)
     number_of_rotations1, number_of_rotations2 = number_of_rotations
     # number_of_degens1, number_of_degens2 = number_of_degens
 
@@ -1063,6 +1064,9 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
         stacked_surf_euler_int1 = eulerint_surf_component1.reshape((rotation_matrices_len1, -1, 3))
         stacked_ghost_euler_int2 = eulerint_ghost_component2.reshape((rotation_matrices_len2, -1, 3))
+        # Improve indexing time by precomputing python objects
+        stacked_ghost_euler_int2 = list(stacked_ghost_euler_int2)
+        stacked_surf_euler_int1 = list(stacked_surf_euler_int1)
     # eulerint_surf_component2_1, eulerint_surf_component2_2, eulerint_surf_component2_3 = \
     #     euler_lookup.get_eulint_from_guides(surf_frags2_guide_coords_rot_and_set.reshape((-1, 3, 3)))
 
@@ -1070,6 +1074,9 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # the number of init_guide_coords on axis 1, and the 3 euler intergers on axis 2
     stacked_surf_euler_int2 = eulerint_surf_component2.reshape((rotation_matrices_len2, -1, 3))
     stacked_ghost_euler_int1 = eulerint_ghost_component1.reshape((rotation_matrices_len1, -1, 3))
+    # Improve indexing time by precomputing python objects
+    stacked_surf_euler_int2 = list(stacked_surf_euler_int2)
+    stacked_ghost_euler_int1 = list(stacked_ghost_euler_int1)
 
     # stacked_surf_euler_int2_1 = eulerint_surf_component2_1.reshape((rotation_matrices_len2, -1))
     # stacked_surf_euler_int2_2 = eulerint_surf_component2_2.reshape((rotation_matrices_len2, -1))
@@ -1224,7 +1231,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 # inverse transform at 1 (i) 1 (j) 230 (k) for instance
 
                 prior = 0
-                number_overlapping_pairs = euler_matched_ghost_indices1.shape[0]
+                number_overlapping_pairs = len(euler_matched_ghost_indices1)
                 possible_overlaps = np.ones(number_overlapping_pairs, dtype=np.bool8)
                 # Residue numbers are in order for forward_surface_indices2 and reverse_ghosts_indices2
                 for residue_index in init_surf_residue_indices2:

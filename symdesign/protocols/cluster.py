@@ -412,9 +412,7 @@ def find_cluster_representatives(transform_tree: sklearn.neighbors._unsupervised
     with warnings.catch_warnings():
         # Empty slices can't compute mean, so catch warning if cluster is an outlier
         warnings.simplefilter('ignore', category=RuntimeWarning)
-        mean_cluster_dist = np.empty(tree_distances.shape[0])
-        for idx in range(tree_distances.shape[0]):
-            mean_cluster_dist[idx] = tree_distances[idx].mean()
+        mean_cluster_dist = np.array([tree_distance.mean() for tree_distance in list(tree_distances)])
 
     # For each label (cluster), add the minimal mean (representative) the representative transformation indices
     outlier = -1  # -1 are outliers in DBSCAN

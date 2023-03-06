@@ -46,7 +46,7 @@ def compare_hydrophobicity_scale_to_standard(hydrophobicity_scale: dict[str, flo
         collapse_bool = collapse > significance_threshold
         # Check for the collapse "transition" positions by comparing neighboring residues
         indices_around_transition_point = []
-        for prior_idx, idx in enumerate(range(1, collapse_bool.shape[0])):
+        for prior_idx, idx in enumerate(range(1, len(collapse_bool))):
             # Condition is only True when 0 -> 1 transition occurs
             if collapse_bool[prior_idx] < collapse_bool[idx]:
                 indices_around_transition_point.extend([prior_idx, idx])

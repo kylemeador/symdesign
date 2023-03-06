@@ -1238,7 +1238,7 @@ class Atoms:
     copy = __copy__
 
     def __len__(self) -> int:
-        return self.atoms.shape[0]
+        return len(self.atoms)
 
     def __iter__(self) -> Atom:
         yield from self.atoms.tolist()
@@ -1513,7 +1513,7 @@ class ContainsAtomsMixin(StructureBase, ABC):
             # Try to set the provided coords. This will handle issue where empty Coords class should be set
             # Setting .coords through normal mechanism preserves subclasses requirement to handle symmetric coordinates
             self.coords = np.concatenate(coords)
-        if self._coords.coords.shape[0] == 0:  # Check if Coords (_coords) hasn't been populated
+        if len(self._coords.coords) == 0:  # Check if Coords (_coords) hasn't been populated
             # If it hasn't, then coords weren't passed. Try to set from self.from_source. catch missing from_source
             try:
                 self._coords.set(np.concatenate([s.coords for s in getattr(self, from_source)]))
@@ -2850,7 +2850,7 @@ class Residues:
     copy = __copy__
 
     def __len__(self) -> int:
-        return self.residues.shape[0]
+        return len(self.residues)
 
     def __iter__(self) -> Residue:
         yield from self.residues.tolist()
