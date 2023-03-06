@@ -1929,7 +1929,7 @@ class PoseProtocol(PoseData):
             """
             return {score_type: [scores[score_type] for scores in _scores] for score_type in _scores[0].keys()}
 
-        def get_prev_pos_coords(sequence_: Iterable[str] = None, assembly: bool = False, entity: bool = False) \
+        def get_prev_pos_coords(sequence_: Iterable[str] = None, assembly: bool = False, entity: str = None) \
                 -> jnp.ndarray:
             """Using the PoseJob.pose instance, get coordinates compatible with AlphafoldInitialGuess
 
@@ -1940,7 +1940,7 @@ class PoseProtocol(PoseData):
             Returns:
                 The alphafold formatted sequence coords in a JAX array
             """
-            pose_copy = self.pose.copy()
+            pose_copy: Pose = self.pose.copy()
             # Choose which Structure to iterate over residues
             if entity is not None:
                 structure = pose_copy.entity(entity)
@@ -2151,7 +2151,7 @@ class PoseProtocol(PoseData):
                         get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
                     protocol_logger.debug(f'Found this_seq_features:\n\t%s'
                                           % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
-                    model_features = {'prev_pos': get_prev_pos_coords(sequence, entity=True)}
+                    model_features = {'prev_pos': get_prev_pos_coords(sequence, entity=entity_name)}
                     protocol_logger.info(f'Predicting Design {design.name} Entity {entity_name} structure')
                     entity_structures, entity_scores = \
                         resources.ml.af_predict({**features, **this_seq_features, **model_features}, model_runners)
