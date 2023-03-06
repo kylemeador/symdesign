@@ -1759,7 +1759,6 @@ class PoseProtocol(PoseData):
         """
         self.load_pose()
         number_of_residues = self.pose.number_of_residues
-        protocol_logger.info(f'Starting prediction with {len(sequences)} sequences')
         for design, sequence in sequences.items():
             # Todo if differentially sized sequence inputs
             self.log.debug(f'Found sequence {sequence}')
@@ -1767,6 +1766,7 @@ class PoseProtocol(PoseData):
             if len(sequence) != number_of_residues:
                 raise DesignError(f'The length of the sequence {len(sequence)} != {number_of_residues}, '
                                   f'the number of residues in the pose')
+        protocol_logger.info(f'Performing structure prediction on {len(sequences)} sequences')
 
         # Hardcode parameters
         if model_type == 'monomer_casp14':
@@ -1982,7 +1982,7 @@ class PoseProtocol(PoseData):
             this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
             protocol_logger.debug(f'Found this_seq_features:\n\t%s'
                                   % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
-            protocol_logger.info(f'Starting structure prediction of {design.name} sequence')
+            protocol_logger.info(f'Predicting Design {design.name} structure')
             asu_structures, asu_scores = \
                 resources.ml.af_predict({**features, **this_seq_features, **model_features},
                                         model_runners, gpu_relax=self.job.predict.use_gpu_relax,
@@ -2115,6 +2115,7 @@ class PoseProtocol(PoseData):
                         get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
                     protocol_logger.debug(f'Found this_seq_features:\n\t%s'
                                           % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
+                    protocol_logger.info(f'Predicting Design {design.name} Entity {entity_name} structure')
                     entity_structures, entity_scores = \
                         resources.ml.af_predict({**features, **this_seq_features, **model_features}, model_runners)
                     # NOT using relaxation as these won't be output for design so their coarse features are all that

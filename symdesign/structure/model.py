@@ -3718,7 +3718,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         entity_start_idx = 1
         if self.entity_info:
             start_with_info = True
-            warn_parameters_msg = f"The 'tolerance'={tolerance} and 'length_difference'={length_difference} parameters"\
+            warn_parameters_msg = f"'tolerance' = {tolerance} and 'length_difference' = {length_difference} parameters"\
                                   f" aren't compatible with the chain.sequence and the soon to be Entity sequence"
             # Remove existing chain IDs
             for data in self.entity_info.values():
