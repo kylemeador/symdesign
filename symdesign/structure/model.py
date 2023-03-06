@@ -1019,6 +1019,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     """Maps mate entities to their rotation matrix"""
     # symmetry: str | None
     _uniprot_ids: tuple[str, ...] | None
+    state_attributes = Chain.state_attributes | {'_oligomer'}  # '_chains' handled specifically
+    # | ContainsChainsMixin.state_attributes
 
     @classmethod
     def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
@@ -1082,7 +1084,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         # Indicate that the first self.chain should be this instance
         self._chains = [self]
-        self.structure_containers.extend(['_chains'])  # Use _chains as chains is okay to equal []
+        self.structure_containers.append('_chains')  # Use '_chains' as 'chains' is okay to equal []
         # _copy_structure_containers and _update_structure_container_attributes are Entity specific
         if len(chains) > 1:
             # Todo handle chains with imperfect symmetry by using the actual chain and forgoing the transform
@@ -1491,15 +1493,14 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # populate ._chains with Entity mates
             # These mates will be their own "parent", and will be under the control of this instance, ie. the captain
             self.log.debug('Generating mate Entity instances in "chains" attribute')
-            self._chains.extend([self.get_transformed_mate(**transform) for transform in self._chain_transforms])
+            new_chains = [self.get_transformed_mate(**transform) for transform in self._chain_transforms]
             chain_ids = self.chain_ids
             # self.log.debug(f'Entity chains property has {len(self._chains)} chains because the underlying '
             #                f'chain_transforms has {len(self._chain_transforms)}. chain_ids has {len(chain_ids)}')
-            for idx, chain in enumerate(self._chains[1:], 1):
+            for idx, chain in enumerate(new_chains, 1):
                 # set entity.chain_id which sets all residues
                 chain.chain_id = chain_ids[idx]
-        # else:
-        #     return self._chains
+            self._chains.extend(new_chains)
 
         return self._chains
 
@@ -1524,8 +1525,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         """Clear the Entity of all Chain and Oligomer information"""
         self._chain_transforms.clear()
         self.number_of_symmetry_mates = 1
-        # self._chains.clear()
-        self._chains = [self]
+        self._chains.clear()
+        self._chains.append(self)
         self._is_captain = False
         self.chain_ids = [self.chain_id]
 
@@ -1661,7 +1662,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         # Set the new properties
         self.number_of_symmetry_mates = number_of_subunits
-        self._chains = [self]
+        self._chains.clear()
+        self._chains.append(self)
         self._set_chain_ids()
 
     def get_transformed_mate(self, rotation: list[list[float]] | np.ndarray = None,
@@ -2565,7 +2567,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         """
         super().reset_state()
         # Remove oligomeric chains. This should be generated fresh
-        self._chains = self._chains[:1]
+        self._chains.clear()
+        self._chains.append(self)
 
     def _update_structure_container_attributes(self, **kwargs):
         """Update attributes specified by keyword args for all Structure container members. Entity specific handling"""
@@ -2601,7 +2604,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             if self.is_dependent() and other.is_dependent():
                 # A parent is making the copy. Update all structure_containers with new instance accordingly
                 # self.log.debug('is parent copy_structure_containers')
-                # We must update the structure_containers as this wasn't performed by Structure.copy()
+                # Update the structure_containers as this wasn't performed by Structure.copy()
                 other._copy_structure_containers()
             # other._update_structure_container_attributes(_parent=other)
         else:
@@ -2612,7 +2615,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 del other.entity_spawn
             except AttributeError:
                 # This isn't a captain and a captain didn't initiate the copy
-                # We have to make it a captain -> None
+                # Have to make it a captain -> None
                 # First set self._captain object as other._captain, then
                 # _make_captain() extracts data, and finally, will set _captain as None
                 other._captain = captain
