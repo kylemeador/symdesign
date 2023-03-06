@@ -1460,9 +1460,10 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filters: dict = None, w
         # logger.info('Number of designs passing filters:\n\t%s'
         #             % '\n\t'.join(f'{len(indices):6d} - {metric}' for metric, indices in filtered_indices.items()))
         final_indices = index_intersection(filtered_indices.values())
-        logger.info(f'Number of designs passing all filters: {len(final_indices)}')
-        if len(final_indices) == 0:
+        number_final_indices = len(final_indices)
+        if number_final_indices == 0:
             raise DesignError('There are no poses left after filtering. Try choosing less stringent values')
+        logger.info(f'Number of designs passing all filters: {number_final_indices}')
         simple_df = simple_df.loc[final_indices, :]
 
     # {column: {'direction': min_, 'value': 0.3, 'idx_slice': ['0001', '0002', ...]}, ...}
