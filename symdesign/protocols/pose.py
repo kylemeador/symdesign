@@ -4305,9 +4305,10 @@ class PoseProtocol(PoseData):
                 dca_background_energies[entity] = dca_background_residue_energies.sum(axis=1)  # Turns data to 1D
                 dca_design_energies[entity] = dca_design_residue_energies.sum(axis=1)
             except AttributeError:
-                self.log.warning(f"For {entity.name}, DCA analysis couldn't be performed. "
-                                 f"Missing required parameter files")
+                self.log.debug(f"For {entity.name}, DCA analysis couldn't be performed. "
+                               f"Missing required parameter files")
                 dca_succeed = False
+                break
 
         if dca_succeed:
             # concatenate along columns, adding residue index to column, design name to row

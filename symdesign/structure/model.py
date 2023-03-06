@@ -5688,10 +5688,10 @@ class SymmetricModel(Models):
                             current_best_minimal_central_offset = minimal_central_offset
                         elif minimal_central_offset == current_best_minimal_central_offset:
                             # Chose the positive one in the case that there are degeneracies (most likely)
-                            self.log.info('There are multiple pose transformation solutions for the symmetry group '
-                                          f'{sym_group} (specified in position {group_idx + 1} of '
-                                          f'{self.sym_entry.specification}). The solution with a positive translation '
-                                          'was chosen by convention. This may result in inaccurate behavior')
+                            self.log.debug('There are multiple pose transformation solutions for the symmetry group '
+                                           f'{sym_group} (specified in position {group_idx + 1} of '
+                                           f'{self.sym_entry.specification}). The solution with a positive translation '
+                                           'was chosen by convention. This may result in inaccurate behavior')
                             # internal_tx will have been set already, check the z-axis value
                             internal_tx: np.ndarray
                             if internal_tx[-1] < 0 < centrally_disposed_group_height:

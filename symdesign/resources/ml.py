@@ -333,7 +333,7 @@ class ProteinMPNNFactory:
                                  f'Result:{os.getenv("PYTORCH_CUDA_ALLOC_CONF")}')
                 else:
                     self.device = torch.device('cpu')
-                logger.debug(f'Loading ProteinMPNN model "{model_name_key}" to device: {self.device}')
+                logger.info(f'Loading ProteinMPNN model "{model_name_key}" to device: {self.device}')
 
             checkpoint = torch.load(os.path.join(utils.path.protein_mpnn_weights_dir, f'{model_name}.pt'),
                                     map_location=self.device)
@@ -1136,6 +1136,14 @@ class RunModel(afmodel.RunModel):
     # SYMDESIGN
 
 
+model_type_to_config_name = {
+    'multimer': 'model_1_multimer_v3',
+    'monomer_ptm': 'model_1_ptm',
+    'monomer': 'model_1',
+    'monomer_casp14': 'model_1',
+}
+
+
 def set_up_model_runners(model_type: af_model_literal = 'monomer', num_predictions_per_model: int = 1,
                          num_ensemble: int = 1, development: bool = False) -> dict[str, RunModel]:
     """Produce Alphafold RunModel class loaded with their training parameters
@@ -1177,7 +1185,7 @@ def set_up_model_runners(model_type: af_model_literal = 'monomer', num_predictio
 
     # This routine is used to store each separate model parameters on one RunModel
     # Get model config
-    model_config = afconfig.model_config(model_type)
+    model_config = afconfig.model_config(model_type_to_config_name[model_type])
     if model_config.model.global_config.multimer_mode:
         model_config.model.num_ensemble_eval = num_ensemble
     else:
@@ -1295,7 +1303,7 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
     unrelaxed_pdbs_ = {}
     # Run the models.
     for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-        logger.info(f'Running JAX model {model_name}')
+        logger.info(f'Running JAX {model_name}')
         model_random_seed = model_index + random_seed*num_models
         processed_feature_dict = \
             model_runner.process_features(features, random_seed=model_random_seed)
