@@ -1127,6 +1127,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     #  Majority of time is spent indexing the 6D euler overlap arrays which should be quite easy to speed up given
     #  understanding of different computational efficiencies at this check
     # Get rotated oligomer1 ghost fragment, oligomer2 surface fragment guide coodinate pairs in the same Euler space
+    perturb_dof = job.dock.perturb_dof
     for idx1 in range(rotations_to_perform1):
         rot1_count = idx1%number_of_rotations1 + 1
         degen1_count = idx1//number_of_rotations1 + 1
@@ -1303,7 +1304,12 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 cluster_time_start = time.time()
                 translation_cluster = \
                     DBSCAN(eps=translation_cluster_epsilon, min_samples=min_matched).fit(transform_passing_shifts)
-                transform_passing_shifts = transform_passing_shifts[translation_cluster.labels_ != outlier]
+                if perturb_dof:  # Later will be sampled more finely, so
+                    # Get the core indices, i.e. the most dense translation regions only
+                    transform_passing_shift_indexer = translation_cluster.core_sample_indices_
+                else:  # Get any transform which isn't an outlier
+                    transform_passing_shift_indexer = translation_cluster.labels_ != outlier
+                transform_passing_shifts = transform_passing_shifts[transform_passing_shift_indexer]
                 cluster_time = time.time() - cluster_time_start
                 logger.debug(f'Clustering {pre_cluster_passing_shifts} possible transforms (took {cluster_time:8f}s)')
             # else:  # Use all translations
