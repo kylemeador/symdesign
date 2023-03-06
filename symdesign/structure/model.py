@@ -3181,7 +3181,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             to: str = 'ALA' - The type of amino acid to mutate to
             pdb: bool = False - Whether to pull the Residue by PDB number
         """
-        delete_indices = super().mutate_residue(**kwargs)  # residue=residue, number=number, to=to,
+        delete_indices = super().mutate_residue(**kwargs)  # residue=residue, index=index, number=number, to=to,
         if not delete_indices:  # Probably an empty list, there are no indices to delete
             return []
 
@@ -3192,24 +3192,27 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             residue_found = False
             # Iterate over each Structure in each structure_container
             for structure in self.__getattribute__(structure_type):
-                try:
-                    structure_atom_indices = structure.atom_indices
-                    atom_delete_index = structure_atom_indices.index(delete_indices[0])
-                except ValueError:  # When delete_indices[0] isn't in structure_atom_indices
-                    if residue_found:  # The Structure the Residue belongs to is already accounted for, just offset
-                        structure._offset_indices(start_at=0, offset=-delete_length)
-                        structure.reset_state()
+                if residue_found:  # The Structure the Residue belongs to is already accounted for, just offset
+                    structure._offset_indices(start_at=0, offset=-delete_length, dtype='atom')
+                    structure.reset_state()
                 else:
                     try:
-                        for idx in iter(delete_indices):
-                            structure_atom_indices.pop(atom_delete_index)
-                    except IndexError:  # When atom_delete_index isn't in structure_atom_indices
-                        structure._offset_indices(start_at=0, offset=-delete_indices.index(idx))
-                        # structure.reset_state()
+                        structure_atom_indices = structure.atom_indices
+                        atom_delete_index = structure_atom_indices.index(delete_indices[0])
+                    except ValueError:  # When delete_indices[0] isn't in structure_atom_indices
+                        pass  # Haven't reached the correct Structure yet
                     else:
-                        structure._offset_indices(start_at=atom_delete_index, offset=-delete_length)
-                        residue_found = True
-                    structure.reset_state()
+                        try:
+                            for idx in iter(delete_indices):
+                                structure_atom_indices.pop(atom_delete_index)
+                        except IndexError:  # When atom_delete_index isn't in structure_atom_indices
+                            raise IndexError(f"{self.mutate_residue.__name__}: The index {idx} isn't in the "
+                                             f'{self.__class__.__name__} {structure.name}')
+                            # structure._offset_indices(start_at=0, offset=-delete_indices.index(idx), dtype='atom')
+                        else:
+                            structure._offset_indices(start_at=atom_delete_index, offset=-delete_length, dtype='atom')
+                            residue_found = True
+                        structure.reset_state()
 
         return delete_indices
 
