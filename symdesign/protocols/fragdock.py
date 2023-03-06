@@ -581,34 +581,12 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         raise NotImplementedError('Make iterative saving more reliable. See output_pose()')
         trajectory_models = Models()
 
-    # Set up Building Block2
-    # Get Surface Fragments With Guide Coordinates Using COMPLETE Fragment Database
-    get_complete_surf_frags2_time_start = time.time()
-    surf_frags2 = \
-        model2.get_fragment_residues(residues=model2.surface_residues, fragment_db=job.fragment_db)
-
-    # Calculate the initial match type by finding the predominant surface type
-    surf_guide_coords2 = np.array([surf_frag.guide_coords for surf_frag in surf_frags2])
-    surf_residue_indices2 = np.array([surf_frag.index for surf_frag in surf_frags2])
-    surf_i_indices2 = np.array([surf_frag.i_type for surf_frag in surf_frags2])
-    fragment_content2 = np.bincount(surf_i_indices2)
-    initial_surf_type2 = np.argmax(fragment_content2)
-    init_surf_frag_indices2 = \
-        [idx for idx, surf_frag in enumerate(surf_frags2) if surf_frag.i_type == initial_surf_type2]
-    init_surf_guide_coords2 = surf_guide_coords2[init_surf_frag_indices2]
-    init_surf_residue_indices2 = surf_residue_indices2[init_surf_frag_indices2]
-    idx = 2
-    logger.debug(f'Found surface guide coordinates {idx} with shape {surf_guide_coords2.shape}')
-    logger.debug(f'Found surface residue numbers {idx} with shape {surf_residue_indices2.shape}')
-    logger.debug(f'Found surface indices {idx} with shape {surf_i_indices2.shape}')
-    logger.debug(f'Found {init_surf_residue_indices2.shape[0]} initial surface {idx} fragments with type: {initial_surf_type2}')
-
-    logger.info(f'Retrieved oligomer{idx}-{model2.name} surface fragments and guide coordinates took '
-                f'{time.time() - get_complete_surf_frags2_time_start:8f}s')
-
-    # logger.debug('init_surf_frag_indices2: %s' % slice_variable_for_log(init_surf_frag_indices2))
-    # logger.debug('init_surf_guide_coords2: %s' % slice_variable_for_log(init_surf_guide_coords2))
-    # logger.debug('init_surf_residue_indices2: %s' % slice_variable_for_log(init_surf_residue_indices2))
+    # Set up the TransformHasher to assist in scoring/pose output
+    radius1 = model1.distance_from_reference(measure='max')
+    radius2 = model2.distance_from_reference(measure='max')
+    # Assume the maximum distance the box could get is the radius of each plus the interface distance
+    box_width = radius1 + radius2 + cb_distance
+    model_transform_hasher = TransformHasher(box_width)
 
     # Set up Building Block1
     get_complete_surf_frags1_time_start = time.time()
@@ -637,6 +615,37 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
     logger.info(f'Retrieved oligomer{idx}-{model1.name} surface fragments and guide coordinates took '
                 f'{time.time() - get_complete_surf_frags1_time_start:8f}s')
+
+    #################################
+    # Set up Building Block2
+    # Get Surface Fragments With Guide Coordinates Using COMPLETE Fragment Database
+    get_complete_surf_frags2_time_start = time.time()
+    surf_frags2 = \
+        model2.get_fragment_residues(residues=model2.surface_residues, fragment_db=job.fragment_db)
+
+    # Calculate the initial match type by finding the predominant surface type
+    surf_guide_coords2 = np.array([surf_frag.guide_coords for surf_frag in surf_frags2])
+    surf_residue_indices2 = np.array([surf_frag.index for surf_frag in surf_frags2])
+    surf_i_indices2 = np.array([surf_frag.i_type for surf_frag in surf_frags2])
+    fragment_content2 = np.bincount(surf_i_indices2)
+    initial_surf_type2 = np.argmax(fragment_content2)
+    init_surf_frag_indices2 = \
+        [idx for idx, surf_frag in enumerate(surf_frags2) if surf_frag.i_type == initial_surf_type2]
+    init_surf_guide_coords2 = surf_guide_coords2[init_surf_frag_indices2]
+    init_surf_residue_indices2 = surf_residue_indices2[init_surf_frag_indices2]
+    idx = 2
+    logger.debug(f'Found surface guide coordinates {idx} with shape {surf_guide_coords2.shape}')
+    logger.debug(f'Found surface residue numbers {idx} with shape {surf_residue_indices2.shape}')
+    logger.debug(f'Found surface indices {idx} with shape {surf_i_indices2.shape}')
+    logger.debug(
+        f'Found {len(init_surf_residue_indices2)} initial surface {idx} fragments with type: {initial_surf_type2}')
+
+    logger.info(f'Retrieved oligomer{idx}-{model2.name} surface fragments and guide coordinates took '
+                f'{time.time() - get_complete_surf_frags2_time_start:8f}s')
+
+    # logger.debug('init_surf_frag_indices2: %s' % slice_variable_for_log(init_surf_frag_indices2))
+    # logger.debug('init_surf_guide_coords2: %s' % slice_variable_for_log(init_surf_guide_coords2))
+    # logger.debug('init_surf_residue_indices2: %s' % slice_variable_for_log(init_surf_residue_indices2))
 
     #################################
     # Get component 1 ghost fragments and associated data from complete fragment database
