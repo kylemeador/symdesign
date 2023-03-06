@@ -1929,6 +1929,40 @@ class PoseProtocol(PoseData):
             """
             return {score_type: [scores[score_type] for scores in _scores] for score_type in _scores[0].keys()}
 
+        def get_prev_pos_coords(sequence_: Iterable[str] = None, assembly: bool = False, entity: bool = False) \
+                -> jnp.ndarray:
+            """Using the PoseJob.pose instance, get coordinates compatible with AlphafoldInitialGuess
+
+            Args:
+                sequence_:
+                assembly:
+                entity:
+            Returns:
+                The alphafold formatted sequence coords in a JAX array
+            """
+            pose_copy = self.pose.copy()
+            # Choose which Structure to iterate over residues
+            if entity is not None:
+                structure = pose_copy.entity(entity)
+            else:
+                structure = pose_copy
+
+            if sequence_ is None:
+                # Make an all Alanine structure backbone as the prev_pos
+                for residue in structure.residues:
+                    pose_copy.mutate_residue(residue=residue, to='A')
+            else:
+                # Mutate to a 'lame' version of sequence/structure, removing any sidechain atoms not present
+                for residue, residue_type in zip(structure.residues, sequence_):
+                    pose_copy.mutate_residue(index=residue.index, to=residue_type)
+
+            if assembly:
+                af_coords = structure.assembly.alphafold_coords
+            else:  # if entity:
+                af_coords = structure.alphafold_coords
+
+            return jnp.asarray(af_coords)
+
         if self.job.predict.models_to_relax is not None:
             relaxed = True
         else:
@@ -1952,20 +1986,21 @@ class PoseProtocol(PoseData):
             features = self.pose.get_alphafold_features(symmetric=True, multimer=multimer, no_msa=no_msa)
             # Todo may need to this if the pose isn't completely symmetric despite it being specified as such
             number_of_residues = self.pose.number_of_symmetric_residues
-            assembly_atom_positions = jnp.asarray(self.pose.assembly.alphafold_coords)
+            # prev_position_coords = get_prev_pos_coords(assembly=True)  # jnp.asarra(self.pose.assembly.alphafold_coords)
             # protocol_logger.debug(f'Found assembly_atom_positions with shape: {assembly_atom_positions.shape}')
             # protocol_logger.debug(f'Found asu with length: {number_of_residues}')
             # protocol_logger.critical(f'Found assembly_atom_positions[0] with values: '
             #                          '{assembly_atom_positions[0].tolist()}')
-            model_features = {'prev_pos': assembly_atom_positions}
+            # model_features = {'prev_pos': get_prev_pos_coords(assembly=True)}
         else:
             number_of_residues = self.pose.number_of_residues
             features = self.pose.get_alphafold_features(symmetric=False, multimer=multimer, no_msa=no_msa)
-            asu_atom_positions = jnp.asarray(self.pose.alphafold_coords)
+
+            # prev_position_coords = get_prev_pos_coords()  # jnp.asarray(self.pose.alphafold_coords)
             # protocol_logger.debug(f'Found asu_atom_positions with shape: {asu_atom_positions.shape}')
             # protocol_logger.debug(f'Found asu with length: {number_of_residues}')
             # protocol_logger.critical(f'Found asu_atom_positions[0] with values: {asu_atom_positions[0].tolist()}')
-            model_features = {'prev_pos': asu_atom_positions}
+            # model_features = {'prev_pos': get_prev_pos_coords()}
 
         if multimer:  # Get the length
             multimer_sequence_length = features['seq_length']
@@ -1982,6 +2017,7 @@ class PoseProtocol(PoseData):
             this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
             protocol_logger.debug(f'Found this_seq_features:\n\t%s'
                                   % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
+            model_features = {'prev_pos': get_prev_pos_coords(sequence, assembly=self.job.predict.assembly)}
             protocol_logger.info(f'Predicting Design {design.name} structure')
             asu_structures, asu_scores = \
                 resources.ml.af_predict({**features, **this_seq_features, **model_features},
@@ -2115,6 +2151,7 @@ class PoseProtocol(PoseData):
                         get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
                     protocol_logger.debug(f'Found this_seq_features:\n\t%s'
                                           % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
+                    model_features = {'prev_pos': get_prev_pos_coords(sequence, entity=True)}
                     protocol_logger.info(f'Predicting Design {design.name} Entity {entity_name} structure')
                     entity_structures, entity_scores = \
                         resources.ml.af_predict({**features, **this_seq_features, **model_features}, model_runners)
