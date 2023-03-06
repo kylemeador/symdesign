@@ -1021,100 +1021,46 @@ from symdesign.third_party.alphafold.alphafold.model import features, model as a
 from . import monomer, multimer
 
 
-class RunModel:
-  """Container for JAX model."""
+class RunModel(afmodel.RunModel):
+    """Container for JAX model."""
 
-  def __init__(self,
-               config: ml_collections.ConfigDict,
-               params: Optional[Mapping[str, Mapping[str, jnp.ndarray]]] = None):
-    self.config = config
-    self.params = params
-    self.multimer_mode = config.model.global_config.multimer_mode
+    def __init__(self,
+                 config: ml_collections.ConfigDict,
+                 params: Optional[Mapping[str, Mapping[str, jnp.ndarray]]] = None):
+      self.config = config
+      self.params = params
+      self.multimer_mode = config.model.global_config.multimer_mode
+      # SYMDESIGN
+      self.parameter_map = {}
+      # SYMDESIGN
 
-    if self.multimer_mode:
-      def _forward_fn(batch):
-        # SYMDESIGN
-        model = multimer.AlphaFoldInitialGuess(self.config.model)
-        # SYMDESIGN
-        return model(
-            batch,
-            is_training=False)
-    else:
-      def _forward_fn(batch):
-        # SYMDESIGN
-        model = monomer.AlphaFoldInitialGuess(self.config.model)
-        # SYMDESIGN
-        return model(
-            batch,
-            is_training=False,
-            compute_loss=False,
-            ensemble_representations=True)
+      if self.multimer_mode:
+        def _forward_fn(batch):
+          # SYMDESIGN
+          model = multimer.AlphaFoldInitialGuess(self.config.model)
+          # SYMDESIGN
+          return model(
+              batch,
+              is_training=False)
+      else:
+        def _forward_fn(batch):
+          # SYMDESIGN
+          model = monomer.AlphaFoldInitialGuess(self.config.model)
+          # SYMDESIGN
+          return model(
+              batch,
+              is_training=False,
+              compute_loss=False,
+              ensemble_representations=True)
 
-    self.apply = jax.jit(hk.transform(_forward_fn).apply)
-    self.init = jax.jit(hk.transform(_forward_fn).init)
+      self.apply = jax.jit(hk.transform(_forward_fn).apply)
+      self.init = jax.jit(hk.transform(_forward_fn).init)
 
-  def init_params(self, feat: features.FeatureDict, random_seed: int = 0):
-    """Initializes the model parameters.
-
-    If none were provided when this class was instantiated then the parameters
-    are randomly initialized.
-
-    Args:
-      feat: A dictionary of NumPy feature arrays as output by
-        RunModel.process_features.
-      random_seed: A random seed to use to initialize the parameters if none
-        were set when this class was initialized.
-    """
-    if not self.params:
-      # Init params randomly.
-      rng = jax.random.PRNGKey(random_seed)
-      self.params = hk.data_structures.to_mutable_dict(
-          self.init(rng, feat))
-      logging.warning('Initialized parameters randomly')
-
-  def process_features(
-      self,
-      raw_features: Union[tf.train.Example, features.FeatureDict],
-      random_seed: int) -> features.FeatureDict:
-    """Processes features to prepare for feeding them into the model.
-
-    Args:
-      raw_features: The output of the data pipeline either as a dict of NumPy
-        arrays or as a tf.train.Example.
-      random_seed: The random seed to use when processing the features.
-
-    Returns:
-      A dict of NumPy feature arrays suitable for feeding into the model.
-    """
-
-    if self.multimer_mode:
-      return raw_features
-
-    # Single-chain mode.
-    if isinstance(raw_features, dict):
-      return features.np_example_to_features(
-          np_example=raw_features,
-          config=self.config,
-          random_seed=random_seed)
-    else:
-      return features.tf_example_to_features(
-          tf_example=raw_features,
-          config=self.config,
-          random_seed=random_seed)
-
-  def eval_shape(self, feat: features.FeatureDict) -> jax.ShapeDtypeStruct:
-    self.init_params(feat)
-    logging.info('Running eval_shape with shape(feat) = %s',
-                 tree.map_structure(lambda x: x.shape, feat))
-    shape = jax.eval_shape(self.apply, self.params, jax.random.PRNGKey(0), feat)
-    logging.info('Output shape was %s', shape)
-    return shape
-
-  def predict(self,
-              feat: features.FeatureDict,
-              random_seed: int,
-              ) -> Mapping[str, Any]:
-    """Makes a prediction by inferencing the model on the provided features.
+    def predict(self,
+                feat: features.FeatureDict,
+                random_seed: int,
+                ) -> Mapping[str, Any]:
+      """Makes a prediction by inferencing the model on the provided features.
 
     Args:
       feat: A dictionary of NumPy feature arrays as output by
@@ -1156,31 +1102,62 @@ def set_up_model_runners(model_type: af_model_literal = 'monomer', num_predictio
         development: Whether a smaller subset of models should be used for increased testing performance
     Returns:
         A dictionary of the model name to the RunModel instance for each 'model_type'/'num_predictions_per_model'
-        requested
+            requested
     """
-    model_runners = {}
-    model_names = afconfig.MODEL_PRESETS[model_type]  # FLAGS.model_preset]
-    for model_name in model_names:
-        if development and model_name != 'model_2_multimer_v3':
-            continue
-        model_config = afconfig.model_config(model_name)
-        if model_config.model.global_config.multimer_mode:
-            model_config.model.num_ensemble_eval = num_ensemble
-        else:
-            model_config.data.eval.num_ensemble = num_ensemble
-        model_params = afdata.get_model_haiku_params(model_name=model_name, data_dir=putils.alphafold_db_dir)
-        # This is using prev_pos init
-        model_runner = RunModel(model_config, model_params)
-        # This should be used if the prediction is not for a design and we have an msa
-        # model_runner = afmodel.RunModel(model_config, model_params)
+    # model_runners = {}
+    # model_names = afconfig.MODEL_PRESETS[model_type]
+    # for model_name in model_names:
+    #     if development and model_name != 'model_2_multimer_v3':
+    #         continue
+    #     model_config = afconfig.model_config(model_name)
+    #     if model_config.model.global_config.multimer_mode:
+    #         model_config.model.num_ensemble_eval = num_ensemble
+    #     else:
+    #         model_config.data.eval.num_ensemble = num_ensemble
+    #     model_params = afdata.get_model_haiku_params(model_name=model_name, data_dir=putils.alphafold_db_dir)
+    #     # This is using prev_pos init
+    #     model_runner = RunModel(model_config, model_params)
+    #     # This should be used if the prediction is not for a design and we have an msa
+    #     # model_runner = afmodel.RunModel(model_config, model_params)
+    #
+    #     for i in range(num_predictions_per_model):
+    #         model_runners[f'{model_name}_pred_{i}'] = model_runner
+    #
+    # num_models = len(model_runners)
+    # logger.info(f'Loaded {num_models} Alphafold models: {list(model_runners.keys())}')
+    #
+    # return model_runners
+
+    # This routine is used to store each separate model parameters on one RunModel
+    # Get model config
+    model_config = afconfig.model_config(model_type)
+    if model_config.model.global_config.multimer_mode:
+        model_config.model.num_ensemble_eval = num_ensemble
+    else:
+        model_config.data.eval.num_ensemble = num_ensemble
+    # Set up model params
+    model_params = {}
+    for model_name in afconfig.MODEL_PRESETS[model_type]:
+        model_param = afdata.get_model_haiku_params(model_name=model_name, data_dir=putils.alphafold_db_dir)
+        if 'model_1' in model_name:
+            # Using the config for model_1 as it is most similar to other models
+            #  model_1/2 includes template embeddings (monomer),
+            #  while multimer model_1 is fairly similar to 2-5
+            # RunModel is using prev_pos init
+            model_runner = RunModel(model_config, model_param)
+            # # ?? Not sure why this would be the case -> if the prediction is not for a design and there is an msa
+            # model_runner = afmodel.RunModel(model_config, model_params)
+            if development:
+                break
 
         for i in range(num_predictions_per_model):
-            model_runners[f'{model_name}_pred_{i}'] = model_runner
+            model_params[f'{model_name}_pred_{i}'] = model_param
 
-    num_models = len(model_runners)
-    logger.info(f'Loaded {num_models} Alphafold models: {list(model_runners.keys())}')
+    num_models = len(model_params)
+    logger.info(f'Loaded {num_models} Alphafold models: {", ".join(model_params)}')
 
-    return model_runners
+    model_runner.set_params(model_params)
+    return {model_param_name: model_runner for model_param_name in model_params}
 
 
 def amber_relax(prot: afprotein, gpu: bool = False):
@@ -1277,8 +1254,9 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
             model_runner.process_features(features, random_seed=model_random_seed)
 
         t_0 = time.time()
-        prediction_result = model_runner.predict(processed_feature_dict,
-                                                 random_seed=model_random_seed)
+        # prediction_result = model_runner.predict(processed_feature_dict, random_seed=model_random_seed)
+        prediction_result = \
+            model_runner.predict_with_params(model_name, processed_feature_dict, random_seed=model_random_seed)
         logger.info(f'Prediction took {time.time() - t_0:.1f}s')
         # if this is the first go in the model_runner, then f'(includes compilation time)' would be accurate
         # Monomer?
