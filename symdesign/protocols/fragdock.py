@@ -2847,7 +2847,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 residue_idx = parameters['residue_idx']
                 chain_encoding = parameters['chain_encoding']
                 unbound_batch = ml.proteinmpnn_to_device(
-                    device=device,
+                    device=mpnn_model.device,
                     **ml.batch_proteinmpnn_input(size=1, X_unbound=X_unbound, mask=mask,
                                                  residue_idx=residue_idx, chain_encoding=chain_encoding)
                 )
