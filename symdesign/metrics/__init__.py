@@ -1399,8 +1399,6 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filters: dict | bool = 
         df = pd.read_csv(df, index_col=0, header=[0, 1, 2])
         df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
 
-    logger.info(f'Number of starting designs: {len(df)}')
-
     if protocols is not None:
         raise NotImplementedError(f"Can't handle filtering by protocol yet. Fix upstream protocol inclusion in df")
         if isinstance(protocols, str):
@@ -1410,11 +1408,11 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filters: dict | bool = 
         try:
             protocol_df = df.loc[:, idx_slice[protocols, protocol_column_types, :]]
         except KeyError:
-            logger.warning(f'Protocol "{protocols}" was not found in the set of designs...')
+            logger.warning(f"Protocol(s) '{protocols}' weren't found in the set of designs...")
             available_protocols = df.columns.get_level_values(0).unique()
             while True:
-                protocols = input(f'What protocol would you like to choose?{describe_string}'
-                                 f'\nAvailable options are: {", ".join(available_protocols)}{input_string}')
+                protocols = input(f'What protocol would you like to choose?{describe_string}\n'
+                                  f'Available options are: {", ".join(available_protocols)}{input_string}')
                 if protocols in available_protocols:
                     protocols = [protocols]  # todo make multiple protocols available for input ^
                     break
@@ -1444,9 +1442,7 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filters: dict | bool = 
         else:  # --filter was provided, but as a boolean-esq dict. Query the user for them
             available_filters = simple_df.columns.to_list()
             filters = query_user_for_metrics(available_filters, df=simple_df, mode='filter', level='design')
-        # # Todo this formatting isn't correct with new stype. Move to filter_df_for_index_by_value()
-        # logger.info(f'Using filter parameters:\n%s' % '\n\t'.join(utils.pretty_format_table(filters.items())))
-
+        logger.info(f'Number of starting designs: {len(df)}')
         # When df is not ranked by percentage
         # _filters = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
         #             for metric, value in filters.items()}
