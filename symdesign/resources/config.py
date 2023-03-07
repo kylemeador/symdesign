@@ -585,44 +585,44 @@ metrics = {
              direction=max_, function=normalize, filter=True),
     'proteinmpnn_v_design_probability_cross_entropy_loss':
         dict(description='The total loss between the ProteinMPNN probabilities and the design profile probabilities',
-             direction=max, function=normalize, filter=True),
+             direction=max_, function=normalize, filter=True),
     'proteinmpnn_v_design_probability_cross_entropy_per_residue':
         dict(description='The per-designed residue cross entropy loss between the ProteinMPNN probabilities and the '
                          'design profile probabilities',
-             direction=max, function=normalize, filter=True),
+             direction=max_, function=normalize, filter=True),
     'proteinmpnn_v_evolution_probability_cross_entropy_loss':
         dict(description='The total loss between the ProteinMPNN probabilities and the evolution profile probabilities',
-             direction=max, function=normalize, filter=True),
+             direction=max_, function=normalize, filter=True),
     'proteinmpnn_v_evolution_probability_cross_entropy_per_residue':
         dict(description='The per-designed residue cross entropy loss between the ProteinMPNN probabilities and the '
                          'evolution profile probabilities',
-             direction=max, function=normalize, filter=True),
+             direction=max_, function=normalize, filter=True),
     'proteinmpnn_v_fragment_probability_cross_entropy_loss':
         dict(description='The total loss between the ProteinMPNN probabilities and the fragment profile probabilities',
-             direction=max, function=normalize, filter=True),
+             direction=max_, function=normalize, filter=True),
     'proteinmpnn_v_fragment_probability_cross_entropy_per_residue':
         dict(description='The per-designed residue cross entropy loss between the ProteinMPNN probabilities and the '
                          'fragment profile probabilities',
-             direction=max, function=normalize, filter=True),
+             direction=max_, function=normalize, filter=True),
     'proteinmpnn_score_delta':
         dict(description='The per-residue average complex-unbound ProteinMPNN score',
-             direction=max, function=normalize, filter=True),
+             direction=max_, function=normalize, filter=True),
     'proteinmpnn_score_complex':
         dict(description='The per-residue average complexed ProteinMPNN score',
-             direction=max, function=normalize, filter=True),
+             direction=max_, function=normalize, filter=True),
     'proteinmpnn_score_unbound':
         dict(description='The per-residue average unbound ProteinMPNN score',
-             direction=max, function=normalize, filter=True),
+             direction=max_, function=normalize, filter=True),
     'proteinmpnn_score_delta_per_designed_residue':
         dict(description='The difference between the average complexed and unbound proteinmpnn score for designed '
                          'residues',
-             direction=max, function=normalize, filter=True),
+             direction=max_, function=normalize, filter=True),
     'proteinmpnn_score_complex_per_designed_residue':
         dict(description='The average complexed proteinmpnn score for designed residues',
-             direction=max, function=normalize, filter=True),
+             direction=max_, function=normalize, filter=True),
     'proteinmpnn_score_unbound_per_designed_residue':
         dict(description='The average unbound proteinmpnn score for designed residues',
-             direction=max, function=normalize, filter=True),
+             direction=max_, function=normalize, filter=True),
     'proteinmpnn_loss_complex':
         dict(description='The magnitude of information missing from the sequence in the complexed state',
              direction=min_, function=normalize, filter=True),
