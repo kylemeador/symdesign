@@ -1180,7 +1180,11 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #     #     df = pd.concat([total_df], axis=1, keys=['pose', 'metric'])
 
     # Figure out designs from dataframe, filters, and weights
-    poses_df = load_sql_poses_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
+    total_df = load_sql_poses_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
+    if total_df.empty:
+        raise utils.MetricsError(
+            f"For the input PoseJobs, there aren't metrics collected. Use the '{flags.analysis}' module or perform some"
+            " design module before selection")
     designs_df = load_sql_designs_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
     # designs_df has a multiplicity of number_of_entities from DesignEntityMetrics table join
     pose_designs_mean_df = designs_df.groupby('pose_id').mean()
@@ -1323,6 +1327,10 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # designs_df = load_sql_designs_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
     # pose_designs_mean_df = designs_df.groupby('pose_id').mean()
     metrics_df = load_sql_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
+    if metrics_df.empty:
+        raise utils.MetricsError(
+            f"For the input PoseJobs, there aren't metrics collected. Use the '{flags.analysis}' module or perform some"
+            " design module before selection")
     if job.filter or job.protocol:
         df_multiplicity = len(pose_jobs[0].entity_data)**2
         logger.warning('Filtering statistics have an increased representation due to included Entity metrics. '
