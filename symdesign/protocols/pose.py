@@ -841,16 +841,19 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     def current_designs(self, designs: Iterable[str]):
         """Configure the current_designs"""
         if designs:
-            specific_design_data_instances = []
-            for design_name in designs:
-                for design in self.designs:
-                    if design.name == design_name:
-                        specific_design_data_instances.append(design)
-                        break
-                else:
-                    raise DesignError(f"Couldn't locate DesignData matching the name '{design_name}'")
-
-            self.current_designs = specific_design_data_instances
+            self._current_designs = []
+            for potential_design in designs:
+                if isinstance(potential_design, sql.DesignData):
+                    self._current_designs.append(potential_design)
+                elif isinstance(potential_design, str):
+                    for design in self.designs:
+                        if design.name == potential_design or design.id == potential_design:
+                            self._current_designs.append(design)
+                            break
+                    else:
+                        raise DesignError(
+                            f"Couldn't set self.current_designs as there was no {sql.DesignData.__class__.__name__} "
+                            f"matching the name '{potential_design}'")
 
     @property
     def structure_source(self) -> AnyStr:
