@@ -23,6 +23,7 @@ import pandas as pd
 from scipy.spatial.distance import pdist, cdist
 # import seaborn as sns
 import sklearn as skl
+from sqlalchemy import select
 # from sqlalchemy import select
 # from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import reconstructor
@@ -3706,8 +3707,8 @@ class PoseProtocol(PoseData):
     def analyze_proteinmpnn_metrics(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.array])\
             -> tuple[pd.DataFrame, pd.DataFrame]:
         #                      designs: Iterable[Pose] | Iterable[AnyStr] = None
-        """Takes the sequences_and_scores associated with ProteinMPNN including 'design_indices',
-        'proteinmpnn_loss_complex', and 'proteinmpnn_loss_unbound' to format summary metrics
+        """Takes the sequences/scores ProteinMPNN features including 'design_indices', 'proteinmpnn_loss_complex',
+        and 'proteinmpnn_loss_unbound' to format summary metrics. Performs sequence analysis with 'sequences' feature
 
         Args:
             design_ids: The associated design identifier for each corresponding entry in sequences_and_scores
@@ -3732,18 +3733,20 @@ class PoseProtocol(PoseData):
         # nan_blank_data = list(repeat(np.nan, pose_length))
 
         # Construct residues_df
-        proteinmpnn_data = {
-            'design_residue': sequences_and_scores['design_indices'],
-            'proteinmpnn_loss_complex': sequences_and_scores['proteinmpnn_loss_complex'],
-            'proteinmpnn_loss_unbound': sequences_and_scores['proteinmpnn_loss_unbound']
-        }
+        sequences = sequences_and_scores.pop('sequences')
+        sequences_and_scores['design_residue'] = sequences_and_scores.pop('design_indices')
+        # If sequences_and_scores gets any other keys in it this isn't explicity enough
+        # proteinmpnn_data = {
+        #     'design_residue': sequences_and_scores['design_indices'],
+        #     'proteinmpnn_loss_complex': sequences_and_scores['proteinmpnn_loss_complex'],
+        #     'proteinmpnn_loss_unbound': sequences_and_scores['proteinmpnn_loss_unbound']
+        # }
         proteinmpnn_residue_info_df = \
             pd.concat([pd.DataFrame(data, index=design_ids,
                                     columns=pd.MultiIndex.from_product([residue_indices, [metric]]))
-                       for metric, data in proteinmpnn_data.items()], axis=1)
+                       for metric, data in sequences_and_scores.items()], axis=1)
 
         # Incorporate residue, design, and sequence metrics on every designed Pose
-        sequences = sequences_and_scores['sequences']
         # Todo UPDATE These are now from a different collapse 'hydrophobicity' source, 'expanded'
         sequences_df = self.analyze_sequence_metrics_per_design(sequences=sequences, design_ids=design_ids)
         # Since no structure design completed, no residue_metrics is performed, but the pose source can be...
@@ -3851,7 +3854,7 @@ class PoseProtocol(PoseData):
 
         # analysis_start = time.time()
         designs_df, residues_df = self.analyze_proteinmpnn_metrics(design_ids, sequences_and_scores)
-        self.analyze_design_entities_per_residue(residues_df)
+        self.analyze_design_entities_per_residue(residues_df, design_ids)
         # self.log.debug(f"Took {time.time() - analysis_start:8f}s for analyze_proteinmpnn_metrics. "
         #                f"{time.time() - design_start:8f}s total")
         self.output_metrics(designs=designs_df, residues=residues_df)
