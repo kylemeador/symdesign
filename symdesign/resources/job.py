@@ -553,7 +553,7 @@ class JobResources:
             self.suffix = ''
 
         # Check if output already exists or --overwrite is provided
-        if self.module in [flags.select_designs, flags.select_sequences]:
+        if self.module in flags.select_modules:
             if self.prefix == '':
                 # self.location must not be None
                 self.prefix = f'{utils.starttime}_{os.path.basename(os.path.splitext(self.input_source)[0])}_'
@@ -572,8 +572,6 @@ class JobResources:
                          'your old data! Please specify a new name with with '
                          f'{flags.format_args(flags.output_directory_args)}, '
                          '--prefix or --suffix, or append --overwrite to your command')
-            else:
-                putils.make_path(output_directory)
             self.output_directory = output_directory
 
         self.output_file = kwargs.get(putils.output_file)
@@ -672,9 +670,9 @@ class JobResources:
 
     @property
     def output_to_directory(self) -> bool:
-        """Set so it is known that output is not typical putils.program_output directory structure"""
+        """Set to broadcast that output is not typical putils.program_output directory structure"""
         # self.output_to_directory: bool = True if self.output_directory else False
-        if self.module in [flags.select_designs, flags.select_sequences]:
+        if self.module in flags.select_modules:
             # Make this explicitly False so that selection doesn't copy extra files
             return False
         return True if self.output_directory else False

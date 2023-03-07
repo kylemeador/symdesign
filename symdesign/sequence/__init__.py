@@ -670,6 +670,8 @@ def create_mulitcistronic_sequences(args):
     else:
         args.prefix = f'{args.prefix}_'
 
+    # Format sequences for output
+    putils.make_path(job.output_directory)
     nucleotide_sequence_file = write_sequences(nucleotide_sequences, csv=args.csv,
                                                file_name=os.path.join(job.output_directory,
                                                                       'MulticistronicNucleotideSequences'))

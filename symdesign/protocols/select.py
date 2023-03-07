@@ -405,6 +405,10 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #                     'argument' % putils.program_output)
     #     exit()
 
+    # Format selected poses for output
+    putils.make_path(job.output_directory)
+    logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
+
     if job.save_total:
         total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
         total_df.to_csv(total_df_filename)
@@ -644,7 +648,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     logger.info(f'{len(save_poses_df)} Designs were selected')
     # Format selected sequences for output
     putils.make_path(job.output_directory)
-    logger.info(f'Relevant design files are being copied to the new directory: {job.output_directory}')
+    logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
 
     if job.save_total:
         total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
@@ -1256,6 +1260,10 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     save_poses_df['pose_identifier'] = save_poses_df['pose_id'].map(final_pose_id_to_identifier)
     save_poses_df.set_index('pose_identifier', inplace=True)
 
+    # Format selected poses for output
+    putils.make_path(job.output_directory)
+    logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
+
     if job.save_total:
         total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
         total_df.to_csv(total_df_filename)
@@ -1384,9 +1392,10 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         pass
 
     logger.info(f'{len(selected_pose_id_to_design_ids)} Poses were selected')
-    # Format selected sequences for output
+    # Format selected designs for output
     putils.make_path(job.output_directory)
-    logger.info(f'Relevant design files are being copied to the new directory: {job.output_directory}')
+    logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
+
     # Create new output of designed PDB's  # Todo attach the program state to these files for downstream use?
     pose_id_to_identifier = {}
     design_id_to_identifier = {}
@@ -1449,10 +1458,6 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     save_poses_df.set_index([('pose', 'pose_identifier'), ('pose', 'design_name')], inplace=True)
     save_poses_df.index.rename(['pose_identifier', 'design_name'], inplace=True)
     # print('AFTER set_index', save_poses_df)
-
-    # Format selected sequences for output
-    putils.make_path(job.output_directory)
-    logger.info(f'Relevant design files are being copied to the new directory: {job.output_directory}')
 
     if job.save_total:
         total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
