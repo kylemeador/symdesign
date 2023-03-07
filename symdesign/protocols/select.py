@@ -117,8 +117,8 @@ def load_sql_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None,
     em_c = [c for c in (*sql.EntityMetrics.__table__.columns, *entity_metadata_c,
                         *sql.DesignEntityMetrics.__table__.columns)
             if not c.primary_key]
-    # Remove design_id
-    em_c.pop(em_c.index(sql.DesignEntityMetrics.design_id.name))
+    # # Remove design_id
+    # em_c.pop(em_c.index(sql.DesignEntityMetrics.design_id.name))
     em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
     selected_columns = (*pm_c, *dm_c, *em_c)
     selected_column_names = (*pm_names, *dm_names, *em_names)
@@ -262,8 +262,8 @@ def load_sql_designs_dataframe(session: Session, pose_ids: Iterable[int] = None,
     dm_c = [c for c in sql.DesignMetrics.__table__.columns if not c.primary_key]
     dm_names = [c.name for c in dm_c]
     em_c = [c for c in sql.DesignEntityMetrics.__table__.columns if not c.primary_key]
-    # Remove design_id
-    em_c.pop(em_c.index(sql.DesignEntityMetrics.design_id.name))
+    # # Remove design_id
+    # em_c.pop(em_c.index(sql.DesignEntityMetrics.design_id.name))
     em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
     selected_columns = (*dd_c, *dm_c, *em_c)
     selected_column_names = (*dd_names, *dm_names, *em_names)
