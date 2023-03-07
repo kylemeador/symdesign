@@ -914,15 +914,23 @@ def get_docked_dirs_from_base(base: str) -> list[AnyStr]:
     return sorted(set(map(os.path.abspath, glob(f'{base}{f"{os.sep}*" * 4}{os.sep}'))))
 
 
-class InputError(Exception):
+class SymDesignException(Exception):
     pass
 
 
-class SymmetryInputError(Exception):
+class InputError(SymDesignException):
     pass
 
 
-class ReportException(Exception):
+class SymmetryInputError(SymDesignException):
+    pass
+
+
+class ReportException(SymDesignException):
+    pass
+
+
+class MetricsError(SymDesignException):
     pass
 
 

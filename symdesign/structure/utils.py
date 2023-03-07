@@ -23,7 +23,7 @@ def chain_id_generator() -> Generator[str, None, None]:
             list(getattr(available_letters, 'lower')()))
 
 
-class DesignError(Exception):
+class DesignError(utils.SymDesignException):
     pass
 
 
