@@ -1366,6 +1366,14 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 putils.make_path(self.frags_path)
                 self.pose.write_fragment_pairs(out_path=self.frags_path)
 
+        if self.job.output_interface:
+            interface_structure = self.pose.get_interface()
+            if self.job.output_to_directory:
+                interface_path = os.path.join(self.output_path, f'{self.name}_interface.pdb')
+            else:
+                interface_path = os.path.join(self.pose_directory, f'{self.name}_interface.pdb')
+            interface_structure.write(out_path=interface_path)
+
         if path:
             self.pose.write(out_path=path)
             self.log.info(f'Wrote Pose file to: "{path}"')

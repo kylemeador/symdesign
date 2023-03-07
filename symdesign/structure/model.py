@@ -7535,9 +7535,8 @@ class Pose(SymmetricModel, Metrics):
         Returns:
             The Structure containing only the Residues in the interface
         """
-        raise NotImplementedError('This function has not been properly converted to deal with non-symmetric poses')
-        # Get all interface residues
-        interface_residues = self.interface_residues
+        if not self.is_symmetric():
+            raise NotImplementedError('This function has not been properly converted to deal with non-symmetric poses')
 
         # interface_residues = []
         # interface_core_coords = []
@@ -7582,14 +7581,20 @@ class Pose(SymmetricModel, Metrics):
         #                                  for idx in interface_asu_structure.cb_indices])
         # print('Number sym CB INDICES:\n', len(symmetric_cb_indices))
         # From the interface core, find the mean position to seed clustering
-        # entities_asu_com = self.center_of_mass
+        entities_asu_com = self.center_of_mass
         # initial_interface_coords = self.return_symmetric_coords(entities_asu_com)
         initial_interface_coords = self.center_of_mass_symmetric_models
         # initial_interface_coords = self.return_symmetric_coords(np.array(interface_core_coords).mean(axis=0))
 
-        interface_asu_structure = \
-            Structure.from_residues(residues=sorted(interface_residues, key=lambda residue: residue.index))
-        symmetric_cb_indices = self.make_indices_symmetric(interface_asu_structure.cb_indices)
+        # Get all interface residues and sort to ensure the asu is ordered and entity breaks can be found
+        sorted_residues = sorted(self.interface_residues, key=lambda residue: residue.index)
+        interface_asu_structure = Structure.from_residues(residues=sorted_residues)  # , chains=False, entities=False)
+        # symmetric_cb_indices = self.make_indices_symmetric(interface_asu_structure.cb_indices)
+        number_of_models = self.number_of_symmetry_mates
+        coords_length = interface_asu_structure.number_of_atoms
+        jump_sizes = [coords_length * model_num for model_num in range(number_of_models)]
+        symmetric_cb_indices = [idx + jump_size for jump_size in jump_sizes
+                                for idx in interface_asu_structure.cb_indices]
         symmetric_interface_coords = self.return_symmetric_coords(interface_asu_structure.coords)
         # index_cluster_labels = KMeans(n_clusters=self.number_of_symmetry_mates).fit_predict(symmetric_interface_coords)
         # symmetric_interface_cb_coords = symmetric_interface_coords[symmetric_cb_indices]
@@ -7597,15 +7602,14 @@ class Pose(SymmetricModel, Metrics):
         # initial_cluster_indices = [interface_cb_indices[0] + (coords_length * model_number)
         #                            for model_number in range(self.number_of_symmetry_mates)]
         # Fit a KMeans model to the symmetric interface cb coords
-        number_of_models = self.number_of_symmetry_mates
-        kmeans_cluster_model: KMeans = \
+        kmeans_cluster_model = \
             KMeans(n_clusters=number_of_models, init=initial_interface_coords, n_init=1) \
             .fit(symmetric_interface_coords[symmetric_cb_indices])
         # kmeans_cluster_model = \
         #     KMeans(n_clusters=self.number_of_symmetry_mates, init=symmetric_interface_coords[initial_cluster_indices],
         #            n_init=1).fit(symmetric_interface_cb_coords)
         # Find the label where the asu is nearest too
-        asu_label = kmeans_cluster_model.predict(entities_asu_com[None, :])  # add new first axis
+        asu_label = kmeans_cluster_model.predict(entities_asu_com[None, :])  # <- add new first axis
         # asu_interface_labels = kmeans_cluster_model.predict(interface_asu_structure.cb_coords)
 
         # closest_interface_indices = np.where(index_cluster_labels == 0, True, False)
@@ -7623,23 +7627,59 @@ class Pose(SymmetricModel, Metrics):
         # interface_asu_structure.coords_indexed_residues
         # find the model indices of the closest interface asu
         # print('Normal sym CB INDICES\n:', closest_asu_sym_cb_indices)
-        flat_sym_model_indices = closest_asu_sym_cb_indices.reshape((number_of_models, -1)).sum(axis=0)
-        # print('FLATTENED CB INDICES to get MODEL\n:', flat_sym_model_indices)
-        coords_length = interface_asu_structure.number_of_atoms
-        symmetric_model_indices = flat_sym_model_indices // coords_length
-        # print('FLOORED sym CB INDICES to get MODEL\n:', symmetric_model_indices)
+
+        # Create an array where each model is along axis=0 and each cb_index is along axis=1
+        # The values in the array correspond to the symmetric cb_index if the cb_index is in the ASU
+        # or 0 if the index isn't in the ASU
+        # In this example the numbers aren't actually cb atom indices, they are cb residue indices...
+        # [[ 0,  0, 2, 3, 4,  0, ...],
+        #  [10,  0, 0, 0, 0,  0, ...],
+        #  [ 0, 21, 0, 0, 0, 25, ...]].sum(axis=0) ->
+        # [ 10, 21, 2, 3, 4, 25, ...]
+        sym_cb_index_per_cb = closest_asu_sym_cb_indices.reshape((number_of_models, -1)).sum(axis=0)
+        # print('FLATTENED CB INDICES to get MODEL\n:', sym_cb_index_per_cb)
+        # Now divide that array by the number of atoms to get the model index
+        sym_model_indices_per_cb = list(sym_cb_index_per_cb // coords_length)
+        # print('FLOORED sym CB INDICES to get MODEL\n:', sym_model_indices_per_cb)
         symmetry_mate_index_symmetric_coords = symmetric_interface_coords.reshape((number_of_models, -1, 3))
         # print('RESHAPED SYMMETRIC COORDS SHAPE:', symmetry_mate_index_symmetric_coords.shape,
         #       '\nCOORDS length:', coords_length)
+        # Get the cb coords from the symmetric coords that correspond to the asu indices
         closest_interface_coords = \
-            np.concatenate([symmetry_mate_index_symmetric_coords[symmetric_model_indices[idx]][residue.atom_indices]
-                            for idx, residue in enumerate(interface_asu_structure.residues)])
+            np.concatenate([symmetry_mate_index_symmetric_coords[model_idx, residue.atom_indices]
+                            for model_idx, residue in zip(sym_model_indices_per_cb, interface_asu_structure.residues)])
         # closest_symmetric_coords = \
         #     np.where(index_cluster_labels[:, None] == asu_index, symmetric_interface_coords, np.array([0.0, 0.0, 0.0]))
         # closest_interface_coords = \
         #     closest_symmetric_coords.reshape((self.number_of_symmetry_mates, interface_coords.shape[0], -1)).sum(axis=0)
 
         interface_asu_structure.coords = closest_interface_coords
+
+        # Correct structure attributes
+        # Get the new indices where there are different Entity instances
+        entity_breaks = iter(self.entity_breaks)
+        next_entity_break = next(entity_breaks)
+        interface_residue_entity_breaks = []  # 0]
+        for idx, residue in enumerate(sorted_residues):
+            if residue.index > next_entity_break:
+                interface_residue_entity_breaks.append(idx)
+                try:
+                    next_entity_break = next(entity_breaks)
+                except StopIteration:
+                    raise StopIteration(f'Reached the end of self.entity_breaks before sorted_residues ran out')
+        else:  # Add the final idx
+            interface_residue_entity_breaks.append(idx + 1)
+
+        # For each residue, rename the chain_id according to the model it belongs to
+        number_entities = self.number_of_entities
+        model_chain_ids = list(chain_id_generator())[:number_of_models * number_entities]
+        entity_idx = 0
+        next_interface_asu_entity_break = interface_residue_entity_breaks[entity_idx]
+        for model_idx, residue in zip(sym_model_indices_per_cb, interface_asu_structure.residues):
+            if residue.index >= next_interface_asu_entity_break:  # Increment the entity_idx
+                entity_idx += 1
+                next_interface_asu_entity_break = interface_residue_entity_breaks[entity_idx]
+            residue.chain_id = model_chain_ids[(model_idx * number_entities) + entity_idx]
 
         return interface_asu_structure
 
