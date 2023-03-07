@@ -22,7 +22,6 @@ from symdesign.resources.query.utils import input_string, boolean_choice, valida
 from symdesign.structure.model import Model
 from symdesign.sequence import optimize_protein_sequence, write_sequences, expression, find_orf_offset, \
     generate_mutations, protein_letters_alph1
-from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 
 logger = logging.getLogger(__name__)
 
@@ -445,10 +444,10 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         logger.info(f'Selected {len(final_poses)} poses after clustering')
     else:  # Try to generate the cluster_map?
         # raise utils.InputError(f'No --{flags.cluster_map} was provided. To cluster poses, specify:'
-        logger.info(f'No {flags.cluster_map} was provided. To cluster poses, specify:'
+        logger.info(f'No {flags.cluster_map} was provided. To {flags.cluster_poses}, specify:'
                     f'"{putils.program_command} {flags.cluster_poses}" or '
                     f'"{putils.program_command} {flags.protocol} '
-                    f'--{flags.modules} {flags.cluster_poses} {flags.select_poses}')
+                    f'--{flags.modules} {flags.cluster_poses} {flags.select_poses}"')
         logger.info('Grabbing all selected poses')
         final_poses = selected_poses
         # cluster_map: dict[str | PoseJob, list[str | PoseJob]] = {}
@@ -699,6 +698,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
     Returns:
         The matching PoseJob instances
     """
+    from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
     job = job_resources_factory.get()
     results = designs(pose_jobs)
     # Set up output_file pose_jobs for __main__.terminate()
@@ -1227,7 +1227,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         logger.info(f'No {flags.cluster_map} was provided. To {flags.cluster_poses}, specify:'
                     f'"{putils.program_command} {flags.cluster_poses}" or '
                     f'"{putils.program_command} {flags.protocol} '
-                    f'--{flags.modules} {flags.cluster_poses} {flags.select_poses}')
+                    f'--{flags.modules} {flags.cluster_poses} {flags.select_poses}"')
         logger.info('Grabbing all selected poses')
         final_poses = selected_poses
 
@@ -1235,7 +1235,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         final_poses = final_poses[:job.select_number]
         logger.info(f'Found {len(final_poses)} Poses after applying your select-number criteria')
 
-        final_pose_id_to_identifier = {pose_job.id: pose_job.pose_identifier for pose_job in final_poses}
+    final_pose_id_to_identifier = {pose_job.id: pose_job.pose_identifier for pose_job in final_poses}
 
     # Format selected PoseJob with metrics for output
     # save_poses_df = format_save_df(session, selected_pose_ids, pose_designs_mean_df)
@@ -1323,7 +1323,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # designs_df = load_sql_designs_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
     # pose_designs_mean_df = designs_df.groupby('pose_id').mean()
     metrics_df = load_sql_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
-    if job.filter:
+    if job.filter or job.protocol:
         df_multiplicity = len(pose_jobs[0].entity_data)**2
         logger.warning('Filtering statistics have an increased representation due to included Entity metrics. '
                        f'Typically, values reported for each filter will be ~{df_multiplicity}x over those actually '
@@ -1463,6 +1463,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
     Returns:
         The matching PoseJob instances
     """
+    from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
     job = job_resources_factory.get()
     results = sql_designs(pose_jobs)
     # Set up output_file pose_jobs for __main__.terminate()
