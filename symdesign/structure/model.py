@@ -6666,7 +6666,8 @@ class Pose(SymmetricModel, Metrics):
             return torch.from_numpy(decode_order).to(dtype=torch.float32, device=to_device)
 
     @torch.no_grad()  # Ensure no gradients are produced
-    def score(self, sequences: np.array, method: flags.design_programs_literal = putils.proteinmpnn,
+    def score(self, sequences: Sequence[str] | Sequence[Sequence[str]] | np.array,
+              method: flags.design_programs_literal = putils.proteinmpnn,
               measure_unbound: bool = True, ca_only: bool = False, **kwargs) -> dict[str, np.ndarray]:
         """Perform sequence design on the Pose
 
@@ -6687,12 +6688,13 @@ class Pose(SymmetricModel, Metrics):
             decode_core_first: bool = False - Whether to decode identified fragments (constituting the protein core)
                 first
         Returns:
-            A mapping of the design score type to the per-residue output data which is a ndarray with shape
+            A mapping of the design score type name to the per-residue output data which is a ndarray with shape
             (number of sequences, pose_length).
-            For proteinmpnn, this is the score string mapped to the corresponding
-            'sequences', 'numeric_sequences', 'proteinmpnn_loss_complex', and 'proteinmpnn_loss_unbound' score types
+            For proteinmpnn,
+            these are the outputs 'sequences', 'numeric_sequences', 'proteinmpnn_loss_complex', and
+            'proteinmpnn_loss_unbound' mapped to their corresponding arrays with dat types as
 
-            For rosetta, this function is not implemented
+            For rosetta, this function isn't implemented
         """
         if method == putils.rosetta_str:
             sequences_and_scores = {}
@@ -6719,8 +6721,9 @@ class Pose(SymmetricModel, Metrics):
                     # print(item_type)
                     if final_level == 1:
                         if item_type is str:
-                            sequences_ = sequences_to_numeric(sequences,
-                                                              translation_table=ml.proteinmpnn_default_translation_table)
+                            sequences_ = \
+                                sequences_to_numeric(sequences,
+                                                     translation_table=ml.proteinmpnn_default_translation_table)
                         else:
                             raise incorrect_input
                     elif final_level == 2:
@@ -6728,8 +6731,9 @@ class Pose(SymmetricModel, Metrics):
                             for idx, sequence in enumerate(sequences_):
                                 sequences[idx] = ''.join(sequence)
 
-                            sequences_ = sequences_to_numeric(sequences,
-                                                              translation_table=ml.proteinmpnn_default_translation_table)
+                            sequences_ = \
+                                sequences_to_numeric(sequences,
+                                                     translation_table=ml.proteinmpnn_default_translation_table)
                         else:
                             self.log.warning(warn_alphabet.format('int'))
                             sequences_ = np.array(sequences_)
@@ -6743,6 +6747,7 @@ class Pose(SymmetricModel, Metrics):
                     # This is an integer sequence. An alphabet is required
                     self.log.warning(warn_alphabet.format(sequences.dtype))
                     numeric_sequences = sequences
+                    sequences = numeric_to_sequence(sequences)
                     # raise ValueError(missing_alphabet)
                 else:  # This is an AnyStr type?
                     numeric_sequences = sequences_to_numeric(sequences)
@@ -6866,12 +6871,14 @@ class Pose(SymmetricModel, Metrics):
                 first
         Returns:
             A mapping of the design score type to the per-residue output data which is a ndarray with shape
-            (number*temperatures, pose_length). For proteinmpnn, this is the score string mapped to the corresponding
-            'sequences', 'numeric_sequences', 'proteinmpnn_loss_complex', 'proteinmpnn_loss_unbound', and
-            'design_indices'. For each return array, the return varies such as: [temp1/number1, temp1/number2, ...,
+            (number*temperatures, pose_length).
+            For proteinmpnn,
+            these are the outputs 'sequences', 'numeric_sequences', 'design_indices', 'proteinmpnn_loss_complex', and
+            'proteinmpnn_loss_unbound' mapped to their corresponding score types. For each return array, the return
+            varies such as: [temp1/number1, temp1/number2, ...,
             tempN/number1, ...] where designs are sorted by temperature
 
-            For rosetta, this function is not implemented
+            For rosetta, this function isn't implemented
         """
         # rosetta: Whether to design using Rosetta energy functions
         if method == putils.rosetta_str:
