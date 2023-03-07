@@ -2608,7 +2608,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
 
     @property
     def _key(self) -> tuple[int, int, str]:
-        return self._start_index, self.number_of_atoms, self.type
+        return self._index, self._start_index, self.type  # self.entity_id
 
     def __eq__(self, other: Residue) -> bool:
         if isinstance(other, Residue):
@@ -2648,8 +2648,8 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         # self.type, self.alt_location, self.code_for_insertion, self.occupancy, self.b_factor,
         #                     self.element, self.charge)
         # res_str = self.residue_string(**kwargs)
-        res_str = format(self.type, '3s'), format(chain_id or self.chain_id, '>2s'), \
-            format(getattr(self, f'number{"_pdb" if pdb else ""}'), '4d')
+        res_str = format(self.type, '3s'), format(chain_id or self.chain_id, '>2s'), format(self.number, '4d')
+            # format(getattr(self, f'number{"_pdb" if pdb else ""}'), '4d')
         # Add 1 to make index one-indexed
         offset = 1 + atom_offset
         # Limit atom_index with atom_index_slice to keep ATOM record correct length v

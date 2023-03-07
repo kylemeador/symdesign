@@ -1749,6 +1749,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         Keyword Args:
             asu: bool = True - Whether to output SEQRES for the Entity ASU or the full oligomer
             chain_id: str = None - The chain ID to use
+            atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed.
+                Not used if asu=True
         Returns:
             The name of the written file if out_path is used
         """
@@ -1756,6 +1758,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         def entity_write(handle):
             if oligomer:
+                kwargs.pop('atom_offset', None)
                 offset = 0
                 for chain in self.chains:
                     handle.write(f'{chain.get_atom_record(atom_offset=offset, **kwargs)}\n')
@@ -6251,9 +6254,12 @@ class Pose(SymmetricModel, Metrics):
             if not self.interface_residues_by_interface:
                 self.find_and_split_interface()
 
-            self._interface_residues = []
-            for number, residues in self.interface_residues_by_interface.items():
-                self._interface_residues.extend(residues)
+            _interface_residues = []
+            # for number, residues in self.interface_residues_by_interface.items():
+            for entity_pair, residues_by_entity in self.interface_residues_by_entity_pair.items():
+                for residues in residues_by_entity:
+                    _interface_residues.extend(residues)
+            self._interface_residues = sorted(set(_interface_residues), key=lambda residue: residue.index)
             return self._interface_residues
 
     @property
