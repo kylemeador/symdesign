@@ -5165,9 +5165,20 @@ class PoseProtocol(PoseData):
         # logger.debug([pd.DataFrame(data) for data in entity_designs.values()])
         if design_ids is None:
             design_ids = [design.id for design in self.current_designs]
-        # logger.debug(f'Found the design ids: {design_ids}')
-        entity_designs_df = pd.concat([pd.DataFrame(data) for data in entity_designs.values()], keys=design_ids)
-        entity_designs_df.index = entity_designs_df.index.rename(['design_id', 'entity_id'])
+            # logger.debug(f'Found the design ids: {design_ids}')
+
+        entity_designs_df = pd.concat([pd.DataFrame(data) for data in entity_designs.values()],
+                                      keys=entity_designs.keys())
+        entity_designs_df.index = entity_designs_df.index.set_levels(design_ids, level=-1)
+        # entity_designs_df = pd.concat([pd.DataFrame(data) for data in entity_designs.values()])
+        # design_name_to_id_map = dict(zip(entity_designs_df.index.get_level_values(-1), design_ids))
+        # # mapped_index = entity_designs_df.index.map(design_name_to_id_map)
+        # entity_designs_df.index = \
+        #     pd.MultiIndex.from_tuples(zip(entity_designs.keys(),
+        #                                   entity_designs_df.index.map(design_name_to_id_map).tolist()))
+        # input(entity_designs_df)
+        entity_designs_df.index = entity_designs_df.index.rename([sql.DesignEntityMetrics.entity_id.name,
+                                                                  sql.DesignEntityMetrics.design_id.name])
         # entity_designs_df.reset_index(level=-1, inplace=True)
         metrics.sql.write_dataframe(self.job.current_session, entity_designs=entity_designs_df)
 
