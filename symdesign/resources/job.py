@@ -587,18 +587,19 @@ class JobResources:
         else:
             self.output_assembly: bool = kwargs.get(putils.output_assembly)
         self.output_surrounding_uc: bool = kwargs.get(putils.output_surrounding_uc)
-        self.write_fragments: bool = kwargs.get(putils.output_fragments)
-        self.write_oligomers: bool = kwargs.get(putils.output_oligomers)
-        self.write_structures: bool = kwargs.get(putils.output_structures)
-        self.write_trajectory: bool = kwargs.get(putils.output_trajectory)
+        self.output_fragments: bool = kwargs.get(putils.output_fragments)
+        self.output_interface: bool = kwargs.get(putils.output_interface)
+        self.output_oligomers: bool = kwargs.get(putils.output_oligomers)
+        self.output_structures: bool = kwargs.get(putils.output_structures)
+        self.output_trajectory: bool = kwargs.get(putils.output_trajectory)
 
         self.skip_logging: bool = kwargs.get(putils.skip_logging)
         self.merge: bool = kwargs.get('merge')
         self.save: bool = kwargs.get('save')
         self.figures: bool = kwargs.get('figures')
 
-        if self.write_structures or self.output_assembly or self.output_surrounding_uc or self.write_fragments \
-                or self.write_oligomers or self.write_trajectory:
+        if self.output_structures or self.output_assembly or self.output_surrounding_uc or self.output_fragments \
+                or self.output_oligomers or self.output_trajectory:
             self.output: bool = True
         else:
             self.output: bool = False
@@ -739,7 +740,7 @@ class JobResources:
         if self._construct_pose:
             pass
         else:  # No construction specific flags
-            self.write_fragments = self.write_oligomers = False
+            self.output_fragments = self.output_oligomers = False
 
     # Todo make part of modules.setter routine
     def check_protocol_module_arguments(self):

@@ -576,7 +576,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     project = f'{entry_string}_{project}'
     project_dir = os.path.join(job.projects, project)
     putils.make_path(project_dir)
-    if job.write_trajectory:
+    if job.output_trajectory:
         # Create a Models instance to collect each model
         raise NotImplementedError('Make iterative saving more reliable. See output_pose()')
         trajectory_models = Models()
@@ -3990,7 +3990,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 add_fragments_to_pose()  # <- here generating fragments fresh
 
                 if job.output:
-                    if job.write_trajectory:
+                    if job.output_trajectory:
                         if idx % 2 == 0:
                             new_pose = pose.copy()
                             # new_pose = pose.models[0]copy()
@@ -4119,7 +4119,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                     f'Wrote cluster map to {job.cluster.map}')
 
         # Write trajectory if specified
-        if job.write_trajectory:
+        if job.output_trajectory:
             if sym_entry.unit_cell:
                 logger.warning('No unit cell dimensions applicable to the trajectory file.')
 

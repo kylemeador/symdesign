@@ -752,7 +752,7 @@ def main():
             raise utils.InputError(
                 f'When running {flags.nanohedra}, the argument {flags.format_args(flags.sym_entry_args)} is required')
     elif job.module == flags.generate_fragments:  # Ensure we write fragments out
-        job.write_fragments = True
+        job.output_fragments = True
     # elif job.module == flags.interface_design:
     else:
         pass
@@ -896,7 +896,7 @@ def main():
             #  where an Entity is composed of multiple Entity (Chain) instances
             #  This helps with the grouping by input model... not entities such as in Nanohedra pose.output_pose()
             #  # Write Model1, Model2
-            #  if job.write_oligomers:
+            #  if job.output_oligomers:
             #      for entity in pose.entities:
             #          entity.write(oligomer=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))
             #  Which should be

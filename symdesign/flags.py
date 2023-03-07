@@ -22,7 +22,7 @@ from symdesign.utils.path import submodule_guide, submodule_help, force, sym_ent
     interface_metrics, nano_entity_flag1, nano_entity_flag2, data, multi_processing, residue_selector, options, \
     cluster_poses, orient, default_clustered_pose_file, interface_design, evolution_constraint, hbnet, term_constraint,\
     design_number, refine, structure_background, scout, design_profile, evolutionary_profile, \
-    fragment_profile, select_sequences, program_name, nanohedra, predict_structure, \
+    fragment_profile, select_sequences, program_name, nanohedra, predict_structure, output_interface, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, proteinmpnn, \
     output_trajectory, development, consensus, ca_only, sequences, structures, temperatures, optimize_species,\
@@ -229,6 +229,7 @@ output_trajectory = format_for_cmdline(output_trajectory)
 output_directory = format_for_cmdline(output_directory)
 output_file = format_for_cmdline(output_file)
 output_surrounding_uc = format_for_cmdline(output_surrounding_uc)
+output_interface = format_for_cmdline(output_interface)
 ignore_clashes = format_for_cmdline(ignore_clashes)
 ignore_pose_clashes = format_for_cmdline(ignore_pose_clashes)
 ignore_symmetric_clashes = format_for_cmdline(ignore_symmetric_clashes)
@@ -1360,12 +1361,13 @@ output_arguments = {
                   'generated based on the time, input, and module'),
     output_file_args: dict(type=str, help='If provided, the name of the output pose file.\nOtherwise, one will be '
                                           'generated based on the time, input, and module'),
-    ('-OF', f'--{output_fragments}'):
+    ('-Of', f'--{output_fragments}'):
+        dict(action=argparse.BooleanOptionalAction, default=False, help='Write any fragments generated for each Pose'),
+    ('-Oi', f'--{output_interface}'):
         dict(action=argparse.BooleanOptionalAction, default=False,
-             help='For any fragments generated, write them along with the Pose'),
+             help='Write the residues that comprise the interface for each Pose'),
     ('-Oo', f'--{output_oligomers}'):
-        dict(action=argparse.BooleanOptionalAction, default=False,
-             help='For any oligomers generated, write them along with the Pose'),
+        dict(action=argparse.BooleanOptionalAction, default=False, help='Write any oligomers generated for each Pose'),
     ('-Os', f'--{output_structures}'):
         dict(action=argparse.BooleanOptionalAction, default=True,
              help=f'For any structures generated, write them.\n{boolean_positional_prevent_msg(output_structures)}'),
