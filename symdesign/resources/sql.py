@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from itertools import combinations
 from typing import Any
 
 import numpy as np
@@ -10,7 +9,7 @@ from scipy.spatial.transform import Rotation
 from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, select, UniqueConstraint
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.orderinglist import ordering_list
-from sqlalchemy.orm import declarative_base, relationship, Session, column_property
+from sqlalchemy.orm import column_property, declarative_base, relationship, Session
 # from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, declarative_base  # Todo sqlalchemy 2.0
 # from sqlalchemy import create_engine
 # from sqlalchemy.dialects.sqlite import insert
@@ -30,6 +29,17 @@ class _Base:
     def next_key(self, session: Session) -> int:
         stmt = select(self).order_by(self.id.desc()).limit(1)
         return session.scalars(stmt).first() + 1
+
+    # @property
+    @classmethod
+    def numeric_columns(cls) -> list[Column]:
+        """Return all the columns that contain numeric data"""
+        # for column in cls.__table__.columns:
+        #     # print(type(column.type))
+        #     if isinstance(column.type, (Integer, Float)):
+        #         print(True)
+
+        return [column for column in cls.__table__.columns if isinstance(column.type, (Integer, Float))]
 
     @property
     def _key(self) -> str:
