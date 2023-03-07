@@ -1602,7 +1602,6 @@ class ContainsAtomsMixin(StructureBase, ABC):
             file_handle: Used to write Structure details to an open FileObject
             header: A string that is desired at the top of the file
         Keyword Args
-            pdb: bool = False - Whether the Residue representation should use the number at file parsing
             chain_id: str = None - The chain ID to use
             atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed
         Returns:
@@ -1831,7 +1830,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         for atom, index in zip(self._atoms.atoms[self._atom_indices].tolist(), self._atom_indices):
             atom.index = index
         # Clear all the indices attributes for this Residue
-        self.reset_indices()  # Todo remove this
+        self.reset_indices()
 
     @property
     def range(self) -> list[int]:
@@ -1890,7 +1889,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                 self._n_index = idx
                 try:  # To see if the residue has a number attribute already
                     self.number
-                except AttributeError:  # This is the first set up. Add information from the N atom
+                except AttributeError:  # This is the first set-up. Add information from the N atom
                     self.chain_id = atom.chain_id
                     self.number = atom.residue_number
                     self.number_pdb = atom.pdb_residue_number
@@ -4064,6 +4063,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             return []
         else:
             # Clear all state variables for all Residue instances
+            # Todo create mutate_residues() and only call this once...
+            #  It is redundant with start_index.setter in _residues.reindex_atoms()
             self._residues.reset_state()
             # residue.side_chain_indices = []
 
