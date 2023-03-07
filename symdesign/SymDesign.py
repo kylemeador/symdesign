@@ -1074,8 +1074,9 @@ def main():
                     # Todo no --file and --specification-file at the same time
                     # These poses are already included in the "program state"
                     if not args.directory:  # Todo react .directory to program operation inside or in dir with SymDesignOutput
-                        raise utils.InputError(f'A --{flags.directory} must be provided when using '
-                                               f'--{flags.specification_file}')
+                        raise utils.InputError(
+                            f'A --{flags.format_args(flags.directory_args)} must be provided when using '
+                            f'{flags.format_args(flags.specification_file_args)}')
                     # Todo, combine this with collect_designs
                     #  this works for file locations as well! should I have a separate mechanism for each?
                     if args.poses:

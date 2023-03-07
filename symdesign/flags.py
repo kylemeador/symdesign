@@ -390,14 +390,13 @@ operator_strings = {
 
 def parse_weights(weights: list[str] = None, file: AnyStr = None) \
         -> dict[str, list[tuple[Callable, Callable, dict, Any]]]:
-    """
+    """Given a command line specified set of metrics and values, parse into weights to select DataFrames accordingly
 
     Args:
-        weights:
-        file:
-
+        weights: The command line collected weight arguments as specified in the weights --help
+        file: The path to a file specifying weights in JSON as specified in the weights --help
     Returns:
-
+        The parsed metric mapping linking each metric to a specified operation
     """
     parsed_weights = parse_filters(weights, file=file)
     # Ensure proper formatting of weight specific parameters
@@ -417,13 +416,13 @@ def parse_weights(weights: list[str] = None, file: AnyStr = None) \
 
 def parse_filters(filters: list[str] = None, file: AnyStr = None) \
         -> dict[str, list[tuple[Callable, Callable, dict, Any]]]:
-    """Given a command line specified set of metrics and values, parse into filters to sort Pose DataFrames accordingly
+    """Given a command line specified set of metrics and values, parse into filters to select DataFrames accordingly
 
     Args:
         filters: The command line collected filter arguments as specified in the filters --help
         file: The path to a file specifying filters in JSON as specified in the filters --help
     Returns:
-        The parsed filter mapping linking each metric to a specified filtering operation
+        The parsed metric mapping linking each metric to a specified operation
     """
     def null(df, **_kwargs):
         """Do nothing and return a passed DataFrame"""
@@ -1287,6 +1286,7 @@ parser_input_group = dict(title=f'{"_" * len(input_title)}\n{input_title}',
 load_to_db_args = (f'--{load_to_db}',)
 load_to_db_kwargs = dict(action='store_true',
                          help=f'Use this input flag to load files existing in a {putils.program_output} to the DB')
+specification_file_args = ('-sf', f'--{specification_file}')
 input_arguments = {
     cluster_map_args: cluster_map_kwargs,
     ('-df', f'--{dataframe}'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
@@ -1316,7 +1316,7 @@ input_arguments = {
                                  'Specify a %% between 0 and 100, separating the range by "-"\n'
                                  # Required ^ for formatting
                                  'Ex: 0-25'),
-    ('-sf', f'--{specification_file}'):
+    specification_file_args:
         dict(type=os.path.abspath, nargs='*', metavar=ex_path('pose_design_specifications.csv'),
              help='Name of comma separated file with each line formatted:\n'
                   # 'poseID, [designID], [1:directive 2-9:directive ...]\n'
@@ -1325,23 +1325,25 @@ input_arguments = {
                   'numbers and ranges (specified with "-") are possible indicators')
 }
 # parser_input_mutual = parser_input.add_mutually_exclusive_group()
+directory_args = ('-d', f'--{directory}')
+file_args = ('-f', '--file')
+project_args = ('-p', '--project')
+single_args = ('-s', '--single')
 parser_input_mutual_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
 input_mutual_arguments = {
-    ('-d', f'--{directory}'): dict(type=os.path.abspath, metavar=ex_path('your_pdb_files'),
-                                   help='Master directory where poses to be designed are located. This may be\n'
-                                        f'the output directory from {nanohedra}.py, a random directory with\n'
-                                        f'poses requiring design, or the output from {program_name}. If the\n'
-                                        f'directory of interest resides in a {program_output} directory, it is\n'
-                                        'recommended to use --file, --project, or --single for finer control'),
-    ('-f', '--file'): dict(type=os.path.abspath, default=None, nargs='*',
-                           metavar=ex_path('file_with_pose.paths'),
-                           help='File(s) with structure files to be input listed'),
-    ('-p', '--project'): dict(type=os.path.abspath, nargs='*',
-                              metavar=ex_path(program_output, projects, 'yourProject'),
-                              help='Operate on designs specified within a project(s)'),
-    ('-s', '--single'): dict(type=os.path.abspath, nargs='*',
-                             metavar=ex_path(program_output, projects, 'yourProject', 'single_pose[.pdb]'),
-                             help='Operate on single pose(s) in a project'),
+    directory_args: dict(type=os.path.abspath, metavar=ex_path('your_pdb_files'),
+                         help='Master directory where poses to be designed are located. This may be\n'
+                              f'the output directory from {nanohedra}.py, a random directory with\n'
+                              f'poses requiring design, or the output from {program_name}. If the\n'
+                              f'directory of interest resides in a {program_output} directory, it is\n'
+                              'recommended to use --file, --project, or --single for finer control'),
+    file_args: dict(type=os.path.abspath, default=None, nargs='*', metavar=ex_path('file_with_pose.paths'),
+                    help='File(s) with structure files to be input listed'),
+    project_args: dict(type=os.path.abspath, nargs='*', metavar=ex_path(program_output, projects, 'yourProject'),
+                       help='Operate on designs specified within a project(s)'),
+    single_args: dict(type=os.path.abspath, nargs='*',
+                      metavar=ex_path(program_output, projects, 'yourProject', 'single_pose[.pdb]'),
+                      help='Operate on single pose(s) in a project'),
 }
 output_help = 'Specify where output should be written'
 parser_output = {output: dict(description=output_help)}  # , help=output_help
