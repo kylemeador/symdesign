@@ -2620,7 +2620,6 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         """Provide the Structure Atoms as a PDB file string
 
         Keyword Args:
-            pdb: bool = False - Whether the Residue representation should use the number at file parsing
             chain_id: str = None - The chain ID to use
             atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed
         Returns:
@@ -2628,18 +2627,18 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         """
         return f'{self.__str__(**kwargs)}\n'
 
-    def __str__(self, pdb: bool = False, chain_id: str = None, atom_offset: int = 0, **kwargs) -> str:
-        #         type=None, number=None
+    def __str__(self, chain_id: str = None, atom_offset: int = 0, **kwargs) -> str:
+        #         pdb: bool = False, type=None, number=None
         """Format the Residue into the contained Atoms. The Atom number is truncated at 5 digits for PDB compliant
         formatting
 
         Args:
-            pdb: Whether the Residue representation should use the number at file parsing
             chain_id: The chain ID to use
             atom_offset: How much to offset the atom number by. Default returns one-indexed
         Returns:
             The archived .pdb formatted ATOM records for the Residue
         """
+        #     pdb: Whether the Residue representation should use the number at file parsing
         # format the string returned from each Atom, such as
         #  'ATOM  %s  CG2 %s %s%s    %s  1.00 17.48           C  0'
         #       AtomIdx  TypeChNumberCoords
@@ -5078,7 +5077,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """Provide the Structure Atoms as a PDB file string
 
         Keyword Args:
-            pdb: bool = False - Whether the Residue representation should use the number at file parsing
             chain_id: str = None - The chain ID to use
             atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed
         Returns:

@@ -138,6 +138,9 @@ class GhostFragment:
             out_path: The location where the Structure object should be written to disk
             file_handle: Used to write Structure details to an open FileObject
             header: A string that is desired at the top of the file
+        Keyword Args:
+            chain_id: str = None - The chain ID to use
+            atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed
         """
         if file_handle:
             file_handle.write(f'{self.representative.get_atom_record(**kwargs)}\n')
