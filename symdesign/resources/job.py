@@ -499,18 +499,20 @@ class JobResources:
         self.protocol = kwargs.get(putils.protocol)
         _filter = kwargs.get('filter')
         _filter_file = kwargs.get('filter_file')
-        if _filter or _filter_file is not None:
+        if _filter == list():
+            # --filter was provided, but as a boolean-esq. Query the user once there is a df
+            self.filter = True
+        elif _filter is not None or _filter_file is not None:
             self.filter = flags.parse_filters(_filter, file=_filter_file)
-        elif _filter is not None:  # --filter was provided, but as a boolean-esq. Query the user for them once have a df
-            self.filter = []
         else:
             self.filter = None
         _weight = kwargs.get('weight')
         _weight_file = kwargs.get('weight_file')
-        if _weight or _weight_file is not None:
+        if _weight == list():
+            # --weight was provided, but as a boolean-esq. Query the user once there is a df
+            self.weight = True
+        elif _weight is not None or _weight_file is not None:
             self.weight = flags.parse_weights(_weight, file=_weight_file)
-        elif _weight is not None:  # --weight was provided, but as a boolean-esq. Query the user once there is a df
-            self.weight = []
         else:
             self.weight = None
         self.weight_function = kwargs.get('weight_function')

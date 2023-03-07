@@ -1369,7 +1369,7 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dic
 selection_weight_column = 'selection_weight'
 
 
-def prioritize_design_indices(df: pd.DataFrame | AnyStr, filters: dict = None, weights: dict = None,
+def prioritize_design_indices(df: pd.DataFrame | AnyStr, filters: dict | bool = None, weights: dict | bool = None,
                               protocols: str | list[str] = None, default_weight: str = 'interface_energy', **kwargs) \
         -> pd.DataFrame:
     """Return a filtered/sorted DataFrame (both optional) with indices that pass a set of filters and/or are ranked
