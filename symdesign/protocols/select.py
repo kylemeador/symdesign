@@ -1186,12 +1186,19 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             f"For the input PoseJobs, there aren't metrics collected. Use the '{flags.analysis}' module or perform some"
             " design module before selection")
     designs_df = load_sql_designs_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
-    # designs_df has a multiplicity of number_of_entities from DesignEntityMetrics table join
-    pose_designs_mean_df = designs_df.groupby('pose_id').mean()
-    # Use the pose_id index to join to the poses_df
-    # This will create a total_df that is the number_of_entities X larger than the number of poses
-    total_df = pose_designs_mean_df.join(poses_df)
-    if job.filter:
+    if not designs_df.empty:
+        # designs_df has a multiplicity of number_of_entities from DesignEntityMetrics table join
+        # columns_to_keep = [c.name for c in sql.DesignMetrics.numeric_columns()]
+        # print(designs_df.columns.tolist())
+        # designs_df = designs_df.loc[:, [col for col in columns_to_keep if col in designs_df.columns]]
+        # print(designs_df.columns.tolist())
+        pose_designs_mean_df = designs_df.groupby('pose_id').mean(numeric_only=True)
+        # Use the pose_id index to join to the total_df
+        # This will create a total_df that is the number_of_entities X larger than the number of poses
+        total_df = total_df.join(pose_designs_mean_df, rsuffix='_DROP')
+        total_df.drop(total_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
+
+    if job.filter or job.protocol:
         df_multiplicity = len(pose_jobs[0].entity_data)
         logger.warning('Filtering statistics have an increased representation due to included Entity metrics. '
                        f'Typically, values reported for each filter will be ~{df_multiplicity}x over those actually '
