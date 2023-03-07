@@ -1361,7 +1361,7 @@ output_arguments = {
                   'generated based on the time, input, and module'),
     output_file_args: dict(type=str, help='If provided, the name of the output pose file.\nOtherwise, one will be '
                                           'generated based on the time, input, and module'),
-    ('-Of', f'--{output_fragments}'):
+    ('-OF', f'--{output_fragments}'):
         dict(action=argparse.BooleanOptionalAction, default=False, help='Write any fragments generated for each Pose'),
     ('-Oi', f'--{output_interface}'):
         dict(action=argparse.BooleanOptionalAction, default=False,

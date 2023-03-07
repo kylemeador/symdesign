@@ -5263,7 +5263,8 @@ class SymmetricModel(Models):
             raise AttributeError(f"The dtype 'number_of_{dtype}' wasn't found in the {self.__class__.__name__} object. "
                                  f"'Possible values of dtype are 'atom' or 'residue''")
 
-        return [idx + jump_size*model_num for model_num in range(self.number_of_symmetry_mates) for idx in indices]
+        model_jumps = [jump_size * model_num for model_num in range(self.number_of_symmetry_mates)]
+        return [idx + model_jump for model_jump in model_jumps for idx in indices]
         # symmetric_indice = [] + indices
         # for model_num in range(1, self.number_of_symmetry_mates):
         #     jump_length = jump_size * model_num
@@ -7301,8 +7302,9 @@ class Pose(SymmetricModel, Metrics):
         ss_type_array = self.ss_type_sequence
         total_interface_ss_topology = total_interface_ss_fragment_topology = ''
         for number, elements in self.split_interface_ss_elements.items():
-            fragment_elements = {element for residue, element in zip(self.interface_residues_by_interface[number], elements)
-                                 if residue.index in center_residue_indices}
+            fragment_elements = {
+                element for residue, element in zip(self.interface_residues_by_interface[number], elements)
+                if residue.index in center_residue_indices}
             # Take the set of elements as there are element repeats if SS is continuous over residues
             interface_ss_topology = ''.join(ss_type_array[element] for element in set(elements))
             interface_ss_fragment_topology = ''.join(ss_type_array[element] for element in fragment_elements)
@@ -7942,7 +7944,7 @@ class Pose(SymmetricModel, Metrics):
             return
 
         entity1_residues, entity2_residues = self.interface_residues_by_entity_pair.get((entity1, entity2))
-        # Because of the way self.interface_residues_by_entity_pair is set, when there is not interface, a check on
+        # Because of the way self.interface_residues_by_entity_pair is set, when there isn't an interface, a check on
         # entity1_residues is sufficient, however entity2_residues is empty with an interface present across a
         # non-oligomeric dimeric 2-fold
         if not entity1_residues:  # or not entity2_residues:
@@ -8099,35 +8101,36 @@ class Pose(SymmetricModel, Metrics):
             at the interface identified by interface id as split by topology
         """
         first_side, second_side = 0, 1
-        interface = {first_side: {}, second_side: {}, 'self': [False, False]}  # assume no symmetric contacts to start
+        # Assume no symmetric contacts to start, i.e. 'self': [False, False]
+        interface = {first_side: {}, second_side: {}, 'self': [False, False]}
         terminate = False
         # self.log.debug('Pose contains interface residues: %s' % self.interface_residues_by_entity_pair)
         for entity_pair, entity_residues in self.interface_residues_by_entity_pair.items():
             entity1, entity2 = entity_pair
             residues1, residues2 = entity_residues
             # if not entity_residues:
-            if not residues1:  # no residues were found at this interface
+            if not residues1:  # No residues were found at this interface
                 continue
             else:  # Partition residues from each entity to the correct interface side
-                # check for any existing symmetry
-                if entity1 == entity2:  # if query is with self, have to record it
+                # Check for any existing symmetry
+                if entity1 == entity2:  # The query is with itself. Record as a self interaction
                     _self = True
-                    if not residues2:  # the interface is symmetric dimer and residues were removed from interface 2
-                        residues2 = residues1.copy()  # add residues1 to residues2
+                    if not residues2:  # The interface is symmetric dimer and residues were removed from interface 2
+                        residues2 = residues1.copy()  # Add residues1 to residues2
                 else:
                     _self = False
 
                 if not interface[first_side]:  # This is first interface observation
-                    # add the pair to the dictionary in their indexed order
+                    # Add the pair to the dictionary in their indexed order
                     interface[first_side][entity1], interface[second_side][entity2] = residues1.copy(), residues2.copy()
-                    # indicate whether the interface is a self symmetric interface by marking side 2 with _self
+                    # Indicate whether the interface is a self symmetric interface by marking side 2 with _self
                     interface['self'][second_side] = _self
                 else:  # We have interface assigned, so interface observation >= 2
                     # Need to check if either Entity is in either side before adding correctly
                     if entity1 in interface[first_side]:  # is Entity1 on the interface side 1?
                         if interface['self'][first_side]:
-                            # is an Entity in interface1 here as a result of self symmetric interaction?
-                            # if so, flip Entity1 to interface side 2, add new Entity2 to interface side 1
+                            # Is an Entity in interface1 here as a result of self symmetric interaction?
+                            # If so, flip Entity1 to interface side 2, add new Entity2 to interface side 1
                             # Ex4 - self Entity was added to index 0 while ASU added to index 1
                             interface[second_side][entity1].extend(residues1)
                             interface[first_side][entity2] = residues2.copy()
@@ -8142,7 +8145,7 @@ class Pose(SymmetricModel, Metrics):
                     # Entity1 is not in the first index. It may be in the second, it may not
                     elif entity1 in interface[second_side]:  # it is, add to interface side 2
                         interface[second_side][entity1].extend(residues1)
-                        # also add it's partner entity to the first index
+                        # Also, add it's partner entity to the first index
                         # Entity 2 can't be in interface side 1 due to combinations with replacement check
                         interface[first_side][entity2] = residues2.copy()  # Ex5
                         if _self:  # only modify if self is True, don't want to overwrite an existing True value
@@ -8151,12 +8154,12 @@ class Pose(SymmetricModel, Metrics):
                     elif entity2 in interface[second_side]:  # this is more likely from combinations with replacement
                         # Possible in an iteration Ex: (A:D) (C:D)
                         interface[second_side][entity2].extend(residues2)
-                        # entity 1 was not in first interface (from if #1), therefore we can set directly
+                        # Entity 1 was not in first interface (from if #1), therefore we can set directly
                         interface[first_side][entity1] = residues1.copy()
                         if _self:  # only modify if self is True, don't want to overwrite an existing True value
                             interface['self'][first_side] = _self  # Ex3
                     elif entity2 in interface[first_side]:
-                        # the first Entity wasn't found in either interface, but both interfaces are already set,
+                        # The first Entity wasn't found in either interface, but both interfaces are already set,
                         # therefore Entity pair isn't self, so the only way this works is if entity1 is further in the
                         # iterative process which is an impossible topology, and violates interface separation rules
                         interface[second_side][entity1] = False

@@ -1304,8 +1304,11 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             # # Propagate to the PoseJob parent DesignData
             # self.source_path = self.pose_source.structure_path = self.pose_path
             # Set the pose_path as the source_path
-            self.source_path = self.pose_path
-            self.output_pose(path=self.source_path)
+            out_path = self.source_path = self.pose_path
+            # self.output_pose(path=self.source_path)
+        else:
+            out_path = None
+        self.output_pose(path=out_path)
 
     def output_pose(self, path: AnyStr = None):  # Todo to PoseProtocols?
         """Save a new Structure from multiple Chain or Entity objects including the Pose symmetry"""
@@ -1342,9 +1345,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if self.pose.is_symmetric():
             if self.job.output_assembly:
                 if self.job.output_to_directory:
-                    assembly_path = self.assembly_path
-                else:
                     assembly_path = self.output_assembly_path
+                else:
+                    assembly_path = self.assembly_path
                 if not os.path.exists(assembly_path) or self.job.force:
                     self.pose.write(assembly=True, out_path=assembly_path,
                                     increment_chains=self.job.increment_chains,
@@ -1353,9 +1356,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             if self.job.output_oligomers:  # Write out new oligomers to the PoseJob
                 for idx, entity in enumerate(self.pose.entities):
                     if self.job.output_to_directory:
-                        oligomer_path = os.path.join(self.pose_directory, f'{entity.name}_oligomer.pdb')
-                    else:
                         oligomer_path = os.path.join(self.output_path, f'{entity.name}_oligomer.pdb')
+                    else:
+                        oligomer_path = os.path.join(self.pose_directory, f'{entity.name}_oligomer.pdb')
                     if not os.path.exists(oligomer_path) or self.job.force:
                         entity.write(oligomer=True, out_path=oligomer_path)
                         self.log.info(f'Entity {entity.name} oligomer written to: "{oligomer_path}"')

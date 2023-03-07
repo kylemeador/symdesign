@@ -383,7 +383,7 @@ def orient(job: pose.PoseJob, to_pose_directory: bool = True):
         # Load the pose and save the asu
         job.load_pose()  # entities=model.entities)
     else:
-        raise SymmetryError(warn_missing_symmetry % job.orient.__name__)
+        raise SymmetryError(warn_missing_symmetry % orient.__name__)
 
 
 @protocol_decorator()
@@ -426,7 +426,7 @@ def expand_asu(job: pose.PoseJob):
     if job.is_symmetric():
         job.load_pose()
     else:
-        raise SymmetryError(warn_missing_symmetry % job.expand_asu.__name__)
+        raise SymmetryError(warn_missing_symmetry % expand_asu.__name__)
     # job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
 
 
