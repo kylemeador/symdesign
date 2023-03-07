@@ -2308,6 +2308,78 @@ class PoseProtocol(PoseData):
             except Exception as error:
                 raise DesignError(error)
 
+    def design_analysis(self, designs: Iterable[sql.DesignData] = None):
+        """Retrieve all score information from a PoseJob and write results to .csv file
+
+        Args:
+            designs: The DesignData instances to perform analysis on. By default, fetches all PoseJob.designs
+        Returns:
+            Series containing summary metrics for all designs
+        """
+        if designs is None:
+            self.current_designs = designs = self.designs
+
+        if not designs:
+            return  # There is nothing to analyze
+
+        design_ids = [design.id for design in designs]
+        select_stmt = select((sql.DesignData.id, sql.ResidueMetrics.index, sql.ResidueMetrics.design_residue))\
+            .join(sql.ResidueMetrics).where(sql.DesignData.id.in_(design_ids))
+        index_col = sql.ResidueMetrics.index.name
+        design_residue_df = pd.DataFrame.from_records(self.job.current_session.execute(select_stmt).all(),
+                                                      columns=['id', index_col, sql.ResidueMetrics.design_residue.name])
+        design_residue_df = design_residue_df.set_index(['id', index_col]).unstack()
+        # Use simple reporting here until that changes...
+        # interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
+        # pose_length = self.pose.number_of_residues
+        # design_residues = np.zeros((len(designs), pose_length), dtype=bool)
+        # design_residues[:, interface_residue_indices] = 1
+
+        # Score using proteinmpnn
+        design_sequences = {design.name: design.sequence for design in designs}
+        design_names = list(design_sequences.keys())
+        # sequences_df = self.analyze_sequence_metrics_per_design(sequences=design_sequences)
+        sequences_and_scores = self.pose.score(list(design_sequences.values()))
+        sequences_and_scores['design_indices'] = design_residue_df.values
+
+        mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
+        # The DataFrame.index needs to become the design.id not design.name. Modify after all processing
+        self.analyze_design_entities_per_residue(mpnn_residues_df, design_ids=design_ids)
+
+        # Process all desired files to Pose
+        design_paths_to_process = [design.structure_path for design in designs]
+        designs_poses = \
+            [Pose.from_file(file, **self.pose_kwargs) for file in design_paths_to_process if file is not None]
+
+        if designs_poses:
+            residues_df = self.analyze_residue_metrics_per_design(designs=designs_poses)
+            designs_df = self.analyze_design_metrics_per_design(residues_df, designs_poses)
+            # Join DataFrames
+            designs_df = designs_df.join(mpnn_designs_df)
+            residues_df = residues_df.join(mpnn_residues_df)
+        else:
+            designs_df = mpnn_designs_df
+            residues_df = mpnn_residues_df
+
+        # Each of these could have different index/column, so we use concat to perform an outer merge
+        # residues_df = pd.concat([residues_df, mpnn_residues_df, sequences_df], axis=1) WORKED!!
+        # residues_df = residues_df.join([mpnn_residues_df, sequences_df])
+        # Todo should this "different index" be allowed? be possible
+        #  residues_df = residues_df.join(rosetta_residues_df)
+
+        # Rename all designs and clean up resulting metrics for storage
+        # Get the name/provided_name to design_id mapping
+        design_name_to_id_map = dict((design.name, design.id) for design in designs)
+        # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
+        # input(f'BEFORE MAP: {designs_df.index.tolist()}')
+        designs_df.index = designs_df.index.map(design_name_to_id_map)
+        residues_df.index = residues_df.index.map(design_name_to_id_map)
+        # input(f'AFTER MAP: {designs_df.index.tolist()}')
+
+        # Commit the newly acquired metrics to the database
+        self.output_metrics(residues=residues_df, designs=designs_df)
+        self.job.current_session.commit()
+
     def interface_design_analysis(self, designs: Iterable[Pose] | Iterable[AnyStr] = None) -> pd.Series:
         """Retrieve all score information from a PoseJob and write results to .csv file
 
