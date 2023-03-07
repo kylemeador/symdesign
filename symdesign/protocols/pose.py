@@ -4511,50 +4511,36 @@ class PoseProtocol(PoseData):
         design_names = self.design_names
         design_files = self.get_design_files()  # Todo PoseJob(.path)
         scored_design_names = design_scores.keys()
-        design_paths_to_process = []
-        new_design_paths = []
+        new_design_paths_to_process = []
         rosetta_provided_new_design_names = []
+        existing_design_paths_to_process = []
         existing_design_indices = []
         # Collect designs that we have metrics on (possibly again)
-        for idx, path in enumerate(reversed(design_files[:])):
+        for idx, path in enumerate(design_files):
             file_name, ext = os.path.splitext(os.path.basename(path))
             if file_name in scored_design_names:
-                design_paths_to_process.append(path)
                 try:
                     design_data_index = design_names.index(file_name)
-                except ValueError:  # file_name not in list
+                except ValueError:  # file_name not in design_names
                     # New, we haven't processed this file
-                    new_design_paths.append(path)
+                    new_design_paths_to_process.append(path)
                     rosetta_provided_new_design_names.append(file_name)
                 else:
+                    existing_design_paths_to_process.append(path)
                     existing_design_indices.append(design_data_index)
 
+        # Ensure that design_paths_to_process and self.current_designs have the same order
+        design_paths_to_process = existing_design_paths_to_process + new_design_paths_to_process
         if not design_paths_to_process:
             return
-        # if self.job.force:
-        #     # Collect metrics on all designs (possibly again)
-        #     for idx, path in enumerate(reversed(design_files[:])):
-        #         file_name, ext = os.path.splitext(os.path.basename(path))
-        #         if file_name in design_names:  # We already processed this file
-        #             continue
-        #         else:
-        #             new_design_paths.append(path)
-        #             rosetta_provided_new_design_names.append(file_name)
-        # else:  # Process to get rid of designs that were already calculated
-        #     for idx, path in enumerate(reversed(design_files[:])):
-        #         file_name, ext = os.path.splitext(os.path.basename(path))
-        #         if file_name in design_names:  # We already processed this file
-        #             design_files.pop(idx)
-        #         else:
-        #             new_design_paths.append(path)
-        #             rosetta_provided_new_design_names.append(file_name)
+
         # Format DesignData
         # Get all existing
         design_data = self.designs
         # Set current_designs to a fresh list
         self._current_designs = [design_data[idx] for idx in existing_design_indices]
         # Update the Pose.designs with DesignData for each of the new designs
-        new_designs_data = self.update_design_data(number=len(new_design_paths))  # design_parent=design_parent
+        new_designs_data = self.update_design_data(number=len(new_design_paths_to_process))  # design_parent=design_parent
         # Extend current_designs with new DesignData instances
         self.current_designs.extend(new_designs_data)
 
@@ -4613,16 +4599,36 @@ class PoseProtocol(PoseData):
         # self.job.current_session.flush()
         # new_design_ids = [design_data.id for design_data in new_designs_data]
 
+        # Process all desired files to Pose
+        designs = [Pose.from_file(file, **self.pose_kwargs) for file in design_paths_to_process]
+        design_sequences = {design.name: design.sequence for design in designs}
+        design_names = list(design_sequences.keys())
+        # sequences_df = self.analyze_sequence_metrics_per_design(sequences=design_sequences)
+
+        # The DataFrame.index needs to become design.id not design.name as it is here. Modify after processing
+        residues_df = self.analyze_residue_metrics_per_design(designs=designs)
+        # Join Rosetta per-residue DataFrame taking Structure analysis per-residue DataFrame index order
+        residues_df = residues_df.join(rosetta_residues_df)
+
+        designs_df = self.analyze_design_metrics_per_design(residues_df, designs)
+        # Join Rosetta per-design DataFrame taking Structure analysis per-design DataFrame index order
+        designs_df = designs_df.join(scores_df)
+
+        # Finish calculation of Rosetta scores with included metrics
+        designs_df = self.rosetta_column_combinations(designs_df)
+
+        # Score using proteinmpnn
         pose_length = self.pose.number_of_residues
         # residue_indices = list(range(pose_length))
         # # During rosetta_residues_df unstack, all residues with missing dicts are copied as nan
         # Todo get residues_df['design_indices'] worked out with set up using sql.DesignProtocol?
+        #  See self.design_analysis()
         # Set each position that was parsed as "designable"
         # This includes packable residues from neighborhoods. How can we get only designable?
         # Right now, it is only the interface residues that go into Rosetta
         # Use simple reporting here until that changes...
         interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
-        design_residues = np.zeros((len(design_paths_to_process), pose_length), dtype=bool)
+        design_residues = np.zeros((len(designs), pose_length), dtype=bool)
         design_residues[:, interface_residue_indices] = 1
         # 'design_residue' is now integrated using analyze_proteinmpnn_metrics()
         # design_indices_df = pd.DataFrame(design_residues, index=scores_df.index,
@@ -4630,28 +4636,6 @@ class PoseProtocol(PoseData):
         # rosetta_residues_df = rosetta_residues_df.stack().unstack(1)
         # rosetta_residues_df['design_residue'] = 1
         # rosetta_residues_df = rosetta_residues_df.unstack().swaplevel(0, 1, axis=1)
-
-        # Process all desired files to Pose
-        designs = [Pose.from_file(file, **self.pose_kwargs) for file in design_paths_to_process]
-        design_sequences = {design.name: design.sequence for design in designs}
-        design_names = list(design_sequences.keys())
-        # sequences_df = self.analyze_sequence_metrics_per_design(sequences=design_sequences)
-
-        # The DataFrame.index is wrong here. It needs to become the design.id not design.name. Modify after processing
-        residues_df = self.analyze_residue_metrics_per_design(designs=designs)
-        # Join Rosetta per-residue with Structure analysis per-residue like DataFrames
-        # residues_df = pd.concat([residues_df, rosetta_residues_df], axis=1)
-        residues_df = residues_df.join(rosetta_residues_df)
-        # print(scores_df)
-        # print(scores_df.index.tolist())
-        designs_df = self.analyze_design_metrics_per_design(residues_df, designs)
-        designs_df = designs_df.join(scores_df)
-        # input(f'AFTER JOIN(SCORES_DF) MAP: {designs_df.index.tolist()}')
-
-        # Finish calculation of Rosetta scores with included metrics
-        designs_df = self.rosetta_column_combinations(designs_df)
-
-        # Score using proteinmpnn
         # Todo only score if it hasn't been scored previously...
         sequences_and_scores = self.pose.score(list(design_sequences.values()))
         sequences_and_scores.update({'design_indices': design_residues})
@@ -4659,41 +4643,33 @@ class PoseProtocol(PoseData):
         #     'design_indices': design_residues,
         #     **proteinmpnn_scores
         # }
-
         mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
-        self.analyze_design_entities_per_residue(mpnn_residues_df)
 
+        # Get the name/provided_name to design_id mapping
+        design_name_to_id_map = dict((getattr(design, 'provided_name',
+                                              getattr(design, 'name')),
+                                      design.id) for design in self.current_designs)
+        design_ids = design_name_to_id_map.values()
+        self.analyze_design_entities_per_residue(mpnn_residues_df, design_ids)
+
+        # Join DataFrames
         designs_df = designs_df.join(mpnn_designs_df)
+        residues_df = residues_df.join(mpnn_residues_df)
         # This call is redundant with the analyze_proteinmpnn_metrics(design_names, sequences_and_scores) above
         # Todo remove from above the sequences portion..? Commenting out below for now
         # designs_df = designs_df.join(self.analyze_design_metrics_per_residue(sequences_df))
 
-        # Join per-residue like DataFrames
-        residues_df = residues_df.join(mpnn_residues_df)
-        # Each of these could have different index/column, so we use concat to perform an outer merge
-        # residues_df = pd.concat([residues_df, mpnn_residues_df, sequences_df], axis=1) WORKED!!
-        # residues_df = residues_df.join([mpnn_residues_df, sequences_df])
-        # Todo should this "different index" be allowed? be possible
-        #  residues_df = residues_df.join(rosetta_residues_df)
-
         # Rename all designs and clean up resulting metrics for storage
-        # Get the name/provided_name to design_id mapping
-        design_name_to_id_map = \
-            dict((getattr(design, 'provided_name',
-                          getattr(design, 'name')),
-                  design.id) for design in self.current_designs)
         # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
-        # input(f'BEFORE MAP: {designs_df.index.tolist()}')
         designs_df.index = designs_df.index.map(design_name_to_id_map)
         residues_df.index = residues_df.index.map(design_name_to_id_map)
-        # input(f'AFTER MAP: {designs_df.index.tolist()}')
 
         # Commit the newly acquired metrics to the database
         # First check if the files are situated correctly
         temp_count = count()
         temp_files_to_move = {}
         files_to_move = {}
-        for filename, new_filename in zip(new_design_paths, new_design_new_filenames.values()):
+        for filename, new_filename in zip(new_design_paths_to_process, new_design_new_filenames.values()):
             if filename == new_filename:
                 # These are the same file, proceed without processing
                 continue
