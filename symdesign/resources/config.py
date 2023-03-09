@@ -232,7 +232,7 @@ metrics = {
         dict(description='Whether the entity c-termini is closer to the assembly core or surface (1 is away, -1 is '
                          'towards',
              direction=max_, function=rank, filter=True),
-    'entity_id':  # 'entity_name':
+    'entity_name':  # 'entity_id':  #
         dict(description='The name of the entity',
              direction=None, function=None, filter=None),
     'entity_interface_connectivity':
