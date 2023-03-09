@@ -669,7 +669,8 @@ class SequenceProfile(ABC):
         return True
 
     def add_evolutionary_profile(self, file: AnyStr = None, out_dir: AnyStr = os.getcwd(),
-                                 profile_source: alignment_programs_literal = putils.hhblits, force: bool = False):
+                                 profile_source: alignment_programs_literal = putils.hhblits, force: bool = False,
+                                 **kwargs):
         """Add the evolutionary profile to the Structure. If the profile isn't provided, it is generated through search
         of homologous protein sequences using the profile_source argument
 
@@ -682,14 +683,15 @@ class SequenceProfile(ABC):
             self.evolutionary_profile (ProfileDict)
         """
         if profile_source not in alignment_programs:  # [putils.hhblits, 'psiblast']:
-            raise ValueError(f'{self.add_evolutionary_profile.__name__}: Profile generation only possible from '
-                             f'{", ".join(alignment_programs)} not {profile_source}')
+            raise ValueError(
+                f'{self.add_evolutionary_profile.__name__}: Profile generation only possible from '
+                f'{", ".join(alignment_programs)}, not {profile_source}')
 
         if file is not None:
             self.pssm_file = file
         else:  # Check to see if the files of interest already exist
             # Extract/Format Sequence Information. SEQRES is prioritized if available
-            if self.sequence_file is None:  # not made/provided before add_evolutionary_profile, make a new one
+            if self.sequence_file is None:  # Not made/provided before add_evolutionary_profile, make a new one
                 self.sequence_file = self.write_sequence_to_fasta('reference', out_dir=out_dir)
             elif not os.path.exists(self.sequence_file) or force:
                 self.log.debug(f'{self.name} Sequence={self.reference_sequence}')
@@ -716,8 +718,9 @@ class SequenceProfile(ABC):
                         if int(time.time()) - int(os.path.getmtime(temp_file)) > 5400:  # > 1 hr 30 minutes have passed
                             # os.remove(temp_file)
                             temp_file.unlink(missing_ok=True)
-                            raise RuntimeError(f'{self.add_evolutionary_profile.__name__}: Generation of the '
-                                               f'profile for {self.name} took longer than the time limit. Job killed!')
+                            raise RuntimeError(
+                                f'{self.add_evolutionary_profile.__name__}: Generation of the profile for {self.name} '
+                                'took longer than the time limit\nKilled')
                         time.sleep(20)
 
         # These functions set self.evolutionary_profile
@@ -1280,7 +1283,7 @@ class SequenceProfile(ABC):
     #     # self._calculate_alpha(**kwargs)
 
     def add_fragments_to_profile(self, fragments: Iterable[fragment_info_type],
-                                 alignment_type: alignment_types_literal):
+                                 alignment_type: alignment_types_literal, **kwargs):
         """Distribute fragment information to self.fragment_map. Zero-indexed residue array
 
         Args:

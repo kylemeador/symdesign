@@ -611,7 +611,7 @@ class JobResources:
         # if self.nanohedra_output:
         #     self.construct_pose: bool = kwargs.get('construct_pose', True)
         # else:
-        self.construct_pose = True
+        # self.construct_pose = True
 
         # Prediction flags
         self.predict = Predict.from_flags(**kwargs)
@@ -734,7 +734,7 @@ class JobResources:
     @property
     def construct_pose(self):
         """Whether to construct the PoseJob"""
-        return self._construct_pose
+        return True  # self._construct_pose
 
     @construct_pose.setter
     def construct_pose(self, value: bool):

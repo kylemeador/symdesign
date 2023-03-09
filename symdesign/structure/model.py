@@ -8710,9 +8710,10 @@ class Pose(SymmetricModel, Metrics):
                            f'for interface fragments')
             self.query_interface_for_fragments(*entity_pair, oligomeric_interfaces=oligomeric_interfaces, **kwargs)
 
-        if oligomeric_interfaces:
-            # Query again, only using extra oligomeric Entity interfaces
-            self.find_and_split_interface(**kwargs)
+        # if oligomeric_interfaces:
+        #     # Todo this isn't doing anything...
+        #     # Query again, only using extra oligomeric Entity interfaces
+        #     self.find_and_split_interface(oligomeric_interfaces=oligomeric_interfaces, **kwargs)
 
     def generate_fragments(self, oligomeric_interfaces: bool = True, **kwargs):
         """Generate fragments pairs between every possible Residue instance in the Pose

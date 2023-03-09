@@ -88,8 +88,9 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
         # profile = api_db.hhblits_profiles.retrieve_data(name=entity.name)
         if len(entity.uniprot_ids) > 1:
             # Todo make this possible by combining multiple profiles along the chimeric identifiers
-            raise DesignError(f"Can't set the profile for an {entity.__class__.__name__} with number of UniProtIDs,"
-                              f"{len(entity.uniprot_ids)} > 1. Please remove this or update the code")
+            raise DesignError(
+                f"Can't set the profile for an {entity.__class__.__name__} with number of UniProtIDs,"
+                f"{len(entity.uniprot_ids)} > 1. Please remove this or update the code")
         # for idx, uniprot_id in enumerate(entity.uniprot_ids):
         for uniprot_id in entity.uniprot_ids:
             profile = api_db.hhblits_profiles.retrieve_data(name=uniprot_id)
@@ -434,23 +435,23 @@ class PoseDirectory:
             self._designed_sequences = [seq_record.seq for seq_record in read_fasta_file(self.designed_sequences_file)]
             return self._designed_sequences
 
-    def get_wildtype_file(self) -> AnyStr:
-        """Retrieve the wild-type file name from PoseJob"""
+    def get_pose_file(self) -> AnyStr:
+        """Retrieve the pose file name from PoseJob"""
         # glob_target = os.path.join(self.pose_directory, f'{self.name}*.pdb')
         glob_target = self.pose_path
         source = sorted(glob(glob_target))
         if len(source) > 1:
-            raise InputError(f'Found {len(source)} files matching the path "{glob_target}". '
-                             'No more than one expected')
+            raise InputError(
+                f'Found {len(source)} files matching the path "{glob_target}". No more than one expected')
         else:
             try:
-                wt_file = source[0]
+                file = source[0]
             except IndexError:  # glob found no files
                 self.log.debug(f"Couldn't find any Structure files matching the path '{glob_target}'")
-                wt_file = None
+                file = None
                 raise FileNotFoundError
 
-        return wt_file
+        return file
 
     def get_design_files(self, design_type: str = '') -> list[AnyStr]:
         """Return the paths of all design files in a PoseJob
@@ -670,7 +671,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # directory = os.path.join(self.job.projects, self.project, self.name)
         super().__init__(root_directory=self.job.projects, project=self.project, name=self.name)  # Todo **kwargs)
 
-        putils.make_path(self.pose_directory, condition=self.job.construct_pose)
+        putils.make_path(self.pose_directory)  # , condition=self.job.construct_pose)
 
         # Initialize the logger for the Pose
         log_path = self.log_path
@@ -688,7 +689,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             handler = level = 2  # To a file
             propagate = no_log_name = False
 
-        if self.job.skip_logging or not self.job.construct_pose:  # Set up null_logger
+        if self.job.skip_logging:  # or not self.job.construct_pose:  # Set up null_logger
             self.log = logging.getLogger('null')
         else:  # f'{__name__}.{self}'
             self.log = start_log(name=f'pose.{self.project}.{self.name}', handler=handler, level=level,
@@ -698,7 +699,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # Configure standard pose loading mechanism with self.source_path
         if self.source_path is None:
             try:
-                self.source_path = self.get_wildtype_file()
+                self.source_path = self.get_pose_file()
             except FileNotFoundError:
                 if os.path.exists(self.asu_path):  # Standard mechanism of loading the pose
                     self.source_path = self.asu_path
@@ -799,11 +800,12 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         """Parse the Structure at the source_path attribute"""
         if self.initial_model is None:
             if self.source_path is None:
-                raise InputError(f"Couldn't {self.load_initial_model.__name__} for {self.name} as there isn't a "
-                                 "specified file")
+                raise InputError(
+                    f"Couldn't {self.load_initial_model.__name__} for {self.name} as there isn't a specified file")
             self.initial_model = Model.from_file(self.source_path, log=self.log)
             # # Todo ensure that the chain names are renamed if they are imported a certain way
-            # if len(set([entity.chain_id for entity in self.initial_model.entities])) != self.initial_model.number_of_entities:
+            # if len(set([entity.chain_id for entity in self.initial_model.entities])) \
+            #         != self.initial_model.number_of_entities:
             #     rename = True
             #     self.initial_model.rename_chains()
             # # else:
@@ -1277,7 +1279,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             # Careful, if processing has occurred to the initial_model, then this may be wrong!
             self.pose = Pose.from_model(self.initial_model, entity_info=self.initial_model.entity_info,
                                         name=self.name, **pose_kwargs)
-            # Todo we should use the ProteinMetadata version if the constituent Entity coordinates aren't modified by
+            # Todo should use the ProteinMetadata version if the constituent Entity coordinates aren't modified by
             #  some small amount as this will ensure that we are refined, and that loops are included...
             # We have to collect the EntityTransform for these if they are symmetric. Actually, we need the transform
             # regardless of symmetry since the file will be coming from the oriented/origin position...
@@ -1352,7 +1354,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     assembly_path = self.output_assembly_path
                 else:
                     assembly_path = self.assembly_path
-                if not os.path.exists(assembly_path) or self.job.force:
+                if not os.path.exists(assembly_path) or self.job.overwrite:
                     self.pose.write(assembly=True, out_path=assembly_path,
                                     increment_chains=self.job.increment_chains,
                                     surrounding_uc=self.job.output_surrounding_uc)
@@ -1363,7 +1365,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                         oligomer_path = os.path.join(self.output_path, f'{entity.name}_oligomer.pdb')
                     else:
                         oligomer_path = os.path.join(self.pose_directory, f'{entity.name}_oligomer.pdb')
-                    if not os.path.exists(oligomer_path) or self.job.force:
+                    if not os.path.exists(oligomer_path) or self.job.overwrite:
                         entity.write(oligomer=True, out_path=oligomer_path)
                         self.log.info(f'Entity {entity.name} oligomer written to: "{oligomer_path}"')
 

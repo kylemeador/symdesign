@@ -570,7 +570,8 @@ def design(job: pose.PoseJob):
         if job.job.design.interface:
             pass
         else:
-            raise NotImplementedError(f"Can't perform design using Rosetta just yet. Try {flags.interface_design}...")
+            raise NotImplementedError(
+                f"Can't perform design using Rosetta just yet. Try {flags.interface_design} instead...")
         favor_fragments = evo_fill = True
     else:
         favor_fragments = evo_fill = False
