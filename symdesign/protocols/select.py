@@ -1424,8 +1424,6 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         # Todo ensure non-numeric are here as well
         designs_df.drop(design_id, axis=1, inplace=True)
         pose_designs_mean_df = designs_df.groupby(pose_id).mean(numeric_only=True)
-        print(pose_designs_mean_df)
-        input(sorted(pose_designs_mean_df.columns.tolist()))
         total_df = total_df.join(pose_designs_mean_df, on=pose_id, rsuffix='_DROP')
 
         # columns_to_keep = [c.name for c in sql.DesignMetrics.numeric_columns()]
