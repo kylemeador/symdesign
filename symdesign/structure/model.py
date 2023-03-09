@@ -8715,15 +8715,14 @@ class Pose(SymmetricModel, Metrics):
         #     # Query again, only using extra oligomeric Entity interfaces
         #     self.find_and_split_interface(oligomeric_interfaces=oligomeric_interfaces, **kwargs)
 
-    def generate_fragments(self, oligomeric_interfaces: bool = True, **kwargs):
+    def generate_fragments(self, **kwargs):
         """Generate fragments pairs between every possible Residue instance in the Pose
 
-        Args:
-            oligomeric_interfaces: Whether to query oligomeric interfaces
         Keyword Args:
-            distance: float = 8. - The distance to measure Residues across an interface
+            distance: float = 8. - The distance to query for neighboring fragments
         """
-        self.generate_interface_fragments(oligomeric_interfaces=oligomeric_interfaces, **kwargs)
+        # kwargs.pop('oligomeric_interfaces')
+        # self.generate_interface_fragments(oligomeric_interfaces=True, **kwargs)
 
         for entity in self.active_entities:
             self.log.info(f'Querying Entity: {entity} for internal fragments')
