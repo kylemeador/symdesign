@@ -243,7 +243,7 @@ class FragmentDatabase(info.FragmentInfo):
         separated_fragment_metrics['paired'] = dict(
             center=dict(score=paired_center_score,
                         # number=paired_central_residues_with_fragment_overlap,
-                        indices=entity1_indices),
+                        indices=entity2_indices),
             # center_match_scores=entity2_center_match_scores,
             # match_scores=entity2_match_scores,
             # index_count=fragment_j_index_count_d,

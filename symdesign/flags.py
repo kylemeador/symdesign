@@ -43,6 +43,8 @@ score = 'score'
 module = 'module'
 method = 'method'
 interface = 'interface'
+interface_only = 'interface_only'
+oligomeric_interfaces = 'oligomeric_interfaces'
 neighbors = 'neighbors'
 # dock_only = 'dock_only'
 rotation_step1 = 'rotation_step1'
@@ -176,6 +178,8 @@ fragment_database = format_for_cmdline(fragment_database)
 interface_metrics = format_for_cmdline(interface_metrics)
 optimize_designs = format_for_cmdline(optimize_designs)
 interface_design = format_for_cmdline(interface_design)
+interface_only = format_for_cmdline(interface_only)
+oligomeric_interfaces = format_for_cmdline(oligomeric_interfaces)
 residue_selector = format_for_cmdline(residue_selector)
 select_designs = format_for_cmdline(select_designs)
 select_poses = format_for_cmdline(select_poses)
@@ -1256,7 +1260,11 @@ generate_fragments_help = 'Generate fragment overlap for poses of interest and w
 parser_generate_fragments = \
     {generate_fragments: dict(description=generate_fragments_help, help=generate_fragments_help)}
 generate_fragments_arguments = {
-    (f'--{interface}',): dict(action='store_true', help=f'Whether to limit {generate_fragments} to interface residues')
+    (f'--{interface}',): dict(action='store_true', help=f'Whether to {generate_fragments} at interface residues'),
+    (f'--{interface_only}',): dict(action='store_true', help=f'Whether to limit to interface residues'),
+    (f'--{oligomeric_interfaces}',):
+        dict(action='store_true', help=f'Whether to {generate_fragments} at oligomeric interfaces in\naddition to '
+                                       f'hetrotypic interfaces')
 }
 # ---------------------------------------------------
 rename_chains_help = 'For given poses, rename the chains in the source PDB to the alphabetic order.\n' \

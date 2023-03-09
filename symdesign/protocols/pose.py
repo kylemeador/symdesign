@@ -1417,17 +1417,19 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             else:  # We already set these
                 return
 
-    def generate_fragments(self, interface: bool = False):
+    def generate_fragments(self, interface: bool = False, oligomeric_interfaces: bool = False, entities: bool = False):
         """For the design info given by a PoseJob source, initialize the Pose then generate interfacial fragment
         information between Entities. Aware of symmetry and design_selectors in fragment generation file
 
         Args:
             interface: Whether to perform fragment generation on the interface
+            oligomeric_interfaces: Whether to perform fragment generation on the oligomeric interface
+            entities: Whether to perform fragment generation on each Entity
         """
         if interface:
-            self.pose.generate_interface_fragments()
-        else:
-            self.pose.generate_fragments()
+            self.pose.generate_interface_fragments(oligomeric_interfaces=oligomeric_interfaces)
+        if entities:
+            self.pose.generate_fragments(oligomeric_interfaces=oligomeric_interfaces)
 
         if self.job.output_fragments:
             putils.make_path(self.frags_path)

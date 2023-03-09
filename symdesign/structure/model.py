@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import time
+from collections import defaultdict
 from copy import deepcopy
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product, count
 from logging import Logger
@@ -6131,7 +6132,13 @@ class Pose(SymmetricModel, Metrics):
     required_indices: set[int]
     required_residues: list[Residue]
     interface_residues_by_interface: dict[int, list[Residue]]
-    """Keeps the Residue instances grouped by membership to each side of the interface
+    """Keeps the Residue instances grouped by membership to each side of the interface.
+    Residues can be duplicated on each side when interface contains a 2-fold axis of symmetry
+    Ex: {1: [Residue, ...], 2: [Residue, ...]}
+    """
+    interface_residues_by_interface_unique: dict[int, list[Residue]]
+    """Keeps the Residue instances grouped by membership to each side of the interface.
+    Residues are unique to one side of the interface
     Ex: {1: [Residue, ...], 2: [Residue, ...]}
     """
     split_interface_ss_elements: dict[int, list[int]]
@@ -6146,7 +6153,7 @@ class Pose(SymmetricModel, Metrics):
     #     {'ss_sequence_indices', 'ss_type_sequence',  # These should be .clear()
     #      'fragment_metrics', 'fragment_pairs', 'fragment_queries',
     #      'interface_design_residue_numbers', 'interface_residue_numbers', 'interface_residues_by_entity_pair',
-    #      'interface_residues_by_interface', 'split_interface_ss_elements'
+    #      'interface_residues_by_interface', 'interface_residues_by_interface_unique', 'split_interface_ss_elements'
     #      }
 
     def __init__(self, ignore_clashes: bool = False,
@@ -6170,6 +6177,7 @@ class Pose(SymmetricModel, Metrics):
         self.required_indices = set()
         self.required_residues = []
         self.interface_residues_by_interface = {}
+        self.interface_residues_by_interface_unique = {}
         self.split_interface_ss_elements = {}
         self.ss_sequence_indices = []
         self.ss_type_sequence = []
@@ -6255,11 +6263,13 @@ class Pose(SymmetricModel, Metrics):
                 self.find_and_split_interface()
 
             _interface_residues = []
-            # for number, residues in self.interface_residues_by_interface.items():
-            for entity_pair, residues_by_entity in self.interface_residues_by_entity_pair.items():
-                for residues in residues_by_entity:
-                    _interface_residues.extend(residues)
-            self._interface_residues = sorted(set(_interface_residues), key=lambda residue: residue.index)
+            for number, residues in self.interface_residues_by_interface_unique.items():
+                _interface_residues.extend(residues)
+            self._interface_residues = sorted(_interface_residues, key=lambda residue: residue.index)
+            # for entity_pair, residues_by_entity in self.interface_residues_by_entity_pair.items():
+            #     for residues in residues_by_entity:
+            #         _interface_residues.extend(residues)
+            # self._interface_residues = sorted(set(_interface_residues), key=lambda residue: residue.index)
             return self._interface_residues
 
     @property
@@ -7267,7 +7277,7 @@ class Pose(SymmetricModel, Metrics):
         """
         pose_metrics = self.get_fragment_metrics(total_interface=True)
         # Remove *_indices from further analysis
-        self.center_residue_indices = pose_metrics.pop('center_indices', [])
+        center_residue_indices = self.center_residue_indices = pose_metrics.pop('center_indices', [])
         pose_metrics.pop('total_indices')
         number_residues_fragment_center = pose_metrics.pop('number_residues_fragment_center')
         number_residues_fragment_total = pose_metrics.pop('number_residues_fragment_total')
@@ -7311,12 +7321,12 @@ class Pose(SymmetricModel, Metrics):
 
         # interface_ss_topology = {}  # {1: 'HHLH', 2: 'HSH'}
         # interface_ss_fragment_topology = {}  # {1: 'HHH', 2: 'HH'}
-        center_residue_indices = self.center_residue_indices
         ss_type_array = self.ss_type_sequence
         total_interface_ss_topology = total_interface_ss_fragment_topology = ''
         for number, elements in self.split_interface_ss_elements.items():
+            # Use unique as 2-fold interfaces 'interface_residues_by_interface_unique' duplicate fragment_elements
             fragment_elements = {
-                element for residue, element in zip(self.interface_residues_by_interface[number], elements)
+                element for residue, element in zip(self.interface_residues_by_interface_unique[number], elements)
                 if residue.index in center_residue_indices}
             # Take the set of elements as there are element repeats if SS is continuous over residues
             interface_ss_topology = ''.join(ss_type_array[element] for element in set(elements))
@@ -8055,13 +8065,13 @@ class Pose(SymmetricModel, Metrics):
                 # center_residue_indices.add(fragment['mapped'])
                 # center_residue_indices.add(fragment['paired'])
 
-            self._center_residue_indices = list(center_residue_indices)
+            self._center_residue_indices = sorted(center_residue_indices)
 
             return self._center_residue_indices
 
     @center_residue_indices.setter
     def center_residue_indices(self, indices: Iterable[int]):
-        self._center_residue_indices = list(indices)
+        self._center_residue_indices = sorted(indices)
 
     def score_interface(self, entity1: Chain = None, entity2: Chain = None, **kwargs) -> dict:
         """Generate the fragment metrics for a specified interface between two entities
@@ -8090,7 +8100,9 @@ class Pose(SymmetricModel, Metrics):
             at the interface identified by interface id as split by topology
         """
         if self.interface_residues_by_interface:
-            # Todo this needs to be removed if they have been set and modified. reset_state()
+            self.log.debug("Interface residues weren't set as they are already set. If they have been changed, the "
+                           "atribute 'interface_residues_by_interface' should be reset")
+            # Todo add to reset_state()/reset_pose()
             return
 
         self.log.debug('Find and split interface using active_entities: '
@@ -8110,12 +8122,19 @@ class Pose(SymmetricModel, Metrics):
         If an interface can't be composed into two distinct groups, raise DesignError
 
         Sets:
-            self.interface_residues_by_interface (dict[int, list[Residue]]): Residue instances at each interface
-            at the interface identified by interface id as split by topology
+            self.interface_residues_by_interface (dict[int, list[Residue]]): Residue instances separated by
+                interface topology
+            self.interface_residues_by_interface_unique (dict[int, list[Residue]]): Residue instances separated by
+                interface topology removing any dimeric duplicates
         """
         first_side, second_side = 0, 1
-        # Assume no symmetric contacts to start, i.e. 'self': [False, False]
-        interface = {first_side: {}, second_side: {}, 'self': [False, False]}
+        first_interface_side = defaultdict(list)  # {}
+        second_interface_side = defaultdict(list)  # {}
+        # interface = {first_side: {}, second_side: {}}
+        # Assume no symmetric contacts to start, i.e. [False, False]
+        self_indication = [False, False]
+        """Set to True if the interface side (1 or 2) contains self-symmetric contacts"""
+        symmetric_dimer = {entity: False for entity in self.entities}
         terminate = False
         # self.log.debug('Pose contains interface residues: %s' % self.interface_residues_by_entity_pair)
         for entity_pair, entity_residues in self.interface_residues_by_entity_pair.items():
@@ -8124,77 +8143,84 @@ class Pose(SymmetricModel, Metrics):
             # if not entity_residues:
             if not residues1:  # No residues were found at this interface
                 continue
-            else:  # Partition residues from each entity to the correct interface side
-                # Check for any existing symmetry
-                if entity1 == entity2:  # The query is with itself. Record as a self interaction
-                    _self = True
-                    if not residues2:  # The interface is symmetric dimer and residues were removed from interface 2
-                        residues2 = residues1.copy()  # Add residues1 to residues2
+            # Partition residues from each entity to the correct interface side
+            # Check for any existing symmetry
+            if entity1 == entity2:  # The query is with itself. Record as a self interaction
+                _self = True
+                if not residues2:  # The interface is a symmetric dimer and residues were removed from interface 2
+                    symmetric_dimer[entity1] = True
+                    # Set residues2 as residues1
+                    residues2 = residues1  # .copy()  # Add residues1 to residues2
+            else:
+                _self = False
+
+            if not first_interface_side:  # This is first interface observation
+                # Add the pair to the dictionary in their indexed order
+                first_interface_side[entity1].extend(residues1)  # residues1.copy()
+                second_interface_side[entity2].extend(residues2)  # residues2.copy()
+                # Indicate whether the interface is a self symmetric interface by marking side 2 with _self
+                self_indication[second_side] = _self
+            else:  # Interface already assigned, so interface observation >= 2
+                # Need to check if either Entity is in either side before adding correctly
+                if entity1 in first_interface_side:  # is Entity1 on the interface side 1?
+                    # Is Entity1 in interface1 here as a result of self symmetric interaction?
+                    if self_indication[first_side]:
+                        # Yes. Ex4 - self Entity was added to index 0 while ASU added to index 1
+                        # Add Entity1 to interface side 2
+                        second_interface_side[entity1].extend(residues1)
+                        # Add new Entity2 to interface side 1
+                        first_interface_side[entity2].extend(residues2)  # residues2.copy()
+                    else:  # Entities are properly indexed
+                        # Add Entity1 to the first
+                        first_interface_side[entity1].extend(residues1)
+                        # Because of combinations with replacement Entity search, the second Entity isn't in
+                        # interface side 2, UNLESS the Entity self interaction is on interface 1 (above if check)
+                        # Therefore, add Entity2 to the second without checking for overwrite
+                        second_interface_side[entity2].extend(residues2)  # residues2.copy()
+                        # This can't happen, it would VIOLATE RULES
+                        # if _self:
+                        #     self_indication[second_side] = _self
+                # Entity1 isn't in the first index. It may be in the second, it may not
+                elif entity1 in second_interface_side:
+                    # Yes. Ex5, add to interface side 2
+                    second_interface_side[entity1].extend(residues1)
+                    # Also, add Entity2 to the first side
+                    # Entity 2 can't be in interface side 1 due to combinations with replacement check
+                    first_interface_side[entity2].extend(residues2)  # residues2.copy()
+                    if _self:  # Only modify if self is True, don't want to overwrite an existing True value
+                        self_indication[first_side] = _self
+                # If Entity1 is missing, check Entity2 to see if it has been identified yet
+                # This is more likely from combinations with replacement
+                elif entity2 in second_interface_side:
+                    # Possible in an iteration Ex: (A:D) (C:D)
+                    second_interface_side[entity2].extend(residues2)
+                    # Entity 1 was not in first interface (from if #1), therefore we can set directly
+                    first_interface_side[entity1].extend(residues1)  # residues1.copy()
+                    # Ex3
+                    if _self:  # Only modify if self is True, don't want to overwrite an existing True value
+                        self_indication[first_side] = _self
+                elif entity2 in first_interface_side:
+                    # The first Entity wasn't found in either interface, but both interfaces are already set,
+                    # therefore Entity pair isn't self, so the only way this works is if entity1 is further in the
+                    # iterative process which is an impossible topology given combinations with replacement.
+                    # Violates interface separation rules
+                    second_interface_side[entity1] = False
+                    terminate = True
+                    break
+                # Neither of our Entities were found, thus we would add 2 entities to each interface side, violation
                 else:
-                    _self = False
+                    first_interface_side[entity1] = second_interface_side[entity2] = False
+                    terminate = True
+                    break
 
-                if not interface[first_side]:  # This is first interface observation
-                    # Add the pair to the dictionary in their indexed order
-                    interface[first_side][entity1], interface[second_side][entity2] = residues1.copy(), residues2.copy()
-                    # Indicate whether the interface is a self symmetric interface by marking side 2 with _self
-                    interface['self'][second_side] = _self
-                else:  # We have interface assigned, so interface observation >= 2
-                    # Need to check if either Entity is in either side before adding correctly
-                    if entity1 in interface[first_side]:  # is Entity1 on the interface side 1?
-                        if interface['self'][first_side]:
-                            # Is an Entity in interface1 here as a result of self symmetric interaction?
-                            # If so, flip Entity1 to interface side 2, add new Entity2 to interface side 1
-                            # Ex4 - self Entity was added to index 0 while ASU added to index 1
-                            interface[second_side][entity1].extend(residues1)
-                            interface[first_side][entity2] = residues2.copy()
-                        else:  # Entities are properly indexed, extend the first index
-                            interface[first_side][entity1].extend(residues1)
-                            # Because of combinations with replacement Entity search, the second Entity is not in
-                            # interface side 2, UNLESS the Entity self interaction is on interface 1 (above if check)
-                            # Therefore, add without checking for overwrite
-                            interface[second_side][entity2] = residues2.copy()
-                            # if _self:  # This can't happen, it would VIOLATE RULES
-                            #     interface['self'][second] = _self
-                    # Entity1 is not in the first index. It may be in the second, it may not
-                    elif entity1 in interface[second_side]:  # it is, add to interface side 2
-                        interface[second_side][entity1].extend(residues1)
-                        # Also, add it's partner entity to the first index
-                        # Entity 2 can't be in interface side 1 due to combinations with replacement check
-                        interface[first_side][entity2] = residues2.copy()  # Ex5
-                        if _self:  # only modify if self is True, don't want to overwrite an existing True value
-                            interface['self'][first_side] = _self
-                    # If Entity1 is missing, check Entity2 to see if it has been identified yet
-                    elif entity2 in interface[second_side]:  # this is more likely from combinations with replacement
-                        # Possible in an iteration Ex: (A:D) (C:D)
-                        interface[second_side][entity2].extend(residues2)
-                        # Entity 1 was not in first interface (from if #1), therefore we can set directly
-                        interface[first_side][entity1] = residues1.copy()
-                        if _self:  # only modify if self is True, don't want to overwrite an existing True value
-                            interface['self'][first_side] = _self  # Ex3
-                    elif entity2 in interface[first_side]:
-                        # The first Entity wasn't found in either interface, but both interfaces are already set,
-                        # therefore Entity pair isn't self, so the only way this works is if entity1 is further in the
-                        # iterative process which is an impossible topology, and violates interface separation rules
-                        interface[second_side][entity1] = False
-                        terminate = True
-                        break
-                    # Neither of our Entities were found, thus we would add 2 entities to each interface side, violation
-                    else:
-                        interface[first_side][entity1] = interface[second_side][entity2] = False
-                        terminate = True
-                        break
-
-            interface1, interface2, self_check = tuple(interface.values())
-            if len(interface1) == 2 and len(interface2) == 2 and all(self_check):
+            if len(first_interface_side) == 2 and len(second_interface_side) == 2 and all(self_indication):
                 pass
-            elif len(interface1) == 1 or len(interface2) == 1:
+            elif len(first_interface_side) == 1 or len(second_interface_side) == 1:
                 pass
             else:
                 terminate = True
                 break
 
-        # Remove self key from the dictionary after finished sorting
-        self_indications = interface.pop('self')
         if terminate:
             self.log.critical('The set of interfaces found during interface search generated a topologically '
                               'disallowed combination.\n\t %s\n This cannot be modelled by a simple split for residues '
@@ -8202,23 +8228,60 @@ class Pose(SymmetricModel, Metrics):
                               '%sPlease correct your design_selectors to reduce the number of Entities you are '
                               'attempting to design'
                               % (' | '.join(':'.join(entity.name for entity in interface_entities)
-                                            for interface_entities in interface.values()),
+                                            for interface_entities in (first_interface_side, second_interface_side)),
                                  'Symmetry was set which may have influenced this unfeasible topology, you can try to '
                                  'set it False. ' if self.is_symmetric() else ''))
             raise DesignError('The specified interfaces generated a topologically disallowed combination')
 
-        for key, entity_residues in interface.items():
-            all_residues = [residue for entity, residues in entity_residues.items() for residue in residues]
-            self.interface_residues_by_interface[key + 1] = sorted(all_residues, key=lambda residue: residue.index)
-
-        if not self.interface_residues_by_interface[1]:
+        if not first_interface_side:
             # raise utils.DesignError('Interface was unable to be split because no residues were found on one side of '
             self.log.warning("The interface wasn't able to be split because no residues were found on one side. "
                              "Check that your input has an interface or your flags aren't too stringent")
-        else:
-            self.log.debug('The interface is split as:\n\tInterface 1: %s\n\tInterface 2: %s'
+            return
+
+        for interface_number, entity_residues in enumerate((first_interface_side, second_interface_side), 1):
+            all_residues = [residue for entity, residues in entity_residues.items() for residue in residues]
+            self.interface_residues_by_interface[interface_number] = \
+                sorted(all_residues, key=lambda residue: residue.index)
+        if any(symmetric_dimer.values()):
+            # For each entity, find the maximum residue observations on each interface side
+            entity_observations = {entity: [0, 0] for entity, dimer in symmetric_dimer.items() if dimer}
+            for interface_index, entity_residues in enumerate((first_interface_side, second_interface_side)):
+                for entity, observations in entity_observations.items():
+                    observations[interface_index] += len(entity_residues[entity])
+
+            # Remove non-unique occurrences by entity if there are fewer observations
+            for entity, observations in entity_observations.items():
+                interface_obs1, interface_obs2 = entity_observations[entity]
+                if interface_obs1 > interface_obs2:
+                    second_interface_side.pop(entity)
+                elif interface_obs1 < interface_obs2:
+                    first_interface_side.pop(entity)
+                elif len(entity_observations) == 1:
+                    # This is a homo-dimer, by convention, get rid of the second side
+                    second_interface_side.pop(entity)
+                else:
+                    raise SymmetryError(
+                        f"Couldn't separate {entity.name} dimeric interface into unique residues. The number of "
+                        f"residues in each interface is equal: {interface_obs1} == {interface_obs2}")
+
+            # Perform the sort as without dimeric constraints
+            for interface_number, entity_residues in enumerate((first_interface_side, second_interface_side), 1):
+                all_residues = [residue for entity, residues in entity_residues.items() for residue in residues]
+                self.interface_residues_by_interface_unique[interface_number] = \
+                    sorted(all_residues, key=lambda residue: residue.index)
+
+            self.log.debug('The unique interface (no dimeric duplication) is split as:'
+                           '\n\tInterface 1: %s\n\tInterface 2: %s'
                            % tuple(','.join(f'{residue.number}{residue.chain_id}' for residue in residues)
-                                   for residues in self.interface_residues_by_interface.values()))
+                                   for residues in self.interface_residues_by_interface_unique.values()))
+        else:  # Just make a copy of the internal list... Avoid unforseen issues if these are ever modified
+            self.interface_residues_by_interface_unique = \
+                {number: residues.copy() for number, residues in self.interface_residues_by_interface.items()}
+
+        self.log.debug('The interface is split as:\n\tInterface 1: %s\n\tInterface 2: %s'
+                       % tuple(','.join(f'{residue.number}{residue.chain_id}' for residue in residues)
+                               for residues in self.interface_residues_by_interface.values()))
 
     def calculate_secondary_structure(self):
         """Curate the secondary structure topology for each Entity
@@ -8253,17 +8316,9 @@ class Pose(SymmetricModel, Metrics):
         self.ss_sequence_indices.extend(ss_sequence_indices)
         self.ss_type_sequence.extend(ss_type_sequence)
 
-        # ss_sequence_indices = self.ss_sequence_indices
-        for number, residues in self.interface_residues_by_interface.items():
-            interface_number_elements = [ss_sequence_indices[residue.index] for residue in residues]
-            # interface_number_elements = []
-            # for residue, entity in residues_entities:
-            #     try:
-            #         interface_number_elements.append(self.ss_sequence_indices[residue.index])
-            #     except IndexError:
-            #         raise IndexError(f'The index {residue.index}, from Entity {entity.name}, residue {residue.number}'
-            #                          f" isn't found in ss_sequence_indices with size {len(self.ss_sequence_indices)}")
-            self.split_interface_ss_elements[number] = interface_number_elements
+        # for number, residues in self.interface_residues_by_interface.items():
+        for number, residues in self.interface_residues_by_interface_unique.items():
+            self.split_interface_ss_elements[number] = [ss_sequence_indices[residue.index] for residue in residues]
         self.log.debug(f'Found interface secondary structure: {self.split_interface_ss_elements}')
 
     def calculate_fragment_profile(self, **kwargs):  # Todo move to Model

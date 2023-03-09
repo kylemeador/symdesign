@@ -439,7 +439,13 @@ def generate_fragments(job: pose.PoseJob):
         job: The PoseJob for which the protocol should be performed on
     """
     job.load_pose()
-    job.generate_fragments(interface=job.job.interface)
+    if job.job.interface_only:
+        entities = False
+        interface = True
+    else:
+        entities = True
+        interface = job.job.interface
+    job.generate_fragments(interface=interface, oligomeric_interfaces=job.job.oligomeric_interfaces, entities=entities)
 
 
 @protocol_decorator()
