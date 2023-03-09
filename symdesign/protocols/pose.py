@@ -1296,15 +1296,17 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     # Make an empty EntityTransform
                     data.transform = sql.EntityTransform()
                     data.transform.transformation = transformation
+                # Ensure this information is persistent
+                self.job.current_session.commit()
 
         # if not self.entity_names:  # Store the entity names if they were never generated
         #     self.entity_names = [entity.name for entity in self.pose.entities]
         #     self.log.info(f'Input Entities: {", ".join(self.entity_names)}')
 
         # Save the Pose asu
-        if not os.path.exists(self.pose_path) or self.job.force:
-            if not self.job.construct_pose:  # This is only true when self.job.nanohedra_output is True
-                return
+        if not os.path.exists(self.pose_path) or self.job.overwrite or self.job.load_to_db:
+            # if not self.job.construct_pose:  # This is only true when self.job.nanohedra_output is True
+            #     return
             # elif self.job.output_to_directory:
             #     return
             # # Propagate to the PoseJob parent DesignData
