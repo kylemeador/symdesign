@@ -1414,8 +1414,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             if self.measure_evolution is None and self.measure_alignment is None:
                 self.measure_evolution, self.measure_alignment = \
                     load_evolutionary_profile(self.job.api_db, self.pose, **kwargs)
-            else:  # We already set these
-                return
+            # else:  # We already set these
+            #     return
 
     def generate_fragments(self, interface: bool = False, oligomeric_interfaces: bool = False, entities: bool = False):
         """For the design info given by a PoseJob source, initialize the Pose then generate interfacial fragment

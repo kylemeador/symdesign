@@ -107,8 +107,10 @@ def protocol_decorator(errors: tuple[Type[Exception], ...] = (DesignError,)) -> 
                 func_return = ReportException(str(error))
             # remove_structure_memory()
             if job.job.reduce_memory:
-                job.pose = None
+                job.measure_evolution = job.measure_alignment = \
+                    job.pose = job.initial_model = None
                 # job.entities.clear()
+            job.protocol = None
             # close_logs()
             # Adapted from https://stackoverflow.com/questions/15435652/python-does-not-release-filehandles-to-logfile
             for handler in job.log.handlers:
