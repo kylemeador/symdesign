@@ -779,9 +779,6 @@ class StructureDatabase(Database):
 
                         # Remove tags from reference_sequence
                         clean_reference_sequence = expression.remove_terminal_tags(entity.reference_sequence)
-                        # Todo
-                        #  What happens if entity.sequence (i.e. the Structure) has resolved tag density? {
-                        #  source_gap_mutations = mutation_index: {'from': '-', 'to: LETTER}}
                         logger.debug(f'Found the .reference_sequence:\n{entity.reference_sequence}')
                         logger.debug(f'Found the clean_reference_sequence:\n{clean_reference_sequence}')
                         source_gap_mutations = generate_mutations(clean_reference_sequence, entity.sequence,
@@ -791,6 +788,11 @@ class StructureDatabase(Database):
                         for residue_index, mutation in source_gap_mutations.items():
                             # residue_index is zero indexed
                             new_aa_type = mutation['from']
+                            # What happens if entity.sequence (i.e. the Structure) has resolved tag density?
+                            #  mutation_index: {'from': '-', 'to: LETTER}}
+                            if new_aa_type == '-':
+                                # This could be removed from the structure but that seems implicitly bad
+                                continue
                             entity.insert_residue_type(new_aa_type, index=residue_index, chain_id=entity.chain_id)
 
                         # If the entity.msa_file is present, the prediction should succeed with high probability...
