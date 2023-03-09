@@ -90,10 +90,10 @@ def load_and_format(session: Session, stmt: Select, selected_column_names: Itera
     return df
 
 
-def load_sql_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None, design_ids: Iterable[int] = None) \
-        -> pd.DataFrame:
-    """Load and format every PoseJob instance's, PoseMetrics, EntityMetrics, and DesignMetrics for each associated
-    design
+def load_sql_all_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None,
+                                   design_ids: Iterable[int] = None) -> pd.DataFrame:
+    """Load and format every PoseJob instance's, PoseMetrics, EntityMetrics, DesignMetrics, and DesignEntityMetrics for
+    each associated design
 
     Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
 
@@ -110,10 +110,11 @@ def load_sql_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None,
     pm_names = [c.name for c in pm_c]
     dm_c = [c for c in sql.DesignMetrics.__table__.columns if not c.primary_key]
     dm_names = [c.name for c in dm_c]
-    entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
-                         sql.ProteinMetadata.c_terminal_helix,
-                         sql.ProteinMetadata.thermophilicity]
-    em_c = [c for c in (*sql.EntityMetrics.__table__.columns, *entity_metadata_c,
+    # entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
+    #                      sql.ProteinMetadata.c_terminal_helix,
+    #                      sql.ProteinMetadata.thermophilicity]
+    em_c = [c for c in (*sql.EntityMetrics.__table__.columns,
+                        # *entity_metadata_c,
                         *sql.DesignEntityMetrics.__table__.columns)
             if not c.primary_key]
     # Remove design_id
@@ -155,10 +156,11 @@ def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None) -
     # Accessing only the PoseMetrics and EntityMetrics
     pm_c = [c for c in sql.PoseMetrics.__table__.columns if not c.primary_key]
     pm_names = [c.name for c in pm_c]
-    entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
-                         sql.ProteinMetadata.c_terminal_helix,
-                         sql.ProteinMetadata.thermophilicity]
-    em_c = [c for c in (*sql.EntityMetrics.__table__.columns, *entity_metadata_c) if not c.primary_key]
+    # entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
+    #                      sql.ProteinMetadata.c_terminal_helix,
+    #                      sql.ProteinMetadata.thermophilicity]
+    # em_c = [c for c in (*sql.EntityMetrics.__table__.columns, *entity_metadata_c) if not c.primary_key]
+    em_c = [c for c in sql.EntityMetrics.__table__.columns if not c.primary_key]
     em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
     # em_c = [c for c in sql.EntityMetrics.__table__.columns if not c.primary_key]
     # em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
@@ -207,43 +209,179 @@ def load_sql_pose_metrics_dataframe(session: Session, pose_ids: Iterable[int] = 
     return load_and_format(session, stmt, selected_column_names)
 
 
-def load_sql_entity_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None) -> pd.DataFrame:
-    """Load and format every PoseJob instance's, EntityMetrics
+def load_sql_entity_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None,
+                                      design_ids: Iterable[int] = None) -> pd.DataFrame:
+    """Load and format every PoseJob instance's, EntityMetrics/DesignEntityMetrics
 
     Optionally limit those loaded to certain PoseJob.id's
 
     Args:
         session: A session object to complete the transaction
         pose_ids: PoseJob instance identifiers for which metrics are desired
+        design_ids: DesignData instance identifiers for which metrics are desired
     Returns:
-        A DataFrame formatted with the pose_id and EntityMetrics. The final DataFrame will have an entry corresponding
-            to each Entity in EntityData for a total of PoseJob's X number of Entities entries
+        A DataFrame formatted with the pose_id, EntityMetrics, and DesignEntityMetrics. The final DataFrame will have an
+            entry corresponding to each Entity in EntityData for a total of PoseJob's X number of entities entries
     """
     # Accessing only the PoseJob.id and EntityMetrics
-    popse_id_c = sql.EntityData.pose_id
-    entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
-                         sql.ProteinMetadata.c_terminal_helix,
-                         sql.ProteinMetadata.thermophilicity]
-    em_c = [c for c in (*sql.EntityMetrics.__table__.columns, *entity_metadata_c) if not c.primary_key]
-    em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
-    selected_columns = (popse_id_c, *em_c,)
-    selected_column_names = (popse_id_c.name, *em_names,)
+    pose_id_c = sql.EntityData.pose_id
+    # entity_metadata_c = [sql.ProteinMetadata.n_terminal_helix,
+    #                      sql.ProteinMetadata.c_terminal_helix,
+    #                      sql.ProteinMetadata.thermophilicity]
+    # em_c = [c for c in (*sql.EntityMetrics.__table__.columns, *entity_metadata_c) if not c.primary_key]
+    em_c = [c for c in (*sql.EntityMetrics.__table__.columns,
+                        # *entity_metadata_c,
+                        *sql.DesignEntityMetrics.__table__.columns)
+            if not c.primary_key]
+    # # Remove design_id
+    # em_c.pop(em_c.index(sql.DesignEntityMetrics.design_id))
+    # Remove entity_id as entity_id is duplicated
+    em_c.pop(em_c.index(sql.DesignEntityMetrics.entity_id))
+    em_names = [f'entity_{c.name}' if c.name not in ['entity_id', 'design_id'] else c.name for c in em_c]
+    selected_columns = (pose_id_c, *em_c,)
+    selected_column_names = (pose_id_c.name, *em_names,)
 
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
     join_stmt = select(selected_columns).select_from(PoseJob)\
-        .join(sql.EntityData).join(sql.EntityMetrics)
+        .join(sql.EntityData).join(sql.EntityMetrics).join(sql.DesignData).join(sql.DesignEntityMetrics)
     if pose_ids:
         stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
     else:
         stmt = join_stmt
 
+    if design_ids:
+        stmt = stmt.where(sql.DesignData.id.in_(design_ids))
+    else:
+        stmt = stmt
+
     return load_and_format(session, stmt, selected_column_names)
 
 
-def load_sql_designs_dataframe(session: Session, pose_ids: Iterable[int] = None, design_ids: Iterable[int] = None) \
+def load_sql_design_metrics_dataframe(session: Session, pose_ids: Iterable[int] = None, design_ids: Iterable[int] = None) \
         -> pd.DataFrame:
-    """Load and format every PoseJob instance associated DesignMetrics for each design associated with the PoseJob
+    """Load and format DesignMetrics/DesignEntityMetrics for each design associated with the PoseJob
+
+    Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
+
+    Args:
+        session: A session object to complete the transaction
+        pose_ids: PoseJob instance identifiers for which metrics are desired
+        design_ids: DesignData instance identifiers for which metrics are desired
+    Returns:
+        A pandas DataFrame formatted with every metric in DesignMetrics/DesignEntityMetrics. The final DataFrame will
+            have an entry for each DesignEntity for each DesignData
+    """
+    # dd_c = [sql.DesignData.pose_id, sql.DesignData.design_id]
+    dd_c = (sql.DesignData.pose_id,)
+    dd_names = [c.name for c in dd_c]
+    dm_c = [c for c in sql.DesignMetrics.__table__.columns if not c.primary_key]
+    dm_names = [c.name for c in dm_c]
+    # em_c = [c for c in sql.DesignEntityMetrics.__table__.columns if not c.primary_key]
+    # # Remove design_id
+    # em_c.pop(em_c.index(sql.DesignEntityMetrics.design_id))
+    # em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
+    selected_columns = (*dd_c, *dm_c)  # , *em_c)
+    selected_column_names = (*dd_names, *dm_names)  # , *em_names)
+
+    # Construct the SQL query
+    # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
+    join_stmt = select(selected_columns).select_from(sql.DesignData)\
+        .join(sql.DesignMetrics).join(PoseJob)  # .join(sql.DesignEntityMetrics)
+    if pose_ids:
+        stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
+    else:
+        stmt = join_stmt
+
+    if design_ids:
+        stmt = stmt.where(sql.DesignData.id.in_(design_ids))
+    else:
+        stmt = stmt
+
+    return load_and_format(session, stmt, selected_column_names)
+
+
+def load_sql_design_entities_dataframe(session: Session, pose_ids: Iterable[int] = None,
+                                       design_ids: Iterable[int] = None) -> pd.DataFrame:
+    """Load and format DesignEntityMetrics for each design associated with the PoseJob
+
+    Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
+
+    Args:
+        session: A session object to complete the transaction
+        pose_ids: PoseJob instance identifiers for which metrics are desired
+        design_ids: DesignData instance identifiers for which metrics are desired
+    Returns:
+        A pandas DataFrame formatted with every metric in DesignMetrics/DesignEntityMetrics. The final DataFrame will
+            have an entry for each DesignEntity for each DesignData
+    """
+    # dd_c = [sql.DesignData.pose_id, sql.DesignData.design_id]
+    dd_c = (sql.DesignData.pose_id,)
+    dd_names = [c.name for c in dd_c]
+    # dm_c = [c for c in sql.DesignMetrics.__table__.columns if not c.primary_key]
+    # dm_names = [c.name for c in dm_c]
+    em_c = [c for c in sql.DesignEntityMetrics.__table__.columns if not c.primary_key]
+    # Remove design_id
+    em_c.pop(em_c.index(sql.DesignEntityMetrics.design_id))
+    em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
+    selected_columns = (*dd_c, *em_c)  # *dm_c,
+    selected_column_names = (*dd_names, *em_names)  # *dm_names,
+
+    # Construct the SQL query
+    # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
+    join_stmt = select(selected_columns).select_from(sql.DesignData)\
+        .join(sql.DesignEntityMetrics)  # .join(PoseJob)
+    if pose_ids:
+        stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
+    else:
+        stmt = join_stmt
+
+    if design_ids:
+        stmt = stmt.where(sql.DesignData.id.in_(design_ids))
+    else:
+        stmt = stmt
+
+    return load_and_format(session, stmt, selected_column_names)
+
+
+def load_sql_pose_metadata_dataframe(session: Session, pose_ids: Iterable[int] = None,
+                                     design_ids: Iterable[int] = None) -> pd.DataFrame:
+    """Load and format every PoseJob instance associated metadata including protocol information
+
+    Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
+
+    Args:
+        session: A session object to complete the transaction
+        pose_ids: PoseJob instance identifiers for which metrics are desired
+        design_ids: Not used, but here for API. DesignData instance identifiers for which metrics are desired
+    Returns:
+        The pandas DataFrame formatted with the every metric in DesignMetrics. The final DataFrame will
+            have an entry for each DesignData
+    """
+    pj_c = [c for c in PoseJob.__table__.columns if not c.primary_key]
+    pj_names = [c.name for c in pj_c]
+    selected_columns = (PoseJob.id, *pj_c,)
+    selected_column_names = ('pose_id', *pj_names,)
+
+    # Construct the SQL query
+    # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
+    join_stmt = select(selected_columns).select_from(PoseJob)
+    if pose_ids:
+        stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
+    else:
+        stmt = join_stmt
+
+    # if design_ids:
+    #     stmt = stmt.where(sql.DesignData.id.in_(design_ids))
+    # else:
+    #     stmt = stmt
+
+    return load_and_format(session, stmt, selected_column_names)
+
+
+def load_sql_design_metadata_dataframe(session: Session, pose_ids: Iterable[int] = None,
+                                       design_ids: Iterable[int] = None) -> pd.DataFrame:
+    """Load and format every PoseJob instance associated metadata including protocol information
 
     Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
 
@@ -255,22 +393,72 @@ def load_sql_designs_dataframe(session: Session, pose_ids: Iterable[int] = None,
         The pandas DataFrame formatted with the every metric in DesignMetrics. The final DataFrame will
             have an entry for each DesignData
     """
-    # dd_c = [sql.DesignData.pose_id, sql.DesignData.design_id]
-    dd_c = (sql.DesignData.pose_id,)
+    raise NotImplementedError()
+    # Todo what DesignData is needed? How to join history of DesignProtocols..?
+    dd_c = [c for c in sql.DesignData.__table__.columns if not c.primary_key]
     dd_names = [c.name for c in dd_c]
-    dm_c = [c for c in sql.DesignMetrics.__table__.columns if not c.primary_key]
-    dm_names = [c.name for c in dm_c]
-    em_c = [c for c in sql.DesignEntityMetrics.__table__.columns if not c.primary_key]
-    # Remove design_id
-    em_c.pop(em_c.index(sql.DesignEntityMetrics.design_id))
-    em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
-    selected_columns = (*dd_c, *dm_c, *em_c)
-    selected_column_names = (*dd_names, *dm_names, *em_names)
+    dp_c = [c for c in sql.DesignProtocol.__table__.columns if not c.primary_key]
+    dp_names = [c.name for c in dp_c]
+    # pj_c = [c for c in PoseJob.__table__.columns if not c.primary_key]
+    # pj_names = [c.name for c in pj_c]
+    selected_columns = (*dp_c, *dd_c,)
+    selected_column_names = (*dp_names, *dd_names,)
 
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
-    join_stmt = select(selected_columns).select_from(sql.DesignData)\
-        .join(sql.DesignMetrics).join(PoseJob).join(sql.DesignEntityMetrics)
+    join_stmt = select(selected_columns).select_from(PoseJob)\
+        .join(sql.DesignData).join(sql.DesignProtocol)
+    if pose_ids:
+        stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
+    else:
+        stmt = join_stmt
+
+    if design_ids:
+        stmt = stmt.where(sql.DesignData.id.in_(design_ids))
+    else:
+        stmt = stmt
+
+    return load_and_format(session, stmt, selected_column_names)
+
+
+def load_sql_entity_metadata_dataframe(session: Session, pose_ids: Iterable[int] = None,
+                                       design_ids: Iterable[int] = None) -> pd.DataFrame:
+    """Load and format every PoseJob instance associated metadata including protocol information
+
+    Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
+
+    Args:
+        session: A session object to complete the transaction
+        pose_ids: PoseJob instance identifiers for which metrics are desired
+        design_ids: DesignData instance identifiers for which metrics are desired
+    Returns:
+        The pandas DataFrame formatted with the every metric in DesignMetrics. The final DataFrame will
+            have an entry for each DesignData
+    """
+    # pj_c = [PoseJob.id]
+    # pj_names = [c.name for c in pj_c]
+    pose_id_c = [sql.EntityData.pose_id, sql.EntityData.id]
+    pose_id_name = ['entity_id' if c.name == 'id' else c.name for c in pose_id_c]
+    em_c = [sql.ProteinMetadata.n_terminal_helix,
+            sql.ProteinMetadata.c_terminal_helix,
+            sql.ProteinMetadata.entity_id,  # The name of the Entity
+            sql.ProteinMetadata.symmetry_group,
+            sql.ProteinMetadata.refined,
+            sql.ProteinMetadata.loop_modeled,
+            # sql.ProteinMetadata.uniprot_ids,  # This is a property...
+            sql.ProteinMetadata.thermophilicity]
+    # This named entity_name as the external access is marked as entity_name while database access uses entity_id
+    em_names = [f'entity_{c.name}' if c.name != 'entity_id' else 'entity_name' for c in em_c]
+    uni_c = [sql.UniProtProteinAssociation.uniprot_id]
+    uni_names = [c.name for c in uni_c]
+
+    selected_columns = (*pose_id_c, *em_c, *uni_c)
+    selected_column_names = (*pose_id_name, *em_names, *uni_names)
+    # Construct the SQL query
+    # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
+    join_stmt = select(selected_columns).select_from(PoseJob) \
+        .join(sql.EntityData).join(sql.ProteinMetadata).join(sql.UniProtProteinAssociation)
+
     if pose_ids:
         stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
     else:
@@ -1094,31 +1282,61 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
     return return_pose_jobs
 
 
-def format_save_df(session: Session, pose_ids: Iterable[int], designs_df: pd.DataFrame) -> pd.DataFrame:
-    """"""
+def format_save_df(session: Session, designs_df: pd.DataFrame, pose_ids: Iterable[int],
+                   design_ids: Iterable[int] = None) -> pd.DataFrame:
+    """Given a DataFrame with Pose/Design information, clean Pose and Entity information for readable output
+
+    Args:
+        session: A session object to complete the transaction
+        designs_df: A DataFrame with design metrics. Must contain a column corresponding to PoseJob.id named "pose_id"
+        pose_ids: PoseJob instance identifiers for which metrics are desired
+        design_ids: DesignData instance identifiers for which metrics are desired
+    Returns:
+        A DataFrame formatted with the PoseMetrics, EntityMetrics, and DesignEntityMetrics. The final DataFrame will
+            have an entry for each PoseJob with separate metric columns grouped by 'structure_entity', i.e. Pose and
+            Entity metrics
+    """
     structure_type = 'structure_entity'
     pose_id = 'pose_id'
+    entity_id = 'entity_id'
     pose_metrics_df = load_sql_pose_metrics_dataframe(session, pose_ids=pose_ids)
     pose_metrics_df.set_index(pose_id, inplace=True)
-    logger.debug(f'pose_metrics_df: {pose_metrics_df}')  # Todo remove
+    logger.debug(f'pose_metrics_df:\n{pose_metrics_df}')  # Todo remove
     # save_df = pose_metrics_df.join(designs_df)  # , on='pose_id')
-    # Join the designs_df (which may not have pose_id as index) with the pose_id indexed pose_metrics_df
+
+    pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
+    pose_metrics_df = pose_metrics_df.join(pose_metadata_df.set_index(pose_id), rsuffix='_DROP')
+    logger.debug(f'pose_metrics_df after metadata join:\n{pose_metrics_df}')  # Todo remove
+
+    # Join the designs_df (which may not have pose_id as index, but must have pose_id as a column)
+    # with the pose_id indexed pose_metrics_df. This keeps the designs_df index in save_df
     save_df = designs_df.join(pose_metrics_df, on=pose_id, rsuffix='_DROP')
     save_df.drop(save_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
     save_df.columns = pd.MultiIndex.from_product([['pose'], save_df.columns.tolist()],
                                                  names=[structure_type, 'metric'])
-    logger.debug(f'save_df: {save_df}')  # Todo remove
-    # Get the EntityMetrics and unstack in the format
-    # structure_entity  1          2
-    # metric            go fish    go fish
-    # pose_id1          3   4      3    3
-    # pose_id2          5   3      3    3
-    # ...
-    entity_metrics_df = load_sql_entity_metrics_dataframe(session, pose_ids=pose_ids)
+    logger.debug(f'save_df:\n{save_df}')  # Todo remove
+    # Get EntityMetrics
+    entity_metrics_df = load_sql_entity_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
+    # entity_metrics_df.set_index(pose_id, inplace=True)
     logger.debug(f'entity_metrics_df: {entity_metrics_df}')  # Todo remove
+    # Manipulate to combine with Pose data for the final format:
+    # structure_entity        1        2 |    pose
+    # metric            go fish  go fish | go fish
+    # pose_id1           3    4   3    3 |  6  3.5
+    # pose_id2           5    3   3    3 |  8    3
+    # ...
+    entity_metadata_df = load_sql_entity_metadata_dataframe(session, pose_ids=pose_ids)
+    logger.debug(f'entity_metadata_df: {entity_metadata_df}')  # Todo remove
+    # entity_metadata_df.set_index(pose_id, inplace=True)
+    # entity_metrics_df = entity_metrics_df.join(entity_metadata_df.set_index(pose_id), on=pose_id, rsuffix='_DROP')
+    entity_metrics_df = entity_metrics_df.join(entity_metadata_df.set_index([pose_id, entity_id]),
+                                               on=[pose_id, entity_id], rsuffix='_DROP')
+    entity_metrics_df.drop(entity_metrics_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
+    logger.debug(f'entity_metrics_df after metadata.join: {entity_metrics_df}')  # Todo remove
     # Get the first return from factorize since we just care about the unique "code" values
     entity_metrics_df[structure_type] = \
         entity_metrics_df.groupby(pose_id).entity_id.transform(lambda x: pd.factorize(x)[0]) + 1
+    # Todo add numeric_only=True? to groupby ops
     # entity_metrics_df[structure_type] = entity_metrics_df.groupby(pose_id).entity_id.cumcount() + 1
     # entity_metrics_df[structure_type] = \
     #     (entity_metrics_df.groupby('pose_id').entity_id.cumcount() + 1).apply(lambda x: f'entity_{x}')
@@ -1182,35 +1400,67 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #     # else:
     #     #     df = pd.concat([total_df], axis=1, keys=['pose', 'metric'])
 
+    pose_id = 'pose_id'
+    entity_id = 'entity_id'
+    design_id = 'design_id'
     # Figure out designs from dataframe, filters, and weights
     total_df = load_sql_poses_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
+    pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
+    entity_metadata_df = load_sql_entity_metadata_dataframe(session, pose_ids=pose_ids)
+    logger.debug(f'entity_metadata_df: {entity_metadata_df}')  # Todo remove
+    total_df = total_df.join(pose_metadata_df.set_index(pose_id), on=pose_id, rsuffix='_DROP')
+    total_df = \
+        total_df.join(entity_metadata_df.set_index([pose_id, entity_id]), on=[pose_id, entity_id], rsuffix='_DROP')
+    total_df.drop(total_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
+    # logger.debug(f'total_df: {total_df.columns.tolist()}')
     if total_df.empty:
         raise utils.MetricsError(
             f"For the input PoseJobs, there aren't metrics collected. Use the '{flags.analysis}' module or perform some"
             " design module before selection")
-    designs_df = load_sql_designs_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
+    designs_df = load_sql_design_metrics_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
     if not designs_df.empty:
         # designs_df has a multiplicity of number_of_entities from DesignEntityMetrics table join
+        # Use the pose_id index to join to the total_df
+        # Todo ensure non-numeric are here as well
+        designs_df.drop(design_id, axis=1, inplace=True)
+        pose_designs_mean_df = designs_df.groupby(pose_id).mean(numeric_only=True)
+        print(pose_designs_mean_df)
+        input(sorted(pose_designs_mean_df.columns.tolist()))
+        total_df = total_df.join(pose_designs_mean_df, on=pose_id, rsuffix='_DROP')
+
         # columns_to_keep = [c.name for c in sql.DesignMetrics.numeric_columns()]
         # print(designs_df.columns.tolist())
         # designs_df = designs_df.loc[:, [col for col in columns_to_keep if col in designs_df.columns]]
         # print(designs_df.columns.tolist())
-        pose_designs_mean_df = designs_df.groupby('pose_id').mean(numeric_only=True)
-        # Use the pose_id index to join to the total_df
+        entity_designs_df = load_sql_design_entities_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
+        # logger.debug(f'entity_designs_df: {entity_designs_df}')
+        pose_design_entities_mean_df = entity_designs_df.groupby([pose_id, entity_id]).mean(numeric_only=True)
+        logger.debug(f'pose_design_entities_mean_df: {pose_design_entities_mean_df}')
+        # # Drop unused designs columns
+        # entity_columns = [c.name for c in sql.DesignEntityMetrics.__table__.columns if c.name in designs_df.columns]
+        # entity_designs_df = designs_df.loc[:, ['pose_id'] + entity_columns]
+        # designs_df.drop([design_id] + entity_columns, axis=1, inplace=True)
         # This will create a total_df that is the number_of_entities X larger than the number of poses
-        total_df = total_df.join(pose_designs_mean_df, rsuffix='_DROP')
+        total_df = total_df.join(pose_design_entities_mean_df, on=[pose_id, entity_id], rsuffix='_DROP')
         total_df.drop(total_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
+        logger.debug(f'total_df: {total_df}')
+        logger.debug(f'total_df: {sorted(total_df.columns.tolist())}')
+    else:
+        raise NotImplementedError(f"Can't proceed without at least the PoseJob.pose_source")
 
     if job.filter or job.protocol:
         df_multiplicity = len(pose_jobs[0].entity_data)
         logger.warning('Filtering statistics have an increased representation due to included Entity metrics. '
                        f'Typically, values reported for each filter will be ~{df_multiplicity}x over those actually '
                        'present')
+    # Ensure the pose_id is the index to prioritize
+    total_df.set_index(pose_id, inplace=True)
     selected_poses_df = \
         metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight, protocols=job.protocol,
                                           default_weight=default_weight_metric, function=job.weight_function)
     # Remove excess pose instances
-    selected_pose_ids = utils.remove_duplicates(selected_poses_df['pose_id'].tolist())[:job.select_number]
+    # selected_pose_ids = selected_poses_df.index.duplicated()[:job.select_number]
+    selected_pose_ids = utils.remove_duplicates(selected_poses_df.index.tolist())[:job.select_number]
     selected_poses = [session.get(PoseJob, id_) for id_ in selected_pose_ids]
 
     # # Select by clustering analysis
@@ -1251,13 +1501,14 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
 
     final_pose_id_to_identifier = {pose_job.id: pose_job.pose_identifier for pose_job in final_poses}
 
-    # Format selected PoseJob with metrics for output
-    # save_poses_df = format_save_df(session, selected_pose_ids, pose_designs_mean_df)
-    save_poses_df = format_save_df(session, final_pose_id_to_identifier.keys(), pose_designs_mean_df)
+    # Format selected PoseJob ids for output, including all additional metrics/metadata
+    save_poses_df = pose_designs_mean_df.loc[selected_pose_ids]
+    save_poses_df = format_save_df(session, save_poses_df, selected_pose_ids)
     # Rename the identifiers to human-readable names
-    save_poses_df.reset_index(inplace=True)
-    save_poses_df['pose_identifier'] = save_poses_df['pose_id'].map(final_pose_id_to_identifier)
-    save_poses_df.set_index('pose_identifier', inplace=True)
+    save_poses_df.reset_index(col_fill='pose', col_level=-1, inplace=True)
+    save_poses_df['pose_identifier'] = save_poses_df[('pose', pose_id)].map(final_pose_id_to_identifier)
+    save_poses_df.set_index(
+        save_poses_df[('pose', pose_id)].map(final_pose_id_to_identifier).rename('pose_identifier'), inplace=True)
 
     # Format selected poses for output
     putils.make_path(job.output_directory)
@@ -1298,7 +1549,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # if job.specification_file:
     pose_ids = [pose_job.id for pose_job in pose_jobs]
     design_ids = [design.id for pose_job in pose_jobs for design in pose_job.current_designs]
-    #     total_df = load_sql_designs_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
+    #     total_df = load_sql_design_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
     #     selected_poses_df = \
     #         metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight,
     #                                           protocols=job.protocol, function=job.weight_function)
@@ -1317,7 +1568,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # else:  # if job.total:  # Figure out poses from file/directory input, filters, and weights
     #     pose_ids = design_ids = None
     #     # total_df = load_total_dataframe(pose_jobs)
-    #     total_df = load_sql_designs_dataframe(job.current_session)
+    #     total_df = load_sql_design_metrics_dataframe(job.current_session)
     #     if job.protocol:
     #         group_df = total_df.groupby('protocol')
     #         df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
@@ -1341,10 +1592,17 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     entity_id = 'entity_id'
     design_id = 'design_id'
     # Figure out designs from dataframe, filters, and weights
-    # designs_df = load_sql_designs_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
-    # pose_designs_mean_df = designs_df.groupby('pose_id').mean()
-    metrics_df = load_sql_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
-    if metrics_df.empty:
+    total_df = load_sql_all_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
+    pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
+    entity_metadata_df = load_sql_entity_metadata_dataframe(session, pose_ids=pose_ids)
+    logger.debug(f'entity_metadata_df: {entity_metadata_df}')  # Todo remove
+    total_df = total_df.join(pose_metadata_df.set_index(pose_id), on=pose_id, rsuffix='_DROP')
+    total_df = \
+        total_df.join(entity_metadata_df.set_index([pose_id, entity_id]), on=[pose_id, entity_id], rsuffix='_DROP')
+    total_df.drop(total_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
+    logger.debug(f'total_df: {total_df}')
+    # logger.debug(f'total_df: {total_df.columns.tolist()}')
+    if total_df.empty:
         raise utils.MetricsError(
             f"For the input PoseJobs, there aren't metrics collected. Use the '{flags.analysis}' module or perform some"
             " design module before selection")
@@ -1353,7 +1611,8 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         logger.warning('Filtering statistics have an increased representation due to included Entity metrics. '
                        f'Typically, values reported for each filter will be ~{df_multiplicity}x over those actually '
                        'present')
-    total_df = metrics_df
+    # Ensure the design_id is the index to prioritize, though both pose_id and design_id are grabbed below
+    total_df.set_index(design_id, inplace=True)
     selected_designs_df = \
         metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight, protocols=job.protocol,
                                           default_weight=default_weight_metric, function=job.weight_function)
@@ -1443,17 +1702,20 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         pose_job.current_designs = current_designs
         results.append(pose_job)
 
-    design_metrics_df = load_sql_designs_dataframe(session, design_ids=selected_design_ids)
+    # Todo incorporate design_metadata_df
+    design_metadata_df = load_sql_design_metadata_dataframe(session, design_ids=selected_design_ids)
+    design_metrics_df = load_sql_design_metrics_dataframe(session, design_ids=selected_design_ids)
     # designs_df has a multiplicity of number_of_entities from DesignEntityMetrics table join
-    design_metrics_df.set_index('design_id', inplace=True)
+    design_metrics_df = design_metadata_df.join(design_metrics_df.set_index(design_id), on=design_id, rsuffix='_DROP')
     # Format selected PoseJob with metrics for output
-    # save_poses_df = selected_designs_df
-    save_poses_df = format_save_df(session,
-                                   selected_pose_id_to_design_ids.keys(),
-                                   # # Remove the 'design_id' index
-                                   # selected_designs_df.droplevel(-1, axis=0))
-                                   design_metrics_df)
-    #                                selected_designs_df.set_index('design_id').loc[selected_design_ids, :])
+    # save_designs_df = selected_designs_df
+    save_designs_df = format_save_df(session, design_metrics_df,
+                                     selected_pose_id_to_design_ids.keys(),
+                                     design_ids=selected_design_ids
+                                     # # Remove the 'design_id' index
+                                     # selected_designs_df.droplevel(-1, axis=0))
+                                     )
+    #                                  selected_designs_df.set_index('design_id').loc[selected_design_ids, :])
     # Rename the identifiers to human-readable names
     save_designs_df.reset_index(inplace=True, col_level=-1, col_fill='pose')
     save_designs_df[('pose', 'design_name')] = save_designs_df[('pose', design_id)].map(design_id_to_identifier)
