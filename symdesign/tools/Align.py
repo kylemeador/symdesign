@@ -723,4 +723,3 @@ if __name__ == '__main__':
             full_model.write(out_path=f'{out_path}_asu.pdb')
         else:
             full_model.write(out_path=f'{out_path}.pdb')
-

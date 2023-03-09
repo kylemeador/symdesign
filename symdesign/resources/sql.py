@@ -312,7 +312,7 @@ class ProteinMetadata(Base):
     @property
     def uniprot_ids(self) -> dict[str, dict[str, Any]]:
         """Access the UniProtID's associated with this instance"""
-        return tuple(entity.id for entity in self.uniprot_entities)
+        return tuple(uni_entity.id for uni_entity in self.uniprot_entities)
 
     @property
     def entity_info(self) -> dict[str, dict[str, Any]]:
@@ -509,39 +509,6 @@ class EntityTransform(Base):
                     self.external_translation_z = operation
 
             # self._pose_transformation = self.info['pose_transformation'] = list(transform)
-
-
-# Add metrics which are dependent on multiples. Initialize Column() when setattr() is called to get correct column name
-# entity_transformation_metrics = dict(
-#     rotation=Float,
-#     setting_matrix=Integer,
-#     internal_translation=Float,
-#     external_translation_x=Float,
-#     external_translation_y=Float,
-#     external_translation_z=Float,
-# )
-# for idx in range(1, 1 + config.MAXIMUM_ENTITIES):
-#     for metric, value in entity_transformation_metrics.items():
-#         setattr(PoseMetrics, f'{metric}{idx}', Column(value))
-
-# entity_pose_metrics = dict(
-#     entity_max_radius=Float,
-#     entity_min_radius=Float,
-#     entity_name=String(30),
-#     entity_number_of_residues=Integer,
-#     entity_radius=Float,
-#     entity_symmetry_group=String(4),
-#     entity_n_terminal_helix=Boolean,
-#     entity_c_terminal_helix=Boolean,
-#     entity_n_terminal_orientation=Integer,
-#     entity_c_terminal_orientation=Integer,
-#     entity_thermophilicity=Boolean,
-#     entity_interface_secondary_structure_fragment_topology=String(60),
-#     entity_interface_secondary_structure_topology=String(60),
-# )
-# for idx in range(1, 1 + config.MAXIMUM_ENTITIES):
-#     for metric, value in entity_pose_metrics.items():
-#         setattr(PoseMetrics, metric.replace('entity', f'entity{idx}'), Column(value))
 
 # class Protocol(Base):
 #     __tablename__ = 'protocols'

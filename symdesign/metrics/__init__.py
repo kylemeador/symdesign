@@ -1126,7 +1126,7 @@ def position_specific_jsd(msa: np.ndarray, background: np.ndarray, **kwargs) -> 
 # Cross-Entropy = Shannon-Entropy + Kullback-Leibler-Divergence
 # CE = -SUMi->N(probability(pi) * log(probability(pi))) + -SUMi->N(probability(pi) * log(probability(qi)/probability(pi)))
 # CE = -SUMi->N(probability(pi) * log(probability(pi))) + -SUMi->N(probability(pi) * log(probability(qi)) - (probability(pi) * log(probability(pi)))
-# CE = ----------------------------------------------- + -SUMi->N(probability(pi) * log(probability(qi)) - ----------------------------------------
+# CE = ------------------------------------------------ + -SUMi->N(probability(pi) * log(probability(qi)) - ----------------------------------------
 # CE = -SUMi->N(probability(pi) * log(probability(qi))
 
 
@@ -1550,10 +1550,11 @@ def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = 
         metrics_input = input(input_string)
         chosen_metrics = set(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
                                                 repeat(' '), repeat('_'))))
+        available_metrics = sorted(available_metrics)
         while True:  # unsupported_metrics or 'metrics' in chosen_metrics:
             unsupported_metrics = chosen_metrics.difference(available_metrics)
             if 'metrics' in chosen_metrics:
-                print('You indicated "metrics". Here are Available Metrics\n%s\n' % ', '.join(available_metrics))
+                print(f'You indicated "metrics". Here are available metrics:\n{", ".join(available_metrics)}\n')
                 metrics_input = input(input_string)
             elif chosen_metrics.intersection(describe):
                 describe_data(df=df) if df is not None else print("Can't describe data without providing a DataFrame")
@@ -1570,8 +1571,10 @@ def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = 
                 # We have no errors and there are metrics
                 break
             else:
-                print('No metrics were provided... If this is what you want, you can run this module without '
-                      f'the {"-f/--filter" if mode == "filter" else "-w/--weight"} flag')
+                input_flag = flags.format_args(flags.filter_args) if mode == "filter" \
+                    else flags.format_args(flags.weight_args)
+                print("Metrics weren't provided... If this is what you want, run this module without the "
+                      f'{input_flag} flag')
                 if verify_choice():
                     break
             fixed_metrics = list(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
@@ -1616,7 +1619,7 @@ def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = 
             if verify_choice():
                 break
     except KeyboardInterrupt:
-        exit('Selection was ended by Ctrl-C!')
+        exit('\nSelection was ended by Ctrl-C!')
 
     return metric_values
 

@@ -78,7 +78,7 @@ def load_and_format(session: Session, stmt: Select, selected_column_names: Itera
     # "entity_metrics" and FROM element "protein_metadata".
     # Apply join condition(s) between each element to resolve.
     df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_column_names)
-    logger.debug(f'Loaded total Metrics DataFrame with primary identifier keys: '
+    logger.debug(f'Loaded DataFrame with primary_id keys: '
                  f'{[key for key in selected_column_names if "id" in key and "residue" not in key]}')
 
     # Format the dataframe and set the index
@@ -189,7 +189,7 @@ def load_sql_pose_metrics_dataframe(session: Session, pose_ids: Iterable[int] = 
         A DataFrame formatted with every metric in PoseMetrics. The final DataFrame will have an entry corresponding to
             each PoseJob
     """
-    # Accessing only the PoseMetrics and EntityMetrics
+    # Accessing only the PoseMetrics
     pm_c = [c for c in sql.PoseMetrics.__table__.columns if not c.primary_key]
     # pm_names = [c.name for c in pm_c]
     selected_columns = (*pm_c,)
@@ -448,7 +448,7 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         logger.info(f'Selected {len(final_poses)} poses after clustering')
     else:  # Try to generate the cluster_map?
         # raise utils.InputError(f'No --{flags.cluster_map} was provided. To cluster poses, specify:'
-        logger.info(f'No {flags.cluster_map} was provided. To {flags.cluster_poses}, specify:'
+        logger.info(f'No --{flags.cluster_map} was provided. To {flags.cluster_poses}, specify:'
                     f'"{putils.program_command} {flags.cluster_poses}" or '
                     f'"{putils.program_command} {flags.protocol} '
                     f'--{flags.modules} {flags.cluster_poses} {flags.select_poses}"')
@@ -1123,8 +1123,7 @@ def format_save_df(session: Session, pose_ids: Iterable[int], designs_df: pd.Dat
     # entity_metrics_df[structure_type] = \
     #     (entity_metrics_df.groupby('pose_id').entity_id.cumcount() + 1).apply(lambda x: f'entity_{x}')
     entity_metrics_df = entity_metrics_df.drop_duplicates([pose_id, structure_type])
-    # entity_metrics_df = entity_metrics_df.groupby([pose_id, structure_type]).mean()
-    logger.debug(f'entity_metrics_df AFTER GROUBY MEAN: {entity_metrics_df}')  # Todo remove
+    logger.debug(f'entity_metrics_df AFTER factorize and deduplication: {entity_metrics_df}')  # Todo remove
     # Make the stacked entity df and use the pose_id index to join with the above df
     pose_oriented_entity_df = entity_metrics_df.set_index([pose_id, structure_type]).unstack().swaplevel(axis=1)
     # pose_oriented_entity_df = entity_metrics_df.unstack().swaplevel(axis=1)
@@ -1239,7 +1238,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         logger.info(f'Selected {len(final_poses)} poses after clustering')
     else:  # Try to generate the cluster_map?
         # raise utils.InputError(f'No --{flags.cluster_map} was provided. To cluster poses, specify:'
-        logger.info(f'No {flags.cluster_map} was provided. To {flags.cluster_poses}, specify:'
+        logger.info(f'No --{flags.cluster_map} was provided. To {flags.cluster_poses}, specify:'
                     f'"{putils.program_command} {flags.cluster_poses}" or '
                     f'"{putils.program_command} {flags.protocol} '
                     f'--{flags.modules} {flags.cluster_poses} {flags.select_poses}"')
@@ -1311,7 +1310,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #         else:
     #             results[pose_id] = [design]
     #
-    #     save_poses_df = selected_poses_df.droplevel(0)  # .droplevel(0, axis=1).droplevel(0, axis=1)
+    #     save_designs_df = selected_poses_df.droplevel(0)  # .droplevel(0, axis=1).droplevel(0, axis=1)
     #     # Convert to PoseJob objects
     #     # results = {pose_id: results[str(pose_id)] for pose_id in pose_jobs
     #     #            if str(pose_id) in results}
@@ -1333,11 +1332,14 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #         len(selected_designs) if len(selected_designs) < job.select_number else job.select_number
     #
     #     # Include only the found index names to the saved dataframe
-    #     save_poses_df = selected_poses_df.loc[loc_result, :]  # droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
+    #     save_designs_df = selected_poses_df.loc[loc_result, :]  # droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
     #     # Convert to PoseJob objects
     #     # results = {pose_id: results[str(pose_id)] for pose_id in pose_jobs
     #     #            if str(pose_id) in results}
 
+    pose_id = 'pose_id'
+    entity_id = 'entity_id'
+    design_id = 'design_id'
     # Figure out designs from dataframe, filters, and weights
     # designs_df = load_sql_designs_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
     # pose_designs_mean_df = designs_df.groupby('pose_id').mean()
@@ -1359,14 +1361,14 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # # This will turn these values into average which is fine since we just want the order
     # pose_designs_mean_df = selected_designs_df.groupby('design_id').mean()
     # Drop duplicated values keeping the order of the DataFrame
-    selected_designs_df.drop_duplicates(subset='design_id', inplace=True)
+    selected_designs_df.drop_duplicates(subset=design_id, inplace=True)
     # Get the pose_id and the design_id for each found design
     # # Set the index according to 'pose_id', 'design_id'
     # selected_designs_df.set_index(['pose_id', 'design_id'], inplace=True)
     # selected_designs = selected_designs_df.index.tolist()
     # selected_designs = selected_designs_df[['pose_id', 'design_id']].values.tolist()
-    selected_design_ids = selected_designs_df['design_id'].tolist()
-    selected_pose_ids = selected_designs_df['pose_id'].tolist()
+    selected_design_ids = selected_designs_df[design_id].tolist()
+    selected_pose_ids = selected_designs_df[pose_id].tolist()
     selected_designs = list(zip(selected_pose_ids, selected_design_ids))
 
     # Specify the result order according to any filtering, weighting, and number
@@ -1376,10 +1378,13 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     logger.info(f'Choosing up to {job.select_number} Designs, with {designs_per_pose} Design(s) per Pose')
     selected_designs_iter = iter(selected_designs)
     number_chosen = count(0)
+    # selected_pose_id_to_design_ids = defaultdict(list)  # Alt way
     selected_pose_id_to_design_ids = {}
     try:
         while next(number_chosen) <= job.select_number:
             pose_id, design_id = next(selected_designs_iter)
+            # Alt way, but doesn't count designs_per_pose
+            # selected_pose_id_to_design_ids[pose_id].append(design_id)
             _designs = selected_pose_id_to_design_ids.get(pose_id, None)
             if _designs:
                 if len(_designs) >= designs_per_pose:
@@ -1450,14 +1455,14 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                                    design_metrics_df)
     #                                selected_designs_df.set_index('design_id').loc[selected_design_ids, :])
     # Rename the identifiers to human-readable names
-    save_poses_df.reset_index(inplace=True, col_level=-1, col_fill='pose')
-    save_poses_df[('pose', 'design_name')] = save_poses_df[('pose', 'design_id')].map(design_id_to_identifier)
-    # print('AFTER design_name', save_poses_df)
-    save_poses_df[('pose', 'pose_identifier')] = save_poses_df[('pose', 'pose_id')].map(pose_id_to_identifier)
-    # print('AFTER pose_identifier', save_poses_df)
-    save_poses_df.set_index([('pose', 'pose_identifier'), ('pose', 'design_name')], inplace=True)
-    save_poses_df.index.rename(['pose_identifier', 'design_name'], inplace=True)
-    # print('AFTER set_index', save_poses_df)
+    save_designs_df.reset_index(inplace=True, col_level=-1, col_fill='pose')
+    save_designs_df[('pose', 'design_name')] = save_designs_df[('pose', design_id)].map(design_id_to_identifier)
+    # print('AFTER design_name', save_designs_df)
+    save_designs_df[('pose', 'pose_identifier')] = save_designs_df[('pose', pose_id)].map(pose_id_to_identifier)
+    # print('AFTER pose_identifier', save_designs_df)
+    save_designs_df.set_index([('pose', 'pose_identifier'), ('pose', 'design_name')], inplace=True)
+    save_designs_df.index.rename(['pose_identifier', 'design_name'], inplace=True)
+    # print('AFTER set_index', save_designs_df)
 
     if job.save_total:
         total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
@@ -1469,7 +1474,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                                                            f'{"Weighted" if job.weight else ""}DesignMetrics.csv')
     else:
         new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-DesignMetrics.csv')
-    save_poses_df.to_csv(new_dataframe)
+    save_designs_df.to_csv(new_dataframe)
     logger.info(f'New DataFrame with selected designs written to: {new_dataframe}')
 
     return results  # , exceptions
