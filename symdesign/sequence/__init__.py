@@ -1765,7 +1765,7 @@ class MultipleSequenceAlignment:
             try:
                 at = np.flatnonzero(self.query_indices)[at]
             except IndexError:  # This index is outside of query
-                if at > self.length:
+                if at >= self.length:
                     # Treat as an append
                     at = self.length - 1
                 else:
