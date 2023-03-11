@@ -320,13 +320,16 @@ def main():
                     shutil.copy(data.model_source, job.refine_dir)
                 except shutil.SameFileError:
                     pass
+                data.refined = True
                 try:
                     shutil.copy(data.model_source, job.full_model_dir)
                 except shutil.SameFileError:
                     pass
                 data.loop_modeled = True
-                data.refined = True
         else:
+            for data in metadata:
+                if data.model_source is None:
+                    raise ValueError(f"Couldn't find a .model_source for {metadata}")
             # preprocess_instructions, initial_refinement, initial_loop_model = \
             #     job.structure_db.preprocess_structures_for_design(structures, script_out_path=job.sbatch_scripts)
             preprocess_instructions, initial_refinement, initial_loop_model = \

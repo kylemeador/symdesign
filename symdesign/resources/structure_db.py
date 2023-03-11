@@ -597,7 +597,7 @@ class StructureDatabase(Database):
         pre_loop_model = True
         if structures_to_loop_model:
             pre_loop_model = False
-            logger.info('The following structures have not been modelled for disorder: '
+            logger.info("The following structures haven't been modelled for disorder: "
                         f'{", ".join(sorted(set(_structure.name for _structure in structures_to_loop_model)))}')
             print(f'If you plan on performing {flags.design}/{flags.predict_structure} with them, it is strongly '
                   f'encouraged that you build missing loops to avoid disordered region clashing/misalignment')
@@ -712,7 +712,7 @@ class StructureDatabase(Database):
         for data in metadata:
             if not data.model_source:
                 logger.info(f"{self.preprocess_metadata_for_design.__name__}: Couldn't find the "
-                            f"ProteinMetadata.model_source for {data.entity_id}. Skipping preprocessing")
+                            f"ProteinMetadata.model_source for {data.entity_id}. Skipping loop model preprocessing")
                 continue
             # If data is here, it's model_source file should've been oriented...
             sym_def_files[data.symmetry_group] = utils.SymEntry.sdf_lookup(data.symmetry_group)
@@ -733,7 +733,7 @@ class StructureDatabase(Database):
         pre_loop_model = True
         if protein_data_to_loop_model:
             pre_loop_model = False
-            logger.info('The following structures have not been modelled for disorder: '
+            logger.info("The following structures haven't been modelled for disorder: "
                         f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_loop_model)))}')
             print(f'If you plan on performing {flags.design}/{flags.predict_structure} with them, it is strongly '
                   f'encouraged that you build missing loops to avoid disordered region clashing/misalignment')
@@ -958,7 +958,7 @@ class StructureDatabase(Database):
         for data in metadata:
             if not data.model_source:
                 logger.info(f"{self.preprocess_metadata_for_design.__name__}: Couldn't find the "
-                            f"ProteinMetadata.model_source for {data.entity_id}. Skipping preprocessing")
+                            f"ProteinMetadata.model_source for {data.entity_id}. Skipping refine preprocessing")
                 continue
             # If data is here, it's model_source file should've been oriented...
             if entity_name not in refine_names:  # Assumes oriented_asu structure name is the same
@@ -970,8 +970,8 @@ class StructureDatabase(Database):
         pre_refine = True
         if protein_data_to_refine:  # if files found unrefined, we should proceed
             pre_refine = False
-            logger.critical('The following structures are not yet refined and are being set up for refinement'
-                            ' into the Rosetta ScoreFunction for optimized sequence design:\n'
+            logger.critical("The following structures haven't be refined and are being set up for refinement "
+                            'into the Rosetta ScoreFunction for optimized sequence design:\n'
                             f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_refine)))}')
             print(f'If you plan on performing {flags.design} using Rosetta, it is strongly encouraged that you perform '
                   f'initial refinement. You can also refine them later using the {flags.refine} module')
