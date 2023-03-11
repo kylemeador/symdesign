@@ -72,6 +72,7 @@ specific_protocol = 'specific_protocol'
 directory = 'directory'
 dataframe = 'dataframe'
 fragment_database = 'fragment_database'
+database_url = 'database_url'
 interface_to_alanine = 'interface_to_alanine'
 _metrics = 'metrics'
 increment_chains = 'increment_chains'
@@ -175,6 +176,7 @@ models_to_relax = format_for_cmdline(models_to_relax)
 cluster_poses = format_for_cmdline(cluster_poses)
 generate_fragments = format_for_cmdline(generate_fragments)
 fragment_database = format_for_cmdline(fragment_database)
+database_url = format_for_cmdline(database_url)
 interface_metrics = format_for_cmdline(interface_metrics)
 optimize_designs = format_for_cmdline(optimize_designs)
 interface_design = format_for_cmdline(interface_design)
@@ -676,6 +678,9 @@ options_arguments = {
     ('--database',): dict(action=argparse.BooleanOptionalAction, default=True,
                           help=f'Whether to utilize the SQL database for result processing\n'
                                f'{boolean_positional_prevent_msg("database")}'),
+    (f'--{database_url}',): dict(type=str, help=f'The location/server used to connect to a SQL database.\nOnly use '
+                                                f'during initial {program_output} directory set up.\nSubsequent jobs '
+                                                f'will use the same url'),
     (f'--{development}',): dict(action='store_true',
                                 help="Run in development mode. Only use if you're actively\n"
                                      "developing and understand the side effects"),

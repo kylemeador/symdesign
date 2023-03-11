@@ -644,7 +644,7 @@ def main():
     """Used to set a leading string on all new PoseJob paths"""
     if symdesign_directory is None:  # We found no directory from the input
         # By default, assume new input and make in the current directory
-        new_symdesign_output = True
+        new_program_output = True
         symdesign_directory = os.path.abspath(os.path.join(os.getcwd(), putils.program_output))
         # Check if there is a file and see if we can solve there
         file_sources = ['file', 'poses', 'specification_file']  # 'poses' 'pose_file'
@@ -660,7 +660,7 @@ def main():
                         file_directory = utils.get_program_root_directory(line)
                         if file_directory is not None:
                             symdesign_directory = file_directory
-                            new_symdesign_output = False
+                            new_program_output = False
                     else:
                         # Set file basename as "project_name" in case poses are being integrated for the first time
                         # In this case, pose names might be the same, so we take the basename of the first file path as
@@ -670,11 +670,11 @@ def main():
         # Ensure the base directory is made if it is indeed new and in os.getcwd()
         putils.make_path(symdesign_directory)
     else:
-        new_symdesign_output = False
+        new_program_output = False
     # -----------------------------------------------------------------------------------------------------------------
     #  Process JobResources which holds shared program objects and command-line arguments
     # -----------------------------------------------------------------------------------------------------------------
-    job = job_resources_factory.get(program_root=symdesign_directory, arguments=args)
+    job = job_resources_factory.get(program_root=symdesign_directory, arguments=args, initial=new_program_output)
     if job.project_name:  # One was provided using flags (arguments=args) ^
         project_name = job.project_name
     # else:
