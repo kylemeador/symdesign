@@ -933,8 +933,10 @@ class JobResources:
         """Return True if the current computer has the computational requirements to collect evolutionary profiles"""
         # Run specific checks
         if psutil.virtual_memory().available <= distribute.hhblits_memory_threshold:
-            logger.critical(f'The available RAM is insufficient to run {putils.hhblits}. Required memory: '
-                            f'{distribute.hhblits_memory_threshold / gb_divisior:.2f} GB\n')
+            print('\n')
+            logger.critical(f'The available RAM is insufficient to run {putils.hhblits}. '
+                            f'Available memory: {psutil.virtual_memory().available / gb_divisior:.2f} GB,'
+                            f'Required memory: {distribute.hhblits_memory_threshold / gb_divisior:.2f} GB')
             #                 '\tPlease allocate the job to a computer with more memory or the process will fail, '
             #                 f'otherwise, submit the job with --no-{flags.evolution_constraint}')
             # exit(1)
