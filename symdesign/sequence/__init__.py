@@ -1762,9 +1762,17 @@ class MultipleSequenceAlignment:
         if msa_index:
             at = at
         else:
-            print('np.flatnonzero(self.query_indices)', np.flatnonzero(self.query_indices))
-            print('at', at)
-            at = np.flatnonzero(self.query_indices)[at]
+            try:
+                at = np.flatnonzero(self.query_indices)[at]
+            except IndexError:  # This index is outside of query
+                if at > self.length:
+                    # Treat as an append
+                    at = self.length - 1
+                else:
+                    raise NotImplementedError(f"Couldn't index with a negative index...")
+        begin_slice = slice(at)
+        end_slice = slice(at, None)
+
         logger.debug(f'Insertion is occurring at {self.__class__.__name__} index {at}')
 
         new_sequence = Seq(sequence)
@@ -1773,13 +1781,13 @@ class MultipleSequenceAlignment:
              for id_ in self.sequence_identifiers])
 
         logger.debug(f'len(new_alignment): {len(new_alignment)}')
-        begin_alignment = self.alignment[:, :at]
+        begin_alignment = self.alignment[:, begin_slice]  # :at]
         begin_alignment_len = len(begin_alignment)
         if begin_alignment_len:
             logger.debug(f'len(begin_alignment): {begin_alignment_len}')
             new_alignment = begin_alignment + new_alignment
 
-        end_alignment = self.alignment[:, at:]
+        end_alignment = self.alignment[:, end_slice]  # at:]
         end_alignment_len = len(end_alignment)
         if end_alignment_len:
             logger.debug(f'len(end_alignment): {end_alignment_len}')
