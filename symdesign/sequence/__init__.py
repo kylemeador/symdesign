@@ -1747,12 +1747,26 @@ class MultipleSequenceAlignment:
         # observed = {profile: np.where(np.take_along_axis(background, transposed_alignment, axis=1) > 0, 1, 0).T
         #             for profile, background in backgrounds.items()}
 
-    def insert(self, at: int, sequence: str):
+    def insert(self, at: int, sequence: str, msa_index: bool = False):
         """Insert new sequence in the MultipleSequenceAlignment where the added sequence is added to all columns
 
+        Args:
+            at: The index to insert the sequence at. By default, the index is in reference to where self.query_indices
+                are True, i.e the query sequence
+            sequence: The sequence to insert. Will be inserted for every sequence of the alignment
+            msa_index: Whether the insertion index is in the frame of the entire multiple sequence alignment.
+                Default, False, indicates the index is in the frame of the query sequence index, i.e. no gaps
         Sets:
             self.alignment: The existing alignment updated with the new sequence in alignment form
         """
+        if msa_index:
+            at = at
+        else:
+            print('np.flatnonzero(self.query_indices)', np.flatnonzero(self.query_indices))
+            print('at', at)
+            at = np.flatnonzero(self.query_indices)[at]
+        logger.debug(f'Insertion is occurring at {self.__class__.__name__} index {at}')
+
         new_sequence = Seq(sequence)
         new_alignment = MultipleSeqAlignment(
             [SeqRecord(new_sequence, id=id_)  # annotations={'molecule_type': 'Protein'},
@@ -1760,13 +1774,15 @@ class MultipleSequenceAlignment:
 
         logger.debug(f'len(new_alignment): {len(new_alignment)}')
         begin_alignment = self.alignment[:, :at]
-        if len(begin_alignment):
-            logger.debug(f'len(begin_alignment): {len(begin_alignment)}')
+        begin_alignment_len = len(begin_alignment)
+        if begin_alignment_len:
+            logger.debug(f'len(begin_alignment): {begin_alignment_len}')
             new_alignment = begin_alignment + new_alignment
 
         end_alignment = self.alignment[:, at:]
-        if len(end_alignment):
-            logger.debug(f'len(end_alignment): {len(end_alignment)}')
+        end_alignment_len = len(end_alignment)
+        if end_alignment_len:
+            logger.debug(f'len(end_alignment): {end_alignment_len}')
             new_alignment = new_alignment + end_alignment
 
         # Set the alignment

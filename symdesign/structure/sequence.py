@@ -868,8 +868,10 @@ class SequenceProfile(ABC):
             # Solve for mutations that are n- or c-terminal to the MSA
             nterm_extra_structure_numbers = [index for index in mutations_structure_missing_from_msa if index < 0]
             if nterm_extra_structure_numbers:
+                self.log.debug(f'n-term msa insertion indices: {nterm_extra_structure_numbers}')
                 nterm_sequence = ''.join(mutations_structure_missing_from_msa[idx]
                                          for idx in nterm_extra_structure_numbers)
+                self.log.debug(f'n-term insertion sequence: {nterm_sequence}')
                 msa.insert(0, nterm_sequence)
                 # nterm_extra_structure_indices = list(range(len(nterm_extra_structure_numbers)))
 
@@ -880,10 +882,10 @@ class SequenceProfile(ABC):
                                              if index >= last_msa_number]
             if cterm_extra_structure_numbers:
                 # Todo this hasn't been debugged yet
-                self.log.critical(f'cterm indices: {cterm_extra_structure_numbers}')
+                self.log.debug(f'c-term msa insertion indices: {cterm_extra_structure_numbers}')
                 cterm_sequence = ''.join(mutations_structure_missing_from_msa[idx]
                                          for idx in cterm_extra_structure_numbers)
-                self.log.critical(f'cterm_sequence: {cterm_sequence}')
+                self.log.debug(f'c-term insertion sequence: {cterm_sequence}')
                 msa.insert(last_msa_number, cterm_sequence)
                 # cterm_extra_structure_indices = [last_msa_number + i for i in range(len(cterm_extra_structure_numbers))]
 
@@ -923,7 +925,7 @@ class SequenceProfile(ABC):
         sequence_indices[0] = False
         # Set the query indices that align to be True
         sequence_indices[0, aligned_query_indices] = True
-        self.log.debug(f'For MSA alignment to the .sequence, found the corresponding MSA query indices:'
+        self.log.debug('For MSA alignment to the .sequence, found the corresponding MSA query indices:'
                        f' {query_align_indices}')
         # self.log.critical(f'MSA aligned query_align_indices: {sequence_indices[0].tolist()}')
         # alignment = generate_alignment(self.reference_sequence, self.msa.query)
