@@ -1758,11 +1758,14 @@ class MultipleSequenceAlignment:
             [SeqRecord(new_sequence, id=id_)  # annotations={'molecule_type': 'Protein'},
              for id_ in self.sequence_identifiers])
 
+        print(f'len(new_alignment): {len(new_alignment)}')
         begin_alignment = self.alignment[:at]
+        print(f'len(begin_alignment): {len(begin_alignment)}')
         if len(begin_alignment):
             new_alignment = begin_alignment + new_alignment
 
         end_alignment = self.alignment[at:]
+        print(f'len(end_alignment): {len(end_alignment)}')
         if len(end_alignment):
             new_alignment = new_alignment + end_alignment
 

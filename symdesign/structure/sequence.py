@@ -837,8 +837,8 @@ class SequenceProfile(ABC):
         if internal_sequence_characters:  # != {'-'}:
             # Todo Internal insertions?
             raise NotImplementedError(
-                'There were internal regions which are unaccounted for in the evolutionary_profile, but are present in'
-                f' the structure: {evolutionary_gaps}')
+                "There are internal regions which aren't accounted for in the evolutionary_profile, but are present in "
+                f'the structure: {evolutionary_gaps}')
 
         self.log.debug(f'{self._fit_evolutionary_profile_to_structure.__name__}:\n\tOld:\n'
                        # f'{"".join(res["type"] for res in self.evolutionary_profile.values())}\n\tNew:\n'
@@ -877,7 +877,7 @@ class SequenceProfile(ABC):
             last_msa_number = msa.query_length  # + len(nterm_sequence)
             # input(f'last_msa_number: {last_msa_number}')
             cterm_extra_structure_numbers = [index for index in mutations_structure_missing_from_msa
-                                             if index > last_msa_number]
+                                             if index >= last_msa_number]
             if cterm_extra_structure_numbers:
                 # Todo this hasn't been debugged yet
                 self.log.critical(f'cterm indices: {cterm_extra_structure_numbers}')
@@ -894,7 +894,7 @@ class SequenceProfile(ABC):
             if internal_sequence_characters:  # != {'-'}:
                 # Todo Internal insertions?
                 raise NotImplementedError(
-                    'There were internal regions which are unaccounted for in the MSA, but are present in the structure'
+                    "There are internal regions which aren't accounted for in the MSA, but are present in the structure"
                     f': {mutations_structure_missing_from_msa}')
 
         # Get the sequence_indices now that we have insertions
