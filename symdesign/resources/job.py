@@ -347,20 +347,16 @@ class JobResources:
             if initial:
                 if database_url is None:
                     database_url = default_db
-                config_dict = {'url': database_url}
+                db_cfg = {'url': database_url}
                 with open(self.db_config, 'w') as f:
-                    json.dump(config_dict, f)
-                input(f'Checking json.dump() to file {self.db_config} of config_dict:\n{config_dict}')
-                with open(self.db_config, 'r') as f:
-                    db_cfg = json.load(f)
-                input(f'Checking db_cfg:\n{db_cfg}')
+                    json.dump(db_cfg, f)
             else:
                 if os.path.exists(self.db_config):
                     with open(self.db_config, 'r') as f:
                         db_cfg = json.load(f)
                     if database_url is not None:
                         raise InputError(
-                            f"The database-url '{database_url}' can't be used as this {putils.program_output} "
+                            f"The --database-url '{database_url}' can't be used as this {putils.program_output} "
                             f"was already initialized with the url='{db_cfg['url']}")
                     else:
                         database_url = db_cfg.get('url')  # , default_db)
