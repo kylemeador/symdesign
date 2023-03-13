@@ -2985,7 +2985,21 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         #         'dock_hydrophobicity',
         #         'dock_collapse_variance'
         #     ]
+        # Set up column renaming
         if job.dock.proteinmpnn_score:
+            collapse_metrics = (
+                'collapse_deviation_magnitude',
+                'collapse_increase_significance_by_contact_order_z',
+                'collapse_increased_z',
+                'collapse_new_positions',
+                'collapse_new_position_significance',
+                'collapse_significance_by_contact_order_z',
+                'collapse_sequential_peaks_z',
+                'collapse_sequential_z',
+                'hydrophobic_collapse')
+            remap_columns = dict(zip(residues_df.columns.tolist(), residues_df.columns.tolist()))
+            remap_columns.update(dict(zip(collapse_metrics, (f'dock_{metric_}' for metric_ in collapse_metrics))))
+            residues_df.columns = residues_df.columns.map(remap_columns)
             per_res_columns = [
                 # collapse_profile required
                 'dock_hydrophobic_collapse',  # dock by default not included
@@ -3018,6 +3032,9 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             poses_df = poses_df.drop(['interface_residue'], axis=1)
 
             interface_df = residues_df.loc[:, idx_slice[:, 'interface_residue']].droplevel(1, axis=1)
+            poses_df['dock_collapse_new_positions'] = \
+                (residues_df.loc[:, idx_slice[:, 'dock_collapse_new_positions']].droplevel(1, axis=1)
+                 * interface_df).sum(axis=1)
             # Update the total loss according to those residues that were actually specified as designable
             poses_df['proteinmpnn_v_design_probability_cross_entropy_loss'] = \
                 (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_design_probability_cross_entropy_loss']]
