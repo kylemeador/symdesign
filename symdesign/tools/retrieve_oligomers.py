@@ -13,11 +13,11 @@ logger.addHandler(logging.StreamHandler())
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Query the PDB for symmetric oligomers\n')
-    parser.add_argument(*flags.symmetry_args, type=str,
+    parser.add_argument(*flags.symmetry_args, required=True, type=str,
                         help='What is the schoenflies symbol of the desired oligomeric symmetry?')
     #                   **flags.symmetry_kwargs)
-    parser.add_argument('--lower-length', type=int, help='How short is the shortest allowed protein?')
-    parser.add_argument('--upper-length', type=int, help='How long is the longest allowed protein?')
+    parser.add_argument('--lower-length', default=80, type=int, help='How short is the shortest allowed protein?')
+    parser.add_argument('--upper-length', default=300, type=int, help='How long is the longest allowed protein?')
     # parser.add_argument('-f', '--file', nargs='*', type=os.path.abspath, metavar=f'{putils.ex_path("pdblist.file")}',
     #                     help='File(s) containing EntryID codes. Can be newline or comma separated')
     # parser.add_argument('-d', '--download', action='store_true',

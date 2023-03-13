@@ -6681,6 +6681,29 @@ class Pose(SymmetricModel, Metrics):
         else:
             return torch.from_numpy(decode_order).to(dtype=torch.float32, device=to_device)
 
+    def get_proteinmpnn_unbound_coords(self, ca_only: bool = False) -> np.ndarray:
+        """Translate the coordinates along z in increments of 1000 to separate coordinates"""
+        if ca_only:
+            coords_type = 'ca_coords'
+            num_model_residues = 1
+        else:
+            coords_type = 'backbone_coords'
+            num_model_residues = 4
+
+        unbound_transform = np.array([0., 0., 1000.])
+        if self.is_symmetric():
+            number_of_residues = self.number_of_symmetric_residues
+            coord_func = self.return_symmetric_coords
+        else:
+            number_of_residues = self.number_of_residues
+            def coord_func(coords): return coords
+
+        entity_unbound_coords = []
+        for idx, entity in enumerate(self.entities):
+            entity_unbound_coords.append(coord_func(getattr(entity, coords_type) + unbound_transform*idx))
+
+        return np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
+
     @torch.no_grad()  # Ensure no gradients are produced
     def score(self, sequences: Sequence[str] | Sequence[Sequence[str]] | np.array,
               method: flags.design_programs_literal = putils.proteinmpnn,
@@ -6781,29 +6804,7 @@ class Pose(SymmetricModel, Metrics):
                 number_of_residues = pose_length
 
             if measure_unbound:
-                if ca_only:  # self.job.design.ca_only:
-                    coords_type = 'ca_coords'
-                    num_model_residues = 1
-                else:
-                    coords_type = 'backbone_coords'
-                    num_model_residues = 4
-
-                # Translate the coordinates along z in increments of 1000 to separate coordinates
-                entity_unbound_coords = [getattr(entity, coords_type) for entity in self.entities]
-                unbound_transform = np.array([0, 0, 1000])
-                if self.is_symmetric():
-                    coord_func = self.return_symmetric_coords
-                else:
-                    def coord_func(coords): return coords
-
-                for idx, coords in enumerate(entity_unbound_coords):
-                    entity_unbound_coords[idx] = coord_func(coords + unbound_transform*idx)
-
-                X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
-                # extra_batch_parameters = ml.batch_proteinmpnn_input(size=batch_length, X=X_unbound)
-                # extra_batch_parameters = ml.proteinmpnn_to_device(device, **extra_batch_parameters)
-                # extra_batch_parameters['X_unbound'] = extra_batch_parameters.pop('X')
-                parameters = {'X_unbound': X_unbound}
+                parameters = {'X_unbound': self.get_proteinmpnn_unbound_coords(ca_only=ca_only)}
             else:
                 parameters = {}
 
@@ -6912,29 +6913,7 @@ class Pose(SymmetricModel, Metrics):
                 number_of_residues = pose_length
 
             if measure_unbound:
-                if ca_only:  # self.job.design.ca_only:
-                    coords_type = 'ca_coords'
-                    num_model_residues = 1
-                else:
-                    coords_type = 'backbone_coords'
-                    num_model_residues = 4
-
-                # Translate the coordinates along z in increments of 1000 to separate coordinates
-                entity_unbound_coords = [getattr(entity, coords_type) for entity in self.entities]
-                unbound_transform = np.array([0, 0, 1000])
-                if self.is_symmetric():
-                    coord_func = self.return_symmetric_coords
-                else:
-                    def coord_func(coords): return coords
-
-                for idx, coords in enumerate(entity_unbound_coords):
-                    entity_unbound_coords[idx] = coord_func(coords + unbound_transform*idx)
-
-                X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
-                # extra_batch_parameters = ml.batch_proteinmpnn_input(size=batch_length, X=X_unbound)
-                # extra_batch_parameters = ml.proteinmpnn_to_device(device, **extra_batch_parameters)
-                # extra_batch_parameters['X_unbound'] = extra_batch_parameters.pop('X')
-                parameters = {'X_unbound': X_unbound}
+                parameters = {'X_unbound': self.get_proteinmpnn_unbound_coords(ca_only=ca_only)}
             else:
                 parameters = {}
 
