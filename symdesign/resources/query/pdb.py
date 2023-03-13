@@ -19,6 +19,14 @@ putils = utils.path
 # Globals
 logger = logging.getLogger(__name__)
 current_dir = os.path.dirname(os.path.abspath(__file__))
+qsbio_confirmed: Annotated[dict[str, list[int]],
+                           'PDB EntryID mapped to the correct biological assemblies as specified by a QSBio confidence'\
+                           " of high or very high. Lowercase EntryID keys are mapped to a list of integer values"] = \
+    utils.unpickle(putils.qs_bio)
+"""PDB EntryID mapped to the correct biological assemblies as specified by a QSBio confidence of high or very high.
+Lowercase EntryID keys are mapped to a list of integer values
+"""
+
 # General Formatting
 user_input_format = f'\n{format_string.format("Option", "Description")}\n%s'
 additional_input_string = f'\nWould you like to add another%s? [y/n]{input_string}'

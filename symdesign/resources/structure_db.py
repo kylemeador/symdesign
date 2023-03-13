@@ -22,13 +22,6 @@ putils = utils.path
 
 # Todo adjust the logging level for this module?
 logger = logging.getLogger(__name__)
-qsbio_confirmed: Annotated[dict[str, list[int]],
-                           'PDB EntryID mapped to the correct biological assemblies as specified by a QSBio confidence'\
-                           " of high or very high. Lowercase EntryID keys are mapped to a list of integer values"] = \
-    utils.unpickle(putils.qs_bio)
-"""PDB EntryID mapped to the correct biological assemblies as specified by a QSBio confidence of high or very high.
-Lowercase EntryID keys are mapped to a list of integer values
-"""
 
 
 def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = False, out_dir: AnyStr = os.getcwd(),
@@ -171,7 +164,7 @@ def query_qs_bio(pdb_code: str) -> int:
     Returns:
         The integer of the corresponding PDB Assembly ID according to the QSBio assembly
     """
-    biological_assemblies = qsbio_confirmed.get(pdb_code.lower())
+    biological_assemblies = resources.query.pdb.qsbio_confirmed.get(pdb_code.lower())
     if biological_assemblies:
         # Get the first assembly in matching oligomers
         assembly = biological_assemblies[0]
