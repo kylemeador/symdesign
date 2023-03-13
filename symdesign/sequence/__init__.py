@@ -1763,11 +1763,8 @@ class MultipleSequenceAlignment:
             at = at
         else:
             try:
-                print('np.flatnonzero(self.query_indices)', np.flatnonzero(self.query_indices))
                 at = np.flatnonzero(self.query_indices)[at]
             except IndexError:  # This index is outside of query
-                print('self.length', self.length)
-                print('self.query_length', self.query_length)
                 if at >= self.query_length:
                     # Treat as an append
                     at = self.length - 1
