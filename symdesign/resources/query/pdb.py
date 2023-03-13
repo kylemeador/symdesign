@@ -6,6 +6,7 @@ import logging
 import os
 import time
 from copy import deepcopy
+from dataclasses import dataclass
 from json import dumps, load
 from typing import Annotated, Any, Iterable, Literal, get_args
 
@@ -51,12 +52,16 @@ request_types = {'group': 'Results must satisfy a group of requirements', 'termi
 request_type_examples = {'group': '"type": "group", "logical_operator": "and", "nodes": [%s]',
                          'terminal': '"type": "terminal", "service": "text", "parameters":{%s}'}
 # replacing the group %s with a request_type_examples['terminal'], or the terminal %s with a parameter_query
-return_types = {'entry': "PDB ID's",
-                'polymer_entity': "PDB ID's appended with entityID - '[pdb_id]_[entity_id]' for macromolecules",
-                'non_polymer_entity': "PDB ID's appended with entityID - '[pdb_id]_[entity_id]' for "
-                                      'non-polymers',
-                'polymer_instance': "PDB ID's appended with asymID's (chains) - '[pdb_id]_[asym_id]'",
-                'assembly': "PDB ID's appended with biological assemblyID's - '[pdb_id]-[assembly_id]'"}
+return_types_literal = Literal[
+    'entry', 'polymer_entity', 'non_polymer_entity', 'polymer_instance', 'assembly', 'mol_definition']
+return_type_args: tuple[str, ...] = get_args(return_types_literal)
+return_types = dict(
+    zip(return_type_args,
+        ("PDB ID's",
+         "PDB ID's appended with entityID - '[pdb_id]_[entity_id]' for macromolecules",
+         "PDB ID's appended with entityID - '[pdb_id]_[entity_id]' for non-polymers",
+         "PDB ID's appended with asymID's (chains) - '[pdb_id]_[asym_id]'",
+         "PDB ID's appended with biological assemblyID's - '[pdb_id]-[assembly_id]'")))
 services = {'text': 'linguistic searches against textual annotations associated with PDB structures',
             'sequence': 'employs the MMseqs2 software and performs fast sequence matching searches (BLAST-like)'
                         ' based on a user-provided FASTA sequence',
@@ -127,20 +132,20 @@ def retrieve_entity_id_by_sequence(sequence: str) -> str | None:
         return None
 
 
-def find_matching_entities_by_sequence(sequence: str = None, return_id: str = 'polymer_entity', **kwargs)\
-        -> list[str] | None:
+def find_matching_entities_by_sequence(sequence: str = None, return_id: return_types_literal = 'polymer_entity',
+                                       **kwargs) -> list[str] | None:
     """Search the PDB for matching IDs given a sequence and a return_type. Pass all_matching=False to retrieve the top
     10 IDs, otherwise return all IDs
 
     Args:
         sequence: The sequence used to query for EntityID's
-        return_id: The type of value to return where the acceptable values are in return_types
+        return_id: The type of value to return
     Returns:
         The EntityID's matching the sequence
     """
-    if return_id not in return_types:
+    if return_id not in return_type_args:
         raise KeyError(f"The specified return type '{return_id}' isn't supported. Viable types include "
-                       f"{', '.join(return_types)}")
+                       f"{', '.join(return_type_args)}")
     logger.debug(f'Using the default sequence similarity parameters: '
                  f'{", ".join(f"{k}: {v}" for k, v in default_sequence_values.items())}')
     sequence_query = generate_terminal_group(service='sequence', sequence=sequence)
@@ -268,18 +273,18 @@ def generate_parameters(attribute=None, operator=None, negation=None, value=None
         return {'attribute': attribute, 'operator': operator, 'negation': negation, 'value': value}
 
 
-def pdb_id_matching_uniprot_id(uniprot_id, return_id: str = 'polymer_entity') -> list[str]:
+def pdb_id_matching_uniprot_id(uniprot_id, return_id: return_types_literal = 'polymer_entity') -> list[str]:
     """Find all matching PDB entries from a specified UniProt ID and specific return ID
 
     Args:
         uniprot_id: The UniProt ID of interest
-        return_id: The type of value to return where the acceptable values are in return_types
+        return_id: The type of value to return
     Returns:
         The list of matching IDs
     """
-    if return_id not in return_types:
+    if return_id not in return_type_args:
         raise KeyError('The specified return type "%s" is not supported. Viable types include %s'
-                       % (return_id, ', '.join(return_types)))
+                       % (return_id, ', '.join(return_type_args)))
     database = {'attribute': 'rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.database_name',
                 'negation': False, 'operator': 'exact_match', 'value': 'UniProt'}
     accession = \
@@ -340,9 +345,9 @@ def generate_query(search: dict, return_id: return_types_literal = 'entry', clus
     Returns:
         The formatted query to be sent via HTTP GET
     """
-    if return_id not in return_types:
+    if return_id not in return_type_args:
         raise KeyError(f"The specified return type '{return_id}' isn't supported. Viable types include "
-                       f"{', '.join(return_types)}")
+                       f"{', '.join(return_type_args)}")
 
     query_d = {'query': search, 'return_type': return_id}
     request_options = {'results_content_type': ['experimental'],  # "computational" for Alphafold
@@ -556,7 +561,7 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
                                        'description in the second.\nWhat type of identifier do you want to search the '\
                                        f'PDB for?%s{input_string}' % user_input_format % \
                                        '\n'.join(format_string.format(*item) for item in return_types.items())
-            return_type = validate_input(return_identifier_string, return_types)
+            return_type = validate_input(return_identifier_string, return_type_args)
 
         terminal_group_queries = []
         # terminal_group_queries = {}
@@ -2213,5 +2218,3 @@ def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), 
         return utils.unpickle(file)
 
     return schema_d
-
-

@@ -483,7 +483,7 @@ def validate_input(prompt: str, response: Iterable[str]) -> str:  # Exact copy a
 
     Args:
         prompt: The desired prompt
-        response: The response values to accept as keys and the resulting data to return as values
+        response: The response values to accept
     Returns:
         The data matching the chosen response key
     """
@@ -507,10 +507,10 @@ def io_save(data: Iterable, file_name: AnyStr = None) -> AnyStr:
     response = ['W', 'P', 'B', 'w', 'p', 'b']
     _input = validate_input(io_prompt, response=response).lower()
 
-    if _input in ['b', 'p']:
+    if _input in 'bp':
         logger.info('%s\n' % '\n'.join(map(str, data)))
 
-    if _input in ['w', 'b']:
+    if _input in 'wb':
         write_file(data, file_name)
 
     return file_name
