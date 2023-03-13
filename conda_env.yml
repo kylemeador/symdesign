@@ -13,6 +13,7 @@ dependencies:
   - scipy
   - numba
   - sqlalchemy=1.4 # Remove to 2.0 once finished with warnings
+  - mysqlclient
   - alembic
   - psutil
   - pytorch
