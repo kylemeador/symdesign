@@ -70,8 +70,8 @@ class PoseMetadata(Base):
 
     __table_args__ = (UniqueConstraint('project', 'name', name='_project_name_uc'),
                       )
-    project = Column(String, nullable=False)  # Todo? , index=True)
-    name = Column(String, nullable=False, index=True)
+    project = Column(String(100), nullable=False)  # Todo? , index=True)
+    name = Column(String(100), nullable=False, index=True)
     # This isn't a column in the __table__, but is an attribute of Class and derived instances
     pose_identifier = column_property(project + os.sep + name)
     # pose_identifier = column_property(f'{project}{os.sep}{name}')
@@ -140,14 +140,14 @@ class PoseMetadata(Base):
     transformations = association_proxy('entity_data', 'transformation')
 
     # State
-    source_path = Column(String)
+    source_path = Column(String(500))
     # Symmetry
     sym_entry_number = Column(Integer)
-    symmetry = Column(String)  # Result
+    symmetry = Column(String(8))  # Result
     symmetry_dimension = Column(Integer)
     """The result of the SymEntry"""
     # symmetry_groups = relationship('SymmetryGroup')
-    sym_entry_specification = Column(String)  # RESULT:{SUBSYMMETRY1}{SUBSYMMETRY2}...
+    sym_entry_specification = Column(String(100))  # RESULT:{SUBSYMMETRY1}{SUBSYMMETRY2}...
 
     # @property
     # def symmetry_groups(self) -> list[str]:
@@ -233,9 +233,9 @@ class PoseMetrics(Base):
 
 interface_pose_metrics = dict(
     interface_secondary_structure_fragment_count=Integer,
-    interface_secondary_structure_fragment_topology=String,
+    interface_secondary_structure_fragment_topology=String(60),
     interface_secondary_structure_count=Integer,
-    interface_secondary_structure_topology=String
+    interface_secondary_structure_topology=String(60)
 )
 for idx in range(1, 1 + config.MAXIMUM_INTERFACES):
     for metric, value in interface_pose_metrics.items():
@@ -277,7 +277,8 @@ class ProteinMetadata(Base):
     __tablename__ = 'protein_metadata'
     id = Column(Integer, primary_key=True)
 
-    entity_id = Column(String, nullable=False, index=True, unique=True)  # entity_name is used in config.metrics
+    entity_id = Column(String(20), nullable=False, index=True, unique=True)  # entity_name is used in config.metrics
+    # Todo String(20) may need to be increased if de-novo protein names (no identifier) are included
     """This could be described as the PDB API EntityID"""
     # # Set up many-to-one relationship with uniprot_entity table. Using "many" because there can be chimera's
     # uniprot_id = Column(ForeignKey('uniprot_entity.id'))
@@ -297,16 +298,16 @@ class ProteinMetadata(Base):
     # Set up one-to-many relationship with entity_data table
     entity_data = relationship('EntityData', back_populates='meta')
 
-    model_source = Column(String)
+    model_source = Column(String(500))
     refined = Column(Boolean, default=True)
     loop_modeled = Column(Boolean, default=True)
-    reference_sequence = Column(String)
+    reference_sequence = Column(String(config.MAXIMUM_SEQUENCE))
     # number_of_residues = Column(Integer)  # entity_ is used in config.metrics
     n_terminal_helix = Column(Boolean)  # entity_ is used in config.metrics
     c_terminal_helix = Column(Boolean)  # entity_ is used in config.metrics
     thermophilicity = Column(Boolean)  # entity_ is used in config.metrics
     # Symmetry parameters
-    symmetry_group = Column(String)  # entity_ is used in config.metrics
+    symmetry_group = Column(String(50))  # entity_ is used in config.metrics
     # symmetry = Column(ForeignKey('symmetry_groups.id'))
 
     @property
@@ -543,7 +544,7 @@ class DesignProtocol(Base):
     #     __tablename__ = 'protocol_metadata'
     id = Column(Integer, primary_key=True)
 
-    protocol = Column(String, nullable=False)
+    protocol = Column(String(50), nullable=False)
     # # Set up many-to-one relationship with protocols table
     # protocol_id = Column(ForeignKey('protocols.id'), nullable=False)
     # protocol = relationship('Protocol', back_populates='designs')
@@ -551,7 +552,7 @@ class DesignProtocol(Base):
     design_id = Column(ForeignKey('design_data.id'))
     design = relationship('DesignData', back_populates='protocols')
     temperature = Column(Float)
-    file = Column(String)
+    file = Column(String(500))
 
 
 class DesignData(Base):
@@ -560,7 +561,7 @@ class DesignData(Base):
     id = Column(Integer, primary_key=True)
     __table_args__ = (UniqueConstraint('pose_id', 'name', name='_pose_name_uc'),
                       )
-    name = Column(String, nullable=False)  # , unique=True)
+    name = Column(String(106), nullable=False)  # , unique=True)
     # Set up many-to-one relationship with pose_data table
     pose_id = Column(ForeignKey('pose_data.id'), nullable=False)
     pose = relationship('PoseJob', back_populates='designs')
@@ -583,7 +584,7 @@ class DesignData(Base):
     # Set up one-to-many relationship with residue_metrics table
     residues = relationship('ResidueMetrics', back_populates='design')
 
-    structure_path = Column(String)
+    structure_path = Column(String(500))
     sequence = association_proxy('metrics', 'sequence')
 
     def __str__(self):
