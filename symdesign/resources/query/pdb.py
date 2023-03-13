@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import time
 from copy import deepcopy
 from json import dumps, load
-from typing import Any, Iterable
+from typing import Annotated, Any, Iterable, Literal, get_args
 
 import requests
 
 from symdesign import utils
-from .utils import input_string, confirmation_string, bool_d, validate_input, invalid_string, \
+from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, validate_input, invalid_string, \
     header_string, format_string, connection_exception_handler, UKB, GB
 putils = utils.path
 
@@ -135,7 +136,8 @@ def find_matching_entities_by_sequence(sequence: str = None, return_id: str = 'p
     logger.debug(f'Using the default sequence similarity parameters: '
                  f'{", ".join(f"{k}: {v}" for k, v in default_sequence_values.items())}')
     sequence_query = generate_terminal_group(service='sequence', sequence=sequence)
-    sequence_query_results = query_pdb(generate_query(sequence_query, return_id=return_id, sequence=sequence, **kwargs))
+    sequence_query_results = query_pdb(
+        generate_query(sequence_query, return_id=return_id, cluster_uniprot=True, **kwargs))
     if sequence_query_results:
         return parse_pdb_response_for_ids(sequence_query_results)
     else:
@@ -143,9 +145,20 @@ def find_matching_entities_by_sequence(sequence: str = None, return_id: str = 'p
         return None  # [None]
 
 
-def parse_pdb_response_for_ids(response: dict[str, dict[str, str]]) -> list[str]:
+def parse_pdb_response_for_ids(response: dict[str, dict[str, str]], groups: bool = False) -> list[str]:
+    """Parse JSON PDB API returns for identifiers
+
+    Args:
+        response:
+        groups: Whether the identifiers are clustered by group
+    Returns:
+        The list of identifiers from the response
+    """
     # logger.debug(f'Response contains the results: {response["result_set"]}')
-    return [result['identifier'] for result in response['result_set']]
+    if groups:
+        return [result['identifier'] for result in response['group_set']]
+    else:
+        return [result['identifier'] for result in response['result_set']]
 
 
 def parse_pdb_response_for_score(response: dict[str, dict[str, str]]) -> list[float] | list:
@@ -170,7 +183,7 @@ def parse_pdb_response_for_score(response: dict[str, dict[str, str]]) -> list[fl
 # query_response = requests.get(pdb_graphql_url, params=params)
 
 
-def query_pdb(query_) -> dict[str, Any] | None:
+def query_pdb(query_: dict[Any] | str, json_formatted: bool = False) -> dict[str, Any] | None:
     """Take a JSON formatted PDB API query and return the results
 
     PDB response can look like:
@@ -192,12 +205,22 @@ def query_pdb(query_) -> dict[str, Any] | None:
                     ...
                   ]
     }
+    Args:
+        query_: The query formatted as a dictionary or a JSON string
+        json_formatted: Whether the query is already formatted as a JSON string
+    Returns:
+        The response formatted in JSON dictionary format or None if the query failed
     """
+    if json_formatted:
+        formatted_query_ = query_
+    else:
+        formatted_query_ = dumps(query_)
+
     query_response = None
     iteration = 0
     while True:
         try:
-            query_response = requests.get(pdb_query_url, params={'json': dumps(query_)})
+            query_response = requests.get(pdb_query_url, params={'json': formatted_query_})
             # logger.debug(f'Found the PDB query with url: {query_response.url}')
             if query_response.status_code == 200:
                 return query_response.json()
@@ -271,7 +294,8 @@ def generate_terminal_group(service, *parameter_args, **kwargs):
     return {'type': 'terminal', 'service': service, 'parameters': generate_parameters(**kwargs)}
 
 
-# Used to return the uniprot_accession number
+# Return types and modifiers
+# Used to return the best EntityID according to uniprot_accession, by best resolution
 sequence_request_options = {
     'group_by_return_type': 'representatives',
     'group_by': {
@@ -283,16 +307,27 @@ sequence_request_options = {
         # "similarity_cutoff": 95  # for 'sequence_identity'
     }
 }
+# Used to return the best EntityID according to clustering, then resolution
+sequence_cluster_request_options = {
+    'group_by_return_type': 'representatives',
+    'group_by': {
+        'aggregation_method': 'sequence_identity',
+        'similarity_cutoff': 30
+    }
+}
 
 
-def generate_query(search: dict, return_id: str = 'entry', sequence: bool = False, all_matching: bool = True) \
+def generate_query(search: dict, return_id: return_types_literal = 'entry', cluster_uniprot: bool = False,
+                   cluster_sequence: bool = False, return_groups: bool = False, all_matching: bool = True) \
         -> dict[str, dict | str]:
     """Format a PDB query with the specific return type and parameters affecting search results
 
     Args:
         search: Contains the key, value pairs in accordance with groups and terminal groups
         return_id: The type of ID that should be returned
-        sequence: Whether the query generated is a sequence type query
+        cluster_uniprot: Whether the query generated is a sequence type query
+        cluster_sequence: Whether the query generated is clustered by sequence similarity
+        return_groups: Whether to return results as group IDs
         all_matching: Whether to get all matching IDs
     Returns:
         The formatted query to be sent via HTTP GET
@@ -308,8 +343,21 @@ def generate_query(search: dict, return_id: str = 'entry', sequence: bool = Fals
                            'direction': 'desc'}],
                        'scoring_strategy': 'combined'
                        }
-    if sequence:
-        request_options.update(sequence_request_options)
+    if cluster_uniprot or cluster_sequence:
+        if cluster_uniprot:
+            cluster_options = sequence_request_options.copy()
+        elif cluster_sequence:
+            cluster_options = sequence_cluster_request_options.copy()
+        else:
+            raise NotImplementedError()
+
+        if return_groups:
+            cluster_options.update({'group_by_return_type': 'groups'})
+
+        request_options.update(cluster_options)
+    elif return_groups:
+        logger.warning(
+            "The argument 'return_groups' wasn't used as neither 'cluster_uniprot' or 'cluster_sequence' were provided")
 
     if all_matching:
         request_options.update({'return_all_hits': True})
@@ -1067,10 +1115,697 @@ thermophilic_taxonomy_ids = [
     272, 116039, 42735]
 _formatted_theromphilic_taxonomy_ids = ', '.join([f'"{taxonomy_id}"' for taxonomy_id in thermophilic_taxonomy_ids])
 # Use this search operator to limit searches to thermophilic organism IDs
-termophilic_json_terminal_operator = \
-    '{"type": "terminal", "service": "text", "parameters": ' \
-    '{"attribute": "rcsb_entity_source_organism.taxonomy_lineage.id","operator": "in","negation": false, ' \
-    '"value": [%s]}}' % _formatted_theromphilic_taxonomy_ids
+thermophilic_json_terminal_operator = \
+    """
+    {
+      "type": "terminal",
+      "service": "text",
+      "parameters": {
+        "attribute": "rcsb_entity_source_organism.taxonomy_lineage.id",
+        "operator": "in",
+        "negation": false, 
+        "value": [%s]
+      }
+    }
+    """ % _formatted_theromphilic_taxonomy_ids
+cyclic_symmetry_limiting_group = \
+    """
+    {
+      "type": "group",
+      "logical_operator": "and",
+      "nodes": [
+        {
+          "type": "group",
+          "logical_operator": "and",
+          "nodes": [
+            {
+              "type": "terminal",
+              "service": "text",
+              "parameters": {
+                "attribute": "rcsb_struct_symmetry.kind",
+                "operator": "exact_match",
+                "value": "Global Symmetry",
+                "negation": false
+              }
+            },
+            {
+              "type": "terminal",
+              "service": "text",
+              "parameters": {
+                "attribute": "rcsb_struct_symmetry.symbol",
+                "operator": "exact_match",
+                "value": "%s",
+                "negation": false
+              }
+            }
+          ]
+        },
+        {
+          "type": "terminal",
+          "service": "text",
+          "parameters": {
+            "attribute": "rcsb_struct_symmetry.type",
+            "negation": true,
+            "operator": "exact_match",
+            "value": "Dihedral"
+          }
+        }
+      ]
+    }
+    """
+# {
+#       "type": "group",
+#       "logical_operator": "and",
+#       "nodes": [
+#         {
+#           "type": "terminal",
+#           "service": "text",
+#           "parameters": {
+#             "attribute": "rcsb_struct_symmetry.kind",
+#             "operator": "exact_match",
+#             "value": "Global Symmetry"
+#           }
+#         },
+#         {
+#           "type": "terminal",
+#           "service": "text",
+#           "parameters": {
+#             "attribute": "rcsb_struct_symmetry.symbol",
+#             "operator": "exact_match",
+#             "value": "%s",
+#             "negation": false
+#           }
+#         },
+#         {
+#           "type": "terminal",
+#           "service": "text",
+#           "parameters": {
+#             "attribute": "rcsb_struct_symmetry.type",
+#             "value": "Cyclic",
+#             "operator": "exact_match"
+#           }
+#         },
+#         {
+#           "type": "terminal",
+#           "service": "text",
+#           "parameters": {
+#             "attribute": "rcsb_struct_symmetry.type",
+#             "operator": "exact_match",
+#             "value": "Dihedral",
+#             "negation": true
+#           }
+#         }
+#       ]
+#     }
+dihedral_symmetry_limiting_group = \
+        """
+    {
+      "type": "group",
+      "logical_operator": "and",
+      "nodes": [
+        {
+          "type": "group",
+          "logical_operator": "and",
+          "nodes": [
+            {
+              "type": "terminal",
+              "service": "text",
+              "parameters": {
+                "attribute": "rcsb_struct_symmetry.kind",
+                "operator": "exact_match",
+                "value": "Global Symmetry",
+                "negation": false
+              }
+            },
+            {
+              "type": "terminal",
+              "service": "text",
+              "parameters": {
+                "attribute": "rcsb_struct_symmetry.symbol",
+                "operator": "exact_match",
+                "value": "%s",
+                "negation": false
+              }
+            }
+          ]
+        },
+        {
+          "type": "terminal",
+          "service": "text",
+          "parameters": {
+            "attribute": "rcsb_struct_symmetry.type",
+            "negation": true,
+            "operator": "exact_match",
+            "value": "Cyclic"
+          }
+        }
+      ]
+    }
+    """
+point_symmetry_limiting_group = \
+    """
+    {
+      "type": "group",
+      "logical_operator": "and",
+      "nodes": [
+        {
+          "type": "group",
+          "logical_operator": "and",
+          "nodes": [
+            {
+              "type": "terminal",
+              "service": "text",
+              "parameters": {
+                "attribute": "rcsb_struct_symmetry.kind",
+                "operator": "exact_match",
+                "value": "Global Symmetry",
+                "negation": false
+              }
+            },
+            {
+              "type": "terminal",
+              "service": "text",
+              "parameters": {
+                "attribute": "rcsb_struct_symmetry.symbol",
+                "operator": "exact_match",
+                "value": "%s",
+                "negation": false
+              }
+            }
+          ]
+        },
+        {
+          "type": "terminal",
+          "service": "text",
+          "parameters": {
+            "attribute": "rcsb_struct_symmetry.type",
+            "negation": true,
+            "operator": "in",
+            "value": [
+              "Cyclic",
+              "Dihedral"
+            ]
+          }
+        }
+      ]
+    }
+    """
+homomer_termini = \
+    """
+    {
+      "type": "terminal",
+      "service": "text",
+      "parameters": {
+        "attribute": "rcsb_struct_symmetry.oligomeric_state",
+        "operator": "exact_match",
+        "value": "Homo %d-mer"
+      }
+    }
+    """
+heteromer_termini = \
+    """
+    {
+      "type": "terminal",
+      "service": "text",
+      "parameters": {
+        "attribute": "rcsb_struct_symmetry.oligomeric_state",
+        "operator": "exact_match",
+        "value": "Hetero %d-mer"
+      }
+    }
+    """
+
+
+def format_symmetry_group(symmetry: str, homomeric_number: int = 1, heteromeric_number: int = None) -> str:
+    """Return a PDB API length limitation query
+
+    Args:
+        symmetry: The symmetry to query for
+        homomeric_number: If the symmetry desired is homomeric, how many copies of the entity are desired
+        heteromeric_number: If the symmetry desired is heteromeric, how many entities are present
+    Returns:
+        The symmetry formatted query limiting entity searches to the described symmetry
+    """
+    if 'c' in symmetry.lower():
+        symmetry_query = cyclic_symmetry_limiting_group % symmetry
+    elif 'd' in symmetry.lower():
+        symmetry_query = dihedral_symmetry_limiting_group % symmetry
+    else:  # point group symmetry
+        symmetry_query = point_symmetry_limiting_group % symmetry
+
+    symmetry_number = utils.symmetry.valid_subunit_number.get(symmetry)
+    if heteromeric_number:
+        symmetry_query += ',' + heteromer_termini % symmetry_number * heteromeric_number
+    else:  # if homomer:
+        symmetry_query += ',' + homomer_termini % symmetry_number * homomeric_number
+    # else:
+    #     raise ValueError('Must provide either "homomeric_number" or "heteromeric_number"')
+
+    return symmetry_query
+
+
+limit_single_protein_entity_group = \
+    """
+    {
+      "type": "group",
+      "logical_operator": "and",
+      "nodes": [
+        {
+          "type": "terminal",
+          "service": "text",
+          "parameters": {
+            "attribute": "rcsb_entry_info.polymer_entity_count_protein",
+            "operator": "equals",
+            "value": 1
+          }
+        },
+        {
+          "type": "terminal",
+          "service": "text",
+          "parameters": {
+            "attribute": "entity_poly.rcsb_entity_polymer_type",
+            "negation": true,
+            "operator": "in",
+            "value": [
+              "DNA",
+              "RNA"
+            ]
+          }
+        }
+      ]
+    }
+    """
+limit_xray_resolution = \
+    """
+    {
+      "type": "group",
+      "logical_operator": "and",
+      "nodes": [
+        {
+          "type": "terminal",
+          "service": "text",
+          "parameters": {
+            "attribute": "exptl.method",
+            "value": "X-RAY DIFFRACTION",
+            "operator": "exact_match"
+          }
+        },
+        {
+          "type": "terminal",
+          "service": "text",
+          "parameters": {
+            "attribute": "rcsb_entry_info.resolution_combined",
+            "value": {
+              "from": 0,
+              "to": 3,
+              "include_lower": true,
+              "include_upper": true
+            },
+            "operator": "range"
+          }
+        }
+      ]
+    }
+    """
+no_membrane_group = \
+    """
+    {
+      "type": "group",
+      "logical_operator": "and",
+      "nodes": [
+        {
+          "type": "terminal",
+          "service": "text",
+          "parameters": {
+            "attribute": "rcsb_polymer_entity_annotation.type",
+            "negation": true,
+            "operator": "in",
+            "value": [
+              "OPM",
+              "mpstruc",
+              "MemProtMD",
+              "PDBTM"
+            ]
+          }
+        },
+        {
+          "type": "terminal",
+          "service": "text",
+          "parameters": {
+            "attribute": "struct_keywords.pdbx_keywords",
+            "negation": true,
+            "operator": "contains_phrase",
+            "value": "MEMBRANE PROTEIN"
+          }
+        }
+      ]
+    }
+    """
+# """
+# {
+#   "type": "group",
+#   "logical_operator": "and",
+#   "nodes": [
+#     {
+#       "type": "group",
+#       "logical_operator": "or",
+#       "nodes": [
+#         {
+#           "type": "terminal",
+#           "service": "text",
+#           "parameters": {
+#             "attribute": "rcsb_polymer_entity_annotation.type",
+#             "value": "PDBTM",
+#             "operator": "exact_match",
+#             "negation": true
+#           }
+#         },
+#         {
+#           "type": "terminal",
+#           "service": "text",
+#           "parameters": {
+#             "attribute": "rcsb_polymer_entity_annotation.type",
+#             "value": "OPM",
+#             "operator": "exact_match",
+#             "negation": true
+#           }
+#         },
+#         {
+#           "type": "terminal",
+#           "service": "text",
+#           "parameters": {
+#             "attribute": "rcsb_polymer_entity_annotation.type",
+#             "value": "MemProtMD",
+#             "operator": "exact_match",
+#             "negation": true
+#           }
+#         },
+#         {
+#           "type": "terminal",
+#           "service": "text",
+#           "parameters": {
+#             "attribute": "rcsb_polymer_entity_annotation.type",
+#             "value": "mpstruc",
+#             "operator": "exact_match",
+#             "negation": true
+#           }
+#         }
+#       ]
+#     },
+#     {
+#       "type": "terminal",
+#       "service": "text",
+#       "parameters": {
+#         "attribute": "struct_keywords.pdbx_keywords",
+#         "operator": "contains_phrase",
+#         "negation": true,
+#         "value": "MEMBRANE PROTEIN"
+#       }
+#     }
+#   ]
+# }
+# """
+expression_group = \
+    """
+    {
+      "type": "terminal",
+      "service": "text",
+      "parameters": {
+        "attribute": "rcsb_entity_host_organism.taxonomy_lineage.name",
+        "operator": "contains_words",
+        "negation": false,
+        "value": "E. coli, Escherichia Coli, Coli"
+      }
+    }
+    """
+non_glyco_and_viral_spike_group = \
+    """
+      {
+        "type": "terminal",
+        "service": "text",
+        "parameters": {
+          "attribute": "struct.title",
+          "negation": true,
+          "operator": "contains_words",
+          "value": "tail, fibre, shaft, head, spike, glycoprotein, ectodomain"
+        }
+      },
+      {
+        "type": "terminal",
+        "service": "text",
+        "parameters": {
+          "attribute": "struct.title",
+          "negation": true,
+          "operator": "contains_phrase",
+          "value": "receptor binding protein"
+        }
+      }
+    """
+length_group = \
+    """
+    {
+      "type": "group",
+      "logical_operator": "and",
+      "nodes": [
+        {
+          "type": "terminal",
+          "service": "text",
+          "parameters": {
+            "attribute": "entity_poly.rcsb_sample_sequence_length",
+            "operator": "greater",
+            "negation": false,
+            "value": %d
+          }
+        },
+        {
+          "type": "terminal",
+          "service": "text",
+          "parameters": {
+            "attribute": "entity_poly.rcsb_sample_sequence_length",
+            "operator": "less",
+            "negation": false,
+            "value": %d
+          }
+        }
+      ]
+    }
+    """
+# length_group = \
+#     {
+#       "type": "group",
+#       "logical_operator": "and",
+#       "nodes": [
+#         {
+#           "type": "terminal",
+#           "service": "text",
+#           "parameters": {
+#             "attribute": "entity_poly.rcsb_sample_sequence_length",
+#             "operator": "greater",
+#             "negation": False,
+#             "value": %d
+#           }
+#         },
+#         {
+#           "type": "terminal",
+#           "service": "text",
+#           "parameters": {
+#             "attribute": "entity_poly.rcsb_sample_sequence_length",
+#             "operator": "less",
+#             "negation": False,
+#             "value": %d
+#           }
+#         }
+#       ]
+#     }
+
+
+def format_length_group(lower: int, upper: int) -> str:
+    """Return a PDB API length limitation query
+
+    Args:
+        lower: The low end to limit entity length
+        upper: The upper limit on entity length
+    Returns:
+        The length formatted query limiting entity searches to between the values lower and upper (non-inclusive)
+    """
+    return length_group % (lower, upper)
+
+
+not_in_entity_group_id_search_block = \
+    """
+    {
+      "type": "terminal",
+      "service": "text",
+      "parameters": {
+        "attribute": "rcsb_polymer_entity_group_membership.group_id",
+        "operator": "in",
+        "negation": true,
+        "value": [%s]
+      }
+    }
+    """
+
+in_entity_group_id_search_block = \
+    """
+    {
+      "type": "terminal",
+      "service": "text",
+      "parameters": {
+        "attribute": "rcsb_polymer_entity_group_membership.group_id",
+        "operator": "in",
+        "negation": false,
+        "value": [%s]
+      }
+    }
+    """
+pdb_file_available = \
+    """
+    {
+      "type": "terminal",
+      "service": "text",
+      "parameters": {
+        "attribute": "pdbx_database_status.pdb_format_compatible",
+        "operator": "exact_match",
+        "negation": false,
+        "value": "Y"
+      }
+    }
+    """
+common_quality_filters = \
+    ','.join((limit_single_protein_entity_group, limit_xray_resolution, no_membrane_group,
+              non_glyco_and_viral_spike_group, expression_group, pdb_file_available))
+and_group_query = \
+    """
+    {
+      "type": "group",
+      "logical_operator": "and",
+      "nodes": [
+        %s
+      ]
+    }
+    """
+general_query = "{%s,%s}"
+
+
+def nanohedra_building_blocks_query(symmetry: str, lower: int = None, upper: int = None,
+                                    thermophile: bool = False, groups: bool = False,
+                                    limit_by_groups: Iterable[str] = None,
+                                    search_by_groups: Iterable[str] = None) -> dict[Any] | None:
+    groups_and_terminal = common_quality_filters \
+        + ',' + format_symmetry_group(symmetry) \
+        + ',' + format_length_group(lower, upper)
+
+    if thermophile:
+        groups_and_terminal += ',' + thermophilic_json_terminal_operator
+    if limit_by_groups:
+        groups_and_terminal += ',' + not_in_entity_group_id_search_block \
+                               % ','.join([f'"{id_}"' for id_ in limit_by_groups])
+    if search_by_groups:
+        groups_and_terminal += ',' + in_entity_group_id_search_block \
+                               % ','.join([f'"{id_}"' for id_ in search_by_groups])
+
+    building_block_query = and_group_query % groups_and_terminal
+    logger.debug(f'Found building_block_query: {building_block_query}')
+    formatted_query = json.loads(building_block_query)
+
+    return query_pdb(generate_query(formatted_query, return_id='polymer_entity',
+                                    cluster_sequence=True, return_groups=groups, all_matching=True))
+    # return query_pdb(query_formatted_with_return_options, json_formatted=True)
+
+
+assembly_author_defined = \
+    """
+    {
+      "type": "terminal",
+      "service": "text",
+      "parameters": {
+        "attribute": "pdbx_struct_assembly.details",
+        "operator": "contains_words",
+        "value": "author_defined_assembly,author_and_software_defined_assembly"
+      }
+    }
+    """
+
+
+def find_author_confirmed_assembly_from_entity_group(group_ids: Iterable[str], symmetry: str,
+                                                     lower: int = None, upper: int = None) \
+        -> dict[Any] | None:
+    groups_and_terminal = common_quality_filters \
+        + ',' + format_symmetry_group(symmetry) \
+        + ',' + format_length_group(lower, upper) \
+        + ',' + assembly_author_defined \
+        + ',' + in_entity_group_id_search_block % ','.join([f'"{id_}"' for id_ in group_ids])
+    author_confirmed_query = and_group_query % groups_and_terminal
+    logger.debug(f'Found author_confirmed_query: {author_confirmed_query}')
+    formatted_query = json.loads(author_confirmed_query)
+
+    return query_pdb(generate_query(formatted_query, return_id='assembly', all_matching=True))
+
+
+@dataclass
+class QueryParams:
+    symmetry: str
+    lower_length: int
+    upper_length: int
+
+
+def solve_confirmed_assemblies(params: QueryParams, grouped_entity_ids: dict[str, list[str]]) \
+        -> tuple[list[str], list[str]]:
+    """From a map of Enity group ID to resolution sorted EntityIDs, solve for those EntityIDs that have an assembly
+
+    First search for QSbio confirmed assemblies, then search the PDB API for 'author_defined_assembly' and
+    'author_and_software_defined_assembly'
+
+    Args:
+        params:
+        grouped_entity_ids:
+    Returns:
+        A tuple of the objects (
+            The best EntityIDs according to incoming sorting and that pass the assembly test
+            The Entity group ID of those groups that couldn't be solved
+        )
+    """
+    # Check if the top thermophilic ids are actually bonafide assemblies
+    top_entity_ids = []
+    # If they aren't, then solve by PDB API query
+    solve_group_by_pdb = []
+    for group_id, ids_ in grouped_entity_ids.items():
+        group_assemblies = [qsbio_confirmed.get(id_) for id_ in ids_]
+        for id_, assembly in zip(ids_, group_assemblies):
+            if assembly is None:
+                continue
+            else:
+                top_entity_ids.append(id_)
+                break
+        else:  # No assemblies are qsbio_confirmed
+            # Solve by PDB assembly inference
+            solve_group_by_pdb.append(group_id)
+            top_entity_ids.append(None)
+
+    author_confirmed_assembly_result = \
+        find_author_confirmed_assembly_from_entity_group(solve_group_by_pdb, params.symmetry, params.lower_length,
+                                                         params.upper_length)
+    author_confirmed_assembly_ids = parse_pdb_response_for_ids(author_confirmed_assembly_result)
+    author_confirmed_entry_ids = [id_[:4] for id_ in author_confirmed_assembly_ids]
+    remove_group_ids = []
+    remove_group_indices = []
+    # Find those author confirmed assemblies to fit in their corresponding groups
+    for group_idx, (group_id, thermo_id) in enumerate(zip(grouped_entity_ids.keys(), top_entity_ids)):
+        if thermo_id is None:
+            for entity_id in grouped_entity_ids[group_id]:
+                if entity_id[:4] in author_confirmed_entry_ids:
+                    top_entity_ids[group_idx] = entity_id
+                    break
+            else:  # This still isn't solved. Remove from the pool
+                remove_group_ids.append(group_id)
+                remove_group_indices.append(group_idx)
+                # removed_group_id = thermophilic_group_ids.pop(group_idx)
+                # print(f"Removed group id as there isn't a matching QSbio or PDB author defined assembly:"
+                #       f' {removed_group_id}')
+    for group_idx in reversed(remove_group_indices):
+        top_entity_ids.pop(group_idx)
+
+    return top_entity_ids, remove_group_ids
 
 
 def entity_thermophilicity(entry: str = None, entity_integer: int | str = None, entity_id: str = None) -> float | None:
