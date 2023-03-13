@@ -656,6 +656,10 @@ quick_args = (f'--{quick}',)
 setup_args = ('--setup',)
 setup_kwargs = dict(action='store_true', help=f'Show the {program_name} set up instructions')
 symmetry_args = ('-S', '--symmetry')
+symmetry_kwargs = dict(type=str, default=None, metavar='RESULT:{GROUP1}{GROUP2}...',
+                       help='The specific symmetry of the poses of interest. Preferably\n'
+                            'in a composition formula such as T:{C3}{C3}... Can also\n'
+                            'provide the keyword "cryst" to use crystal symmetry')
 sym_entry_args = ('-E', f'--{sym_entry}', '--entry', '-entry')
 sym_entry_kwargs = dict(type=int, default=None, metavar='INT',
                         help=f'The entry number of {nanohedra.title()} docking combinations to use.\n'
@@ -726,10 +730,7 @@ options_arguments = {
     (f'--{skip_logging}',): dict(action='store_true',
                                  help='Skip logging to files and direct all logging to stream'),
     sym_entry_args: sym_entry_kwargs,
-    symmetry_args: dict(type=str, default=None, metavar='RESULT:{GROUP1}{GROUP2}...',
-                        help='The specific symmetry of the poses of interest.\nPreferably in a composition '
-                             'formula such as T:{C3}{C3}...\nCan also provide the keyword "cryst" to use crystal'
-                             ' symmetry'),
+    symmetry_args: symmetry_kwargs,
     (f'--{reset_db}',): dict(action='store_true', help='Whether to reset the database for development')
 }
 # ---------------------------------------------------
