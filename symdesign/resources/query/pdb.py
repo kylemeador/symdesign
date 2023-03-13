@@ -2207,21 +2207,3 @@ def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), 
     return schema_d
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Query the PDB for entries\n')
-    parser.add_argument('-f', '--file_list', type=os.path.abspath,
-                        help=f'{putils.ex_path("pdblist.file")}. Can be newline or comma separated')
-    parser.add_argument('-d', '--download', type=bool, default=False,
-                        help='Whether files should be downloaded. Default=False')
-    parser.add_argument('-p', '--input_pdb_directory', type=os.path.abspath,
-                        help='Where should reference PDB files be found? Default=CWD', default=os.getcwd())
-    parser.add_argument('-i', '--input_pisa_directory', type=os.path.abspath,
-                        help='Where should reference PISA files be found? Default=CWD', default=os.getcwd())
-    parser.add_argument('-o', '--output_directory', type=os.path.abspath,
-                        help='Where should interface files be saved?')
-    parser.add_argument('-q', '--query_web', action='store_true',
-                        help='Should information be retrieved from the web?')
-    parser.add_argument('-db', '--database', type=str, help='Should a database be connected?')
-    args = parser.parse_args()
-
-    retrieve_pdb_entries_by_advanced_query()
