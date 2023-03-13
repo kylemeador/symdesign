@@ -6255,7 +6255,9 @@ class Pose(SymmetricModel, Metrics):
 
     @property
     def interface_residues(self) -> list[Residue]:
-        """The Residue instances identified in interfaces in the Pose. May be buried depending on interface distance"""
+        """The Residue instances identified in interfaces in the Pose sorted based on index.
+        Residue instances may be buried depending on interface distance
+        """
         try:
             return self._interface_residues
         except AttributeError:
