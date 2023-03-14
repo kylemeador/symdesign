@@ -772,7 +772,7 @@ class StructureDatabase(Database):
                     else:
                         # # Hard code in parameters
                         # model_type = 'monomer'
-                        relaxed = self.job.predict.models_to_relax is None
+                        relaxed = self.job.predict.models_to_relax is not None
                         # Set up the various model_runners to supervise the prediction task for each sequence
                         monomer_runners = \
                             resources.ml.set_up_model_runners(model_type='monomer', development=self.job.development)
