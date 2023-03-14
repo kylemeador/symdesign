@@ -930,9 +930,9 @@ def main():
                         try:
                             ''.join(entity.uniprot_ids)
                         except TypeError:  # Uniprot_ids is (None,)
-                            uniprot_ids = (entity.name,)
+                            entity.uniprot_ids = uniprot_ids = (entity.name,)
                         except AttributeError:  # Unable to retrieve
-                            uniprot_ids = (entity.name,)
+                            entity.uniprot_ids = uniprot_ids = (entity.name,)
                         else:
                             uniprot_ids = entity.uniprot_ids
 
