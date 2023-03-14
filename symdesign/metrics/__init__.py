@@ -50,8 +50,8 @@ bsa_tolerance = 0.25
 energy_metrics_rename_mapping = dict(zip(per_residue_energy_states, energy_metric_names))
 # other_metrics_rename_mapping = dict(hbond='number_hbonds', design_residue='total_design_residues')
 renamed_design_metrics = {
-    'design_residue': 'number_residues_design', 'hbond': 'number_hbonds', 'mutation': 'number_mutations',
-    'type': 'sequence' 
+    'design_residue': 'number_residues_design', 'interface_residue': 'number_residues_interface',
+    'hbond': 'number_hbonds', 'mutation': 'number_mutations', 'type': 'sequence'
 }
 
 errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # These are approximate magnitude of deviation

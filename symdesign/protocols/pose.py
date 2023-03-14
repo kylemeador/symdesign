@@ -4702,18 +4702,19 @@ class PoseProtocol(PoseData):
         designs_df = self.rosetta_column_combinations(designs_df)
 
         # Score using proteinmpnn
-        pose_length = self.pose.number_of_residues
-        # residue_indices = list(range(pose_length))
-        # # During rosetta_residues_df unstack, all residues with missing dicts are copied as nan
-        # Todo get residues_df['design_indices'] worked out with set up using sql.DesignProtocol?
-        #  See self.design_analysis()
-        # Set each position that was parsed as "designable"
-        # This includes packable residues from neighborhoods. How can we get only designable?
-        # Right now, it is only the interface residues that go into Rosetta
-        # Use simple reporting here until that changes...
-        interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
-        design_residues = np.zeros((len(designs), pose_length), dtype=bool)
-        design_residues[:, interface_residue_indices] = 1
+        # pose_length = self.pose.number_of_residues
+        # # residue_indices = list(range(pose_length))
+        # # # During rosetta_residues_df unstack, all residues with missing dicts are copied as nan
+        # # Todo get residues_df['design_indices'] worked out with set up using sql.DesignProtocol?
+        # #  See self.design_analysis()
+        # # Set each position that was parsed as "designable"
+        # # This includes packable residues from neighborhoods. How can we get only designable?
+        # # Right now, it is only the interface residues that go into Rosetta
+        # # Use simple reporting here until that changes...
+        # interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
+        # design_residues = np.zeros((len(designs), pose_length), dtype=bool)
+        # design_residues[:, interface_residue_indices] = 1
+        design_residues = residues_df.loc[:, idx_slice[:, 'interface_residue']].to_numpy()
         # 'design_residue' is now integrated using analyze_proteinmpnn_metrics()
         # design_indices_df = pd.DataFrame(design_residues, index=scores_df.index,
         #                                  columns=pd.MultiIndex.from_product([residue_indices, ['design_residue']]))
@@ -4962,6 +4963,25 @@ class PoseProtocol(PoseData):
             A per-residue metric DataFrame where each index is the design id and the columns are
                 (residue index, residue metric)
         """
+        # Compute structural measurements for all designs
+        per_residue_data: dict[str, dict[str, Any]] = {}
+        interface_residues = []
+        for pose in designs:
+            try:
+                name = pose.name
+            except AttributeError:  # This is likely a filepath
+                pose = Pose.from_file(pose, **self.pose_kwargs)
+                name = pose.name
+            # Get interface residues
+            pose.find_and_split_interface()
+            interface_residues.append([residue.index for residue in pose.interface_residues])
+            per_residue_data[name] = {
+                **pose.per_residue_interface_surface_area(),
+                **pose.per_residue_contact_order(),
+                # **pose.per_residue_interface_errat()
+                **pose.per_residue_spatial_aggregation_propensity()
+            }
+
         self.load_pose()
 
         # CAUTION: Assumes each structure is the same length
@@ -4971,35 +4991,19 @@ class PoseProtocol(PoseData):
         # design_residue_indices = [residue.index for residue in self.pose.design_residues]
         # interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
 
-        # Compute structural measurements for all designs
-        per_residue_data: dict[str, dict[str, Any]] = {}
-        # for pose in [self.pose] + designs:  # Takes 1-2 seconds for Structure -> assembly -> errat
-        for pose in designs:  # Takes 1-2 seconds for Structure -> assembly -> errat
-            try:
-                name = pose.name
-            except AttributeError:  # This is likely a filepath
-                pose = Pose.from_file(pose, **self.pose_kwargs)
-                name = pose.name
-            # # Must find interface residues before measure local_density
-            # pose.find_and_split_interface()
-            # per_residue_data[pose_name] = pose.per_residue_interface_surface_area()
-            # # Get errat measurement
-            # per_residue_data[pose_name].update(pose.per_residue_interface_errat())
-            per_residue_data[name] = {
-                **pose.per_residue_interface_surface_area(),
-                **pose.per_residue_contact_order(),
-                # **pose.per_residue_interface_errat()
-                **pose.per_residue_spatial_aggregation_propensity()
-            }
-
         # Convert per_residue_data into a dataframe matching residues_df orientation
         residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
-
-        # Make buried surface area (bsa) columns, and residue classification
-        residues_df = metrics.calculate_residue_surface_area(residues_df)
-
-        return residues_df
+        # Construct interface residue array
+        interface_residue_bool = np.zeros((len(designs), pose_length), dtype=int)
+        for idx, interface_indices in enumerate(interface_residues):
+            interface_residue_bool[idx, interface_indices] = 1
+        interface_residue_df = pd.DataFrame(data=interface_residue_bool, index=residues_df.index,
+                                            columns=pd.MultiIndex.from_product((residue_indices,
+                                                                                ['interface_residue'])))
+        residues_df = residues_df.join(interface_residue_df)
+        # Make buried surface area (bsa) columns, and classify residue types
+        return metrics.calculate_residue_surface_area(residues_df)
 
     def analyze_design_metrics_per_design(self, residues_df: pd.DataFrame,
                                           designs: Iterable[Pose] | Iterable[AnyStr]) -> pd.DataFrame:
@@ -5022,9 +5026,9 @@ class PoseProtocol(PoseData):
         #     designs = []
 
         # Compute structural measurements for all designs
-        interface_local_density = {}  # self.pose.name: self.pose.local_density_interface()}
-        # for pose in [self.pose] + designs:  # Takes 1-2 seconds for Structure -> assembly -> errat
-        for pose in designs:  # Takes 1-2 seconds for Structure -> assembly -> errat
+        interface_local_density = {}
+        # number_residues_interface = {}
+        for pose in designs:
             try:
                 pose_name = pose.name
             except AttributeError:  # This is likely a filepath
@@ -5032,14 +5036,16 @@ class PoseProtocol(PoseData):
                 pose_name = pose.name
             # Must find interface residues before measure local_density
             pose.find_and_split_interface()
+            # number_residues_interface[pose.name] = len(pose.interface_residues)
             interface_local_density[pose_name] = pose.local_density_interface()
 
         # designs_df = pd.Series(interface_local_density, index=residues_df.index,
         #                        name='interface_local_density').to_frame()
         designs_df = metrics.sum_per_residue_metrics(residues_df)
+        # designs_df['number_residues_interface'] = pd.Series(number_residues_interface)
         designs_df['interface_local_density'] = pd.Series(interface_local_density)
 
-        self.load_pose()
+        # self.load_pose()
         # # Make designs_df errat_deviation that takes into account the pose_source sequence errat_deviation
         # # Get per-residue errat scores from the residues_df
         # errat_df = residues_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
@@ -5060,8 +5066,9 @@ class PoseProtocol(PoseData):
         # # This overwrites the metrics.sum_per_residue_metrics() value
         # designs_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
-        pose_df = self.pose.df
-        designs_df['number_residues_interface'] = pose_df['number_residues_interface']
+        # pose_df = self.pose.df
+        # # Todo should each have the same number_residues_interface? need each design specifics
+        # designs_df['number_residues_interface'] = pose_df['number_residues_interface']
 
         # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
         # if 'interface_area_total' in designs_df and 'area_total_complex' in designs_df:
@@ -5073,8 +5080,6 @@ class PoseProtocol(PoseData):
         designs_df = metrics.columns_to_new_column(designs_df, metrics.division_pairs, mode='truediv')
         designs_df['interface_composition_similarity'] = \
             designs_df.apply(metrics.interface_composition_similarity, axis=1)
-        designs_df = designs_df.drop(['number_residues_interface'], axis=1)
-        #                               'interface_area_total']
 
         return designs_df
 

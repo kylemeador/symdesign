@@ -603,7 +603,7 @@ class DesignMetrics(Base):
     design = relationship('DesignData', back_populates='metrics')
 
     # Pose features
-    # number_residues_interface = Column(Integer)
+    number_residues_interface = Column(Integer)
     contact_order = Column(Float)
     # Design metrics
     number_residues_design = Column(Integer)  # ResidueMetrics sum 'design_residue', nullable=False)
