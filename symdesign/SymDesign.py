@@ -332,6 +332,7 @@ def main():
 
         # preprocess_instructions, initial_refinement, initial_loop_model = \
         #     job.structure_db.preprocess_structures_for_design(structures, script_out_path=job.sbatch_scripts)
+        putils.make_path(job.sbatch_scripts)
         preprocess_instructions = \
             job.structure_db.preprocess_metadata_for_design(
                 metadata, script_out_path=job.sbatch_scripts, batch_commands=batch_commands,
