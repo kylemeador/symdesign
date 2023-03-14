@@ -3778,8 +3778,8 @@ class PoseProtocol(PoseData):
         designs_df['proteinmpnn_score_unbound_per_designed_residue'] = \
             (residues_df.loc[:, idx_slice[:, 'proteinmpnn_loss_unbound']] * designed_df).mean(axis=1)
         designs_df['proteinmpnn_score_delta_per_designed_residue'] = \
-            designs_df['proteinmpnn_score_complex_per_designed_residue'] / \
-            designs_df['proteinmpnn_score_unbound_per_designed_residue']
+            designs_df['proteinmpnn_score_complex_per_designed_residue'] \
+            - designs_df['proteinmpnn_score_unbound_per_designed_residue']
 
         # # Drop unused particular residues_df columns that have been summed
         # per_residue_drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states \
@@ -4167,6 +4167,7 @@ class PoseProtocol(PoseData):
                 elif score_type == 'plddt':  # Todo combine with above
                     if isinstance(score, list):
                         number_models = len(score)
+                        plddt: np.ndarray
                         plddt, *other_plddt = score
                         for plddt_ in other_plddt:
                             plddt += plddt_
@@ -4187,6 +4188,8 @@ class PoseProtocol(PoseData):
         residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
                                  for name, data in residue_scores.items()}).unstack().swaplevel(0, 1, axis=1)
         designs_df = designs_df.join(metrics.sum_per_residue_metrics(residues_df))
+        designs_df['plddt'] /= pose_length
+        designs_df['predicted_aligned_error'] /= pose_length
 
         return designs_df, residues_df
 

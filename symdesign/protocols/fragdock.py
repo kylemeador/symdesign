@@ -3024,10 +3024,10 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
         summed_poses_df = metrics.sum_per_residue_metrics(
             residues_df, rename_columns=_rename, mean_metrics=mean_columns)
-        poses_df = poses_df.join(summed_poses_df.drop('number_residues_interface', axis=1))
         # # Need to remove sequence as it is in pose.calculate_metrics()
         # poses_df = poses_df.join(summed_poses_df.drop('sequence', axis=1))
         if job.dock.proteinmpnn_score:
+            poses_df = poses_df.join(summed_poses_df.drop('number_residues_interface', axis=1))
             interface_df = residues_df.loc[:, idx_slice[:, 'interface_residue']]
             poses_df['dock_collapse_new_positions'] = \
                 (residues_df.loc[:, idx_slice[:, 'dock_collapse_new_positions']]
@@ -3075,6 +3075,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             #     poses_df['proteinmpnn_v_design_probability_cross_entropy_loss'] / pose_length
             # poses_df['proteinmpnn_v_evolution_probability_cross_entropy_per_residue'] = \
             #     poses_df['proteinmpnn_v_evolution_probability_cross_entropy_loss'] / pose_length
+        else:
+            poses_df = poses_df.join(summed_poses_df)
 
         # scores_df = metrics.columns_to_new_column(scores_df, metrics.delta_pairs, mode='sub')
         # scores_df = metrics.columns_to_new_column(scores_df, metrics.division_pairs, mode='truediv')
