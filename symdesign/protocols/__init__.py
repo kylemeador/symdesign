@@ -814,7 +814,7 @@ def analysis(job: pose.PoseJob, designs: Iterable[Pose] | Iterable[AnyStr] = Non
     # Acquire the pose_metrics if None have been made yet
     job.calculate_pose_metrics()
 
-    return job.design_analysis(designs=designs)
+    return job.analyze_pose_designs(designs=designs)
 
 
 # @remove_structure_memory  # NO structures used in this protocol
