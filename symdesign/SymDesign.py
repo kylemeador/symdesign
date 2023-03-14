@@ -920,10 +920,11 @@ def main():
                     for entity in structure.entities:
                         protein_metadata = sql.ProteinMetadata(
                             entity_id=entity.name,
-                            model_source=entity.file_path,
                             reference_sequence=entity.reference_sequence,
                             thermophilicity=entity.thermophilicity,
-                            symmetry_group=symmetry)
+                            symmetry_group=symmetry,
+                            model_source=entity.file_path
+                        )
                         # # Set the Entity with .metadata attribute to fetch in fragdock()
                         # entity.metadata = protein_metadata
                         # for uniprot_id in entity.uniprot_ids:
@@ -946,19 +947,21 @@ def main():
                 # grouped_structures_ids[symmetry] = structures_metadata
                 grouped_structures_ids.append((symmetry, structures_ids))
 
+            # Make a copy of the new ProteinMetadata if they were already loaded without a .model_source attribute
+            possibly_new_uniprot_to_prot_metadata_copy = possibly_new_uniprot_to_prot_metadata.copy()
+
             # Write new data to the database
             # with job.db.session(expire_on_commit=False) as session:
-            possibly_new_uniprot_to_prot_metadata_copy = possibly_new_uniprot_to_prot_metadata.copy()
-            all_uniprot_id_to_prot_data, uniprot_entities = \
-                initialize_metadata(possibly_new_uniprot_to_prot_metadata)
+            all_uniprot_id_to_prot_data, uniprot_entities = initialize_metadata(possibly_new_uniprot_to_prot_metadata)
+
+            # Fix ProteinMetadata that is already loaded
             for data in all_uniprot_id_to_prot_data.values():
                 if data.model_source is None:
                     logger.info(f'{data}.model_source is None')
                     for uniprot_ids, protein_metadata in possibly_new_uniprot_to_prot_metadata_copy.items():
                         if data.entity_id == protein_metadata.entity_id:
                             data.model_source = protein_metadata.model_source
-                            logger.info(f'Set {data}.model_source to new {protein_metadata}.model_source')
-                    # raise ValueError(f"Couldn't find {data}.model_source")
+                            logger.info(f'Set existing {data}.model_source to new {protein_metadata}.model_source')
 
             # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
             initialize_entities(uniprot_entities, all_uniprot_id_to_prot_data.values())
