@@ -278,12 +278,12 @@ except FileNotFoundError:  # We may be running setup.py or this wasn't installed
     # pass
 
 
-def get_hhblits_exe():
-    hhblits_exe_out = shutil.which(hhblits)
-    return hhblits_exe_out
-    # p = subprocess.Popen(['which', 'hhblits'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    # hhblits_exe_out, err = p.communicate()
-    # return hhblits_exe_out.decode('utf-8').strip()
+# def get_hhblits_exe():
+#     # hhblits_exe_out = shutil.which(hhblits)
+#     return shutil.which(hhblits)
+#     # p = subprocess.Popen(['which', 'hhblits'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+#     # hhblits_exe_out, err = p.communicate()
+#     # return hhblits_exe_out.decode('utf-8').strip()
 
 
 def get_uniclust_db() -> str:
@@ -296,7 +296,7 @@ def get_uniclust_db() -> str:
         return ''
 
 
-hhblits_exe = os.environ.get(config.get('hhblits_env'), get_hhblits_exe())
+hhblits_exe = os.environ.get(config.get('hhblits_env'), shutil.which(hhblits))
 # Find the reformat script by backing out two directories. This is fine for conda and from source
 hhsuite_source_root_directory = os.path.dirname(os.path.dirname(hhblits_exe))
 # reformat_msa_exe_path = os.path.join(hhsuite_dir, 'scripts', 'reformat.pl')

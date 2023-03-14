@@ -976,12 +976,14 @@ class JobResources:
         return True
 
     def process_evolutionary_info(self, uniprot_entities: Iterable[wrapapi.UniProtEntity] = None,
-                                  entities: Iterable[structure.sequence.SequenceProfile] = None) -> list[str]:
+                                  entities: Iterable[structure.sequence.SequenceProfile] = None,
+                                  batch_commands: bool = False) -> list[str]:
         """Format the job with evolutionary constraint options
 
         Args:
             uniprot_entities: A list of the UniProtIDs for the Job
             entities: A list of the Entity instances initialized for the Job
+            batch_commands: Whether commands should be made for batch submission
         Returns:
             A list evolutionary setup instructions
         """
@@ -1046,7 +1048,7 @@ class JobResources:
                                      f"'{os.path.join(self.profiles, '*.a3m')}'", '.fasta', '-M', 'first', '-r']
             hhblits_log_file = os.path.join(self.profiles, 'generate_profiles.log')
             # Run hhblits commands
-            if self.can_process_evolutionary_profiles():
+            if not batch_commands and self.can_process_evolutionary_profiles():
                 logger.info(f'Writing {putils.hhblits} results to file: {hhblits_log_file}')
                 # Run commands in this process
                 if self.multi_processing:

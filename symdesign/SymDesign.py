@@ -301,7 +301,8 @@ def main():
 
         # Set up common Structure/Entity resources
         if job.design.evolution_constraint:
-            profile_search_instructions = job.process_evolutionary_info(uniprot_entities=uniprot_entities)
+            profile_search_instructions = \
+                job.process_evolutionary_info(uniprot_entities=uniprot_entities, batch_commands=batch_commands)
         else:
             profile_search_instructions = []
 
@@ -570,7 +571,7 @@ def main():
 
                 if uniprot_ids in uniprot_ids_to_prot_metadata:
                     # This Entity already found for processing, and we shouldn't have duplicates
-                    logger.error(f"Found duplicate UniProtID for {protein_metadata}. "
+                    logger.error(f"Found duplicate UniProtID identifier, {uniprot_ids}, for {protein_metadata}. "
                                  f"This error wasn't expected to occur.{putils.report_issue}")
                     # raise RuntimeError(f"This error wasn't expected to occur.{putils.report_issue}")
                 else:  # Process for persistent state
