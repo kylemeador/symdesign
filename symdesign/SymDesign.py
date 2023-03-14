@@ -562,11 +562,11 @@ def main():
                 try:
                     ''.join(entity.uniprot_ids)
                 except TypeError:  # Uniprot_ids is (None,)
-                    entity.uniprot_ids = uniprot_ids = (entity.name,)
-                except AttributeError:  # Unable to retrieve
-                    entity.uniprot_ids = uniprot_ids = (entity.name,)
-                else:
-                    uniprot_ids = entity.uniprot_ids
+                    entity.uniprot_ids = (entity.name,)
+                except AttributeError:  # Unable to retrieve .uniprot_ids
+                    entity.uniprot_ids = (entity.name,)
+                # else:  # .uniprot_ids work. Use as parsed
+                uniprot_ids = entity.uniprot_ids
 
                 if uniprot_ids in uniprot_ids_to_prot_metadata:
                     # This Entity already found for processing, and we shouldn't have duplicates

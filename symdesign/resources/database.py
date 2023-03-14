@@ -123,10 +123,10 @@ class DataStore:
         if files:
             file = files[0]
             if len(files) > 1:
-                self.log.warning(f'Found more than one file at "{path}". Grabbing the first one: {file}')
+                self.log.warning(f'Found more than one file with glob "{path}". Grabbing the first one: {file}')
             return file
         else:
-            self.log.info(f'No file found for "{path}"')
+            self.log.debug(f'No file found for "{path}"')
             return None
 
     def retrieve_files(self) -> list:
@@ -134,7 +134,7 @@ class DataStore:
         path = self.glob_path()
         files = sorted(glob(path))
         if not files:
-            self.log.info(f'No files found in "{path}"')
+            self.log.debug(f'No files found in "{path}"')
         return files
 
     def retrieve_names(self) -> list[str]:
@@ -154,7 +154,7 @@ class DataStore:
         Sets:
             self.name = data
         """
-        setattr(self, name, data)
+        self.__setattr__(name, data)
         self._save_data(data, name, **kwargs)
 
     def retrieve_data(self, name: str = None) -> object | None:
@@ -171,7 +171,7 @@ class DataStore:
         else:
             data = self._load_data(name, log=None)  # Attempt to retrieve the new data
             if data:
-                setattr(self, name, data)  # Attempt to store the new data as an attribute
+                self.__setattr__(name, data)  # Attempt to store the new data as an attribute
                 self.log.debug(f'The file {name}{self.extension} was loaded into the {self.__class__.__name__}')
             else:
                 self.log.debug(f'Failed to load file {name}{self.extension} into the {self.__class__.__name__}')
@@ -219,7 +219,7 @@ class DataStore:
         else:
             for file in sorted(glob(self.glob_path())):
                 # self.log.debug('Fetching %s' % file)
-                setattr(self, os.path.splitext(os.path.basename(file))[0], self.load_file(file))
+                self.__setattr__(os.path.splitext(os.path.basename(file))[0], self.load_file(file))
 
 
 class Database:  # Todo ensure that the single object is completely loaded before multiprocessing... Queues and whatnot

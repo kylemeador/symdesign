@@ -451,6 +451,7 @@ class UniProtEntity(sql.Base):
     protein_metadata = association_proxy('_protein_metadata', 'protein')
     _protein_metadata = relationship('UniProtProteinAssociation',
                                      back_populates='uniprot')
+    _reference_sequence: str
 
     @property
     def reference_sequence(self) -> str:
