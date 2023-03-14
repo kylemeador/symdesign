@@ -20,8 +20,8 @@ from symdesign.sequence import protein_letters_1to3, protein_letters_3to1
 from symdesign.structure.model import Models, MultiModel, Model, Pose
 from symdesign.structure.sequence import write_pssm_file, sequence_difference
 from symdesign.structure.utils import DesignError, SymmetryError
-from symdesign.utils import condensed_to_square, path as putils, ReportException, rosetta, starttime, sym, \
-    write_shell_script, get_directory_file_paths
+from symdesign.utils import condensed_to_square, get_directory_file_paths, InputError, path as putils, \
+    ReportException, rosetta, starttime, sym, write_shell_script
 # from ..resources.job import JobResources, job_resources_factory
 
 
@@ -546,7 +546,8 @@ def interface_design(job: pose.PoseJob):
     elif job.job.design.method == putils.proteinmpnn:
         job.proteinmpnn_design(interface=True, neighbors=job.job.design.neighbors)  # Sets job.protocol
     else:
-        raise ValueError(f"The method '{job.job.design.method}' isn't available")
+        raise InputError(
+            f"The method '{job.job.design.method}' isn't available")
 
 
 @protocol_decorator()
@@ -642,7 +643,8 @@ def design(job: pose.PoseJob):
         # Sets job.protocol
         job.proteinmpnn_design()  # interface=job.job.design.interface, neighbors=job.job.design.neighbors
     else:
-        raise ValueError(f"The method '{job.job.design.method}' isn't available")
+        raise InputError(
+            f"The method '{job.job.design.method}' isn't available")
 
 
 @protocol_decorator()

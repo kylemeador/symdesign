@@ -798,10 +798,11 @@ class JobResources:
             flags.select_poses,
             flags.select_designs
         ]
-        # disallowed_modules = [
-        #     # 'custom_script',
-        #     # flags.select_sequences,
-        # ]
+        disallowed_modules = [
+            # 'custom_script',
+            # flags.select_sequences,
+            flags.initialize_building_blocks
+        ]
 
         def check_gpu() -> str | bool:
             available_devices = jax.local_devices()
@@ -818,62 +819,64 @@ class JobResources:
         nanohedra_prior = False
         gpu_device_kind = None
         for idx, module in enumerate(self.modules):
-            if module in protocol_module_allowed_modules:
-                if module == flags.nanohedra:
-                    if idx > 0:
-                        raise InputError(f"For {flags.protocol} module, {flags.nanohedra} can currently only be run as "
-                                         f"module position #1")
-                    nanohedra_prior = True
-                    continue
-                elif module == flags.predict_structure:
+            if module == flags.nanohedra:
+                if idx > 0:
+                    raise InputError(f"For {flags.protocol} module, {flags.nanohedra} can currently only be run as "
+                                     f"module position #1")
+                nanohedra_prior = True
+                continue
+            elif module == flags.predict_structure:
+                if gpu_device_kind is None:
+                    # Check for GPU access
+                    gpu_device_kind = check_gpu()
+
+                if gpu_device_kind:
+                    logger.info(f'Running {flags.predict_structure} on {gpu_device_kind} GPU')
+                    # disable GPU on tensorflow
+                    tf.config.set_visible_devices([], 'GPU')
+                else:  # device.platform == 'cpu':
+                    logger.warning(f'No GPU detected, will {flags.predict_structure} using CPU')
+            elif module == flags.design:
+                if self.design.method == putils.proteinmpnn:
                     if gpu_device_kind is None:
                         # Check for GPU access
                         gpu_device_kind = check_gpu()
 
                     if gpu_device_kind:
-                        logger.info(f'Running {flags.predict_structure} on {gpu_device_kind} GPU')
-                        # disable GPU on tensorflow
-                        tf.config.set_visible_devices([], 'GPU')
+                        logger.info(f'Running {flags.design} on {gpu_device_kind} GPU')
                     else:  # device.platform == 'cpu':
-                        logger.warning(f'No GPU detected, will {flags.predict_structure} using CPU')
-                elif module == flags.design:
-                    if self.design.method == putils.proteinmpnn:
-                        if gpu_device_kind is None:
-                            # Check for GPU access
-                            gpu_device_kind = check_gpu()
+                        logger.warning(f'No GPU detected, will {flags.design} using CPU')
 
-                        if gpu_device_kind:
-                            logger.info(f'Running {flags.design} on {gpu_device_kind} GPU')
-                        else:  # device.platform == 'cpu':
-                            logger.warning(f'No GPU detected, will {flags.design} using CPU')
-
-                if nanohedra_prior:
-                    if module in flags.select_modules:
-                        # We only should allow select-poses after nanohedra
-                        if module == flags.select_poses:
-                            logger.critical(f"Running {module} after {flags.nanohedra} won't produce any Designs to "
-                                            f"operate on. In order to {module}, ensure you run a design protocol first")
-                        else:  # flags.select_designs, flags.select_sequences
-                            if not self.weight:  # not self.filter or
-                                logger.critical(f'Using {module} after {flags.nanohedra} without specifying the flag '
-                                                # f'{flags.format_args(flags.filter_args)} or '
-                                                f'{flags.format_args(flags.weight_args)} defaults to selection '
-                                                f'parameters {config.default_weight_parameter[flags.nanohedra]}')
-                nanohedra_prior = False
-            # elif module in disallowed_modules:
-            #     problematic_modules.append(module)
-            else:
-                not_recognized_modules.append(module)
+            if nanohedra_prior:
+                if module in flags.select_modules:
+                    # We only should allow select-poses after nanohedra
+                    if module == flags.select_poses:
+                        logger.critical(f"Running {module} after {flags.nanohedra} won't produce any Designs to "
+                                        f"operate on. In order to {module}, ensure you run a design protocol first")
+                    else:  # flags.select_designs, flags.select_sequences
+                        if not self.weight:  # not self.filter or
+                            logger.critical(f'Using {module} after {flags.nanohedra} without specifying the flag '
+                                            # f'{flags.format_args(flags.filter_args)} or '
+                                            f'{flags.format_args(flags.weight_args)} defaults to selection '
+                                            f'parameters {config.default_weight_parameter[flags.nanohedra]}')
+            nanohedra_prior = False
+            if self.protocol_module:
+                if module in protocol_module_allowed_modules:
+                    continue
+                elif module in disallowed_modules:
+                    problematic_modules.append(module)
+                else:
+                    not_recognized_modules.append(module)
 
         if not_recognized_modules:
-            raise InputError(f'For {flags.protocol} module, the --{flags.modules} '
-                             f'{", ".join(not_recognized_modules)} are not recognized modules. See'
-                             f'"{putils.program_help}" for the available module names')
+            raise InputError(
+                f"For {flags.protocol} module, the --{flags.modules} {', '.join(not_recognized_modules)} aren't "
+                f'recognized modules. See"{putils.program_help}" for available module names')
 
         if problematic_modules:
-            raise InputError(f'For {flags.protocol} module, the --{flags.modules} '
-                             f'{", ".join(problematic_modules)} are not possible modules\n'
-                             f'Allowed modules are {", ".join(protocol_module_allowed_modules)}')
+            raise InputError(
+                f"For {flags.protocol} module, the --{flags.modules} {', '.join(problematic_modules)} aren't possible "
+                f'modules\n\nAllowed modules are {", ".join(protocol_module_allowed_modules)}')
 
     def report_specified_arguments(self, arguments: argparse.Namespace) -> dict[str, Any]:
         """Filter all flags for only those that were specified as different on the command line

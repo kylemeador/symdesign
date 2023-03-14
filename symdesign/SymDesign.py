@@ -253,16 +253,17 @@ def main():
                                                         out_path=job_paths, name='_'.join(default_output_tuple))
                     script_file = distribute.distribute(command_file, job.module, out_path=job.sbatch_scripts)
 
-                if job.module == flags.design and job.initial_refinement:
-                    # We should refine before design
-                    refine_file = utils.write_commands([os.path.join(pose_job.scripts_path, f'{flags.refine}.sh')
-                                                        for pose_job in successful_pose_jobs], out_path=job_paths,
-                                                       name='_'.join((utils.starttime, flags.refine, design_source)))
-                    script_refine_file = distribute.distribute(refine_file, flags.refine, out_path=job.sbatch_scripts)
-                    logger.info(f'Once you are satisfied, enter the following to distribute:\n\t{shell} '
-                                f'{script_refine_file}\nTHEN:\n\t{shell} {script_file}')
-                else:
-                    logger.info(f'Once you are satisfied, enter the following to distribute:\n\t{shell} {script_file}')
+                # Todo this mechanism fell out of favor, but really should be suggested to the user
+                # if job.module == flags.design and job.initial_refinement:
+                #     # We should refine before design
+                #     refine_file = utils.write_commands([os.path.join(pose_job.scripts_path, f'{flags.refine}.sh')
+                #                                         for pose_job in successful_pose_jobs], out_path=job_paths,
+                #                                        name='_'.join((utils.starttime, flags.refine, design_source)))
+                #     script_refine_file = distribute.distribute(refine_file, flags.refine, out_path=job.sbatch_scripts)
+                #     logger.info(f'Once you are satisfied, enter the following to distribute:\n\t{shell} '
+                #                 f'{script_refine_file}\nTHEN:\n\t{shell} {script_file}')
+                # else:
+                logger.info(f'Once you are satisfied, enter the following to distribute:\n\t{shell} {script_file}')
 
         # # test for the size of each of the PoseJob instances
         # if pose_jobs:
