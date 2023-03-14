@@ -2099,8 +2099,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         self.log.debug(f'{self.orient.__name__}(): existing Chain {moving_struct.chain_id} and '
                        f'oriented Chain {orient_fixed_struct.chain_id} are being aligned for superposition')
         fixed_indices, moving_indices = get_equivalent_indices(orient_fixed_seq, moving_seq)
-        _, rot, tx = superposition3d(orient_fixed_struct.cb_coords[fixed_indices],
-                                     moving_struct.cb_coords[moving_indices])
+        _, rot, tx = superposition3d(orient_fixed_struct.ca_coords[fixed_indices],
+                                     moving_struct.ca_coords[moving_indices])
 
         self.transform(rotation=rot, translation=tx)
         clean_orient_input_output()
@@ -3167,8 +3167,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         self.log.debug(f'{self.orient.__name__}(): existing Chain {moving_struct.chain_id} and '
                        f'oriented Chain {orient_fixed_struct.chain_id} are being aligned for superposition')
         fixed_indices, moving_indices = get_equivalent_indices(orient_fixed_seq, moving_seq)
-        _, rot, tx = superposition3d(orient_fixed_struct.cb_coords[fixed_indices],
-                                     moving_struct.cb_coords[moving_indices])
+        _, rot, tx = superposition3d(orient_fixed_struct.ca_coords[fixed_indices],
+                                     moving_struct.ca_coords[moving_indices])
 
         self.transform(rotation=rot, translation=tx)
         clean_orient_input_output()
