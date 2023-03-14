@@ -680,9 +680,9 @@ class StructureDatabase(Database):
 
         return info_messages, pre_refine, pre_loop_model
 
-    def preprocess_metadata_for_design(self, metadata: list[sql.ProteinMetadata],
-                                       script_out_path: AnyStr = os.getcwd(), batch_commands: bool = True) -> \
-            tuple[list, bool, bool]:
+    def preprocess_metadata_for_design(self, metadata: list[sql.ProteinMetadata], script_out_path: AnyStr = os.getcwd(),
+                                       perform_loop_model: bool = False, perform_refine: bool = False,
+                                       batch_commands: bool = True) -> list[str] | list:
         """Assess whether Structure objects require any processing prior to design calculations.
         Processing includes relaxation "refine" into the energy function and/or modelling missing segments "loop model"
 
@@ -690,56 +690,61 @@ class StructureDatabase(Database):
             metadata: An iterable of ProteinMetadata objects of interest with the following attributes:
                 model_source, symmetry_group, and entity_id
             script_out_path: Where should Entity processing commands be written?
+            perform_loop_model: Whether loop modelling should be performed
+            perform_refine: Whether refinement should be performed
             batch_commands: Whether commands should be made for batch submission
         Returns:
-            Any instructions if processing is needed, then booleans for whether refinement and loop modeling has already
-            occurred (True) or if files are not reported as having this modeling yet
+            Any instructions if processing is needed, otherwise an empty list
         """
+        if distribute.is_sbatch_available():
+            shell = distribute.sbatch
+        else:
+            shell = distribute.default_shell
+
         api_db = self.job.api_db  # resources.wrapapi.api_database_factory()
         self.full_models.make_path()
         self.refined.make_path()
         full_model_names = self.full_models.retrieve_names()
         # full_model_dir = self.full_models.location
         # Identify the entities to refine and to model loops before proceeding
-        protein_data_to_loop_model, sym_def_files = [], {}
+        protein_data_to_loop_model = []
+        sym_def_files = {}
         for data in metadata:
+            if data.symmetry_group not in sym_def_files:
+                sym_def_files[data.symmetry_group] = utils.SymEntry.sdf_lookup(data.symmetry_group)
             if not data.model_source:
-                logger.info(f"{self.preprocess_metadata_for_design.__name__}: Couldn't find the "
-                            f"ProteinMetadata.model_source for {data.entity_id}. Skipping loop model preprocessing")
+                logger.debug(f"{self.preprocess_metadata_for_design.__name__}: Couldn't find the "
+                             f"ProteinMetadata.model_source for {data.entity_id}. Skipping loop model preprocessing")
                 continue
             # If data is here, it's model_source file should've been oriented...
-            sym_def_files[data.symmetry_group] = utils.SymEntry.sdf_lookup(data.symmetry_group)
             entity_name = data.entity_id
             if entity_name not in full_model_names:  # Assumes oriented_asu structure name is the same
                 protein_data_to_loop_model.append(data)
             # else:
             #     data.model_source = self.full_models.path_to(name=entity_name)
-        # Query user and set up commands to perform refinement on missing entities
-        if distribute.is_sbatch_available():
-            shell = distribute.sbatch
-        else:
-            shell = distribute.default_shell
 
+        # Query user and set up commands to perform refinement on missing entities
         info_messages = []
         # Query user and set up commands to perform loop modelling on missing entities
         # Assume pre_loop_model is True until we find it isn't
-        pre_loop_model = True
         if protein_data_to_loop_model:
-            pre_loop_model = False
-            logger.info("The following structures haven't been modelled for disorder: "
-                        f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_loop_model)))}')
-            print(f'If you plan on performing {flags.design}/{flags.predict_structure} with them, it is strongly '
-                  f'encouraged that you build missing loops to avoid disordered region clashing/misalignment')
-            print('Would you like to model loops for these structures now?')
-            if boolean_choice():
+            if perform_loop_model:
                 run_loop_model = True
             else:
-                print('To confirm, asymmetric units are going to be generated without modeling disordered loops. '
-                      'Confirm with "y" to ensure this is what you want')
+                logger.info("The following structures haven't been modelled for disorder: "
+                            f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_loop_model)))}')
+                print(f'If you plan on performing {flags.design}/{flags.predict_structure} with them, it is strongly '
+                      f'encouraged that you build missing loops to avoid disordered region clashing/misalignment')
+                print('Would you like to model loops for these structures now?')
                 if boolean_choice():
-                    run_loop_model = False
-                else:
                     run_loop_model = True
+                else:
+                    print('To confirm, asymmetric units are going to be generated without modeling disordered loops. '
+                          'Confirm with "y" to ensure this is what you want')
+                    if boolean_choice():
+                        run_loop_model = False
+                    else:
+                        run_loop_model = True
 
             if run_loop_model:
                 # Generate loop model commands
@@ -823,9 +828,9 @@ class StructureDatabase(Database):
                         #                    for model_name, structure_ in structures_to_load.items()}
                         pose_kwargs = dict(name=entity_name, entity_info=protein.entity_info,
                                            symmetry=protein.symmetry_group)
-                        folded_entities = {model_name: structure.model.Pose.from_pdb_lines(
-                                           structure_.splitlines(), **pose_kwargs)
-                                           for model_name, structure_ in structures_to_load.items()}
+                        folded_entities = {
+                            model_name: structure.model.Pose.from_pdb_lines(structure_.splitlines(), **pose_kwargs)
+                            for model_name, structure_ in structures_to_load.items()}
                         if relaxed:  # Set b-factor data as relaxed get overwritten
                             model_plddts = {model_name: scores['plddt'][:entity.number_of_residues]
                                             for model_name, scores in entity_scores.items()}
@@ -950,8 +955,8 @@ class StructureDatabase(Database):
         protein_data_to_refine = []
         for data in metadata:
             if not data.model_source:
-                logger.info(f"{self.preprocess_metadata_for_design.__name__}: Couldn't find the "
-                            f"ProteinMetadata.model_source for {data.entity_id}. Skipping refine preprocessing")
+                logger.debug(f"{self.preprocess_metadata_for_design.__name__}: Couldn't find the "
+                             f"ProteinMetadata.model_source for {data.entity_id}. Skipping refine preprocessing")
                 continue
             # If data is here, it's model_source file should've been oriented...
             if entity_name not in refine_names:  # Assumes oriented_asu structure name is the same
@@ -960,24 +965,25 @@ class StructureDatabase(Database):
             #     data.model_source = self.refined.path_to(name=entity_name)
 
         # Assume pre_refine is True until we find it isn't
-        pre_refine = True
         if protein_data_to_refine:  # if files found unrefined, we should proceed
-            pre_refine = False
-            logger.critical("The following structures haven't be refined and are being set up for refinement "
-                            'into the Rosetta ScoreFunction for optimized sequence design:\n'
-                            f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_refine)))}')
-            print(f'If you plan on performing {flags.design} using Rosetta, it is strongly encouraged that you perform '
-                  f'initial refinement. You can also refine them later using the {flags.refine} module')
-            print('Would you like to refine them now?')
-            if boolean_choice():
+            if perform_refine:
                 run_pre_refine = True
             else:
-                print('To confirm, asymmetric units are going to be generated with input coordinates. Confirm '
-                      'with "y" to ensure this is what you want')
+                logger.critical("The following structures haven't be refined and are being set up for refinement "
+                                'into the Rosetta ScoreFunction for optimized sequence design:\n'
+                                f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_refine)))}')
+                print(f'If you plan on performing {flags.design} using Rosetta, it is strongly encouraged that you perform '
+                      f'initial refinement. You can also refine them later using the {flags.refine} module')
+                print('Would you like to refine them now?')
                 if boolean_choice():
-                    run_pre_refine = False
-                else:
                     run_pre_refine = True
+                else:
+                    print('To confirm, asymmetric units are going to be generated with input coordinates. Confirm '
+                          'with "y" to ensure this is what you want')
+                    if boolean_choice():
+                        run_pre_refine = False
+                    else:
+                        run_pre_refine = True
 
             if run_pre_refine:
                 # Generate sbatch refine command
@@ -1027,7 +1033,7 @@ class StructureDatabase(Database):
                 for protein in protein_data_to_refine:
                     protein.refined = False
 
-        return info_messages, pre_refine, pre_loop_model
+        return info_messages
 
 
 class StructureDatabaseFactory:

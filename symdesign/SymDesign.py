@@ -327,17 +327,13 @@ def main():
                 except shutil.SameFileError:
                     pass
                 data.loop_modeled = True
-        else:
-            for data in metadata:
-                if data.model_source is None:
-                    raise ValueError(f"Couldn't find {data}.model_source")
-            # preprocess_instructions, initial_refinement, initial_loop_model = \
-            #     job.structure_db.preprocess_structures_for_design(structures, script_out_path=job.sbatch_scripts)
-            preprocess_instructions, initial_refinement, initial_loop_model = \
-                job.structure_db.preprocess_metadata_for_design(metadata, script_out_path=job.sbatch_scripts)
-            if info_messages and preprocess_instructions:
-                info_messages += ['The following can be run at any time regardless of evolutionary script progress']
-            info_messages += preprocess_instructions
+
+        # preprocess_instructions, initial_refinement, initial_loop_model = \
+        #     job.structure_db.preprocess_structures_for_design(structures, script_out_path=job.sbatch_scripts)
+        preprocess_instructions = \
+            job.structure_db.preprocess_metadata_for_design(
+                metadata, script_out_path=job.sbatch_scripts,
+                perform_loop_model=job.init.loop_model_input, perform_refine=job.init.refine_input)
 
         check_if_script_and_exit(preprocess_instructions)
         # After completion of indicated scripts, the next time command is entered
