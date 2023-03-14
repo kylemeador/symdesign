@@ -353,14 +353,15 @@ def main():
 
     def initialize_metadata(possibly_new_uniprot_to_prot_data: dict[tuple[str, ...], sql.ProteinMetadata] = None,
                             existing_uniprot_entities: Iterable[wrapapi.UniProtEntity] = None,
-                            existing_protein_metadata: Iterable[wrapapi.UniProtEntity] = None) -> \
+                            existing_protein_metadata: Iterable[sql.ProteinMetadata] = None) -> \
             tuple[dict[tuple[str, ...], sql.ProteinMetadata], set[wrapapi.UniProtEntity]]:
         """Compare newly described work to the existing database and set up metadata for all described entities
 
         Args:
             possibly_new_uniprot_to_prot_data: A mapping of the possibly required UniProtID entries and their associated
                 ProteinMetadata. These could already exist in database, but were indicated they are needed
-            existing_uniprot_entities: If any UniProtEntity instances are already available, pass them to expedite setup
+            existing_uniprot_entities: If any UniProtEntity instances are already loaded, pass them to expedite setup
+            existing_protein_metadata: If any ProteinMetadata instances are already loaded, pass them to expedite setup
         """
         # Find existing UniProtEntity table entry instances
         # Get the set of all UniProtIDs
@@ -947,11 +948,13 @@ def main():
 
             # Write new data to the database
             # with job.db.session(expire_on_commit=False) as session:
+            possibly_new_uniprot_to_prot_metadata_copy = possibly_new_uniprot_to_prot_metadata.copy()
             all_uniprot_id_to_prot_data, uniprot_entities = \
                 initialize_metadata(possibly_new_uniprot_to_prot_metadata)
             for data in all_uniprot_id_to_prot_data.values():
                 if data.model_source is None:
-                    for uniprot_ids, protein_metadata in possibly_new_uniprot_to_prot_metadata.items():
+                    logger.info(f'{data}.model_source is None')
+                    for uniprot_ids, protein_metadata in possibly_new_uniprot_to_prot_metadata_copy.items():
                         if data.entity_id == protein_metadata.entity_id:
                             data.model_source = protein_metadata.model_source
                             logger.info(f'Set {data}.model_source to new {protein_metadata}.model_source')
