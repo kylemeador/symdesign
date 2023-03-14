@@ -4986,10 +4986,11 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # residues = list(reversed(self.residues)) if termini.lower() == 'c' else self.residues
         # term_window = ''.join(residue.secondary_structure for residue in residues[:window * 2])
         # Strip any disorder from the termini, then use the window to compare against the secondary structure
+        search_window = window * 2
         if termini in 'Nn':
-            term_window = self.secondary_structure.lstrip(SS_DISORDER_IDENTIFIERS)[:window * 2]
+            term_window = self.secondary_structure.lstrip(SS_DISORDER_IDENTIFIERS)[:search_window]
         elif termini in 'Cc':
-            term_window = self.secondary_structure.rstrip(SS_DISORDER_IDENTIFIERS)[window * 2:]
+            term_window = self.secondary_structure.rstrip(SS_DISORDER_IDENTIFIERS)[-search_window:]
         else:
             raise ValueError(f"The termini value {termini} isn't allowed. Must indicate one"
                              f" of {get_args(termini_literal)}")

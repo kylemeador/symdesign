@@ -884,7 +884,6 @@ class StructureDatabase(Database):
                             full_model_file = self.full_models.path_to(name=entity_name)
                             min_entity.write(out_path=full_model_file)
                             if relaxed:
-                                protein.refined = True
                                 refined_path = self.refined.path_to(name=entity_name)
                                 shutil.copy(full_model_file, refined_path)
                 else:  # rosetta_loop_model

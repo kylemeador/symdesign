@@ -1021,7 +1021,6 @@ def main():
             # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
             initialize_entities(uniprot_entities, all_uniprot_id_to_prot_data.values(),
                                 batch_commands=job.distribute_work)
-            session.commit()
 
             # Todo need to take the version of all_structures from refine/loop modeling and insert entity.metadata
             #  then usage for docking pairs below...
@@ -1050,6 +1049,7 @@ def main():
                     # Don't include symmetry as this will be initialized by fragdock.fragment_dock()
                     structures.append(Pose.from_entities(entities, name=structure_name))  # , symmetry=symmetry))
                 grouped_structures.append(structures)
+            session.commit()
 
             # Make all possible structure pairs given input entities by finding entities from entity_names
             # Using combinations of directories with .pdb files
