@@ -7265,7 +7265,7 @@ class Pose(SymmetricModel, Metrics):
 
         interface_residues = self.interface_residues
         number_residues_interface = len(interface_residues)
-        number_residues_interface_non_fragment = number_residues_interface - number_residues_fragment_center
+        number_residues_interface_non_fragment = number_residues_interface - number_residues_fragment_total
         # if number_residues_interface_non_fragment < 0:
         #     raise ValueError(f'Fragment metrics are broken due to "number_residues_interface_non_fragment" > 1')
         # Interface B Factor
@@ -7278,7 +7278,7 @@ class Pose(SymmetricModel, Metrics):
                 min(number_residues_fragment_total / number_residues_interface, 1)
             percent_interface_residues_non_fragment = number_residues_interface_non_fragment / number_residues_interface
             # if percent_residues_fragment_interface_center > 1:
-            #     raise ValueError(f'Fragment metrics are broken due to "percent_residues_fragment_interface_center" > 1')
+            #     raise ValueError(f'Fragment metrics are broken due to "percent_residues_fragment_interface_center">1')
             # if percent_interface_residues_non_fragment > 1:
             #     raise ValueError(f'Fragment metrics are broken due to "percent_interface_residues_non_fragment" > 1')
             ave_b_factor = int_b_factor / number_residues_interface

@@ -477,7 +477,7 @@ metrics = {
         dict(description='The total number of interface residues found in the pose (default is residue CB within 8A)',
              direction=max_, function=rank, filter=True),
     'number_residues_interface_non_fragment':
-        dict(description='The number of interface residues that are missing central fragment observations',
+        dict(description='The number of interface residues that are missing total fragment observations',
              direction=max_, function=rank, filter=True),
     'number_hbonds':
         dict(description='The number of residues making H-bonds in the total interface. Residues may make '
