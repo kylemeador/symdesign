@@ -490,7 +490,7 @@ class JobResources:
         # Explicitly set to false if not designing or predicting
         if self.design.evolution_constraint and \
                 (flags.design not in self.modules and flags.nanohedra not in self.modules and
-                 flags.predict_structure not in self.modules):
+                 flags.predict_structure not in self.modules and flags.initialize_building_blocks not in self.modules):
             self.design.evolution_constraint = False
 
         # self.dock_only: bool = kwargs.get('dock_only')
