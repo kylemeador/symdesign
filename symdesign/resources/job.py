@@ -252,7 +252,7 @@ class JobResources:
 
         # Computing environment and development Flags
         # self.command_only: bool = kwargs.get('command_only', False)
-        """Whether to reissue commands, only if distribute_work=False"""
+        # """Whether to reissue commands, only if distribute_work=False"""
         self.log_level: bool = kwargs.get('log_level')
         self.debug: bool = True if self.log_level == logging.DEBUG else False
         self.force: bool = kwargs.get(putils.force)
@@ -273,7 +273,7 @@ class JobResources:
             #             f'{job.design.number / number_mpi_processes:2f}-fold.')
         else:  # self.mpi > 0
             self.distribute_work = True
-            raise NotImplementedError(f"Can't compute the number of resources to allocate using --mpi just yet")
+            raise NotImplementedError(f"Can't compute the number of resources to allocate using --mpi yet...")
 
         self.multi_processing: int = kwargs.get(putils.multi_processing)
         if self.multi_processing:

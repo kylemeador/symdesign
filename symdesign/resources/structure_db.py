@@ -992,8 +992,8 @@ class StructureDatabase(Database):
                 logger.critical("The following structures haven't be refined and are being set up for refinement "
                                 'into the Rosetta ScoreFunction for optimized sequence design:\n'
                                 f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_refine)))}')
-                print(f'If you plan on performing {flags.design} using Rosetta, it is strongly encouraged that you perform '
-                      f'initial refinement. You can also refine them later using the {flags.refine} module')
+                print(f'If you plan on performing {flags.design} using Rosetta, it is strongly encouraged that you '
+                      f'perform initial refinement. You can also refine them later using the {flags.refine} module')
                 print('Would you like to refine them now?')
                 if boolean_choice():
                     run_pre_refine = True

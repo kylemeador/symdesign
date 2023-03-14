@@ -658,10 +658,10 @@ def main():
     if args.module == flags.all_flags:
         sys.argv = ['symdesign', '--help']
     elif args.module == flags.nanohedra:
-        if args.query:  # We need to submit before we check for additional_args as query comes with additional args
+        if args.query:  # Submit before we check for additional_args as query comes with additional args
             nanohedra.cmdline.query_mode([__file__, '-query'] + additional_args)
             exit()
-        else:  # We need to add a dummy input for argparse to happily continue with required args
+        else:  # Add a dummy input for argparse to happily continue with required args
             additional_args.extend(['--file', 'dummy'])
             remove_dummy = True
     elif args.module == flags.initialize_building_blocks:
@@ -669,7 +669,7 @@ def main():
         additional_args.extend(['--file', 'dummy'])
         remove_dummy = True
     elif args.module == flags.protocol:
-        # We need to add a dummy input for argparse to happily continue with required args
+        # Add a dummy input for argparse to happily continue with required args
         if flags.nanohedra in args.modules:
             additional_args.extend(['--file', 'dummy'])
             remove_dummy = True
@@ -975,8 +975,6 @@ def main():
             # Initialize the local database
             # Populate all_entities to set up sequence dependent resources
             # grouped_structures_ids = defaultdict(list)
-            grouped_structures_ids: list[tuple[str, list]] = []
-            possibly_new_uniprot_to_prot_metadata = {}
             # Todo 2 expand the definition of SymEntry/Entity to include
             #  specification of T:{T:{C3}{C3}}{C1}
             #  where an Entity is composed of multiple Entity (Chain) instances
@@ -991,6 +989,8 @@ def main():
             #  Essentially this would make oligomer/assembly keywords the same
             #  and allow a multi-entity Model/Pose as an Entity in a Pose... Recursion baby
             #
+            grouped_structures_ids: list[tuple[str, list]] = []
+            possibly_new_uniprot_to_prot_metadata = {}
             # symmetry_map = job.sym_entry.groups if job.sym_entry else repeat(None)
             for structures, symmetry in zip(grouped_structures, job.sym_entry.groups):  # symmetry_map):
                 if not structures:  # Useful in a case where symmetry groups are the same or group is None
@@ -1100,8 +1100,8 @@ def main():
 
                 # Format commands
                 cmd = ['python', putils.program_exe] + submitted_args
-                commands = [cmd.copy() + [f'--{putils.nano_entity_flag1}', model1.file_path,
-                                          f'--{putils.nano_entity_flag2}', model2.file_path]
+                commands = [cmd.copy() + [f'--{flags.nano_entity_flag1}', model1.file_path,
+                                          f'--{flags.nano_entity_flag2}', model2.file_path]
                             for idx, (model1, model2) in enumerate(pose_jobs)]
                 # logger.debug([list2cmdline(cmd) for cmd in commands])
                 # utils.write_shell_script(list2cmdline(commands), name=flags.nanohedra, out_path=job.job_paths)

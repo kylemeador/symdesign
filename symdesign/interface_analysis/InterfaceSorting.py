@@ -3,8 +3,9 @@ from __future__ import annotations
 import argparse
 import os
 
+from symdesign import utils
 from symdesign.interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_interfaces
-from symdesign.resources import query, structure_db
+from symdesign.resources import query
 from symdesign.structure.model import Model, Chain
 from symdesign.utils import path as putils
 
@@ -355,8 +356,8 @@ if __name__ == '__main__':
     # pdb_directory = '/databases/pdb'
     # pisa_directory = '/home/kmeador/yeates/fragment_database/all/pisa_files'
 
-    pdb_directory = utils.path.pdb_db  # ends with .ent not sub_directoried
-    pisa_directory = utils.path.pisa_db  # subdirectoried here
+    pdb_directory = putils.pdb_db  # ends with .ent not sub_directoried
+    pisa_directory = putils.pisa_db  # subdirectoried here
     if args.fix_pisa:
         all_pisa_files = utils.get_file_paths_recursively(pisa_directory, extension='.pkl')
 
@@ -395,9 +396,10 @@ if __name__ == '__main__':
     # qsbio_monomers = utils.to_iterable(qsbio_monomers_file)
     # TODO add the list of QSBio confirmed hetero oligomers
     # Todo make each list of interface ids a set()
-    # qsbio_confirmed = utils.unpickle(utils.path.qs_bio)
-    qsbio_confirmed = structure_db.qsbio_confirmed
-    qsbio_monomers = utils.to_iterable(utils.path.qs_bio_monomers_file, ensure_file=True)  # Todo remove monomers from confirmed assemblies in source
+    # qsbio_confirmed = utils.unpickle(putils.qs_bio)
+    qsbio_confirmed = query.pdb.qsbio_confirmed
+    # Todo remove monomers from confirmed assemblies in source
+    qsbio_monomers = utils.to_iterable(putils.qs_bio_monomers_file, ensure_file=True)
     qsbio_monomers_d = {}
     for pdb_assembly in qsbio_monomers:
         pdb, assembly = pdb_assembly.split('_')
@@ -409,7 +411,7 @@ if __name__ == '__main__':
         else:
             qsbio_monomers_d[pdb] = set(assembly)
 
-    logger.info('The number of monomers found in %s: %d' % (utils.path.qs_bio_monomers_file, len(qsbio_monomers_d)))
+    logger.info(f'The number of monomers found in {putils.qs_bio_monomers_file}: {len(qsbio_monomers_d)}')
     # remove monomeric assemblies from qsbio_confirmed_oligomers
     for pdb, assemblies in qsbio_monomers_d.items():
         for assembly in assemblies:

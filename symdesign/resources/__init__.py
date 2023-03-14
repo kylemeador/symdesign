@@ -1,13 +1,13 @@
 from __future__ import annotations
-# from . import job  # Doesn't work due to circular imports
-# from . import ml  # Doesn't work due to circular imports
-# from . import wrapapi  # Doesn't work due to circular imports
-# from . import structure_db  # Doesn't work due to circular imports
 import logging
 from math import sqrt
 
 import numpy as np
 
+# from . import job  # Doesn't work due to circular imports
+# from . import ml  # Doesn't work due to circular imports
+# from . import wrapapi  # Doesn't work due to circular imports
+# from . import structure_db  # Doesn't work due to circular imports
 logger = logging.getLogger(__name__)
 
 

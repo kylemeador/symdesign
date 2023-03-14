@@ -930,15 +930,13 @@ parser_nanohedra_run_type_mutual_group = dict()  # required=True <- adding below
 nanohedra_run_type_mutual_arguments = {
     sym_entry_args: sym_entry_kwargs,
     ('-query', '--query',): dict(action='store_true', help='Run in query mode'),
-    # # Todo alias analysis -metric
-    # ('-postprocess', '--postprocess',): dict(action='store_true', help='Run in post processing mode')
 }
 # parser_dock_mutual1 = parser_dock.add_mutually_exclusive_group(required=True)
 parser_nanohedra_mutual1_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
 nanohedra_mutual1_arguments = {
     ('-c1', '--pdb-codes1'): dict(type=os.path.abspath, default=None,
                                   help=f'File with list of PDB_entity codes for {nanohedra} component 1'),
-    ('-o1', f'-{nano_entity_flag1}', f'--{nano_entity_flag1}'):
+    ('-o1', f'--{nano_entity_flag1}', f'-{nano_entity_flag1}'):
         dict(type=os.path.abspath, default=None,
              help=f'Disk location where {nanohedra} component 1 file(s) are located'),
     ('-Q1', f'--{query_codes1}'): query_codes_kwargs
@@ -948,7 +946,7 @@ parser_nanohedra_mutual2_group = dict()  # required=False
 nanohedra_mutual2_arguments = {
     ('-c2', '--pdb-codes2'): dict(type=os.path.abspath, default=None,
                                   help=f'File with list of PDB_entity codes for {nanohedra} component 2'),
-    ('-o2', f'-{nano_entity_flag2}', f'--{nano_entity_flag2}'):
+    ('-o2', f'--{nano_entity_flag2}', f'-{nano_entity_flag2}'):
         dict(type=os.path.abspath, default=None,
              help=f'Disk location where {nanohedra} component 2 file(s) are located'),
     ('-Q2', f'--{query_codes2}'): query_codes_kwargs
