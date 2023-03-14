@@ -1,0 +1,51 @@
+name: symdesign-pymol
+channels:
+  - conda-forge
+  - defaults
+  - pytorch
+  - nvidia
+  - bioconda
+# PyMol
+  - schrodinger
+dependencies:
+  - python=3.9  # =3.10
+  - numpy
+  - pandas
+  - scikit-learn
+  - scipy
+  - numba
+  - sqlalchemy=1.4 # Remove to 2.0 once finished with warnings
+  - mysqlclient
+  - alembic
+  - psutil
+  - pytorch
+  - torchvision
+  - torchaudio
+  - cudatoolkit=11.3
+  - hhsuite
+  - requests
+  - biopython
+  - matplotlib
+  - tqdm
+  - proglog
+  - flametree
+# PyMol
+  - pymol-bundle
+# Alphafold
+  - cudnn # ==8.0.4
+  - jax==0.4.2 # jax/jaxlib 0.4.4 broke jnp.asarray() for me ...
+  - jaxlib==0.4.2
+  - cuda-nvcc=11.3 # Used to ensure same version as cudatoolkit
+  - hmmer
+  - kalign2
+  - openmm=7.5.1 # version causes conflicts, alphafold needs to update to 8.0.0 to be compatible without versions
+  - pdbfixer
+  - pip
+  - pip:
+    - absl-py==1.0.0
+    - chex==0.0.7
+    - dm-haiku==0.0.9
+    - dm-tree==0.1.6
+    - immutabledict==2.0.0
+    - ml-collections==0.1.0
+    - tensorflow-cpu==2.11.0
