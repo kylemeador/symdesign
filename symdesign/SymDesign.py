@@ -961,6 +961,7 @@ def main():
 
             # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
             initialize_entities(uniprot_entities, all_uniprot_id_to_prot_data.values())
+            session.commit()
 
             # Todo need to take the version of all_structures from refine/loop modeling and insert entity.metadata
             #  then usage for docking pairs below...
