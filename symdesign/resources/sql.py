@@ -694,6 +694,8 @@ class DesignMetrics(Base):
     collapse_increased_z_mean = Column(Float)
     collapse_sequential_peaks_z_mean = Column(Float)
     collapse_sequential_z_mean = Column(Float)
+    spatial_aggregation_propensity = Column(Float)
+    spatial_aggregation_propensity_unbound = Column(Float)
     # ProteinMPNN score terms
     proteinmpnn_loss_complex = Column(Float)
     proteinmpnn_loss_unbound = Column(Float)
@@ -856,6 +858,8 @@ class ResidueMetrics(Base):
     collapse_sequential_z = Column(Float)
     collapse_significance_by_contact_order_z = Column(Float)
     hydrophobic_collapse = Column(Float)
+    spatial_aggregation_propensity = Column(Float)
+    spatial_aggregation_propensity_unbound = Column(Float)
     # ProteinMPNN score terms
     proteinmpnn_loss_complex = Column(Float)
     proteinmpnn_loss_unbound = Column(Float)
