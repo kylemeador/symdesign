@@ -4089,6 +4089,7 @@ class PoseProtocol(PoseData):
             return None, None
 
         if interface:
+            # Using the 2-fold aware pose.interface_residues_by_interface
             interface_indices = [[residue.index for residue in residues]
                                  for number, residues in self.pose.interface_residues_by_interface.items()]
         else:

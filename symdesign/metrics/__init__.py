@@ -521,22 +521,22 @@ def interface_composition_similarity(series: Mapping) -> float:
     """
     # Calculate modelled number of residues according to buried surface area (Levy, E 2010)
     def core_res_fn(bsa):
-        return 0.01 * bsa + 0.6
+        return 0.01*bsa + 0.6
 
     def rim_res_fn(bsa):
-        return 0.01 * bsa - 2.5
+        return 0.01*bsa - 2.5
 
     def support_res_fn(bsa):
-        return 0.006 * bsa + 5
+        return 0.006*bsa + 5
 
-    classification_fxn_d = {'core': core_res_fn, 'rim': rim_res_fn, 'support': support_res_fn}
+    # classification_fxn_d = {'core': core_res_fn, 'rim': rim_res_fn, 'support': support_res_fn}
 
     int_area = series['interface_area_total']  # buried surface area
     if int_area <= 250:
         return np.nan
 
     class_ratio_differences = []
-    for residue_class, function in classification_fxn_d.items():
+    for residue_class, function in zip(residue_classification, (core_res_fn, rim_res_fn, support_res_fn)):
         expected = function(int_area)
         class_ratio_difference = (1 - (abs(series[residue_class] - expected) / expected))
         if class_ratio_difference < 0:

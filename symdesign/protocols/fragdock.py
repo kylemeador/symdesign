@@ -2540,7 +2540,10 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             # evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
             # batch_evolutionary_profile = np.tile(evolutionary_profile_array, (number_of_sequences, 1, 1))
             # torch_log_evolutionary_profile = torch.from_numpy(np.log(batch_evolutionary_profile))
-            torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
+            with catch_warnings():
+                simplefilter('ignore', category=RuntimeWarning)
+                # divide by zero encountered in log
+                torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
             per_residue_evolutionary_profile_loss = \
                 resources.ml.sequence_nllloss(torch_numeric_sequence, torch_log_evolutionary_profile)
             profile_loss = {
