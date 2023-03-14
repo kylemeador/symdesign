@@ -315,7 +315,7 @@ def main():
             putils.make_path(job.full_model_dir)
             for data in metadata:
                 if data.model_source is None:
-                    raise ValueError(f"Couldn't find a .model_source for {metadata}")
+                    raise ValueError(f"Couldn't find {data}.model_source")
                 try:
                     shutil.copy(data.model_source, job.refine_dir)
                 except shutil.SameFileError:
@@ -329,7 +329,7 @@ def main():
         else:
             for data in metadata:
                 if data.model_source is None:
-                    raise ValueError(f"Couldn't find a .model_source for {metadata}")
+                    raise ValueError(f"Couldn't find {data}.model_source")
             # preprocess_instructions, initial_refinement, initial_loop_model = \
             #     job.structure_db.preprocess_structures_for_design(structures, script_out_path=job.sbatch_scripts)
             preprocess_instructions, initial_refinement, initial_loop_model = \
@@ -949,6 +949,13 @@ def main():
             # with job.db.session(expire_on_commit=False) as session:
             all_uniprot_id_to_prot_data, uniprot_entities = \
                 initialize_metadata(possibly_new_uniprot_to_prot_metadata)
+            for data in all_uniprot_id_to_prot_data.values():
+                if data.model_source is None:
+                    for uniprot_ids, protein_metadata in possibly_new_uniprot_to_prot_metadata.items():
+                        if data.entity_id == protein_metadata.entity_id:
+                            data.model_source = protein_metadata.model_source
+                            logger.info(f'Set {data}.model_source to new {protein_metadata}.model_source')
+                    # raise ValueError(f"Couldn't find {data}.model_source")
 
             # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
             initialize_entities(uniprot_entities, all_uniprot_id_to_prot_data.values())
