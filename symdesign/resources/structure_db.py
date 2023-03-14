@@ -682,7 +682,7 @@ class StructureDatabase(Database):
 
     def preprocess_metadata_for_design(self, metadata: list[sql.ProteinMetadata], script_out_path: AnyStr = os.getcwd(),
                                        perform_loop_model: bool = False, perform_refine: bool = False,
-                                       batch_commands: bool = True) -> list[str] | list:
+                                       batch_commands: bool = False) -> list[str] | list:
         """Assess whether Structure objects require any processing prior to design calculations.
         Processing includes relaxation "refine" into the energy function and/or modelling missing segments "loop model"
 
@@ -705,7 +705,7 @@ class StructureDatabase(Database):
         self.full_models.make_path()
         self.refined.make_path()
         full_model_names = self.full_models.retrieve_names()
-        # full_model_dir = self.full_models.location
+        full_model_dir = self.full_models.location
         # Identify the entities to refine and to model loops before proceeding
         protein_data_to_loop_model = []
         sym_def_files = {}
@@ -750,123 +750,143 @@ class StructureDatabase(Database):
                 # Generate loop model commands
                 use_alphafold = True
                 if use_alphafold:
-                    # # Hard code in parameters
-                    # model_type = 'monomer'
-                    relaxed = self.job.predict.models_to_relax is None
-                    # Set up the various model_runners to supervise the prediction task for each sequence
-                    monomer_runners = \
-                        resources.ml.set_up_model_runners(model_type='monomer', development=self.job.development)
-                    multimer_runners = \
-                        resources.ml.set_up_model_runners(model_type='multimer', development=self.job.development)
-                    # I don't suppose I need to reinitialize these for different length inputs, but I'm sure I will
+                    if batch_commands:
+                        # Write all commands to a file to perform in batches
+                        cmd = ['python', putils.program_exe, flags.initialize_building_blocks,
+                               f'--{flags.nano_entity_flag1}']
+                        commands = [cmd.copy() + [protein.entity_id]
+                                    for idx, protein in enumerate(protein_data_to_loop_model)]
 
-                    # Predict each
-                    for idx, protein in enumerate(protein_data_to_loop_model):
-                        entity_name = protein.entity_id
-                        # Model_source should be an oriented, asymmetric version of the protein file
-                        entity: structure.model.Entity = \
-                            structure.model.Entity.from_file(protein.model_source, metadata=protein)
+                        loop_cmds_file = utils.write_commands(
+                            [subprocess.list2cmdline(cmd) for cmd in commands], out_path=script_out_path,
+                            name=f'{utils.starttime}-loop_model_entities',)
+                        loop_model_script = distribute.distribute(
+                            loop_cmds_file, flags.predict_structure, out_path=script_out_path,
+                            log_file=os.path.join(full_model_dir, 'loop_model.log'),
+                            max_jobs=int(len(commands)/2 + .5), number_of_commands=len(commands))
+                        loop_model_script_message = 'Once you are satisfied, run the following to distribute ' \
+                                                    f'loop-modeling jobs:\n\t{shell} {loop_model_script}'
+                        info_messages.append(loop_model_script_message)
+                        # This prevents refinement from trying as it will be called upon distribution of the script
+                        return info_messages
+                    else:
+                        # # Hard code in parameters
+                        # model_type = 'monomer'
+                        relaxed = self.job.predict.models_to_relax is None
+                        # Set up the various model_runners to supervise the prediction task for each sequence
+                        monomer_runners = \
+                            resources.ml.set_up_model_runners(model_type='monomer', development=self.job.development)
+                        multimer_runners = \
+                            resources.ml.set_up_model_runners(model_type='multimer', development=self.job.development)
+                        # I don't suppose I need to reinitialize these for different length inputs, but I'm sure I will
 
-                        # Using the protein.uniprot_entity.reference_sequence would be preferred, however, it should be
-                        # realigned to the structure.reference_sequence or .sequence in order to not have large
-                        # insertions well beyond the indicated structural domain
-                        # In a similar mechanism to load_evolutionary_profile(), these need to be combined...
-                        # Example:
-                        # for entity in protein.uniprot_entities:
-                        #     entity.reference_sequence
+                        # Predict each
+                        for idx, protein in enumerate(protein_data_to_loop_model):
+                            entity_name = protein.entity_id
+                            # Model_source should be an oriented, asymmetric version of the protein file
+                            entity: structure.model.Entity = \
+                                structure.model.Entity.from_file(protein.model_source, metadata=protein)
 
-                        # Remove tags from reference_sequence
-                        clean_reference_sequence = expression.remove_terminal_tags(entity.reference_sequence)
-                        logger.debug(f'Found the .reference_sequence:\n{entity.reference_sequence}')
-                        logger.debug(f'Found the clean_reference_sequence:\n{clean_reference_sequence}')
-                        source_gap_mutations = generate_mutations(clean_reference_sequence, entity.sequence,
-                                                                  zero_index=True, only_gaps=True)
-                        # Format the Structure to have the proper sequence to predict the entire structure with loops
-                        logger.debug(f'Found the source_gap_mutations: {source_gap_mutations}')
-                        for residue_index, mutation in source_gap_mutations.items():
-                            # residue_index is zero indexed
-                            new_aa_type = mutation['from']
-                            # What happens if entity.sequence (i.e. the Structure) has resolved tag density?
-                            #  mutation_index: {'from': '-', 'to: LETTER}}
-                            if new_aa_type == '-':
-                                # This could be removed from the structure but that seems implicitly bad
-                                continue
-                            entity.insert_residue_type(new_aa_type, index=residue_index, chain_id=entity.chain_id)
+                            # Using the protein.uniprot_entity.reference_sequence would be preferred, however, it should
+                            # be realigned to the structure.reference_sequence or .sequence in order to not have large
+                            # insertions well beyond the indicated structural domain
+                            # In a similar mechanism to load_evolutionary_profile(), these need to be combined...
+                            # Example:
+                            # for entity in protein.uniprot_entities:
+                            #     entity.reference_sequence
 
-                        # If the entity.msa_file is present, the prediction should succeed with high probability...
-                        # Attach evolutionary info to the entity
-                        evolution_loaded, alignment_loaded = load_evolutionary_profile(api_db, entity)
+                            # Remove tags from reference_sequence
+                            clean_reference_sequence = expression.remove_terminal_tags(entity.reference_sequence)
+                            logger.debug(f'Found the .reference_sequence:\n{entity.reference_sequence}')
+                            logger.debug(f'Found the clean_reference_sequence:\n{clean_reference_sequence}')
+                            source_gap_mutations = generate_mutations(clean_reference_sequence, entity.sequence,
+                                                                      zero_index=True, only_gaps=True)
+                            # Format the Structure to have the proper sequence to predict loops/disorder
+                            logger.debug(f'Found the source_gap_mutations: {source_gap_mutations}')
+                            for residue_index, mutation in source_gap_mutations.items():
+                                # residue_index is zero indexed
+                                new_aa_type = mutation['from']
+                                # What happens if entity.sequence (i.e. the Structure) has resolved tag density?
+                                #  mutation_index: {'from': '-', 'to: LETTER}}
+                                if new_aa_type == '-':
+                                    # This could be removed from the structure but that seems implicitly bad
+                                    continue
+                                entity.insert_residue_type(new_aa_type, index=residue_index, chain_id=entity.chain_id)
 
-                        # After all sequence modifications, create the entity.oligomer
-                        entity.make_oligomer(symmetry=protein.symmetry_group)
-                        if entity.number_of_symmetry_mates > 1:
-                            af_symmetric = True
-                            model_runners = multimer_runners
-                            previous_position_coords = jnp.asarray(entity.oligomer.alphafold_coords)
-                        else:
-                            af_symmetric = False
-                            model_runners = monomer_runners
-                            previous_position_coords = jnp.asarray(entity.alphafold_coords)
-                        # Don't get the msa (no_msa=True) if the alignment_loaded is missing (False)
-                        features = entity.get_alphafold_features(symmetric=af_symmetric,
-                                                                 no_msa=not alignment_loaded,
-                                                                 templates=True)
-                        # Put the entity oligomeric coordinates in as a prior to bias the prediction
-                        features['prev_pos'] = previous_position_coords
-                        # Run the prediction
-                        entity_structures, entity_scores = \
-                            resources.ml.af_predict(features, model_runners,  # {**features, **template_features},
-                                                    gpu_relax=self.job.predict.use_gpu_relax,
-                                                    models_to_relax='best')  # self.job.predict.models_to_relax)
-                        if relaxed:
-                            structures_to_load = entity_structures.get('relaxed', [])
-                        else:
-                            structures_to_load = entity_structures.get('unrelaxed', [])
-                        # model_kwargs = dict(name=entity_name, metadata=protein)
-                        # folded_entities = {model_name: structure.model.Model.from_pdb_lines(structure_.splitlines(),
-                        #                                                                     **model_kwargs)
-                        #                    for model_name, structure_ in structures_to_load.items()}
-                        pose_kwargs = dict(name=entity_name, entity_info=protein.entity_info,
-                                           symmetry=protein.symmetry_group)
-                        folded_entities = {
-                            model_name: structure.model.Pose.from_pdb_lines(structure_.splitlines(), **pose_kwargs)
-                            for model_name, structure_ in structures_to_load.items()}
-                        if relaxed:  # Set b-factor data as relaxed get overwritten
-                            model_plddts = {model_name: scores['plddt'][:entity.number_of_residues]
-                                            for model_name, scores in entity_scores.items()}
-                            for model_name, entity_ in folded_entities.items():
-                                entity_.set_b_factor_data(model_plddts[model_name])
-                        # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
-                        # If the model were to be multimeric, then use this...
-                        # if multimer:
-                        #     entity_cb_coords = np.concatenate([mate.cb_coords for mate in entity.chains])
-                        #     Tod0 entity_backbone_and_cb_coords = entity.oligomer.cb_coords
+                            # If the entity.msa_file is present, the prediction should succeed with high probability...
+                            # Attach evolutionary info to the entity
+                            evolution_loaded, alignment_loaded = load_evolutionary_profile(api_db, entity)
 
-                        # Only use the original indices to align
-                        new_indices = list(source_gap_mutations.keys())
-                        align_indices = [idx for idx in entity.residue_indices if idx not in new_indices]
-                        template_cb_coords = entity.cb_coords[align_indices]
-                        min_rmsd = float('inf')
-                        min_entity = None
-                        for af_model_name, entity_ in folded_entities.items():
-                            rmsd, rot, tx = structure.coords.superposition3d(template_cb_coords,
-                                                                             entity_.cb_coords[align_indices])
-                            if rmsd < min_rmsd:
-                                min_rmsd = rmsd
-                                # Move the Alphafold model into the Pose reference frame
-                                entity_.transform(rotation=rot, translation=tx)
-                                min_entity = entity_
+                            # After all sequence modifications, create the entity.oligomer
+                            entity.make_oligomer(symmetry=protein.symmetry_group)
+                            if entity.number_of_symmetry_mates > 1:
+                                af_symmetric = True
+                                model_runners = multimer_runners
+                                previous_position_coords = jnp.asarray(entity.oligomer.alphafold_coords)
+                            else:
+                                af_symmetric = False
+                                model_runners = monomer_runners
+                                previous_position_coords = jnp.asarray(entity.alphafold_coords)
+                            # Don't get the msa (no_msa=True) if the alignment_loaded is missing (False)
+                            features = entity.get_alphafold_features(symmetric=af_symmetric,
+                                                                     no_msa=not alignment_loaded,
+                                                                     templates=True)
+                            # Put the entity oligomeric coordinates in as a prior to bias the prediction
+                            features['prev_pos'] = previous_position_coords
+                            # Run the prediction
+                            entity_structures, entity_scores = \
+                                resources.ml.af_predict(features, model_runners,  # {**features, **template_features},
+                                                        gpu_relax=self.job.predict.use_gpu_relax,
+                                                        models_to_relax='best')  # self.job.predict.models_to_relax)
+                            if relaxed:
+                                structures_to_load = entity_structures.get('relaxed', [])
+                            else:
+                                structures_to_load = entity_structures.get('unrelaxed', [])
+                            # model_kwargs = dict(name=entity_name, metadata=protein)
+                            # folded_entities = {model_name: structure.model.Model.from_pdb_lines(
+                            #                    structure_.splitlines(), **model_kwargs)
+                            #                    for model_name, structure_ in structures_to_load.items()}
+                            pose_kwargs = dict(name=entity_name, entity_info=protein.entity_info,
+                                               symmetry=protein.symmetry_group)
+                            folded_entities = {
+                                model_name: structure.model.Pose.from_pdb_lines(structure_.splitlines(), **pose_kwargs)
+                                for model_name, structure_ in structures_to_load.items()}
+                            if relaxed:  # Set b-factor data as relaxed get overwritten
+                                model_plddts = {model_name: scores['plddt'][:entity.number_of_residues]
+                                                for model_name, scores in entity_scores.items()}
+                                for model_name, entity_ in folded_entities.items():
+                                    entity_.set_b_factor_data(model_plddts[model_name])
+                            # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
+                            # If the model were to be multimeric, then use this...
+                            # if multimer:
+                            #     entity_cb_coords = np.concatenate([mate.cb_coords for mate in entity.chains])
+                            #     Tod0 entity_backbone_and_cb_coords = entity.oligomer.cb_coords
 
-                        # Indicate that this ProteinMetadata has been processed for loop modeling
-                        protein.loop_modeled = True
-                        protein.refined = relaxed
-                        # Save the min_model asu (now aligned with entity, which was oriented prior)
-                        full_model_file = self.full_models.path_to(name=entity_name)
-                        min_entity.write(out_path=full_model_file)
-                        if relaxed:
-                            protein.refined = True
-                            refined_path = self.refined.path_to(name=entity_name)
-                            shutil.copy(full_model_file, refined_path)
+                            # Only use the original indices to align
+                            new_indices = list(source_gap_mutations.keys())
+                            align_indices = [idx for idx in entity.residue_indices if idx not in new_indices]
+                            template_cb_coords = entity.cb_coords[align_indices]
+                            min_rmsd = float('inf')
+                            min_entity = None
+                            for af_model_name, entity_ in folded_entities.items():
+                                rmsd, rot, tx = structure.coords.superposition3d(template_cb_coords,
+                                                                                 entity_.cb_coords[align_indices])
+                                if rmsd < min_rmsd:
+                                    min_rmsd = rmsd
+                                    # Move the Alphafold model into the Pose reference frame
+                                    entity_.transform(rotation=rot, translation=tx)
+                                    min_entity = entity_
+
+                            # Indicate that this ProteinMetadata has been processed for loop modeling
+                            protein.loop_modeled = True
+                            protein.refined = relaxed
+                            # Save the min_model asu (now aligned with entity, which was oriented prior)
+                            full_model_file = self.full_models.path_to(name=entity_name)
+                            min_entity.write(out_path=full_model_file)
+                            if relaxed:
+                                protein.refined = True
+                                refined_path = self.refined.path_to(name=entity_name)
+                                shutil.copy(full_model_file, refined_path)
                 else:  # rosetta_loop_model
                     raise NotImplementedError(f'This has not been updated to use ProteinMetadata')
                     flags_file = os.path.join(full_model_dir, 'loop_model_flags')

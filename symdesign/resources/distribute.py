@@ -66,10 +66,11 @@ protocols_literal = Literal[
     'interface-metrics',
     'hhblits',
     'bmdca',
+    'predict-structure',
 ]
 protocols: tuple[str, ...] = get_args(protocols_literal)
 # Cluster Dependencies and Multiprocessing
-processes = (2, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 2)
+processes = (2, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 2, 1)
 process_scale = dict(zip(protocols, processes))
 
 # process_scale = {
@@ -103,7 +104,8 @@ sbatch_templates_tuple = (
     os.path.join(sbatch_template_dir, putils.hhblits),
     os.path.join(sbatch_template_dir, flags.interface_design),
     os.path.join(sbatch_template_dir, putils.hhblits),
-    os.path.join(sbatch_template_dir, 'bmdca')
+    os.path.join(sbatch_template_dir, 'bmdca'),
+    os.path.join(sbatch_template_dir, flags.predict_structure)
 )
 sbatch_templates = dict(zip(protocols, sbatch_templates_tuple))
 # sbatch_templates = {

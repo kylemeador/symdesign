@@ -273,12 +273,13 @@ def main():
         exit(exit_code)
 
     def initialize_entities(uniprot_entities: Iterable[wrapapi.UniProtEntity],
-                            metadata: Iterable[sql.ProteinMetadata]):
+                            metadata: Iterable[sql.ProteinMetadata], batch_commands: bool = False):
         """Handle evolutionary and structural data creation
 
         Args:
             uniprot_entities: All UniProtEntity instances which should be checked for evolutionary info
             metadata: The ProteinMetadata instances that are being imported for the first time
+            batch_commands: Whether commands should be made for batch submission
             # structures: The Structure instances that are being imported for the first time
         Returns:
             The processed structures
@@ -332,7 +333,7 @@ def main():
         #     job.structure_db.preprocess_structures_for_design(structures, script_out_path=job.sbatch_scripts)
         preprocess_instructions = \
             job.structure_db.preprocess_metadata_for_design(
-                metadata, script_out_path=job.sbatch_scripts,
+                metadata, script_out_path=job.sbatch_scripts, batch_commands=batch_commands,
                 perform_loop_model=job.init.loop_model_input, perform_refine=job.init.refine_input)
 
         check_if_script_and_exit(preprocess_instructions)
@@ -502,6 +503,80 @@ def main():
         #     entity.make_oligomer(symmetry=entity.symmetry)
         return all_uniprot_id_to_prot_data, uniprot_entities
 
+    def initialize_structures(symmetry: str = None, oligomer: bool = False, pdb_codes: bool = False,
+                              query_codes: bool = False) -> list[Model | Entity]:
+        """"""
+        # Set up variables for the correct parsing of provided file paths
+        by_file = False
+        if oligomer:
+            by_file = True
+            if '.pdb' in oligomer:
+                pdb_filepaths = [oligomer]
+            else:
+                extension = '.pdb*'
+                pdb_filepaths = utils.get_directory_file_paths(oligomer, extension=extension)
+                if not pdb_filepaths:
+                    logger.warning(f'Found no {extension} files at {oligomer}')
+            # Set filepaths to structure_names, reformat the file paths to the file_name for structure_names
+            structure_names = pdb_filepaths
+            # eventual_structure_names1 = \
+            #     list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb1_filepaths]))
+        elif pdb_codes:
+            # Collect all provided codes required for component 1 processing
+            structure_names = utils.remove_duplicates(utils.to_iterable(pdb_codes, ensure_file=True))
+            # Make all names lowercase
+            structure_names = list(map(str.lower, structure_names))
+        elif query_codes:
+            save_query = validate_input_return_response_value(
+                'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
+            print(f'\nStarting PDB query\n')
+            structure_names = retrieve_pdb_entries_by_advanced_query(save=save_query, entity=True)
+            # Make all names lowercase
+            structure_names = list(map(str.lower, structure_names))
+        else:
+            structure_names = []
+            # raise RuntimeError('This should be impossible with mutually exclusive argparser group')
+
+        # Select entities, orient them, then load each Structure for further database processing
+        return job.structure_db.orient_structures(structure_names, symmetry=symmetry, by_file=by_file)
+
+    def create_protein_metadata(structures: list[Model | Entity], symmetry: str = None):
+        """"""
+        structures_ids: list[tuple[str, list[tuple[str, ...]]]] = []
+        uniprot_ids_to_prot_metadata = {}
+        for structure in structures:
+            structure_uniprot_ids = []
+            for entity in structure.entities:
+                protein_metadata = sql.ProteinMetadata(
+                    entity_id=entity.name,
+                    reference_sequence=entity.reference_sequence,
+                    thermophilicity=entity.thermophilicity,
+                    symmetry_group=symmetry,
+                    model_source=entity.file_path
+                )
+                # # Set the Entity with .metadata attribute to fetch in fragdock()
+                # entity.metadata = protein_metadata
+                # for uniprot_id in entity.uniprot_ids:
+                try:
+                    ''.join(entity.uniprot_ids)
+                except TypeError:  # Uniprot_ids is (None,)
+                    entity.uniprot_ids = uniprot_ids = (entity.name,)
+                except AttributeError:  # Unable to retrieve
+                    entity.uniprot_ids = uniprot_ids = (entity.name,)
+                else:
+                    uniprot_ids = entity.uniprot_ids
+
+                if uniprot_ids in uniprot_ids_to_prot_metadata:
+                    # This Entity already found for processing, and we shouldn't have duplicates
+                    logger.error(f"Found duplicate UniProtID for {protein_metadata}. "
+                                 f"This error wasn't expected to occur.{putils.report_issue}")
+                    # raise RuntimeError(f"This error wasn't expected to occur.{putils.report_issue}")
+                else:  # Process for persistent state
+                    uniprot_ids_to_prot_metadata[uniprot_ids] = protein_metadata
+                structure_uniprot_ids.append(uniprot_ids)  # protein_metadata)
+            structures_ids.append((structure.name, structure_uniprot_ids))
+
+        return structures_ids, uniprot_ids_to_prot_metadata
     # -----------------------------------------------------------------------------------------------------------------
     # Start Program
     # -----------------------------------------------------------------------------------------------------------------
@@ -589,6 +664,10 @@ def main():
         else:  # We need to add a dummy input for argparse to happily continue with required args
             additional_args.extend(['--file', 'dummy'])
             remove_dummy = True
+    elif args.module == flags.initialize_building_blocks:
+        # Add a dummy input for argparse to happily continue with required args
+        additional_args.extend(['--file', 'dummy'])
+        remove_dummy = True
     elif args.module == flags.protocol:
         # We need to add a dummy input for argparse to happily continue with required args
         if flags.nanohedra in args.modules:
@@ -799,7 +878,36 @@ def main():
         pose_jobs: list[PoseJob] | list[tuple[Any, Any]] = []
         low = high = low_range = high_range = None
         logger.info(f'Setting up input for {job.module}')
-        if job.module == flags.nanohedra:
+        if job.module == flags.initialize_building_blocks:
+            logger.critical(f'Ensuring provided building blocks are oriented')
+            symmetry = job.sym_entry.group1
+            structures = initialize_structures(symmetry=symmetry, oligomer=args.oligomer1,
+                                               pdb_codes=args.pdb_codes1, query_codes=args.query_codes1)
+            structures_ids, possibly_new_uniprot_to_prot_metadata = \
+                create_protein_metadata(structures, symmetry=symmetry)
+
+            # Make a copy of the new ProteinMetadata if they were already loaded without a .model_source attribute
+            possibly_new_uniprot_to_prot_metadata_copy = possibly_new_uniprot_to_prot_metadata.copy()
+
+            # Write new data to the database
+            # with job.db.session(expire_on_commit=False) as session:
+            all_uniprot_id_to_prot_data, uniprot_entities = initialize_metadata(possibly_new_uniprot_to_prot_metadata)
+
+            # Fix ProteinMetadata that is already loaded
+            for data in all_uniprot_id_to_prot_data.values():
+                if data.model_source is None:
+                    logger.info(f'{data}.model_source is None')
+                    for uniprot_ids, protein_metadata in possibly_new_uniprot_to_prot_metadata_copy.items():
+                        if data.entity_id == protein_metadata.entity_id:
+                            data.model_source = protein_metadata.model_source
+                            logger.info(f'Set existing {data}.model_source to new {protein_metadata}.model_source')
+
+            # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
+            initialize_entities(uniprot_entities, all_uniprot_id_to_prot_data.values(),
+                                batch_commands=job.distribute_work)
+            session.commit()
+            terminate(output=False)
+        elif job.module == flags.nanohedra:
             # logger.info(f'Setting up inputs for {job.module.title()} docking')
             job.sym_entry.log_parameters()
             # # Make master output directory. sym_entry is required, so this won't fail v
@@ -809,83 +917,61 @@ def main():
             #     putils.make_path(job.output_directory)
             # Transform input entities to canonical orientation and return their ASU
             grouped_structures: list[list[Model | Entity]] = []
-            # Set up variables for the correct parsing of provided file paths
-            by_file1 = by_file2 = False
-            eventual_structure_names1 = eventual_structure_names2 = None
-            idx = 1
-            if args.oligomer1:
-                by_file1 = True
-                logger.critical(f'Ensuring provided file(s) at {args.oligomer1} are oriented for Nanohedra Docking')
-                if '.pdb' in args.oligomer1:
-                    pdb1_filepaths = [args.oligomer1]
+            logger.critical(f'Ensuring provided building blocks are oriented for docking')
+            structures1 = initialize_structures(symmetry=job.sym_entry.group1, oligomer=args.oligomer1,
+                                                pdb_codes=args.pdb_codes1, query_codes=args.query_codes1)
+            grouped_structures.append(structures1)
+            structures2 = []
+            if args.oligomer1 != args.oligomer2:  # See if they are the same input
+                structures2 = initialize_structures(symmetry=job.sym_entry.group2, oligomer=args.oligomer2,
+                                                    pdb_codes=args.pdb_codes2, query_codes=args.query_codes2)
+                if structures2:
+                    single_component_design = False
                 else:
-                    extension = '.pdb*'
-                    pdb1_filepaths = utils.get_directory_file_paths(args.oligomer1, extension=extension)
-                    if not pdb1_filepaths:
-                        logger.warning(f'Found no {extension} files at {args.oligomer1}')
-                # Set filepaths to structure_names, reformat the file paths to the file_name for structure_names
-                structure_names1 = pdb1_filepaths
-                # eventual_structure_names1 = \
-                #     list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb1_filepaths]))
-            elif args.pdb_codes1:
-                # Collect all provided codes required for component 1 processing
-                structure_names1 = utils.remove_duplicates(utils.to_iterable(args.pdb_codes1, ensure_file=True))
-                # Make all names lowercase
-                structure_names1 = list(map(str.lower, structure_names1))
-            elif args.query_codes1:
-                save_query = validate_input_return_response_value(
-                    'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
-                print(f'\nStarting PDB query for component {idx}\n')
-                structure_names1 = retrieve_pdb_entries_by_advanced_query(save=save_query, entity=True)
-                # Make all names lowercase
-                structure_names1 = list(map(str.lower, structure_names1))
-            else:
-                raise RuntimeError('This should be impossible with mutually exclusive argparser group')
-
-            # Select entities, orient them, then load each Structure for further database processing
-            grouped_structures.append(job.structure_db.orient_structures(structure_names1,
-                                                                         symmetry=job.sym_entry.group1,
-                                                                         by_file=by_file1))
-            single_component_design = False
-            structure_names2 = []
-            idx = 2
-            if args.oligomer2:
-                if args.oligomer1 != args.oligomer2:  # See if they are the same input
-                    by_file2 = True
-                    logger.critical(f'Ensuring provided file(s) at {args.oligomer2} are oriented for Nanohedra Docking')
-                    if '.pdb' in args.oligomer2:
-                        pdb2_filepaths = [args.oligomer2]
-                    else:
-                        extension = '.pdb*'
-                        pdb2_filepaths = utils.get_directory_file_paths(args.oligomer2, extension=extension)
-                        if not pdb2_filepaths:
-                            logger.warning(f'Found no {extension} files at {args.oligomer2}')
-
-                    # Set filepaths to structure_names, reformat the file paths to the file_name for structure_names
-                    structure_names2 = pdb2_filepaths
-                    # eventual_structure_names2 = \
-                    #     list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb2_filepaths]))
-                else:  # The entities are the same symmetry, or we have single component and bad input
                     single_component_design = True
-            elif args.pdb_codes2:
-                # Collect all provided codes required for component 2 processing
-                structure_names2 = utils.remove_duplicates(utils.to_iterable(args.pdb_codes2, ensure_file=True))
-                # Make all names lowercase
-                structure_names2 = list(map(str.lower, structure_names2))
-            elif args.query_codes2:
-                save_query = validate_input_return_response_value(
-                    'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
-                print(f'\nStarting PDB query for component {idx}\n')
-                structure_names2 = retrieve_pdb_entries_by_advanced_query(save=save_query, entity=True)
-                # Make all names lowercase
-                structure_names2 = list(map(str.lower, structure_names2))
-            else:
+            else:  # The entities are the same symmetry, or there is a single component and bad input
                 single_component_design = True
+            grouped_structures.append(structures2)
 
-            # Select entities, orient them, then load each Structure for further database processing
-            grouped_structures.append(job.structure_db.orient_structures(structure_names2,
-                                                                         symmetry=job.sym_entry.group2,
-                                                                         by_file=by_file2))
+            # single_component_design = False
+            # structure_names2 = []
+            # if args.oligomer2:
+            #     if args.oligomer1 != args.oligomer2:  # See if they are the same input
+            #         by_file2 = True
+            #         logger.critical(f'Ensuring provided file(s) at {args.oligomer2} are oriented for Nanohedra Docking')
+            #         if '.pdb' in args.oligomer2:
+            #             pdb2_filepaths = [args.oligomer2]
+            #         else:
+            #             extension = '.pdb*'
+            #             pdb2_filepaths = utils.get_directory_file_paths(args.oligomer2, extension=extension)
+            #             if not pdb2_filepaths:
+            #                 logger.warning(f'Found no {extension} files at {args.oligomer2}')
+            #
+            #         # Set filepaths to structure_names, reformat the file paths to the file_name for structure_names
+            #         structure_names2 = pdb2_filepaths
+            #         # eventual_structure_names2 = \
+            #         #     list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb2_filepaths]))
+            #     else:  # The entities are the same symmetry, or we have single component and bad input
+            #         single_component_design = True
+            # elif args.pdb_codes2:
+            #     # Collect all provided codes required for component 2 processing
+            #     structure_names2 = utils.remove_duplicates(utils.to_iterable(args.pdb_codes2, ensure_file=True))
+            #     # Make all names lowercase
+            #     structure_names2 = list(map(str.lower, structure_names2))
+            # elif args.query_codes2:
+            #     save_query = validate_input_return_response_value(
+            #         'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
+            #     print(f'\nStarting PDB query \n')
+            #     structure_names2 = retrieve_pdb_entries_by_advanced_query(save=save_query, entity=True)
+            #     # Make all names lowercase
+            #     structure_names2 = list(map(str.lower, structure_names2))
+            # else:
+            #     single_component_design = True
+            #
+            # # Select entities, orient them, then load each Structure for further database processing
+            # grouped_structures.append(job.structure_db.orient_structures(structure_names2,
+            #                                                              symmetry=job.sym_entry.group2,
+            #                                                              by_file=by_file2))
             # Initialize the local database
             # Populate all_entities to set up sequence dependent resources
             # grouped_structures_ids = defaultdict(list)
@@ -910,38 +996,10 @@ def main():
                 if not structures:  # Useful in a case where symmetry groups are the same or group is None
                     continue
                 # structures_metadata: list[tuple[str, list[sql.ProteinMetadata]]] = []
-                structures_ids: list[tuple[str, list[tuple[str, ...]]]] = []
-                for structure in structures:
-                    structure_uniprot_ids = []
-                    for entity in structure.entities:
-                        protein_metadata = sql.ProteinMetadata(
-                            entity_id=entity.name,
-                            reference_sequence=entity.reference_sequence,
-                            thermophilicity=entity.thermophilicity,
-                            symmetry_group=symmetry,
-                            model_source=entity.file_path
-                        )
-                        # # Set the Entity with .metadata attribute to fetch in fragdock()
-                        # entity.metadata = protein_metadata
-                        # for uniprot_id in entity.uniprot_ids:
-                        try:
-                            ''.join(entity.uniprot_ids)
-                        except TypeError:  # Uniprot_ids is (None,)
-                            entity.uniprot_ids = uniprot_ids = (entity.name,)
-                        except AttributeError:  # Unable to retrieve
-                            entity.uniprot_ids = uniprot_ids = (entity.name,)
-                        else:
-                            uniprot_ids = entity.uniprot_ids
-
-                        if uniprot_ids in possibly_new_uniprot_to_prot_metadata:
-                            # This Entity already found for processing, and we shouldn't have duplicates
-                            raise RuntimeError(f"This error wasn't expected to occur.{putils.report_issue}")
-                        else:  # Process for persistent state
-                            possibly_new_uniprot_to_prot_metadata[uniprot_ids] = protein_metadata
-                        structure_uniprot_ids.append(uniprot_ids)  # protein_metadata)
-                    structures_ids.append((structure.name, structure_uniprot_ids))
+                structures_ids, uniprot_to_prot_metadata = create_protein_metadata(structures, symmetry=symmetry)
                 # grouped_structures_ids[symmetry] = structures_metadata
                 grouped_structures_ids.append((symmetry, structures_ids))
+                possibly_new_uniprot_to_prot_metadata.update(uniprot_to_prot_metadata)
 
             # Make a copy of the new ProteinMetadata if they were already loaded without a .model_source attribute
             possibly_new_uniprot_to_prot_metadata_copy = possibly_new_uniprot_to_prot_metadata.copy()
@@ -960,7 +1018,8 @@ def main():
                             logger.info(f'Set existing {data}.model_source to new {protein_metadata}.model_source')
 
             # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
-            initialize_entities(uniprot_entities, all_uniprot_id_to_prot_data.values())
+            initialize_entities(uniprot_entities, all_uniprot_id_to_prot_data.values(),
+                                batch_commands=job.distribute_work)
             session.commit()
 
             # Todo need to take the version of all_structures from refine/loop modeling and insert entity.metadata

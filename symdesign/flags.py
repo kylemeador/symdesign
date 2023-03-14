@@ -102,6 +102,7 @@ loop_model_input = 'loop_model_input'
 refine_input = 'refine_input'
 pre_loop_modeled = 'pre_loop_modeled'
 pre_refined = 'pre_refined'
+initialize_building_blocks = 'initialize_building_blocks'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -273,6 +274,7 @@ loop_model_input = format_for_cmdline(loop_model_input)
 refine_input = format_for_cmdline(refine_input)
 pre_loop_modeled = format_for_cmdline(pre_loop_modeled)
 pre_refined = format_for_cmdline(pre_refined)
+initialize_building_blocks = format_for_cmdline(initialize_building_blocks)
 
 select_modules = (
     select_poses,
@@ -952,6 +954,15 @@ nanohedra_mutual2_arguments = {
     ('-Q2', f'--{query_codes2}'): query_codes_kwargs
 }
 # ---------------------------------------------------
+initialize_building_blocks_help = 'Initialize building blocks for downstream Pose creation'
+parser_initialize_building_blocks = {initialize_building_blocks:
+                                     dict(description=initialize_building_blocks_help,
+                                          help=initialize_building_blocks_help)}
+initialize_building_blocks_arguments = {
+    **nanohedra_mutual1_arguments
+    # ('-',): dict(help=''),
+}
+# ---------------------------------------------------
 cluster_map_args = ('-c', f'--{cluster_map}')
 cluster_map_kwargs = dict(type=os.path.abspath,
                           metavar=ex_path(default_clustered_pose_file.format('TIMESTAMP', 'LOCATION')),
@@ -1458,6 +1469,7 @@ module_parsers = {
     output: parser_output,
     options: parser_options,
     predict_structure: parser_predict_structure,
+    initialize_building_blocks: parser_initialize_building_blocks,
     protocol: parser_protocol,
     residue_selector: parser_residue_selector,
 }
@@ -1497,6 +1509,7 @@ parser_arguments = {
     'input_mutual': input_mutual_arguments,  # add_mutually_exclusive_group
     output: output_arguments,
     predict_structure: predict_structure_arguments,
+    initialize_building_blocks: initialize_building_blocks_arguments,
     protocol: protocol_arguments,
     # custom_script_arguments: parser_custom_script_arguments,
     # select_poses_mutual_arguments: parser_select_poses_mutual_arguments, # mutually_exclusive_group
