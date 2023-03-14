@@ -436,7 +436,7 @@ class UniProtDataStore(DataStore):
 
 class UniProtEntity(sql.Base):
     __tablename__ = 'uniprot_entity'
-    id = Column(String, primary_key=True, autoincrement=False)
+    id = Column(String(10), primary_key=True, autoincrement=False)
     """The UniProtID"""
     uniprot_id = synonym('id')
     # _uniprot_id = Column('uniprot_id', String)
