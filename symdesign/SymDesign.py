@@ -51,8 +51,8 @@ from symdesign.utils import guide, nanohedra
 
 sbatch_warning = 'Ensure the SBATCH script(s) below are correct. Specifically, check that the job array and any '\
                  'node specifications are accurate. You can look at the SBATCH manual (man sbatch or sbatch --help) to'\
-                 ' understand the variables or ask for help if you are still unsure.'
-script_warning = 'Ensure the script(s) below are correct.'
+                 ' understand the variables or ask for help if you are still unsure'
+script_warning = 'Ensure the script(s) below are correct'
 
 
 def parse_results_for_exceptions(pose_jobs: list[PoseJob], results: Iterable[Any], **kwargs) \
@@ -283,44 +283,45 @@ def main():
         Returns:
             The processed structures
         """
-        def check_if_script_and_exit():
-            if info_messages:
+        def check_if_script_and_exit(messages: list[str]):
+            if messages:
                 # Entity processing commands are needed
                 if distribute.is_sbatch_available():
                     logger.critical(sbatch_warning)
                 else:
                     logger.critical(script_warning)
 
-                for message in info_messages:
+                for message in messages:
                     logger.info(message)
                 print('\n')
                 logger.info(resubmit_command_message)
                 terminate(output=False)
 
         # Set up common Structure/Entity resources
-        info_messages = []
         if job.design.evolution_constraint:
-            info_messages.extend(job.process_evolutionary_info(uniprot_entities=uniprot_entities))
+            profile_search_instructions = job.process_evolutionary_info(uniprot_entities=uniprot_entities)
+        else:
+            profile_search_instructions = []
 
-        check_if_script_and_exit()
+        check_if_script_and_exit(profile_search_instructions)
 
-        if job.preprocessed:
-            # Don't perform refinement or loop modeling, this has already been done or isn't desired
-            # if job.init.pre_loop_modeled
-            #    just do refine stuff
-            # if job.init.pre_refined
-            #    just do loop model stuff
-            # Move the oriented Entity.file_path (should be the ASU) to the respective directory
-            putils.make_path(job.refine_dir)
+        # Ensure files exist
+        for data in metadata:
+            if data.model_source is None:
+                raise ValueError(f"Couldn't find {data}.model_source")
+        # Check whether loop modeling or refinement should be performed
+        # If so, move the oriented Entity.file_path (should be the ASU) to the respective directory
+        if job.init.pre_loop_modeled:  # Indicate refine stuff is done
             putils.make_path(job.full_model_dir)
             for data in metadata:
-                if data.model_source is None:
-                    raise ValueError(f"Couldn't find {data}.model_source")
                 try:
                     shutil.copy(data.model_source, job.refine_dir)
                 except shutil.SameFileError:
                     pass
                 data.refined = True
+        if job.init.pre_refined:  # Indicate loop model stuff is done
+            putils.make_path(job.refine_dir)
+            for data in metadata:
                 try:
                     shutil.copy(data.model_source, job.full_model_dir)
                 except shutil.SameFileError:
@@ -338,11 +339,10 @@ def main():
                 info_messages += ['The following can be run at any time regardless of evolutionary script progress']
             info_messages += preprocess_instructions
 
-        check_if_script_and_exit()
+        check_if_script_and_exit(preprocess_instructions)
         # After completion of indicated scripts, the next time command is entered
         # these checks will not raise and the program will proceed
 
-        # def set_model_source(metadata):
         for data in metadata:
             if data.refined:
                 data.model_source = job.structure_db.refined.path_to(data.entity_id)

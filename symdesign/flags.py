@@ -98,7 +98,14 @@ models_to_relax = 'models_to_relax'
 reset_db = 'reset_db'
 load_to_db = 'load_to_db'
 all_flags = 'all_flags'
+loop_model_input = 'loop_model_input'
+refine_input = 'refine_input'
+pre_loop_modeled = 'pre_loop_modeled'
+pre_refined = 'pre_refined'
 # Set up JobResources namespaces for different categories of flags
+cluster_namespace = {
+    as_objects, cluster_map, cluster_mode, cluster_number
+}
 design_namespace = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, design_method, evolution_constraint,
     hbnet, design_number, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
@@ -109,25 +116,28 @@ dock_namespace = {
     min_matched, perturb_dof, perturb_dof_rot, perturb_dof_tx, perturb_dof_steps, perturb_dof_steps_rot,
     perturb_dof_steps_tx, proteinmpnn_score, quick, rotation_step1, rotation_step2
 }  # score,
+init_namespace = {
+    loop_model_input, refine_input, pre_loop_modeled, pre_refined
+}
 predict_namespace = {
     models_to_relax, num_predictions_per_model, predict_assembly, predict_entities, predict_method, predict_pose,
     use_gpu_relax
 }
-cluster_namespace = {
-    as_objects, cluster_map, cluster_mode, cluster_number
-}
-namespaces = dict(design=design_namespace,
-                  dock=dock_namespace,
-                  predict=predict_namespace,
-                  cluster=cluster_namespace
-                  )
+namespaces = dict(
+    cluster=cluster_namespace,
+    design=design_namespace,
+    dock=dock_namespace,
+    init=init_namespace,
+    predict=predict_namespace
+)
 # Modify specific flags from their prefix to their suffix
-modify_options = {
-    'design': [design_method, design_number],
-    'dock': [dock_filter, dock_filter_file, dock_weight, dock_weight_file],
-    'predict': [predict_assembly, predict_entities, predict_method, predict_pose],
-    'cluster': [cluster_map, cluster_mode, cluster_number],
-}
+modify_options = dict(
+    cluster=[cluster_map, cluster_mode, cluster_number],
+    design=[design_method, design_number],
+    dock=[dock_filter, dock_filter_file, dock_weight, dock_weight_file],
+    init=[],  # loop_model_input, refine_input],
+    predict=[predict_assembly, predict_entities, predict_method, predict_pose],
+)
 
 
 def format_for_cmdline(flag: str) -> str:
@@ -259,6 +269,10 @@ use_gpu_relax = format_for_cmdline(use_gpu_relax)
 reset_db = format_for_cmdline(reset_db)
 load_to_db = format_for_cmdline(load_to_db)
 all_flags = format_for_cmdline(all_flags)
+loop_model_input = format_for_cmdline(loop_model_input)
+refine_input = format_for_cmdline(refine_input)
+pre_loop_modeled = format_for_cmdline(pre_loop_modeled)
+pre_refined = format_for_cmdline(pre_refined)
 
 select_modules = (
     select_poses,
@@ -1322,9 +1336,19 @@ input_arguments = {
                                f'these files to interact with those poses in subsequent commands'),
     #                            'If pose identifiers are specified in a file, say as the result of\n'
     #                            f'{select_poses} or {select_designs}'),
-    ('-P', f'--{preprocessed}'): dict(action='store_true',
-                                      help='Whether the designs of interest have been preprocessed for the '
-                                           f'{current_energy_function}\nenergy function and/or missing loops'),
+    # ('-P', f'--{preprocessed}'): dict(action='store_true',
+    #                                   help='Whether the designs of interest have been preprocessed for the '
+    #                                        f'{current_energy_function}\nenergy function and/or missing loops'),
+    (f'--{loop_model_input}',):
+        dict(action='store_true',  help='Whether the input building blocks should have missing regions modelled'),
+    (f'--{refine_input}',):
+        dict(action='store_true',
+             help=f'Whether the input building blocks should be refined into the {current_energy_function}'),
+    (f'--{pre_loop_modeled}',):
+        dict(action='store_true', help='Whether the input building blocks have been preprocessed for missing density'),
+    (f'--{pre_refined}',):
+        dict(action='store_true', help='Whether the input building blocks have been preprocessed by refinement into the'
+                                       f' {current_energy_function}'),
     ('-r', '--range'): dict(type=float, default=None, metavar='int-int',
                             help='The range of poses to process from a larger specification.\n'
                                  'Specify a %% between 0 and 100, separating the range by "-"\n'
@@ -1673,14 +1697,16 @@ for parser_name, parser_kwargs in input_parsers.items():
 #             entire_module_suparsers[parser_name].add_argument(*args, **kwargs)
 
 # Separate the provided arguments for modules or overall program arguments to into flags namespaces
+cluster_defaults = dict(namespace='cluster')
+"""Contains all the arguments and their default parameters used in clustering Poses"""
 design_defaults = dict(namespace='design')
 """Contains all the arguments and their default parameters used in design"""
 dock_defaults = dict(namespace='dock')
 """Contains all the arguments and their default parameters used in docking"""
+init_defaults = dict(namespace='init')
+"""Contains all the arguments and their default parameters used in structure/sequence initialization"""
 predict_defaults = dict(namespace='predict')
 """Contains all the arguments and their default parameters used in structure prediction"""
-cluster_defaults = dict(namespace='cluster')
-"""Contains all the arguments and their default parameters used in clustering Poses"""
 
 
 def parse_flags_to_namespaces(parser_: argparse.ArgumentParser):
@@ -1690,27 +1716,28 @@ def parse_flags_to_namespaces(parser_: argparse.ArgumentParser):
                 # We have a sup parser, recurse
                 for name, sub_parser in arg.choices.items():
                     parse_flags_to_namespaces(sub_parser)
-
+            elif arg.dest in cluster_namespace:
+                cluster_defaults[arg.dest] = arg.default
             elif arg.dest in design_namespace:
                 design_defaults[arg.dest] = arg.default
             elif arg.dest in dock_namespace:
                 dock_defaults[arg.dest] = arg.default
+            elif arg.dest in init_namespace:
+                init_defaults[arg.dest] = arg.default
             elif arg.dest in predict_namespace:
                 predict_defaults[arg.dest] = arg.default
-            elif arg.dest in cluster_namespace:
-                cluster_defaults[arg.dest] = arg.default
 
 
 parse_flags_to_namespaces(parser)
 # Add orphaned 'interface', i.e. interface-design module alias for design with interface=True to design_defaults
 design_defaults[interface] = False
-
-defaults = {
-    'design': design_defaults,
-    'dock': dock_defaults,
-    'predict': predict_defaults,
-    'cluster': cluster_defaults,
-}
+defaults = dict(
+    cluster=cluster_defaults,
+    design=design_defaults,
+    dock=dock_defaults,
+    init=init_defaults,
+    predict=predict_defaults
+)
 
 
 def format_defaults_for_namespace(defaults_: dict[str, dict[str, Any]]):

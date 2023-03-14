@@ -150,43 +150,37 @@ class FlagsBase:
 
 
 # These dataclasses help simplify the use of flags into namespaces
-# The commented out versions below had poor implementations
-# DesignFlags = collections.namedtuple('DesignFlags', design_args.keys(), defaults=design_args.values())
-# DesignFlags = types.SimpleNamespace(**design_args)
 # Due to an error evaluating the singleton eval(type(None).__name__), need to pass a globals argument
 nonetype_map = {'NoneType': None}
-Design = dataclasses.make_dataclass(
-    'Design',
-    [(flag, eval(type(default).__name__, nonetype_map), dataclasses.field(default=default))
-     for flag, default in flags.design_defaults.items()],
-    bases=(FlagsBase,))
-#     namespace={'from_flags': classmethod(from_flags)})
-#     frozen=True)
-#  self.design = DesignFlags(*[kwargs.get(argument_name) for argument_name in design_args.keys()])
-#  self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
-#  self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
-Dock = dataclasses.make_dataclass(
-    'Dock',
-    [(flag, eval(type(default).__name__, nonetype_map), dataclasses.field(default=default))
-     for flag, default in flags.dock_defaults.items()],
-    bases=(FlagsBase,))
-#     namespace={'from_flags': classmethod(from_flags)})
-#     frozen=True)
-
-Predict = dataclasses.make_dataclass(
-    'Predict',
-    [(flag, eval(type(default).__name__, nonetype_map), dataclasses.field(default=default))
-     for flag, default in flags.predict_defaults.items()],
-    bases=(FlagsBase,))
-#     namespace={'from_flags': classmethod(from_flags)})
-#     frozen=True)
-
 Cluster = dataclasses.make_dataclass(
     'Cluster',
     [(flag, eval(type(default).__name__, nonetype_map), dataclasses.field(default=default))
      for flag, default in flags.cluster_defaults.items()],
     bases=(FlagsBase,))
-#     namespace={'from_flags': classmethod(from_flags)})
+#     frozen=True)
+Design = dataclasses.make_dataclass(
+    'Design',
+    [(flag, eval(type(default).__name__, nonetype_map), dataclasses.field(default=default))
+     for flag, default in flags.design_defaults.items()],
+    bases=(FlagsBase,))
+#     frozen=True)
+Dock = dataclasses.make_dataclass(
+    'Dock',
+    [(flag, eval(type(default).__name__, nonetype_map), dataclasses.field(default=default))
+     for flag, default in flags.dock_defaults.items()],
+    bases=(FlagsBase,))
+#     frozen=True)
+Init = dataclasses.make_dataclass(
+    'Init',
+    [(flag, eval(type(default).__name__, nonetype_map), dataclasses.field(default=default))
+     for flag, default in flags.init_defaults.items()],
+    bases=(FlagsBase,))
+#     frozen=True)
+Predict = dataclasses.make_dataclass(
+    'Predict',
+    [(flag, eval(type(default).__name__, nonetype_map), dataclasses.field(default=default))
+     for flag, default in flags.predict_defaults.items()],
+    bases=(FlagsBase,))
 #     frozen=True)
 
 
@@ -377,10 +371,18 @@ class JobResources:
         else:  # When --no-database is provided as a flag
             self.db = None
 
-        # PoseJob initialize Flags
-        self.preprocessed = kwargs.get(flags.preprocessed)
-        # self.pre_refined = kwargs.get('pre_refined')  # Todo
-        # self.pre_loop_modeled = kwargs.get('pre_loop_modeled')  # Todo
+        # PoseJob initialization flags
+        self.init = Init.from_flags(**kwargs)
+        # self.init.pre_refined
+        # self.init.pre_loop_modeled
+        # self.init.refine_input
+        # self.init.loop_model_input
+
+        # self.preprocessed = kwargs.get(flags.preprocessed)
+        # if self.init.pre_loop_modeled or self.init.pre_refined:
+        #     self.preprocessed = True
+        # else:
+        #     self.preprocessed = False
 
         # Program flags
         # self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus
