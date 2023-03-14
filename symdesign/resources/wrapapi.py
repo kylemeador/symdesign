@@ -459,18 +459,22 @@ class UniProtEntity(sql.Base):
             return self._reference_sequence
         except AttributeError:
             api_db = api_database_factory()
-            response_json = api_db.uniprot.retrieve_data(name=self.uniprot_id)
+            response_json = api_db.uniprot.retrieve_data(name=self.id)
             if response_json is not None:
                 sequence = response_json.get('sequence')
                 if sequence:
                     self._reference_sequence = sequence['value']
-            else:  # uniprot_id found no data from UniProt API
-                # Todo this isn't correct due to many-to-many association
-                max_seq_len = 0
-                for data in self.protein_metadata:
-                    seq_len = len(data.reference_sequence)
-                    if seq_len > max_seq_len:
-                        max_seq_len = seq_len
-                        _reference_sequence = data.reference_sequence
-                self._reference_sequence = _reference_sequence
+                    return self._reference_sequence
+                else:
+                    logger.error(f"Couldn't find UniProt data for {self.id}")
+
+            # else:  # uniprot_id found no data from UniProt API
+            # Todo this isn't correct due to many-to-many association
+            max_seq_len = 0
+            for data in self.protein_metadata:
+                seq_len = len(data.reference_sequence)
+                if seq_len > max_seq_len:
+                    max_seq_len = seq_len
+                    _reference_sequence = data.reference_sequence
+            self._reference_sequence = _reference_sequence
             return self._reference_sequence
