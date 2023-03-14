@@ -1367,16 +1367,17 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         chain_gen = chain_id_generator()
         # Iterate over the generator until the current chain_id is found
         discard = next(chain_gen)
-        while discard != first_chain_id:
-            discard = next(chain_gen)
+        try:
+            while discard != first_chain_id:
+                discard = next(chain_gen)
+        except StopIteration:
+            self.log.warning(f"Couldn't find the self.chain_id {self.chain_id} in the chain_id_generator()")
+            # The end of the generator was reached without a success. Try to just use the first chain_ids returned
+            chain_gen = chain_id_generator()
 
         # Iterate over the generator adding each successive chain_id to self.chain_ids
         for _ in range(self.number_of_symmetry_mates - 1):  # Only get ids for the mate chains
-            chain_id = next(chain_gen)
-            # while chain_id in self.chain_ids:
-            #     chain_id = next(chain_gen)
-            # chain.chain_id = chain_id
-            self.chain_ids.append(chain_id)
+            self.chain_ids.append(next(chain_gen))
 
         # Must set chain_ids first, then chains
         for chain, new_id in zip(self.chains[1:], self.chain_ids[1:]):
