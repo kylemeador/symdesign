@@ -3005,7 +3005,6 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 'dock_hydrophobic_collapse',  # dock by default not included
                 'dock_collapse_deviation_magnitude',
                 # proteinmpnn_score required
-                'proteinmpnn_dock_cross_entropy_loss'
                 'proteinmpnn_v_design_probability_cross_entropy_loss',
                 'proteinmpnn_v_evolution_probability_cross_entropy_loss'
             ]
@@ -3014,7 +3013,6 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 'dock_hydrophobicity',
                 'dock_collapse_variance',
                 # proteinmpnn_score required
-                'proteinmpnn_dock_cross_entropy_per_residue'
                 'proteinmpnn_v_design_probability_cross_entropy_per_residue',
                 'proteinmpnn_v_evolution_probability_cross_entropy_per_residue'
             ]
@@ -3036,6 +3034,9 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 (residues_df.loc[:, idx_slice[:, 'dock_collapse_new_positions']].droplevel(1, axis=1)
                  * interface_df).sum(axis=1)
             # Update the total loss according to those residues that were actually specified as designable
+            poses_df['proteinmpnn_dock_cross_entropy_per_residue'] = \
+                (residues_df.loc[:, idx_slice[:, 'proteinmpnn_dock_cross_entropy_loss']]
+                 .droplevel(1, axis=1) * interface_df).mean(axis=1)
             poses_df['proteinmpnn_v_design_probability_cross_entropy_loss'] = \
                 (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_design_probability_cross_entropy_loss']]
                  .droplevel(1, axis=1) * interface_df).mean(axis=1)

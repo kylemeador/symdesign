@@ -780,6 +780,7 @@ class PoseResidueMetrics(Base):
     pose_id = Column(ForeignKey('pose_data.id'))
     pose = relationship('PoseJob', back_populates='residues')
     # ProteinMPNN score terms
+    proteinmpnn_dock_cross_entropy_loss = Column(Float)
     proteinmpnn_v_design_probability_cross_entropy_loss = Column(Float)
     proteinmpnn_v_evolution_probability_cross_entropy_loss = Column(Float)
     proteinmpnn_v_fragment_probability_cross_entropy_loss = Column(Float)
