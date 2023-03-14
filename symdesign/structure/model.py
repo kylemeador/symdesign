@@ -1234,9 +1234,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 # print('Retrieving UNP ID for %s\nAPI DATA for chain %s:\n%s' % (self.name, chain, api_data))
                 if data_type == 'reference_sequence':
                     self._reference_sequence = data
-                if data_type == 'thermophilicity':  # Todo remove self.thermophilicity once sql load more streamlined
+                elif data_type == 'thermophilicity':  # Todo remove self.thermophilicity once sql load more streamlined
                     self.thermophilicity = data
-                if data_type == 'dbref':
+                elif data_type == 'dbref':
                     if data.get('db') == query.utils.UKB:
                         self.uniprot_ids = data.get('accession')
         else:

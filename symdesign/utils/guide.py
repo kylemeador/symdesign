@@ -35,29 +35,29 @@ select_string = \
     "processing."
 select_poses = \
     f'The purpose of {flags.select_poses} is to take a pool of poses of interest and apply some sort of selection ' \
-    f'criteria to limit the pool to a more manageable computational load. Selection proceed by applying a set of ' \
-    f'specified filters and weights to the collected pose metrics. For instance, by filtering for poses based on four' \
-    f' different metrics, say "interface_area_total > 1000, shape_complementarity > 0.65, ' \
-    f'percent_residues_fragment_center > 0.3, and interface_composition_similarity > 0.6", those poses which contain' \
-    f' metrics that satisfy each of these filters will be chosen. Additionally, by using three weights, ' \
-    f'say "interface_secondary_structure_fragment_count = 0.33, pose_thermophilicity = 0.33, and ' \
-    f'shape_complementarity 0.33" those passing designs can then be sorted according to their cumulative weight' \
-    f' allowing you to prioritize poses and only push the best ones forward. In this way, you can take a large number' \
-    f' of starting conformations and cull them to those that are more favorable given some set of design constraints.' \
-    f' This protocol should be thought about carefully to ensure that metrics are utilized which capture pose ' \
-    f'features and not sequence features. In the sequence feature case, select_sequences would be better suited' \
-    f' to differentiate between sequences.{select_string}.{module_help_string}'
+    'criteria to limit the pool to a more manageable computational load. Selection proceeds by applying a set of ' \
+    'specified filters and weights to the collected pose metrics. For instance, by filtering for poses based on four' \
+    ' different metrics, say "interface_area_total > 1000", "shape_complementarity > 0.65", ' \
+    '"percent_residues_fragment_center > 0.3", and "interface_composition_similarity > 0.6", those poses which contain'\
+    ' metrics that satisfy each of these filters will be chosen. Additionally, by using three weights, ' \
+    'say "interface_secondary_structure_fragment_count = 0.33", "pose_thermophilicity = 0.33", and ' \
+    '"shape_complementarity 0.33" those passing poses can then be sorted according to their cumulative weight' \
+    ' allowing you to prioritize the best poses. In this way, you can take a large number' \
+    ' of starting conformations and cull them to those that are more favorable given some set of design constraints.' \
+    ' This protocol should be thought about carefully to ensure that metrics are utilized which capture pose ' \
+    f'features and not sequence features. In the sequence feature case, {flags.select_sequences} would be better ' \
+    f'suited to differentiate between sequences.{select_string}.{module_help_string}'
 select_designs_sequences = \
     f'The purpose of {flags.select_designs} is to analyze individual design trajectories (representing unique ' \
     f'sequences) from your pool of poses. Selection proceeds by applying a set of specified filters and weights to ' \
     f'the collected design metrics. For instance, by filtering for design based on four different metrics, ' \
-    f'say "percent_interface_area_polar > 0.35, shape_complementarity > 0.68, and proteinmpnn_score_complex < 1", those' \
-    f' designs which contain metrics that satisfy each of these filters will be chosen. Additionally, by using four' \
-    f' weights, say "interface_energy = 0.3, buried_unsatisfied_hbond_density = 0.3, interface_local_density = 0.2,' \
-    f' and shape_complementarity 0.2" passing designs can then be sorted according to their cumulative weight' \
-    f' allowing you to prioritize designs and only push the best ones forward. In this way, you can take a large' \
-    f' number of designs and cull them to those that are more favorable given some set of design constraints.' \
-    f'{select_string}'
+    'say "percent_interface_area_polar > 0.35", "shape_complementarity > 0.68", and "proteinmpnn_score_complex < 1", ' \
+    'those designs which contain metrics that satisfy each of these filters will be chosen. Additionally, by using ' \
+    'four weights, say "interface_energy = 0.3", "buried_unsatisfied_hbond_density = 0.3", ' \
+    '"interface_local_density = 0.2", and "shape_complementarity 0.2" passing designs can then be sorted according to '\
+    'their cumulative weight allowing you to prioritize designs and only push the best ones forward. In this way, you '\
+    'can take a large number of designs and cull them to those that are more favorable given some set of design ' \
+    f'constraints.{select_string}'
 select_designs = select_designs_sequences + select_advice % flags.select_designs + module_help_string
 select_sequences = \
     select_designs + (select_advice % flags.select_sequences) + \

@@ -305,7 +305,8 @@ class ProteinMetadata(Base):
     # number_of_residues = Column(Integer)  # entity_ is used in config.metrics
     n_terminal_helix = Column(Boolean)  # entity_ is used in config.metrics
     c_terminal_helix = Column(Boolean)  # entity_ is used in config.metrics
-    thermophilicity = Column(Boolean)  # entity_ is used in config.metrics
+    thermophilicity = Column(Float)  # entity_ is used in config.metrics
+    """Thermophilicity implies this is a spectrum, while thermophilic implies binary"""
     # Symmetry parameters
     symmetry_group = Column(String(50))  # entity_ is used in config.metrics
     # symmetry = Column(ForeignKey('symmetry_groups.id'))

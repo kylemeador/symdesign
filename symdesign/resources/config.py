@@ -561,7 +561,7 @@ metrics = {
         dict(description='The total number of residues in the design',
              direction=min_, function=rank, filter=True),
     'pose_thermophilicity':
-        dict(description='The extent to which the entities in the pose are thermophilic',
+        dict(description='The extent to which the entities in the Pose are thermophilic',
              direction=max_, function=rank, filter=True),
     'predicted_aligned_error':
         dict(description='From AlphaFold, the mean of the predicted aligned error which indicates for every pair of '

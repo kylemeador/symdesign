@@ -1855,7 +1855,7 @@ def thermophilicity_from_entity_json(entity_json: dict[str, Any]) -> float:
     """
     thermophilic_source = []
     for organism in entity_json.get('rcsb_entity_source_organism', {}):
-        taxonomy_id = int(organism.get('ncbi_taxonomy_id', '-1'))
+        taxonomy_id = int(organism.get('ncbi_taxonomy_id', -1))
         if taxonomy_id in thermophilic_taxonomy_ids:
             thermophilic_source.append(1)
         else:

@@ -422,7 +422,7 @@ class UniProtDataStore(DataStore):
         data = self.retrieve_data(name=uniprot_id)
 
         # Exact - parsing the taxonomic ID and cross-reference
-        taxonomic_id = data.get('organism', {}).get('taxonId', -1)
+        taxonomic_id = int(data.get('organism', {}).get('taxonId', -1))
         if taxonomic_id in thermophilic_taxonomy_ids:
             return 1.0
 
