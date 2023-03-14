@@ -2774,11 +2774,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                     # Process the design_profiles into an array for cross entropy
                     # Todo 1
                     #  need to make scipy.softmax(design_profiles) so scaling matches
-                    # Todo swap for the line below
-                    batch_design_profile_ = torch.tensor(design_profiles)
                     batch_design_profile = torch.from_numpy(np.array(design_profiles))
-                    input(f'Simple torch.tensor() equals .from_numpy(to_numpy())?\n'
-                          f'{batch_design_profile_.numpy() == batch_design_profile}')
                     per_residue_design_cross_entropy = \
                         metrics.cross_entropy(asu_conditional_softmax_seq,
                                               batch_design_profile,
@@ -2997,9 +2993,11 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 'collapse_sequential_peaks_z',
                 'collapse_sequential_z',
                 'hydrophobic_collapse')
-            remap_columns = dict(zip(residues_df.columns.tolist(), residues_df.columns.tolist()))
+            unique_columns = residues_df.columns.unique(level=-1)
+            _columns = unique_columns.tolist()
+            remap_columns = dict(zip(_columns, _columns))
             remap_columns.update(dict(zip(collapse_metrics, (f'dock_{metric_}' for metric_ in collapse_metrics))))
-            residues_df.columns = residues_df.columns.map(remap_columns)
+            residues_df.columns = residues_df.columns.set_levels(unique_columns.map(remap_columns), level=-1)
             per_res_columns = [
                 # collapse_profile required
                 'dock_hydrophobic_collapse',  # dock by default not included
@@ -4046,15 +4044,18 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         if job.dock.weight:
             selected_columns = list(job.dock.weight.keys())
         else:
-            selected_columns = metrics.selection_weight_column
-        result = total_results_df.loc[:, selected_columns].mean(axis=0).values
+            selected_columns = [metrics.selection_weight_column]
+        result = total_results_df.loc[:, selected_columns].mean(axis=0)
         # result = calculate_results_for_stopping(total_results_df, passing_transform_ids)
         # threshold = 0.05  # 0.1 <- not convergent # 1 <- too lenient with pareto_optimize_trajectories
         threshold_percent = 0.05
         if isinstance(result, float):
+            def result_func(result_): return result_
             thresholds = result * threshold_percent
             last_result = 0.
         else:  # pd.Series
+            def result_func(result_): return result_.values
+            result = result_func(result)
             thresholds = tuple(result * threshold_percent)
             last_result = tuple(0. for _ in thresholds)
 
@@ -4065,6 +4066,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # search at the moment, so the routine should never arrive at worse scores...
         # Everything below could really be expedited with a Bayseian optimization search strategy
         # while sum(translation_perturb_steps) > 0.1 and all(tuple(abs(last_result - result) > thresholds)):
+        # Todo the tuple(abs(last_result - result) > thresholds)) with a float won't convert to an iterable
         while (optimize_round < 2 or all(tuple(abs(last_result - result) > thresholds))) \
                 and sum(translation_perturb_steps) > 0.1:
             optimize_round += 1
@@ -4081,7 +4083,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             #  top_results_df = total_results_df.loc[passing_transform_ids, selected_columns]
             #  result = top_results_df.mean(axis=0)
             top_results_df = weighted_trajectory_df.loc[passing_transform_ids, selected_columns]
-            result = top_results_df.mean(axis=0).values
+            result = result_func(top_results_df.mean(axis=0))
             number_of_transforms = len(full_rotation1)
             logger.info(f'Found {number_of_transforms} transformations after '
                         f'{optimize_found_transformations_by_metrics.__name__} round {optimize_round} '
