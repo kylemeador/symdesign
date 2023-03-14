@@ -2690,8 +2690,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 #  while the aa frequency distribution cross_entropy compared to the fragment profile is
                 #  minimized
                 # -------------------------------------------
-                unconditional_log_probs = \
-                    mpnn_model.unconditional_probs(X, _mask, _residue_idx, _chain_encoding).cpu()
+                    unconditional_log_probs = \
+                        mpnn_model.unconditional_probs(X, _mask, _residue_idx, _chain_encoding).cpu()
                 # Use the sequence as an unknown token then guess the probabilities given the remaining
                 # information, i.e. the sequence and the backbone
                 # Calculations with this are done using cpu memory and numpy
