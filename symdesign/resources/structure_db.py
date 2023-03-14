@@ -112,7 +112,7 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = putils.pd
     if not pdb_file:  # Empty list
         logger.warning(f'No matching file found for PDB: {pdb_code}')
         return None
-    else:  # We should only find one file, therefore, return the first
+    else:  # Should only find one file, therefore, return the first
         return pdb_file[0]
 
 
@@ -146,7 +146,7 @@ def orient_structure_files(files: Iterable[AnyStr], log: Logger = logger, symmet
             model = structure.model.Model.from_file(file, log=log)
             try:
                 model.orient(symmetry=symmetry)
-            except (ValueError, RuntimeError) as error:
+            except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
                 log.error(str(error))
                 continue
             model.write(out_path=oriented_file_path)
@@ -341,7 +341,7 @@ class StructureDatabase(Database):
                 model = structure.model.Model.from_file(file)
                 try:
                     model.orient(symmetry=symmetry)
-                except (ValueError, RuntimeError) as error:
+                except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
                     orient_logger.error(str(error))
                     non_viable_structures.append(structure_identifier)
                     continue
@@ -446,7 +446,7 @@ class StructureDatabase(Database):
                     continue
                 try:  # Orient the Structure
                     model.orient(symmetry=symmetry)
-                except (ValueError, RuntimeError) as error:
+                except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
                     orient_logger.error(str(error))
                     non_viable_structures.append(structure_identifier)
                     continue
