@@ -3281,7 +3281,7 @@ class PoseProtocol(PoseData):
             collapse_ax = fig.subplots(1, 1, sharex=True)
             # add the contact order to a new plot
             contact_ax = collapse_ax.twinx()
-            contact_order_df = residues_df.loc[pose_source_id, idx_slice[:, 'contact_order']].droplevel(0, axis=1)
+            contact_order_df = residues_df.loc[pose_source_id, idx_slice[:, 'contact_order']].droplevel(-1, axis=1)
             # source_contact_order_s = pd.Series(source_contact_order, index=residue_indices, name='contact_order')
             contact_ax.plot(contact_order_df, label='Contact Order',
                             color='#fbc0cb', lw=1, linestyle='-')  # pink
@@ -3766,7 +3766,7 @@ class PoseProtocol(PoseData):
 
         designs_df = self.analyze_design_metrics_per_residue(residues_df)
 
-        designed_df = residues_df.loc[:, idx_slice[:, 'design_residue']].droplevel(1, axis=1)
+        designed_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
 
         # designs_df[putils.protocol] = 'proteinmpnn'
         designs_df['proteinmpnn_score_complex'] = designs_df['proteinmpnn_loss_complex'] / pose_length
@@ -3774,11 +3774,9 @@ class PoseProtocol(PoseData):
         designs_df['proteinmpnn_score_delta'] = \
             designs_df['proteinmpnn_score_complex'] - designs_df['proteinmpnn_score_unbound']
         designs_df['proteinmpnn_score_complex_per_designed_residue'] = \
-            (residues_df.loc[:, idx_slice[:, 'proteinmpnn_loss_complex']].droplevel(1, axis=1)
-             * designed_df).mean(axis=1)
+            (residues_df.loc[:, idx_slice[:, 'proteinmpnn_loss_complex']] * designed_df).mean(axis=1)
         designs_df['proteinmpnn_score_unbound_per_designed_residue'] = \
-            (residues_df.loc[:, idx_slice[:, 'proteinmpnn_loss_unbound']].droplevel(1, axis=1)
-             * designed_df).mean(axis=1)
+            (residues_df.loc[:, idx_slice[:, 'proteinmpnn_loss_unbound']] * designed_df).mean(axis=1)
         designs_df['proteinmpnn_score_delta_per_designed_residue'] = \
             designs_df['proteinmpnn_score_complex_per_designed_residue'] / \
             designs_df['proteinmpnn_score_unbound_per_designed_residue']

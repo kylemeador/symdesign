@@ -3025,32 +3025,30 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # # Need to remove sequence as it is in pose.calculate_metrics()
         # poses_df = poses_df.join(summed_poses_df.drop('sequence', axis=1))
         if job.dock.proteinmpnn_score:
-            poses_df = poses_df.drop(['interface_residue'], axis=1)
-
-            interface_df = residues_df.loc[:, idx_slice[:, 'interface_residue']].droplevel(1, axis=1)
+            interface_df = residues_df.loc[:, idx_slice[:, 'interface_residue']]
             poses_df['dock_collapse_new_positions'] = \
-                (residues_df.loc[:, idx_slice[:, 'dock_collapse_new_positions']].droplevel(1, axis=1)
+                (residues_df.loc[:, idx_slice[:, 'dock_collapse_new_positions']]
                  * interface_df).sum(axis=1)
             # Update the total loss according to those residues that were actually specified as designable
             poses_df['proteinmpnn_dock_cross_entropy_per_residue'] = \
                 (residues_df.loc[:, idx_slice[:, 'proteinmpnn_dock_cross_entropy_loss']]
-                 .droplevel(1, axis=1) * interface_df).mean(axis=1)
+                 * interface_df).mean(axis=1)
             poses_df['proteinmpnn_v_design_probability_cross_entropy_loss'] = \
                 (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_design_probability_cross_entropy_loss']]
-                 .droplevel(1, axis=1) * interface_df).mean(axis=1)
+                 * interface_df).mean(axis=1)
             poses_df['proteinmpnn_v_evolution_probability_cross_entropy_loss'] = \
                 (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_evolution_probability_cross_entropy_loss']]
-                 .droplevel(1, axis=1) * interface_df).mean(axis=1)
+                 * interface_df).mean(axis=1)
             poses_df['proteinmpnn_v_fragment_probability_cross_entropy_loss'] = \
                 (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_fragment_probability_cross_entropy_loss']]
-                 .droplevel(1, axis=1) * interface_df).mean(axis=1)
+                 * interface_df).mean(axis=1)
 
             # scores_df['collapse_new_positions'] /= scores_df['pose_length']
             # scores_df['collapse_new_position_significance'] /= scores_df['pose_length']
             poses_df['dock_collapse_significance_by_contact_order_z_mean'] = \
                 poses_df['dock_collapse_significance_by_contact_order_z'] / \
                 (residues_df.loc[:, idx_slice[:, 'dock_collapse_significance_by_contact_order_z']] != 0) \
-                    .sum(axis=1)
+                .sum(axis=1)
             # if measure_alignment:
             dock_collapse_increased_df = residues_df.loc[:, idx_slice[:, 'dock_collapse_increased_z']]
             total_increased_collapse = (dock_collapse_increased_df != 0).sum(axis=1)

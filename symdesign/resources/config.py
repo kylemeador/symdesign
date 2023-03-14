@@ -712,12 +712,12 @@ metrics = {
                          'fragment positions',
              direction=max_, function=normalize, filter=True),
     'spatial_aggregation_propensity':
-        dict(description='A measure of the aggregation propensity of exposed hydrophobic surface patches. '
-                         'See pmid:19571001',
+        dict(description='A measure of the aggregation propensity of exposed hydrophobic surface patches in the '
+                         'complexed state. See pmid:19571001',
              direction=min_, function=normalize, filter=True),
     'spatial_aggregation_propensity_unbound':
-        dict(description='A measure of the aggregation propensity of exposed hydrophobic surface patches. '
-                         'See pmid:19571001',
+        dict(description='A measure of the aggregation propensity of exposed hydrophobic surface patches in the unbound'
+                         ' state. See pmid:19571001',
              direction=min_, function=normalize, filter=True),
     'support':
         dict(description='The number of "support" residues as classified by E. Levy 2010',
