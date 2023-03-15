@@ -211,6 +211,7 @@ class JobResources:
     """The intention of JobResources is to serve as a singular source of design info which is common across all
     jobs. This includes common paths, databases, and design flags which should only be set once in program operation,
     then shared across all member designs"""
+    _construct_pose: bool
     _input_source: str | list[str] | None
     _location: str | None
     _modules: list[str]
@@ -1047,7 +1048,7 @@ class JobResources:
                 else:
                     report_arg(arg.dest, arg.default)
 
-        return reported_args
+        return dict(sorted(reported_args.items()))  # , key=lambda arg: arg[0]
 
     def calculate_memory_requirements(self, number_jobs: int):
         """Format memory requirements with module dependencies and set self.reduce_memory"""
