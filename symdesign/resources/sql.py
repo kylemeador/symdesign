@@ -299,8 +299,8 @@ class ProteinMetadata(Base):
     entity_data = relationship('EntityData', back_populates='meta')
 
     model_source = Column(String(500))
-    refined = Column(Boolean, default=True)
-    loop_modeled = Column(Boolean, default=True)
+    refined = Column(Boolean, default=False)
+    loop_modeled = Column(Boolean, default=False)
     reference_sequence = Column(String(config.MAXIMUM_SEQUENCE))
     # number_of_residues = Column(Integer)  # entity_ is used in config.metrics
     n_terminal_helix = Column(Boolean)  # entity_ is used in config.metrics

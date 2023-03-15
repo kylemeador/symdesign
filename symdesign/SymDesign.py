@@ -314,19 +314,21 @@ def main():
                 raise ValueError(f"Couldn't find {data}.model_source")
         # Check whether loop modeling or refinement should be performed
         # If so, move the oriented Entity.file_path (should be the ASU) to the respective directory
-        if job.init.pre_loop_modeled:  # Indicate refine stuff is done
-            putils.make_path(job.full_model_dir)
+        if job.init.pre_refined:  # Indicate refine stuff is done
+            refine_dir = job.structure_db.refined.location
+            putils.make_path(refine_dir)
             for data in metadata:
                 try:
-                    shutil.copy(data.model_source, job.refine_dir)
+                    shutil.copy(data.model_source, refine_dir)
                 except shutil.SameFileError:
                     pass
                 data.refined = True
-        if job.init.pre_refined:  # Indicate loop model stuff is done
-            putils.make_path(job.refine_dir)
+        if job.init.pre_loop_modeled:  # Indicate loop model stuff is done
+            full_model_dir = job.structure_db.full_models.location
+            putils.make_path(full_model_dir)
             for data in metadata:
                 try:
-                    shutil.copy(data.model_source, job.full_model_dir)
+                    shutil.copy(data.model_source, full_model_dir)
                 except shutil.SameFileError:
                     pass
                 data.loop_modeled = True
@@ -345,11 +347,14 @@ def main():
 
         for data in metadata:
             if data.refined:
-                data.model_source = job.structure_db.refined.path_to(data.entity_id)
+                data.model_source = job.structure_db.refined.retrieve_file(data.entity_id)
             elif data.loop_modeled:
-                data.model_source = job.structure_db.full_models.path_to(data.entity_id)
+                data.model_source = job.structure_db.full_models.retrieve_file(data.entity_id)
             else:  # oriented asu:
-                data.model_source = job.structure_db.oriented_asu.path_to(data.entity_id)
+                data.model_source = job.structure_db.oriented_asu.retrieve_file(data.entity_id)
+            # Ensure the file exists again
+            if data.model_source is None:
+                raise ValueError(f"Couldn't find {data}.model_source")
 
     def initialize_metadata(possibly_new_uniprot_to_prot_data: dict[tuple[str, ...], sql.ProteinMetadata] = None,
                             existing_uniprot_entities: Iterable[wrapapi.UniProtEntity] = None,
