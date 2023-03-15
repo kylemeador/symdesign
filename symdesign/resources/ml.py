@@ -1203,6 +1203,7 @@ def set_up_model_runners(model_type: af_model_literal = 'monomer', num_predictio
             # # ?? Not sure why this would be the case -> if the prediction is not for a design and there is an msa
             # model_runner = afmodel.RunModel(model_config, model_params)
             if development:
+                model_params[f'{model_name}_pred_{0}'] = model_param
                 break
 
         for i in range(num_predictions_per_model):
