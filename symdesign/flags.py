@@ -50,6 +50,7 @@ neighbors = 'neighbors'
 rotation_step1 = 'rotation_step1'
 rotation_step2 = 'rotation_step2'
 min_matched = 'min_matched'
+minimum_matched = 'minimum_matched'
 match_value = 'match_value'
 initial_z_value = 'initial_z_value'
 only_write_frag_info = 'only_write_frag_info'
@@ -103,6 +104,7 @@ refine_input = 'refine_input'
 pre_loop_modeled = 'pre_loop_modeled'
 pre_refined = 'pre_refined'
 initialize_building_blocks = 'initialize_building_blocks'
+background_profile = 'background_profile'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -114,7 +116,7 @@ design_namespace = {
 }
 dock_namespace = {
     contiguous_ghosts, dock_filter, dock_filter_file, dock_weight, dock_weight_file, initial_z_value, match_value,
-    min_matched, perturb_dof, perturb_dof_rot, perturb_dof_tx, perturb_dof_steps, perturb_dof_steps_rot,
+    minimum_matched, perturb_dof, perturb_dof_rot, perturb_dof_tx, perturb_dof_steps, perturb_dof_steps_rot,
     perturb_dof_steps_tx, proteinmpnn_score, quick, rotation_step1, rotation_step2
 }  # score,
 init_namespace = {
@@ -220,6 +222,7 @@ sym_entry = format_for_cmdline(sym_entry)
 rotation_step1 = format_for_cmdline(rotation_step1)
 rotation_step2 = format_for_cmdline(rotation_step2)
 min_matched = format_for_cmdline(min_matched)
+minimum_matched = format_for_cmdline(minimum_matched)
 match_value = format_for_cmdline(match_value)
 initial_z_value = format_for_cmdline(initial_z_value)
 only_write_frag_info = format_for_cmdline(only_write_frag_info)
@@ -275,6 +278,7 @@ refine_input = format_for_cmdline(refine_input)
 pre_loop_modeled = format_for_cmdline(pre_loop_modeled)
 pre_refined = format_for_cmdline(pre_refined)
 initialize_building_blocks = format_for_cmdline(initialize_building_blocks)
+background_profile = format_for_cmdline(background_profile)
 
 select_modules = (
     select_poses,
@@ -880,15 +884,16 @@ nanohedra_arguments = {
     dock_weight_file_args: dock_weight_file_kwargs,
     evolution_constraint_args: evolution_constraint_kwargs,
     ('-iz', f'--{initial_z_value}'): dict(type=float, default=1.,
-                                          help='The acceptable standard deviation z score for initial fragment overlap '
-                                               'identification.\nSmaller values lead to more stringent matching '
-                                               'criteria\nDefault=%(default)s'),
+                                          help='The standard deviation z-score threshold for initial fragment overlap\n'
+                                               'Smaller values lead to more stringent matching overlaps\n'
+                                               'Default=%(default)s'),
     ('-mv', f'--{match_value}'):
         dict(type=float, default=0.5, dest='match_value',
-             help='What is the minimum match score required for a high quality fragment?'),
-    (f'--{min_matched}',): dict(type=int, default=3,
-                                help='How many high quality fragment pairs should be present before a pose is '
-                                     'identified?\nDefault=%(default)s'),
+             help='What is the minimum match score required for a high quality fragment?\n'
+                  'Lower values more poorly overlap with a perfect overlap being 1'),
+    (f'--{minimum_matched}', f'--{min_matched}'):
+        dict(type=int, default=3,
+             help='How many high quality fragment pairs are required for a Pose to pass?\nDefault=%(default)s'),
     # (f'--{score}',): dict(type=str, choices={'nanohedra', 'proteinmpnn'},  # default='nanohedra'
     #                       help='Which metric should be used to rank output poses?\nDefault=%(default)s'),
     (f'--{only_write_frag_info}',): dict(action=argparse.BooleanOptionalAction, default=False,
@@ -906,6 +911,7 @@ nanohedra_arguments = {
     (f'--{perturb_dof_tx}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                    help='Whether the translational degrees of freedom should be finely sampled in\n'
                                         'subsequent docking iterations'),
+    # These have no default since None is used to signify whether they were explicitly requested
     (f'--{perturb_dof_steps}',): dict(type=int, metavar='INT',
                                       help='How many dof steps should be used during subsequent docking iterations.\n'
                                            f'For each DOF, a total of --{perturb_dof_steps} will be sampled during '
@@ -919,11 +925,11 @@ nanohedra_arguments = {
     (f'--{proteinmpnn_score}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                       help='Whether docking fit should be measured using ProteinMPNN'),
     ('-r1', f'--{rotation_step1}'): dict(type=float, default=3.,
-                                         help='The number of degrees to increment the rotational degrees of freedom '
-                                              'search\nDefault=%(default)s'),
+                                         help='The size of degree increments to search during initial rotational\n'
+                                              'degrees of freedom search\nDefault=%(default)s'),
     ('-r2', f'--{rotation_step2}'): dict(type=float, default=3.,
-                                         help='The number of degrees to increment the rotational degrees of freedom '
-                                              'search\nDefault=%(default)s'),
+                                         help='The size of degree increments to search during initial rotational\n'
+                                              'degrees of freedom search\nDefault=%(default)s'),
 }
 query_codes_kwargs = dict(action='store_true', help='Query the PDB API for corresponding codes')
 parser_nanohedra_run_type_mutual_group = dict()  # required=True <- adding below to different parsers depending on need
@@ -966,8 +972,8 @@ cluster_map_kwargs = dict(type=os.path.abspath,
                           metavar=ex_path(default_clustered_pose_file.format('TIMESTAMP', 'LOCATION')),
                           help='The location of a serialized file containing spatially\nor interfacial '
                                'clustered poses')
-cluster_poses_help = 'Cluster all poses by their spatial or interfacial similarity. This is\nuseful to identify ' \
-                     'conformationally flexible docked configurations'
+cluster_poses_help = 'Cluster all poses by their spatial or interfacial similarity. This is\n' \
+                     'used to identify conformationally flexible docked configurations'
 parser_cluster = {cluster_poses: dict(description=cluster_poses_help, help=cluster_poses_help)}
 cluster_poses_arguments = {
     (f'--{as_objects}',): dict(action='store_true', help='Whether to store the resulting pose cluster file as '
@@ -978,9 +984,9 @@ cluster_poses_arguments = {
     (f'--{cluster_number}',):
         dict(type=int, default=1, metavar='int', help='The number of cluster members to return'),
     output_file_args: dict(type=str,
-                           help='Name of the output .pkl file containing pose clusters. Will be saved to the'
-                                f' {data.title()} folder of the output.'
-                                f'\nDefault={default_clustered_pose_file.format("TIMESTAMP", "LOCATION")}')
+                           help='Name of the output .pkl file containing pose clusters.\n'
+                                f'Will be saved to the {data.title()} folder of the output.\n'
+                                f'Default={default_clustered_pose_file.format("TIMESTAMP", "LOCATION")}')
 }
 # ---------------------------------------------------
 # Todo add to design protocols...
@@ -1030,9 +1036,9 @@ temperature_kwargs = dict(type=temp_gt0, nargs='*', default=(0.1,), metavar='FLO
                                'equation: exp(G/T), where G=energy and T=temperature, when\n'
                                'performing design. Higher temperatures result in more diversity\n'
                                'Values should be greater than 0\nDefault=%(default)s')
-design_help = 'Gather poses of interest and format for sequence design using Rosetta/ProteinMPNN.' \
-              '\nConstrain using evolutionary profiles of homologous sequences' \
-              '\nand/or fragment profiles extracted from the PDB or neither'
+design_help = 'Gather poses of interest and format for sequence design using Rosetta/ProteinMPNN.\n' \
+              'Constrain using evolutionary profiles of homologous sequences\n' \
+              'and/or fragment profiles extracted from the PDB, or neither'
 parser_design = {design: dict(description=design_help, help=design_help)}
 design_arguments = {
     ca_only_args: ca_only_kwargs,
@@ -1054,25 +1060,27 @@ interface_design_arguments = {
     neighbors_args: neighbors_kwargs,
 }
 # ---------------------------------------------------
-interface_metrics_help = 'Analyze interface metrics from a pose'
+interface_metrics_help = f'Analyze {interface_metrics} for each pose'
 parser_metrics = {interface_metrics: dict(description=interface_metrics_help, help=interface_metrics_help)}
 interface_metrics_arguments = {
     ('-sp', f'--{specific_protocol}'): dict(type=str, metavar='PROTOCOL', default=None,
-                                            help='A specific type of design protocol to perform metrics on. If not '
-                                                 'provided, capture all design protocols')
+                                            help='A specific type of design protocol to perform metrics on.\n'
+                                                 'If not provided, captures all design protocols')
 }
 # ---------------------------------------------------
-optimize_designs_help = f'Optimize and touch up designs after running {interface_design}. Useful for reverting\n' \
-                        'unnecessary mutations to wild-type, directing exploration of troublesome areas,\nstabilizing '\
-                        'an entire design based on evolution, increasing solubility, or modifying\nsurface charge. ' \
-                        'Optimization is based on amino acid frequency profiles.\nUse with a --specification-file is ' \
-                        'suggested'
+specification_file_args = ('-sf', f'--{specification_file}')
+optimize_designs_help = f'Subtly and explicitly modify pose/designs. Useful for reverting\n' \
+                        'mutations to wild-type, directing exploration of troublesome areas,\n' \
+                        'stabilizing an entire design based on evolution, increasing solubility,\n' \
+                        f'or modifying surface charge. {optimize_designs} is based on amino acid\n' \
+                        f'frequency profiles. Use with {format_args(specification_file_args)} is suggested'
 parser_optimize_designs = {optimize_designs: dict(description=optimize_designs_help, help=optimize_designs_help)}
+backgroud_profile_args = ('-bg', f'--{background_profile}')
 optimize_designs_arguments = {
-    ('-bg', '--background-profile'): dict(type=str.lower, default=design_profile, metavar='',
-                                          choices={design_profile, evolutionary_profile, fragment_profile},
-                                          help='Which profile should be used as the background profile during '
-                                               'optimization\nChoices=%(choices)s\nDefault=%(default)s')
+    backgroud_profile_args: dict(type=str.lower, default=design_profile, metavar='',
+                                 choices={design_profile, evolutionary_profile, fragment_profile},
+                                 help='Which profile should be used as the background profile?\n'
+                                      'Choices=%(choices)s\nDefault=%(default)s')
 }
 # ---------------------------------------------------
 # parser_custom = dict(custom_script=
@@ -1099,7 +1107,7 @@ optimize_designs_arguments = {
 #                                      'variables that must be calculated on the fly for each design, please modify '
 #                                      'structure.model.py class to produce a method that can generate an attribute '
 #                                      'with the specified name')
-#     # Todo ' either a known value or an attribute available to the Pose object'
+#     # Todo either a known value or an attribute available to the Pose object
 # }
 # ---------------------------------------------------
 analysis_help = 'Analyze all poses specified generating a suite of metrics'
@@ -1119,7 +1127,7 @@ analysis_arguments = {
     #                    help=f'Save Trajectory and Residues dataframes?\n{boolean_positional_prevent_msg("save")}')
 }
 # ---------------------------------------------------
-process_rosetta_metrics_help = 'Analyze all poses designed using Rosetta generating a suite of metrics'
+process_rosetta_metrics_help = 'Analyze all poses output from Rosetta metrics'
 parser_process_rosetta_metrics = {process_rosetta_metrics:
                                   dict(description=process_rosetta_metrics_help, help=process_rosetta_metrics_help)}
 process_rosetta_metrics_arguments = {}
@@ -1137,6 +1145,7 @@ designs_per_pose_kwargs = dict(type=int, default=1, help='What is the maximum nu
 filter_file_args = ('--filter-file',)
 filter_file_kwargs = dict(type=os.path.abspath, help='Whether to filter selection using metrics provided in a file')
 filter_args = ('--filter',)
+all_filter_args = filter_args + filter_file_args
 filter_kwargs = dict(nargs='*', default=None, help='Whether to filter selection using metrics')
 # filter_kwargs = dict(action='store_true', help='Whether to filter selection using metrics')
 optimize_species_args = ('-opt', f'--{optimize_species}')
@@ -1145,17 +1154,15 @@ optimize_species_kwargs = dict(type=str, default='e_coli',
                                help='The organism where expression will occur and nucleotide usage should be '
                                     'optimized\nDefault=%(default)s')
 protocol_args = (f'--{protocol}',)
-protocol_kwargs = dict(type=str, help='Use specific protocol(s) to filter designs?', default=None, nargs='*')
+protocol_kwargs = dict(type=str, default=None, nargs='*', help='Use specific protocol(s) to filter designs?')
 
 save_total_args = ('--save-total',)
-save_total_kwargs = dict(action='store_false', help='If --total is used, should the total dataframe be saved?')
+save_total_kwargs = dict(action='store_false', help='Should the total dataframe accessed by selection be saved?')
 pose_select_number_kwargs = \
     dict(type=int, default=sys.maxsize, metavar='int', help='Number to return\nDefault=No Limit')
 select_number_args = (f'--{select_number}',)
 select_number_kwargs = dict(type=int, default=sys.maxsize, metavar='int',
-                            help='Number to return\nIf --total, returns the '
-                                 'specified number of sequences (Where Default=No Limit).\nOtherwise the '
-                                 'specified number will be selected from each pose (Where Default=1/pose)')
+                            help='Limit selection to a certain number. If not specified, returns all')
 # total_args = ('--total',)
 # total_kwargs = dict(action='store_true',
 #                     help='Should selection be based on the total design pool?\n'
@@ -1165,6 +1172,7 @@ weight_file_args = ('--weight-file',)
 weight_file_kwargs = dict(type=os.path.abspath,
                           help='Whether to weight selection results using metrics provided in a file')
 weight_args = ('--weight',)
+all_weight_args = weight_args + weight_file_args
 weight_kwargs = dict(nargs='*', default=None, help='Whether to weight selection results using metrics')
 # weight_kwargs = dict(action='store_true', help='Whether to weight selection results using metrics')
 weight_function_args = ('-wf', '--weight-function')
@@ -1185,10 +1193,10 @@ select_arguments = {
     weight_function_args: weight_function_kwargs,
 }
 # ---------------------------------------------------
-select_poses_help = 'Select poses based on specific metrics.\n' \
-                    'Selection will be the result of a handful of metrics combined using --filter and/or\n' \
-                    f'--weights. For metric options, see the {analysis} --guide. The pose input flag\n' \
-                    f'--{specification_file} can be provided to restrict selection criteria'
+select_poses_help = 'Select poses based on specific metrics.\nSelection will be the result of a handful of metrics ' \
+                    f'combined using {format_args(all_filter_args)} and/or\n{format_args(all_weight_args)}. For ' \
+                    f'metric options, see the {analysis} {format_args(guide_args)}. The pose input flag'\
+                    f'\n{format_args(specification_file_args)} can be provided to restrict selection criteria'
 parser_select_poses = {select_poses: dict(description=select_poses_help, help=select_poses_help)}
 select_poses_arguments = {
     **select_arguments,
@@ -1214,7 +1222,8 @@ select_sequences_help = 'From the provided poses, generate sequences (nucleotide
                         'selection criteria and prioritized metrics. Generation of output sequences can take\n' \
                         'multiple forms depending on downstream needs. By default, disordered region insertion,\n' \
                         f'tagging for expression, and codon optimization (--{nucleotide}) are performed. The\n' \
-                        f'pose input flag --{specification_file} can be provided to restrict selection criteria'
+                        f'pose input flag {format_args(specification_file_args)} can be provided to restrict\n' \
+                        f'selection criteria'
 multicistronic_args = {
     csv_args: csv_kwargs,
     intergenic_sequence_args: intergenic_sequence_kwargs,
@@ -1253,9 +1262,9 @@ select_sequences_arguments = {
     **multicistronic_args,
 }
 # ---------------------------------------------------
-select_designs_help = 'From the provided poses, select designs based on specified selection criteria using\n' \
-                      f'metrics. The pose input flag --{specification_file} can be provided to restrict\n' \
-                      'selection criteria to specific designs for each pose'
+select_designs_help = f'From the provided poses, {select_designs} based on specified selection criteria using\n' \
+                      f'metrics. The pose input flag {format_args(specification_file_args)} can be provided\n' \
+                      'to restrict selection criteria to specific designs for each pose'
 parser_select_designs = {select_designs: dict(description=select_designs_help, help=select_designs_help)}
 select_designs_arguments = {
     **select_arguments,
@@ -1263,9 +1272,10 @@ select_designs_arguments = {
     csv_args: csv_kwargs,
 }
 # ---------------------------------------------------
+file_args = ('-f', '--file')
 multicistronic_help = 'Generate nucleotide sequences for selected designs by codon optimizing protein\n' \
                       'sequences, then concatenating nucleotide sequences. REQUIRES an input .fasta file\n' \
-                      'specified with the -f/--file argument'
+                      f'specified with the {format_args(file_args)} argument'
 parser_multicistronic = {multicistronic: dict(description=multicistronic_help, help=multicistronic_help)}
 number_args = ('-n', f'--{number}')
 multicistronic_arguments = {
@@ -1323,18 +1333,18 @@ parser_input_group = dict(title=f'{"_" * len(input_title)}\n{input_title}',
 load_to_db_args = (f'--{load_to_db}',)
 load_to_db_kwargs = dict(action='store_true',
                          help=f'Use this input flag to load files existing in a {putils.program_output} to the DB')
-specification_file_args = ('-sf', f'--{specification_file}')
+fuse_chains_args = ('--fuse-chains',)
 input_arguments = {
     cluster_map_args: cluster_map_kwargs,
     ('-df', f'--{dataframe}'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
                                     help=f'A DataFrame created by {program_name} analysis containing\n'
                                          'pose metrics. File is output in .csv format'),
-    ('--fuse-chains',): dict(type=str, nargs='*', default=[], metavar='A:B C:D',
-                             help='The name of a pair of chains to fuse during design. Paired\n'
-                                  'chains should be separated by a colon, with the n-terminal\n'
-                                  'preceding the c-terminal chain. Fusion instances should be\n'
-                                  'separated by a space\n'
-                                  'Ex --fuse-chains A:B C:D'),
+    fuse_chains_args: dict(type=str, nargs='*', default=[], metavar='A:B C:D',
+                           help='The name of a pair of chains to fuse during design. Paired\n'
+                                'chains should be separated by a colon, with the n-terminal\n'
+                                'preceding the c-terminal chain. Fusion instances should be\n'
+                                'separated by a space\n'
+                                f'Ex {format_args(fuse_chains_args)} A:B C:D'),
     load_to_db_args: load_to_db_kwargs,
     # ('-N', f'--{nanohedra}V1-output'): dict(action='store_true', dest=nanohedra_output,
     #                                         help='Is the input a Nanohedra wersion 1 docking output?'),
@@ -1373,7 +1383,6 @@ input_arguments = {
 }
 # parser_input_mutual = parser_input.add_mutually_exclusive_group()
 directory_args = ('-d', f'--{directory}')
-file_args = ('-f', '--file')
 project_args = ('-p', '--project')
 single_args = ('-s', '--single')
 parser_input_mutual_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
@@ -1398,9 +1407,10 @@ parser_output_group = dict(title=f'{"_" * len(output_title)}\n{output_title}',
                            description='\nSpecify where output should be written')
 output_arguments = {
     (f'--{increment_chains}',): dict(action='store_true',
-                                     help='Whether resulting assembly files should output with chain IDs alphabetically'
-                                          '\nincremented or in "Multimodel" format. Multimodel format is useful for\n'
-                                          'PyMol visualization with the command "set all_states, on"'),
+                                     help='Whether resulting assembly files should output with chain IDs incremented\n'
+                                          'or in "Multimodel" format. Multimodel format is useful for PyMol\n'
+                                          'visualization with the command "set all_states, on". Chimera can\n'
+                                          'utilize either format as the BIOMT record is respected'),
     ('-Oa', f'--{output_assembly}'):
         dict(action=argparse.BooleanOptionalAction, default=False,
              help='Whether the assembly should be output? Infinite materials are output in a unit cell'),
@@ -1430,7 +1440,7 @@ output_arguments = {
     ('-Pf', f'--{pose_format}'): dict(action='store_true',
                                       help='Whether outputs should be converted to pose formatting,\n'
                                            'where instead of using the original numbering each\n'
-                                           'additional residue is incremented '),
+                                           'additional residue is incremented'),
     ('--prefix',): dict(type=str, metavar='string', help='String to prepend to output name'),
     ('--suffix',): dict(type=str, metavar='string', help='String to append to output name'),
 }

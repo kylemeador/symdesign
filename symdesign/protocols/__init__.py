@@ -480,7 +480,7 @@ def interface_design(job: pose.PoseJob):
     raise NotImplementedError('This protocol has been depreciated in favor of design() with job.design.interface=True')
     job.identify_interface()
 
-    putils.make_path(job.data_path)  # Todo consolidate this check with pickle_info()
+    putils.make_path(job.data_path)
     # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
     if job.job.design.method == putils.rosetta_str:
         # Update the Pose with the number of designs
@@ -561,7 +561,7 @@ def design(job: pose.PoseJob):
     # job.load_pose()
     job.identify_interface()
 
-    putils.make_path(job.data_path)  # Todo consolidate this check with pickle_info()
+    putils.make_path(job.data_path)
     # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
     if job.job.design.method == putils.rosetta_str:
         # Update upon completion given results of designs list file...

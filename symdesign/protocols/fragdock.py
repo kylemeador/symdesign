@@ -473,7 +473,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     """The acceptable standard deviation z score for initial fragment overlap identification. Smaller values lead to 
     more stringent matching criteria
     """
-    min_matched = job.dock.min_matched
+    min_matched = job.dock.minimum_matched
     """How many high quality fragment pairs should be present before a pose is identified?"""
     high_quality_match_value = job.dock.match_value
     """The value to exceed before a high quality fragment is matched. When z-value was used this was 1.0, however, 0.5
@@ -4179,7 +4179,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 # pose_identifiers = [pose_job.new_pose_identifier for pose_job in pose_jobs]
                 fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.is_(project)) \
                     .where(PoseJob.name.in_(pose_names))
-                existing_pose_jobs = list(session.scalars(fetch_jobs_stmt))
+                existing_pose_jobs = session.scalars(fetch_jobs_stmt).all()
                 # Note: Values are sorted by alphanumerical, not numerical
                 # ex, design 11 is processed before design 2
                 existing_pose_names = {pose_job_.name for pose_job_ in existing_pose_jobs}

@@ -2592,8 +2592,7 @@ class PoseProtocol(PoseData):
             self.process_rosetta_metrics()
 
     def proteinmpnn_design(self, interface: bool = False, neighbors: bool = False):
-        """Perform design based on the ProteinMPNN graph encoder/decoder network and output sequences and scores to the
-        PoseJob scorefile
+        """Perform design based on the ProteinMPNN graph encoder/decoder network
 
         Sets:
             self.protocol = 'proteinmpnn'
@@ -2601,7 +2600,7 @@ class PoseProtocol(PoseData):
             interface: Whether to only specify the interface as designable, otherwise, use all residues
             neighbors: Whether to design interface neighbors
         Returns:
-
+            None
         """
         self.protocol = 'proteinmpnn'
         self.log.info(f'Starting {self.protocol} design calculation with {self.job.design.number} '

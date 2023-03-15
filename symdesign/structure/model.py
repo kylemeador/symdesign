@@ -6799,13 +6799,8 @@ class Pose(SymmetricModel, Metrics):
             # pose_length = self.number_of_residues
             size, pose_length, *_ = numeric_sequences.shape
             batch_length = ml.PROTEINMPNN_SCORE_BATCH_LEN
-            # Set up parameters and model sampling type based on symmetry
-            number_of_symmetry_mates = self.number_of_symmetry_mates
-            if self.is_symmetric():
-                number_of_residues = pose_length * number_of_symmetry_mates
-            else:
-                number_of_residues = pose_length
 
+            # Set up parameters and model sampling type based on symmetry
             if measure_unbound:
                 parameters = {'X_unbound': self.get_proteinmpnn_unbound_coords(ca_only=ca_only)}
             else:
@@ -6823,7 +6818,7 @@ class Pose(SymmetricModel, Metrics):
             # # Insert the designed sequences inplace of the pose sequence
             # parameters['S'] = np.tile(numeric_sequences, (1, number_of_symmetry_mates))
             # Set up for symmetry
-            numeric_sequences_ = np.tile(numeric_sequences, (1, number_of_symmetry_mates))
+            numeric_sequences_ = np.tile(numeric_sequences, (1, self.number_of_symmetry_mates))
             # Solve decoding order
             # parameters['randn'] = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
             # decoding_order = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)

@@ -1173,8 +1173,8 @@ def main():
 
                     # with job.db.session(expire_on_commit=False) as session:
                     fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
-                    pose_jobs = list(session.scalars(fetch_jobs_stmt))
-                    # pose_jobs = list(job.current_session.scalars(fetch_jobs_stmt))
+                    pose_jobs = session.scalars(fetch_jobs_stmt).all()
+                    # pose_jobs = job.current_session.scalars(fetch_jobs_stmt).all()
                     # for specification_file in args.specification_file:
                     #     pose_jobs.extend(
                     #         [PoseJob.from_directory(pose_identifier, root=job.projects,
@@ -1216,7 +1216,7 @@ def main():
                             #         pose_identifiers.append(f'{project}{os.sep}{name}')
 
                             fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
-                            pose_jobs = list(session.scalars(fetch_jobs_stmt))
+                            pose_jobs = session.scalars(fetch_jobs_stmt).all()
             elif select_from_directory:
                 # Can make an empty pose_jobs when the program_root is args.directory
                 job.location = args.directory
@@ -1404,7 +1404,7 @@ def main():
                 # Find the actual pose_jobs_to_commit and place in session
                 pose_identifiers = [pose_job.new_pose_identifier for pose_job in pose_jobs_to_commit]
                 fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
-                existing_pose_jobs = list(session.scalars(fetch_jobs_stmt))
+                existing_pose_jobs = session.scalars(fetch_jobs_stmt).all()
 
                 existing_pose_identifiers = [pose_job.pose_identifier for pose_job in existing_pose_jobs]
                 pose_jobs = []
