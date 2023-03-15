@@ -1463,6 +1463,7 @@ def main():
                 logger.info(f'Starting protocol {idx}: {protocol_name}')
                 # Update this mechanism with each module
                 job.module = protocol_name
+                job.load_job_protocol()
 
                 # Fetch the specified protocol with python acceptable naming
                 protocol = getattr(protocols, protocol_name.replace('-', '_'))
@@ -1498,6 +1499,7 @@ def main():
         #  Run a single submodule
         # -----------------------------------------------------------------------------------------------------------------
         else:
+            job.load_job_protocol()
             if job.module == 'find_transforms':
                 # if args.multi_processing:
                 #     results = SDUtils.mp_map(PoseJob.find_transforms, pose_jobs, processes=job.cores)

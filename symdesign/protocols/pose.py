@@ -730,16 +730,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # self.designs = [sql.DesignData(name=name)]
         # self.designs.append(sql.DesignData(name=name))
         # self.designs.append(sql.DesignData(name=name, design_parent=None))
-        # Set up original DesignData entry for the pose baseline
-        if pose_source is None:
-            pose_source = sql.DesignData(name=name, pose=self, design_parent=None)  # , structure_path=source_path)
-        else:
-            pose_source = sql.DesignData(name=name, pose=self, design_parent=pose_source,
-                                         structure_path=pose_source.source_path)
-        if protocol is not None:
-            pose_source.protocols.append(sql.DesignProtocol(protocol=protocol))
-        self.__init_from_db__()
+
         # Most __init__ code is called in __init_from_db__() according to sqlalchemy needs and DRY principles
+        self.__init_from_db__()
 
         # Save job variables to the state during initialization
         if self.sym_entry:
@@ -753,23 +746,15 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             """The SymEntry entry number"""
         if self.job.design_selector:
             self.design_selector = self.job.design_selector
-        # # if not entity_names:  # None were provided at start up, find them
-        # if not entity_metadata:  # None provided at start up
-        #     # Load the Structure source_path and extract the entity_names from the Structure
-        #     # if self.job.nanohedra_output:
-        #     #     entity_names = get_components_from_nanohedra_docking(self.pose_file)
-        #     # else:
-        #     self.load_initial_model()
-        #     entity_names = [entity.name for entity in self.initial_model.entities]
-        #     entity_stmt = select(sql.EntityData).where(sql.EntityData.name.in_(entity_names))
-        #     rows = self.job.db.current_session.scalars(entity_stmt)
-        #     self.entity_data.extend(rows)
-        # else:
-        #     # self.entity_names = entity_names
-        #     self.entity_data = entity_metadata
-        #
-        # if pose_transformation:
-        #     self.pose_transformation = pose_transformation
+
+        # Set up original DesignData entry for the pose baseline
+        if pose_source is None:
+            pose_source = sql.DesignData(name=name, pose=self, design_parent=None)  # , structure_path=source_path)
+        else:
+            pose_source = sql.DesignData(name=name, pose=self, design_parent=pose_source,
+                                         structure_path=pose_source.source_path)
+        if protocol is not None:
+            pose_source.protocols.append(sql.DesignProtocol(protocol=protocol, job_id=self.job.id))
 
     def use_specific_designs(self, designs: Sequence[str] = None, directives: list[dict[int, str]] = None,
                              **kwargs):
@@ -2090,6 +2075,7 @@ class PoseProtocol(PoseData):
         for design_data, pose in zip(sequences.keys(), asu_design_structures):
             design_data.structure_path = pose.write(out_path=os.path.join(self.designs_path, f'{design_data.name}.pdb'))
             design_data.protocols.append(sql.DesignProtocol(design_id=design_data.id,
+                                                            job_id=self.job.id,
                                                             protocol=self.protocol,
                                                             file=design_data.structure_path))
             # # This corrects the oligomeric specification for each Entity
@@ -2645,6 +2631,7 @@ class PoseProtocol(PoseData):
         for idx, design_data in enumerate(designs_data):
             design_data.protocols.append(
                 sql.DesignProtocol(design=design_data,
+                                   job_id=self.job.id,
                                    # design_id=design_ids[idx],
                                    protocol=self.protocol,  # sql.Protocol(name=self.protocol),  # protocols[idx],
                                    temperature=temperatures[idx],
@@ -2723,7 +2710,8 @@ class PoseProtocol(PoseData):
         Returns:
             The new instances of the sql.DesignProtocol
         """
-        metadata = [sql.DesignProtocol(design_id=design_id, protocol=protocol, temperature=temperature, file=file)
+        metadata = [sql.DesignProtocol(
+            design_id=design_id, job_id=self.job.id, protocol=protocol, temperature=temperature, file=file)
                     for design_id, protocol, temperature, file in zip(design_ids, protocols, temperatures, files)]
         return metadata
 
@@ -3105,6 +3093,7 @@ class PoseProtocol(PoseData):
             for design in self.current_designs:
                 name_or_provided_name = getattr(design, 'provided_name', getattr(design, 'name'))
                 protocol_kwargs = dict(design_id=design.id,
+                                       job_id=self.job.id,
                                        protocol=protocol_s[name_or_provided_name],
                                        # temperature=temperatures[idx],)  # Todo from Rosetta?
                                        )

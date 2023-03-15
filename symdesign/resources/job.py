@@ -13,8 +13,9 @@ from typing import Annotated, AnyStr, Any, Iterable
 
 import jax
 import psutil
+import sqlalchemy.exc
 import tensorflow as tf
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
 
@@ -667,6 +668,100 @@ class JobResources:
         # Finally perform checks on desired work to see if viable
         # if self.protocol_module:
         self.check_protocol_module_arguments()
+        # Start with None and set this once a session is opened
+        self.job_protocol = None
+        # self.job_protocol = self.load_job_protocol()
+
+    @property
+    def id(self) -> int:
+        """Get the JobProtocol.id for reference to the work performed"""
+        return self.job_protocol.id
+
+    def load_job_protocol(self):
+        """Acquire the JobProtocol for the current set of input instructions
+
+        Sets:
+            self.job_protocol (sql.JobProtocol)
+        """
+        # Tabulate the protocol arguments that should be provided to the JobProtocol search/creation
+        if self.module == flags.design:
+            protocol_kwargs = dict(
+                ca_only=self.design.ca_only,
+                interface=self.design.interface,
+                neighbors=self.design.neighbors,
+            )
+        elif self.module == flags.nanohedra:
+            protocol_kwargs = dict(
+                contiguous_ghosts=self.dock.contiguous_ghosts,
+                initial_z_value=self.dock.initial_z_value,
+                match_value=self.dock.match_value,
+                minimum_matched=self.dock.minimum_matched,
+            )
+        elif self.module == flags.predict_structure:
+            protocol_kwargs = dict(
+                number_predictions=self.predict.number_predictions,
+                prediction_model=self.predict.prediction_model,
+                use_gpu_relax=self.predict.use_gpu_relax,
+            )
+        # Todo
+        #  raise NotImplementedError()
+        # elif self.module == flags.interface_metrics:
+        # elif self.module == flags.analysis:
+        # elif self.module == flags.generate_fragments:
+        else:
+            protocol_kwargs = {}
+
+        protocol_kwargs.update(dict(
+            module=self.module,
+            evolution_constraint=self.design.evolution_constraint,
+            term_constraint=self.design.term_constraint,
+        ))
+
+        job_protocol_stmt = select(sql.JobProtocol)\
+            .where(*[getattr(sql.JobProtocol, table_column) == job_resources_attr
+                     for table_column, job_resources_attr in protocol_kwargs.items()])
+
+        # job_protocol_stmt = select(sql.JobProtocol)\
+        #     .where(sql.JobProtocol.module == self.module)\
+        #     .where(sql.JobProtocol.ca_only == self.design.ca_only)\
+        #     .where(sql.JobProtocol.contiguous_ghosts == self.dock.contiguous_ghosts)\
+        #     .where(sql.JobProtocol.evolution_constraint == self.design.evolution_constraint)\
+        #     .where(sql.JobProtocol.initial_z_value == self.dock.initial_z_value)\
+        #     .where(sql.JobProtocol.interface == self.design.interface)\
+        #     .where(sql.JobProtocol.match_value == self.dock.match_value)\
+        #     .where(sql.JobProtocol.minimum_matched == self.dock.minimum_matched)\
+        #     .where(sql.JobProtocol.neighbors == self.design.neighbors)\
+        #     .where(sql.JobProtocol.number_predictions == self.predict.number_predictions)\
+        #     .where(sql.JobProtocol.prediction_model == self.predict.prediction_model)\
+        #     .where(sql.JobProtocol.term_constraint == self.design.term_constraint)\
+        #     .where(sql.JobProtocol.use_gpu_relax == self.predict.use_gpu_relax)
+
+        job_protocol_result = self.current_session.scalars(job_protocol_stmt).all()
+        if not job_protocol_result:  # Create a new one
+            job_protocol = sql.JobProtocol(**protocol_kwargs)
+            # job_protocol = sql.JobProtocol(
+            #     module=self.module,
+            #     ca_only=self.design.ca_only,
+            #     contiguous_ghosts=self.dock.contiguous_ghosts,
+            #     evolution_constraint=self.design.evolution_constraint,
+            #     initial_z_value=self.dock.initial_z_value,
+            #     interface=self.design.interface,
+            #     match_value=self.dock.match_value,
+            #     minimum_matched=self.dock.minimum_matched,
+            #     neighbors=self.design.neighbors,
+            #     number_predictions=self.predict.number_predictions,
+            #     prediction_model=self.predict.prediction_model,
+            #     term_constraint=self.design.term_constraint,
+            #     use_gpu_relax=self.predict.use_gpu_relax,
+            # )
+            self.current_session.add(job_protocol)
+            self.current_session.flush()
+        elif len(job_protocol_result) > 1:
+            raise sqlalchemy.exc.IntegrityError(f"Can't have more than one matching {sql.JobProtocol.__name__}")
+        else:
+            job_protocol = job_protocol_result[0]
+
+        self.job_protocol = job_protocol
 
     @property
     def modules(self) -> list[str]:

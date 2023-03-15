@@ -538,22 +538,49 @@ class EntityTransform(Base):
 #     parent_design = relationship('DesignData', back_populates='trajectories')
 
 
+class JobProtocol(Base):
+    __tablename__ = 'job_protocols'
+    id = Column(Integer, primary_key=True)
+    __table_args__ = (
+        UniqueConstraint(
+            'ca_only', 'contiguous_ghosts', 'evolution_constraint',
+            'initial_z_value', 'interface', 'match_value',
+            'minimum_matched', 'neighbors', 'number_predictions',
+            'prediction_model', 'term_constraint', 'use_gpu_relax',
+            name='_pose_name_uc'
+        ),
+    )
+    module = Column(String(30), nullable=False)
+    # Set up one-to-many relationship with design_protocol table
+    design_protocols = relationship('DesignProtocol', back_populates='job')
+
+    ca_only = Column(Boolean)  # design/score
+    contiguous_ghosts = Column(Boolean)  # dock
+    evolution_constraint = Column(Boolean)  # design
+    initial_z_value = Column(Integer)  # dock
+    interface = Column(Boolean)  # design
+    match_value = Column(Integer)  # dock
+    minimum_matched = Column(Integer)  # dock
+    neighbors = Column(Boolean)  # design
+    number_predictions = Column(Integer)  # structure-predict
+    prediction_model = Column(String(5))  # structure-predict # ENUM - all, best, none
+    term_constraint = Column(Boolean)  # design
+    use_gpu_relax = Column(Boolean)  # structure-predict
+
+
 class DesignProtocol(Base):
     __tablename__ = 'design_protocol'
-
-    # class ProtocolMetadata(Base):
-    #     __tablename__ = 'protocol_metadata'
     id = Column(Integer, primary_key=True)
 
     protocol = Column(String(50), nullable=False)
-    # # Set up many-to-one relationship with protocols table
-    # protocol_id = Column(ForeignKey('protocols.id'), nullable=False)
-    # protocol = relationship('Protocol', back_populates='designs')
+    # Set up many-to-one relationship with job_protocols table
+    job_id = Column(ForeignKey('job_protocols.id'), nullable=False)
+    job = relationship('JobProtocol', back_populates='design_protocols')
     # Set up many-to-one relationship with design_data table
     design_id = Column(ForeignKey('design_data.id'))
     design = relationship('DesignData', back_populates='protocols')
-    temperature = Column(Float)
     file = Column(String(500))
+    temperature = Column(Float)
 
 
 class DesignData(Base):
