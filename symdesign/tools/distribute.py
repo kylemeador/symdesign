@@ -6,7 +6,7 @@ import signal
 import subprocess
 from itertools import repeat
 
-from symdesign.resources.distribute import create_file, default_shell, process_scale, run, update_status
+from symdesign.resources.distribute import create_file, default_shell, process_scale, run
 from symdesign.utils import calculate_mp_cores, mp_starmap, path as putils
 
 index_offset = 1
