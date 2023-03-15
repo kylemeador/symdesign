@@ -516,7 +516,7 @@ def io_save(data: Iterable, file_name: AnyStr = None) -> AnyStr:
     return file_name
 
 
-def to_iterable(obj: str | bytes | list, ensure_file: bool = False, skip_comma: bool = False) -> list[str]:
+def to_iterable(obj: AnyStr | list, ensure_file: bool = False, skip_comma: bool = False) -> list[str]:
     """Take an object and return a list of individual objects splitting on newline or comma
 
     Args:
@@ -534,7 +534,7 @@ def to_iterable(obj: str | bytes | list, ensure_file: bool = False, skip_comma: 
             raise error
         if isinstance(obj, list):
             iterable = obj
-        else:  # assumes obj is a string
+        else:  # Assume that obj is a string
             iterable = [obj]
 
     clean_list = []
@@ -545,10 +545,10 @@ def to_iterable(obj: str | bytes | list, ensure_file: bool = False, skip_comma: 
             it_list = item.split(',')
         clean_list.extend(map(str.strip, it_list))
 
-    # remove duplicates but keep the order
-    clean_list = remove_duplicates(clean_list)
+    # # Remove duplicates but keep the order
+    # clean_list = remove_duplicates(clean_list)
     try:
-        clean_list.pop(clean_list.index(''))  # remove any missing values
+        clean_list.pop(clean_list.index(''))  # Remove any missing values
     except ValueError:
         pass
     return clean_list

@@ -398,6 +398,26 @@ class JobResources:
         # self.design_selector = kwargs.get('design_selector', {})
 
         # Docking flags
+        pdb_codes1 = kwargs.get('pdb_codes1')
+        if pdb_codes1:
+            # Collect all provided codes required for component 1 processing
+            codes = []
+            for code_or_file in pdb_codes1:
+                codes.extend(utils.to_iterable(code_or_file))
+            self.pdb_codes1 = utils.remove_duplicates(codes)
+        else:
+            self.pdb_codes1 = None
+
+        pdb_codes2 = kwargs.get('pdb_codes2')
+        if pdb_codes2:
+            # Collect all provided codes required for component 1 processing
+            codes = []
+            for code_or_file in pdb_codes2:
+                codes.extend(utils.to_iterable(code_or_file))
+            self.pdb_codes2 = utils.remove_duplicates(codes)
+        else:
+            self.pdb_codes2 = None
+
         self.dock = Dock.from_flags(**kwargs)
         if self.development:
             self.dock.quick = True

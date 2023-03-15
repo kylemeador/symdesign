@@ -753,7 +753,7 @@ class StructureDatabase(Database):
                     if batch_commands:
                         # Write all commands to a file to perform in batches
                         cmd = ['python', putils.program_exe, flags.initialize_building_blocks,
-                               f'--{flags.nano_entity_flag1}']
+                               f'--{flags.pdb_codes1}']
                         commands = [cmd.copy() + [protein.entity_id, f'--symmetry', protein.symmetry_group]
                                     for idx, protein in enumerate(protein_data_to_loop_model)]
 

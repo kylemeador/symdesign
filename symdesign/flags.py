@@ -105,6 +105,8 @@ pre_loop_modeled = 'pre_loop_modeled'
 pre_refined = 'pre_refined'
 initialize_building_blocks = 'initialize_building_blocks'
 background_profile = 'background_profile'
+pdb_codes1 = 'pdb_codes1'
+pdb_codes2 = 'pdb_codes2'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -279,6 +281,8 @@ pre_loop_modeled = format_for_cmdline(pre_loop_modeled)
 pre_refined = format_for_cmdline(pre_refined)
 initialize_building_blocks = format_for_cmdline(initialize_building_blocks)
 background_profile = format_for_cmdline(background_profile)
+pdb_codes1 = format_for_cmdline(pdb_codes1)
+pdb_codes2 = format_for_cmdline(pdb_codes2)
 
 select_modules = (
     select_poses,
@@ -940,8 +944,9 @@ nanohedra_run_type_mutual_arguments = {
 # parser_dock_mutual1 = parser_dock.add_mutually_exclusive_group(required=True)
 parser_nanohedra_mutual1_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
 nanohedra_mutual1_arguments = {
-    ('-c1', '--pdb-codes1'): dict(type=os.path.abspath, default=None,
-                                  help=f'File with list of PDB_entity codes for {nanohedra} component 1'),
+    ('-c1', f'--{pdb_codes1}'): dict(nargs='*', default=None,  # type=os.path.abspath,
+                                     help=f'Input code(s), and/or file(s) with codes where each code\n'
+                                          f'is a PDB EntryID/EntityID code for component 1'),
     ('-o1', f'--{nano_entity_flag1}', f'-{nano_entity_flag1}'):
         dict(type=os.path.abspath, default=None,
              help=f'Disk location where {nanohedra} component 1 file(s) are located'),
@@ -950,8 +955,9 @@ nanohedra_mutual1_arguments = {
 # parser_dock_mutual2 = parser_dock.add_mutually_exclusive_group()
 parser_nanohedra_mutual2_group = dict()  # required=False
 nanohedra_mutual2_arguments = {
-    ('-c2', '--pdb-codes2'): dict(type=os.path.abspath, default=None,
-                                  help=f'File with list of PDB_entity codes for {nanohedra} component 2'),
+    ('-c2', f'--{pdb_codes2}'): dict(nargs='*', default=None,  # type=os.path.abspath,
+                                     help=f'Input code(s), and/or file(s) with codes where each code\n'
+                                          f'is a PDB EntryID/EntityID code for component 2'),
     ('-o2', f'--{nano_entity_flag2}', f'-{nano_entity_flag2}'):
         dict(type=os.path.abspath, default=None,
              help=f'Disk location where {nanohedra} component 2 file(s) are located'),

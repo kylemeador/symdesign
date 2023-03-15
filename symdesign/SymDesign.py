@@ -511,7 +511,7 @@ def main():
         #     entity.make_oligomer(symmetry=entity.symmetry)
         return all_uniprot_id_to_prot_data, uniprot_entities
 
-    def initialize_structures(symmetry: str = None, oligomer: bool = False, pdb_codes: bool = False,
+    def initialize_structures(symmetry: str = None, oligomer: bool = False, pdb_codes: AnyStr | list = False,
                               query_codes: bool = False) -> list[Model | Entity]:
         """"""
         # Set up variables for the correct parsing of provided file paths
@@ -530,10 +530,8 @@ def main():
             # eventual_structure_names1 = \
             #     list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb1_filepaths]))
         elif pdb_codes:
-            # Collect all provided codes required for component 1 processing
-            structure_names = utils.remove_duplicates(utils.to_iterable(pdb_codes, ensure_file=True))
             # Make all names lowercase
-            structure_names = list(map(str.lower, structure_names))
+            structure_names = list(map(str.lower, pdb_codes))
         elif query_codes:
             save_query = validate_input_return_response_value(
                 'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
@@ -890,7 +888,7 @@ def main():
             logger.critical(f'Ensuring provided building blocks are oriented')
             symmetry = job.sym_entry.group1
             structures = initialize_structures(symmetry=symmetry, oligomer=args.oligomer1,
-                                               pdb_codes=args.pdb_codes1, query_codes=args.query_codes1)
+                                               pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
             structures_ids, possibly_new_uniprot_to_prot_metadata = \
                 create_protein_metadata(structures, symmetry=symmetry)
 
@@ -927,12 +925,12 @@ def main():
             grouped_structures: list[list[Model | Entity]] = []
             logger.critical(f'Ensuring provided building blocks are oriented for docking')
             structures1 = initialize_structures(symmetry=job.sym_entry.group1, oligomer=args.oligomer1,
-                                                pdb_codes=args.pdb_codes1, query_codes=args.query_codes1)
+                                                pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
             grouped_structures.append(structures1)
             structures2 = []
             if args.oligomer1 != args.oligomer2:  # See if they are the same input
                 structures2 = initialize_structures(symmetry=job.sym_entry.group2, oligomer=args.oligomer2,
-                                                    pdb_codes=args.pdb_codes2, query_codes=args.query_codes2)
+                                                    pdb_codes=job.pdb_codes2, query_codes=args.query_codes2)
                 if structures2:
                     single_component_design = False
                 else:
