@@ -317,19 +317,25 @@ def main():
             refine_dir = job.structure_db.refined.location
             putils.make_path(refine_dir)
             for data in metadata:
-                try:
-                    shutil.copy(data.model_source, refine_dir)
-                except shutil.SameFileError:
-                    pass
+                dirname, basename = os.path.split(data.model_source)
+                if not os.path.exists(os.path.join(refine_dir, basename)):
+                    try:  # To copy the file to this location
+                        shutil.copy(data.model_source, refine_dir)
+                    except shutil.SameFileError:
+                        pass
+                # Set True regardless
                 data.refined = True
         if job.init.pre_loop_modeled:  # Indicate loop model stuff is done
             full_model_dir = job.structure_db.full_models.location
             putils.make_path(full_model_dir)
             for data in metadata:
-                try:
-                    shutil.copy(data.model_source, full_model_dir)
-                except shutil.SameFileError:
-                    pass
+                dirname, basename = os.path.split(data.model_source)
+                if not os.path.exists(os.path.join(full_model_dir, basename)):
+                    try:  # To copy the file to this location
+                        shutil.copy(data.model_source, full_model_dir)
+                    except shutil.SameFileError:
+                        pass
+                # Set True regardless
                 data.loop_modeled = True
 
         # preprocess_instructions, initial_refinement, initial_loop_model = \
@@ -1091,9 +1097,10 @@ def main():
                 exit('No docking pairs were located from your input. Please ensure that your flags are as intended.'
                      f'{putils.issue_submit_warning}')
             elif job.distribute_work:
-                # Write all commands to a file and use sbatch
-                # script_out_dir = os.path.join(job.output_directory, putils.scripts)
-                # os.makedirs(script_out_dir, exist_ok=True)
+                # Write all commands to a file and distribute a batched job
+                # The theory of the new command is to keep everything that was submitted however modify the input
+                # arguments so that a single command contains a pair of input models
+
                 possible_input_args = [arg for args in flags.nanohedra_mutual1_arguments.keys() for arg in args] \
                     + [arg for args in flags.nanohedra_mutual2_arguments.keys() for arg in args]
                 #     + list(flags.distribute_args)
@@ -1103,7 +1110,9 @@ def main():
                         pop_index = submitted_args.index(input_arg)
                     except ValueError:  # Not in list
                         continue
-                    submitted_args.pop(pop_index)
+                    else:
+                        submitted_args.pop(pop_index)
+
                     if input_arg in ('-Q1', f'--{flags.query_codes1}', '-Q2', f'--{flags.query_codes2}'):
                         continue
                     else:  # Pop the index twice if the argument requires an input
@@ -1114,9 +1123,10 @@ def main():
                         pop_index = submitted_args.index(arg)
                     except ValueError:  # Not in list
                         continue
-                    submitted_args.pop(pop_index)
+                    else:
+                        submitted_args.pop(pop_index)
 
-                # Format commands
+                # Format all commands given model pair
                 cmd = ['python', putils.program_exe] + submitted_args
                 commands = [cmd.copy() + [f'--{flags.pdb_codes1}', model1.name,
                                           f'--{flags.pdb_codes2}', model2.name]
@@ -1124,8 +1134,8 @@ def main():
                 # commands = [cmd.copy() + [f'--{flags.nano_entity_flag1}', model1.file_path,
                 #                           f'--{flags.nano_entity_flag2}', model2.file_path]
                 #             for idx, (model1, model2) in enumerate(pose_jobs)]
-                # logger.debug([list2cmdline(cmd) for cmd in commands])
-                # utils.write_shell_script(list2cmdline(commands), name=flags.nanohedra, out_path=job.job_paths)
+
+                # Write commands using terminate()
                 terminate(results=commands)
         else:  # Load from existing files, usually Structural files in a directory or in the program already
             if args.range:

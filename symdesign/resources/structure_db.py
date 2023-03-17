@@ -723,12 +723,12 @@ class StructureDatabase(Database):
 
         info_messages = []
         if protein_data_to_loop_model:
+            logger.info("The following structures haven't been modelled for disorder: "
+                        f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_loop_model)))}')
             # Files found unloop_modeled, check to see if work should be done
             if self.job.init.loop_model_input is not None:
                 loop_model_input = self.job.init.loop_model_input
             else:  # Query user and set up commands to perform loop modelling on missing entities
-                logger.info("The following structures haven't been modelled for disorder: "
-                            f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_loop_model)))}')
                 print(f'If you plan on performing {flags.design}/{flags.predict_structure} with them, it is strongly '
                       f'encouraged that you build missing loops to avoid disordered region clashing/misalignment')
                 print('Would you like to model loops for these structures now?')
@@ -959,8 +959,7 @@ class StructureDatabase(Database):
                     for protein in protein_data_to_refine:
                         protein.loop_modeled = True
                         # protein.model_source = self.refined.path_to(name=protein.entity_id)
-            else:
-                # Indicate that this ProteinMetadata has been processed
+            else:  # Indicate that this ProteinMetadata hasn't been processed
                 for protein in protein_data_to_loop_model:
                     protein.loop_modeled = False
 
@@ -979,12 +978,11 @@ class StructureDatabase(Database):
 
         if protein_data_to_refine:
             # Files found unrefined, check to see if work should be done
+            logger.critical("The following structures haven't been refined: "
+                            f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_refine)))}')
             if self.job.init.refine_input is not None:
                 refine_input = self.job.init.refine_input
             else:  # Query user and set up commands to perform refinement on missing entities
-                logger.critical("The following structures haven't be refined and are being set up for refinement "
-                                'into the Rosetta ScoreFunction for optimized sequence design:\n'
-                                f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_refine)))}')
                 print(f'If you plan on performing {flags.design} using Rosetta, it is strongly encouraged that you '
                       f'perform initial refinement. You can also refine them later using the {flags.refine} module')
                 print('Would you like to refine them now?')
@@ -1041,8 +1039,7 @@ class StructureDatabase(Database):
                 for protein in protein_data_to_refine:
                     protein.refined = True
                     # protein.model_source = self.refined.path_to(name=protein.entity_id)
-            else:
-                # Indicate that this ProteinMetadata has been processed
+            else:  # Indicate that this ProteinMetadata hasn't been processed
                 for protein in protein_data_to_refine:
                     protein.refined = False
 
