@@ -279,8 +279,8 @@ def distribute(file: AnyStr, scale: protocols_literal, out_path: AnyStr = os.get
             new_f.write(f'{sb_flag}{out}\n')
             array = f'array=1-{int(number_of_commands / process_scale[scale] + 0.5)}%{max_jobs}'
             new_f.write(f'{sb_flag}{array}\n\n')
-        new_f.write(f'python {putils.distributer_tool} --stage {scale} {f"--log_file {log_file} " if log_file else ""}'
-                    f'--success_file {success_file} --failure_file {failure_file} --command_file {file}')
+        new_f.write(f'python {putils.distributer_tool} --stage {scale} {f"--log-file {log_file} " if log_file else ""}'
+                    f'--success-file {success_file} --failure-file {failure_file} --command-file {file}')
         if finishing_commands:
             if batch:
                 new_f.write('\n# Wait for all to complete\n'
