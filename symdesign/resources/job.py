@@ -711,13 +711,16 @@ class JobResources:
                 ca_only=self.design.ca_only,
                 interface=self.design.interface,
                 neighbors=self.design.neighbors,
+                proteinmpnn_model_name=self.design.proteinmpnn_model_name,
             )
         elif self.module == flags.nanohedra:
             protocol_kwargs = dict(
+                ca_only=self.design.ca_only,
                 contiguous_ghosts=self.dock.contiguous_ghosts,
                 initial_z_value=self.dock.initial_z_value,
                 match_value=self.dock.match_value,
                 minimum_matched=self.dock.minimum_matched,
+                proteinmpnn_model_name=self.design.proteinmpnn_model_name,
             )
         elif self.module == flags.predict_structure:
             protocol_kwargs = dict(
@@ -725,10 +728,14 @@ class JobResources:
                 prediction_model=self.predict.prediction_model,
                 use_gpu_relax=self.predict.use_gpu_relax,
             )
+        elif self.module == flags.analysis:
+            protocol_kwargs = dict(
+                ca_only=self.design.ca_only,
+                proteinmpnn_model_name=self.design.proteinmpnn_model_name,
+            )
         # Todo
         #  raise NotImplementedError()
         # elif self.module == flags.interface_metrics:
-        # elif self.module == flags.analysis:
         # elif self.module == flags.generate_fragments:
         else:
             protocol_kwargs = {}

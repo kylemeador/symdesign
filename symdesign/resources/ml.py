@@ -305,16 +305,27 @@ class ProteinMPNNFactory:
         self._models = {}
         # self._models = None
 
-    def __call__(self, model_name: str = 'v_48_020', backbone_noise: float = 0., **kwargs) -> ProteinMPNN:
+    def __call__(self, model_name: str = 'v_48_020', backbone_noise: float = 0., ca_only: bool = False, **kwargs) \
+            -> ProteinMPNN:
         """Return the specified ProteinMPNN object singleton
 
         Args:
-            model_name: The name of the model to use from ProteinMPNN. v_X_Y where X is neighbor distance, and Y is noise
+            model_name: The name of the model to use from ProteinMPNN taking the format v_X_Y,
+                where X is neighbor distance and Y is noise
             backbone_noise: The amount of backbone noise to add to the pose during design
+            ca_only: Whether a minimal CA variant of the protein should be used for design calculations
         Returns:
             The instance of the initialized ProteinMPNN model
         """
-        model_name_key = f'{model_name}_{backbone_noise}'
+        if ca_only:
+            ca = '_ca'
+            if model_name == 'v_48_030':
+                logger.error(f"No such ca_only model 'v_48_030'. Loading ca_only model 'v_48_020' (highest "
+                             f"backbone noise ca_only model) instead")
+                model_name = 'v_48_020'
+        else:
+            ca = ''
+        model_name_key = f'{model_name}{ca}_{backbone_noise}'
         model = self._models.get(model_name_key)
         if model:
             return model
@@ -335,8 +346,11 @@ class ProteinMPNNFactory:
                     self.device = torch.device('cpu')
                 logger.info(f'Loading ProteinMPNN model "{model_name_key}" to device: {self.device}')
 
-            checkpoint = torch.load(os.path.join(utils.path.protein_mpnn_weights_dir, f'{model_name}.pt'),
-                                    map_location=self.device)
+            if ca_only:
+                weights_dir = utils.path.protein_mpnn_ca_weights_dir
+            else:
+                weights_dir = utils.path.protein_mpnn_weights_dir
+            checkpoint = torch.load(os.path.join(weights_dir, f'{model_name}.pt'), map_location=self.device)
             hidden_dim = 128
             num_layers = 3
             with torch.no_grad():

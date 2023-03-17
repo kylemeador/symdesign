@@ -2600,7 +2600,8 @@ class PoseProtocol(PoseData):
                                        temperatures=self.job.design.temperatures,
                                        # interface=interface, neighbors=neighbors,
                                        interface=self.job.design.interface, neighbors=self.job.design.neighbors,
-                                       ca_only=self.job.design.ca_only
+                                       ca_only=self.job.design.ca_only,
+                                       model_name=self.job.design.proteinmpnn_model_name
                                        )
         # self.log.debug(f"Took {time.time() - design_start:8f}s for design_sequences")
 
@@ -3156,7 +3157,8 @@ class PoseProtocol(PoseData):
         # rosetta_residues_df['design_residue'] = 1
         # rosetta_residues_df = rosetta_residues_df.unstack().swaplevel(0, 1, axis=1)
         # Todo only score if it hasn't been scored previously...
-        sequences_and_scores = self.pose.score(list(design_sequences.values()))
+        sequences_and_scores = self.pose.score(list(design_sequences.values()),
+                                               model_name=self.job.design.proteinmpnn_model_name)
         sequences_and_scores.update({'design_indices': design_residues})
         # sequences_and_scores = {
         #     'design_indices': design_residues,
@@ -3675,7 +3677,8 @@ class PoseProtocol(PoseData):
         design_sequences = {design.name: design.sequence for design in designs}
         design_names = list(design_sequences.keys())
         # sequences_df = self.analyze_sequence_metrics_per_design(sequences=design_sequences)
-        sequences_and_scores = self.pose.score(list(design_sequences.values()))
+        sequences_and_scores = self.pose.score(list(design_sequences.values()),
+                                               model_name=self.job.design.proteinmpnn_model_name)
         sequences_and_scores['design_indices'] = design_residue_df.values
 
         mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
@@ -3773,7 +3776,7 @@ class PoseProtocol(PoseData):
 
         # Score using proteinmpnn
         sequences = [self.pose.sequence]
-        sequences_and_scores = self.pose.score(sequences)
+        sequences_and_scores = self.pose.score(sequences, model_name=self.job.design.proteinmpnn_model_name)
         # design_residues = np.zeros((1, pose_length), dtype=bool)
         # design_residues[interface_residue_indices] = 1
         sequences_and_scores['design_indices'] = np.zeros((1, pose_length), dtype=bool)

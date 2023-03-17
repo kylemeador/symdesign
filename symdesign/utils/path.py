@@ -110,6 +110,7 @@ hhsuite_setup_comand = f'python {setup_exe} --hhsuite-dependencies'
 rosetta_str = 'rosetta'
 proteinmpnn = 'proteinmpnn'
 protein_mpnn_dir = 'ProteinMPNN'
+protein_mpnn_ca_weights_dir = os.path.join(third_party_dir, protein_mpnn_dir, 'ca_model_weights')
 protein_mpnn_weights_dir = os.path.join(third_party_dir, protein_mpnn_dir, 'vanilla_model_weights')
 
 temp = 'temp.hold'

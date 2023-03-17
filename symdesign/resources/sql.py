@@ -556,6 +556,7 @@ class JobProtocol(Base):
     design_protocols = relationship('DesignProtocol', back_populates='job')
 
     ca_only = Column(Boolean)  # design/score
+    proteinmpnn_model_name = Column(String(10))  # design/score
     contiguous_ghosts = Column(Boolean)  # dock
     evolution_constraint = Column(Boolean)  # design
     initial_z_value = Column(Integer)  # dock

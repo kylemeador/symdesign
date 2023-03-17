@@ -6841,7 +6841,7 @@ class Pose(SymmetricModel, Metrics):
                 return ml.proteinmpnn_batch_score(*args, **_kwargs)
 
             # Set up the model with the desired weights
-            proteinmpnn_model = ml.proteinmpnn_factory(**kwargs)
+            proteinmpnn_model = ml.proteinmpnn_factory(ca_only=ca_only, **kwargs)
             device = proteinmpnn_model.device
 
             # Send the numpy array to torch.tensor and the device
@@ -6931,7 +6931,7 @@ class Pose(SymmetricModel, Metrics):
 
             # Set up the model with the desired weights
             size = number
-            proteinmpnn_model = ml.proteinmpnn_factory(**kwargs)
+            proteinmpnn_model = ml.proteinmpnn_factory(ca_only=ca_only, **kwargs)
             device = proteinmpnn_model.device
             batch_length = ml.calculate_proteinmpnn_batch_length(proteinmpnn_model, number_of_residues)
             # batch_length = ml.PROTEINMPNN_DESIGN_BATCH_LEN

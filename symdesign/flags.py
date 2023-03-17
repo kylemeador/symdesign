@@ -109,14 +109,15 @@ background_profile = 'background_profile'
 pdb_codes1 = 'pdb_codes1'
 pdb_codes2 = 'pdb_codes2'
 update_metadata = 'update_metadata'
+proteinmpnn_model_name = 'proteinmpnn_model_name'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
 }
 design_namespace = {
-    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, design_method, evolution_constraint,
-    hbnet, design_number, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
-    sequences, structures, interface, neighbors
+    consensus, ca_only, design_method, design_number, evolution_constraint, hbnet, ignore_clashes,
+    ignore_pose_clashes, ignore_symmetric_clashes, interface, neighbors, proteinmpnn_model_name, scout,
+    sequences, structure_background, structures, term_constraint, temperatures
 }
 dock_namespace = {
     contiguous_ghosts, dock_filter, dock_filter_file, dock_weight, dock_weight_file, initial_z_value, match_value,
@@ -286,6 +287,7 @@ background_profile = format_for_cmdline(background_profile)
 pdb_codes1 = format_for_cmdline(pdb_codes1)
 pdb_codes2 = format_for_cmdline(pdb_codes2)
 update_metadata = format_for_cmdline(update_metadata)
+proteinmpnn_model_name = format_for_cmdline(proteinmpnn_model_name)
 
 select_modules = (
     select_poses,
@@ -1041,7 +1043,13 @@ hbnet_args = ('-hb', f'--{hbnet}')
 hbnet_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
                     help=f'Whether to include hydrogen bond networks in the design.'
                          f'\n{boolean_positional_prevent_msg(hbnet)}')
-
+proteinmpnn_models = ['v_48_002', 'v_48_010', 'v_48_020', 'v_48_030']
+proteinmpnn_model_name_args = (f'--{proteinmpnn_model_name}',)
+proteinmpnn_model_name_kwargs = dict(choices=proteinmpnn_models, default='v_48_020',
+                                     help='The name of the model to use for proteinmpnn design/scoring\n'
+                                          'where the model name takes the form v_X_Y, with X indicating\n'
+                                          'The number of neighbors, and Y indicating the training noise\n'
+                                          'Default=%(default)s')
 structure_background_args = ('-sb', f'--{structure_background}')
 structure_background_kwargs = dict(action='store_true',  # action=argparse.BooleanOptionalAction, default=False,
                                    help='Whether to skip all constraints and measure the structure\nusing only the '
@@ -1074,9 +1082,10 @@ parser_design = {design: dict(description=design_help, help=design_help)}
 design_arguments = {
     ca_only_args: ca_only_kwargs,
     design_method_args: design_method_kwargs,
+    design_number_args: design_number_kwargs,
     evolution_constraint_args: evolution_constraint_kwargs,
     hbnet_args: hbnet_kwargs,
-    design_number_args: design_number_kwargs,
+    proteinmpnn_model_name_args: proteinmpnn_model_name_kwargs,
     structure_background_args: structure_background_kwargs,
     scout_args: scout_kwargs,
     temperature_args: temperature_kwargs,

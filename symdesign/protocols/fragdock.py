@@ -2565,7 +2565,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # Initialize proteinmpnn for dock/design analysis
         if job.dock.proteinmpnn_score:
             # Retrieve the ProteinMPNN model
-            mpnn_model = ml.proteinmpnn_factory()  # Todo 1 accept model_name arg. Now just use the default
+            mpnn_model = ml.proteinmpnn_factory(ca_only=job.design.ca_only, model_name=job.design.proteinmpnn_model_name)
             # Set up model sampling type based on symmetry
             if pose.is_symmetric():
                 # number_of_symmetry_mates = pose.number_of_symmetry_mates
