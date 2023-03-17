@@ -717,8 +717,7 @@ class StructureDatabase(Database):
                              f"ProteinMetadata.model_source for {data.entity_id}. Skipping loop model preprocessing")
                 continue
             # If data is here, it's model_source file should've been oriented...
-            entity_name = data.entity_id
-            if entity_name not in full_model_names:  # Assumes oriented_asu structure name is the same
+            if data.entity_id not in full_model_names:  # Assumes oriented_asu structure name is the same
                 protein_data_to_loop_model.append(data)
 
         info_messages = []
@@ -973,7 +972,7 @@ class StructureDatabase(Database):
                              f"ProteinMetadata.model_source for {data.entity_id}. Skipping refine preprocessing")
                 continue
             # If data is here, it's model_source file should've been oriented...
-            if entity_name not in refine_names:  # Assumes oriented_asu structure name is the same
+            if data.entity_id not in refine_names:  # Assumes oriented_asu structure name is the same
                 protein_data_to_refine.append(data)
 
         if protein_data_to_refine:
