@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import logging
 import os
 import operator
@@ -107,6 +108,7 @@ initialize_building_blocks = 'initialize_building_blocks'
 background_profile = 'background_profile'
 pdb_codes1 = 'pdb_codes1'
 pdb_codes2 = 'pdb_codes2'
+update_metadata = 'update_metadata'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -283,6 +285,7 @@ initialize_building_blocks = format_for_cmdline(initialize_building_blocks)
 background_profile = format_for_cmdline(background_profile)
 pdb_codes1 = format_for_cmdline(pdb_codes1)
 pdb_codes2 = format_for_cmdline(pdb_codes2)
+update_metadata = format_for_cmdline(update_metadata)
 
 select_modules = (
     select_poses,
@@ -637,6 +640,26 @@ class Formatter(argparse.RawTextHelpFormatter, argparse.RawDescriptionHelpFormat
             return ', '.join(parts)
 
 
+# Retrieved from 'https://stackoverflow.com/questions/29986185/python-argparse-dict-arg'
+class StoreDictKeyPair(argparse.Action):
+    def __init__(self, option_strings, dest, nargs=None, **kwargs):
+        self._nargs = nargs
+        super(StoreDictKeyPair, self).__init__(option_strings, dest, nargs=nargs, **kwargs)
+
+    def __call__(self, parser_, namespace, values, option_string=None):
+        # print(f'{StoreDictKeyPair.__name__} received values: {values}')
+        # # May have to use this if used as a subparser
+        # my_dict = getattr(namespace, self.dest, {})
+        # input(f'existing my_dict: {my_dict}')
+        my_dict = {}
+        for kv in values:
+            k, v = kv.split('=')
+            my_dict[k] = ast.literal_eval(v)
+
+        # print(f'Final parsed: {my_dict}')
+        setattr(namespace, self.dest, my_dict)
+
+
 # The help strings can include various format specifiers to avoid repetition of things like the program name or the
 # argument default. The available specifiers include the program name, %(prog)s and most keyword arguments to
 # add_argument(), e.g. %(default)s, %(type)s, etc.:
@@ -969,8 +992,10 @@ parser_initialize_building_blocks = {initialize_building_blocks:
                                      dict(description=initialize_building_blocks_help,
                                           help=initialize_building_blocks_help)}
 initialize_building_blocks_arguments = {
-    **nanohedra_mutual1_arguments
-    # ('-',): dict(help=''),
+    **nanohedra_mutual1_arguments,
+    (f'--{update_metadata}',): dict(nargs='*', action=StoreDictKeyPair,
+                                    help='Whether ProteinMetadata should be update with some\n'
+                                         'particular value in the database'),
 }
 # ---------------------------------------------------
 cluster_map_args = ('-c', f'--{cluster_map}')

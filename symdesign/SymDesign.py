@@ -908,11 +908,24 @@ def main():
                             data.model_source = protein_metadata.model_source
                             logger.info(f'Set existing {data}.model_source to new {protein_metadata}.model_source')
 
-            # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
-            initialize_entities(uniprot_entities, all_uniprot_id_to_prot_data.values(),
-                                batch_commands=job.distribute_work)
-            session.commit()
-            terminate(output=False)
+            if job.update_metadata:
+                for attribute, value in job.update_metadata.items():
+                    try:
+                        getattr(sql.ProteinMetadata, attribute)
+                    except AttributeError:
+                        raise utils.InputError(
+                            f"Couldn't set the {sql.ProteinMetadata.__name__} attribute '.{attribute}' as it doesn't "
+                            f"exist")
+                    for uniprot_id, protein_metadata in all_uniprot_id_to_prot_data.items():
+                        setattr(protein_metadata, attribute, value)
+                session.commit()
+                terminate(output=False)
+            else:
+                # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
+                initialize_entities(uniprot_entities, all_uniprot_id_to_prot_data.values(),
+                                    batch_commands=job.distribute_work)
+                session.commit()
+                terminate(output=False)
         elif job.module == flags.nanohedra:
             # logger.info(f'Setting up inputs for {job.module.title()} docking')
             job.sym_entry.log_parameters()

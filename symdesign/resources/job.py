@@ -398,7 +398,7 @@ class JobResources:
             process_design_selector_flags(**kwargs)
         # self.design_selector = kwargs.get('design_selector', {})
 
-        # Docking flags
+        self.update_metadata = kwargs.get('update_metadata')
         pdb_codes1 = kwargs.get('pdb_codes1')
         if pdb_codes1:
             # Collect all provided codes required for component 1 processing
@@ -419,6 +419,7 @@ class JobResources:
         else:
             self.pdb_codes2 = None
 
+        # Docking flags
         self.dock = Dock.from_flags(**kwargs)
         if self.development:
             self.dock.quick = True
