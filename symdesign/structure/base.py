@@ -703,7 +703,8 @@ class StructureBase(SymmetryMixin, ABC):
         elif isinstance(log, Log):
             self._log.log = log.log
         else:
-            raise TypeError(f"Can't set Log to {type(log).__name__}. Must be type logging.Logger")
+            raise TypeError(
+                f"Can't set Log to {type(log).__name__}. Must be type logging.Logger")
 
     @property  # Todo return StructureIndex
     def atom_indices(self) -> list[int] | None:
@@ -734,9 +735,10 @@ class StructureBase(SymmetryMixin, ABC):
         # # Update the whole Coords.coords as symmetry is not everywhere
         # self._coords.replace(self._atom_indices, coords)
         # Check for coordinate update requirements
-        if self.is_parent() and self.is_symmetric() \
-                and self.has_symmetric_dependents() and not self._dependent_is_updating:
-            # This Structure is a symmetric parent, update dependent coords to update the parent
+        # if self.is_parent() and self.is_symmetric() \
+        #         and self.has_symmetric_dependents() and not self._dependent_is_updating:
+        if self.is_parent() and self.has_symmetric_dependents() and not self._dependent_is_updating:
+            # This Structure is a parent with symmetric dependents, update dependent coords to update the parent
             self.log.debug(f'Updating symmetric dependent coords')
             for dependent in self.symmetric_dependents:
                 dependent._parent_is_updating = True
@@ -744,7 +746,8 @@ class StructureBase(SymmetryMixin, ABC):
                 dependent.coords = coords[dependent.atom_indices]
                 dependent._parent_is_updating = False
 
-        # Setting this after because symmetric dependents use these coords
+        # Setting this after the dependent.coords set, because symmetric dependents use .coords
+        # and setting before removes dependent reference
         self._coords.replace(self._atom_indices, coords)
 
     def reset_state(self):
@@ -4398,18 +4401,18 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             rotation2: The second rotation to apply, expected array shape (3, 3)
             translation2: The second translation to apply, expected array shape (3,)
         """
-        if rotation is not None:  # required for np.ndarray or None checks
+        if rotation is not None:  # Required for np.ndarray or None checks
             new_coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))  # Essentially a transpose
         else:
             new_coords = self.coords  # No need to copy as this is a view
 
-        if translation is not None:  # required for np.ndarray or None checks
+        if translation is not None:  # Required for np.ndarray or None checks
             new_coords += translation
 
-        if rotation2 is not None:  # required for np.ndarray or None checks
-            np.matmul(new_coords, rotation2.swapaxes(-2, -1), out=new_coords)  # Essentially a transpose
+        if rotation2 is not None:  # Required for np.ndarray or None checks
+            np.matmul(new_coords, rotation2.swapaxes(-2, -1), out=new_coords)
 
-        if translation2 is not None:  # required for np.ndarray or None checks
+        if translation2 is not None:  # Required for np.ndarray or None checks
             new_coords += translation2
 
         self.coords = new_coords

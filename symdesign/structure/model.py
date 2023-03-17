@@ -1415,7 +1415,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     @symmetry.setter
     def symmetry(self, symmetry: str | None):
         self._symmetry = symmetry
-        if self.is_dependent():
+        if symmetry and self.is_dependent():
             # Set the parent Structure.symmetric_dependents to the entities attribute
             self.parent.symmetric_dependents = 'entities'
 
@@ -1601,25 +1601,25 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             self.symmetry (str)
         """
         try:
-            if symmetry is None or symmetry == 'C1':  # not symmetric
+            if symmetry is None or symmetry == 'C1':  # Not symmetric
                 return
             elif symmetry in utils.symmetry.cubic_point_groups:
-                # must transpose these along last axis as they are pre-transposed upon creation
+                # Must transpose these along last axis as they are pre-transposed upon creation
                 rotation_matrices = utils.symmetry.point_group_symmetry_operators[symmetry].swapaxes(-2, -1)
                 degeneracy_matrices = None  # Todo may need to add T degeneracy here!
-            elif 'D' in symmetry:  # provide a 180-degree rotation along x (all D orient symmetries have axis here)
+            elif 'D' in symmetry:  # Provide a 180-degree rotation along x (all D orient symmetries have axis here)
                 rotation_matrices = \
                     utils.SymEntry.get_rot_matrices(utils.symmetry.rotation_range[symmetry.replace('D', 'C')], 'z', 360)
                 degeneracy_matrices = [utils.symmetry.identity_matrix, utils.symmetry.flip_x_matrix]
-            else:  # symmetry is cyclic
+            else:  # Symmetry is cyclic
                 rotation_matrices = utils.SymEntry.get_rot_matrices(utils.symmetry.rotation_range[symmetry], 'z')
                 degeneracy_matrices = None
             degeneracy_rotation_matrices = utils.SymEntry.make_rotations_degenerate(rotation_matrices,
                                                                                     degeneracy_matrices)
         except KeyError:
-            raise ValueError(f"The symmetry {symmetry} isn't viable! You add compatibility "
-                             f'for it if you believe this is a mistake. Try increasing the global MAXIMUM_SYMMETRY '
-                             f'which is currently = {utils.symmetry.MAX_SYMMETRY}')
+            raise ValueError(
+                f"Symmetry {symmetry} isn't viable, You can add compatibility for it if you believe this is a mistake. "
+                f'Try increasing utils.symmetry.MAXIMUM_SYMMETRY which is currently = {utils.symmetry.MAX_SYMMETRY}')
 
         self.symmetry = symmetry
         # self._is_captain = True
@@ -2033,8 +2033,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         try:
             subunit_number = utils.symmetry.valid_subunit_number[symmetry]
         except KeyError:
-            SymmetryError(f'{self.orient.__name__}: Symmetry {symmetry} is not a valid symmetry. '
-                          f'Please try one of: {", ".join(utils.symmetry.valid_symmetries)}')
+            SymmetryError(
+                f"{self.orient.__name__}: Symmetry {symmetry} isn't a valid symmetry. Please try one of: "
+                f'{", ".join(utils.symmetry.valid_symmetries)}')
             return
 
         # if not log:
@@ -2053,10 +2054,12 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             return
         elif number_of_subunits > 1:
             if number_of_subunits != subunit_number:
-                raise SymmetryError(f'{file_name} could not be oriented: It has {number_of_subunits} subunits '
-                                    f'while a multiple of {subunit_number} are expected for {symmetry} symmetry')
+                raise SymmetryError(
+                    f"{file_name} couldn't be oriented: It has {number_of_subunits} subunits while a multiple of "
+                    f'{subunit_number} are expected for {symmetry} symmetry')
         else:
-            raise SymmetryError(f"{self.name}: Can't orient a Structure with only a single chain. No symmetry present")
+            raise SymmetryError(
+                f"{self.name}: Can't orient a Structure with only a single chain. No symmetry present")
 
         orient_input = Path(putils.orient_exe_dir, 'input.pdb')
         orient_output = Path(putils.orient_exe_dir, 'output.pdb')
@@ -2082,7 +2085,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             except IndexError:  # No handlers attached
                 log_file = None
             log_message = f'. Check {log_file} for more information' if log_file else ''
-            raise RuntimeError(f'{putils.orient_exe_path} could not orient {file_name}{log_message}')
+            raise RuntimeError(
+                f"{putils.orient_exe_path} couldn't orient {file_name}{log_message}")
 
         oriented_pdb = Entity.from_file(str(orient_output), name=self.name, log=self.log)
         orient_fixed_struct = oriented_pdb.chains[0]
@@ -3091,8 +3095,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         try:
             subunit_number = utils.symmetry.valid_subunit_number[symmetry]
         except KeyError:
-            SymmetryError(f'{self.orient.__name__}: Symmetry {symmetry} is not a valid symmetry. '
-                          f'Please try one of: {", ".join(utils.symmetry.valid_symmetries)}')
+            SymmetryError(
+                f"{self.orient.__name__}: Symmetry {symmetry} isn't a valid symmetry. Please try one of: "
+                f'{", ".join(utils.symmetry.valid_symmetries)}')
             return
 
         # if not log:
@@ -3115,10 +3120,12 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 if number_of_subunits in utils.symmetry.multicomponent_valid_subunit_number.get(symmetry):
                     multicomponent = True
                 else:
-                    raise SymmetryError(f'{file_name} could not be oriented: It has {number_of_subunits} subunits '
-                                        f'while a multiple of {subunit_number} are expected for {symmetry} symmetry')
+                    raise SymmetryError(
+                        f"{file_name} couldn't be oriented: It has {number_of_subunits} subunits while a multiple of "
+                        f'{subunit_number} are expected for {symmetry} symmetry')
         else:
-            raise SymmetryError(f"{self.name}: Can't orient a Structure with only a single chain. No symmetry present")
+            raise SymmetryError(
+                f"{self.name}: Can't orient a Structure with only a single chain. No symmetry present")
 
         orient_input = Path(putils.orient_exe_dir, 'input.pdb')
         orient_output = Path(putils.orient_exe_dir, 'output.pdb')
@@ -3147,7 +3154,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             except IndexError:  # No handlers attached
                 log_file = None
             log_message = f'. Check {log_file} for more information' if log_file else ''
-            raise RuntimeError(f'{putils.orient_exe_path} could not orient {file_name}{log_message}')
+            raise RuntimeError(
+                f"{putils.orient_exe_path} couldn't orient {file_name}{log_message}")
 
         oriented_pdb = Model.from_file(str(orient_output), name=self.name, entities=False, log=self.log)
         orient_fixed_struct = oriented_pdb.chains[0]
@@ -6037,8 +6045,8 @@ class SymmetricModel(Models):
             symmetry: The symmetry of the Structure
         """
         if self.is_symmetric():
-            raise NotImplementedError(f"{self.orient.__name__} isn't available for symmetric {self.__class__.__name__} "
-                                      "instances")
+            raise NotImplementedError(
+                f"{self.orient.__name__} isn't available for symmetric {self.__class__.__name__} instances")
             # Todo is this method at all useful? Could there be a situation where the symmetry is right,
             #  but the axes aren't in their canonical locations?
         else:
