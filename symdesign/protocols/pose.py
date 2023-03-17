@@ -2018,6 +2018,7 @@ class PoseProtocol(PoseData):
         design_ids = [design.id for design in sequences]
 
         putils.make_path(self.designs_path)
+        model_names = []
         asu_design_structures = []  # structure_by_design = {}
         asu_design_scores = {}  # []  # scores_by_design = {}
         for design, sequence in sequences.items():
@@ -2056,6 +2057,7 @@ class PoseProtocol(PoseData):
                 self.log.critical(f"Couldn't find the asu model with the minimal rmsd for Design {design}")
             # Append each ASU result to the full return
             asu_design_structures.append(asu_models[minimum_model])
+            model_names.append(minimum_model)
             # structure_by_design[design].append(asu_models[minimum_model])
             # asu_design_scores.append({'rmsd_prediction_ensemble': rmsds, **asu_scores[minimum_model]})
             # Average all models scores to get the ensemble of the predictions
@@ -2072,11 +2074,12 @@ class PoseProtocol(PoseData):
             """
 
         # Write the folded structure to designs_path and update DesignProtocols
-        for design_data, pose in zip(sequences.keys(), asu_design_structures):
+        for idx, (design_data, pose) in enumerate(zip(sequences.keys(), asu_design_structures)):
             design_data.structure_path = pose.write(out_path=os.path.join(self.designs_path, f'{design_data.name}.pdb'))
             design_data.protocols.append(sql.DesignProtocol(design_id=design_data.id,
                                                             job_id=self.job.id,
                                                             protocol=self.protocol,
+                                                            alphafold_model=model_names[idx],
                                                             file=design_data.structure_path))
             # # This corrects the oligomeric specification for each Entity
             # # by using the inherent _assign_pose_transformation()

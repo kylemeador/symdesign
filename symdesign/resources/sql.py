@@ -582,6 +582,7 @@ class DesignProtocol(Base):
     design = relationship('DesignData', back_populates='protocols')
     file = Column(String(500))
     temperature = Column(Float)
+    alphafold_model = Column(Float)
 
 
 class DesignData(Base):
