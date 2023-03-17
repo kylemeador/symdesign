@@ -298,7 +298,7 @@ class PoseDirectory:
         try:
             return self._refined_pdb
         except AttributeError:
-            if self.pre_refine:
+            if self.refined:
                 self._refined_pdb = self.pose_path
             else:
                 # self.refined_pdb = None  # /root/Projects/project_Poses/design/design_name_refined.pdb
@@ -312,7 +312,7 @@ class PoseDirectory:
         try:
             return self._scouted_pdb
         except AttributeError:
-            if self.pre_refine:
+            if self.refined:
                 self._scouted_pdb = os.path.join(self.designs_path,
                                                  f'{os.path.basename(os.path.splitext(self.refined_pdb)[0])}_scout.pdb')
             else:

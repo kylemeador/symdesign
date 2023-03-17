@@ -488,6 +488,9 @@ def interface_design(job: pose.PoseJob):
         # Todo update upon completion given results of designs list file...
         job.update_design_data(design_parent=job.pose_source, number=job.job.design.number)
         favor_fragments = evo_fill = True
+        # Ensure the Pose is refined into the current_energy_function
+        if not job.refined and not os.path.exists(job.refined_pdb):
+            job.refine(gather_metrics=False)
     else:
         favor_fragments = evo_fill = False
 
@@ -516,10 +519,6 @@ def interface_design(job: pose.PoseJob):
     # -------------------------------------------------------------------------
     # Todo job.solve_consensus()
     # -------------------------------------------------------------------------
-
-    if not job.refined and not os.path.exists(job.refined_pdb):
-        job.refine(gather_metrics=False)
-
     putils.make_path(job.designs_path)
     # Acquire the pose_metrics if None have been made yet
     job.calculate_pose_metrics()
@@ -574,6 +573,9 @@ def design(job: pose.PoseJob):
             raise NotImplementedError(
                 f"Can't perform design using Rosetta just yet. Try {flags.interface_design} instead...")
         favor_fragments = evo_fill = True
+        # Ensure the Pose is refined into the current_energy_function
+        if not job.refined and not os.path.exists(job.refined_pdb):
+            job.refine(gather_metrics=False)
     else:
         favor_fragments = evo_fill = False
 
@@ -604,10 +606,6 @@ def design(job: pose.PoseJob):
     # -------------------------------------------------------------------------
     # Todo job.solve_consensus()
     # -------------------------------------------------------------------------
-
-    if not job.refined and not os.path.exists(job.refined_pdb):
-        job.refine(gather_metrics=False)
-
     putils.make_path(job.designs_path)
     # Acquire the pose_metrics if None have been made yet
     job.calculate_pose_metrics()
