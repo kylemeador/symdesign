@@ -15,7 +15,7 @@ from symdesign.utils import collect_designs, InputError, path as putils, pickle_
 logger = logging.getLogger(__name__)
 index_offset = 1
 mpi = 4
-hhblits_memory_threshold = 30000000000  # 30GB
+hhblits_memory_threshold = 20e9  # 20 GB
 default_shell = 'bash'
 sbatch = 'sbatch'
 sb_flag = '#SBATCH --'

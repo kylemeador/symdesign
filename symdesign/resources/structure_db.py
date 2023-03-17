@@ -116,44 +116,44 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = putils.pd
         return pdb_file[0]
 
 
-def orient_structure_files(files: Iterable[AnyStr], log: Logger = logger, symmetry: str = None,
-                           out_dir: AnyStr = None) -> list[str] | list:
-    """For a specified file and output directory, orient the file according to the provided symmetry where the
-    resulting file will have the chains symmetrized and oriented in the coordinate frame as to have the major axis
-    of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the monomer
-    will be transformed so the center of mass resides at the origin
-
-    Args:
-        files: The location of the files to be oriented
-        log: A log to report on operation success
-        symmetry: The symmetry type to be oriented. Possible types in SymmetryUtils.valid_subunit_number
-        out_dir: The directory that should be used to output files
-    Returns:
-        Filepath of oriented PDB
-    """
-    file_paths = []
-    for file in files:
-        model_name, extension = os.path.splitext(os.path.basename(file))
-        # Todo refactor this file_path resolution as not very precise for mmcif files...
-        if '.pdb' in extension:  # Use the original extension which may have an assembly provided
-            output_extension = extension
-        else:  # This could be mmcif
-            output_extension = '.pdb'
-
-        oriented_file_path = os.path.join(out_dir, f'{model_name}{output_extension}')  # .pdb')
-        if not os.path.exists(oriented_file_path):
-            # Must load entities to solve multi-component orient problem
-            model = structure.model.Model.from_file(file, log=log)
-            try:
-                model.orient(symmetry=symmetry)
-            except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
-                log.error(str(error))
-                continue
-            model.write(out_path=oriented_file_path)
-            log.info(f'Oriented: {model_name}')
-
-        file_paths.append(oriented_file_path)
-    return file_paths
+# def orient_structure_files(files: Iterable[AnyStr], log: Logger = logger, symmetry: str = None,
+#                            out_dir: AnyStr = None) -> list[str] | list:
+#     """For a specified file and output directory, orient the file according to the provided symmetry where the
+#     resulting file will have the chains symmetrized and oriented in the coordinate frame as to have the major axis
+#     of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the monomer
+#     will be transformed so the center of mass resides at the origin
+#
+#     Args:
+#         files: The location of the files to be oriented
+#         log: A log to report on operation success
+#         symmetry: The symmetry type to be oriented. Possible types in SymmetryUtils.valid_subunit_number
+#         out_dir: The directory that should be used to output files
+#     Returns:
+#         Filepath of oriented PDB
+#     """
+#     file_paths = []
+#     for file in files:
+#         model_name, extension = os.path.splitext(os.path.basename(file))
+#         # Todo refactor this file_path resolution as not very precise for mmcif files...
+#         if '.pdb' in extension:  # Use the original extension which may have an assembly provided
+#             output_extension = extension
+#         else:  # This could be mmcif
+#             output_extension = '.pdb'
+#
+#         oriented_file_path = os.path.join(out_dir, f'{model_name}{output_extension}')  # .pdb')
+#         if not os.path.exists(oriented_file_path):
+#             # Must load entities to solve multi-component orient problem
+#             model = structure.model.Model.from_file(file, log=log)
+#             try:
+#                 model.orient(symmetry=symmetry)
+#             except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
+#                 log.error(str(error))
+#                 continue
+#             model.write(out_path=oriented_file_path)
+#             log.info(f'Oriented: {model_name}')
+#
+#         file_paths.append(oriented_file_path)
+#     return file_paths
 
 
 def query_qs_bio(pdb_code: str) -> int:
@@ -203,6 +203,9 @@ class StructureDatabase(Database):
             list[structure.model.Model | structure.model.Entity]:
         """Given EntryIDs/EntityIDs, retrieve/save .pdb files, then return a Structure for each identifier
 
+        Defaults to fetching the biological assembly file, prioritizing the assemblies as predicted very high/high from
+        QSBio, then using the first assembly if QSBio is missing
+
         Args:
             structure_identifiers: The names of all entity_ids requiring orientation
             out_dir: The directory to write downloaded files to
@@ -234,6 +237,7 @@ class StructureDatabase(Database):
             #     # asu = True <- NOT NECESSARILY A MONOMERIC FILE!
             # else:
             #     asu = False
+            # Todo What about grabbing the asu? This always grabs the assembly as asu is False...
             if assembly is None:
                 assembly = query_qs_bio(entry)
             # Get the specified file_path for the assembly state of interest
@@ -444,6 +448,7 @@ class StructureDatabase(Database):
                 else:  # Empty list
                     non_viable_structures.append(structure_identifier)
                     continue
+
                 try:  # Orient the Structure
                     model.orient(symmetry=symmetry)
                 except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
