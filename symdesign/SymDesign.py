@@ -946,7 +946,8 @@ def main():
                                                 pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
             grouped_structures.append(structures1)
             structures2 = []
-            if args.oligomer1 != args.oligomer2:  # See if they are the same input
+            # See if they are the same input
+            if args.oligomer1 != args.oligomer2 or job.pdb_codes1 != job.pdb_codes2 or args.query_codes2:
                 structures2 = initialize_structures(symmetry=job.sym_entry.group2, oligomer=args.oligomer2,
                                                     pdb_codes=job.pdb_codes2, query_codes=args.query_codes2)
                 if structures2:
