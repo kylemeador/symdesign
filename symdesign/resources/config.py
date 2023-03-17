@@ -139,7 +139,7 @@ metrics = {
     'coordinate_constraint':
         dict(description='Total weight of coordinate constraints to keep design from moving in cartesian '
                          'space', direction=min_, function=normalize, filter=True),
-        'dock_collapse_deviation_magnitude':
+    'dock_collapse_deviation_magnitude':
         dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
                          ' total deviation in the hydrophobic collapse. Either more or less collapse prone',
              direction=min_, function=rank, filter=True),
@@ -325,9 +325,9 @@ metrics = {
              direction=min_, function=rank, filter=True),
     # 'entity_radius_ratio_v':
         # dict(description='', direction=None, function=None, filter=None),
-    'entity_rmsd_oligomer':
-        dict(description='Root Mean Square Deviation of all CA atoms between the designed and predicted oligomer',
-             direction=min_, function=normalize, filter=True),
+    # 'entity_rmsd_oligomer':
+    #     dict(description='Root Mean Square Deviation of all CA atoms between the designed and predicted oligomer',
+    #          direction=min_, function=normalize, filter=True),
     'entity_rmsd_prediction_deviation':
         dict(description='The deviation in the entity_rmsd_prediction_ensemble between the Entity and Pose structure '
                          'predictions',

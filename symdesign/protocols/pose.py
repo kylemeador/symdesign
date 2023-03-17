@@ -3869,7 +3869,7 @@ class PoseProtocol(PoseData):
 
         designs_df = self.analyze_design_metrics_per_residue(residues_df)
 
-        designed_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+        designed_df = residues_df.loc[:, idx_slice[:, 'design_residue']].droplevel(-1, axis=1)
 
         # designs_df[putils.protocol] = 'proteinmpnn'
         designs_df['proteinmpnn_score_complex'] = designs_df['proteinmpnn_loss_complex'] / pose_length
@@ -3877,9 +3877,11 @@ class PoseProtocol(PoseData):
         designs_df['proteinmpnn_score_delta'] = \
             designs_df['proteinmpnn_score_complex'] - designs_df['proteinmpnn_score_unbound']
         designs_df['proteinmpnn_score_complex_per_designed_residue'] = \
-            (residues_df.loc[:, idx_slice[:, 'proteinmpnn_loss_complex']] * designed_df).mean(axis=1)
+            (residues_df.loc[:, idx_slice[:, 'proteinmpnn_loss_complex']].droplevel(-1, axis=1)
+             * designed_df).mean(axis=1)
         designs_df['proteinmpnn_score_unbound_per_designed_residue'] = \
-            (residues_df.loc[:, idx_slice[:, 'proteinmpnn_loss_unbound']] * designed_df).mean(axis=1)
+            (residues_df.loc[:, idx_slice[:, 'proteinmpnn_loss_unbound']].droplevel(-1, axis=1)
+             * designed_df).mean(axis=1)
         designs_df['proteinmpnn_score_delta_per_designed_residue'] = \
             designs_df['proteinmpnn_score_complex_per_designed_residue'] \
             - designs_df['proteinmpnn_score_unbound_per_designed_residue']
@@ -4868,7 +4870,7 @@ class PoseProtocol(PoseData):
             residue_energy_pc = res_pca.fit_transform(residue_energy_np)
 
             seq_pca = skl.decomposition.PCA(resources.config.default_pca_variance)
-            designed_sequence_modifications = residues_df.loc[:, idx_slice[:, 'type']].sum(axis=1).to_list()
+            designed_sequence_modifications = residues_df.loc[:, idx_slice[:, 'type']].sum(axis=1).tolist()
             pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_sequence_modifications,
                                                                         sequence_difference))
             seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)

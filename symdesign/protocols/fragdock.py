@@ -2516,6 +2516,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     #     Returns:
     #         A tuple of DataFrames representing the per-pose and the per-residue metrics. Each has indices from 0-N
     #     """
+    idx_slice = pd.IndexSlice
 
     def collect_dock_metrics() -> tuple[pd.DataFrame, pd.DataFrame]:  # -> dict[str, np.ndarray]:
         """Perform analysis on the docked Pose instances
@@ -2525,9 +2526,6 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         """
         logger.info(f'Collecting metrics for {number_of_transforms} active Poses')
 
-        idx_slice = pd.IndexSlice
-        # Unpack scores for output
-        collapse_violation = list(repeat(None, number_of_transforms))
         # Get metrics for each Pose
         # nan_blank_data = list(repeat(np.nan, pose_length))
         # unbound_errat = []
@@ -3028,23 +3026,24 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # poses_df = poses_df.join(summed_poses_df.drop('sequence', axis=1))
         if job.dock.proteinmpnn_score:
             poses_df = poses_df.join(summed_poses_df.drop('number_residues_interface', axis=1))
-            interface_df = residues_df.loc[:, idx_slice[:, 'interface_residue']]
+            # .droplevel(-1, axis=1) operations are REQUIRED here or the caluclations are messed up
+            interface_df = residues_df.loc[:, idx_slice[:, 'interface_residue']].droplevel(-1, axis=1)
             poses_df['dock_collapse_new_positions'] = \
-                (residues_df.loc[:, idx_slice[:, 'dock_collapse_new_positions']]
+                (residues_df.loc[:, idx_slice[:, 'dock_collapse_new_positions']].droplevel(-1, axis=1)
                  * interface_df).sum(axis=1)
             # Update the total loss according to those residues that were actually specified as designable
             poses_df['proteinmpnn_dock_cross_entropy_per_residue'] = \
-                (residues_df.loc[:, idx_slice[:, 'proteinmpnn_dock_cross_entropy_loss']]
+                (residues_df.loc[:, idx_slice[:, 'proteinmpnn_dock_cross_entropy_loss']].droplevel(-1, axis=1)
                  * interface_df).mean(axis=1)
             poses_df['proteinmpnn_v_design_probability_cross_entropy_loss'] = \
                 (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_design_probability_cross_entropy_loss']]
-                 * interface_df).mean(axis=1)
+                 .droplevel(-1, axis=1) * interface_df).mean(axis=1)
             poses_df['proteinmpnn_v_evolution_probability_cross_entropy_loss'] = \
                 (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_evolution_probability_cross_entropy_loss']]
-                 * interface_df).mean(axis=1)
+                 .droplevel(-1, axis=1) * interface_df).mean(axis=1)
             poses_df['proteinmpnn_v_fragment_probability_cross_entropy_loss'] = \
                 (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_fragment_probability_cross_entropy_loss']]
-                 * interface_df).mean(axis=1)
+                 .droplevel(-1, axis=1) * interface_df).mean(axis=1)
 
             # scores_df['collapse_new_positions'] /= scores_df['pose_length']
             # scores_df['collapse_new_position_significance'] /= scores_df['pose_length']
@@ -3066,6 +3065,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 poses_df['dock_collapse_sequential_peaks_z'] / total_increased_collapse
             poses_df['dock_collapse_sequential_z_mean'] = \
                 poses_df['dock_collapse_sequential_z'] / total_increased_collapse
+            poses_df['dock_collapse_violation'] = poses_df['dock_collapse_new_positions'] > 0
 
             # Update the per_residue loss according to those residues involved in the scoring
             poses_df['proteinmpnn_v_fragment_probability_cross_entropy_per_residue'] = \
@@ -3077,6 +3077,9 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             #     poses_df['proteinmpnn_v_evolution_probability_cross_entropy_loss'] / pose_length
         else:
             poses_df = poses_df.join(summed_poses_df)
+
+        # Finally add the precalculated pose_thermophilicity for completeness
+        poses_df['pose_thermophilicity'] = pose_thermophilicity
 
         # scores_df = metrics.columns_to_new_column(scores_df, metrics.delta_pairs, mode='sub')
         # scores_df = metrics.columns_to_new_column(scores_df, metrics.division_pairs, mode='truediv')
