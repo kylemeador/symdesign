@@ -1106,9 +1106,12 @@ def main():
 
                 # Format commands
                 cmd = ['python', putils.program_exe] + submitted_args
-                commands = [cmd.copy() + [f'--{flags.nano_entity_flag1}', model1.file_path,
-                                          f'--{flags.nano_entity_flag2}', model2.file_path]
+                commands = [cmd.copy() + [f'--{flags.pdb_codes1}', model1.name,
+                                          f'--{flags.pdb_codes2}', model2.name]
                             for idx, (model1, model2) in enumerate(pose_jobs)]
+                # commands = [cmd.copy() + [f'--{flags.nano_entity_flag1}', model1.file_path,
+                #                           f'--{flags.nano_entity_flag2}', model2.file_path]
+                #             for idx, (model1, model2) in enumerate(pose_jobs)]
                 # logger.debug([list2cmdline(cmd) for cmd in commands])
                 # utils.write_shell_script(list2cmdline(commands), name=flags.nanohedra, out_path=job.job_paths)
                 terminate(results=commands)
