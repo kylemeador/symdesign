@@ -1951,6 +1951,10 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         for entity in model.entities:
             pose.entities[next(entity_idx)].metadata = entity.metadata
 
+    # Calculate thermophilicity
+    is_thermophilic = [entity.thermophilicity for idx, entity in enumerate(pose.entities, idx)]
+    pose_thermophilicity = sum(is_thermophilic) / pose.number_of_entities
+
     # Define functions for updating the single Pose instance coordinates
     # def create_specific_transformation(idx: int) -> tuple[dict[str, np.ndarray], ...]:
     #     """Take the current transformation index and create a mapping of the transformation operations

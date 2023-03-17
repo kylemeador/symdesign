@@ -709,7 +709,9 @@ class JobResources:
         if self.module == flags.design:
             protocol_kwargs = dict(
                 ca_only=self.design.ca_only,
+                evolution_constraint=self.design.evolution_constraint,
                 interface=self.design.interface,
+                term_constraint=self.design.term_constraint,
                 neighbors=self.design.neighbors,
                 proteinmpnn_model_name=self.design.proteinmpnn_model_name,
             )
@@ -743,8 +745,6 @@ class JobResources:
         protocol_kwargs.update(dict(
             module=self.module,
             commit=putils.commit,
-            evolution_constraint=self.design.evolution_constraint,
-            term_constraint=self.design.term_constraint,
         ))
 
         job_protocol_stmt = select(sql.JobProtocol)\
