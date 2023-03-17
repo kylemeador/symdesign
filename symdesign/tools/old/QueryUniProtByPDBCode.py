@@ -105,7 +105,7 @@ def main():
             break
         else:
             print('Invalid choice.')
-            # main()
+            lookupmethod = input('\nChoose search method: 1. Look up by PDB; 2. Look up by UniProtID\n(1/2): ')
 
     lookupattribute(uniprotid, attributedict)
     restartall = input('Start a new search? (y/n): ').lower().strip()
