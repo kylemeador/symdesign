@@ -46,7 +46,6 @@ from symdesign.structure.fragment.db import fragment_factory, euler_factory
 from symdesign.structure.model import Entity, Model, Pose
 # from symdesign.structure import utils as stutils
 from symdesign.sequence import create_mulitcistronic_sequences
-from symdesign.utils import guide, nanohedra
 
 
 sbatch_warning = 'Ensure the SBATCH script(s) below are correct. Specifically, check that the job array and any '\
@@ -582,6 +581,7 @@ def main():
                 structure_uniprot_ids.append(uniprot_ids)  # protein_metadata)
             structures_ids.append((structure.name, structure_uniprot_ids))
 
+        # Todo could simplify the return to not return (name, [uniprot_ids, ...]), just [uniprot_ids]
         return structures_ids, uniprot_ids_to_prot_metadata
     # -----------------------------------------------------------------------------------------------------------------
     # Start Program
@@ -599,7 +599,7 @@ def main():
     if args.module:
         if args.guide:
             try:
-                module_guide = getattr(guide, args.module.replace('-', '_'))
+                module_guide = getattr(utils.guide, args.module.replace('-', '_'))
                 exit(module_guide)
             except AttributeError:
                 exit(f'There is no guide created for {args.module} yet. Try --help instead of --guide')
@@ -613,15 +613,15 @@ def main():
             #              putils.ex_path('pose_directory'), SDUtils.ex_path('DataFrame.csv'),
             #              putils.ex_path('design.paths')))
         # else:  # Print the full program readme and exit
-        #     guide.print_guide()
+        #     utils.guide.print_guide()
         #     exit()
     elif args.setup:
-        guide.setup_instructions()
+        utils.guide.setup_instructions()
         exit()
     elif args.help:
         pass  # Let the entire_parser handle their formatting
     else:  # Print the full program readme and exit
-        guide.print_guide()
+        utils.guide.print_guide()
         exit()
 
     # ---------------------------------------------------
@@ -665,7 +665,7 @@ def main():
         sys.argv = ['symdesign', '--help']
     elif args.module == flags.nanohedra:
         if args.query:  # Submit before we check for additional_args as query comes with additional args
-            nanohedra.cmdline.query_mode([__file__, '-query'] + additional_args)
+            utils.nanohedra.cmdline.query_mode([__file__, '-query'] + additional_args)
             exit()
         else:  # Add a dummy input for argparse to happily continue with required args
             additional_args.extend(['--file', 'dummy'])
@@ -847,7 +847,7 @@ def main():
         #                       flags.rename_chains, flags.check_clashes]:
         #     # , 'custom_script', 'find_asu', 'status', 'visualize'
         #     # We have no module passed. Print the guide and exit
-        #     guide.print_guide()
+        #     utils.guide.print_guide()
         #     exit()
         # else:
         #     # Set up design directories
