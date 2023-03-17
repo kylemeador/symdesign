@@ -2401,16 +2401,6 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         #     pose.fragment_queries = {entity_tuple: frag_match_info}
         #     pose.fragment_metrics = {entity_tuple: fragment_metrics}
 
-    # if job.dock_only:  # Only get pose outputs, no sequences or metrics
-    #     pass
-    #     # design_ids = pose_names
-    #     # logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
-    #     # terminate()  # End of docking run
-    #     # return pose_paths
-    # elif job.dock.proteinmpnn_score or job.design.sequences:  # Initialize proteinmpnn for dock/design
-    # if job.dock.proteinmpnn_score or job.design.sequences:  # Initialize proteinmpnn for dock/design
-    pose_length_nan = [np.nan for _ in range(pose_length)]
-
     # Load evolutionary profiles of interest for optimization/analysis
     if job.design.evolution_constraint:
         # profile_background = {}
@@ -2522,9 +2512,12 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     #     """
     idx_slice = pd.IndexSlice
 
-    def collect_dock_metrics() -> tuple[pd.DataFrame, pd.DataFrame]:  # -> dict[str, np.ndarray]:
+    def collect_dock_metrics(proteinmpnn_score: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:  # -> dict[str,
+        # np.ndarray]:
         """Perform analysis on the docked Pose instances
 
+        Args:
+            proteinmpnn_score: Whether proteinmpnn scores should be collected
         Returns:
             A tuple of DataFrames representing the per-pose and the per-residue metrics. Each has indices from 0-N
         """
@@ -2565,7 +2558,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         }
 
         # Initialize proteinmpnn for dock/design analysis
-        if job.dock.proteinmpnn_score:
+        proteinmpnn_score = proteinmpnn_score or job.dock.proteinmpnn_score
+        if proteinmpnn_score:
             # Retrieve the ProteinMPNN model
             mpnn_model = ml.proteinmpnn_factory(ca_only=job.design.ca_only, model_name=job.design.proteinmpnn_model_name)
             # Set up model sampling type based on symmetry
@@ -2928,7 +2922,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             # pose_metrics[pose_id] = {
             pose_metrics.append(pose.calculate_metrics())
 
-            if job.dock.proteinmpnn_score:
+            if proteinmpnn_score:
                 # Save profiles
                 fragment_profiles.append(pose.fragment_profile.as_array())
                 pose.calculate_profile()
@@ -2957,7 +2951,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                     interface_mask = []
                     new_coords = []
 
-        if job.dock.proteinmpnn_score:
+        if proteinmpnn_score:
             # Finish the routine with any remaining proteinmpnn calculations
             if new_coords:
                 per_residue_data_batched.extend(proteinmpnn_score_batched_coords(new_coords))
@@ -2977,7 +2971,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
         # Calculate new metrics from combinations of other metrics
         # Add summed residue information to make poses_df
-        # if job.dock.proteinmpnn_score:
+        # if proteinmpnn_score:
         #     _per_res_columns = [
         #         'dock_hydrophobic_collapse',  # dock by default not included
         #         'dock_collapse_deviation_magnitude',
@@ -2987,7 +2981,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         #         'dock_collapse_variance'
         #     ]
         # Set up column renaming
-        if job.dock.proteinmpnn_score:
+        if proteinmpnn_score:
             collapse_metrics = (
                 'collapse_deviation_magnitude',
                 'collapse_increase_significance_by_contact_order_z',
@@ -3008,16 +3002,16 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                 'dock_hydrophobic_collapse',  # dock by default not included
                 'dock_collapse_deviation_magnitude',
                 # proteinmpnn_score required
-                'proteinmpnn_v_design_probability_cross_entropy_loss',
-                'proteinmpnn_v_evolution_probability_cross_entropy_loss'
+                # 'proteinmpnn_v_design_probability_cross_entropy_loss',
+                # 'proteinmpnn_v_evolution_probability_cross_entropy_loss'
             ]
             mean_columns = [
                 # collapse_profile required
                 'dock_hydrophobicity',
                 'dock_collapse_variance',
                 # proteinmpnn_score required
-                'proteinmpnn_v_design_probability_cross_entropy_per_residue',
-                'proteinmpnn_v_evolution_probability_cross_entropy_per_residue'
+                # 'proteinmpnn_v_design_probability_cross_entropy_per_residue',
+                # 'proteinmpnn_v_evolution_probability_cross_entropy_per_residue'
             ]
             _rename = dict(zip(per_res_columns, mean_columns))
         else:
@@ -3028,7 +3022,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             residues_df, rename_columns=_rename, mean_metrics=mean_columns)
         # # Need to remove sequence as it is in pose.calculate_metrics()
         # poses_df = poses_df.join(summed_poses_df.drop('sequence', axis=1))
-        if job.dock.proteinmpnn_score:
+        if proteinmpnn_score:
             poses_df = poses_df.join(summed_poses_df.drop('number_residues_interface', axis=1))
             # .droplevel(-1, axis=1) operations are REQUIRED here or the caluclations are messed up
             interface_df = residues_df.loc[:, idx_slice[:, 'interface_residue']].droplevel(-1, axis=1)
@@ -3039,15 +3033,19 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             poses_df['proteinmpnn_dock_cross_entropy_per_residue'] = \
                 (residues_df.loc[:, idx_slice[:, 'proteinmpnn_dock_cross_entropy_loss']].droplevel(-1, axis=1)
                  * interface_df).mean(axis=1)
-            poses_df['proteinmpnn_v_design_probability_cross_entropy_loss'] = \
+            poses_df['proteinmpnn_v_design_probability_cross_entropy_per_residue'] = \
                 (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_design_probability_cross_entropy_loss']]
                  .droplevel(-1, axis=1) * interface_df).mean(axis=1)
-            poses_df['proteinmpnn_v_evolution_probability_cross_entropy_loss'] = \
+            poses_df['proteinmpnn_v_evolution_probability_cross_entropy_per_residue'] = \
                 (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_evolution_probability_cross_entropy_loss']]
                  .droplevel(-1, axis=1) * interface_df).mean(axis=1)
-            poses_df['proteinmpnn_v_fragment_probability_cross_entropy_loss'] = \
-                (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_fragment_probability_cross_entropy_loss']]
-                 .droplevel(-1, axis=1) * interface_df).mean(axis=1)
+            # poses_df['proteinmpnn_v_fragment_probability_cross_entropy_per_residue'] = \
+            #     (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_fragment_probability_cross_entropy_loss']]
+            #      .droplevel(-1, axis=1) * interface_df).mean(axis=1)
+            # Update the per_residue loss according to fragment residues involved in the scoring
+            poses_df['proteinmpnn_v_fragment_probability_cross_entropy_per_residue'] = \
+                poses_df['proteinmpnn_v_fragment_probability_cross_entropy_loss'] \
+                / poses_df['number_residues_interface_fragment_total']
 
             # scores_df['collapse_new_positions'] /= scores_df['pose_length']
             # scores_df['collapse_new_position_significance'] /= scores_df['pose_length']
@@ -3070,15 +3068,6 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             poses_df['dock_collapse_sequential_z_mean'] = \
                 poses_df['dock_collapse_sequential_z'] / total_increased_collapse
             poses_df['dock_collapse_violation'] = poses_df['dock_collapse_new_positions'] > 0
-
-            # Update the per_residue loss according to those residues involved in the scoring
-            poses_df['proteinmpnn_v_fragment_probability_cross_entropy_per_residue'] = \
-                poses_df['proteinmpnn_v_fragment_probability_cross_entropy_loss'] \
-                / poses_df['number_residues_interface_fragment_total']
-            # poses_df['proteinmpnn_v_design_probability_cross_entropy_per_residue'] = \
-            #     poses_df['proteinmpnn_v_design_probability_cross_entropy_loss'] / pose_length
-            # poses_df['proteinmpnn_v_evolution_probability_cross_entropy_per_residue'] = \
-            #     poses_df['proteinmpnn_v_evolution_probability_cross_entropy_loss'] / pose_length
         else:
             poses_df = poses_df.join(summed_poses_df)
 
@@ -4163,6 +4152,13 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     pose_names = poses_df.index.tolist()
     number_of_transforms = len(pose_names)
     filter_transforms_by_indices(np.flatnonzero(deduplicated_indices))
+    # Finally, tabulate the ProteinMPNN metrics if they weren't already
+    if job.dock.proteinmpnn_score:
+        pass  # These are already collected
+    else:  # Collect
+        logger.info(f'Measuring quality of docked interfaces with ProteinMPNN unconditional probabilities')
+        poses_df, residues_df = collect_dock_metrics(proteinmpnn_score=True)
+        poses_df.index = residues_df.index = pd.Index(_pose_names, name=sql.PoseMetrics.pose_id.name)
 
     def terminate(pose: Pose, poses_df_: pd.DataFrame, residues_df_: pd.DataFrame):
         """Finalize any remaining work and return to the caller"""
@@ -4207,12 +4203,10 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                     # residues_df_ = residues_df_.loc[existing_indices_, :]
                     poses_df_ = poses_df_.loc[pose_names, :]
                     residues_df_ = residues_df_.loc[pose_names, :]
-                    logger.critical(f'Reset the new poses with attributes:\n'
-                                    f'\tpose_names={pose_names}\n'
-                                    f'\texisting_indices_={existing_indices_}\n'
-                                    f'\tposes_df_.index={poses_df_.index.tolist()}\n'
-                                    f'\tresidues_df_.index={residues_df_.index.tolist()}\n'
-                                    f'')
+                    logger.info(f'Removing existing docked poses from output: {", ".join(existing_pose_names)}')
+                    logger.debug(f'Reset the pose solutions with attributes:\n'
+                                 f'\tpose names={pose_names}\n'
+                                 f'\texisting transform indices={existing_indices_}\n')
                     number_of_transforms = len(pose_names)
                     filter_transforms_by_indices(list(existing_indices_))
             else:
