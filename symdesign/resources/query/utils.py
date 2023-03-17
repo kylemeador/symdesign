@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 import requests
 
@@ -65,7 +65,7 @@ def confirm_input_action(input_message):
     return confirm
 
 
-def validate_type(value: Any, dtype=str) -> bool:
+def validate_type(value: Any, dtype: Callable = str) -> bool:
     """Provide a user prompt to ensure the user input is what is desired
 
     Returns:
@@ -75,7 +75,7 @@ def validate_type(value: Any, dtype=str) -> bool:
         dtype(value)
         return True
     except ValueError:
-        print(f'The value "{value}" cannot be converted to the type {type(dtype).__name__}. Try again...')
+        print(f"The value '{value}' can't be converted to the type {type(dtype).__name__}. Try again...")
         return False
 
 
@@ -88,7 +88,7 @@ def boolean_choice() -> bool:
     """
     confirm = input(boolean_input_string).lower()
     while confirm not in bool_d:
-        confirm = input(f'"{confirm}" is not a valid choice! Chose either [y/n]{input_string}').lower()
+        confirm = input(f"'{confirm}' isn't a valid choice. Chose either [y/n]{input_string}").lower()
 
     return bool_d[confirm]
 
@@ -102,7 +102,7 @@ def verify_choice() -> bool:
     """
     confirm = input(confirmation_string).lower()
     while confirm not in bool_d:
-        confirm = input(f'"{confirm}" is not a valid choice! Chose either [y/n]{input_string}')
+        confirm = input(f"'{confirm}' isn't a valid choice. Chose either [y/n]{input_string}").lower()
 
     return bool_d[confirm]
 
