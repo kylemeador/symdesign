@@ -751,11 +751,17 @@ class DesignMetrics(Base):
     # -----------------------
     # Alphafold metrics
     plddt = Column(Float)
+    plddt_deviation = Column(Float)
     predicted_aligned_error = Column(Float)
+    predicted_aligned_error_deviation = Column(Float)
     predicted_aligned_interface = Column(Float)
+    predicted_aligned_interface_deviation = Column(Float)
     predicted_interface_template_modeling_score = Column(Float)
+    predicted_interface_template_modeling_score_deviation = Column(Float)
     predicted_template_modeling_score = Column(Float)
+    predicted_template_modeling_score_deviation = Column(Float)
     rmsd_prediction_ensemble = Column(Float)
+    rmsd_prediction_ensemble_deviation = Column(Float)
     # def __repr__(self):
     #     return f"Trajectory(id={self.id!r}, pose={self.pose!r}, name={self.name!r})"
 
@@ -788,12 +794,18 @@ class DesignEntityMetrics(Base):
     number_mutations = Column(Integer)  # entity_ is in config.metrics. ResidueMetrics sum 'mutation'
     # Alphafold metrics
     plddt = Column(Float)  # entity_ is in config.metrics
+    plddt_deviation = Column(Float)  # entity_ is in config.metrics
     predicted_aligned_error = Column(Float)  # entity_ is in config.metrics
+    predicted_aligned_error_deviation = Column(Float)  # entity_ is in config.metrics
     predicted_aligned_interface = Column(Float)  # entity_ is in config.metrics
+    predicted_aligned_interface_deviation = Column(Float)  # entity_ is in config.metrics
     predicted_interface_template_modeling_score = Column(Float)  # entity_ is in config.metrics
+    predicted_interface_template_modeling_score_deviation = Column(Float)  # entity_ is in config.metrics
     predicted_template_modeling_score = Column(Float)  # entity_ is in config.metrics
-    rmsd_oligomer = Column(Float)  # entity_ is in config.metrics
+    predicted_template_modeling_score_deviation = Column(Float)  # entity_ is in config.metrics
+    # rmsd_oligomer = Column(Float)  # entity_ is in config.metrics
     rmsd_prediction_ensemble = Column(Float)  # entity_ is in config.metrics
+    rmsd_prediction_ensemble_deviation = Column(Float)  # entity_ is in config.metrics
 
 
 class PoseResidueMetrics(Base):

@@ -4,10 +4,10 @@ import logging
 import os
 import re
 import shutil
-import time
 import warnings
 from glob import glob
 from itertools import combinations, repeat, count
+from math import sqrt
 from pathlib import Path
 from subprocess import Popen, list2cmdline
 from typing import Any, Iterable, AnyStr, Sequence
@@ -3341,21 +3341,21 @@ class PoseProtocol(PoseData):
         else:
             interface_indices = []
 
-        def describe_metrics(array_like: Iterable[int] | np.ndarray) -> dict[str, float]:
-            length = len(array_like)
-            middle, remain = divmod(length, 2)
-            if remain:  # Odd
-                median_div = 1
-            else:
-                middle = slice(middle, 1 + middle)
-                median_div = 2
-
-            return dict(
-                min=min(array_like),
-                max=max(array_like),
-                mean=sum(array_like) / length,
-                median=sum(list(sorted(array_like))[middle]) / median_div
-            )
+        # def describe_metrics(array_like: Iterable[int] | np.ndarray) -> dict[str, float]:
+        #     length = len(array_like)
+        #     middle, remain = divmod(length, 2)
+        #     if remain:  # Odd
+        #         median_div = 1
+        #     else:
+        #         middle = slice(middle, 1 + middle)
+        #         median_div = 2
+        #
+        #     return dict(
+        #         min=min(array_like),
+        #         max=max(array_like),
+        #         mean=sum(array_like) / length,
+        #         median=sum(list(sorted(array_like))[middle]) / median_div
+        #     )
 
         score_types_mean = ['rmsd_prediction_ensemble']
         if 'multimer' in model_type:
@@ -3381,7 +3381,11 @@ class PoseProtocol(PoseData):
                 # rmsd_metrics = describe_metrics(rmsds)
                 if score_type in score_types_mean:
                     if isinstance(score, list):
-                        scalar_scores[score_type] = sum(score) / len(score)
+                        score_len = len(score)
+                        scalar_scores[score_type] = mean = sum(score) / score_len
+                        # Using the standard deviation of a sample
+                        scalar_scores[f'{score_type}_deviation'] = \
+                            sqrt(sum([(score-mean) ** 2 for score in scores]) / (score_len-1))
                     else:
                         scalar_scores[score_type] = score
                 # Process 'predicted_aligned_error' when multimer/monomer_ptm. shape is (n_residues, n_residues)
@@ -3389,6 +3393,7 @@ class PoseProtocol(PoseData):
                     if isinstance(score, list):
                         # First average over each residue, storing in a container
                         number_models = len(score)
+                        pae: np.ndarray
                         pae, *other_pae = score
                         for pae_ in other_pae:
                             pae += pae_
@@ -3401,6 +3406,7 @@ class PoseProtocol(PoseData):
                     else:
                         pae = score
                     array_scores['predicted_aligned_error'] = pae.mean(axis=0)[:pose_length]
+                    # scalar_scores['predicted_aligned_error_deviation'] = array_scores['predicted_aligned_error'].std()
 
                     if interface_indices:
                         # Index the resulting pae to get the error at the interface residues in particular
@@ -3408,8 +3414,9 @@ class PoseProtocol(PoseData):
                         # interface_pae_means = [model_pae[indices1][:, indices2].mean()
                         #                        for model_pae in scores['predicted_aligned_error']]
                         # scalar_scores['predicted_aligned_error_interface'] = sum(interface_pae_means) / number_models
-                        interface_pae_mean = pae[indices1][:, indices2].mean()
-                        scalar_scores['predicted_aligned_error_interface'] = interface_pae_mean
+                        interface_pae = pae[indices1][:, indices2]
+                        scalar_scores['predicted_aligned_error_interface'] = interface_pae.mean()
+                        scalar_scores['predicted_aligned_error_interface_deviation'] = interface_pae.std()
                 elif score_type == 'plddt':  # Todo combine with above
                     if isinstance(score, list):
                         number_models = len(score)
@@ -3421,6 +3428,7 @@ class PoseProtocol(PoseData):
                     else:
                         plddt = score
                     array_scores['plddt'] = plddt[:pose_length]
+                    # scalar_scores['plddt_deviation'] = array_scores['plddt'].std()
 
             protocol_logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
             protocol_logger.debug(f'Found array_scores with contents:\n{array_scores}')
@@ -3435,7 +3443,10 @@ class PoseProtocol(PoseData):
                                  for name, data in residue_scores.items()}).unstack().swaplevel(0, 1, axis=1)
         designs_df = designs_df.join(metrics.sum_per_residue_metrics(residues_df))
         designs_df['plddt'] /= pose_length
+        designs_df['plddt_deviation'] = residues_df[:, idx_slice[:, 'plddt']].std(axis=1)
         designs_df['predicted_aligned_error'] /= pose_length
+        designs_df['predicted_aligned_error_deviation'] = \
+            residues_df[:, idx_slice[:, 'predicted_aligned_error']].std(axis=1)
 
         return designs_df, residues_df
 
