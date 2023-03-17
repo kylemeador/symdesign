@@ -400,14 +400,12 @@ class StructureDatabase(Database):
                 model.name = structure_identifier
                 model.file_path = orient_asu_file  # pose.file_path
                 # Set each Entity file_path as well
-                for entity in model.entities:
-                    entity_asu_path = self.oriented_asu.retrieve_file(name=entity.name)
-                    entity.file_path = entity_asu_path
-                for entity in pose.entities:
-                    entity_asu_path = self.oriented_asu.retrieve_file(name=entity.name)
-                    if entity_asu_path is None:
-                        entity.write(out_path=entity_asu_path)
-                    entity.file_path = entity_asu_path
+                for entity_p, entity_m in zip(pose.entities, model.entities):
+                    entity_asu_file = self.oriented_asu.retrieve_file(name=entity_p.name)
+                    if entity_asu_file is None:
+                        entity_asu_file = entity_p.write(out_path=self.oriented_asu.path_to(name=entity_p.name))
+                    entity_p.file_path = entity_asu_file
+                    entity_m.file_path = entity_asu_file
             # # NOT SURE WHY I WROTE THIS -> This happens when files are passed WITH symmetry
             elif structure_identifier in orient_names:  # orient file exists, load, save asu
                 orient_file = self.oriented.retrieve_file(name=structure_identifier)
