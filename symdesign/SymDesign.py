@@ -337,8 +337,7 @@ def main():
         putils.make_path(job.sbatch_scripts)
         preprocess_instructions = \
             job.structure_db.preprocess_metadata_for_design(
-                metadata, script_out_path=job.sbatch_scripts, batch_commands=batch_commands,
-                perform_loop_model=job.init.loop_model_input, perform_refine=job.init.refine_input)
+                metadata, script_out_path=job.sbatch_scripts, batch_commands=batch_commands)
 
         check_if_script_and_exit(preprocess_instructions)
         # After completion of indicated scripts, the next time command is entered

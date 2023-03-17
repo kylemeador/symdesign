@@ -1390,10 +1390,13 @@ input_arguments = {
     #                                   help='Whether the designs of interest have been preprocessed for the '
     #                                        f'{current_energy_function}\nenergy function and/or missing loops'),
     (f'--{loop_model_input}',):
-        dict(action='store_true',  help='Whether the input building blocks should have missing regions modelled'),
+        dict(action=argparse.BooleanOptionalAction, default=None,
+             help='Whether the input building blocks should have missing regions modelled\n'
+                  f'{boolean_positional_prevent_msg(loop_model_input)}'),
     (f'--{refine_input}',):
-        dict(action='store_true',
-             help=f'Whether the input building blocks should be refined into the {current_energy_function}'),
+        dict(action=argparse.BooleanOptionalAction, default=None,
+             help=f'Whether the input building blocks should be refined into {current_energy_function}\n'
+                  f'{boolean_positional_prevent_msg(loop_model_input)}'),
     (f'--{pre_loop_modeled}',):
         dict(action='store_true', help='Whether the input building blocks have been preprocessed for missing density'),
     (f'--{pre_refined}',):
