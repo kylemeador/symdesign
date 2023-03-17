@@ -551,6 +551,7 @@ class JobProtocol(Base):
         ),
     )
     module = Column(String(30), nullable=False)
+    commit = Column(String(40), nullable=False)
     # Set up one-to-many relationship with design_protocol table
     design_protocols = relationship('DesignProtocol', back_populates='job')
 

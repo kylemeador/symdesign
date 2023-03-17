@@ -14,12 +14,13 @@ utils_dir = os.path.dirname(os.path.realpath(__file__))  # reveals utils subdire
 python_source = os.path.dirname(utils_dir)  # reveals the root symdesign directory with python code
 git_source = os.path.dirname(python_source)  # reveals the root symdesign directory for git
 try:
-    p = subprocess.Popen(['git', '--git-dir', os.path.join(git_source, '.git'), 'rev-parse', '--short', 'HEAD'],
+    p = subprocess.Popen(['git', '--git-dir', os.path.join(git_source, '.git'), 'rev-parse', 'HEAD'],
                          stdout=subprocess.PIPE)
     stdout, _ = p.communicate()
-    program_version = stdout.decode().strip()
+    commit = stdout.decode().strip()
+    commit_short = commit[:9]
 except subprocess.CalledProcessError:
-    program_version = 'unknown'
+    commit = commit_short = 'unknown'
 
 program_name = 'SymDesign'
 program_exe = git_source

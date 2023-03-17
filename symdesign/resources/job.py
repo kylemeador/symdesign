@@ -734,6 +734,7 @@ class JobResources:
 
         protocol_kwargs.update(dict(
             module=self.module,
+            commit=putils.commit,
             evolution_constraint=self.design.evolution_constraint,
             term_constraint=self.design.term_constraint,
         ))
