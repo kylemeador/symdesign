@@ -780,8 +780,8 @@ def mp_starmap(function: Callable, star_args: Iterable[tuple], processes: int = 
 #     return results
 
 
-def bytes2human(number: int, return_format: str = "{value:.1f} {}") -> str:
-    """Convert bytes to a human readable format
+def bytes2human(number: int, return_format: str = "{:.1f} {}") -> str:
+    """Convert bytes to a human-readable format
 
     See: http://goo.gl/zeJZl
     >>> bytes2human(10000)
@@ -793,10 +793,10 @@ def bytes2human(number: int, return_format: str = "{value:.1f} {}") -> str:
         number: The number of bytes
         return_format: The desired return format with '{}'.format() compatibility
     Returns:
-        The human readable expression of bytes from a number of bytes
+        The human-readable expression of bytes from a number of bytes
     """
     symbols = ('B', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y')
-    prefix = {symbol: 1 << (i + 1) * 10 for i, symbol in enumerate(symbols)}
+    prefix = {symbol: 1 << idx * 10 for idx, symbol in enumerate(symbols)}
 
     for symbol, symbol_number in reversed(prefix.items()):
         if number >= symbol_number:
@@ -850,7 +850,7 @@ def human2bytes(human_byte_str: AnyStr) -> int:
         The number of bytes from a human-readable expression of bytes
     """
     # Find the scale prefix/abbreviation
-    letter = human_byte_str.translate(remove_digit_table)
+    letter = human_byte_str.translate(remove_digit_table).replace('. ', '')
     for name, symbol_set in SYMBOLS.items():
         if letter in symbol_set:
             break
@@ -880,7 +880,7 @@ def human2bytes(human_byte_str: AnyStr) -> int:
 
         # Convert to numeric bytes
         letter_index = symbol_set.index(letter)
-        return int(number * (1 << (letter_index + 1) * 10))
+        return int(number * (1 << letter_index * 10))
 
 
 def get_available_memory(human_readable: bool = False, gpu: bool = False) -> int:
@@ -903,33 +903,41 @@ def get_available_memory(human_readable: bool = False, gpu: bool = False) -> int
             logger.info(f'The job is managed by SLURM with SLURM_ARRAY_TASK_ID={jobid}')
         else:
             logger.info(f'The job is managed by SLURM with SLURM_JOB_ID={jobid}')
+
         # Run the command 'scontrol show job {jobid}'
         p = subprocess.Popen(['scontrol', 'show', 'job', jobid], stdout=subprocess.PIPE)
         out, err = p.communicate()
         out = out.decode('UTF-8')
-        """ In out, searching for the line
+        """ When --mem-per-cpu=20G, searching for the line
         MinCPUsNode=1 MinMemoryCPU=210000M MinTmpDiskNode=0
         Features=(null) DelayBoot=00:00:00
+        """
+        """ OR when --mem=20G, searching for the line
+        MinMemoryNode = 20G
+        """
+        """ Additionally, the line with 
+        TRES=cpu=1,mem=20G,node=1,billing=1
+        Is the same with either submission
         """
         start_index = out.find('MinMemoryCPU=') + 13  # <- 13 is length of search string
         """
         Since default value is in M (MB), memory shouldn't be more than ~1000000 (1000 GB RAM?!)
         Use plus 10 characters to parse. Value could be 50 I suppose and the split will get this variable only...
         """
-        try:
-            memory_constraint = out[start_index:start_index + 10].split()[0]
-        except IndexError:
-            print(out)
-            print(f"start_index where 'MinMemoryCPU=' '=' was found: {start_index}")
+        # try:
+        memory_constraint = out[start_index:start_index + 10].split()[0]
+        # except IndexError:
+        #     print(out)
+        #     print(f"start_index where 'MinMemoryCPU=' '=' was found: {start_index}")
         logger.debug(f'Found memory allocated of: {memory_constraint}')
         if human_readable:
             pass
         else:
-            try:
-                memory_constraint = human2bytes(memory_constraint)
-            except ValueError:
-                print(out)
-                print(f"start_index where 'MinMemoryCPU=' '=' was found: {start_index}")
+            # try:
+            memory_constraint = human2bytes(memory_constraint)
+            # except ValueError:
+            #     print(out)
+            #     print(f"start_index where 'MinMemoryCPU=' '=' was found: {start_index}")
     else:
         memory_constraint = psutil.virtual_memory().available
         if human_readable:
