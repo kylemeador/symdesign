@@ -3891,8 +3891,9 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # weighted_trajectory_df.index = \
         #     weighted_trajectory_df.index.map(dict(zip(weighted_trajectory_df_index,
         #                                               pd.Index(current_transformation_ids))))
-        # Add the weighted_trajectory_df to the total_results_df to keep global results
-        append_total_results(weighted_trajectory_df)
+        # Todo use append_total_results() for global search
+        # # Add the weighted_trajectory_df to the total_results_df to keep global results
+        # append_total_results(weighted_trajectory_df)
 
         return weighted_trajectory_df, selected_transformation_ids
 
@@ -3975,17 +3976,18 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         return weighted_trajectory_df
 
     def append_total_results(additional_trajectory_df: pd.DataFrame) -> pd.DataFrame:
-        """Combine existing metrics with the new metrics
-        Args:
-            additional_trajectory_df: The additional DataFrame to add to the existing global metrics
-        Returns:
-            The full global metrics DataFrame
-        """
-        nonlocal total_results_df
-        # Add new metrics to existing and keep the newly added if there are overlap
-        total_results_df = pd.concat([total_results_df, additional_trajectory_df], axis=0)
-        total_results_df = total_results_df[~total_results_df.index.duplicated(keep='last')]
-        return total_results_df
+    # def append_total_results(additional_trajectory_df: pd.DataFrame) -> pd.DataFrame:
+    #     """Combine existing metrics with the new metrics
+    #     Args:
+    #         additional_trajectory_df: The additional DataFrame to add to the existing global metrics
+    #     Returns:
+    #         The full global metrics DataFrame
+    #     """
+    #     nonlocal total_results_df
+    #     # Add new metrics to existing and keep the newly added if there are overlap
+    #     total_results_df = pd.concat([total_results_df, additional_trajectory_df], axis=0)
+    #     total_results_df = total_results_df[~total_results_df.index.duplicated(keep='last')]
+    #     return total_results_df
 
     # def calculate_results_for_stopping(target_df: pd.DataFrame, indices: list[int | str]) -> float | pd.Series:
     #     """Given a DataFrame with metrics from a round of optimization, calculate the optimization results to report on whether a stopping condition has been met
