@@ -780,6 +780,146 @@ def mp_starmap(function: Callable, star_args: Iterable[tuple], processes: int = 
 #     return results
 
 
+def bytes2human(number: int, return_format: str = "{value:.1f} {}") -> str:
+    """Convert bytes to a human readable format
+    See: http://goo.gl/zeJZl
+    >>> bytes2human(10000)
+    '9.8 K'
+    >>> bytes2human(100001221)
+    '95.4 M'
+    Args:
+        number: The number of bytes
+        return_format: The desired return format with '{}'.format() compatibility
+    Returns:
+        The human readable expression of bytes from a number of bytes
+    """
+    symbols = ('B', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y')
+    prefix = {symbol: 1 << (i + 1) * 10 for i, symbol in enumerate(symbols)}
+
+    for symbol, symbol_number in reversed(prefix.items()):
+        if number >= symbol_number:
+            value = number / symbol_number
+            break
+    else:  # Smaller than the smallest
+        symbol = symbols[0]
+        value = number
+    return return_format.format(value, symbol)
+
+    # for symbol in reversed(symbols[1:]):
+    #     if number >= prefix[symbol]:
+    #         value = float(number) / prefix[symbol]
+    #         return format % locals()
+    # return format % dict(symbol=symbols[0], value=number)
+
+
+SYMBOLS = {
+    'customary': ('B', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'),
+    'customary_ext': ('byte', 'kilo', 'mega', 'giga', 'tera', 'peta', 'exa', 'zetta', 'iotta'),
+    'iec': ('Bi', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi', 'Yi'),
+    'iec_ext': ('byte', 'kibi', 'mebi', 'gibi', 'tebi', 'pebi', 'exbi', 'zebi', 'yobi'),
+}
+
+
+def human2bytes(human_byte_str: AnyStr) -> int:
+    """Convert human-readable bytes to a numeric format
+
+      >>> human2bytes('0 B')
+      0
+      >>> human2bytes('1 K')
+      1024
+      >>> human2bytes('1 M')
+      1048576
+      >>> human2bytes('1 Gi')
+      1073741824
+      >>> human2bytes('1 tera')
+      1099511627776
+
+      >>> human2bytes('0.5kilo')
+      512
+      >>> human2bytes('0.1  byte')
+      0
+      >>> human2bytes('1 k')  # k is an alias for K
+      1024
+      >>> human2bytes('12 foo')
+    Raises:
+        ValueError if input can't be parsed
+    Returns:
+        The number of bytes from a human-readable expression of bytes
+    """
+    # Find the scale prefix/abbreviation
+    letter = human_byte_str.translate(remove_digit_table)
+    for name, symbol_set in SYMBOLS.items():
+        if letter in symbol_set:
+            break
+    else:
+        # if letter == 'k':
+        #     # treat 'k' as an alias for 'K' as per: http://goo.gl/kTQMs
+        #     sset = SYMBOLS['customary']
+        #     letter = letter.upper()
+        # else:
+        raise ValueError(f"{human2bytes.__name__}: Can't interpret {human_byte_str}")
+
+    # Find the size value
+    number = human_byte_str.strip(letter).strip()
+    # num = ""
+    # while human_byte_str and human_byte_str[0:1].isdigit() or human_byte_str[0:1] == '.':
+    #     num += human_byte_str[0]
+    #     human_byte_str = human_byte_str[1:]
+    try:
+        number = float(number)
+    except ValueError:
+        raise ValueError(f"{human2bytes.__name__}: Can't interpret {human_byte_str}")
+    else:
+        # prefix = {sset[0]:1}
+        # for i, human_byte_str in enumerate(sset[1:]):
+        #     prefix[human_byte_str] = 1 << (i + 1) * 10
+        # return int(number * prefix[letter])
+
+        # Convert to numeric bytes
+        letter_index = symbol_set.index(letter)
+        return int(number * (1 << (letter_index + 1) * 10))
+
+
+def get_available_memory(human_readable: bool = False, gpu: bool = False) -> int:
+    """
+
+    Args:
+        human_readable: Whether the return value should be human readable
+        gpu: Whether a GPU should be used
+    Returns:
+        The available memory (in bytes) depending on the compute environment
+    """
+    # Check if job is allocated by SLURM
+    if 'SLURM_JOB_ID' in os.environ:
+        jobid = os.environ['SLURM_JOB_ID']  # SLURM_JOB_ID
+        logger.debug(f'The job is managed by SLURM with SLURM_JOB_ID={jobid}')
+        # Run the command 'scontrol show job {jobid}'
+        p = subprocess.Popen(['scontrol', 'show', 'job', jobid], stdout=subprocess.PIPE)
+        out, err = p.communicate()
+        out = out.decode('UTF-8')
+        """ In out, searching for the line
+        MinCPUsNode=1 MinMemoryCPU=210000M MinTmpDiskNode=0
+        Features=(null) DelayBoot=00:00:00
+        """
+        start_index = out.find('MinMemoryCPU=') + 13  # <- 13 is length of search string
+        """
+        Since default value is in M (MB), memory shouldn't be more than ~1000000 (1000 GB RAM?!)
+        Use plus 10 characters to parse. Value could be 50 I suppose and the split will get this variable only...
+        """
+        memory_constraint = out[start_index:start_index + 10].split()[0]
+        logger.debug(f'Found memory allocated of: {memory_constraint}')
+        if human_readable:
+            pass
+        else:
+            memory_constraint = human2bytes(memory_constraint)
+    else:
+        memory_constraint = psutil.virtual_memory().available
+        if human_readable:
+            memory_constraint = bytes2human(memory_constraint)
+
+    return memory_constraint
+
+
 ##############################
 # Directory Handling
 ##############################

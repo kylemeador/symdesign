@@ -1558,7 +1558,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # Transform coords to query for clashes
     # Set up chunks of coordinate transforms for clash testing
     check_clash_coords_start = time.time()
-    memory_constraint = psutil.virtual_memory().available
+    memory_constraint = utils.get_available_memory()
     # Assume each element is np.float64
     element_memory = 8  # where each element is np.float64
     # guide_coords_elements = 9  # For a single guide coordinate with shape (3, 3)
