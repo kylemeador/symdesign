@@ -887,7 +887,7 @@ def get_available_memory(human_readable: bool = False, gpu: bool = False) -> int
     """
 
     Args:
-        human_readable: Whether the return value should be human readable
+        human_readable: Whether the return value should be human-readable
         gpu: Whether a GPU should be used
     Returns:
         The available memory (in bytes) depending on the compute environment
@@ -897,10 +897,10 @@ def get_available_memory(human_readable: bool = False, gpu: bool = False) -> int
         array_jobid = os.environ.get('SLURM_ARRAY_TASK_ID')
         if array_jobid:
             jobid = array_jobid  # SLURM_ARRAY_TASK_ID
-            logger.debug(f'The job is managed by SLURM with SLURM_ARRAY_TASK_ID={jobid}')
+            logger.info(f'The job is managed by SLURM with SLURM_ARRAY_TASK_ID={jobid}')
         else:
             jobid = os.environ['SLURM_JOB_ID']  # SLURM_JOB_ID
-            logger.debug(f'The job is managed by SLURM with SLURM_JOB_ID={jobid}')
+            logger.info(f'The job is managed by SLURM with SLURM_JOB_ID={jobid}')
         # Run the command 'scontrol show job {jobid}'
         p = subprocess.Popen(['scontrol', 'show', 'job', jobid], stdout=subprocess.PIPE)
         out, err = p.communicate()
@@ -914,7 +914,11 @@ def get_available_memory(human_readable: bool = False, gpu: bool = False) -> int
         Since default value is in M (MB), memory shouldn't be more than ~1000000 (1000 GB RAM?!)
         Use plus 10 characters to parse. Value could be 50 I suppose and the split will get this variable only...
         """
-        memory_constraint = out[start_index:start_index + 10].split()[0]
+        try:
+            memory_constraint = out[start_index:start_index + 10].split()[0]
+        except IndexError:
+            print(out)
+            print(f"start_index where 'MinMemoryCPU=' '=' was found: {start_index}")
         logger.debug(f'Found memory allocated of: {memory_constraint}')
         if human_readable:
             pass
