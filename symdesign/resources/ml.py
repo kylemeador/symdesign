@@ -40,9 +40,16 @@ mpnn_alphabet_length = len(mpnn_alphabet)
 MPNN_NULL_IDX = 20
 
 
-def get_device_memory(device: str | int | None) -> int:
-    if device.type == 'cpu':
-        memory_constraint = psutil.virtual_memory().available
+def get_device_memory(device: torch.device) -> int:
+    """Get the memory available for a requested device to calculate computational constraints
+
+    Args:
+        device: The current device of the pytorch model in question
+    Returns:
+        The bytes of memory available
+    """
+    if device.type == 'cpu':  # device is None or
+        memory_constraint = utils.get_available_memory()
         logger.debug(f'The available cpu memory is: {memory_constraint}')
     else:
         free_memory, gpu_memory_total = torch.cuda.mem_get_info()
@@ -292,7 +299,7 @@ def create_decoding_order(randn: torch.Tensor, chain_mask: torch.Tensor, tied_po
 class _ProteinMPNN(ProteinMPNN):
     """Implemented to instruct logging outputs"""
     log = logging.getLogger(f'{__name__}.ProteinMPNN')
-    pass
+    device: torch.device
 
 
 class ProteinMPNNFactory:
@@ -333,7 +340,7 @@ class ProteinMPNNFactory:
             if not self._models:  # Nothing initialized
                 # Acquire a adequate computing device
                 if torch.cuda.is_available():
-                    self.device = torch.device('cuda:0')
+                    self.device: torch.device = torch.device('cuda:0')
                     # Set the environment to use memory efficient cuda management
                     max_split = 1000
                     pytorch_conf = f'max_split_size_mb:{max_split},' \

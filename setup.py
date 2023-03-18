@@ -262,8 +262,10 @@ if __name__ == '__main__':
           " haven't installed already")
     choice1 = utils.validate_input(
         'Once downloaded, type "Y" to continue with install or "S" to skip if Rosetta is already '
-        "installed. FYI this program is capable of using Rosetta's multithreading and MPI builds for "
-        f'faster execution. If you want to learn more, visit {rosetta_extras_url} for details.',
+        "installed. ",
+        # Todo ensure that mpi is the case
+        #  "FYI this program is capable of using Rosetta's multithreading and MPI builds for "
+        #  f'faster execution. If you want to learn more, visit {rosetta_extras_url} for details.',
         ['Y', 's'])
     while True:
         if choice1 == 'Y':

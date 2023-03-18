@@ -494,8 +494,9 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
                 _filter_str = _filter_str[:f_index] + '`' * operation_length + _filter_str[r_index:]
 
         if not indices:
-            raise InputError(f"Couldn't create a filter from '{filter_str}'. Ensure that your input contains an "
-                             f"operation specifying the relationship between the filter and the expected value")
+            raise InputError(
+                f"Couldn't create a filter from '{filter_str}'. Ensure that your input contains an operation specifying"
+                " the relationship between the filter and the expected value")
 
         # Sort the indices according to the first index number
         full_indices = []

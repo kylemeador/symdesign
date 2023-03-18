@@ -782,11 +782,13 @@ def mp_starmap(function: Callable, star_args: Iterable[tuple], processes: int = 
 
 def bytes2human(number: int, return_format: str = "{value:.1f} {}") -> str:
     """Convert bytes to a human readable format
+
     See: http://goo.gl/zeJZl
     >>> bytes2human(10000)
     '9.8 K'
     >>> bytes2human(100001221)
     '95.4 M'
+
     Args:
         number: The number of bytes
         return_format: The desired return format with '{}'.format() compatibility
@@ -823,24 +825,25 @@ SYMBOLS = {
 def human2bytes(human_byte_str: AnyStr) -> int:
     """Convert human-readable bytes to a numeric format
 
-      >>> human2bytes('0 B')
-      0
-      >>> human2bytes('1 K')
-      1024
-      >>> human2bytes('1 M')
-      1048576
-      >>> human2bytes('1 Gi')
-      1073741824
-      >>> human2bytes('1 tera')
-      1099511627776
+    See: http://goo.gl/zeJZl
+    >>> human2bytes('0 B')
+    0
+    >>> human2bytes('1 K')
+    1024
+    >>> human2bytes('1 M')
+    1048576
+    >>> human2bytes('1 Gi')
+    1073741824
+    >>> human2bytes('1 tera')
+    1099511627776
+    >>> human2bytes('0.5kilo')
+    512
+    >>> human2bytes('0.1  byte')
+    0
+    >>> human2bytes('1 k')  # k is an alias for K
+    1024
+    >>> human2bytes('12 foo')
 
-      >>> human2bytes('0.5kilo')
-      512
-      >>> human2bytes('0.1  byte')
-      0
-      >>> human2bytes('1 k')  # k is an alias for K
-      1024
-      >>> human2bytes('12 foo')
     Raises:
         ValueError if input can't be parsed
     Returns:

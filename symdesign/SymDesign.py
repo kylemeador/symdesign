@@ -1721,7 +1721,7 @@ def main():
                             # Todo insert into the bottom most decorator slot
                             profile(protocol)(pose_jobs[0])
                         else:
-                            logger.critical(f"The module memory_profiler isn't installed {profile_error}")
+                            logger.critical(f"The module 'memory_profiler' isn't installed {profile_error}")
                         exit('Done profiling')
 
                 if args.multi_processing:

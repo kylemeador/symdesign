@@ -6491,20 +6491,21 @@ class Pose(SymmetricModel, Metrics):
 
         return all_chain_features
 
-    def get_proteinmpnn_params(self, ca_only: bool = False, pssm_multi: float = 0., pssm_log_odds_flag: bool = False,
-                               pssm_bias_flag: bool = False, bias_profile_by_probabilities: bool = False,
+    def get_proteinmpnn_params(self, ca_only: bool = False, pssm_bias_flag: bool = False, pssm_multi: float = 0.,
+                               bias_pssm_by_probabilities: bool = False, pssm_log_odds_flag: bool = False,
                                interface: bool = False, neighbors: bool = False, **kwargs) -> dict[str, np.ndarray]:
         # decode_core_first: bool = False
         """
 
         Args:
             ca_only: Whether a minimal CA variant of the protein should be used for design calculations
-            pssm_multi: How much to skew the design probabilities towards the sequence profile.
-                Bounded between [1, 0] where 0 is no sequence profile probability.
-                Only used with pssm_bias_flag
-            pssm_log_odds_flag: Whether to use log_odds mask to limit the residues designed
             pssm_bias_flag: Whether to use bias to modulate the residue probabilities designed
-            bias_profile_by_probabilities: Whether to produce bias by profile probabilities as opposed to profile lods
+            pssm_multi: How much to skew the design probabilities towards the sequence profile.
+                Bounded between [0, 1] where 0 is no sequence profile probability.
+                Only used with pssm_bias_flag and modifies each coefficient in pssm_coef by the fractional amount
+            bias_pssm_by_probabilities: Whether to produce bias by profile probabilities as opposed to lods
+            pssm_log_odds_flag: Whether to use log_odds threshold (>0) to limit amino acid types of designed residues
+                Creates pssm_log_odds_mask based on the threshold
             interface: Whether to design the interface
             neighbors: Whether to design interface neighbors
         Keyword Args:
@@ -6561,8 +6562,9 @@ class Pose(SymmetricModel, Metrics):
         pssm_log_odds_mask = np.where(pssm_log_odds >= pssm_threshold, 1., 0.)  # (number_of_residues, 20)
         pssm_coef = np.ones(residue_mask.shape, dtype=np.float32)  # (number_of_residues,)
         # shape (1, 21) where last index (20) is 1
-        # Make the pssm_bias between 1 and 0 specifying how important position is
-        if bias_profile_by_probabilities:
+
+        # Make the pssm_bias between 0 and 1 specifying how important position is where 1 is more important
+        if bias_pssm_by_probabilities:
             pssm_probability = pssm_as_array(self.profile)
             pssm_bias = softmax(pssm_probability)  # (number_of_residues, 20)
         else:
@@ -6693,7 +6695,13 @@ class Pose(SymmetricModel, Metrics):
             return torch.from_numpy(decode_order).to(dtype=torch.float32, device=to_device)
 
     def get_proteinmpnn_unbound_coords(self, ca_only: bool = False) -> np.ndarray:
-        """Translate the coordinates along z in increments of 1000 to separate coordinates"""
+        """Translate the coordinates along z in increments of 1000 to separate coordinates
+
+        Args:
+            ca_only: Whether a minimal CA variant of the protein should be used for design calculations
+        Returns:
+            The Pose coords where each Entity has been translated away from other entities
+        """
         if ca_only:
             coords_type = 'ca_coords'
             num_model_residues = 1
@@ -6727,14 +6735,17 @@ class Pose(SymmetricModel, Metrics):
             measure_unbound: Whether the protein should be designed with concern for the unbound state
             ca_only: Whether a minimal CA variant of the protein should be used for design calculations
         Keyword Args:
-            model_name: str = 'v_48_020' - The name of the model to use from ProteinMPNN.
-                v_X_Y where X is neighbor distance, and Y is noise
+            model_name: The name of the model to use from ProteinMPNN taking the format v_X_Y,
+                where X is neighbor distance and Y is noise
             backbone_noise: float = 0.0 - The amount of backbone noise to add to the pose during design
+            pssm_multi: float = 0.0 - How much to skew the design probabilities towards the sequence profile.
+                Bounded between [0, 1] where 0 is no sequence profile probability.
+                Only used with pssm_bias_flag
             pssm_log_odds_flag: bool = False - Whether to use log_odds mask to limit the residues designed
             pssm_bias_flag: bool = False - Whether to use bias to modulate the residue probabilites designed
-            pssm_multi: float = 0.0 - How much to skew the design probabilities towards the sequence profile.
-                Bounded between [1, 0] where 0 is no sequence profile probability.
-                Only used with pssm_bias_flag
+            bias_pssm_by_probabilities: Whether to produce bias by profile probabilities as opposed to profile lods
+            # interface: Whether to design the interface
+            # neighbors: Whether to design interface neighbors
             decode_core_first: bool = False - Whether to decode identified fragments (constituting the protein core)
                 first
         Returns:
@@ -6882,14 +6893,15 @@ class Pose(SymmetricModel, Metrics):
             ca_only: Whether a minimal CA variant of the protein should be used for design calculations
         Keyword Args:
             neighbors: bool = False - Whether to design interface neighbors
-            model_name: str = 'v_48_020' - The name of the model to use from ProteinMPNN.
-                v_X_Y where X is neighbor distance, and Y is noise
+            model_name: The name of the model to use from ProteinMPNN taking the format v_X_Y,
+                where X is neighbor distance and Y is noise
             backbone_noise: float = 0.0 - The amount of backbone noise to add to the pose during design
+            pssm_multi: float = 0.0 - How much to skew the design probabilities towards the sequence profile.
+                Bounded between [0, 1] where 0 is no sequence profile probability.
+                Only used with pssm_bias_flag
             pssm_log_odds_flag: bool = False - Whether to use log_odds mask to limit the residues designed
             pssm_bias_flag: bool = False - Whether to use bias to modulate the residue probabilites designed
-            pssm_multi: float = 0.0 - How much to skew the design probabilities towards the sequence profile.
-                Bounded between [1, 0] where 0 is no sequence profile probability.
-                Only used with pssm_bias_flag
+            bias_pssm_by_probabilities: Whether to produce bias by profile probabilities as opposed to profile lods
             decode_core_first: bool = False - Whether to decode identified fragments (constituting the protein core)
                 first
         Returns:
