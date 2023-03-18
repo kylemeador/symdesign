@@ -1,4 +1,4 @@
-name: symdesign-pymol
+name: symdesign-dev
 channels:
   - conda-forge
   - defaults
@@ -29,8 +29,6 @@ dependencies:
   - tqdm
   - proglog
   - flametree
-# PyMol
-  - pymol-bundle
 # Alphafold
   - cudnn # ==8.0.4
   - jax==0.4.2 # jax/jaxlib 0.4.4 broke jnp.asarray() for me ...
@@ -41,6 +39,10 @@ dependencies:
   - openmm=7.5.1 # version causes conflicts, alphafold needs to update to 8.0.0 to be compatible without versions
   - pdbfixer
   - pip
+# Dev below here
+  - memory_profiler
+# PyMol
+  - pymol-bundle
   - pip:
     - absl-py==1.0.0
     - chex==0.0.7
