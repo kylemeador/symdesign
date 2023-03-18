@@ -894,8 +894,13 @@ def get_available_memory(human_readable: bool = False, gpu: bool = False) -> int
     """
     # Check if job is allocated by SLURM
     if 'SLURM_JOB_ID' in os.environ:
-        jobid = os.environ['SLURM_JOB_ID']  # SLURM_JOB_ID
-        logger.debug(f'The job is managed by SLURM with SLURM_JOB_ID={jobid}')
+        array_jobid = os.environ.get('SLURM_ARRAY_TASK_ID')
+        if array_jobid:
+            jobid = array_jobid  # SLURM_ARRAY_TASK_ID
+            logger.debug(f'The job is managed by SLURM with SLURM_ARRAY_TASK_ID={jobid}')
+        else:
+            jobid = os.environ['SLURM_JOB_ID']  # SLURM_JOB_ID
+            logger.debug(f'The job is managed by SLURM with SLURM_JOB_ID={jobid}')
         # Run the command 'scontrol show job {jobid}'
         p = subprocess.Popen(['scontrol', 'show', 'job', jobid], stdout=subprocess.PIPE)
         out, err = p.communicate()
@@ -914,7 +919,11 @@ def get_available_memory(human_readable: bool = False, gpu: bool = False) -> int
         if human_readable:
             pass
         else:
-            memory_constraint = human2bytes(memory_constraint)
+            try:
+                memory_constraint = human2bytes(memory_constraint)
+            except ValueError:
+                print(out)
+                print(f"start_index where 'MinMemoryCPU=' '=' was found: {start_index}")
     else:
         memory_constraint = psutil.virtual_memory().available
         if human_readable:
