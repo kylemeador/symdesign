@@ -3975,7 +3975,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # weighted_trajectory_s is sorted with best transform in index 0, regardless of whether it is ascending or not
         return weighted_trajectory_df
 
-    def append_total_results(additional_trajectory_df: pd.DataFrame) -> pd.DataFrame:
+    # Todo use append_total_results() for global search
     # def append_total_results(additional_trajectory_df: pd.DataFrame) -> pd.DataFrame:
     #     """Combine existing metrics with the new metrics
     #     Args:
