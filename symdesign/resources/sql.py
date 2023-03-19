@@ -748,8 +748,8 @@ class DesignMetrics(Base):
     observed_evolution = Column(Float)
     observed_fragment = Column(Float)
     observed_interface = Column(Float)
-    # Direct coupling analysis energy
-    dca_energy = Column(Float)
+    # # Direct coupling analysis energy
+    # dca_energy = Column(Float)
     # -----------------------
     # Alphafold metrics
     plddt = Column(Float)
@@ -936,8 +936,8 @@ class ResidueMetrics(Base):
     observed_evolution = Column(Boolean)
     observed_fragment = Column(Boolean)
     observed_interface = Column(Boolean)
-    # Direct coupling analysis energy
-    dca_energy = Column(Float)
+    # # Direct coupling analysis energy
+    # dca_energy = Column(Float)
     # Folding metrics
     plddt = Column(Float)
     predicted_aligned_error = Column(Float)
