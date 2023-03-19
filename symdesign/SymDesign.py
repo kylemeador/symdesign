@@ -109,14 +109,8 @@ def main():
         else:
             successful_pose_jobs = []
 
-        # Format the output file depending on specified name and module type
-        if low and high:
-            design_source = f'{job.input_source}-{low:.2f}-{high:.2f}'
-        else:
-            design_source = job.input_source
+        # Format the output file(s) depending on specified name and module type
         job_paths = job.job_paths
-        default_output_tuple = (utils.starttime, job.module, design_source)
-
         exit_code = 0
         if exceptions:
             print('\n')
@@ -124,7 +118,7 @@ def main():
                            f'Check their individual .log files for more details\n\t%s'
                            % '\n\t'.join(f'{pose_job}: {error_}' for pose_job, error_ in exceptions))
             print('\n')
-            exceptions_file = os.path.join(job_paths, putils.default_execption_file.format(*default_output_tuple))
+            exceptions_file = os.path.join(job_paths, putils.default_execption_file.format(*job.default_output_tuple))
             with open(exceptions_file, 'w') as f_out:
                 f_out.write('%s\n' % '\n'.join(str(pose_job) for pose_job, error_ in exceptions))
             logger.critical(f'The file "{exceptions_file}" contains the pose identifier of every pose that failed '
@@ -149,7 +143,7 @@ def main():
             else:
                 # For certain modules, use the default file type
                 if job.module == flags.analysis:
-                    job.output_file = putils.default_analysis_file.format(utils.starttime, design_source)
+                    job.output_file = putils.default_analysis_file.format(utils.starttime, job.input_source)
                 else:  # We don't have a default output specified
                     pass
 
@@ -157,12 +151,8 @@ def main():
             if output_analysis:
                 if poses_file is None:  # Make a default file name
                     putils.make_path(job_paths)
-                    # # Remove possible multiple instances of _pose from location in default_output_tuple
-                    # scratch_designs = \
-                    #     os.path.join(job_paths, putils.default_path_file.format(*default_output_tuple)).split('_pose')
-                    # poses_file = f'{scratch_designs[0]}_pose{scratch_designs[-1]}'
                     poses_file = \
-                        os.path.join(job_paths, putils.default_path_file.format(*default_output_tuple))
+                        os.path.join(job_paths, putils.default_path_file.format(*job.default_output_tuple))
 
                 with open(poses_file, 'w') as f_out:
                     f_out.write('%s\n' % '\n'.join(str(pose_job) for pose_job in successful_pose_jobs))
@@ -174,7 +164,7 @@ def main():
             # Output any additional files for the module
             if job.module in [flags.select_designs, flags.select_sequences]:
                 designs_file = \
-                    os.path.join(job_paths, putils.default_specification_file.format(*default_output_tuple))
+                    os.path.join(job_paths, putils.default_specification_file.format(*job.default_output_tuple))
                 with open(designs_file, 'w') as f_out:
                     f_out.write('%s\n' % '\n'.join(f'{pose_job}, {design.name}' for pose_job in successful_pose_jobs
                                                    for design in pose_job.current_designs))

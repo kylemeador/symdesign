@@ -9,7 +9,7 @@ import subprocess
 from copy import deepcopy
 from itertools import repeat
 from subprocess import list2cmdline
-from typing import Annotated, AnyStr, Any, Iterable
+from typing import Annotated, AnyStr, Any, Iterable, Sized
 
 import jax
 import psutil
@@ -385,7 +385,15 @@ class JobResources:
         #     self.preprocessed = True
         # else:
         #     self.preprocessed = False
-
+        self.range = kwargs.get('range')
+        if self.range is not None:
+            try:
+                self.low, self.high = map(float, self.range.split('-'))
+            except ValueError:  # Didn't unpack correctly
+                raise ValueError(
+                    f'The {flags.format_args(flags.range_args)} flag must take the form "LOWER-UPPER"')
+        else:
+            self.low = self.high = None
         # Program flags
         # self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus
         self.background_profile: str = kwargs.get('background_profile', putils.design_profile)
@@ -875,6 +883,22 @@ class JobResources:
         else:
             raise ValueError(f"Couldn't handle the provided location type {type(location).__name__}")
 
+    def get_range_slice(self, paths: Sized) -> Iterable[any]:
+        """Slice the input work by a set increment. This is parsed from the flags.range_args"""
+        if self.range:
+            path_number = len(paths)
+            low_range = int((self.low / 100) * path_number)
+            high_range = int((self.high / 100) * path_number)
+            if low_range < 0 or high_range > path_number:
+                raise ValueError(
+                    f'The {flags.format_args(flags.range_args)} flag is outside of the acceptable bounds [0-100]')
+            logger.info(f'Selecting poses within range: {low_range if low_range else 1}-{high_range}')
+            range_slice = slice(low_range, high_range)
+        else:
+            range_slice = slice(None)
+
+        return paths[range_slice]
+
     @property
     def input_source(self) -> str:
         """Provide the name of the specified PoseJob instances to perform work on"""
@@ -883,6 +907,16 @@ class JobResources:
         except AttributeError:
             self._input_source = self.program_root
             return self._input_source
+
+    @property
+    def default_output_tuple(self) -> tuple[str, str, str]:
+        """Format fields for the output file depending on time, specified name and module type"""
+        if self.low and self.high:
+            design_source = f'{self.input_source}-{self.low:.2f}-{self.high:.2f}'
+        else:
+            design_source = self.input_source
+
+        return utils.starttime, self.module, design_source
 
     @property
     def construct_pose(self):

@@ -1952,7 +1952,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
 
     # Ensure we pass the .metadata attribute to each entity in the full assembly
     # This is crucial for sql usage
-    entity_idx = count(0)
+    entity_idx = count()
     for model in models:
         for entity in model.entities:
             pose.entities[next(entity_idx)].metadata = entity.metadata
@@ -2428,6 +2428,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         # else:
         #     pose.log.info('No evolution information')
     else:  # Make an empty collapse_profile
+        # pose.add_profile(null=True) ACTUALLY, don't use, keep pose.evolutionary_profile == {}
         measure_evolution = measure_alignment = False
         collapse_profile = np.empty(0)
         evolutionary_profile_array = None
@@ -2938,8 +2939,9 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
             if proteinmpnn_score:
                 # Save profiles
                 fragment_profiles.append(pose.fragment_profile.as_array())
-                pose.calculate_profile()
-                design_profiles.append(pssm_as_array(pose.profile))
+                if measure_evolution:
+                    pose.calculate_profile()
+                    design_profiles.append(pssm_as_array(pose.profile))
 
                 # Add all interface residues
                 # if measure_interface_during_dock:  # job.design.interface:
@@ -2995,7 +2997,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         #         'dock_collapse_variance'
         #     ]
         # Set up column renaming
-        if proteinmpnn_score:
+        if proteinmpnn_score and collapse_profile.size:
             collapse_metrics = (
                 'collapse_deviation_magnitude',
                 'collapse_increase_significance_by_contact_order_z',
@@ -3040,9 +3042,6 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
             poses_df = poses_df.join(summed_poses_df.drop('number_residues_interface', axis=1))
             # .droplevel(-1, axis=1) operations are REQUIRED here or the caluclations are messed up
             interface_df = residues_df.loc[:, idx_slice[:, 'interface_residue']].droplevel(-1, axis=1)
-            poses_df['dock_collapse_new_positions'] = \
-                (residues_df.loc[:, idx_slice[:, 'dock_collapse_new_positions']].droplevel(-1, axis=1)
-                 * interface_df).sum(axis=1)
             # Update the total loss according to those residues that were actually specified as designable
             poses_df['proteinmpnn_dock_cross_entropy_per_residue'] = \
                 (residues_df.loc[:, idx_slice[:, 'proteinmpnn_dock_cross_entropy_loss']].droplevel(-1, axis=1)
@@ -3061,27 +3060,31 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
                 poses_df['proteinmpnn_v_fragment_probability_cross_entropy_loss'] \
                 / poses_df['number_residues_interface_fragment_total']
 
-            # scores_df['collapse_new_positions'] /= scores_df['pose_length']
-            # scores_df['collapse_new_position_significance'] /= scores_df['pose_length']
-            poses_df['dock_collapse_significance_by_contact_order_z_mean'] = \
-                poses_df['dock_collapse_significance_by_contact_order_z'] / \
-                (residues_df.loc[:, idx_slice[:, 'dock_collapse_significance_by_contact_order_z']] != 0) \
-                .sum(axis=1)
-            # if measure_alignment:
-            dock_collapse_increased_df = residues_df.loc[:, idx_slice[:, 'dock_collapse_increased_z']]
-            total_increased_collapse = (dock_collapse_increased_df != 0).sum(axis=1)
-            # scores_df['dock_collapse_increase_significance_by_contact_order_z_mean'] = \
-            #     scores_df['dock_collapse_increase_significance_by_contact_order_z'] / \
-            #     total_increased_collapse
-            poses_df['dock_collapse_increased_z_mean'] = \
-                dock_collapse_increased_df.sum(axis=1) / total_increased_collapse
-            # poses_df['dock_collapse_variance'] = \
-            #     poses_df['dock_collapse_deviation_magnitude'] / pose_length
-            poses_df['dock_collapse_sequential_peaks_z_mean'] = \
-                poses_df['dock_collapse_sequential_peaks_z'] / total_increased_collapse
-            poses_df['dock_collapse_sequential_z_mean'] = \
-                poses_df['dock_collapse_sequential_z'] / total_increased_collapse
-            poses_df['dock_collapse_violation'] = poses_df['dock_collapse_new_positions'] > 0
+            if collapse_profile.size:
+                poses_df['dock_collapse_new_positions'] = \
+                    (residues_df.loc[:, idx_slice[:, 'dock_collapse_new_positions']].droplevel(-1, axis=1)
+                     * interface_df).sum(axis=1)
+                # scores_df['collapse_new_positions'] /= scores_df['pose_length']
+                # scores_df['collapse_new_position_significance'] /= scores_df['pose_length']
+                poses_df['dock_collapse_significance_by_contact_order_z_mean'] = \
+                    poses_df['dock_collapse_significance_by_contact_order_z'] / \
+                    (residues_df.loc[:, idx_slice[:, 'dock_collapse_significance_by_contact_order_z']] != 0) \
+                    .sum(axis=1)
+                # if measure_alignment:
+                dock_collapse_increased_df = residues_df.loc[:, idx_slice[:, 'dock_collapse_increased_z']]
+                total_increased_collapse = (dock_collapse_increased_df != 0).sum(axis=1)
+                # scores_df['dock_collapse_increase_significance_by_contact_order_z_mean'] = \
+                #     scores_df['dock_collapse_increase_significance_by_contact_order_z'] / \
+                #     total_increased_collapse
+                poses_df['dock_collapse_increased_z_mean'] = \
+                    dock_collapse_increased_df.sum(axis=1) / total_increased_collapse
+                # poses_df['dock_collapse_variance'] = \
+                #     poses_df['dock_collapse_deviation_magnitude'] / pose_length
+                poses_df['dock_collapse_sequential_peaks_z_mean'] = \
+                    poses_df['dock_collapse_sequential_peaks_z'] / total_increased_collapse
+                poses_df['dock_collapse_sequential_z_mean'] = \
+                    poses_df['dock_collapse_sequential_z'] / total_increased_collapse
+                poses_df['dock_collapse_violation'] = poses_df['dock_collapse_new_positions'] > 0
         else:
             poses_df = poses_df.join(summed_poses_df)
 
@@ -4318,10 +4321,9 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
                 # Add the next set of coordinates
                 update_pose_coords(idx)
 
-                # if number_perturbations_applied > 1:
-                add_fragments_to_pose()  # <- here generating fragments fresh
-
                 if job.output:
+                    if job.output_fragments:
+                        add_fragments_to_pose()  # <- here generating fragments fresh
                     if job.output_trajectory:
                         if idx % 2 == 0:
                             new_pose = pose.copy()
@@ -4348,9 +4350,6 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
                     pose_job.output_pose(path=pose_job.pose_path)
                     pose_job.source_path = pose_job.pose_path
                     pose_job.pose = None
-                    # # Modify the pose_name to get rid of the project
-                    # output_pose(pose_name)  # .replace(project_str, ''))
-                    # # pose_paths.append(output_pose(pose_name))
                     logger.info(f'OUTPUT POSE: {pose_job.pose_directory}')
 
                 # Update the sql.EntityData with transformations

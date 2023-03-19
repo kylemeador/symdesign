@@ -1371,10 +1371,11 @@ parser_input = {input_: dict(description=input_help)}  # , help=input_help
 parser_input_group = dict(title=f'{"_" * len(input_title)}\n{input_title}',
                           description=f'\nSpecify where/which poses should be included in processing\n'
                                       f'{directory_needed}')
+fuse_chains_args = ('--fuse-chains',)
 load_to_db_args = (f'--{load_to_db}',)
 load_to_db_kwargs = dict(action='store_true',
                          help=f'Use this input flag to load files existing in a {putils.program_output} to the DB')
-fuse_chains_args = ('--fuse-chains',)
+range_args = ('-r', '--range')
 input_arguments = {
     cluster_map_args: cluster_map_kwargs,
     ('-df', f'--{dataframe}'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
@@ -1412,11 +1413,11 @@ input_arguments = {
     (f'--{pre_refined}',):
         dict(action='store_true', help='Whether the input building blocks have been preprocessed by refinement into the'
                                        f' {current_energy_function}'),
-    ('-r', '--range'): dict(type=float, default=None, metavar='int-int',
-                            help='The range of poses to process from a larger specification.\n'
-                                 'Specify a %% between 0 and 100, separating the range by "-"\n'
-                                 # Required ^ for formatting
-                                 'Ex: 0-25'),
+    range_args: dict(type=float, default=None, metavar='INT-INT',
+                     help='The range of poses to process from a larger specification.\n'
+                          'Specify a %% between 0 and 100, separating the range by "-"\n'
+                          # Required ^ for formatting
+                          'Ex: 0-25'),
     specification_file_args:
         dict(type=os.path.abspath, nargs='*', metavar=ex_path('pose_design_specifications.csv'),
              help='Name of comma separated file with each line formatted:\n'
