@@ -879,7 +879,7 @@ class ResidueMetrics(Base):
 
     # Residue index (surrogate for residue number) and type information
     index = Column(Integer, nullable=False)
-    type = Column(String(1), nullable=False)
+    type = Column(String(1))  # , nullable=False)
     design_residue = Column(Boolean)
     interface_residue = Column(Boolean)
     mutation = Column(Boolean)
