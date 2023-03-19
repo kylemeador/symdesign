@@ -810,6 +810,26 @@ class DesignEntityMetrics(Base):
     rmsd_prediction_ensemble_deviation = Column(Float)  # entity_ is in config.metrics
 
 
+class ResidueMetrics(Base):
+    __tablename__ = 'residue_metrics'
+    id = Column(Integer, primary_key=True)
+
+    __table_args__ = (
+        # UniqueConstraint('pose_id', 'design_id', name='_pose_design_uc'),
+        UniqueConstraint('design_id', 'index', name='_design_index_uc'),
+    )
+    # # Set up many-to-one relationship with pose_data table
+    # pose_id = Column(ForeignKey('pose_data.id'))
+    # pose = relationship('PoseJob', back_populates='residues')
+    # Set up many-to-one relationship with design_data table
+    design_id = Column(ForeignKey('design_data.id'))
+    design = relationship('DesignData', back_populates='residues')
+
+    # Residue index (surrogate for residue number) and type information
+    index = Column(Integer, nullable=False)
+    design_residue = Column(Boolean)
+
+
 class PoseResidueMetrics(Base):
     __tablename__ = 'pose_residue_metrics'
     id = Column(Integer, primary_key=True)
@@ -840,6 +860,8 @@ class PoseResidueMetrics(Base):
     dock_hydrophobic_collapse = Column(Float)
 
 
+# This has 55 measures, most of which rely on Structures
+#  None (besides design_residue) has a use in the processing of modules... just used to produce DesignMetrics
 class ResidueMetrics(Base):
     __tablename__ = 'residue_metrics'
     id = Column(Integer, primary_key=True)

@@ -6313,7 +6313,7 @@ class Pose(SymmetricModel, Metrics):
         try:
             return self._design_residues
         except AttributeError:
-            self.log.debug('The design_residues include interface_residues')
+            # self.log.debug('The design_residues include interface_residues')
             self._design_residues = self.required_residues + self.interface_residues
             return self._design_residues
 

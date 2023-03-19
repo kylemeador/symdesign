@@ -2111,7 +2111,13 @@ class PoseProtocol(PoseData):
         residues_df = residues_df.join([predict_residues_df, residue_sequences_df])
         designs_df = designs_df.join(predict_designs_df)
         designs_df.index = residues_df.index = design_index
-        self.output_metrics(designs=designs_df, residues=residues_df)
+        self.output_metrics(designs=designs_df)
+        output_residues = False
+        if output_residues:  # Todo job.metrics.residues
+            self.output_metrics(residues=residues_df)
+        # else:  # Only save the 'design_residue' columns
+        #     residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+        #     self.output_metrics(residues=residues_df)
         # Commit the newly acquired metrics
         self.job.current_session.commit()
 
@@ -2649,7 +2655,13 @@ class PoseProtocol(PoseData):
         self.analyze_design_entities_per_residue(residues_df, design_ids)
         # self.log.debug(f"Took {time.time() - analysis_start:8f}s for analyze_proteinmpnn_metrics. "
         #                f"{time.time() - design_start:8f}s total")
-        self.output_metrics(designs=designs_df, residues=residues_df)
+        self.output_metrics(designs=designs_df)
+        output_residues = False
+        if output_residues:  # Todo job.metrics.residues
+            self.output_metrics(residues=residues_df)
+        else:  # Only save the 'design_residue' columns
+            residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+            self.output_metrics(residues=residues_df)
         # Commit the newly acquired metrics
         self.job.current_session.commit()
 
@@ -3212,7 +3224,13 @@ class PoseProtocol(PoseData):
         # print(designs_df)
         # print(designs_df.columns.tolist())
         # print(designs_df.index.tolist())
-        self.output_metrics(residues=residues_df, designs=designs_df)
+        self.output_metrics(designs=designs_df)
+        output_residues = False
+        if output_residues:  # Todo job.metrics.residues
+            self.output_metrics(residues=residues_df)
+        else:  # Only save the 'design_residue' columns
+            residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+            self.output_metrics(residues=residues_df)
         # Rename the incoming files to their prescribed names
         for filename, temp_filename in temp_files_to_move.items():
             shutil.move(filename, temp_filename)
@@ -3307,9 +3325,14 @@ class PoseProtocol(PoseData):
         name_to_id_map = {pose_name: self.pose_source.id}
         designs_df.index = designs_df.index.map(name_to_id_map)
         residues_df.index = residues_df.index.map(name_to_id_map)
-        # print(designs_df.index.tolist())
-        # print(designs_df.columns.tolist())
-        self.output_metrics(designs=designs_df, residues=residues_df)
+
+        self.output_metrics(designs=designs_df)
+        output_residues = False
+        if output_residues:  # Todo job.metrics.residues
+            self.output_metrics(residues=residues_df)
+        else:  # Only save the 'design_residue' columns
+            residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+            self.output_metrics(residues=residues_df)
         # Commit the newly acquired metrics
         self.job.current_session.commit()
 
@@ -3716,7 +3739,15 @@ class PoseProtocol(PoseData):
         # input(f'AFTER MAP: {designs_df.index.tolist()}')
 
         # Commit the newly acquired metrics to the database
-        self.output_metrics(residues=residues_df, designs=designs_df)
+        self.output_metrics(designs=designs_df)
+        output_residues = False
+        if output_residues:  # Todo job.metrics.residues
+            self.output_metrics(residues=residues_df)
+        # This function doesn't generate any 'design_residue'
+        # else:  # Only save the 'design_residue' columns
+        #     residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+        #     self.output_metrics(residues=residues_df)
+        # Commit the newly acquired metrics
         self.job.current_session.commit()
 
     def analyze_pose_metrics(self, novel_interface: bool = True) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -5034,7 +5065,13 @@ class PoseProtocol(PoseData):
         # if self.job.save:
         # residues_df[(putils.protocol, putils.protocol)] = protocol_s
         # residues_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
-        self.output_metrics(residues=residues_df, designs=designs_df)
+        self.output_metrics(designs=designs_df)
+        output_residues = False
+        if output_residues:  # Todo job.metrics.residues
+            self.output_metrics(residues=residues_df)
+        else:  # Only save the 'design_residue' columns
+            residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+            self.output_metrics(residues=residues_df)
         # Commit the newly acquired metrics
         self.job.current_session.commit()
 

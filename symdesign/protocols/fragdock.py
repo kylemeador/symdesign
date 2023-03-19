@@ -4401,7 +4401,9 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
                 residues_df_.index = pd.Index(pose_ids, name=sql.PoseResidueMetrics.pose_id.name)
                 # Write dataframes to the sql database
                 metrics.sql.write_dataframe(job.current_session, poses=poses_df_)
-                metrics.sql.write_dataframe(job.current_session, pose_residues=residues_df_)
+                output_residues = False
+                if output_residues:  # Todo job.metrics.residues
+                    metrics.sql.write_dataframe(job.current_session, pose_residues=residues_df_)
             else:  # Write to disk
                 residues_df_.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
                 putils.make_path(job.all_scores)

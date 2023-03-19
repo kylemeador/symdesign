@@ -202,18 +202,14 @@ def format_residues_df_for_write(df: pd.DataFrame) -> pd.DataFrame:
     Args:
         df: A per-residue DataFrame to transform
     Returns:
-        The transformed dataframe
+        The transformed DataFrame
     """
-    # df.sort_index(inplace=True)
-    df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-    # residue_metric_columns = residues.columns.levels[-1].to_list()
-    # self.log.debug(f'Residues metrics present: {residue_metric_columns}')
+    # df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
+    # # residue_metric_columns = residues.columns.levels[-1].to_list()
+    # # self.log.debug(f'Residues metrics present: {residue_metric_columns}')
 
-    # Add the pose identifier to the dataframe
-    # df = pd.concat([df], keys=[str(self)], axis=0)
     # Place the residue indices from the column names into the index at position -1
     df = df.stack(0)
-    # df.index.set_names(['pose', 'design', 'index'], inplace=True)
     df.index.set_names('index', level=-1, inplace=True)
 
     return df
