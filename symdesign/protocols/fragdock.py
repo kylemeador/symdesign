@@ -430,7 +430,74 @@ def make_contiguous_ghosts(ghost_frags_by_residue: list[list[GhostFragment]], re
     # return init_ghost_guide_coords, init_ghost_rmsds, init_ghost_residue_indices
 
 
-def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list:
+def check_tree_for_query_overlap(batch_slice: slice,
+                                 binarytree: BinaryTree = None, query_points: np.ndarray = None,
+                                 rotation: np.ndarray = None, translation: np.ndarray = None,
+                                 rotation2: np.ndarray = None, translation2: np.ndarray = None,
+                                 rotation3: np.ndarray = None, translation3: np.ndarray = None,
+                                 rotation4: np.ndarray = None, translation4: np.ndarray = None,
+                                 clash_distance: float = 2.1) -> dict[str, list]:
+    """Check for overlapping coordinates between a BinaryTree and a collection of query_points.
+    Transform the query over multiple iterations
+
+    Args:
+        batch_slice: The slice of the incoming work to operate on
+        binarytree: The tree to check all queries against
+        query_points: The points to transform, then query against the tree
+        rotation:
+        translation:
+        rotation2:
+        translation2:
+        rotation3:
+        translation3:
+        rotation4:
+        translation4:
+        clash_distance: The distance to measure for query_point overlap, i.e. clashing
+    Returns:
+        The number of overlaps found at each transformed query point as a dictionary
+    """
+    _rotation = rotation[batch_slice]
+    actual_batch_length = len(_rotation)
+    # Transform the coordinates
+    # Todo 3 for performing broadcasting of this operation
+    #  s_broad = np.matmul(tiled_coords2[None, :, None, :], _full_rotation2[:, None, :, :])
+    #  produces a shape of (_full_rotation2.shape[0], tiled_coords2.shape[0], 1, 3)
+    #  inverse_transformed_model2_tiled_coords = transform_coordinate_sets(transform_coordinate_sets()).squeeze()
+    transformed_query_points = \
+        transform_coordinate_sets(
+            transform_coordinate_sets(query_points[:actual_batch_length],  # Slice ensures same size
+                                      rotation=_rotation,
+                                      translation=None if translation is None
+                                      else translation[batch_slice, None, :],
+                                      rotation2=rotation2,  # setting matrix, no slice
+                                      translation2=None if translation2 is None
+                                      else translation2[batch_slice, None, :]),
+            rotation=rotation3,  # setting matrix, no slice
+            translation=None if translation3 is None else translation3[batch_slice, None, :],
+            rotation2=rotation4[batch_slice],
+            translation2=None if translation4 is None else translation4[batch_slice, None, :])
+
+    clash_vect = [clash_distance]
+    overlap_counts = \
+        [binarytree.two_point_correlation(transformed_query_points[idx], clash_vect)[0]
+         for idx in range(actual_batch_length)]
+
+    return {'overlap_counts': overlap_counts}
+
+
+def get_check_tree_for_query_overlap_batch_length(coords: np.ndarry) -> int:
+    # guide_coords_elements = 9  # For a single guide coordinate with shape (3, 3)
+    # coords_multiplier = 2
+    memory_constraint = utils.get_available_memory()
+    number_of_elements_available = memory_constraint / 8  # Assume each element is np.float64
+    model_elements = prod(coords.shape)
+    # total_elements_required = model_elements * number_of_dense_transforms
+    # The batch_length indicates how many models could fit in the allocated memory. Using floor division to get integer
+    # Reduce scale by factor of 16 (or other divisor) to be safe
+    return int((number_of_elements_available//model_elements) // 16)
+
+
+def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
     # model1: Structure | AnyStr, model2: Structure | AnyStr,
     """Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
 
@@ -1558,96 +1625,35 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
     # Transform coords to query for clashes
     # Set up chunks of coordinate transforms for clash testing
     check_clash_coords_start = time.time()
-    memory_constraint = utils.get_available_memory()
-    # Assume each element is np.float64
-    element_memory = 8  # where each element is np.float64
-    # guide_coords_elements = 9  # For a single guide coordinate with shape (3, 3)
-    # coords_multiplier = 2
-    number_of_elements_available = memory_constraint / element_memory
-    model_elements = prod(bb_cb_coords2.shape)
-    # total_elements_required = model_elements * number_of_dense_transforms
+    calculation_size = number_of_dense_transforms
     # Start with the assumption that all tested clashes are clashing
-    asu_clash_counts = np.ones(number_of_dense_transforms)
-    clash_vect = [clash_dist]
-    # The batch_length indicates how many models could fit in the allocated memory. Using floor division to get integer
-    # Reduce scale by factor of divisor to be safe
-    start_divisor = 16
-    batch_length = int(number_of_elements_available // model_elements // start_divisor)
+    asu_clash_counts = np.ones(calculation_size)
+    batch_length = get_check_tree_for_query_overlap_batch_length(bb_cb_coords2)
+    batch_length = min((batch_length, calculation_size))
 
-    # Setup function that must be performed before the function isexecuted
+    # Setup function is performed before the function is executed
     def np_tile_wrap(length: int, coords: np.ndarray, *args, **kwargs):
         return dict(query_points=np.tile(coords, (length, 1, 1)))
 
+    # Todo this is used in perturb_transformations with different 'size' and 'batch_length' that are going to snag
+    #  at some point given the size of the perturb could be larger than the batch_length
     # Create the balltree clash check as a batched function
-    @resources.ml.batch_calculation(size=number_of_dense_transforms, batch_length=batch_length, setup=np_tile_wrap,
+    @resources.ml.batch_calculation(size=calculation_size, batch_length=batch_length, setup=np_tile_wrap,
                                     compute_failure_exceptions=(np.core._exceptions._ArrayMemoryError,))
-    def check_tree_for_query_overlap(batch_slice: slice,
-                                     binarytree: BinaryTree = None, query_points: np.ndarray = None,
-                                     rotation: np.ndarray = None, translation: np.ndarray = None,
-                                     rotation2: np.ndarray = None, translation2: np.ndarray = None,
-                                     rotation3: np.ndarray = None, translation3: np.ndarray = None,
-                                     rotation4: np.ndarray = None, translation4: np.ndarray = None) \
-            -> dict[str, list]:
-        """Check for overlapping coordinates between a BinaryTree and a collection of query_points.
-        Transform the query over multiple iterations
-
-        Args:
-            binarytree: The tree to check all queries against
-            query_points: The points to transform, then query against the tree
-            rotation:
-            translation:
-            rotation2:
-            translation2:
-            rotation3:
-            translation3:
-            rotation4:
-            translation4:
-
-        Returns:
-            The number of overlaps found at each transformed query point as a dictionary
-        """
-        # These variables are accessed from within the resources.ml.batch_calculation scope
-        # nonlocal actual_batch_length, batch_slice
-        _rotation = rotation[batch_slice]
-        # actual_batch_length = batch_slice.stop - batch_slice.start
-        actual_batch_length = _rotation.shape[0]
-        # Transform the coordinates
-        # Todo 3 for performing broadcasting of this operation
-        #  s_broad = np.matmul(tiled_coords2[None, :, None, :], _full_rotation2[:, None, :, :])
-        #  produces a shape of (_full_rotation2.shape[0], tiled_coords2.shape[0], 1, 3)
-        #  inverse_transformed_model2_tiled_coords = transform_coordinate_sets(transform_coordinate_sets()).squeeze()
-        transformed_query_points = \
-            transform_coordinate_sets(
-                transform_coordinate_sets(query_points[:actual_batch_length],  # Slice ensures same size
-                                          rotation=_rotation,
-                                          translation=None if translation is None
-                                          else translation[batch_slice, None, :],
-                                          rotation2=rotation2,  # setting matrix, no slice
-                                          translation2=None if translation2 is None
-                                          else translation2[batch_slice, None, :]),
-                rotation=rotation3,  # setting matrix, no slice
-                translation=None if translation3 is None else translation3[batch_slice, None, :],
-                rotation2=rotation4[batch_slice],
-                translation2=None if translation4 is None else translation4[batch_slice, None, :])
-
-        overlap_counts = \
-            [binarytree.two_point_correlation(transformed_query_points[idx], clash_vect)[0]
-             for idx in range(actual_batch_length)]
-
-        return {'overlap_counts': overlap_counts}
+    def init_check_tree_for_query_overlap(*args, **kwargs):
+        return check_tree_for_query_overlap(*args, **kwargs)
 
     logger.info(f'Testing found transforms for ASU clashes')
     # Using the inverse transform of the model2 backbone and cb (surface fragment) coordinates, check for clashes
     # with the model1 backbone and cb coordinates BinaryTree
-    ball_tree_kwargs = dict(binarytree=oligomer1_backbone_cb_tree,
+    ball_tree_kwargs = dict(binarytree=oligomer1_backbone_cb_tree, clash_distance=clash_dist,
                             rotation=_full_rotation2, translation=_full_int_tx2,
                             rotation2=set_mat2, translation2=full_ext_tx_sum,
                             rotation3=inv_setting1, translation3=full_int_tx_inv1,
                             rotation4=full_inv_rotation1)
 
-    overlap_return = check_tree_for_query_overlap(**ball_tree_kwargs,
-                                                  return_containers={'overlap_counts': asu_clash_counts},
-                                                  setup_args=(bb_cb_coords2,))
+    overlap_return = init_check_tree_for_query_overlap(
+        **ball_tree_kwargs, return_containers={'overlap_counts': asu_clash_counts}, setup_args=(bb_cb_coords2,))
     # Extract the data
     asu_clash_counts = overlap_return['overlap_counts']
     # Find those indices where the asu_clash_counts is not zero (inverse of nonzero by using the array == 0)
@@ -2161,16 +2167,24 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                                                 rotation_steps=rotation_steps,
                                                 translation_steps=translation_perturb_steps)
         # Extract perturbation parameters and set the original transformation parameters to a new variable
-        # if sym_entry.is_internal_rot1:  # Todo 2
-        nonlocal number_of_transforms, full_rotation1, full_rotation2
         nonlocal number_perturbations_applied
-        original_rotation1 = full_rotation1
         rotation_perturbations1 = perturbations['rotation1']
         # Compute the length of each perturbation to separate into unique perturbation spaces
-        number_perturbations_applied, *_ = rotation_perturbations1.shape
+        number_perturbations_applied = calculation_size_ = len(rotation_perturbations1)
         # logger.debug(f'rotation_perturbations1.shape: {rotation_perturbations1.shape}')
         # logger.debug(f'rotation_perturbations1[:5]: {rotation_perturbations1[:5]}')
+        batch_length_ = get_check_tree_for_query_overlap_batch_length(bb_cb_coords2)
+        batch_length_ = min((batch_length_, number_perturbations_applied))
 
+        # Define local check_tree_for_query_overlap function to check clashes
+        @resources.ml.batch_calculation(size=calculation_size_, batch_length=batch_length_, setup=np_tile_wrap,
+                                        compute_failure_exceptions=(np.core._exceptions._ArrayMemoryError,))
+        def perturb_check_tree_for_query_overlap(*args, **kwargs):
+            return check_tree_for_query_overlap(*args, **kwargs)
+
+        nonlocal number_of_transforms, full_rotation1, full_rotation2
+        # if sym_entry.is_internal_rot1:  # Todo 2
+        original_rotation1 = full_rotation1
         # if sym_entry.is_internal_rot2:  # Todo 2
         original_rotation2 = full_rotation2
         rotation_perturbations2 = perturbations['rotation2']
@@ -2236,7 +2250,7 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
             # Check for ASU clashes again
             # Using the inverse transform of the model2 backbone and cb coordinates, check for clashes with the model1
             # backbone and cb coordinates BallTree
-            ball_tree_kwargs = dict(binarytree=oligomer1_backbone_cb_tree,
+            ball_tree_kwargs = dict(binarytree=oligomer1_backbone_cb_tree, clash_distance=clash_dist,
                                     rotation=full_rotation2, translation=full_int_tx2,
                                     rotation2=set_mat2, translation2=full_ext_tx_sum,
                                     rotation3=inv_setting1,
@@ -2244,11 +2258,10 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
                                     rotation4=full_inv_rotation1)
             # Create a fresh asu_clash_counts
             asu_clash_counts = np.ones(number_perturbations_applied)
-            clash_time_start = time.time()
-            overlap_return = check_tree_for_query_overlap(**ball_tree_kwargs,
-                                                          return_containers={'overlap_counts': asu_clash_counts},
-                                                          setup_args=(bb_cb_coords2,))
-            logger.debug(f'Perturb clash took {time.time() - clash_time_start:8f}s')
+            # clash_time_start = time.time()
+            overlap_return = perturb_check_tree_for_query_overlap(
+                **ball_tree_kwargs, return_containers={'overlap_counts': asu_clash_counts}, setup_args=(bb_cb_coords2,))
+            # logger.debug(f'Perturb clash took {time.time() - clash_time_start:8f}s')
 
             # Extract the data
             asu_clash_counts = overlap_return['overlap_counts']
@@ -3885,8 +3898,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
 
         # Filter weighted_trajectory_df by selected_indices, and update the .index with ordered transformation_ids
         selected_indexer = np.isin(weighted_trajectory_df_index, selected_indices)
+        weighted_trajectory_df.index = pd.Index(current_transformation_ids[weighted_trajectory_df_index])
         weighted_trajectory_df = weighted_trajectory_df[selected_indexer]
-        weighted_trajectory_df.index = pd.Index(current_transformation_ids[selected_indexer])
         # Todo?
         #  Was returning this version of weighted_trajectory_df, but was only using the selected_transformation_ids
         #  So, now just returning selected_indices
@@ -4043,7 +4056,6 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         round1_cluster_shape = []
         total_dof_perturbed = 1
         optimize_round = 0
-        logger.info(f'Starting optimize with {number_of_transforms} transformations')
         if job.dock.weight:
             selected_columns = list(job.dock.weight.keys())
         else:
@@ -4070,6 +4082,8 @@ def fragment_dock(models: Iterable[Structure], **kwargs) -> list[PoseJob] | list
         # Everything below could really be expedited with a Bayseian optimization search strategy
         # while sum(translation_perturb_steps) > 0.1 and all(tuple(abs(last_result - result) > thresholds)):
         # Todo the tuple(abs(last_result - result) > thresholds)) with a float won't convert to an iterable
+        logger.info(f'Starting {optimize_found_transformations_by_metrics.__name__} of {number_of_transforms} '
+                    f'transformations with starting optimize target={result}')
         while (optimize_round < 2 or all(tuple(abs(last_result - result) > thresholds))) \
                 and sum(translation_perturb_steps) > model_transform_hasher.translation_bin_width:
             #     and sum(rotation_steps) > model_transform_hasher.rotation_bin_width:
