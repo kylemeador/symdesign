@@ -4085,7 +4085,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         logger.info(f'Starting {optimize_found_transformations_by_metrics.__name__} of {number_of_transforms} '
                     f'transformations with starting optimize target={result}')
         while (optimize_round < 2 or all(tuple(abs(last_result - result) > thresholds))) \
-                and sum(translation_perturb_steps) > model_transform_hasher.translation_bin_width:
+                and sum(translation_perturb_steps) > 0.1:  # model_transform_hasher.translation_bin_width:
             #     and sum(rotation_steps) > model_transform_hasher.rotation_bin_width:
             optimize_round += 1
             logger.info(f'{optimize_found_transformations_by_metrics.__name__} round {optimize_round}')
