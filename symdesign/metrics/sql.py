@@ -151,7 +151,7 @@ def upsert_dataframe(session: Session, table: sql.Base, df: pd.DataFrame, mysql:
     """
     if mysql:
         insert_stmt = mysql_insert(table)
-        excluded_columns = insert_stmt.included
+        excluded_columns = insert_stmt.inserted
     else:
         insert_stmt = sqlite_insert(table)
         excluded_columns = insert_stmt.excluded
@@ -262,8 +262,8 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None, residues: pd
     # def warn_multiple_update_results():
     #     nonlocal warned
     #     if warn and not warned:
-    #         logger.warning("Performing multiple metrics SQL transactions will only return only results for the last "
-    #                        "transaction")
+    #         logger.warning(
+    #             "Performing multiple metrics SQL transactions will only return results for the last transaction")
     #         warned = True
 
     # job = sym_job.job_resources_factory()
