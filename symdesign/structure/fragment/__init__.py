@@ -285,7 +285,7 @@ class Fragment(ABC):
 
     def find_ghost_fragments(self,
                              # indexed_ghost_fragments: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]
-                             clash_tree: BinaryTree = None, clash_dist: float = 2.2):
+                             clash_tree: BinaryTree = None, clash_dist: float = 2.1):
         """Find all the GhostFragments associated with the Fragment
 
         Args:
@@ -333,7 +333,7 @@ class Fragment(ABC):
         Keyword Args:
             clash_tree: sklearn.neighbors._ball_tree.BinaryTree = None - Allows clash prevention during search.
                 Typical use is the backbone and CB coordinates of the Structure that the Fragment is assigned
-            clash_dist: float = 2.2 - The distance to check for backbone clashes
+            clash_dist: float = 2.1 - The distance to check for backbone clashes
         Returns:
             The ghost fragments associated with the fragment
         """

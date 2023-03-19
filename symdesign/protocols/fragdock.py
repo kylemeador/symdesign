@@ -552,7 +552,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
     measure_interface_during_dock = True
     low_quality_match_value = .2
     """The lower bounds on an acceptable match. Was upper bound of 2 using z-score"""
-    clash_dist: float = 2.2
+    clash_dist: float = 2.1
     """The distance to measure for clashing atoms"""
     cb_distance = 9.  # change to 8.?
     """The distance to measure for interface atoms"""
