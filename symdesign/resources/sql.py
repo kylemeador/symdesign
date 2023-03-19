@@ -827,120 +827,121 @@ class ResidueMetrics(Base):
 
     # Residue index (surrogate for residue number) and type information
     index = Column(Integer, nullable=False)
-    design_residue = Column(Boolean)
+    design_residue = Column(Boolean, nullable=False)
 
 
-class PoseResidueMetrics(Base):
-    __tablename__ = 'pose_residue_metrics'
-    id = Column(Integer, primary_key=True)
-
-    __table_args__ = (
-        UniqueConstraint('pose_id', 'index', name='_pose_index_uc'),
-    )
-    # Residue index (surrogate for residue number) and type information
-    index = Column(Integer, nullable=False)
-    interface_residue = Column(Boolean)
-
-    # Set up many-to-one relationship with pose_data table
-    pose_id = Column(ForeignKey('pose_data.id'))
-    pose = relationship('PoseJob', back_populates='residues')
-    # ProteinMPNN score terms
-    proteinmpnn_dock_cross_entropy_loss = Column(Float)
-    proteinmpnn_v_design_probability_cross_entropy_loss = Column(Float)
-    proteinmpnn_v_evolution_probability_cross_entropy_loss = Column(Float)
-    proteinmpnn_v_fragment_probability_cross_entropy_loss = Column(Float)
-    dock_collapse_deviation_magnitude = Column(Float)
-    dock_collapse_increase_significance_by_contact_order_z = Column(Float)
-    dock_collapse_increased_z = Column(Float)
-    dock_collapse_new_positions = Column(Boolean)
-    dock_collapse_new_position_significance = Column(Float)
-    dock_collapse_sequential_peaks_z = Column(Float)
-    dock_collapse_sequential_z = Column(Float)
-    dock_collapse_significance_by_contact_order_z = Column(Float)
-    dock_hydrophobic_collapse = Column(Float)
-
-
-# This has 55 measures, most of which rely on Structures
-#  None (besides design_residue) has a use in the processing of modules... just used to produce DesignMetrics
-class ResidueMetrics(Base):
-    __tablename__ = 'residue_metrics'
-    id = Column(Integer, primary_key=True)
-
-    __table_args__ = (
-        # UniqueConstraint('pose_id', 'design_id', name='_pose_design_uc'),
-        UniqueConstraint('design_id', 'index', name='_design_index_uc'),
-    )
-    # # Set up many-to-one relationship with pose_data table
-    # pose_id = Column(ForeignKey('pose_data.id'))
-    # pose = relationship('PoseJob', back_populates='residues')
-    # Set up many-to-one relationship with design_data table
-    design_id = Column(ForeignKey('design_data.id'))
-    design = relationship('DesignData', back_populates='residues')
-
-    # Residue index (surrogate for residue number) and type information
-    index = Column(Integer, nullable=False)
-    type = Column(String(1))  # , nullable=False)
-    design_residue = Column(Boolean)
-    interface_residue = Column(Boolean)
-    mutation = Column(Boolean)
-    # Rosetta energy values
-    complex = Column(Float)
-    bound = Column(Float)
-    unbound = Column(Float)
-    energy_delta = Column(Float)
-    solv_complex = Column(Float)
-    solv_bound = Column(Float)
-    solv_unbound = Column(Float)
-    hbond = Column(Boolean)
-    coordinate_constraint = Column(Float)
-    residue_favored = Column(Float)
-    # SymDesign measurements
-    contact_order = Column(Float)
-    errat_deviation = Column(Float)
-    sasa_hydrophobic_complex = Column(Float)
-    sasa_polar_complex = Column(Float)
-    sasa_relative_complex = Column(Float)
-    sasa_hydrophobic_bound = Column(Float)
-    sasa_polar_bound = Column(Float)
-    sasa_relative_bound = Column(Float)
-    bsa_hydrophobic = Column(Float)
-    bsa_polar = Column(Float)
-    bsa_total = Column(Float)
-    sasa_total_bound = Column(Float)
-    sasa_total_complex = Column(Float)
-    interior = Column(Float)
-    surface = Column(Float)
-    support = Column(Float)
-    rim = Column(Float)
-    core = Column(Float)
-    # Collapse measurements
-    collapse_deviation_magnitude = Column(Float)
-    collapse_increase_significance_by_contact_order_z = Column(Float)
-    collapse_increased_z = Column(Float)
-    collapse_new_positions = Column(Boolean)
-    collapse_new_position_significance = Column(Float)
-    collapse_sequential_peaks_z = Column(Float)
-    collapse_sequential_z = Column(Float)
-    collapse_significance_by_contact_order_z = Column(Float)
-    hydrophobic_collapse = Column(Float)
-    spatial_aggregation_propensity = Column(Float)
-    spatial_aggregation_propensity_unbound = Column(Float)
-    # ProteinMPNN score terms
-    proteinmpnn_loss_complex = Column(Float)
-    proteinmpnn_loss_unbound = Column(Float)
-    sequence_loss_design = Column(Float)
-    sequence_loss_evolution = Column(Float)
-    sequence_loss_fragment = Column(Float)
-    # Observed in profile measurements
-    observed_design = Column(Boolean)
-    observed_evolution = Column(Boolean)
-    observed_fragment = Column(Boolean)
-    observed_interface = Column(Boolean)
-    # # Direct coupling analysis energy
-    # dca_energy = Column(Float)
-    # Folding metrics
-    plddt = Column(Float)
-    predicted_aligned_error = Column(Float)
+# # Has 15 measurements
+# class PoseResidueMetrics(Base):
+#     __tablename__ = 'pose_residue_metrics'
+#     id = Column(Integer, primary_key=True)
+#
+#     __table_args__ = (
+#         UniqueConstraint('pose_id', 'index', name='_pose_index_uc'),
+#     )
+#     # Residue index (surrogate for residue number) and type information
+#     index = Column(Integer, nullable=False)
+#     interface_residue = Column(Boolean)
+#
+#     # Set up many-to-one relationship with pose_data table
+#     pose_id = Column(ForeignKey('pose_data.id'))
+#     pose = relationship('PoseJob', back_populates='residues')
+#     # ProteinMPNN score terms
+#     proteinmpnn_dock_cross_entropy_loss = Column(Float)
+#     proteinmpnn_v_design_probability_cross_entropy_loss = Column(Float)
+#     proteinmpnn_v_evolution_probability_cross_entropy_loss = Column(Float)
+#     proteinmpnn_v_fragment_probability_cross_entropy_loss = Column(Float)
+#     dock_collapse_deviation_magnitude = Column(Float)
+#     dock_collapse_increase_significance_by_contact_order_z = Column(Float)
+#     dock_collapse_increased_z = Column(Float)
+#     dock_collapse_new_positions = Column(Boolean)
+#     dock_collapse_new_position_significance = Column(Float)
+#     dock_collapse_sequential_peaks_z = Column(Float)
+#     dock_collapse_sequential_z = Column(Float)
+#     dock_collapse_significance_by_contact_order_z = Column(Float)
+#     dock_hydrophobic_collapse = Column(Float)
+#
+#
+# # This has 55 measures, most of which rely on Structures
+# #  None (besides design_residue) has a use in the processing of modules... just used to produce DesignMetrics
+# class ResidueMetrics(Base):
+#     __tablename__ = 'residue_metrics'
+#     id = Column(Integer, primary_key=True)
+#
+#     __table_args__ = (
+#         # UniqueConstraint('pose_id', 'design_id', name='_pose_design_uc'),
+#         UniqueConstraint('design_id', 'index', name='_design_index_uc'),
+#     )
+#     # # Set up many-to-one relationship with pose_data table
+#     # pose_id = Column(ForeignKey('pose_data.id'))
+#     # pose = relationship('PoseJob', back_populates='residues')
+#     # Set up many-to-one relationship with design_data table
+#     design_id = Column(ForeignKey('design_data.id'))
+#     design = relationship('DesignData', back_populates='residues')
+#
+#     # Residue index (surrogate for residue number) and type information
+#     index = Column(Integer, nullable=False)
+#     type = Column(String(1))  # , nullable=False)
+#     design_residue = Column(Boolean)
+#     interface_residue = Column(Boolean)
+#     mutation = Column(Boolean)
+#     # Rosetta energy values
+#     complex = Column(Float)
+#     bound = Column(Float)
+#     unbound = Column(Float)
+#     energy_delta = Column(Float)
+#     solv_complex = Column(Float)
+#     solv_bound = Column(Float)
+#     solv_unbound = Column(Float)
+#     hbond = Column(Boolean)
+#     coordinate_constraint = Column(Float)
+#     residue_favored = Column(Float)
+#     # SymDesign measurements
+#     contact_order = Column(Float)
+#     errat_deviation = Column(Float)
+#     sasa_hydrophobic_complex = Column(Float)
+#     sasa_polar_complex = Column(Float)
+#     sasa_relative_complex = Column(Float)
+#     sasa_hydrophobic_bound = Column(Float)
+#     sasa_polar_bound = Column(Float)
+#     sasa_relative_bound = Column(Float)
+#     bsa_hydrophobic = Column(Float)
+#     bsa_polar = Column(Float)
+#     bsa_total = Column(Float)
+#     sasa_total_bound = Column(Float)
+#     sasa_total_complex = Column(Float)
+#     interior = Column(Float)
+#     surface = Column(Float)
+#     support = Column(Float)
+#     rim = Column(Float)
+#     core = Column(Float)
+#     # Collapse measurements
+#     collapse_deviation_magnitude = Column(Float)
+#     collapse_increase_significance_by_contact_order_z = Column(Float)
+#     collapse_increased_z = Column(Float)
+#     collapse_new_positions = Column(Boolean)
+#     collapse_new_position_significance = Column(Float)
+#     collapse_sequential_peaks_z = Column(Float)
+#     collapse_sequential_z = Column(Float)
+#     collapse_significance_by_contact_order_z = Column(Float)
+#     hydrophobic_collapse = Column(Float)
+#     spatial_aggregation_propensity = Column(Float)
+#     spatial_aggregation_propensity_unbound = Column(Float)
+#     # ProteinMPNN score terms
+#     proteinmpnn_loss_complex = Column(Float)
+#     proteinmpnn_loss_unbound = Column(Float)
+#     sequence_loss_design = Column(Float)
+#     sequence_loss_evolution = Column(Float)
+#     sequence_loss_fragment = Column(Float)
+#     # Observed in profile measurements
+#     observed_design = Column(Boolean)
+#     observed_evolution = Column(Boolean)
+#     observed_fragment = Column(Boolean)
+#     observed_interface = Column(Boolean)
+#     # # Direct coupling analysis energy
+#     # dca_energy = Column(Float)
+#     # Folding metrics
+#     plddt = Column(Float)
+#     predicted_aligned_error = Column(Float)
 
 
 # class Mysql:
