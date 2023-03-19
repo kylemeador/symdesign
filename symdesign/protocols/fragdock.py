@@ -3753,9 +3753,10 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
             # Used to progressively limit search as clusters deepen
             if optimize_round == 1:
                 top_perturb_hits = total_dof_perturbed
+                logger.info(f'Selecting the top {top_perturb_hits} transformations from each perturbation')
             else:
                 top_perturb_hits = 1
-            logger.info(f'Selecting the top {top_perturb_hits} transformations from each perturbation')
+                logger.info(f'Selecting the top transformation from each perturbation')
             # # Round down the sqrt of the number_perturbations_applied
             # top_perturb_hits = int(math.sqrt(number_perturbations_applied) + .5)
             # top_perturb_hits = int(total_dof_perturbed/optimize_round + .5)

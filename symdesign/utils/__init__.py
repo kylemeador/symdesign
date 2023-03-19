@@ -900,9 +900,9 @@ def get_available_memory(human_readable: bool = False, gpu: bool = False) -> int
         #     jobid = f'{jobid}_{array_jobid}'  # SLURM_ARRAY_TASK_ID
         if 'SLURM_ARRAY_TASK_ID' in os.environ:
             jobid = f'{jobid}_{os.environ["SLURM_ARRAY_TASK_ID"]}'  # SLURM_ARRAY_TASK_ID
-            logger.info(f'The job is managed by SLURM with SLURM_ARRAY_TASK_ID={jobid}')
+            logger.debug(f'The job is managed by SLURM with SLURM_ARRAY_TASK_ID={jobid}')
         else:
-            logger.info(f'The job is managed by SLURM with SLURM_JOB_ID={jobid}')
+            logger.debug(f'The job is managed by SLURM with SLURM_JOB_ID={jobid}')
 
         # Run the command 'scontrol show job {jobid}'
         p = subprocess.Popen(['scontrol', 'show', 'job', jobid], stdout=subprocess.PIPE)

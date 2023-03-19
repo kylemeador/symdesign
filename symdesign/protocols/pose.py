@@ -1473,39 +1473,8 @@ class PoseProtocol(PoseData):
     def identify_interface(self):
         """Find the interface(s) between each Entity in the Pose. Handles symmetric clash testing, writing the assembly
         """
-        #         Sets:
-        #             self.interface_residue_ids (dict[str, str]):
-        #                 Map each interface to the corresponding residue/chain pairs
-        #             self.interface_design_residue_numbers (set[int]):
-        #                 The residues in proximity of the interface, including buried residues
-        #             self.interface_residue_numbers (set[int]):
-        #                 The residues in contact across the interface
         self.load_pose()
         self.pose.find_and_split_interface()
-
-        # self.interface_design_residue_numbers = set()  # Replace set(). Add new residues
-        # for number, residues_entities in self.pose.interface_residues_by_interface.items():
-        #     self.interface_design_residue_numbers.update([residue.number for residue, _ in residues_entities])
-        # self.log.debug(f'Found interface design residues: '
-        #                f'{", ".join(map(str, sorted(self.interface_design_residue_numbers)))}')
-
-        # self.interface_residue_numbers = set()  # Replace set(). Add new residues
-        # for entity in self.pose.entities:
-        #     entity.oligomer.get_sasa()
-        #     # Must get_residues by number as the Residue instance will be different in entity_oligomer
-        #     for residue in entity_oligomer.get_residues(self.interface_design_residue_numbers):
-        #         if residue.sasa > 0:
-        #             # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
-        #             self.interface_residue_numbers.add(residue.number)
-        # self.log.debug(f'Found interface residues: {", ".join(map(str, sorted(self.interface_residue_numbers)))}')
-
-        # for number, residues in self.pose.interface_residues_by_interface.items():
-        #     self.interface_residue_ids[f'interface{number}'] = \
-        #         ','.join(f'{residue.number}{residue.chain_id}' for residue in residues)
-
-        # self.info['interface_design_residues'] = self.interface_design_residue_numbers
-        # self.info['interface_residues'] = self.interface_residue_numbers
-        # self.info['interface_residue_ids'] = self.interface_residue_ids
 
     def prepare_rosetta_flags(self, symmetry_protocol: str = None, sym_def_file: str = None, pdb_out_path: str = None,
                               out_dir: AnyStr = os.getcwd()) -> str:
@@ -3172,10 +3141,6 @@ class PoseProtocol(PoseData):
         sequences_and_scores = self.pose.score(list(design_sequences.values()),
                                                model_name=self.job.design.proteinmpnn_model_name)
         sequences_and_scores.update({'design_indices': design_residues})
-        # sequences_and_scores = {
-        #     'design_indices': design_residues,
-        #     **proteinmpnn_scores
-        # }
         mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
 
         # Get the name/provided_name to design_id mapping
@@ -3288,7 +3253,7 @@ class PoseProtocol(PoseData):
             else:
                 return
         else:
-            raise NotImplementedError(f"This method, {self.calculate_pose_metrics.__name__} doesn't output anything yet"
+            raise NotImplementedError(f"{self.calculate_pose_metrics.__name__} doesn't output anything yet"
                                       f" when {type(self.job).__name__}.db = {self.job.db}")
             raise NotImplementedError(f"The reference=SymEntry.resulting_symmetry center_of_mass is needed as well")
             pose_df = self.pose.df  # Also performs entity.calculate_metrics()
@@ -3733,10 +3698,8 @@ class PoseProtocol(PoseData):
         # Get the name/provided_name to design_id mapping
         design_name_to_id_map = dict((design.name, design.id) for design in designs)
         # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
-        # input(f'BEFORE MAP: {designs_df.index.tolist()}')
         designs_df.index = designs_df.index.map(design_name_to_id_map)
         residues_df.index = residues_df.index.map(design_name_to_id_map)
-        # input(f'AFTER MAP: {designs_df.index.tolist()}')
 
         # Commit the newly acquired metrics to the database
         self.output_metrics(designs=designs_df)
@@ -3875,7 +3838,7 @@ class PoseProtocol(PoseData):
         # Construct residues_df
         sequences = sequences_and_scores.pop('sequences')
         sequences_and_scores['design_residue'] = sequences_and_scores.pop('design_indices')
-        # If sequences_and_scores gets any other keys in it this isn't explicity enough
+        # If sequences_and_scores gets any other keys in it this isn't explicitly enough
         # proteinmpnn_data = {
         #     'design_residue': sequences_and_scores['design_indices'],
         #     'proteinmpnn_loss_complex': sequences_and_scores['proteinmpnn_loss_complex'],

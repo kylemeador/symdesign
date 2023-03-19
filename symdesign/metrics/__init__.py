@@ -48,7 +48,6 @@ sasa_metrics_rename_mapping = dict([*zip(per_residue_interface_states, interface
 # Ex: 0.45, 0.22, 0.04, 0.19, 0.01, 0.2, 0.04, 0.19, 0.01, 0.19, 0.01, 0.21, 0.06, 0.17, 0.01, 0.21, -0.04, 0.22
 bsa_tolerance = 0.25
 energy_metrics_rename_mapping = dict(zip(per_residue_energy_states, energy_metric_names))
-# other_metrics_rename_mapping = dict(hbond='number_hbonds', design_residue='total_design_residues')
 renamed_design_metrics = {
     'design_residue': 'number_residues_design', 'interface_residue': 'number_residues_interface',
     'hbond': 'number_hbonds', 'mutation': 'number_mutations', 'type': 'sequence'

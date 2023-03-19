@@ -351,7 +351,6 @@ class ProteinMPNNFactory:
                                  f'Result:{os.getenv("PYTORCH_CUDA_ALLOC_CONF")}')
                 else:
                     self.device = torch.device('cpu')
-                logger.info(f'Loading ProteinMPNN model "{model_name_key}" to device: {self.device}')
 
             if ca_only:
                 weights_dir = utils.path.protein_mpnn_ca_weights_dir
@@ -374,11 +373,11 @@ class ProteinMPNNFactory:
                 model.eval()
                 model.device = self.device
 
-            model.log.info(f'Number of edges: {checkpoint["num_edges"]}')
-            model.log.info(f'Training noise level: {checkpoint["noise_level"]} Angstroms')
-
-            number_of_mpnn_model_parameters = sum([math.prod(param.size()) for param in model.parameters()])
-            logger.debug(f'The number of proteinmpnn model parameters is: {number_of_mpnn_model_parameters}')
+            model.log.info(f'ProteinMPNN model "{model_name_key}" on device "{self.device}" has '
+                           f'{checkpoint["num_edges"]} edges and {checkpoint["noise_level"]} Angstroms of training '
+                           'noise')
+            # number_of_mpnn_model_parameters = sum([math.prod(param.size()) for param in model.parameters()])
+            # logger.debug(f'The number of proteinmpnn model parameters is: {number_of_mpnn_model_parameters}')
 
             self._models[model_name_key] = model
 
