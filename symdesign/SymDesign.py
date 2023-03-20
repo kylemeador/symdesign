@@ -94,6 +94,7 @@ def main():
 
         # Format the output file(s) depending on specified name and module type
         job_paths = job.job_paths
+        # Only using exit_code 0 if the program completed and any exceptions raised by program were caught and handled
         exit_code = 0
         if exceptions:
             print('\n')
@@ -217,8 +218,8 @@ def main():
                 #                 f'{script_refine_file}\nTHEN:\n\t{shell} {script_file}')
                 # else:
         elif len(successful_pose_jobs) == 0:
-            exit_code = 1
-            exit(exit_code)
+            exit_code = 0
+
         # # Test for the size of each of the PoseJob instances
         # if pose_jobs:
         #     print('Average_design_directory_size equals %f' %

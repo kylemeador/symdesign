@@ -145,17 +145,17 @@ if __name__ == '__main__':
     #    iteration += 1
 
     # Write out successful and failed commands
-    with open(args.success_file, 'a') as f:
-        for i, result in enumerate(results):
-            if result:
-                f.write('%s\n' % (specific_commands[i] if program
-                                  else subprocess.list2cmdline(specific_commands[i])))
+    with open(args.success_file, 'a') as f_success, open(args.failure_file, 'a') as f_failure:
+        for result, specific_command in zip(results, specific_commands):
+            if program:
+                command_out = specific_command
+            else:
+                command_out = subprocess.list2cmdline(specific_command)
 
-    with open(args.failure_file, 'a') as f:
-        for i, result in enumerate(results):
-            if not result:
-                f.write('%s\n' % (specific_commands[i] if program
-                                  else subprocess.list2cmdline(specific_commands[i])))
+            if result:
+                f_success.write(f'{command_out}\n')
+            else:  # if not result:
+                f_failure.write(f'{command_out}\n')
 
     # # Append SLURM output to log_file(s)
     # job_id = int(os.environ.get('SLURM_JOB_ID'))
