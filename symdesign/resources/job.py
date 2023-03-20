@@ -773,31 +773,16 @@ class JobResources:
         #     .where(sql.JobProtocol.prediction_model == self.predict.prediction_model)\
         #     .where(sql.JobProtocol.term_constraint == self.design.term_constraint)\
         #     .where(sql.JobProtocol.use_gpu_relax == self.predict.use_gpu_relax)
-
-        job_protocol_result = self.current_session.scalars(job_protocol_stmt).all()
-        if not job_protocol_result:  # Create a new one
-            job_protocol = sql.JobProtocol(**protocol_kwargs)
-            # job_protocol = sql.JobProtocol(
-            #     module=self.module,
-            #     ca_only=self.design.ca_only,
-            #     contiguous_ghosts=self.dock.contiguous_ghosts,
-            #     evolution_constraint=self.design.evolution_constraint,
-            #     initial_z_value=self.dock.initial_z_value,
-            #     interface=self.design.interface,
-            #     match_value=self.dock.match_value,
-            #     minimum_matched=self.dock.minimum_matched,
-            #     neighbors=self.design.neighbors,
-            #     number_predictions=self.predict.number_predictions,
-            #     prediction_model=self.predict.prediction_model,
-            #     term_constraint=self.design.term_constraint,
-            #     use_gpu_relax=self.predict.use_gpu_relax,
-            # )
-            self.current_session.add(job_protocol)
-            self.current_session.flush()
-        elif len(job_protocol_result) > 1:
-            raise sqlalchemy.exc.IntegrityError(f"Can't have more than one matching {sql.JobProtocol.__name__}")
-        else:
-            job_protocol = job_protocol_result[0]
+        with self.db.session(expire_on_commit=False) as session:
+            job_protocol_result = session.scalars(job_protocol_stmt).all()
+            if not job_protocol_result:  # Create a new one
+                job_protocol = sql.JobProtocol(**protocol_kwargs)
+                session.add(job_protocol)
+                session.flush()
+            elif len(job_protocol_result) > 1:
+                raise sqlalchemy.exc.IntegrityError(f"Can't have more than one matching {sql.JobProtocol.__name__}")
+            else:
+                job_protocol = job_protocol_result[0]
 
         self.job_protocol = job_protocol
 

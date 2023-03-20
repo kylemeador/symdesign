@@ -18,6 +18,7 @@ from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import selectinload
 from tqdm import tqdm
 
 from . import cluster
@@ -4261,13 +4262,22 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
                 for entity, transform in zip(pose.entities, entity_transformations):
                     transformation = sql.EntityTransform(**transform)
                     entity_transforms.append(transformation)
-                    entity_data.append(sql.EntityData(
-                        pose=pose_job,
+                    pose_job.entity_data.append(sql.EntityData(
                         meta=entity.metadata,
                         metrics=entity.metrics,
                         transform=transformation)
                     )
+                # print('pose_job.entity_data', pose_job.entity_data)
+                # For whatever reason, this ^ print wouldn't print anything when above was written as:
+                # entity_data.append(sql.EntityData(pose=pose_job,
+                # And this warning occurred
+                # /home/kylemeador/symdesign/symdesign/protocols/fragdock.py:4394:
+                # SAWarning: Object of type <EntityData> not in session, add operation along 'EntityMetrics.entity'
+                # won't proceed
+                # It would print 4 objects, (2 of each EntityData) when this was written as:
+                # pose_job.entity_data.append(sql.EntityData(pose=pose_job,
 
+                session.add_all(entity_transforms + entity_data)
                 # Reset entity.metrics
                 for entity in pose.entities:
                     entity.clear_metrics()
@@ -4275,12 +4285,12 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
             if job.db:
                 # Update the poses_df_ and residues_df_ index to reflect the new pose_ids
                 poses_df_.index = pd.Index(pose_ids, name=sql.PoseMetrics.pose_id.name)
-                residues_df_.index = pd.Index(pose_ids, name=sql.PoseResidueMetrics.pose_id.name)
                 # Write dataframes to the sql database
-                metrics.sql.write_dataframe(job.current_session, poses=poses_df_)
+                metrics.sql.write_dataframe(session, poses=poses_df_)
                 output_residues = False
                 if output_residues:  # Todo job.metrics.residues
-                    metrics.sql.write_dataframe(job.current_session, pose_residues=residues_df_)
+                    residues_df_.index = pd.Index(pose_ids, name=sql.PoseResidueMetrics.pose_id.name)
+                    metrics.sql.write_dataframe(session, pose_residues=residues_df_)
             else:  # Write to disk
                 residues_df_.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
                 putils.make_path(job.all_scores)
@@ -4339,11 +4349,17 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         return pose_jobs
 
     # Clean up, save data/output results
-    # Todo 1 atomize session for concurrent database access
-    # with job.db.session(expire_on_commit=False) as session:
-    session = job.current_session
-    pose_jobs = terminate(pose, poses_df, residues_df)
-    session.commit()
+    # with job.db.session() as session:
+    with job.db.session(expire_on_commit=False) as session:
+        pose_jobs = terminate(pose, poses_df, residues_df)
+        session.commit()
+        metrics_stmt = select(PoseJob).where(PoseJob.id.in_([pose_job.id for pose_job in pose_jobs]))\
+            .execution_options(populate_existing=True)\
+            .options(selectinload(PoseJob.metrics))
+        pose_jobs = session.scalars(metrics_stmt).all()
+        # # Load all the committed metrics to the PoseJob instances
+        # for pose_job in pose_jobs:
+        #     pose_job.metrics
     logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
     return pose_jobs

@@ -26,7 +26,7 @@ import sklearn as skl
 from sqlalchemy import select
 # from sqlalchemy import select
 # from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import reconstructor
+from sqlalchemy.orm import Session, reconstructor
 import torch
 
 from symdesign import flags, metrics, resources
@@ -2080,15 +2080,17 @@ class PoseProtocol(PoseData):
         residues_df = residues_df.join([predict_residues_df, residue_sequences_df])
         designs_df = designs_df.join(predict_designs_df)
         designs_df.index = residues_df.index = design_index
-        self.output_metrics(designs=designs_df)
-        output_residues = False
-        if output_residues:  # Todo job.metrics.residues
-            self.output_metrics(residues=residues_df)
-        # else:  # Only save the 'design_residue' columns
-        #     residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
-        #     self.output_metrics(residues=residues_df)
-        # Commit the newly acquired metrics
-        self.job.current_session.commit()
+        # Output collected metrics
+        with self.job.db.session(expire_on_commit=False) as session:
+            self.output_metrics(session, designs=designs_df)
+            output_residues = False
+            if output_residues:  # Todo job.metrics.residues
+                self.output_metrics(session, residues=residues_df)
+            # else:  # Only save the 'design_residue' columns
+            #     residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+            #     self.output_metrics(session, residues=residues_df)
+            # Commit the newly acquired metrics
+            session.commit()
 
         # Prepare the features to feed to the model
         if self.job.predict.entities:  # and self.number_of_entities > 1:
@@ -2191,12 +2193,16 @@ class PoseProtocol(PoseData):
                 entity_designs_df.index = pd.MultiIndex.from_product([design_ids, [entity_data.id]],
                                                                      names=[sql.DesignEntityMetrics.design_id.name,
                                                                             sql.DesignEntityMetrics.entity_id.name])
-                metrics.sql.write_dataframe(self.job.current_session, entity_designs=entity_designs_df)
                 entity_design_dfs.append(entity_designs_df)
 
                 # These aren't currently written...
                 entity_residue_dfs.append(entity_residues_df)
 
+            # Save the entity_designs_df DataFrames
+            with self.job.db.session(expire_on_commit=False) as session:
+                for entity_designs_df in entity_design_dfs:
+                    metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
+                session.commit()
             try:
                 # Combine Entity structure to compare with the Pose prediction
                 entity_design_structures = [
@@ -2577,9 +2583,6 @@ class PoseProtocol(PoseData):
                                        )
         # self.log.debug(f"Took {time.time() - design_start:8f}s for design_sequences")
 
-        # Update the Pose with the number of designs
-        designs_data = self.update_design_data(design_parent=self.pose_source)
-
         # self.output_proteinmpnn_scores(design_names, sequences_and_scores)
         # # Write every designed sequence to the sequences file...
         # write_sequences(sequences_and_scores['sequences'], names=design_names, file_name=self.designed_sequences_file)
@@ -2594,7 +2597,6 @@ class PoseProtocol(PoseData):
         # protocols = list(repeat(self.protocol, len(designs_metadata)))
         temperatures = [temperature for temperature in self.job.design.temperatures
                         for _ in range(self.job.design.number)]
-        design_ids = [design_data.id for design_data in designs_data]
 
         # # Write every designed sequence to an individual file...
         # putils.make_path(self.designs_path)
@@ -2603,33 +2605,41 @@ class PoseProtocol(PoseData):
         #     write_sequences(sequence, names=name, file_name=os.path.join(self.designs_path, name))
         #     for name, sequence in zip(design_names, sequences_and_scores['sequences'])
         # ]
-        # Update the Pose with the design protocols
-        for idx, design_data in enumerate(designs_data):
-            design_data.protocols.append(
-                sql.DesignProtocol(design=design_data,
-                                   job_id=self.job.id,
-                                   # design_id=design_ids[idx],
-                                   protocol=self.protocol,  # sql.Protocol(name=self.protocol),  # protocols[idx],
-                                   temperature=temperatures[idx],
-                                   ))
-                                   # file=sequence_files[idx]))
-        # design_protocol = self.update_design_protocols(protocols=protocols, temperatures=temperatures,
-        #                                                files=sequence_files)
 
-        # analysis_start = time.time()
-        designs_df, residues_df = self.analyze_proteinmpnn_metrics(design_ids, sequences_and_scores)
-        self.analyze_design_entities_per_residue(residues_df, design_ids)
-        # self.log.debug(f"Took {time.time() - analysis_start:8f}s for analyze_proteinmpnn_metrics. "
-        #                f"{time.time() - design_start:8f}s total")
-        self.output_metrics(designs=designs_df)
-        output_residues = False
-        if output_residues:  # Todo job.metrics.residues
-            self.output_metrics(residues=residues_df)
-        else:  # Only save the 'design_residue' columns
-            residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
-            self.output_metrics(residues=residues_df)
-        # Commit the newly acquired metrics
-        self.job.current_session.commit()
+        # Update the Pose with the number of designs
+        with self.job.db.session(expire_on_commit=False) as session:
+            # session.merge(self)
+            designs_data = self.update_design_data(design_parent=self.pose_source)
+            session.add_all(designs_data)
+            session.flush()
+            design_ids = [design_data.id for design_data in designs_data]
+
+            # Update the Pose with the design protocols
+            for idx, design_data in enumerate(designs_data):
+                design_data.protocols.append(
+                    sql.DesignProtocol(design=design_data,
+                                       job_id=self.job.id,
+                                       # design_id=design_ids[idx],
+                                       protocol=self.protocol,
+                                       temperature=temperatures[idx],
+                                       ))
+
+            # analysis_start = time.time()
+            designs_df, residues_df = self.analyze_proteinmpnn_metrics(design_ids, sequences_and_scores)
+            entity_designs_df = self.analyze_design_entities_per_residue(residues_df, design_ids)
+            metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
+
+            # self.log.debug(f"Took {time.time() - analysis_start:8f}s for analyze_proteinmpnn_metrics. "
+            #                f"{time.time() - design_start:8f}s total")
+            self.output_metrics(session, designs=designs_df)
+            output_residues = False
+            if output_residues:  # Todo job.metrics.residues
+                self.output_metrics(session, residues=residues_df)
+            else:  # Only save the 'design_residue' columns
+                residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+                self.output_metrics(session, residues=residues_df)
+            # Commit the newly acquired metrics
+            session.commit()
 
     # def output_proteinmpnn_scores(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.ndarray | list]):
     #     """Given the results of a ProteinMPNN design trajectory, format the sequences and scores for the PoseJob
@@ -2724,20 +2734,21 @@ class PoseProtocol(PoseData):
         # self.designs.extend(designs)
         designs = [sql.DesignData(name=name, pose=self, design_parent=design_parent)
                    for name in design_names]
-        # Add all instances to the session
-        self.job.current_session.add_all(designs)
+        # # Add all instances to the session
+        # self.job.current_session.add_all(designs)
         # Set the PoseJob.current_designs for access by subsequent functions/protocols
         self.current_designs.extend(designs)
-        # Get the DesignData.id for each design
-        self.job.current_session.flush()
+        # # Get the DesignData.id for each design
+        # self.job.current_session.flush()
 
         return designs
 
-    def output_metrics(self, designs: pd.DataFrame = None, residues: pd.DataFrame = None,
+    def output_metrics(self, session: Session = None, designs: pd.DataFrame = None, residues: pd.DataFrame = None,
                        pose_metrics: bool = False, update: bool = False):
         """Format each possible DataFrame type for output via csv or SQL database
 
         Args:
+            session: The session instance with a connection to the database of interest
             designs: The typical per-design metric DataFrame where each index is the design id and the columns are
                 design metrics
             residues: The typical per-residue metric DataFrame where each index is the design id and the columns are
@@ -2751,7 +2762,7 @@ class PoseProtocol(PoseData):
         if residues is not None:
             residues.dropna(how='all', axis=1, inplace=True)
 
-        if self.job.db:
+        if session is not None:
             # Add the pose identifier to the dataframes
             # pose_identifier = self._pose_id  # reliant on foreign keys...
             # pose_identifier = self.pose_id  # reliant on SymDesign names...
@@ -2767,7 +2778,7 @@ class PoseProtocol(PoseData):
                 # designs.index.set_names(design_index_names, inplace=True)
                 designs.index.set_names(sql.DesignMetrics.design_id.name, inplace=True)
                 # _design_ids = metrics.sql.write_dataframe(self.job.current_session, designs=designs)
-                metrics.sql.write_dataframe(self.job.current_session, designs=designs)
+                metrics.sql.write_dataframe(session, designs=designs)
             # else:
             #     _design_ids = []
 
@@ -2788,7 +2799,7 @@ class PoseProtocol(PoseData):
                     dataframe_kwargs = dict(residues=residues)
 
                 residues.index.set_names(index_name, inplace=True)
-                metrics.sql.write_dataframe(self.job.current_session, **dataframe_kwargs)
+                metrics.sql.write_dataframe(session, **dataframe_kwargs)
         else:
             putils.make_path(self.data_path)
             if residues is not None:
@@ -3266,10 +3277,8 @@ class PoseProtocol(PoseData):
             entity_df = pd.concat(entity_dfs, keys=list(range(1, 1 + len(entity_dfs))), axis=1)
 
         # Output
-        # residues_df = self.analyze_pose_metrics()
-        # self.output_metrics(residues=residues_df)
         pose_name = self.pose.name
-        designs_df, residues_df = self.analyze_pose_metrics()
+        designs_df, residues_df, design_entity_df = self.analyze_pose_metrics()
         #     self.analyze_pose_metrics(novel_interface=False if not self.pose_source.protocols else True)
         if scores:
             # pose_source_id = self.pose_source.id
@@ -3288,15 +3297,18 @@ class PoseProtocol(PoseData):
         designs_df.index = designs_df.index.map(name_to_id_map)
         residues_df.index = residues_df.index.map(name_to_id_map)
 
-        self.output_metrics(designs=designs_df)
-        output_residues = False
-        if output_residues:  # Todo job.metrics.residues
-            self.output_metrics(residues=residues_df)
-        else:  # Only save the 'design_residue' columns
-            residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
-            self.output_metrics(residues=residues_df)
-        # Commit the newly acquired metrics
-        self.job.current_session.commit()
+        with self.job.db.session(expire_on_commit=False) as session:
+            session.merge(self)
+            self.output_metrics(session, designs=designs_df)
+            output_residues = False
+            if output_residues:  # Todo job.metrics.residues
+                self.output_metrics(session, residues=residues_df)
+            else:  # Only save the 'design_residue' columns
+                residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+                self.output_metrics(session, residues=residues_df)
+            metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
+            # Commit the newly acquired metrics
+            session.commit()
 
     def analyze_alphafold_metrics(self, folding_scores: dict[str, [dict[str, np.ndarray]]], pose_length: int,
                                   model_type: str = None, interface: bool = False) \
@@ -3440,7 +3452,8 @@ class PoseProtocol(PoseData):
 
         return designs_df, residues_df
 
-    def analyze_design_entities_per_residue(self, residues_df: pd.DataFrame, design_ids: Iterable[int] = None):
+    def analyze_design_entities_per_residue(self, residues_df: pd.DataFrame, design_ids: Iterable[int] = None) \
+            -> pd.DataFrame:
         """Gather sequence metrics on a per-entity basis and write to the database
 
         Args:
@@ -3448,7 +3461,8 @@ class PoseProtocol(PoseData):
                 (residue index, residue metric)
             design_ids: If the identifiers should be specified, provide them, otherwise will use self.current_designs
         Returns:
-            None
+            A per-entity metric DataFrame where each index is a combination of (design_id, entity_id) and the columns
+                are design metrics
         """
         residue_indices = list(range(self.pose.number_of_residues))
         mutation_df = residues_df.loc[:, idx_slice[:, 'mutation']]
@@ -3483,7 +3497,7 @@ class PoseProtocol(PoseData):
         entity_designs_df.index = entity_designs_df.index.rename([sql.DesignEntityMetrics.entity_id.name,
                                                                   sql.DesignEntityMetrics.design_id.name])
         # entity_designs_df.reset_index(level=-1, inplace=True)
-        metrics.sql.write_dataframe(self.job.current_session, entity_designs=entity_designs_df)
+        return entity_designs_df
 
     def analyze_design_metrics_per_design(self, residues_df: pd.DataFrame,
                                           designs: Iterable[Pose] | Iterable[AnyStr]) -> pd.DataFrame:
@@ -3649,8 +3663,10 @@ class PoseProtocol(PoseData):
         select_stmt = select((sql.DesignData.id, sql.ResidueMetrics.index, sql.ResidueMetrics.design_residue))\
             .join(sql.ResidueMetrics).where(sql.DesignData.id.in_(design_ids))
         index_col = sql.ResidueMetrics.index.name
-        design_residue_df = pd.DataFrame.from_records(self.job.current_session.execute(select_stmt).all(),
-                                                      columns=['id', index_col, sql.ResidueMetrics.design_residue.name])
+        with self.job.db.session(expire_on_commit=False) as session:
+            design_residue_df = \
+                pd.DataFrame.from_records(session.execute(select_stmt).all(),
+                                          columns=['id', index_col, sql.ResidueMetrics.design_residue.name])
         design_residue_df = design_residue_df.set_index(['id', index_col]).unstack()
         # Use simple reporting here until that changes...
         # interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
@@ -3668,7 +3684,7 @@ class PoseProtocol(PoseData):
 
         mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
         # The DataFrame.index needs to become the design.id not design.name. Modify after all processing
-        self.analyze_design_entities_per_residue(mpnn_residues_df, design_ids=design_ids)
+        entity_designs_df = self.analyze_design_entities_per_residue(mpnn_residues_df, design_ids=design_ids)
 
         # Process all desired files to Pose
         design_paths_to_process = [design.structure_path for design in designs]
@@ -3699,18 +3715,20 @@ class PoseProtocol(PoseData):
         residues_df.index = residues_df.index.map(design_name_to_id_map)
 
         # Commit the newly acquired metrics to the database
-        self.output_metrics(designs=designs_df)
-        output_residues = False
-        if output_residues:  # Todo job.metrics.residues
-            self.output_metrics(residues=residues_df)
-        # This function doesn't generate any 'design_residue'
-        # else:  # Only save the 'design_residue' columns
-        #     residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
-        #     self.output_metrics(residues=residues_df)
-        # Commit the newly acquired metrics
-        self.job.current_session.commit()
+        with self.job.db.session(expire_on_commit=False) as session:
+            metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
+            self.output_metrics(session, designs=designs_df)
+            output_residues = False
+            if output_residues:  # Todo job.metrics.residues
+                self.output_metrics(session, residues=residues_df)
+            # This function doesn't generate any 'design_residue'
+            # else:  # Only save the 'design_residue' columns
+            #     residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+            #     self.output_metrics(session, residues=residues_df)
+            # Commit the newly acquired metrics
+            session.commit()
 
-    def analyze_pose_metrics(self, novel_interface: bool = True) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def analyze_pose_metrics(self, novel_interface: bool = True) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Perform per-residue analysis on the PoseJob.pose
 
         Args:
@@ -3720,6 +3738,8 @@ class PoseProtocol(PoseData):
                 A per-design metric DataFrame where each index is the design id and the columns are design metrics,
                 A per-residue metric DataFrame where each index is the design id and the columns are
                     (residue index, residue metric)
+                A per-entity metric DataFrame where each index is a combination of (design_id, entity_id) and the
+                    columns are design metrics
             )
         """
         self.load_pose()
@@ -3773,7 +3793,7 @@ class PoseProtocol(PoseData):
         sequences_and_scores['design_indices'] = np.zeros((1, pose_length), dtype=bool)
         mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics([pose_name], sequences_and_scores)
         design_ids = [self.pose_source.id]
-        self.analyze_design_entities_per_residue(mpnn_residues_df, design_ids)
+        entity_designs_df = self.analyze_design_entities_per_residue(mpnn_residues_df, design_ids)
         designs_df = designs_df.join(mpnn_designs_df)
         # sequences_df = self.analyze_sequence_metrics_per_design(sequences=[self.pose.sequence],
         #                                                         design_ids=[pose_source_id])
@@ -3785,7 +3805,7 @@ class PoseProtocol(PoseData):
         residues_df = residues_df.join(mpnn_residues_df)
 
         # return residues_df.join(sequences_df)
-        return designs_df, residues_df
+        return designs_df, residues_df, entity_designs_df
 
     def analyze_pose_metrics_per_design(self, residues_df: pd.DataFrame, designs_df: pd.DataFrame = None,
                                         designs: Iterable[Pose] | Iterable[AnyStr] = None) -> pd.Series:
@@ -5025,15 +5045,16 @@ class PoseProtocol(PoseData):
         # if self.job.save:
         # residues_df[(putils.protocol, putils.protocol)] = protocol_s
         # residues_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
-        self.output_metrics(designs=designs_df)
-        output_residues = False
-        if output_residues:  # Todo job.metrics.residues
-            self.output_metrics(residues=residues_df)
-        else:  # Only save the 'design_residue' columns
-            residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
-            self.output_metrics(residues=residues_df)
-        # Commit the newly acquired metrics
-        self.job.current_session.commit()
+        with self.job.db.session(expire_on_commit=False) as session:
+            self.output_metrics(session, designs=designs_df)
+            output_residues = False
+            if output_residues:  # Todo job.metrics.residues
+                self.output_metrics(session, residues=residues_df)
+            else:  # Only save the 'design_residue' columns
+                residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+                self.output_metrics(session, residues=residues_df)
+            # Commit the newly acquired metrics
+            session.commit()
 
         # pickle_object(pose_sequences, self.designed_sequences_file, out_path='')  # Todo PoseJob(.path)
         write_sequences(pose_sequences, file_name=self.designed_sequences_file)
