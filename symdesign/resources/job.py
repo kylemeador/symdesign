@@ -778,7 +778,7 @@ class JobResources:
             if not job_protocol_result:  # Create a new one
                 job_protocol = sql.JobProtocol(**protocol_kwargs)
                 session.add(job_protocol)
-                session.flush()
+                session.commit()
             elif len(job_protocol_result) > 1:
                 raise sqlalchemy.exc.IntegrityError(f"Can't have more than one matching {sql.JobProtocol.__name__}")
             else:
