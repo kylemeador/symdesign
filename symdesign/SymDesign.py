@@ -1638,7 +1638,8 @@ def main():
                 results_ = []
                 for result in results:
                     results_.extend(result)
-                pose_jobs = results = results_
+                results = results_
+                pose_jobs = results.copy()
     # -----------------------------------------------------------------------------------------------------------------
     #  Finally, run terminate(). This formats output parameters and reports on exceptions
     # -----------------------------------------------------------------------------------------------------------------

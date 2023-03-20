@@ -13,6 +13,8 @@ from symdesign.utils import collect_designs, InputError, path as putils, pickle_
 
 # Globals
 logger = logging.getLogger(__name__)
+logger.setLevel(20)
+logger.addHandler(logging.StreamHandler())
 index_offset = 1
 mpi = 4
 hhblits_memory_threshold = 20e9  # 20 GB

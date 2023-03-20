@@ -385,12 +385,12 @@ logging_cfg = {
     'loggers': {
         program_name.lower(): {
             'level': 'INFO',  # 'WARNING',
-            'handlers': ['console', 'main_file'],
+            'handlers': ['console'],  # , 'main_file'],
             'propagate': 'no'
         },
         'orient': {
             'level': 'INFO',  # 'WARNING',
-            'handlers': ['console', 'main_file'],
+            'handlers': ['console'],  # , 'main_file'],
             'propagate': 'no'
         },
         'null': {
