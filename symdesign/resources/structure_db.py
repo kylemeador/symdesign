@@ -574,8 +574,8 @@ class StructureDatabase(Database):
                                for _structure in structures_to_refine]
                 if batch_commands:
                     commands_file = \
-                        utils.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
-                                             name=f'{utils.starttime}-refine_entities')
+                        resources.distribute.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
+                                                            name=f'{utils.starttime}-refine_entities')
                     refine_script = \
                         distribute.distribute(commands_file, flags.refine, out_path=script_out_path,
                                               log_file=os.path.join(refine_dir, f'{putils.refine}.log'),
@@ -639,8 +639,8 @@ class StructureDatabase(Database):
                         copy_cmd = ['scp', self.refined.path_to(_structure.name),
                                     self.full_models.path_to(_structure.name)]
                         loop_model_cmds.append(
-                            utils.write_shell_script(subprocess.list2cmdline(copy_cmd), name=_structure.name,
-                                                     out_path=full_model_dir))
+                            resources.distribute.write_script(subprocess.list2cmdline(copy_cmd), name=_structure.name,
+                                                              out_path=full_model_dir))
                         # Can't do this v as refined path doesn't exist yet
                         # shutil.copy(self.refined.path_to(_structure.name), self.full_models.path_to(_structure.name))
                         continue
@@ -659,14 +659,13 @@ class StructureDatabase(Database):
                     copy_cmd = ['scp', os.path.join(structure_out_path, f'{_structure.name}_0001.pdb'),
                                 self.full_models.path_to(_structure.name)]
                     loop_model_cmds.append(
-                        utils.write_shell_script(subprocess.list2cmdline(structure_cmd), name=_structure.name,
-                                                 out_path=full_model_dir,
-                                                 additional=[subprocess.list2cmdline(multimodel_cmd),
-                                                             subprocess.list2cmdline(copy_cmd)]))
+                        resources.distribute.write_script(
+                            subprocess.list2cmdline(structure_cmd), name=_structure.name, out_path=full_model_dir,
+                            additional=[subprocess.list2cmdline(multimodel_cmd), subprocess.list2cmdline(copy_cmd)]))
                 if batch_commands:
                     loop_cmds_file = \
-                        utils.write_commands(loop_model_cmds, name=f'{utils.starttime}-loop_model_entities',
-                                             out_path=full_model_dir)
+                        resources.distribute.write_commands(loop_model_cmds, out_path=full_model_dir,
+                                                            name=f'{utils.starttime}-loop_model_entities')
                     loop_model_script = \
                         distribute.distribute(loop_cmds_file, flags.refine, out_path=script_out_path,
                                               log_file=os.path.join(full_model_dir, 'loop_model.log'),
@@ -752,7 +751,7 @@ class StructureDatabase(Database):
                         commands = [cmd.copy() + [protein.entity_id, f'--symmetry', protein.symmetry_group]
                                     for idx, protein in enumerate(protein_data_to_loop_model)]
 
-                        loop_cmds_file = utils.write_commands(
+                        loop_cmds_file = resources.distribute.write_commands(
                             [subprocess.list2cmdline(cmd) for cmd in commands], out_path=script_out_path,
                             name=f'{utils.starttime}-loop_model_entities',)
                         loop_model_script = distribute.distribute(
@@ -912,8 +911,8 @@ class StructureDatabase(Database):
                             copy_cmd = ['scp', self.refined.path_to(_structure.name),
                                         self.full_models.path_to(_structure.name)]
                             loop_model_cmds.append(
-                                utils.write_shell_script(subprocess.list2cmdline(copy_cmd), name=_structure.name,
-                                                         out_path=full_model_dir))
+                                resources.distribute.write_script(subprocess.list2cmdline(copy_cmd),
+                                                                  name=_structure.name, out_path=full_model_dir))
                             # Can't do this v as refined path doesn't exist yet
                             # shutil.copy(self.refined.path_to(_structure.name),
                             #             self.full_models.path_to(_structure.name))
@@ -934,14 +933,14 @@ class StructureDatabase(Database):
                         copy_cmd = ['scp', os.path.join(structure_out_path, f'{_structure.name}_0001.pdb'),
                                     self.full_models.path_to(_structure.name)]
                         loop_model_cmds.append(
-                            utils.write_shell_script(subprocess.list2cmdline(structure_cmd), name=_structure.name,
-                                                     out_path=full_model_dir,
-                                                     additional=[subprocess.list2cmdline(multimodel_cmd),
-                                                                 subprocess.list2cmdline(copy_cmd)]))
+                            resources.distribute.write_script(
+                                subprocess.list2cmdline(structure_cmd), name=_structure.name, out_path=full_model_dir,
+                                additional=[subprocess.list2cmdline(multimodel_cmd),
+                                            subprocess.list2cmdline(copy_cmd)]))
                     if batch_commands:
                         loop_cmds_file = \
-                            utils.write_commands(loop_model_cmds, name=f'{utils.starttime}-loop_model_entities',
-                                                 out_path=full_model_dir)
+                            resources.distribute.write_commands(
+                                loop_model_cmds, name=f'{utils.starttime}-loop_model_entities', out_path=full_model_dir)
                         loop_model_script = \
                             distribute.distribute(loop_cmds_file, flags.refine, out_path=script_out_path,
                                                   log_file=os.path.join(full_model_dir, 'loop_model.log'),
@@ -1018,8 +1017,9 @@ class StructureDatabase(Database):
                                for protein in protein_data_to_refine]
                 if batch_commands:
                     commands_file = \
-                        utils.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
-                                             name=f'{utils.starttime}-refine_entities')
+                        resources.distribute.write_commands(
+                            [subprocess.list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
+                            name=f'{utils.starttime}-refine_entities')
                     refine_script = \
                         distribute.distribute(commands_file, flags.refine, out_path=script_out_path,
                                               log_file=os.path.join(refine_dir, f'{putils.refine}.log'),

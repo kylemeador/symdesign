@@ -6,7 +6,7 @@ import logging
 import os
 import shutil
 import subprocess
-from typing import AnyStr, Literal, get_args
+from typing import AnyStr, Iterable, Literal, Sequence, get_args
 
 from symdesign import flags
 from symdesign.utils import collect_designs, InputError, path as putils, pickle_object, unpickle
@@ -187,73 +187,70 @@ def run(cmd: list[str] | AnyStr, log_file_name: str, program: str = None, srun: 
     return p.returncode == 0
 
 
-def distribute(file: AnyStr, scale: protocols_literal, out_path: AnyStr = os.getcwd(),
-               success_file: AnyStr = None, failure_file: AnyStr = None, max_jobs: int = 80,
-               number_of_commands: int = None, mpi: int = None, log_file: AnyStr = None,
-               finishing_commands: list[str] = None, batch: bool = is_sbatch_available(), **kwargs) -> str:
+def check_scripts_exist(directives: Iterable[str] = None, file: AnyStr = None):
+    """Check for the existence of scripts provided by an Iterable or present in a file
+
+    Args:
+        directives: The locations of scripts which should be executed
+        file: The location of a file containing the location(s) of scripts/commands
+    Raises:
+        InputError: When the scripts/commands passed are malformed or do not exist
+    Returns:
+        None
+    """
+    script_or_command = \
+        '{} is malformed at line {}. All commands should match.\n* * *\n{}\n* * *' \
+        '\nEither a file extension OR a command requried. Cannot mix'
+    # Automatically detect if the commands file has executable scripts or errors
+    if directives is None:
+        if file is None:
+            raise ValueError(f"Must pass either 'directives' or 'file'. Neither were passed")
+        else:
+            # Use collect_designs to get commands from the provided file
+            scripts, _ = collect_designs(files=[file])
+
+    # Check if the file lines (commands) contain a script or a command
+    first_directive, *remaining_directives = directives
+    contains_scripts = True if first_directive.endswith('.sh') else False
+    for idx, directive in enumerate(remaining_directives, 1):
+        # Check if the directive string is a shell script type file string. Ex: "refine.sh"
+        if directive[-3:] == '.sh':  # This is a file
+            if not os.path.exists(directive):  # Check if file is missing
+                raise InputError(
+                    f"{file} is malformed at line {idx}. The command at location '{directive}' doesn't exist")
+            if not contains_scripts:  # There was a change from non-script files
+                raise InputError(script_or_command.format(file, idx, directive))
+        else:  # directive is a command
+            # Check if there was a change from script files to non-script files
+            if contains_scripts:
+                raise InputError(script_or_command.format(file, idx, directive))
+            else:
+                contains_scripts = False
+
+
+def distribute(file: AnyStr, scale: protocols_literal, number_of_commands: int, out_path: AnyStr = os.getcwd(),
+               success_file: AnyStr = None, failure_file: AnyStr = None, log_file: AnyStr = None, max_jobs: int = 80,
+               mpi: int = None,
+               finishing_commands: Iterable[str] = None, batch: bool = is_sbatch_available(), **kwargs) -> str:
     """Take a file of commands formatted for execution in the SLURM environment and process into a sbatch script
 
     Args:
         file: The location of the file which contains your commands to distribute through a sbatch array
         scale: The stage of design to distribute. Works with CommandUtils and PathUtils to allocate jobs
+        number_of_commands: The size of the job array
         out_path: Where to write out the sbatch script
         success_file: What file to write the successful jobs to for job organization
         failure_file: What file to write the failed jobs to for job organization
-        max_jobs: The size of the job array limiter. This caps the number of commands executed at once
-        number_of_commands: The size of the job array. Inclusion circumvents automatic detection of corrupted commands
-        mpi: The number of processes to run concurrently with MPI
         log_file: The name of a log file to write command results to
+        max_jobs: The size of the job array limiter. This caps the number of commands executed at once
+        mpi: The number of processes to run concurrently with MPI
         finishing_commands: Commands to run once all sbatch processes are completed
-        batch: Whether the distribution file should take the form of a slurm sbatch script
+        batch: Whether the distribution file should be formatted as a SLURM sbatch script
     Returns:
         The name of the script that was written
     """
-    # Should this be included in docstring?
-    # If the commands are provided as a list of raw commands and not a command living in a PoseJob, the argument
-    #     number_of_commands should be used! It will skip checking for the presence of commands in the corresponding
-    #     PoseJob
-    # if scale is None:
-    #     # elif process_scale: Todo in order to make stage unnecessary, would need to provide scale and template
-    #     #                      Could add a hyperthreading=True parameter to remove process scale
-    #     #     command_divisor = process_scale
-    #     # else:
-    #     raise InputError('Required argument "scale" not specified')
-
-    script_or_command = \
-        '{} is malformed at line {}. All commands should match.\n* * *\n{}\n* * *' \
-        '\nEither a file extension OR a command requried. Cannot mix'
-    if number_of_commands is None:
-        # Automatically detect if the commands file has executable scripts or errors
-        # Use collect_designs to get commands from the provided file
-        commands, _ = collect_designs(files=[file])
-        # Check if the file lines (commands) contain a script or a command
-        scripts = True if commands[0].endswith('.sh') else False
-        start_idx = 1
-        for idx, directive in enumerate(commands[start_idx:], start_idx):
-            # Check if the command string is a shell script type file string. Ex: "refine.sh"
-            if directive.endswith('.sh'):  # This is a file
-                if not os.path.exists(directive):  # Check if file is missing
-                    raise InputError(f"{file} is malformed at line {idx}. "
-                                     f"The command at location '{directive}' doesn't exist")
-                if not scripts:  # There was a change from non-script files
-                    raise InputError(script_or_command.format(file, idx, directive))
-            else:  # directive is a command
-                # Check if there was a change from script files to non-script files
-                if scripts:
-                    raise InputError(script_or_command.format(file, idx, directive))
-                else:
-                    scripts = False
-
-        number_of_commands = len(commands)
-    # else:
-    #     # commands = [0 for _ in range(number_of_commands)]
-    #     pass
-
-    # else:
-    #     raise InputError(f'Must pass "number_of_commands" or "file" to {distribute.__name__}')
-
     # Create success and failures files
-    name = os.path.basename(os.path.splitext(file)[0])
+    name, ext = os.path.splitext(os.path.basename(file))
     if success_file is None:
         success_file = os.path.join(out_path, f'{name}-{sbatch}.success')
     if failure_file is None:
@@ -297,6 +294,54 @@ def distribute(file: AnyStr, scale: protocols_literal, out_path: AnyStr = os.get
     return filename
 
 
+sbatch_warning = 'Ensure the SBATCH script(s) below are correct. Specifically, check that the job array and any '\
+                 'node specifications are accurate. You can look at the SBATCH manual (man sbatch or sbatch --help) to'\
+                 ' understand the variables or ask for help if you are still unsure'
+script_warning = 'Ensure the script(s) below are correct'
+
+
+def commands(commands: Sequence[str], name: str, protocol: protocols_literal,
+             out_path: AnyStr = os.getcwd(), commands_out_path: AnyStr = None, **kwargs) -> str:
+    """Given a batch of commands, write them to a file and distribute that work for completion using specified
+    computational resources
+
+    Args:
+        commands: The commands which should be written to a file and then formatted for distribution
+        name: The name of the collection of commands. Will be applied to commands file and distribution file(s)
+        protocol: The type of protocol to distribute
+        out_path: Where should the distributed script be written?
+        commands_out_path: Where should the commands file be written? If not specified, is written to out_path
+    Keyword Args:
+        success_file: AnyStr = None - What file to write the successful jobs to for job organization
+        failure_file: AnyStr = None - What file to write the failed jobs to for job organization
+        log_file: AnyStr = None - The name of a log file to write command results to
+        max_jobs: int = 80 - The size of the job array limiter. This caps the number of commands executed at once
+        mpi: bool = False - The number of processes to run concurrently with MPI
+        finishing_commands: Iterable[str] = None - Commands to run once all sbatch processes are completed
+        batch: bool = is_sbatch_available() - Whether the distribution file should be formatted as a SLURM sbatch script
+    Returns:
+        The name of the distribution script that was written
+    """
+    if is_sbatch_available():
+        shell = sbatch
+        logger.info(sbatch_warning)
+    else:
+        shell = default_shell
+        logger.info(script_warning)
+
+    putils.make_path(out_path)
+    if commands_out_path is None:
+        commands_out_path = out_path
+    else:
+        putils.make_path(commands_out_path)
+    command_file = write_commands(commands, name=name, out_path=commands_out_path)
+    script_file = distribute(command_file, protocol, len(commands), out_path=out_path, **kwargs)
+
+    logger.info(f'Once you are satisfied, enter the following to distribute:\n\t{shell} {script_file}')
+
+    return script_file
+
+
 # @handle_errors(errors=(FileNotFoundError,))
 def update_status(serialized_info: AnyStr, stage: str, mode: str = 'check'):
     """Update the serialized info for a designs commands such as checking or removing status, and marking completed"""
@@ -314,3 +359,52 @@ def update_status(serialized_info: AnyStr, stage: str, mode: str = 'check'):
         # exit()
     else:
         exit(127)
+
+
+def write_script(command: str, name: str = 'script', out_path: AnyStr = os.getcwd(),
+                 additional: list = None, shell: str = 'bash', status_wrap: str = None) -> AnyStr:
+    """Take a command and write to a name.sh script. By default, bash is used as the shell interpreter
+
+    Args:
+        command: The command formatted using subprocess.list2cmdline(list())
+        name: The name of the output shell script
+        out_path: The location where the script will be written
+        additional: Additional commands also formatted using subprocess.list2cmdline()
+        shell: The shell which should interpret the script
+        status_wrap: The name of a file in which to check and set the status of the command in the shell
+    Returns:
+        The name of the file
+    """
+    if status_wrap:
+        modifier = '&&'
+        _base_cmd = ['python', putils.distributer_tool, '--stage', name, 'status', '--info', status_wrap]
+        check = subprocess.list2cmdline(_base_cmd + ['--check', modifier, '\n'])
+        _set = subprocess.list2cmdline(_base_cmd + ['--set'])
+    else:
+        check = _set = modifier = ''
+
+    file_name = os.path.join(out_path, name if name.endswith('.sh') else f'{name}.sh')
+    with open(file_name, 'w') as f:
+        f.write(f'#!/bin/{shell}\n\n{check}{command} {modifier}\n\n')
+        if additional:
+            f.write('%s\n\n' % ('\n\n'.join(f'{command} {modifier}' for command in additional)))
+        f.write(f'{_set}\n')
+
+    return file_name
+
+
+def write_commands(commands: Iterable[str], name: str = 'all_commands', out_path: AnyStr = os.getcwd()) -> AnyStr:
+    """Write a list of commands out to a file
+
+    Args:
+        commands: An iterable with the commands as values
+        name: The name of the file. Will be appended with '.cmd(s)'
+        out_path: The directory where the file will be written
+    Returns:
+        The filename of the new file
+    """
+    file = os.path.join(out_path, f'{name}.cmds' if len(commands) > 1 else f'{name}.cmd')
+    with open(file, 'w') as f:
+        f.write('%s\n' % '\n'.join(command for command in commands))
+
+    return file

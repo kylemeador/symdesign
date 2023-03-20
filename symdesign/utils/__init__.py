@@ -561,55 +561,6 @@ def remove_duplicates(iter_: Iterable[Any]) -> list[Any]:
     return [x for x in iter_ if not (x in seen or seen_add(x))]
 
 
-def write_shell_script(command: str, name: str = 'script', out_path: AnyStr = os.getcwd(),
-                       additional: list = None, shell: str = 'bash', status_wrap: str = None) -> AnyStr:
-    """Take a command and write to a name.sh script. By default, bash is used as the shell interpreter
-
-    Args:
-        command: The command formatted using subprocess.list2cmdline(list())
-        name: The name of the output shell script
-        out_path: The location where the script will be written
-        additional: Additional commands also formatted using subprocess.list2cmdline()
-        shell: The shell which should interpret the script
-        status_wrap: The name of a file in which to check and set the status of the command in the shell
-    Returns:
-        The name of the file
-    """
-    if status_wrap:
-        modifier = '&&'
-        _base_cmd = ['python', putils.distributer_tool, '--stage', name, 'status', '--info', status_wrap]
-        check = subprocess.list2cmdline(_base_cmd + ['--check', modifier, '\n'])
-        _set = subprocess.list2cmdline(_base_cmd + ['--set'])
-    else:
-        check = _set = modifier = ''
-
-    file_name = os.path.join(out_path, name if name.endswith('.sh') else f'{name}.sh')
-    with open(file_name, 'w') as f:
-        f.write(f'#!/bin/{shell}\n\n{check}{command} {modifier}\n\n')
-        if additional:
-            f.write('%s\n\n' % ('\n\n'.join(f'{command} {modifier}' for command in additional)))
-        f.write(f'{_set}\n')
-
-    return file_name
-
-
-def write_commands(commands: Iterable[str], name: str = 'all_commands', out_path: AnyStr = os.getcwd()) -> AnyStr:
-    """Write a list of commands out to a file
-
-    Args:
-        commands: An iterable with the commands as values
-        name: The name of the file. Will be appended with '.cmd(s)'
-        out_path: The directory where the file will be written
-    Returns:
-        The filename of the new file
-    """
-    file = os.path.join(out_path, f'{name}.cmds' if len(commands) > 1 else f'{name}.cmd')
-    with open(file, 'w') as f:
-        f.write('%s\n' % '\n'.join(command for command in commands))
-
-    return file
-
-
 # def change_filename(original, new=None, increment=None):
 #     """Take a json formatted score.sc file and rename decoy ID's
 #

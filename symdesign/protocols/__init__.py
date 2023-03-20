@@ -15,14 +15,14 @@ from scipy.spatial.distance import pdist
 
 from . import cluster, config, fragdock, pose, select
 from symdesign import flags, metrics
+from symdesign.resources.distribute import write_script
 from symdesign.resources.config import default_pca_variance
 from symdesign.sequence import protein_letters_1to3, protein_letters_3to1
 from symdesign.structure.model import Models, MultiModel, Model, Pose
 from symdesign.structure.sequence import write_pssm_file, sequence_difference
 from symdesign.structure.utils import DesignError, SymmetryError
 from symdesign.utils import condensed_to_square, get_directory_file_paths, InputError, path as putils, \
-    ReportException, rosetta, starttime, sym, write_shell_script
-# from ..resources.job import JobResources, job_resources_factory
+    ReportException, rosetta, starttime, sym
 
 
 logger = logging.getLogger(__name__)
@@ -210,8 +210,8 @@ def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None
     # Create executable to gather interface Metrics on all Designs
     if job.job.distribute_work:
         analysis_cmd = job.make_analysis_cmd()
-        write_shell_script(list2cmdline(generate_files_cmd), name=script_name, out_path=job.scripts_path,
-                           additional=[list2cmdline(cmd)] + [list2cmdline(analysis_cmd)])
+        write_script(list2cmdline(generate_files_cmd), name=script_name, out_path=job.scripts_path,
+                     additional=[list2cmdline(cmd)] + [list2cmdline(analysis_cmd)])
         # Todo metrics: [list2cmdline(command) for command in metric_cmds]
     else:
         list_all_files_process = Popen(generate_files_cmd)
@@ -278,10 +278,10 @@ def interface_metrics(job: pose.PoseJob):
     # Create executable to gather interface Metrics on all Designs
     if job.job.distribute_work:
         analysis_cmd = job.make_analysis_cmd()
-        # write_shell_script(list2cmdline(generate_files_cmd), name=putils.interface_metrics, out_path=job.scripts_path,
-        write_shell_script(metric_cmd_bound, name=putils.interface_metrics, out_path=job.scripts_path,
-                           additional=[list2cmdline(command) for command in entity_metric_cmds]
-                                      + [list2cmdline(analysis_cmd)])
+        # write_script(list2cmdline(generate_files_cmd), name=putils.interface_metrics, out_path=job.scripts_path,
+        write_script(metric_cmd_bound, name=putils.interface_metrics, out_path=job.scripts_path,
+                     additional=[list2cmdline(command) for command in entity_metric_cmds]
+                     + [list2cmdline(analysis_cmd)])
     else:
         # list_all_files_process = Popen(generate_files_cmd)
         # list_all_files_process.communicate()
@@ -751,10 +751,9 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
     if job.job.distribute_work:
         analysis_cmd = job.make_analysis_cmd()
-        write_shell_script(list2cmdline(design_cmd), name=job.protocol, out_path=job.scripts_path,
-                           additional=[list2cmdline(generate_files_cmd)] +
-                                      [list2cmdline(command) for command in metric_cmds] +
-                                      [list2cmdline(analysis_cmd)])
+        write_script(list2cmdline(design_cmd), name=job.protocol, out_path=job.scripts_path,
+                     additional=[list2cmdline(generate_files_cmd)]
+                     + [list2cmdline(command) for command in metric_cmds] + [list2cmdline(analysis_cmd)])
     else:
         design_process = Popen(design_cmd)
         design_process.communicate()  # wait for command to complete

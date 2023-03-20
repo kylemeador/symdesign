@@ -49,12 +49,6 @@ from symdesign.structure.model import Entity, Model, Pose
 from symdesign.sequence import create_mulitcistronic_sequences
 
 
-sbatch_warning = 'Ensure the SBATCH script(s) below are correct. Specifically, check that the job array and any '\
-                 'node specifications are accurate. You can look at the SBATCH manual (man sbatch or sbatch --help) to'\
-                 ' understand the variables or ask for help if you are still unsure'
-script_warning = 'Ensure the script(s) below are correct'
-
-
 def parse_results_for_exceptions(pose_jobs: list[PoseJob], results: Iterable[Any], **kwargs) \
         -> list[tuple[PoseJob, Exception]] | list:
     """Filter out any exceptions from results
@@ -125,7 +119,7 @@ def main():
             logger.critical(f'The file "{exceptions_file}" contains the pose identifier of every pose that failed '
                             f'checks/filters for this job')
 
-        if successful_pose_jobs and output:
+        if output and successful_pose_jobs:
             poses_file = None
             if job.output_file:
                 # if job.module not in [flags.analysis, flags.cluster_poses]:
@@ -218,30 +212,11 @@ def main():
             }
             stage = module_files.get(job.module)
             if stage and job.distribute_work:
-                commands = successful_pose_jobs
-                if len(commands) == 0:
-                    exit_code = 1
-                    exit(exit_code)
-
-                if distribute.is_sbatch_available():
-                    shell = distribute.sbatch
-                    logger.critical(sbatch_warning)
-                else:
-                    shell = distribute.default_shell
-                    logger.critical(script_warning)
-
-                putils.make_path(job_paths)
-                putils.make_path(job.sbatch_scripts)
-                if job.module == flags.nanohedra:
-                    command_file = utils.write_commands([list2cmdline(cmd) for cmd in commands], out_path=job_paths,
-                                                        name='_'.join(default_output_tuple))
-                    script_file = distribute.distribute(command_file, job.module, out_path=job.sbatch_scripts,
-                                                        number_of_commands=len(commands))
-                else:
-                    command_file = utils.write_commands([os.path.join(pose_job.scripts_path, f'{stage}.sh')
-                                                         for pose_job in successful_pose_jobs],
-                                                        out_path=job_paths, name='_'.join(default_output_tuple))
-                    script_file = distribute.distribute(command_file, job.module, out_path=job.sbatch_scripts)
+                scripts_to_distribute = [os.path.join(pose_job.scripts_path, f'{utils.starttime}{stage}.sh')
+                                         for pose_job in successful_pose_jobs]
+                distribute.check_scripts_exist(commands=scripts_to_distribute)
+                distribute.commands(scripts_to_distribute, name='_'.join(job.default_output_tuple), scale=stage,
+                                    out_path=job.sbatch_scripts, commands_out_path=job.job_paths)
 
                 # Todo this mechanism fell out of favor, but really should be suggested to the user
                 # if job.module == flags.design and job.initial_refinement:
@@ -253,14 +228,14 @@ def main():
                 #     logger.info(f'Once you are satisfied, enter the following to distribute:\n\t{shell} '
                 #                 f'{script_refine_file}\nTHEN:\n\t{shell} {script_file}')
                 # else:
-                logger.info(f'Once you are satisfied, enter the following to distribute:\n\t{shell} {script_file}')
-
-        # # test for the size of each of the PoseJob instances
+        elif len(successful_pose_jobs) == 0:
+            exit_code = 1
+            exit(exit_code)
+        # # Test for the size of each of the PoseJob instances
         # if pose_jobs:
         #     print('Average_design_directory_size equals %f' %
         #           (float(psutil.virtual_memory().used) / len(pose_jobs)))
 
-        # print('\n')
         exit(exit_code)
 
     def initialize_entities(uniprot_entities: Iterable[wrapapi.UniProtEntity],
@@ -279,9 +254,9 @@ def main():
             if messages:
                 # Entity processing commands are needed
                 if distribute.is_sbatch_available():
-                    logger.critical(sbatch_warning)
+                    logger.critical(distribute.sbatch_warning)
                 else:
-                    logger.critical(script_warning)
+                    logger.critical(distribute.script_warning)
 
                 for message in messages:
                     logger.info(message)
@@ -1091,12 +1066,10 @@ def main():
             commands = [cmd.copy() + [f'--{flags.pdb_codes1}', model1.name,
                                       f'--{flags.pdb_codes2}', model2.name]
                         for idx, (model1, model2) in enumerate(pose_jobs)]
-            # commands = [cmd.copy() + [f'--{flags.nano_entity_flag1}', model1.file_path,
-            #                           f'--{flags.nano_entity_flag2}', model2.file_path]
-            #             for idx, (model1, model2) in enumerate(pose_jobs)]
-
-            # Write commands using terminate()
-            terminate(results=commands)
+            # Write commands
+            distribute.commands([list2cmdline(cmd) for cmd in commands], name='_'.join(job.default_output_tuple),
+                                protocol=job.module, out_path=job.sbatch_scripts, commands_out_path=job.job_paths)
+            terminate(output=False)
     else:  # Load from existing files, usually Structural files in a directory or in the program already
         # if args.nanohedra_output:  # Nanohedra directory
         #     file_paths, job.location = utils.collect_nanohedra_designs(files=args.file, directory=args.directory)

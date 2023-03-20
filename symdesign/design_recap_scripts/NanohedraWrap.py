@@ -4,6 +4,7 @@ import subprocess
 from itertools import chain
 from typing import Union
 
+from symdesign.resources.distribute import write_script
 from symdesign import utils
 from symdesign.utils import path as putils
 
@@ -97,9 +98,9 @@ def nanohedra_command_concise(path1: Union[str, bytes], path2: Union[str, bytes]
     if initial:
         cmd.extend(['-initial'])
 
-    return utils.write_shell_script(subprocess.list2cmdline(cmd), out_path=script_out_dir,
-                                    name=f'nanohedra_{os.path.basename(os.path.splitext(path1)[0])}_'
-                                         f'{os.path.basename(os.path.splitext(path2)[0])}')
+    return write_script(subprocess.list2cmdline(cmd), out_path=script_out_dir,
+                        name=f'nanohedra_{os.path.basename(os.path.splitext(path1)[0])}_'
+                             f'{os.path.basename(os.path.splitext(path2)[0])}')
 
 
 def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, initial=False):
@@ -154,4 +155,4 @@ def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, initial=Fa
     if initial:
         _cmd.extend(['-initial'])
 
-    return utils.write_shell_script(subprocess.list2cmdline(_cmd), name=name, out_path=script_out_dir)
+    return write_script(subprocess.list2cmdline(_cmd), name=name, out_path=script_out_dir)

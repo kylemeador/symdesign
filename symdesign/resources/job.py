@@ -1223,8 +1223,8 @@ class JobResources:
                 instructions = 'Please follow the instructions below to generate sequence profiles for input proteins'
                 info_messages.append(instructions)
                 hhblits_cmds = [subprocess.list2cmdline(cmd) for cmd in hhblits_cmds]
-                hhblits_cmd_file = utils.write_commands(hhblits_cmds, name=f'{utils.starttime}-{putils.hhblits}',
-                                                        out_path=self.profiles)
+                hhblits_cmd_file = distribute.write_commands(hhblits_cmds, name=f'{utils.starttime}-{putils.hhblits}',
+                                                             out_path=self.profiles)
                 hhblits_script = \
                     distribute.distribute(file=hhblits_cmd_file, out_path=self.sbatch_scripts,
                                           scale=putils.hhblits, max_jobs=len(hhblits_cmds),
@@ -1247,7 +1247,7 @@ class JobResources:
             #                   '-d', os.path.join(self.profiles, '%s_bmDCA' % entity.name)])
             #      for entity in entities.values()]
             bmdca_cmd_file = \
-                utils.write_commands(bmdca_cmds, name=f'{utils.starttime}-bmDCA', out_path=self.profiles)
+                distribute.write_commands(bmdca_cmds, name=f'{utils.starttime}-bmDCA', out_path=self.profiles)
             bmdca_script = distribute.distribute(file=bmdca_cmd_file, out_path=self.sbatch_scripts,
                                                  scale='bmdca', max_jobs=len(bmdca_cmds),
                                                  number_of_commands=len(bmdca_cmds),

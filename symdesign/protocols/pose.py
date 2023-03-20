@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session, reconstructor
 import torch
 
 from symdesign import flags, metrics, resources
-from symdesign.resources import sql
+from symdesign.resources import distribute, sql
 from symdesign.sequence import MultipleSequenceAlignment, read_fasta_file, write_sequences
 from symdesign.structure import fragment
 from symdesign.structure.base import Structure
@@ -42,7 +42,7 @@ from symdesign.structure.utils import DesignError, ClashError
 import symdesign.third_party.alphafold.alphafold.data.pipeline as af_pipeline
 from symdesign.third_party.alphafold.alphafold.common import residue_constants
 from symdesign.utils import all_vs_all, condensed_to_square, InputError, large_color_array, start_log, path as putils, \
-    pickle_object, rosetta, starttime, write_shell_script
+    pickle_object, rosetta, starttime
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
 # from symdesign.utils.nanohedra.general import get_components_from_nanohedra_docking
 
@@ -2379,11 +2379,9 @@ class PoseProtocol(PoseData):
         # Create executable/Run FastRelax on Clean ASU with RosettaScripts
         if self.job.distribute_work:
             analysis_cmd = self.make_analysis_cmd()
-            write_shell_script(list2cmdline(relax_cmd), name=self.protocol, out_path=flag_dir,
-                               additional=[list2cmdline(generate_files_cmd)] +
-                                          [list2cmdline(command) for command in metric_cmds] +
-                                          [list2cmdline(analysis_cmd)])
-            #                  status_wrap=self.serialized_info)
+            distribute.write_script(list2cmdline(relax_cmd), name=self.protocol, out_path=flag_dir,
+                                    additional=[list2cmdline(generate_files_cmd)]
+                                    + [list2cmdline(command) for command in metric_cmds] + [list2cmdline(analysis_cmd)])
         else:
             relax_process = Popen(relax_cmd)
             relax_process.communicate()  # Wait for command to complete
@@ -2476,7 +2474,8 @@ class PoseProtocol(PoseData):
                    '-parser:script_vars', f'switch={putils.consensus}']
             self.log.info(f'Consensus command: {list2cmdline(consensus_cmd)}')
             if self.job.distribute_work:
-                write_shell_script(list2cmdline(consensus_cmd), name=putils.consensus, out_path=self.scripts_path)
+                distribute.write_script(list2cmdline(consensus_cmd), name=putils.consensus,
+                                        out_path=self.scripts_path)
             else:
                 consensus_process = Popen(consensus_cmd)
                 consensus_process.communicate()
@@ -2503,12 +2502,10 @@ class PoseProtocol(PoseData):
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.job.distribute_work:
             analysis_cmd = self.make_analysis_cmd()
-            write_shell_script(list2cmdline(design_cmd), name=self.protocol, out_path=self.scripts_path,
-                               additional=[list2cmdline(command) for command in additional_cmds] +
-                                          [list2cmdline(generate_files_cmd)] +
-                                          [list2cmdline(command) for command in metric_cmds] +
-                                          [list2cmdline(analysis_cmd)])
-            #                  status_wrap=self.serialized_info,
+            distribute.write_script(list2cmdline(design_cmd), name=self.protocol, out_path=self.scripts_path,
+                                    additional=[list2cmdline(command) for command in additional_cmds]
+                                    + [list2cmdline(generate_files_cmd)]
+                                    + [list2cmdline(command) for command in metric_cmds] + [list2cmdline(analysis_cmd)])
         else:
             design_process = Popen(design_cmd)
             design_process.communicate()  # Wait for command to complete
