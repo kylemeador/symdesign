@@ -1626,7 +1626,7 @@ class SequenceProfile(ABC):
 
         if favor_fragments:
             boltzman_energy = 1
-            favor_seqprofile_score_modifier = 0.2 * utils.rosetta.reference_average_residue_weight
+            favor_seqprofile_score_modifier = 0.2 * sdutils.rosetta.reference_average_residue_weight
             database_bkgnd_aa_freq = self._fragment_db.aa_frequencies
 
             null_residue = get_lod(database_bkgnd_aa_freq, database_bkgnd_aa_freq, as_int=False)

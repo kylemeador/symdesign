@@ -488,9 +488,6 @@ def interface_design(job: pose.PoseJob):
         # Todo update upon completion given results of designs list file...
         job.update_design_data(design_parent=job.pose_source, number=job.job.design.number)
         favor_fragments = evo_fill = True
-        # Ensure the Pose is refined into the current_energy_function
-        if not job.refined and not os.path.exists(job.refined_pdb):
-            job.refine(gather_metrics=False)
     else:
         favor_fragments = evo_fill = False
 
@@ -541,6 +538,9 @@ def interface_design(job: pose.PoseJob):
             write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
         write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
         job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
+        # Ensure the Pose is refined into the current_energy_function
+        if not job.refined and not os.path.exists(job.refined_pdb):
+            job.refine(gather_metrics=False)
         job.rosetta_interface_design()  # Sets job.protocol
     elif job.job.design.method == putils.proteinmpnn:
         job.proteinmpnn_design(interface=True, neighbors=job.job.design.neighbors)  # Sets job.protocol
@@ -573,9 +573,6 @@ def design(job: pose.PoseJob):
             raise NotImplementedError(
                 f"Can't perform design using Rosetta just yet. Try {flags.interface_design} instead...")
         favor_fragments = evo_fill = True
-        # Ensure the Pose is refined into the current_energy_function
-        if not job.refined and not os.path.exists(job.refined_pdb):
-            job.refine(gather_metrics=False)
     else:
         favor_fragments = evo_fill = False
 
@@ -632,6 +629,9 @@ def design(job: pose.PoseJob):
             write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
         write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
         job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
+        # Ensure the Pose is refined into the current_energy_function
+        if not job.refined and not os.path.exists(job.refined_pdb):
+            job.refine(gather_metrics=False)
         if job.job.design.interface:
             job.rosetta_interface_design()  # Sets job.protocol
         else:

@@ -1393,4 +1393,4 @@ def condensed_to_square(k, n):
 
 # from . import cluster
 # from . import distribute
-from . import SymEntry, symmetry
+from . import rosetta, SymEntry, symmetry

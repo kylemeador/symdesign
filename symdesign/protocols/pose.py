@@ -2293,22 +2293,19 @@ class PoseProtocol(PoseData):
         """
         main_cmd = rosetta.script_cmd.copy()
 
-        infile = []
         suffix = []
         generate_files_cmd = null_cmd
         if to_pose_directory:  # Original protocol to refine a Nanohedra pose
             flag_dir = self.scripts_path
             pdb_out_path = self.designs_path
-            refine_pdb = refined_pdb = self.refined_pdb
+            refine_pdb = self.refine_pdb
+            refined_pdb = self.refined_pdb
             additional_flags = []
         else:  # Protocol to refine input structure, place in a common location, then transform for many jobs to source
             flag_dir = pdb_out_path = self.job.refine_dir
             refine_pdb = self.source_path
             refined_pdb = os.path.join(pdb_out_path, refine_pdb)
             additional_flags = ['-no_scorefile', 'true']
-            infile.extend(['-in:file:s', refine_pdb,
-                           # -in:file:native is here to block flag file version, not actually useful for refine
-                           '-in:file:native', refine_pdb])
 
         flags_file = os.path.join(flag_dir, 'flags')
         if not os.path.exists(flags_file) or self.job.force:
@@ -2349,7 +2346,7 @@ class PoseProtocol(PoseData):
                                  f"iterable of files")
 
             # -in:file:native is here to block flag file version, not actually useful for refine
-            infile.extend(['-in:file:l', design_files_file, '-in:file:native', self.source_path])
+            infile = ['-in:file:l', design_files_file, '-in:file:native', self.source_path]
             metrics_pdb = ['-in:file:l', designed_files_file, '-in:file:native', self.source_path]
             # generate_files_cmdline = [list2cmdline(generate_files_cmd)]
         else:
@@ -2377,7 +2374,7 @@ class PoseProtocol(PoseData):
             self.pose.write(out_path=refine_pdb)
             self.log.debug(f'Cleaned PDB for {switch}: "{refine_pdb}"')
             # -in:file:native is here to block flag file version, not actually useful for refine
-            infile.extend(['-in:file:s', refine_pdb, '-in:file:native', refine_pdb])
+            infile = ['-in:file:s', refine_pdb, '-in:file:native', refine_pdb]
             metrics_pdb = ['-in:file:s', refined_pdb, '-in:file:native', refine_pdb]
 
         # RELAX: Prepare command
@@ -2387,18 +2384,18 @@ class PoseProtocol(PoseData):
             symmetry_definition = []
 
         # '-no_nstruct_label', 'true' comes from v
-        relax_cmd = main_cmd + rosetta.relax_flags_cmdline + additional_flags + symmetry_definition + infile + suffix \
+        relax_cmd = main_cmd + rosetta.relax_flags_cmdline + additional_flags + symmetry_definition \
             + [f'@{flags_file}', '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'refine.xml'),
-               '-parser:script_vars', f'switch={switch}']
+               '-parser:script_vars', f'switch={switch}'] + infile + suffix
         self.log.info(f'{switch.title()} Command: {list2cmdline(relax_cmd)}')
 
         if gather_metrics or self.job.metrics:
             gather_metrics = True
             if self.job.mpi > 0:
                 main_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
-            main_cmd += metrics_pdb
+            # main_cmd += metrics_pdb
             main_cmd += [f'@{flags_file}', '-out:file:score_only', self.scores_file,
-                         '-no_nstruct_label', 'true', '-parser:protocol']
+                         '-no_nstruct_label', 'true'] + metrics_pdb + ['-parser:protocol']
             metric_cmd_bound = main_cmd \
                 + [os.path.join(putils.rosetta_scripts_dir, f'{putils.interface_metrics}'
                                 f'{"_DEV" if self.job.development else ""}.xml')] \
