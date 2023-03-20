@@ -273,8 +273,10 @@ class UniProtProteinAssociation(Base):
     # Todo upon sqlalchemy 2.0, use the sqlalchemy.Column construct not mapped_column()
     uniprot_id = Column(ForeignKey('uniprot_entity.id'), primary_key=True)
     entity_id = Column(ForeignKey('protein_metadata.id'), primary_key=True)
-    uniprot = relationship('UniProtEntity', back_populates='_protein_metadata')
-    protein = relationship('ProteinMetadata', back_populates='_uniprot_entities')
+    uniprot = relationship('UniProtEntity', back_populates='_protein_metadata',
+                           lazy='selectin')
+    protein = relationship('ProteinMetadata', back_populates='_uniprot_entities',
+                           lazy='selectin')
     position = Column(Integer)
 
 
@@ -298,7 +300,8 @@ class ProteinMetadata(Base):
     _uniprot_entities = relationship('UniProtProteinAssociation',
                                      back_populates='protein',
                                      collection_class=ordering_list('position'),
-                                     order_by=UniProtProteinAssociation.position
+                                     order_by=UniProtProteinAssociation.position,
+                                     lazy='selectin'
                                      )
     uniprot_entities = association_proxy('_uniprot_entities', 'uniprot',
                                          creator=lambda _unp_ent: UniProtProteinAssociation(uniprot=_unp_ent))
@@ -363,7 +366,8 @@ class EntityData(Base):
     # Set up many-to-one relationship with protein_metadata table
     properties_id = Column(ForeignKey('protein_metadata.id'))
     meta = relationship('ProteinMetadata', back_populates='entity_data',
-                        lazy='joined', innerjoin=True)
+                        lazy='selectin', innerjoin=True)  # Trying this to get around detached state...
+                        # lazy='joined', innerjoin=True)
     # Set up one-to-one relationship with entity_metrics table
     metrics = relationship('EntityMetrics', back_populates='entity', uselist=False)
     # Todo setup 'selectin' load for select-* modules
@@ -623,7 +627,9 @@ class DesignData(Base):
     # Set up one-to-many relationship with design_entity_data table
     entity_metrics = relationship('DesignEntityMetrics', back_populates='design')
     # Set up one-to-many relationship with residue_metrics table
-    residues = relationship('ResidueMetrics', back_populates='design')
+    residues = relationship('DesignResidues', back_populates='design')
+    # Set up one-to-many relationship with residue_metrics table
+    residue_metrics = relationship('ResidueMetrics', back_populates='design')
 
     structure_path = Column(String(500))
     sequence = association_proxy('metrics', 'sequence')
