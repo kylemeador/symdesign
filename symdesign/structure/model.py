@@ -239,6 +239,7 @@ class Metrics(abc.ABC):
     _metrics: _metrics_table
     # _metrics_table: sql.Base
     _metrics_d: dict[str, Any]
+    state_attributes = {'_df', '_metrics', '_metrics_d'}
 
     @property
     @abc.abstractmethod
@@ -260,7 +261,6 @@ class Metrics(abc.ABC):
         try:
             return self._metrics
         except AttributeError:  # Load
-            # self._metrics_ = self.calculate_metrics()
             self._metrics = self._metrics_table(**self._metrics_)
         return self._metrics
 
@@ -270,13 +270,20 @@ class Metrics(abc.ABC):
         try:
             return self._df
         except AttributeError:  # Load
-            # self._metrics_ = self.calculate_metrics()
             self._df = pd.Series(self._metrics_)
         return self._df
 
     @abc.abstractmethod
     def calculate_metrics(self, **kwargs) -> dict[str, Any]:
         """Perform Metric calculation for the Structure in question"""
+
+    def clear_metrics(self) -> None:
+        """Clear all Metrics.state_attributes for the Structure in question"""
+        for attr in Metrics.state_attributes:
+            try:
+                self.__delattr__(attr)
+            except AttributeError:
+                continue
 
 
 class MultiModel:
@@ -6224,9 +6231,56 @@ class Pose(SymmetricModel, Metrics):
              'pose_length',
              }
         """
-        # Todo add any additional metrics to a dictionary
-        #  return {**self.interface_metrics()}
-        return self.interface_metrics()
+        minimum_radius, maximum_radius = float('inf'), 0.
+        entity_metrics = []
+        dimension = self.dimension
+        for entity in self.entities:
+            if dimension and dimension > 0:
+                raise NotImplementedError('Need to add keyword reference= to Structure.distance_from_reference() call')
+            # _entity_metrics = sql.EntityMetrics(**entity.calculate_metrics())  # Todo add reference=
+            _entity_metrics = entity.calculate_metrics()  # Todo add reference=
+
+            if _entity_metrics['min_radius'] < minimum_radius:
+                minimum_radius = _entity_metrics['min_radius']
+            if _entity_metrics['max_radius'] > maximum_radius:
+                maximum_radius = _entity_metrics['max_radius']
+            entity_metrics.append(_entity_metrics)
+
+        pose_metrics = {'minimum_radius': minimum_radius,
+                        'maximum_radius': maximum_radius,
+                        'pose_length': self.number_of_residues
+                        # 'sequence': self.sequence
+                        }
+        radius_ratio_sum = min_ratio_sum = max_ratio_sum = 0.  # residue_ratio_sum
+        counter = 1
+        # index_combinations = combinations(range(1, 1 + len(entity_metrics)), 2)
+        for counter, (metrics1, metrics2) in enumerate(combinations(entity_metrics, 2), counter):
+            radius_ratio = metrics1['radius'] / metrics2['radius']
+            min_ratio = metrics1['min_radius'] / metrics2['min_radius']
+            max_ratio = metrics1['max_radius'] / metrics2['max_radius']
+            # residue_ratio = metrics1.number_of_residues / metrics2.number_of_residues
+            radius_ratio_sum += abs(1 - radius_ratio)
+            min_ratio_sum += abs(1 - min_ratio)
+            max_ratio_sum += abs(1 - max_ratio)
+            # Todo
+            #  These could be useful in the PoseMetrics selection section to calculate on the fly
+            #  They are cumbersome and not recommended DB etiquette
+            #   (i.e. take up unnecessary db space, should be a table)
+            # residue_ratio_sum += abs(1 - residue_ratio)
+            # entity_idx1, entity_idx2 = next(index_combinations)
+            # pose_metrics.update({f'entity_radius_ratio_{entity_idx1}v{entity_idx2}': radius_ratio,
+            #                      f'entity_min_radius_ratio_{entity_idx1}v{entity_idx2}': min_ratio,
+            #                      f'entity_max_radius_ratio_{entity_idx1}v{entity_idx2}': max_ratio,
+            #                      f'entity_number_of_residues_ratio_{entity_idx1}v{entity_idx2}': residue_ratio})
+
+        pose_metrics.update({'entity_radius_average_deviation': radius_ratio_sum / counter,
+                             'entity_min_radius_average_deviation': min_ratio_sum / counter,
+                             'entity_max_radius_average_deviation': max_ratio_sum / counter,
+                             # 'entity_number_of_residues_average_deviation': residue_ratio_sum / counter
+                             })
+        pose_metrics.update(**self.interface_metrics())
+
+        return pose_metrics
 
     # @property
     # def df(self) -> pd.Series:
@@ -7347,110 +7401,6 @@ class Pose(SymmetricModel, Metrics):
         # #     pose_metrics[f'entity{number}_secondary_structure_fragment_topology'] = \
         # #         interface_ss_fragment_topology.get(number, '-')
 
-        # total_residue_counts = []
-        idx = 1
-        # is_thermophilic = []
-        minimum_radius, maximum_radius = float('inf'), 0.
-        entity_metrics = []
-        dimension = self.dimension
-        for idx, entity in enumerate(self.entities, idx):
-            if dimension and dimension > 0:
-                raise NotImplementedError('Need to add keyword reference= to Structure.distance_from_reference() call')
-            _entity_metrics = sql.EntityMetrics(**entity.calculate_metrics())  # Todo add reference=
-            # entity.calculate_metrics()  # Todo add reference=
-            # _entity_metrics = entity.metrics
-            if _entity_metrics.min_radius < minimum_radius:
-                minimum_radius = _entity_metrics.min_radius
-            if _entity_metrics.max_radius > maximum_radius:
-                maximum_radius = _entity_metrics.max_radius
-            # is_thermophilic.append(1 if entity.thermophilicity else 0)
-            # is_thermophilic.append(entity.thermophilicity)
-            entity_metrics.append(_entity_metrics)
-
-            # # Old-style
-            # min_rad = entity.distance_from_reference(measure='min')
-            # if min_rad < minimum_radius:
-            #     minimum_radius = min_rad
-            # max_rad = entity.distance_from_reference(measure='max')
-            # if max_rad > maximum_radius:
-            #     maximum_radius = max_rad
-            #
-            # if entity.thermophilicity is not None:
-            #     thermophile = 1 if entity.thermophilic else 0
-            # else:
-            #     thermophile = 1 if is_pdb_thermophile(entity.name) or is_ukb_thermophilic(entity.uniprot_id) else 0
-            # is_thermophilic.append(thermophile)
-            #
-            # pose_metrics.update({
-            #     f'entity{idx}_symmetry_group': entity.symmetry if entity.is_symmetric() else 'asymmetric',
-            #     f'entity{idx}_name': entity.name,
-            #     f'entity{idx}_number_of_residues': entity.number_of_residues,
-            #     f'entity{idx}_radius': entity.distance_from_reference(),
-            #     f'entity{idx}_min_radius': min_rad,
-            #     f'entity{idx}_max_radius': max_rad,
-            #     f'entity{idx}_n_terminal_helix': entity.is_termini_helical(),
-            #     f'entity{idx}_c_terminal_helix': entity.is_termini_helical(termini='c'),
-            #     f'entity{idx}_n_terminal_orientation': entity.termini_proximity_from_reference(),
-            #     f'entity{idx}_c_terminal_orientation': entity.termini_proximity_from_reference(termini='c'),
-            #     f'entity{idx}_thermophile': thermophile})
-
-        # Get the average thermophilicity for all entities
-        # pose_metrics['pose_thermophilicity'] = sum(is_thermophilic) / idx
-        pose_metrics['minimum_radius'] = minimum_radius
-        pose_metrics['maximum_radius'] = maximum_radius
-        pose_metrics['pose_length'] = self.number_of_residues
-        # pose_metrics['sequence'] = self.sequence
-        # pose_metrics['pose_length'] = \
-        #     sum(pose_metrics[f'entity{idx}_number_of_residues'] for idx in range(1, self.number_of_entities + 1))
-
-        radius_ratio_sum = min_ratio_sum = max_ratio_sum = 0.  # residue_ratio_sum
-        counter = 1
-        # index_combinations = combinations(range(1, 1 + len(entity_metrics)), 2)
-        for counter, (metrics1, metrics2) in enumerate(combinations(entity_metrics, 2), counter):
-            radius_ratio = metrics1.radius / metrics2.radius
-            min_ratio = metrics1.min_radius / metrics2.min_radius
-            max_ratio = metrics1.max_radius / metrics2.max_radius
-            # residue_ratio = metrics1.number_of_residues / metrics2.number_of_residues
-            radius_ratio_sum += abs(1 - radius_ratio)
-            min_ratio_sum += abs(1 - min_ratio)
-            max_ratio_sum += abs(1 - max_ratio)
-            # Todo
-            #  These could be useful in the PoseMetrics selection section to calculate on the fly
-            #  They are cumbersome and not recommended DB etiquette
-            #   (i.e. take up unnecessary db space, should be a table)
-            # residue_ratio_sum += abs(1 - residue_ratio)
-            # entity_idx1, entity_idx2 = next(index_combinations)
-            # pose_metrics.update({f'entity_radius_ratio_{entity_idx1}v{entity_idx2}': radius_ratio,
-            #                      f'entity_min_radius_ratio_{entity_idx1}v{entity_idx2}': min_ratio,
-            #                      f'entity_max_radius_ratio_{entity_idx1}v{entity_idx2}': max_ratio,
-            #                      f'entity_number_of_residues_ratio_{entity_idx1}v{entity_idx2}': residue_ratio})
-
-        # # Old-style
-        # for counter, (entity_idx1, entity_idx2) in enumerate(combinations(range(1, self.number_of_entities + 1),
-        #                                                                   2), counter):
-        #     radius_ratio = \
-        #         pose_metrics[f'entity{entity_idx1}_radius'] / pose_metrics[f'entity{entity_idx2}_radius']
-        #     min_ratio = \
-        #         pose_metrics[f'entity{entity_idx1}_min_radius'] / pose_metrics[f'entity{entity_idx2}_min_radius']
-        #     max_ratio = \
-        #         pose_metrics[f'entity{entity_idx1}_max_radius'] / pose_metrics[f'entity{entity_idx2}_max_radius']
-        #     residue_ratio = \
-        #         pose_metrics[f'entity{entity_idx1}_number_of_residues'] \
-        #         / pose_metrics[f'entity{entity_idx2}_number_of_residues']
-        #     radius_ratio_sum += abs(1 - radius_ratio)
-        #     min_ratio_sum += abs(1 - min_ratio)
-        #     max_ratio_sum += abs(1 - max_ratio)
-        #     residue_ratio_sum += abs(1 - residue_ratio)
-        #     pose_metrics.update({f'entity_radius_ratio_{entity_idx1}v{entity_idx2}': radius_ratio,
-        #                          f'entity_min_radius_ratio_{entity_idx1}v{entity_idx2}': min_ratio,
-        #                          f'entity_max_radius_ratio_{entity_idx1}v{entity_idx2}': max_ratio,
-        #                          f'entity_number_of_residues_ratio_{entity_idx1}v{entity_idx2}': residue_ratio})
-
-        pose_metrics.update({'entity_radius_average_deviation': radius_ratio_sum / counter,
-                             'entity_min_radius_average_deviation': min_ratio_sum / counter,
-                             'entity_max_radius_average_deviation': max_ratio_sum / counter,
-                             # 'entity_number_of_residues_average_deviation': residue_ratio_sum / counter
-                             })
         return pose_metrics
 
     def per_residue_interface_errat(self) -> dict[str, list[float]]:

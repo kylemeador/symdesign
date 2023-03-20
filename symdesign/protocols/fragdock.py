@@ -4268,9 +4268,9 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
                         transform=transformation)
                     )
 
-                job.current_session.add_all(entity_transforms + entity_data)
-                # # Update the PoseJob with sql.EntityData
-                # pose_job.entity_data.extend(entity_data)
+                # Reset entity.metrics
+                for entity in pose.entities:
+                    entity.clear_metrics()
 
             if job.db:
                 # Update the poses_df_ and residues_df_ index to reflect the new pose_ids
