@@ -87,20 +87,8 @@ def main():
         #     pass
         nonlocal exceptions
         if results:
-            if job.module == flags.nanohedra:
-                successful_pose_jobs = results
-                if job.distribute_work:
-                    output_analysis = False
-            else:
-                # success_indices = [idx for idx, result in enumerate(results) if not isinstance(result, BaseException)]
-                # success = [pose_jobs[idx] for idx in success_indices]
-                # _exceptions = [(pose_job, exception) for pose_job, exception in zip(pose_jobs, results)
-                #                if isinstance(exception, BaseException)]
-                # exception_indices = [idx for idx, result in enumerate(results) if isinstance(result, BaseException)]
-                # _exceptions = [(pose_jobs.pop(idx), results.pop(idx)) for idx in reversed(exception_indices)]
-                # exceptions += _exceptions
-                exceptions += parse_results_for_exceptions(pose_jobs, results)
-                successful_pose_jobs = pose_jobs
+            exceptions += parse_results_for_exceptions(pose_jobs, results)
+            successful_pose_jobs = pose_jobs
         else:
             successful_pose_jobs = []
 
@@ -1001,6 +989,7 @@ def main():
                         data.c_terminal_helix = entity.is_termini_helical('c')
                         # Set this attribute to carry through Nanohedra
                         entity.metadata = data
+                        # entity.properties_id = data.id
                         entities.append(entity)
                     # Don't include symmetry as this will be initialized by fragdock.fragment_dock()
                     structures.append(Pose.from_entities(entities, name=structure_name))  # , symmetry=symmetry))
@@ -1146,7 +1135,7 @@ def main():
                     if paths:  # There are files present
                         if job.load_to_db:
                             # These are not part of the db, but exist in a program_output
-                            pose_jobs = [PoseJob.from_directory(path) for path in paths[range_slice]]
+                            pose_jobs = [PoseJob.from_directory(path) for path in job.get_range_slice(paths)]
                         else:
                             for path in paths:
                                 name, project, *_ = reversed(path.split(os.sep))
@@ -1172,7 +1161,7 @@ def main():
                 file_paths, job.location = utils.collect_designs(files=args.file, directory=args.directory)
                 if file_paths:
                     pose_jobs = [PoseJob.from_path(path, project=project_name)
-                                 for path in file_paths[range_slice]]
+                                 for path in job.get_range_slice(file_paths)]
             if not pose_jobs:
                 # Todo this needs a more informative error. Is the location of the correct format?
                 #  For instance, a --project provided with the directory of type --single would die without much

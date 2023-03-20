@@ -2053,7 +2053,7 @@ class PoseProtocol(PoseData):
                 self.output_metrics(session, residues=residues_df)
             # else:  # Only save the 'design_residue' columns
             #     residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
-            #     self.output_metrics(session, residues=residues_df)
+            #     self.output_metrics(session, design_residues=residues_df)
             # Commit the newly acquired metrics
             session.commit()
 
@@ -2250,6 +2250,8 @@ class PoseProtocol(PoseData):
             except Exception as error:
                 raise DesignError(error)
 
+    # Todo move to_pose_directory version to own PoseProtocol method.
+    #  Use refine as a means to refine Designs?
     def refine(self, to_pose_directory: bool = True, gather_metrics: bool = True,
                design_files: list[AnyStr] = None, in_file_list: AnyStr = None):
         """Refine the PoseJob.pose instance or design Model instances associated with this instance
@@ -2601,11 +2603,11 @@ class PoseProtocol(PoseData):
                 self.output_metrics(session, residues=residues_df)
             else:  # Only save the 'design_residue' columns
                 residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
-                self.output_metrics(session, residues=residues_df)
+                self.output_metrics(session, design_residues=residues_df)
             # Commit the newly acquired metrics
             session.commit()
 
-    # def output_proteinmpnn_scores(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.ndarray | list]):
+    # de output_proteinmpnn_scores(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.ndarray | list]):
     #     """Given the results of a ProteinMPNN design trajectory, format the sequences and scores for the PoseJob
     #
     #     Args:
@@ -2703,18 +2705,19 @@ class PoseProtocol(PoseData):
 
         return designs
 
-    def output_metrics(self, session: Session = None, designs: pd.DataFrame = None, residues: pd.DataFrame = None,
-                       pose_metrics: bool = False, update: bool = False):
+    def output_metrics(self, session: Session = None, designs: pd.DataFrame = None,
+                       design_residues: pd.DataFrame = None, residues: pd.DataFrame = None, pose_metrics: bool = False):
         """Format each possible DataFrame type for output via csv or SQL database
 
         Args:
             session: The session instance with a connection to the database of interest
             designs: The typical per-design metric DataFrame where each index is the design id and the columns are
                 design metrics
+            design_residues: The typical per-residue metric DataFrame where each index is the design id and the columns
+                are (residue index, Boolean for design utilization)
             residues: The typical per-residue metric DataFrame where each index is the design id and the columns are
                 (residue index, residue metric)
             pose_metrics: Whether the metrics being included are based on Pose (self.pose) measurements
-            update: Whether the output identifiers are already present in the metrics
         """
         # Remove completely empty columns
         if designs is not None:
@@ -2754,6 +2757,10 @@ class PoseProtocol(PoseData):
 
                 residues.index.set_names(index_name, inplace=True)
                 metrics.sql.write_dataframe(session, **dataframe_kwargs)
+
+            if design_residues is not None:
+                design_residues.index.set_names(sql.ResidueMetrics.design_id.name, inplace=True)
+                metrics.sql.write_dataframe(session, design_residues=design_residues)
         else:
             putils.make_path(self.data_path)
             if residues is not None:
@@ -2995,16 +3002,6 @@ class PoseProtocol(PoseData):
         if not design_paths_to_process:
             return
 
-        # Format DesignData
-        # Get all existing
-        design_data = self.designs
-        # Set current_designs to a fresh list
-        self._current_designs = [design_data[idx] for idx in existing_design_indices]
-        # Update the Pose.designs with DesignData for each of the new designs
-        new_designs_data = self.update_design_data(number=len(new_design_paths_to_process))  # design_parent=design_parent
-        # Extend current_designs with new DesignData instances
-        self.current_designs.extend(new_designs_data)
-
         # # Find designs with scores but no structures
         # structure_design_scores = {}
         # for pose in designs:
@@ -3023,56 +3020,26 @@ class PoseProtocol(PoseData):
         else:  # Assume this is an offspring of the pose
             parents = {provided_name: self.pose_source for provided_name in rosetta_provided_new_design_names}
 
-        # Add attribute to DesignData to save the provided_name and design design_parent
-        for design_data, provided_name in zip(new_designs_data, rosetta_provided_new_design_names):
-            design_data.design_parent = parents[provided_name]
-            design_data.provided_name = provided_name
-
-        designs_path = self.designs_path
-        new_design_new_filenames = {data.provided_name: os.path.join(designs_path, f'{data.name}.pdb')
-                                    for data in new_designs_data}
         # Find protocol info and remove from scores_df
         if putils.protocol in scores_df:
             # Replace missing values with the pose_source DesignData
             protocol_s = scores_df.pop(putils.protocol).fillna('metrics')
-            self.log.critical(f'Found "protocol_s" variable with dtype: {protocol_s.dtype}')
-            # Update the Pose with the design protocols
-            for design in self.current_designs:
-                name_or_provided_name = getattr(design, 'provided_name', getattr(design, 'name'))
-                protocol_kwargs = dict(design_id=design.id,
-                                       job_id=self.job.id,
-                                       protocol=protocol_s[name_or_provided_name],
-                                       # temperature=temperatures[idx],)  # Todo from Rosetta?
-                                       )
-                new_filename = new_design_new_filenames.get(name_or_provided_name)
-                if new_filename:
-                    protocol_kwargs['file'] = new_filename
-                    # Set the structure_path for this DesignData
-                    design.structure_path = new_filename
-                else:
-                    protocol_kwargs['file'] = os.path.join(designs_path, f'{name_or_provided_name}.pdb')
-                design.protocols.append(sql.DesignProtocol(**protocol_kwargs))
-        # else:  # Assume that no design was done and only metrics were acquired
-        #     pass
-
-        # This is all done in update_design_data
-        # self.designs.append(new_designs_data)
-        # # Flush the newly acquired DesignData and DesignProtocol to generate .id primary keys
-        # self.job.current_session.flush()
-        # new_design_ids = [design_data.id for design_data in new_designs_data]
+            self.log.debug(f'Found "protocol_s" variable with dtype: {protocol_s.dtype}')
+        else:
+            protocol_s = {provided_name: 'metrics' for provided_name in rosetta_provided_new_design_names}
 
         # Process all desired files to Pose
-        designs = [Pose.from_file(file, **self.pose_kwargs) for file in design_paths_to_process]
-        design_sequences = {design.name: design.sequence for design in designs}
+        design_poses = [Pose.from_file(file, **self.pose_kwargs) for file in design_paths_to_process]
+        design_sequences = {pose.name: pose.sequence for pose in design_poses}
         design_names = list(design_sequences.keys())
         # sequences_df = self.analyze_sequence_metrics_per_design(sequences=design_sequences)
 
         # The DataFrame.index needs to become design.id not design.name as it is here. Modify after processing
-        residues_df = self.analyze_residue_metrics_per_design(designs=designs)
+        residues_df = self.analyze_residue_metrics_per_design(designs=design_poses)
         # Join Rosetta per-residue DataFrame taking Structure analysis per-residue DataFrame index order
         residues_df = residues_df.join(rosetta_residues_df)
 
-        designs_df = self.analyze_design_metrics_per_design(residues_df, designs)
+        designs_df = self.analyze_design_metrics_per_design(residues_df, design_poses)
         # Join Rosetta per-design DataFrame taking Structure analysis per-design DataFrame index order
         designs_df = designs_df.join(scores_df)
 
@@ -3105,67 +3072,114 @@ class PoseProtocol(PoseData):
         sequences_and_scores.update({'design_indices': design_residues})
         mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
 
-        # Get the name/provided_name to design_id mapping
-        design_name_to_id_map = dict((getattr(design, 'provided_name',
-                                              getattr(design, 'name')),
-                                      design.id) for design in self.current_designs)
-        design_ids = design_name_to_id_map.values()
-        self.analyze_design_entities_per_residue(mpnn_residues_df, design_ids)
+        # Format DesignData
+        # Get all existing
+        design_data = self.designs
+        # Set current_designs to a fresh list
+        self._current_designs = [design_data[idx] for idx in existing_design_indices]
+        # Update the Pose.designs with DesignData for each of the new designs
+        with self.job.db.session(expire_on_commit=False) as session:
+            # session.merge(self)
+            # session.merge(self.designs)
+            new_designs_data = self.update_design_data(number=len(new_design_paths_to_process))  # design_parent=design_parent
+            session.add_all(new_designs_data)
+            session.flush()
+            # design_ids = [design_data.id for design_data in designs_data]
 
-        # Join DataFrames
-        designs_df = designs_df.join(mpnn_designs_df)
-        residues_df = residues_df.join(mpnn_residues_df)
-        # This call is redundant with the analyze_proteinmpnn_metrics(design_names, sequences_and_scores) above
-        # Todo remove from above the sequences portion..? Commenting out below for now
-        # designs_df = designs_df.join(self.analyze_design_metrics_per_residue(sequences_df))
+            # Add attribute to DesignData to save the provided_name and design design_parent
+            for design_data, provided_name in zip(new_designs_data, rosetta_provided_new_design_names):
+                design_data.design_parent = parents[provided_name]
+                design_data.provided_name = provided_name
 
-        # Rename all designs and clean up resulting metrics for storage
-        # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
-        designs_df.index = designs_df.index.map(design_name_to_id_map)
-        residues_df.index = residues_df.index.map(design_name_to_id_map)
+            designs_path = self.designs_path
+            new_design_new_filenames = {data.provided_name: os.path.join(designs_path, f'{data.name}.pdb')
+                                        for data in new_designs_data}
 
-        # Commit the newly acquired metrics to the database
-        # First check if the files are situated correctly
-        temp_count = count()
-        temp_files_to_move = {}
-        files_to_move = {}
-        for filename, new_filename in zip(new_design_paths_to_process, new_design_new_filenames.values()):
-            if filename == new_filename:
-                # These are the same file, proceed without processing
-                continue
-            elif os.path.exists(filename):
-                if not os.path.exists(new_filename):
-                    # We have the target file and nothing exists where we are moving it
-                    files_to_move[filename] = new_filename
+            # Update the Pose with the design protocols
+            for design in self.current_designs:
+                name_or_provided_name = getattr(design, 'provided_name', getattr(design, 'name'))
+                protocol_kwargs = dict(design_id=design.id,
+                                       job_id=self.job.id,
+                                       protocol=protocol_s[name_or_provided_name],
+                                       # temperature=temperatures[idx],)  # Todo from Rosetta?
+                                       )
+                new_filename = new_design_new_filenames.get(name_or_provided_name)
+                if new_filename:
+                    protocol_kwargs['file'] = new_filename
+                    # Set the structure_path for this DesignData
+                    design.structure_path = new_filename
                 else:
-                    # The new_filename already exists. Redirect the filename to a temporary file, then complete move
-                    dir_, base = os.path.split(new_filename)
-                    temp_filename = os.path.join(dir_, f'TEMP{next(temp_count)}')
-                    temp_files_to_move[filename] = temp_filename
-                    files_to_move[temp_filename] = new_filename
-            else:  # filename doesn't exist
-                raise DesignError(f"The specified file {filename} doesn't exist")
-                # raise DesignError('The specified file renaming scheme creates a conflict:\n'
-                #                   f'\t{filename} -> {new_filename}')
-        # If so, proceed with insert, file rename and commit
-        # print(designs_df)
-        # print(designs_df.columns.tolist())
-        # print(designs_df.index.tolist())
-        self.output_metrics(designs=designs_df)
-        output_residues = False
-        if output_residues:  # Todo job.metrics.residues
-            self.output_metrics(residues=residues_df)
-        else:  # Only save the 'design_residue' columns
-            residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
-            self.output_metrics(residues=residues_df)
-        # Rename the incoming files to their prescribed names
-        for filename, temp_filename in temp_files_to_move.items():
-            shutil.move(filename, temp_filename)
-        for filename, new_filename in files_to_move.items():
-            shutil.move(filename, new_filename)
+                    protocol_kwargs['file'] = os.path.join(designs_path, f'{name_or_provided_name}.pdb')
+                design.protocols.append(sql.DesignProtocol(**protocol_kwargs))
+            # else:  # Assume that no design was done and only metrics were acquired
+            #     pass
 
-        # Commit all new data
-        self.job.current_session.commit()
+            # This is all done in update_design_data
+            # self.designs.append(new_designs_data)
+            # # Flush the newly acquired DesignData and DesignProtocol to generate .id primary keys
+            # self.job.current_session.flush()
+            # new_design_ids = [design_data.id for design_data in new_designs_data]
+
+            # Get the name/provided_name to design_id mapping
+            design_name_to_id_map = dict((getattr(design, 'provided_name',
+                                                  getattr(design, 'name')),
+                                          design.id) for design in self.current_designs)
+            design_ids = design_name_to_id_map.values()
+            entity_designs_df = self.analyze_design_entities_per_residue(mpnn_residues_df, design_ids)
+            metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
+
+            # Join DataFrames
+            designs_df = designs_df.join(mpnn_designs_df)
+            residues_df = residues_df.join(mpnn_residues_df)
+            # This call is redundant with the analyze_proteinmpnn_metrics(design_names, sequences_and_scores) above
+            # Todo remove from above the sequences portion..? Commenting out below for now
+            # designs_df = designs_df.join(self.analyze_design_metrics_per_residue(sequences_df))
+
+            # Rename all designs and clean up resulting metrics for storage
+            # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
+            designs_df.index = designs_df.index.map(design_name_to_id_map)
+            residues_df.index = residues_df.index.map(design_name_to_id_map)
+
+            # Commit the newly acquired metrics to the database
+            # First check if the files are situated correctly
+            temp_count = count()
+            temp_files_to_move = {}
+            files_to_move = {}
+            for filename, new_filename in zip(new_design_paths_to_process, new_design_new_filenames.values()):
+                if filename == new_filename:
+                    # These are the same file, proceed without processing
+                    continue
+                elif os.path.exists(filename):
+                    if not os.path.exists(new_filename):
+                        # We have the target file and nothing exists where we are moving it
+                        files_to_move[filename] = new_filename
+                    else:
+                        # The new_filename already exists. Redirect the filename to a temporary file, then complete move
+                        dir_, base = os.path.split(new_filename)
+                        temp_filename = os.path.join(dir_, f'TEMP{next(temp_count)}')
+                        temp_files_to_move[filename] = temp_filename
+                        files_to_move[temp_filename] = new_filename
+                else:  # filename doesn't exist
+                    raise DesignError(f"The specified file {filename} doesn't exist")
+                    # raise DesignError('The specified file renaming scheme creates a conflict:\n'
+                    #                   f'\t{filename} -> {new_filename}')
+
+            # If so, proceed with insert, file rename and commit
+            self.output_metrics(session, designs=designs_df)
+            output_residues = False
+            if output_residues:  # Todo job.metrics.residues
+                self.output_metrics(session, residues=residues_df)
+            else:  # Only save the 'design_residue' columns
+                residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+                self.output_metrics(session, design_residues=residues_df)
+            # Rename the incoming files to their prescribed names
+            for filename, temp_filename in temp_files_to_move.items():
+                shutil.move(filename, temp_filename)
+            for filename, new_filename in files_to_move.items():
+                shutil.move(filename, new_filename)
+
+            # Commit all new data
+            session.commit()
 
     def calculate_pose_metrics(self, scores: dict[str, str | int | float] = None):
         """Perform a metrics update only on the reference Pose
@@ -3260,7 +3274,7 @@ class PoseProtocol(PoseData):
                 self.output_metrics(session, residues=residues_df)
             else:  # Only save the 'design_residue' columns
                 residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
-                self.output_metrics(session, residues=residues_df)
+                self.output_metrics(session, design_residues=residues_df)
             metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
             # Commit the newly acquired metrics
             session.commit()
@@ -3679,7 +3693,7 @@ class PoseProtocol(PoseData):
             # This function doesn't generate any 'design_residue'
             # else:  # Only save the 'design_residue' columns
             #     residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
-            #     self.output_metrics(session, residues=residues_df)
+            #     self.output_metrics(session, design_residues=residues_df)
             # Commit the newly acquired metrics
             session.commit()
 
@@ -5007,7 +5021,7 @@ class PoseProtocol(PoseData):
                 self.output_metrics(session, residues=residues_df)
             else:  # Only save the 'design_residue' columns
                 residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
-                self.output_metrics(session, residues=residues_df)
+                self.output_metrics(session, design_residues=residues_df)
             # Commit the newly acquired metrics
             session.commit()
 

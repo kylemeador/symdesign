@@ -72,10 +72,10 @@ def insert_dataframe(session: Session, table: sql.Base, df: pd.DataFrame, mysql:
     # #         logger.error(_error)
     # # try:
     # This works using insert with conflict, however, doesn't return the auto-incremented ids
-    # result = session.execute(do_update_stmt, df.reset_index().to_dict('records'))
-    # result = session.execute(insert_stmt, df.reset_index().to_dict('records'))
+    # result = session.execute(do_update_stmt, df.to_dict('records'))
+    # result = session.execute(insert_stmt, df.to_dict('records'))
     start_time = time()
-    session.execute(insert_stmt, df.reset_index().to_dict('records'))
+    session.execute(insert_stmt, df.to_dict('records'))
     logger.debug(f'Transaction with table "{table.__tablename__}" took {time() - start_time:8f}s')
 
     # session.commit()
@@ -187,8 +187,8 @@ def upsert_dataframe(session: Session, table: sql.Base, df: pd.DataFrame, mysql:
             set_=update_dict
         )
     start_time = time()
-    # result = session.execute(do_update_stmt, df.reset_index().set_index('id').to_dict('records'))
-    session.execute(do_update_stmt, df.reset_index().to_dict('records'))
+    # result = session.execute(do_update_stmt, df.to_dict('records'))
+    session.execute(do_update_stmt, df.to_dict('records'))
     logger.debug(f'Transaction with table "{tablename}" took {time() - start_time:8f}s')
     # session.commit()
 
@@ -220,23 +220,26 @@ def format_residues_df_for_write(df: pd.DataFrame) -> pd.DataFrame:
 #     return {session.bind.dialect.name: True}
 
 
-def write_dataframe(session: Session, designs: pd.DataFrame = None, residues: pd.DataFrame = None,
-                    poses: pd.DataFrame = None, pose_residues: pd.DataFrame = None,
-                    entity_designs: pd.DataFrame = None, update: bool = True, transaction_kwargs: dict = dict()):
+def write_dataframe(session: Session, designs: pd.DataFrame = None,
+                    design_residues: pd.DataFrame = None, entity_designs: pd.DataFrame = None,
+                    poses: pd.DataFrame = None, pose_residues: pd.DataFrame = None, residues: pd.DataFrame = None,
+                    update: bool = True, transaction_kwargs: dict = dict()):
     """Format each possible DataFrame type for output via csv or SQL database
 
     Args:
         session: The active session for which the transaction should proceed
         designs: The typical per-design metric DataFrame where each index is the design id and the columns are
             design metrics
-        residues: The typical per-residue metric DataFrame where each index is the design id and the columns are
-            (residue index, residue metric)
+        design_residues: The typical per-residue metric DataFrame where each index is the design id and the columns
+            are (residue index, Boolean for design utilization)
+        entity_designs: The typical per-design metric DataFrame for Entity instances where each index is the design id
+            and the columns are design metrics
         poses: The typical per-pose metric DataFrame where each index is the pose id and the columns are
             pose metrics
         pose_residues: The typical per-residue metric DataFrame where each index is the design id and the columns are
             (residue index, residue metric)
-        entity_designs: The typical per-design metric DataFrame for Entity instances where each index is the design id
-            and the columns are design metrics
+        residues: The typical per-residue metric DataFrame where each index is the design id and the columns are
+            (residue index, residue metric)
         update: Whether the output identifiers are already present in the metrics
         transaction_kwargs: Any keyword arguments that should be passed for the transaction. Automatically populated
             with the database backend as located from the session
@@ -264,55 +267,47 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None, residues: pd
 
     if poses is not None:
         # warn = True
-        poses.replace({np.nan: None}, inplace=True)
+        df = poses.replace({np.nan: None}).reset_index()
         table = sql.PoseMetrics
-        dataframe_function(session, table=table, df=poses, **transaction_kwargs)
-        # poses.to_sql(table, con=engine, if_exists='append', index=True)
-        # #              dtype=sql.Base.metadata.table[table])
-        logger.info(f'Wrote {table.__tablename__} to Database')  # {job.internal_db}')
+        dataframe_function(session, table=table, df=df, **transaction_kwargs)
+        logger.info(f'Wrote {table.__tablename__} to Database')
 
     if designs is not None:
         # warn_multiple_update_results()
         # warn = True
-        designs.replace({np.nan: None}, inplace=True)
+        df = designs.replace({np.nan: None}).reset_index()
         table = sql.DesignMetrics
-        dataframe_function(session, table=table, df=designs, **transaction_kwargs)
-        # designs.to_sql(table, con=engine, if_exists='append', index=True)
-        # #                dtype=sql.Base.metadata.table[table])
-        logger.info(f'Wrote {table.__tablename__} to Database')  # {job.internal_db}')
+        dataframe_function(session, table=table, df=df, **transaction_kwargs)
+        logger.info(f'Wrote {table.__tablename__} to Database')
 
     if entity_designs is not None:
         # warn_multiple_update_results()
         # warn = True
-        entity_designs.replace({np.nan: None}, inplace=True)
+        df = entity_designs.replace({np.nan: None}).reset_index()
         table = sql.DesignEntityMetrics
-        dataframe_function(session, table=table, df=entity_designs, **transaction_kwargs)
-        # designs.to_sql(table, con=engine, if_exists='append', index=True)
-        # #                dtype=sql.Base.metadata.table[table])
-        logger.info(f'Wrote {table.__tablename__} to Database')  # {job.internal_db}')
+        dataframe_function(session, table=table, df=df, **transaction_kwargs)
+        logger.info(f'Wrote {table.__tablename__} to Database')
+
+    if design_residues is not None:
+        # warn_multiple_update_results()
+        # warn = True
+        df = format_residues_df_for_write(design_residues).replace({np.nan: None}).reset_index()
+        table = sql.DesignResidues
+        dataframe_function(session, table=table, df=df, **transaction_kwargs)
+        logger.info(f'Wrote {table.__tablename__} to Database')
 
     if residues is not None:
         # warn_multiple_update_results()
         # warn = True
-        residues = format_residues_df_for_write(residues)
-        residues.replace({np.nan: None}, inplace=True)
+        df = format_residues_df_for_write(residues).replace({np.nan: None}).reset_index()
         table = sql.ResidueMetrics
-        dataframe_function(session, table=table, df=residues, **transaction_kwargs)
-        # residues.to_sql(table, con=engine, index=True)  # if_exists='append',
-        # # Todo Ensure that the 'id' column is present
-        # stmt = select(sql.DesignMetrics).where(sql.DesignMetrics.pose.in_(pose_ids))  # text('''SELECT * from residues''')
-        # results = session.scalars(stmt)  # execute(stmt)
-        logger.info(f'Wrote {table.__tablename__} to Database')  # {job.internal_db}')
+        dataframe_function(session, table=table, df=df, **transaction_kwargs)
+        logger.info(f'Wrote {table.__tablename__} to Database')
 
     if pose_residues is not None:
         # warn_multiple_update_results()
         # warn = True
-        pose_residues = format_residues_df_for_write(pose_residues)
-        pose_residues.replace({np.nan: None}, inplace=True)
+        df = format_residues_df_for_write(pose_residues).replace({np.nan: None}).reset_index()
         table = sql.PoseResidueMetrics
-        dataframe_function(session, table=table, df=pose_residues, **transaction_kwargs)
-        # residues.to_sql(table, con=engine, index=True)  # if_exists='append',
-        # # Todo Ensure that the 'id' column is present
-        # stmt = select(sql.DesignMetrics).where(sql.DesignMetrics.pose.in_(pose_ids))  # text('''SELECT * from residues''')
-        # results = session.scalars(stmt)  # execute(stmt)
-        logger.info(f'Wrote {table.__tablename__} to Database')  # {job.internal_db}')
+        dataframe_function(session, table=table, df=df, **transaction_kwargs)
+        logger.info(f'Wrote {table.__tablename__} to Database')
