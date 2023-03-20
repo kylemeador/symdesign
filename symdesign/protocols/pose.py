@@ -217,14 +217,11 @@ class PoseDirectory:
         self.assembly_path: str | Path = os.path.join(self.pose_directory, f'{name}_{putils.assembly}')
         # /root/Projects/project_Poses/design/design_name_assembly.pdb
         self.refine_pdb: str | Path = os.path.join(self.data_path, os.path.basename(self.pose_path))
-        # self.refine_pdb: str | Path = f'{os.path.splitext(self.pose_path)[0]}_refine.pdb'
-        # /root/Projects/project_Poses/design/clean_asu_for_refine.pdb
+        # /root/Projects/project_Poses/design/data/design_name.pdb
         self.consensus_pdb: str | Path = f'{os.path.splitext(self.pose_path)[0]}_for_consensus.pdb'
         # /root/Projects/project_Poses/design/design_name_for_consensus.pdb
         self.consensus_design_pdb: str | Path = os.path.join(self.designs_path, os.path.basename(self.consensus_pdb))
         # /root/Projects/project_Poses/design/designs/design_name_for_consensus.pdb
-        self.pdb_list: str | Path = os.path.join(self.scripts_path, 'design_files.txt')
-        # /root/Projects/project_Poses/design/scripts/design_files.txt
         self.design_profile_file: str | Path = os.path.join(self.data_path, 'design.pssm')
         # /root/Projects/project_Poses/design/data/design.pssm
         self.evolutionary_profile_file: str | Path = os.path.join(self.data_path, 'evolutionary.pssm')
@@ -304,7 +301,7 @@ class PoseDirectory:
                 # self.refined_pdb = None  # /root/Projects/project_Poses/design/design_name_refined.pdb
                 self._refined_pdb = \
                     os.path.join(self.designs_path,
-                                 f'{os.path.basename(os.path.splitext(self.pose_path)[0])}_refine.pdb')
+                                 f'{os.path.basename(os.path.splitext(self.pose_path)[0])}_refined.pdb')
             return self._refined_pdb
 
     @property
@@ -312,12 +309,7 @@ class PoseDirectory:
         try:
             return self._scouted_pdb
         except AttributeError:
-            if self.refined:
-                self._scouted_pdb = os.path.join(self.designs_path,
-                                                 f'{os.path.basename(os.path.splitext(self.refined_pdb)[0])}_scout.pdb')
-            else:
-                # self.scouted_pdb = None  # /root/Projects/project_Poses/design/design_name_scouted.pdb
-                self._scouted_pdb = f'{os.path.splitext(self.refined_pdb)[0]}_scout.pdb'
+            self._scouted_pdb = f'{os.path.splitext(self.refined_pdb)[0]}_scout.pdb'
             return self._scouted_pdb
 
     # @property
@@ -752,7 +744,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             pose_source = sql.DesignData(name=name, pose=self, design_parent=None)  # , structure_path=source_path)
         else:
             pose_source = sql.DesignData(name=name, pose=self, design_parent=pose_source,
-                                         structure_path=pose_source.source_path)
+                                         structure_path=pose_source.structure_path)
         if protocol is not None:
             pose_source.protocols.append(sql.DesignProtocol(protocol=protocol, job_id=self.job.id))
 
@@ -1006,19 +998,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #     self._pre_refine = self.info.get('refined', True)
         #     return self._pre_refine
 
-    # @refined.setter
-    # def refined(self, refined: bool):
-    #     if isinstance(refined, bool):
-    #         self._pre_refine = self.info['refined'] = refined
-    #         if refined:
-    #             self.refined_pdb = self.asu_path
-    #             self.scouted_pdb = os.path.join(self.designs_path,
-    #                                             f'{os.path.basename(os.path.splitext(self.refined_pdb)[0])}_scout.pdb')
-    #     elif refined is None:
-    #         pass
-    #     else:
-    #         raise ValueError(f'The attribute refined must be a boolean or NoneType, not {type(refined).__name__}')
-
     @property
     def loop_modeled(self) -> bool:
         """Provide the state attribute regarding the source files status as "previously loop modeled"
@@ -1033,18 +1012,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # except AttributeError:  # Get from the pose state
         #     self._pre_loop_model = self.info.get('loop_modeled', True)
         #     return self._pre_loop_model
-    #
-    # @loop_modeled.setter
-    # def loop_modeled(self, loop_modeled: bool):
-    #     if isinstance(loop_modeled, bool):
-    #         self._pre_loop_model = self.info['loop_modeled'] = loop_modeled
-    #         # if loop_modeled:
-    #         #     do_something
-    #     elif loop_modeled is None:
-    #         pass
-    #     else:
-    #         raise ValueError(f'The attribute loop_modeled must be a boolean or NoneType, not '
-    #                          f'{type(loop_modeled).__name__}')
 
     def get_designs_without_structure(self) -> list[sql.DesignData]:
         """For each design, access whether there is a structure that exists for it. If not, return the design
@@ -1231,7 +1198,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             #     raise RuntimeError(f"Couldn't {self.get_entities.__name__} as there was no "
             #                        f"{resources.structure_db.StructureDatabase.__name__}"
             #                        f" attached to the {self.__class__.__name__}")
-            self.log.info(f'No structure source_path file found. Fetching structure_source from '
+            self.log.info(f'No ".source_path" found. Fetching structure_source from '
                           f'{type(self.job.structure_db).__name__} and transforming to Pose')
             # Minimize I/O with transform...
             entities = self.transform_entities_to_pose()
@@ -1282,7 +1249,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     data.transform = sql.EntityTransform()
                     data.transform.transformation = transformation
                 # Ensure this information is persistent
-                self.job.current_session.commit()
+                with self.job.db.session(expire_on_commit=False) as session:
+                    session.merge(self)
+                    session.commit()
 
         # if not self.entity_names:  # Store the entity names if they were never generated
         #     self.entity_names = [entity.name for entity in self.pose.entities]
@@ -1294,11 +1263,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             #     return
             # elif self.job.output_to_directory:
             #     return
-            # # Propagate to the PoseJob parent DesignData
-            # self.source_path = self.pose_source.structure_path = self.pose_path
             # Set the pose_path as the source_path
-            out_path = self.source_path = self.pose_path
-            # self.output_pose(path=self.source_path)
+            self.source_path = out_path = self.pose_path
+            # # Propagate to the PoseJob parent DesignData
+            # self.source_path = out_path = self.pose_source.structure_path = self.pose_path
         else:
             out_path = None
         self.output_pose(path=out_path)
@@ -1459,13 +1427,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         return hash(self._key)
 
     def __str__(self) -> str:
-        # if self.job.nanohedra_output:
-        #     return self.source_path.replace(f'{self.job.nanohedra_root}{os.sep}', '').replace(os.sep, '-')
-        # elif self.job.output_to_directory:
-        #     return self.name
-        # else:
-        #     return self.pose_directory.replace(f'{self.job.projects}{os.sep}', '').replace(os.sep, '-')
         return self.pose_identifier
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({self.pose_identifier})'
 
 
 class PoseProtocol(PoseData):
@@ -2289,8 +2254,6 @@ class PoseProtocol(PoseData):
                design_files: list[AnyStr] = None, in_file_list: AnyStr = None):
         """Refine the PoseJob.pose instance or design Model instances associated with this instance
 
-        ## Will append the suffix "_refine" or that given by f'_{self.protocol}' if in_file_list is passed
-
         Args:
             to_pose_directory: Whether the refinement should be saved to the PoseJob
             gather_metrics: Whether metrics should be calculated for the Pose
@@ -2328,8 +2291,8 @@ class PoseProtocol(PoseData):
                 switch = putils.refine
             else:
                 switch = putils.refine
-                self.log.warning(f'The requested protocol "{self.protocol}", was not recognized by '
-                                 f'{self.refine.__name__} and is being treated as the standard "{switch}" protocol')
+                self.log.warning(f"{self.refine.__name__}: The requested protocol '{self.protocol}', wasn't recognized "
+                                 f"and is being treated as the standard '{switch}' protocol")
 
             # Create file output
             designed_files_file = os.path.join(self.scripts_path, f'{starttime}_{switch}_files_output.txt')
@@ -2338,7 +2301,6 @@ class PoseProtocol(PoseData):
                 generate_files_cmd = \
                     ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', designed_files_file, '-e', '.pdb',
                      '-s', f'_{switch}']
-                suffix = ['-out:suffix', f'_{switch}']
             elif design_files:
                 design_files_file = os.path.join(self.scripts_path, f'{starttime}_{self.protocol}_files.txt')
                 with open(design_files_file, 'w') as f:
@@ -2348,8 +2310,8 @@ class PoseProtocol(PoseData):
                 with open(designed_files_file, 'w') as f:
                     f.write('%s\n' % '\n'.join(out_file_string % os.path.split(file) for file in design_files))
             else:
-                raise ValueError(f"Couldn't run {self.refine.__name__} without passing parameter 'design_files' as an "
-                                 f"iterable of files")
+                raise ValueError(
+                    f"Couldn't run {self.refine.__name__} without passing parameter 'design_files' or 'in_file_list'")
 
             # -in:file:native is here to block flag file version, not actually useful for refine
             infile = ['-in:file:l', design_files_file, '-in:file:native', self.source_path]
@@ -2368,14 +2330,15 @@ class PoseProtocol(PoseData):
                     for entity, interface_residues in zip(entity_pair, interface_residues_pair):
                         entity_name = entity.name
                         for residue in interface_residues:
-                            self.log.debug(f'Mutating Entity {entity_name}, {residue.number}{residue.type}')
                             if residue.type != 'GLY':  # No mutation from GLY to ALA as Rosetta would build a CB
                                 pose_copy.mutate_residue(residue=residue, to='A')
-                # Change the name to reflect mutation so we don't overwrite the self.source_path
+                # Change the name to reflect mutation so the self.pose_path isn't overwritten
                 refine_pdb = f'{os.path.splitext(refine_pdb)[0]}_ala_mutant.pdb'
-            # else:  # Do dothing and refine the source
+            # else:  # Do nothing and refine the source
             #     pass
-            #     # raise ValueError(f"For {self.refine.__name__}, must pass interface_to_alanine")
+
+            # Set up self.refined_pdb by using a suffix
+            suffix = ['-out:suffix', f'_{switch}']
 
             self.pose.write(out_path=refine_pdb)
             self.log.debug(f'Cleaned PDB for {switch}: "{refine_pdb}"')
@@ -2402,15 +2365,14 @@ class PoseProtocol(PoseData):
             # main_cmd += metrics_pdb
             main_cmd += [f'@{flags_file}', '-out:file:score_only', self.scores_file,
                          '-no_nstruct_label', 'true'] + metrics_pdb + ['-parser:protocol']
+            dev_label = '_DEV' if self.job.development else ''
             metric_cmd_bound = main_cmd \
-                + [os.path.join(putils.rosetta_scripts_dir, f'{putils.interface_metrics}'
-                                f'{"_DEV" if self.job.development else ""}.xml')] \
+                + [os.path.join(putils.rosetta_scripts_dir, f'{putils.interface_metrics}{dev_label}.xml')] \
                 + symmetry_definition
-            entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
-                                                  f'metrics_entity{"_DEV" if self.job.development else ""}.xml')]
+            entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir, f'metrics_entity{dev_label}.xml')]
             self.log.info(f'Metrics command for Pose: {list2cmdline(metric_cmd_bound)}')
-            metric_cmds = [metric_cmd_bound]
-            metric_cmds.extend(self.generate_entity_metrics_commands(entity_cmd))
+            metric_cmds = [metric_cmd_bound] \
+                + self.generate_entity_metrics_commands(entity_cmd)
         else:
             metric_cmds = []
 
@@ -2424,7 +2386,7 @@ class PoseProtocol(PoseData):
             #                  status_wrap=self.serialized_info)
         else:
             relax_process = Popen(relax_cmd)
-            relax_process.communicate()  # wait for command to complete
+            relax_process.communicate()  # Wait for command to complete
             list_all_files_process = Popen(generate_files_cmd)
             list_all_files_process.communicate()
             if gather_metrics:
@@ -2432,8 +2394,9 @@ class PoseProtocol(PoseData):
                     metrics_process = Popen(metric_cmd)
                     metrics_process.communicate()
 
-            # Gather metrics for each design produced from this procedure
-            self.process_rosetta_metrics()
+                # Gather metrics for each design produced from this procedure
+                if os.path.exists(self.scores_file):
+                    self.process_rosetta_metrics()
 
     def rosetta_interface_design(self):
         """For the basic process of sequence design between two halves of an interface, write the necessary files for
@@ -2452,7 +2415,8 @@ class PoseProtocol(PoseData):
         profile_cmd = ['-in:file:pssm', self.evolutionary_profile_file] \
             if os.path.exists(self.evolutionary_profile_file) else []
 
-        additional_cmds = out_file = []
+        additional_cmds = []
+        out_file = []
         if self.job.design.scout:
             self.protocol = protocol_xml1 = putils.scout
             generate_files_cmd = null_cmd
@@ -2534,8 +2498,7 @@ class PoseProtocol(PoseData):
             entity_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
 
         self.log.info(f'{self.rosetta_interface_design.__name__} command: {list2cmdline(design_cmd)}')
-        metric_cmds = []
-        metric_cmds.extend(self.generate_entity_metrics_commands(entity_cmd))
+        metric_cmds = self.generate_entity_metrics_commands(entity_cmd)
 
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.job.distribute_work:
@@ -2548,15 +2511,19 @@ class PoseProtocol(PoseData):
             #                  status_wrap=self.serialized_info,
         else:
             design_process = Popen(design_cmd)
-            design_process.communicate()  # wait for command to complete
+            design_process.communicate()  # Wait for command to complete
+            for command in additional_cmds:
+                process = Popen(command)
+                process.communicate()
             list_all_files_process = Popen(generate_files_cmd)
             list_all_files_process.communicate()
             for metric_cmd in metric_cmds:
                 metrics_process = Popen(metric_cmd)
                 metrics_process.communicate()
 
-            # Gather metrics for each design produced from this proceedure
-            self.process_rosetta_metrics()
+            # Gather metrics for each design produced from this procedure
+            if os.path.exists(self.scores_file):
+                self.process_rosetta_metrics()
 
     def proteinmpnn_design(self, interface: bool = False, neighbors: bool = False):
         """Perform design based on the ProteinMPNN graph encoder/decoder network
@@ -2734,12 +2701,8 @@ class PoseProtocol(PoseData):
         # self.designs.extend(designs)
         designs = [sql.DesignData(name=name, pose=self, design_parent=design_parent)
                    for name in design_names]
-        # # Add all instances to the session
-        # self.job.current_session.add_all(designs)
         # Set the PoseJob.current_designs for access by subsequent functions/protocols
         self.current_designs.extend(designs)
-        # # Get the DesignData.id for each design
-        # self.job.current_session.flush()
 
         return designs
 
@@ -2777,7 +2740,7 @@ class PoseProtocol(PoseData):
                 # #                     names=design_index_names, axis=0)
                 # designs.index.set_names(design_index_names, inplace=True)
                 designs.index.set_names(sql.DesignMetrics.design_id.name, inplace=True)
-                # _design_ids = metrics.sql.write_dataframe(self.job.current_session, designs=designs)
+                # _design_ids = metrics.sql.write_dataframe(session, designs=designs)
                 metrics.sql.write_dataframe(session, designs=designs)
             # else:
             #     _design_ids = []
@@ -2917,8 +2880,8 @@ class PoseProtocol(PoseData):
         # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
         viable_designs = scores_df.index.to_list()
         if not viable_designs:
-            raise DesignError(f'No viable designs remain after {self.process_rosetta_metrics.__name__} data processing '
-                              f'steps')
+            raise DesignError(
+                f'No viable designs remain after {self.process_rosetta_metrics.__name__} data processing steps')
 
         self.log.debug(f'Viable designs with structures remaining after cleaning:\n\t{", ".join(viable_designs)}')
 
@@ -3278,7 +3241,7 @@ class PoseProtocol(PoseData):
 
         # Output
         pose_name = self.pose.name
-        designs_df, residues_df, design_entity_df = self.analyze_pose_metrics()
+        designs_df, residues_df, entity_designs_df = self.analyze_pose_metrics()
         #     self.analyze_pose_metrics(novel_interface=False if not self.pose_source.protocols else True)
         if scores:
             # pose_source_id = self.pose_source.id
@@ -3546,7 +3509,7 @@ class PoseProtocol(PoseData):
         #
         # # Todo improve efficiency by using precomputed. Something like:
         # #  stmt = select(ResidueMetrics).where(ResidueMetrics.pose_id == self.id, ResidueMetrics.name == self.name)
-        # #  rows = current_session.scalars(stmt)
+        # #  rows = session.scalars(stmt)
         # #  row_dict = {row.index: row.errat_deviation for row in rows}
         # #  pd.Series(row_dict, name='errat_Deviation')
         # # pose_source_errat = errat_df.loc[self.pose.name, :]

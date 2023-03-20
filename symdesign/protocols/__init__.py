@@ -151,12 +151,8 @@ def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None
         variables:
     """
     # Todo reflect modern metrics collection
-    raise NotImplementedError('This module is outdated, please update it to use')
+    raise NotImplementedError('This module is outdated, please update it if you would like to use it')
     job.identify_interface()
-
-    # Now acquiring in process_rosetta_metrics()
-    # # Acquire the pose_metrics if None have been made yet
-    # job.calculate_pose_metrics()
 
     cmd = rosetta.script_cmd.copy()
     script_name = os.path.splitext(os.path.basename(script))[0]
@@ -225,7 +221,7 @@ def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None
         #     metrics_process = Popen(metric_cmd)
         #     metrics_process.communicate()  # wait for command to complete
 
-        # Gather metrics for each design produced from this proceedure
+        # Gather metrics for each design produced from this procedure
         if os.path.exists(job.scores_file):
             job.process_rosetta_metrics()
 
@@ -241,10 +237,6 @@ def interface_metrics(job: pose.PoseJob):
     # metrics_flags = 'repack=yes'
     job.protocol = putils.interface_metrics
     main_cmd = rosetta.script_cmd.copy()
-
-    # Now acquiring in process_rosetta_metrics()
-    # # Acquire the pose_metrics if None have been made yet
-    # job.calculate_pose_metrics()
 
     if not os.path.exists(job.flags) or job.job.force:
         job.prepare_rosetta_flags(out_dir=job.scripts_path)
@@ -297,7 +289,7 @@ def interface_metrics(job: pose.PoseJob):
             metrics_process = Popen(metric_cmd)
             metrics_process.communicate()  # wait for command to complete
 
-        # Gather metrics for each design produced from this proceedure
+        # Gather metrics for each design produced from this procedure
         if os.path.exists(job.scores_file):
             job.process_rosetta_metrics()
 
@@ -693,10 +685,6 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     #     job.load_pose(structure_source=design.structure_path)
     #     job.identify_interface()
 
-    # Now acquiring in process_rosetta_metrics()
-    # # Acquire the pose_metrics if None have been made yet
-    # job.calculate_pose_metrics()
-
     # format all amino acids in job.interface_design_residue_numbers with frequencies above the threshold to a set
     # Todo, make threshold and return set of strings a property of a profile object
     # Locate the desired background profile from the pose
@@ -744,7 +732,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
                os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml')]
             + nstruct_instruct)
 
-    # metrics_pdb = ['-in:file:l', designed_files_file]  # job.pdb_list]
+    # metrics_pdb = ['-in:file:l', designed_files_file]
     # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
     # Assumes all entity chains are renamed from A to Z for entities (1 to n)
     # metric_cmd = main_cmd + ['-in:file:s', job.specific_design if job.specific_design else job.refined_pdb] + \
@@ -776,7 +764,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
             metrics_process = Popen(metric_cmd)
             metrics_process.communicate()
 
-        # Gather metrics for each design produced from this proceedure
+        # Gather metrics for each design produced from this procedure
         if os.path.exists(job.scores_file):
             job.process_rosetta_metrics()
 
@@ -788,11 +776,9 @@ def process_rosetta_metrics(job: pose.PoseJob):
     Args:
         job: The PoseJob for which the protocol should be performed on
     """
-    # job.load_pose()
     job.identify_interface()
-    # Now acquiring in process_rosetta_metrics()
-    # # Acquire the pose_metrics if None have been made yet
-    # job.calculate_pose_metrics()
+
+    # Gather metrics for each design produced from other modules
     if os.path.exists(job.scores_file):
         job.process_rosetta_metrics()
     else:

@@ -581,13 +581,13 @@ def write_shell_script(command: str, name: str = 'script', out_path: AnyStr = os
         check = subprocess.list2cmdline(_base_cmd + ['--check', modifier, '\n'])
         _set = subprocess.list2cmdline(_base_cmd + ['--set'])
     else:
-        check, _set, modifier = '', '', ''
+        check = _set = modifier = ''
 
     file_name = os.path.join(out_path, name if name.endswith('.sh') else f'{name}.sh')
     with open(file_name, 'w') as f:
         f.write(f'#!/bin/{shell}\n\n{check}{command} {modifier}\n\n')
         if additional:
-            f.write('%s\n\n' % ('\n\n'.join(f'{x} {modifier}' for x in additional)))
+            f.write('%s\n\n' % ('\n\n'.join(f'{command} {modifier}' for command in additional)))
         f.write(f'{_set}\n')
 
     return file_name

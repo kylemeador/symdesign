@@ -19,6 +19,7 @@ from typing import Any, AnyStr, Iterable
 import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 try:
     from memory_profiler import profile
@@ -350,7 +351,8 @@ def main():
             if data.model_source is None:
                 raise ValueError(f"Couldn't find {data}.model_source")
 
-    def initialize_metadata(possibly_new_uniprot_to_prot_data: dict[tuple[str, ...], sql.ProteinMetadata] = None,
+    def initialize_metadata(session: Session,
+                            possibly_new_uniprot_to_prot_data: dict[tuple[str, ...], sql.ProteinMetadata] = None,
                             existing_uniprot_entities: Iterable[wrapapi.UniProtEntity] = None,
                             existing_protein_metadata: Iterable[sql.ProteinMetadata] = None) -> \
             tuple[dict[tuple[str, ...], sql.ProteinMetadata], set[wrapapi.UniProtEntity]]:
@@ -368,8 +370,6 @@ def main():
         for uniprot_ids in possibly_new_uniprot_to_prot_data.keys():
             possibly_new_uniprot_ids.update(uniprot_ids)
 
-        # DONE Tod0 move session outside?
-        # with job.db.session() as session:  # current_session
         if not existing_uniprot_entities:  # is None:
             # itertools.chain.from_iterable(possibly_new_uniprot_to_prot_data.keys())
             existing_uniprot_entities_stmt = \
@@ -875,32 +875,29 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     results = []
     exceptions = []
-    with job.db.session(expire_on_commit=False) as session:
-        job.current_session = session
     # -----------------------------------------------------------------------------------------------------------------
     #  Grab all Poses (PoseJob instance) from either database, directory, project, single, or file
     # -----------------------------------------------------------------------------------------------------------------
-        file_paths: list[AnyStr] | None = None
-        # pose_jobs hold jobs with specific poses
-        # list[PoseJob] for an establishes pose
-        # list[tuple[Structure, Structure]] for a nanohedra docking job
-        pose_jobs: list[PoseJob] | list[tuple[Any, Any]] = []
-        low = high = low_range = high_range = None
-        logger.info(f'Setting up input for {job.module}')
-        if job.module == flags.initialize_building_blocks:
-            logger.critical(f'Ensuring provided building blocks are oriented')
-            symmetry = job.sym_entry.group1
-            structures = initialize_structures(symmetry=symmetry, oligomer=args.oligomer1,
-                                               pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
-            structures_ids, possibly_new_uniprot_to_prot_metadata = \
-                create_protein_metadata(structures, symmetry=symmetry)
+    # pose_jobs hold jobs with specific poses
+    # list[PoseJob] for an establishes pose
+    # list[tuple[Structure, Structure]] for a nanohedra docking job
+    pose_jobs: list[PoseJob] | list[tuple[Any, Any]] = []
+    logger.info(f'Setting up input for {job.module}')
+    if job.module == flags.initialize_building_blocks:
+        logger.critical(f'Ensuring provided building blocks are oriented')
+        symmetry = job.sym_entry.group1
+        structures = initialize_structures(symmetry=symmetry, oligomer=args.oligomer1,
+                                           pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
+        structures_ids, possibly_new_uniprot_to_prot_metadata = \
+            create_protein_metadata(structures, symmetry=symmetry)
 
-            # Make a copy of the new ProteinMetadata if they were already loaded without a .model_source attribute
-            possibly_new_uniprot_to_prot_metadata_copy = possibly_new_uniprot_to_prot_metadata.copy()
+        # Make a copy of the new ProteinMetadata if they were already loaded without a .model_source attribute
+        possibly_new_uniprot_to_prot_metadata_copy = possibly_new_uniprot_to_prot_metadata.copy()
 
-            # Write new data to the database
-            # with job.db.session(expire_on_commit=False) as session:
-            all_uniprot_id_to_prot_data, uniprot_entities = initialize_metadata(possibly_new_uniprot_to_prot_metadata)
+        # Write new data to the database
+        with job.db.session(expire_on_commit=False) as session:
+            all_uniprot_id_to_prot_data, uniprot_entities = \
+                initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
 
             # Fix ProteinMetadata that is already loaded
             for data in all_uniprot_id_to_prot_data.values():
@@ -922,114 +919,76 @@ def main():
                     for uniprot_id, protein_metadata in all_uniprot_id_to_prot_data.items():
                         setattr(protein_metadata, attribute, value)
                 session.commit()
-                terminate(output=False)
             else:
                 # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
                 initialize_entities(uniprot_entities, all_uniprot_id_to_prot_data.values(),
                                     batch_commands=job.distribute_work)
                 session.commit()
-                terminate(output=False)
-        elif job.module == flags.nanohedra:
-            # logger.info(f'Setting up inputs for {job.module.title()} docking')
-            job.sym_entry.log_parameters()
-            # # Make master output directory. sym_entry is required, so this won't fail v
-            # if args.output_directory is None:
-            #     # job.output_directory = os.path.join(job.projects, f'NanohedraEntry{sym_entry.number}_BUILDING-BLOCKS_Poses')
-            #     job.output_directory = job.projects
-            #     putils.make_path(job.output_directory)
-            # Transform input entities to canonical orientation and return their ASU
-            grouped_structures: list[list[Model | Entity]] = []
-            logger.critical(f'Ensuring provided building blocks are oriented for docking')
-            structures1 = initialize_structures(symmetry=job.sym_entry.group1, oligomer=args.oligomer1,
-                                                pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
-            grouped_structures.append(structures1)
-            structures2 = []
-            # See if they are the same input
-            if args.oligomer1 != args.oligomer2 or job.pdb_codes1 != job.pdb_codes2 or args.query_codes2:
-                structures2 = initialize_structures(symmetry=job.sym_entry.group2, oligomer=args.oligomer2,
-                                                    pdb_codes=job.pdb_codes2, query_codes=args.query_codes2)
-                if structures2:
-                    single_component_design = False
-                else:
-                    single_component_design = True
-            else:  # The entities are the same symmetry, or there is a single component and bad input
+
+        terminate(output=False)
+    elif job.module == flags.nanohedra:
+        # logger.info(f'Setting up inputs for {job.module.title()} docking')
+        job.sym_entry.log_parameters()
+        # # Make master output directory. sym_entry is required, so this won't fail v
+        # if args.output_directory is None:
+        #     # job.output_directory = os.path.join(job.projects, f'NanohedraEntry{sym_entry.number}_BUILDING-BLOCKS_Poses')
+        #     job.output_directory = job.projects
+        #     putils.make_path(job.output_directory)
+        # Transform input entities to canonical orientation and return their ASU
+        grouped_structures: list[list[Model | Entity]] = []
+        logger.critical(f'Ensuring provided building blocks are oriented for docking')
+        structures1 = initialize_structures(symmetry=job.sym_entry.group1, oligomer=args.oligomer1,
+                                            pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
+        grouped_structures.append(structures1)
+        structures2 = []
+        # See if they are the same input
+        if args.oligomer1 != args.oligomer2 or job.pdb_codes1 != job.pdb_codes2 or args.query_codes2:
+            structures2 = initialize_structures(symmetry=job.sym_entry.group2, oligomer=args.oligomer2,
+                                                pdb_codes=job.pdb_codes2, query_codes=args.query_codes2)
+            if structures2:
+                single_component_design = False
+            else:
                 single_component_design = True
-            grouped_structures.append(structures2)
+        else:  # The entities are the same symmetry, or there is a single component and bad input
+            single_component_design = True
+        grouped_structures.append(structures2)
 
-            # single_component_design = False
-            # structure_names2 = []
-            # if args.oligomer2:
-            #     if args.oligomer1 != args.oligomer2:  # See if they are the same input
-            #         by_file2 = True
-            #         logger.critical(f'Ensuring provided file(s) at {args.oligomer2} are oriented for Nanohedra Docking')
-            #         if '.pdb' in args.oligomer2:
-            #             pdb2_filepaths = [args.oligomer2]
-            #         else:
-            #             extension = '.pdb*'
-            #             pdb2_filepaths = utils.get_directory_file_paths(args.oligomer2, extension=extension)
-            #             if not pdb2_filepaths:
-            #                 logger.warning(f'Found no {extension} files at {args.oligomer2}')
-            #
-            #         # Set filepaths to structure_names, reformat the file paths to the file_name for structure_names
-            #         structure_names2 = pdb2_filepaths
-            #         # eventual_structure_names2 = \
-            #         #     list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb2_filepaths]))
-            #     else:  # The entities are the same symmetry, or we have single component and bad input
-            #         single_component_design = True
-            # elif args.pdb_codes2:
-            #     # Collect all provided codes required for component 2 processing
-            #     structure_names2 = utils.remove_duplicates(utils.to_iterable(args.pdb_codes2, ensure_file=True))
-            #     # Make all names lowercase
-            #     structure_names2 = list(map(str.lower, structure_names2))
-            # elif args.query_codes2:
-            #     save_query = validate_input_return_response_value(
-            #         'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
-            #     print(f'\nStarting PDB query \n')
-            #     structure_names2 = retrieve_pdb_entries_by_advanced_query(save=save_query, entity=True)
-            #     # Make all names lowercase
-            #     structure_names2 = list(map(str.lower, structure_names2))
-            # else:
-            #     single_component_design = True
-            #
-            # # Select entities, orient them, then load each Structure for further database processing
-            # grouped_structures.append(job.structure_db.orient_structures(structure_names2,
-            #                                                              symmetry=job.sym_entry.group2,
-            #                                                              by_file=by_file2))
-            # Initialize the local database
-            # Populate all_entities to set up sequence dependent resources
-            # grouped_structures_ids = defaultdict(list)
-            # Todo 2 expand the definition of SymEntry/Entity to include
-            #  specification of T:{T:{C3}{C3}}{C1}
-            #  where an Entity is composed of multiple Entity (Chain) instances
-            #  This helps with the grouping by input model... not entities such as in Nanohedra pose.output_pose()
-            #  # Write Model1, Model2
-            #  if job.output_oligomers:
-            #      for entity in pose.entities:
-            #          entity.write(oligomer=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))
-            #  Which should be
-            #      for model in pose.entities:
-            #          model.write(assembly=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))
-            #  Essentially this would make oligomer/assembly keywords the same
-            #  and allow a multi-entity Model/Pose as an Entity in a Pose... Recursion baby
-            #
-            grouped_structures_ids: list[tuple[str, list]] = []
-            possibly_new_uniprot_to_prot_metadata = {}
-            # symmetry_map = job.sym_entry.groups if job.sym_entry else repeat(None)
-            for structures, symmetry in zip(grouped_structures, job.sym_entry.groups):  # symmetry_map):
-                if not structures:  # Useful in a case where symmetry groups are the same or group is None
-                    continue
-                # structures_metadata: list[tuple[str, list[sql.ProteinMetadata]]] = []
-                structures_ids, uniprot_to_prot_metadata = create_protein_metadata(structures, symmetry=symmetry)
-                # grouped_structures_ids[symmetry] = structures_metadata
-                grouped_structures_ids.append((symmetry, structures_ids))
-                possibly_new_uniprot_to_prot_metadata.update(uniprot_to_prot_metadata)
+        # Initialize the local database
+        # Populate all_entities to set up sequence dependent resources
+        # grouped_structures_ids = defaultdict(list)
+        # Todo 2 expand the definition of SymEntry/Entity to include
+        #  specification of T:{T:{C3}{C3}}{C1}
+        #  where an Entity is composed of multiple Entity (Chain) instances
+        #  This helps with the grouping by input model... not entities such as in Nanohedra pose.output_pose()
+        #  # Write Model1, Model2
+        #  if job.output_oligomers:
+        #      for entity in pose.entities:
+        #          entity.write(oligomer=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))
+        #  Which should be
+        #      for model in pose.entities:
+        #          model.write(assembly=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))
+        #  Essentially this would make oligomer/assembly keywords the same
+        #  and allow a multi-entity Model/Pose as an Entity in a Pose... Recursion baby
+        #
+        grouped_structures_ids: list[tuple[str, list]] = []
+        possibly_new_uniprot_to_prot_metadata = {}
+        # symmetry_map = job.sym_entry.groups if job.sym_entry else repeat(None)
+        for structures, symmetry in zip(grouped_structures, job.sym_entry.groups):  # symmetry_map):
+            if not structures:  # Useful in a case where symmetry groups are the same or group is None
+                continue
+            # structures_metadata: list[tuple[str, list[sql.ProteinMetadata]]] = []
+            structures_ids, uniprot_to_prot_metadata = create_protein_metadata(structures, symmetry=symmetry)
+            # grouped_structures_ids[symmetry] = structures_metadata
+            grouped_structures_ids.append((symmetry, structures_ids))
+            possibly_new_uniprot_to_prot_metadata.update(uniprot_to_prot_metadata)
 
-            # Make a copy of the new ProteinMetadata if they were already loaded without a .model_source attribute
-            possibly_new_uniprot_to_prot_metadata_copy = possibly_new_uniprot_to_prot_metadata.copy()
+        # Make a copy of the new ProteinMetadata if they were already loaded without a .model_source attribute
+        possibly_new_uniprot_to_prot_metadata_copy = possibly_new_uniprot_to_prot_metadata.copy()
 
-            # Write new data to the database
-            # with job.db.session(expire_on_commit=False) as session:
-            all_uniprot_id_to_prot_data, uniprot_entities = initialize_metadata(possibly_new_uniprot_to_prot_metadata)
+        # Write new data to the database
+        with job.db.session(expire_on_commit=False) as session:
+            all_uniprot_id_to_prot_data, uniprot_entities = \
+                initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
 
             # Fix ProteinMetadata that is already loaded
             for data in all_uniprot_id_to_prot_data.values():
@@ -1073,102 +1032,91 @@ def main():
                 grouped_structures.append(structures)
             session.commit()
 
-            # Make all possible structure pairs given input entities by finding entities from entity_names
-            # Using combinations of directories with .pdb files
-            if single_component_design:
-                logger.info('Treating as single component docking, no additional entities requested')
-                # structures1 = [entity for entity in all_entities if entity.name in structures1]
-                # ^ doesn't work as entity_id is set in orient_structures, but structure name is entry_id
-                all_structures = []
-                for structures in grouped_structures:
-                    all_structures.extend(structures)
-                pose_jobs.extend(combinations(all_structures, 2))
-            else:
-                # # v doesn't work as entity_id is set in orient_structures, but structure name is entry_id
-                # # structures1 = [entity for entity in all_entities if entity.name in structures1]
-                # # structures2 = [entity for entity in all_entities if entity.name in structures2]
-                pose_jobs = []
-                for structures1, structures2 in combinations(grouped_structures, 2):
-                    pose_jobs.extend(product(structures1, structures2))
+        # Make all possible structure pairs given input entities by finding entities from entity_names
+        # Using combinations of directories with .pdb files
+        if single_component_design:
+            logger.info('Treating as single component docking, no additional entities requested')
+            # structures1 = [entity for entity in all_entities if entity.name in structures1]
+            # ^ doesn't work as entity_id is set in orient_structures, but structure name is entry_id
+            all_structures = []
+            for structures in grouped_structures:
+                all_structures.extend(structures)
+            pose_jobs.extend(combinations(all_structures, 2))
+        else:
+            # # v doesn't work as entity_id is set in orient_structures, but structure name is entry_id
+            # # structures1 = [entity for entity in all_entities if entity.name in structures1]
+            # # structures2 = [entity for entity in all_entities if entity.name in structures2]
+            pose_jobs = []
+            for structures1, structures2 in combinations(grouped_structures, 2):
+                pose_jobs.extend(product(structures1, structures2))
 
-            job.location = f'NanohedraEntry{job.sym_entry.number}'  # Used for terminate()
-            if not pose_jobs:  # No pairs were located
-                exit('No docking pairs were located from your input. Please ensure that your flags are as intended.'
-                     f'{putils.issue_submit_warning}')
-            elif job.distribute_work:
-                # Write all commands to a file and distribute a batched job
-                # The theory of the new command is to keep everything that was submitted however modify the input
-                # arguments so that a single command contains a pair of input models
+        job.location = f'NanohedraEntry{job.sym_entry.number}'  # Used for terminate()
+        if not pose_jobs:  # No pairs were located
+            exit('No docking pairs were located from your input. Please ensure that your flags are as intended.'
+                 f'{putils.issue_submit_warning}')
+        # Todo
+        #  This could be moved above Entity/Pose load as it's not necessary in that situation
+        elif job.distribute_work:
+            # Write all commands to a file and distribute a batched job
+            # The theory of the new command is to keep everything that was submitted however modify the input
+            # arguments so that a single command contains a pair of input models
 
-                possible_input_args = [arg for args in flags.nanohedra_mutual1_arguments.keys() for arg in args] \
-                    + [arg for args in flags.nanohedra_mutual2_arguments.keys() for arg in args]
-                #     + list(flags.distribute_args)
-                submitted_args = sys.argv[1:]
-                for input_arg in possible_input_args:
-                    try:
-                        pop_index = submitted_args.index(input_arg)
-                    except ValueError:  # Not in list
-                        continue
-                    else:
-                        submitted_args.pop(pop_index)
-
-                    if input_arg in ('-Q1', f'--{flags.query_codes1}', '-Q2', f'--{flags.query_codes2}'):
-                        continue
-                    else:  # Pop the index twice if the argument requires an input
-                        submitted_args.pop(pop_index)
-
-                for arg in flags.distribute_args:
-                    try:
-                        pop_index = submitted_args.index(arg)
-                    except ValueError:  # Not in list
-                        continue
-                    else:
-                        submitted_args.pop(pop_index)
-
-                # Format all commands given model pair
-                cmd = ['python', putils.program_exe] + submitted_args
-                commands = [cmd.copy() + [f'--{flags.pdb_codes1}', model1.name,
-                                          f'--{flags.pdb_codes2}', model2.name]
-                            for idx, (model1, model2) in enumerate(pose_jobs)]
-                # commands = [cmd.copy() + [f'--{flags.nano_entity_flag1}', model1.file_path,
-                #                           f'--{flags.nano_entity_flag2}', model2.file_path]
-                #             for idx, (model1, model2) in enumerate(pose_jobs)]
-
-                # Write commands using terminate()
-                terminate(results=commands)
-        else:  # Load from existing files, usually Structural files in a directory or in the program already
-            if args.range:
+            possible_input_args = [arg for args in flags.nanohedra_mutual1_arguments.keys() for arg in args] \
+                + [arg for args in flags.nanohedra_mutual2_arguments.keys() for arg in args]
+            #     + list(flags.distribute_args)
+            submitted_args = sys.argv[1:]
+            for input_arg in possible_input_args:
                 try:
-                    low, high = map(float, args.range.split('-'))
-                except ValueError:  # We didn't unpack correctly
-                    raise ValueError('The input flag -r/--range argument must take the form "LOWER-UPPER"')
-                n_files = len(file_paths)
-                low_range, high_range = int((low / 100) * n_files), int((high / 100) * n_files)
-                if low_range < 0 or high_range > n_files:
-                    raise ValueError('The input flag --range argument is outside of the acceptable bounds [0-100]')
-                logger.info(f'Selecting poses within range: {low_range if low_range else 1}-{high_range}')
-                range_slice = slice(low_range, high_range)
-            else:
-                range_slice = slice(None)
+                    pop_index = submitted_args.index(input_arg)
+                except ValueError:  # Not in list
+                    continue
+                else:
+                    submitted_args.pop(pop_index)
 
-            # if args.nanohedra_output:  # Nanohedra directory
-            #     file_paths, job.location = utils.collect_nanohedra_designs(files=args.file, directory=args.directory)
-            #     if file_paths:
-            #         first_pose_path = file_paths[0]
-            #         if first_pose_path.count(os.sep) == 0:
-            #             job.nanohedra_root = args.directory
-            #         else:
-            #             job.nanohedra_root = f'{os.sep}{os.path.join(*first_pose_path.split(os.sep)[:-4])}'
-            #         if not job.sym_entry:  # Get from the Nanohedra output
-            #             job.sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
-            #         pose_jobs = [PoseJob.from_file(pose, project=project_name)
-            #                             for pose in file_paths[range_slice]]
-            #         # Copy the master nanohedra log
-            #         project_designs = \
-            #             os.path.join(job.projects, f'{os.path.basename(job.nanohedra_root)}')  # _{putils.pose_directory}')
-            #         if not os.path.exists(os.path.join(project_designs, putils.master_log)):
-            #             putils.make_path(project_designs)
-            #             shutil.copy(os.path.join(job.nanohedra_root, putils.master_log), project_designs)
+                if input_arg in ('-Q1', f'--{flags.query_codes1}', '-Q2', f'--{flags.query_codes2}'):
+                    continue
+                else:  # Pop the index twice if the argument requires an input
+                    submitted_args.pop(pop_index)
+
+            for arg in flags.distribute_args:
+                try:
+                    pop_index = submitted_args.index(arg)
+                except ValueError:  # Not in list
+                    continue
+                else:
+                    submitted_args.pop(pop_index)
+
+            # Format all commands given model pair
+            cmd = ['python', putils.program_exe] + submitted_args
+            commands = [cmd.copy() + [f'--{flags.pdb_codes1}', model1.name,
+                                      f'--{flags.pdb_codes2}', model2.name]
+                        for idx, (model1, model2) in enumerate(pose_jobs)]
+            # commands = [cmd.copy() + [f'--{flags.nano_entity_flag1}', model1.file_path,
+            #                           f'--{flags.nano_entity_flag2}', model2.file_path]
+            #             for idx, (model1, model2) in enumerate(pose_jobs)]
+
+            # Write commands using terminate()
+            terminate(results=commands)
+    else:  # Load from existing files, usually Structural files in a directory or in the program already
+        # if args.nanohedra_output:  # Nanohedra directory
+        #     file_paths, job.location = utils.collect_nanohedra_designs(files=args.file, directory=args.directory)
+        #     if file_paths:
+        #         first_pose_path = file_paths[0]
+        #         if first_pose_path.count(os.sep) == 0:
+        #             job.nanohedra_root = args.directory
+        #         else:
+        #             job.nanohedra_root = f'{os.sep}{os.path.join(*first_pose_path.split(os.sep)[:-4])}'
+        #         if not job.sym_entry:  # Get from the Nanohedra output
+        #             job.sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
+        #         pose_jobs = [PoseJob.from_file(pose, project=project_name)
+        #                             for pose in job.get_range_slice(file_paths)]
+        #         # Copy the master nanohedra log
+        #         project_designs = \
+        #             os.path.join(job.projects, f'{os.path.basename(job.nanohedra_root)}')  # _{putils.pose_directory}')
+        #         if not os.path.exists(os.path.join(project_designs, putils.master_log)):
+        #             putils.make_path(project_designs)
+        #             shutil.copy(os.path.join(job.nanohedra_root, putils.master_log), project_designs)
+        with job.db.session(expire_on_commit=False) as session:
             if args.poses or args.specification_file or args.project or args.single:
                 # Use sqlalchemy database selection to find the requested work
                 pose_identifiers = []
@@ -1201,7 +1149,6 @@ def main():
                     # with job.db.session(expire_on_commit=False) as session:
                     fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
                     pose_jobs = session.scalars(fetch_jobs_stmt).all()
-                    # pose_jobs = job.current_session.scalars(fetch_jobs_stmt).all()
                     # for specification_file in args.specification_file:
                     #     pose_jobs.extend(
                     #         [PoseJob.from_directory(pose_identifier, root=job.projects,
@@ -1364,7 +1311,7 @@ def main():
 
             # Deal with new data compared to existing entries
             all_uniprot_id_to_prot_data, uniprot_entities = \
-                initialize_metadata(possibly_new_uniprot_to_prot_metadata,
+                initialize_metadata(session, possibly_new_uniprot_to_prot_metadata,
                                     existing_uniprot_entities=existing_uniprot_entities,
                                     existing_protein_metadata=existing_protein_metadata)
 
@@ -1419,6 +1366,8 @@ def main():
                 pose_job.entity_data.extend(
                     sql.EntityData(meta=all_uniprot_id_to_prot_data[entity.uniprot_ids])
                     for entity in pose_job.initial_model.entities)
+                # # Ensure that the pose has entity_transform information saved to the db
+                # pose_job.load_pose()
             session.add_all(pose_jobs_to_commit)
 
             # When pose_jobs_to_commit already exist, deal with it by getting those already
@@ -1459,287 +1408,279 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Set up Job specific details and resources
     # -----------------------------------------------------------------------------------------------------------------
-        # Format computational requirements
-        distribute_modules = [
-            flags.nanohedra, flags.refine, flags.design, flags.interface_metrics, flags.optimize_designs
-        ]  # flags.interface_design,
-        if job.module in distribute_modules:
-            if job.distribute_work:
-                logger.info('Writing modeling commands out to file, no modeling will occur until commands are executed')
-            else:
-                logger.info("Modeling will occur in this process, ensure you don't lose connection to the shell")
+    # Format computational requirements
+    distribute_modules = [
+        flags.nanohedra, flags.refine, flags.design, flags.interface_metrics, flags.optimize_designs
+    ]  # flags.interface_design,
+    if job.module in distribute_modules:
+        if job.distribute_work:
+            logger.info('Writing module commands out to file, no modeling will occur until commands are executed')
 
-        if job.multi_processing:
-            logger.info(f'Starting multiprocessing using {job.cores} cores')
-        else:
-            logger.info(f'Starting processing. To increase processing speed, '
-                        f'use --{flags.multi_processing} during submission')
+    if job.multi_processing:
+        logger.info(f'Starting multiprocessing using {job.cores} cores')
+    else:
+        logger.info('Starting processing. To increase processing speed, '
+                    f'use --{flags.multi_processing} during submission')
 
-        job.calculate_memory_requirements(len(pose_jobs))
+    job.calculate_memory_requirements(len(pose_jobs))
     # -----------------------------------------------------------------------------------------------------------------
     #  Perform the specified protocol
     # -----------------------------------------------------------------------------------------------------------------
-        if args.module == flags.protocol:  # Use args.module as job.module is set as first in protocol
-            # Universal protocol runner
-            for idx, protocol_name in enumerate(job.modules, 1):
-                logger.info(f'Starting protocol {idx}: {protocol_name}')
-                # Update this mechanism with each module
-                job.module = protocol_name
-                job.load_job_protocol()
-
-                # Fetch the specified protocol with python acceptable naming
-                protocol = getattr(protocols, protocol_name.replace('-', '_'))
-                # Figure out how the job should be set up
-                if job.module in protocols.config.run_on_pose_job:  # Single poses
-                    if job.multi_processing:
-                        results_ = utils.mp_map(protocol, pose_jobs, processes=job.cores)
-                    else:
-                        results_ = [protocol(pose_job) for pose_job in pose_jobs]
-                else:  # Collection of pose_jobs
-                    results_ = protocol(pose_jobs)
-
-                # Handle any returns that require particular treatment
-                if job.module in protocols.config.returns_pose_jobs:
-                    results = []
-                    if results_:  # Not an empty list
-                        if isinstance(results_[0], list):  # In the case returning collection of pose_jobs (nanohedra)
-                            for result in results_:
-                                results.extend(result)
-                        else:
-                            results.extend(results_)
-                    pose_jobs = results
-                # elif job.module == flags.cluster_poses:  # Returns None
-                #    pass
-                else:
-                    results = results_
-                    # Update the current state of protocols and exceptions
-                    exceptions.extend(parse_results_for_exceptions(pose_jobs, results))
-
-                # # Retrieve any program flags necessary for termination
-                # terminate_kwargs.update(**terminate_options.get(protocol_name, {}))
-        # -----------------------------------------------------------------------------------------------------------------
-        #  Run a single submodule
-        # -----------------------------------------------------------------------------------------------------------------
-        else:
+    if args.module == flags.protocol:  # Use args.module as job.module is set as first in protocol
+        # Universal protocol runner
+        for idx, protocol_name in enumerate(job.modules, 1):
+            logger.info(f'Starting protocol {idx}: {protocol_name}')
+            # Update this mechanism with each module
+            job.module = protocol_name
             job.load_job_protocol()
-            if job.module == 'find_transforms':
-                # if args.multi_processing:
-                #     results = SDUtils.mp_map(PoseJob.find_transforms, pose_jobs, processes=job.cores)
-                # else:
-                stacked_transforms = [pose_job.pose_transformation for pose_job in pose_jobs]
-                trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[0].values()
-                                                                         for transform in stacked_transforms])
-                trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[1].values()
-                                                                         for transform in stacked_transforms])
-                # Create the full dictionaries
-                transformation1 = dict(rotation=trans1_rot1, translation=trans1_tx1,
-                                       rotation2=trans1_rot2, translation2=trans1_tx2)
-                transformation2 = dict(rotation=trans2_rot1, translation=trans2_tx1,
-                                       rotation2=trans2_rot2, translation2=trans2_tx2)
-                file1 = utils.pickle_object(transformation1, name='transformations1', out_path=os.getcwd())
-                file2 = utils.pickle_object(transformation2, name='transformations2', out_path=os.getcwd())
-                logger.info(f'Wrote transformation1 parameters to {file1}')
-                logger.info(f'Wrote transformation2 parameters to {file2}')
 
-                terminate(results=results)
-            # ---------------------------------------------------
-            # Todo
-            # elif job.module == 'status':  # -n number, -s stage, -u update
-            #     if args.update:
-            #         for pose_job in pose_jobs:
-            #             update_status(pose_job.serialized_info, args.stage, mode=args.update)
-            #     else:
-            #         if job.design.number:
-            #             logger.info('Checking for %d files based on --{flags.design_number}' % args.design_number)
-            #         if args.stage:
-            #             status(pose_jobs, args.stage, number=job.design.number)
-            #         else:
-            #             for stage in putils.stage_f:
-            #                 s = status(pose_jobs, stage, number=job.design.number)
-            #                 if s:
-            #                     logger.info('For "%s" stage, default settings should generate %d files'
-            #                                 % (stage, putils.stage_f[stage]['len']))
-            # # ---------------------------------------------------
-            # Todo
-            # elif job.module == 'find_asu':
-            #     # Fetch the specified protocol
-            #     protocol = getattr(protocols, job.module)
-            #     if args.multi_processing:
-            #         results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
-            #     else:
-            #         for pose_job in pose_jobs:
-            #             results.append(protocol(pose_job))
-            #
-            #     terminate(results=results)
-            # # ---------------------------------------------------
-            # Todo
-            # elif job.module == 'check_unmodelled_clashes':
-            #     # Fetch the specified protocol
-            #     protocol = getattr(protocols, job.module)
-            #     if args.multi_processing:
-            #         results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
-            #     else:
-            #         for pose_job in pose_jobs:
-            #             results.append(protocol(pose_job))
-            #
-            #     terminate(results=results)
-            # # ---------------------------------------------------
-            # Todo
-            # elif job.module == 'custom_script':
-            #     # Start pose processing and preparation for Rosetta
-            #     if args.multi_processing:
-            #         zipped_args = zip(pose_jobs, repeat(args.script), repeat(args.force), repeat(args.file_list),
-            #                           repeat(args.native), repeat(job.suffix), repeat(args.score_only),
-            #                           repeat(args.variables))
-            #         results = utils.mp_starmap(PoseJob.custom_rosetta_script, zipped_args, processes=job.cores)
-            #     else:
-            #         for pose_job in pose_jobs:
-            #             results.append(pose_job.custom_rosetta_script(args.script, force=args.force,
-            #                                                           file_list=args.file_list, native=args.native,
-            #                                                           suffix=job.suffix, score_only=args.score_only,
-            #                                                           variables=args.variables))
-            #
-            #     terminate(results=results)
-            # ---------------------------------------------------
-            elif job.module == flags.cluster_poses:
-                protocols.cluster.cluster_poses(pose_jobs)
-                terminate(output=False)
-            # ---------------------------------------------------
-            elif job.module == flags.select_poses:
-                # Need to initialize pose_jobs to terminate()
-                pose_jobs = results = protocols.select.sql_poses(pose_jobs)
-                # Write out the chosen poses to a pose.paths file
-                terminate(results=results)
-            # ---------------------------------------------------
-            elif job.module == flags.select_designs:
-                # Need to initialize pose_jobs to terminate()
-                pose_jobs = results = protocols.select.sql_designs(pose_jobs)
-                # Write out the chosen poses to a pose.paths file
-                terminate(results=results)
-            # ---------------------------------------------------
-            elif job.module == flags.select_sequences:
-                # Need to initialize pose_jobs to terminate()
-                pose_jobs = results = protocols.select.sql_sequences(pose_jobs)
-                # Write out the chosen poses to a pose.paths file
-                terminate(results=results)
-            # ---------------------------------------------------
-            elif job.module == 'visualize':
-                import visualization.VisualizeUtils as VSUtils
-                from pymol import cmd
-
-                # if 'escher' in sys.argv[1]:
-                if not args.directory:
-                    exit(f'A directory with the desired designs must be specified using -d/--{flags.directory}')
-
-                if ':' in args.directory:  # args.file  Todo job.location
-                    print('Starting the data transfer from remote source now...')
-                    os.system(f'scp -r {args.directory} .')
-                    file_dir = os.path.basename(args.directory)
-                else:  # assume the files are local
-                    file_dir = args.directory
-                # files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=not args.order)
-
-                if args.order == 'alphabetical':
-                    files = VSUtils.get_all_file_paths(file_dir, extension='.pdb')  # sort=True)
-                else:  # if args.order == 'none':
-                    files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=False)
-
-                print(f'FILES:\n {files[:4]}')
-                if args.order == 'paths':  # TODO FIX janky paths handling below
-                    # for pose_job in pose_jobs:
-                    with open(args.file[0], 'r') as f:
-                        paths = \
-                            map(str.replace, map(str.strip, f.readlines()),
-                                repeat('/yeates1/kmeador/Nanohedra_T33/SymDesignOutput/Projects/'
-                                       'NanohedraEntry54DockedPoses_Designs/'), repeat(''))
-                        paths = list(paths)
-                    ordered_files = []
-                    for path in paths:
-                        for file in files:
-                            if path in file:
-                                ordered_files.append(file)
-                                break
-                    files = ordered_files
-                    # raise NotImplementedError('--order choice "paths" hasn\'t been set up quite yet... Use another method')
-                    # ordered_files = []
-                    # for index in df.index:
-                    #     for file in files:
-                    #         if index in file:
-                    #             ordered_files.append(file)
-                    #             break
-                    # files = ordered_files
-                elif args.order == 'dataframe':
-                    if not job.dataframe:
-                        df_glob = sorted(glob(os.path.join(file_dir, 'TrajectoryMetrics.csv')))
-                        try:
-                            job.dataframe = df_glob[0]
-                        except IndexError:
-                            raise IndexError(f"There was no --{flags.dataframe} specified and one couldn't be located at "
-                                             f'the location "{job.location}". Initialize again with the path to the '
-                                             'relevant dataframe')
-
-                    df = pd.read_csv(job.dataframe, index_col=0, header=[0])
-                    print('INDICES:\n %s' % df.index.to_list()[:4])
-                    ordered_files = []
-                    for index in df.index:
-                        for file in files:
-                            # if index in file:
-                            if os.path.splitext(os.path.basename(file))[0] in index:
-                                ordered_files.append(file)
-                                break
-                    # print('ORDERED FILES (%d):\n %s' % (len(ordered_files), ordered_files))
-                    files = ordered_files
-
-                if not files:
-                    exit(f'No .pdb files found at location "{job.location}"')
-
-                # if len(sys.argv) > 2:
-                #     low, high = map(float, sys.argv[2].split('-'))
-                #     low_range, high_range = int((low / 100) * len(files)), int((high / 100) * len(files))
-                #     if low_range < 0 or high_range > len(files):
-                #         raise ValueError('The input range is outside of the acceptable bounds [0-100]')
-                #     print('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
-                # else:
-                print(low_range, high_range)
-                print(file_paths)
-                for idx, file in enumerate(files[range_slice], low_range + 1):
-                    if args.name == 'original':
-                        cmd.load(file)
-                    else:  # if args.name == 'numerical':
-                        cmd.load(file, object=idx)
-
-                print('\nTo expand all designs to the proper symmetry, issue:\nPyMOL> expand name=all, symmetry=T'
-                      '\nYou should replace "T" with whatever symmetry your design is in\n')
-            else:  # Fetch the specified protocol
-                protocol = getattr(protocols, flags.format_from_cmdline(job.module))
-                if job.development:
-                    if job.profile_memory:
-                        if profile:
-                            # Run the profile decorator from memory_profiler
-                            # Todo insert into the bottom most decorator slot
-                            profile(protocol)(pose_jobs[0])
-                        else:
-                            logger.critical(f"The module 'memory_profiler' isn't installed {profile_error}")
-                        exit('Done profiling')
-
-                if args.multi_processing:
-                    results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
+            # Fetch the specified protocol with python acceptable naming
+            protocol = getattr(protocols, protocol_name.replace('-', '_'))
+            # Figure out how the job should be set up
+            if job.module in protocols.config.run_on_pose_job:  # Single poses
+                if job.multi_processing:
+                    results_ = utils.mp_map(protocol, pose_jobs, processes=job.cores)
                 else:
-                    for pose_job in pose_jobs:
-                        results.append(protocol(pose_job))
+                    results_ = [protocol(pose_job) for pose_job in pose_jobs]
+            else:  # Collection of pose_jobs
+                results_ = protocol(pose_jobs)
 
-                # Handle the particulars of multiple PoseJob returns
-                if job.module == flags.nanohedra:
-                    results_ = []
-                    for result in results:
-                        results_.extend(result)
-                    results = results_
+            # Handle any returns that require particular treatment
+            if job.module in protocols.config.returns_pose_jobs:
+                results = []
+                if results_:  # Not an empty list
+                    if isinstance(results_[0], list):  # In the case returning collection of pose_jobs (nanohedra)
+                        for result in results_:
+                            results.extend(result)
+                    else:
+                        results.extend(results_)
+                pose_jobs = results
+            # elif job.module == flags.cluster_poses:  # Returns None
+            #    pass
+            else:
+                results = results_
+                # Update the current state of protocols and exceptions
+                exceptions.extend(parse_results_for_exceptions(pose_jobs, results))
+
+            # # Retrieve any program flags necessary for termination
+            # terminate_kwargs.update(**terminate_options.get(protocol_name, {}))
+    # -----------------------------------------------------------------------------------------------------------------
+    #  Run a single submodule
+    # -----------------------------------------------------------------------------------------------------------------
+    else:
+        job.load_job_protocol()
+        if job.module == 'find_transforms':
+            # if args.multi_processing:
+            #     results = SDUtils.mp_map(PoseJob.find_transforms, pose_jobs, processes=job.cores)
+            # else:
+            stacked_transforms = [pose_job.pose_transformation for pose_job in pose_jobs]
+            trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[0].values()
+                                                                     for transform in stacked_transforms])
+            trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[1].values()
+                                                                     for transform in stacked_transforms])
+            # Create the full dictionaries
+            transformation1 = dict(rotation=trans1_rot1, translation=trans1_tx1,
+                                   rotation2=trans1_rot2, translation2=trans1_tx2)
+            transformation2 = dict(rotation=trans2_rot1, translation=trans2_tx1,
+                                   rotation2=trans2_rot2, translation2=trans2_tx2)
+            file1 = utils.pickle_object(transformation1, name='transformations1', out_path=os.getcwd())
+            file2 = utils.pickle_object(transformation2, name='transformations2', out_path=os.getcwd())
+            logger.info(f'Wrote transformation1 parameters to {file1}')
+            logger.info(f'Wrote transformation2 parameters to {file2}')
+
+            terminate(results=results)
+        # ---------------------------------------------------
+        # Todo
+        # elif job.module == 'status':  # -n number, -s stage, -u update
+        #     if args.update:
+        #         for pose_job in pose_jobs:
+        #             update_status(pose_job.serialized_info, args.stage, mode=args.update)
+        #     else:
+        #         if job.design.number:
+        #             logger.info('Checking for %d files based on --{flags.design_number}' % args.design_number)
+        #         if args.stage:
+        #             status(pose_jobs, args.stage, number=job.design.number)
+        #         else:
+        #             for stage in putils.stage_f:
+        #                 s = status(pose_jobs, stage, number=job.design.number)
+        #                 if s:
+        #                     logger.info('For "%s" stage, default settings should generate %d files'
+        #                                 % (stage, putils.stage_f[stage]['len']))
+        # # ---------------------------------------------------
+        # Todo
+        # elif job.module == 'find_asu':
+        #     # Fetch the specified protocol
+        #     protocol = getattr(protocols, job.module)
+        #     if args.multi_processing:
+        #         results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
+        #     else:
+        #         for pose_job in pose_jobs:
+        #             results.append(protocol(pose_job))
+        #
+        #     terminate(results=results)
+        # # ---------------------------------------------------
+        # Todo
+        # elif job.module == 'check_unmodelled_clashes':
+        #     # Fetch the specified protocol
+        #     protocol = getattr(protocols, job.module)
+        #     if args.multi_processing:
+        #         results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
+        #     else:
+        #         for pose_job in pose_jobs:
+        #             results.append(protocol(pose_job))
+        #
+        #     terminate(results=results)
+        # # ---------------------------------------------------
+        # Todo
+        # elif job.module == 'custom_script':
+        #     # Start pose processing and preparation for Rosetta
+        #     if args.multi_processing:
+        #         zipped_args = zip(pose_jobs, repeat(args.script), repeat(args.force), repeat(args.file_list),
+        #                           repeat(args.native), repeat(job.suffix), repeat(args.score_only),
+        #                           repeat(args.variables))
+        #         results = utils.mp_starmap(PoseJob.custom_rosetta_script, zipped_args, processes=job.cores)
+        #     else:
+        #         for pose_job in pose_jobs:
+        #             results.append(pose_job.custom_rosetta_script(args.script, force=args.force,
+        #                                                           file_list=args.file_list, native=args.native,
+        #                                                           suffix=job.suffix, score_only=args.score_only,
+        #                                                           variables=args.variables))
+        #
+        #     terminate(results=results)
+        # ---------------------------------------------------
+        elif job.module == flags.cluster_poses:
+            protocols.cluster.cluster_poses(pose_jobs)
+            terminate(output=False)
+        # ---------------------------------------------------
+        elif job.module == flags.select_poses:
+            # Need to initialize pose_jobs to terminate()
+            pose_jobs = results = protocols.select.sql_poses(pose_jobs)
+            # Write out the chosen poses to a pose.paths file
+            terminate(results=results)
+        # ---------------------------------------------------
+        elif job.module == flags.select_designs:
+            # Need to initialize pose_jobs to terminate()
+            pose_jobs = results = protocols.select.sql_designs(pose_jobs)
+            # Write out the chosen poses to a pose.paths file
+            terminate(results=results)
+        # ---------------------------------------------------
+        elif job.module == flags.select_sequences:
+            # Need to initialize pose_jobs to terminate()
+            pose_jobs = results = protocols.select.sql_sequences(pose_jobs)
+            # Write out the chosen poses to a pose.paths file
+            terminate(results=results)
+        # ---------------------------------------------------
+        elif job.module == 'visualize':
+            import visualization.VisualizeUtils as VSUtils
+            from pymol import cmd
+
+            # if 'escher' in sys.argv[1]:
+            if not args.directory:
+                exit(f'A directory with the desired designs must be specified using -d/--{flags.directory}')
+
+            if ':' in args.directory:  # args.file  Todo job.location
+                print('Starting the data transfer from remote source now...')
+                os.system(f'scp -r {args.directory} .')
+                file_dir = os.path.basename(args.directory)
+            else:  # assume the files are local
+                file_dir = args.directory
+            # files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=not args.order)
+
+            if args.order == 'alphabetical':
+                files = VSUtils.get_all_file_paths(file_dir, extension='.pdb')  # sort=True)
+            else:  # if args.order == 'none':
+                files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=False)
+
+            print(f'FILES:\n {files[:4]}')
+            if args.order == 'paths':  # TODO FIX janky paths handling below
+                # for pose_job in pose_jobs:
+                with open(args.file[0], 'r') as f:
+                    paths = \
+                        map(str.replace, map(str.strip, f.readlines()),
+                            repeat('/yeates1/kmeador/Nanohedra_T33/SymDesignOutput/Projects/'
+                                   'NanohedraEntry54DockedPoses_Designs/'), repeat(''))
+                    paths = list(paths)
+                ordered_files = []
+                for path in paths:
+                    for file in files:
+                        if path in file:
+                            ordered_files.append(file)
+                            break
+                files = ordered_files
+                # raise NotImplementedError('--order choice "paths" hasn\'t been set up quite yet... Use another method')
+                # ordered_files = []
+                # for index in df.index:
+                #     for file in files:
+                #         if index in file:
+                #             ordered_files.append(file)
+                #             break
+                # files = ordered_files
+            elif args.order == 'dataframe':
+                if not job.dataframe:
+                    df_glob = sorted(glob(os.path.join(file_dir, 'TrajectoryMetrics.csv')))
+                    try:
+                        job.dataframe = df_glob[0]
+                    except IndexError:
+                        raise IndexError(f"There was no --{flags.dataframe} specified and one couldn't be located at "
+                                         f'the location "{job.location}". Initialize again with the path to the '
+                                         'relevant dataframe')
+
+                df = pd.read_csv(job.dataframe, index_col=0, header=[0])
+                print('INDICES:\n %s' % df.index.to_list()[:4])
+                ordered_files = []
+                for index in df.index:
+                    for file in files:
+                        # if index in file:
+                        if os.path.splitext(os.path.basename(file))[0] in index:
+                            ordered_files.append(file)
+                            break
+                # print('ORDERED FILES (%d):\n %s' % (len(ordered_files), ordered_files))
+                files = ordered_files
+
+            if not files:
+                exit(f'No .pdb files found at location "{job.location}"')
+
+            if job.range:
+                start_idx = job.low
+            else:
+                start_idx = 0
+
+            for idx, file in enumerate(job.get_range_slice(files), start_idx):
+                if args.name == 'original':
+                    cmd.load(file)
+                else:  # if args.name == 'numerical':
+                    cmd.load(file, object=idx)
+
+            print('\nTo expand all designs to the proper symmetry, issue:\nPyMOL> expand name=all, symmetry=T'
+                  '\nYou should replace "T" with whatever symmetry your design is in\n')
+        else:  # Fetch the specified protocol
+            protocol = getattr(protocols, flags.format_from_cmdline(job.module))
+            if job.development:
+                if job.profile_memory:
+                    if profile:
+                        # Run the profile decorator from memory_profiler
+                        # Todo insert into the bottom most decorator slot
+                        profile(protocol)(pose_jobs[0])
+                    else:
+                        logger.critical(f"The module 'memory_profiler' isn't installed {profile_error}")
+                    exit('Done profiling')
+
+            if args.multi_processing:
+                results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
+            else:
+                for pose_job in pose_jobs:
+                    results.append(protocol(pose_job))
+
+            # Handle the particulars of multiple PoseJob returns
+            if job.module == flags.nanohedra:
+                results_ = []
+                for result in results:
+                    results_.extend(result)
+                pose_jobs = results = results_
     # -----------------------------------------------------------------------------------------------------------------
     #  Finally, run terminate(). This formats output parameters and reports on exceptions
     # -----------------------------------------------------------------------------------------------------------------
-        # # Reset the current_session
-        # job.current_session = None
-        terminate(results=results)
+    terminate(results=results)
 
 
 def app():

@@ -1363,9 +1363,8 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     """
     job = job_resources_factory.get()
     default_weight_metric = config.default_weight_parameter[job.design.method]
-    session = job.current_session
-    # Figure out poses from a specification file, filters, and weights
-    # if job.specification_file:
+
+    # Select poses from a starting pool and provided filters and weights
     pose_ids = [pose_job.id for pose_job in pose_jobs]
     # design_ids = [design.id for pose_job in pose_jobs for design in pose_job.current_designs]
     #     total_df = load_sql_poses_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
@@ -1403,105 +1402,109 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     pose_id = 'pose_id'
     entity_id = 'entity_id'
     design_id = 'design_id'
-    # Figure out designs from dataframe, filters, and weights
-    total_df = load_sql_poses_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
-    pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
-    entity_metadata_df = load_sql_entity_metadata_dataframe(session, pose_ids=pose_ids)
-    logger.debug(f'entity_metadata_df: {entity_metadata_df}')  # Todo remove
-    total_df = total_df.join(pose_metadata_df.set_index(pose_id), on=pose_id, rsuffix='_DROP')
-    total_df = \
-        total_df.join(entity_metadata_df.set_index([pose_id, entity_id]), on=[pose_id, entity_id], rsuffix='_DROP')
-    total_df.drop(total_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
-    # logger.debug(f'total_df: {total_df.columns.tolist()}')
-    if total_df.empty:
-        raise utils.MetricsError(
-            f"For the input PoseJobs, there aren't metrics collected. Use the '{flags.analysis}' module or perform some"
-            " design module before selection")
-    designs_df = load_sql_design_metrics_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
-    if not designs_df.empty:
-        # designs_df has a multiplicity of number_of_entities from DesignEntityMetrics table join
-        # Use the pose_id index to join to the total_df
-        # Todo ensure non-numeric are here as well
-        designs_df.drop(design_id, axis=1, inplace=True)
-        pose_designs_mean_df = designs_df.groupby(pose_id).mean(numeric_only=True)
-        total_df = total_df.join(pose_designs_mean_df, on=pose_id, rsuffix='_DROP')
-
-        # columns_to_keep = [c.name for c in sql.DesignMetrics.numeric_columns()]
-        # print(designs_df.columns.tolist())
-        # designs_df = designs_df.loc[:, [col for col in columns_to_keep if col in designs_df.columns]]
-        # print(designs_df.columns.tolist())
-        entity_designs_df = load_sql_design_entities_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
-        # logger.debug(f'entity_designs_df: {entity_designs_df}')
-        pose_design_entities_mean_df = entity_designs_df.groupby([pose_id, entity_id]).mean(numeric_only=True)
-        logger.debug(f'pose_design_entities_mean_df: {pose_design_entities_mean_df}')
-        # # Drop unused designs columns
-        # entity_columns = [c.name for c in sql.DesignEntityMetrics.__table__.columns if c.name in designs_df.columns]
-        # entity_designs_df = designs_df.loc[:, ['pose_id'] + entity_columns]
-        # designs_df.drop([design_id] + entity_columns, axis=1, inplace=True)
-        # This will create a total_df that is the number_of_entities X larger than the number of poses
-        total_df = total_df.join(pose_design_entities_mean_df, on=[pose_id, entity_id], rsuffix='_DROP')
+    with job.db.session(expire_on_commit=False) as session:
+        # Figure out designs from dataframe, filters, and weights
+        total_df = load_sql_poses_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
+        pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
+        entity_metadata_df = load_sql_entity_metadata_dataframe(session, pose_ids=pose_ids)
+        logger.debug(f'entity_metadata_df: {entity_metadata_df}')  # Todo remove
+        total_df = total_df.join(pose_metadata_df.set_index(pose_id), on=pose_id, rsuffix='_DROP')
+        total_df = \
+            total_df.join(entity_metadata_df.set_index([pose_id, entity_id]), on=[pose_id, entity_id], rsuffix='_DROP')
         total_df.drop(total_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
-        logger.debug(f'total_df: {total_df}')
-        logger.debug(f'total_df: {sorted(total_df.columns.tolist())}')
-    else:
-        raise NotImplementedError(f"Can't proceed without at least the PoseJob.pose_source")
+        # logger.debug(f'total_df: {total_df.columns.tolist()}')
+        if total_df.empty:
+            raise utils.MetricsError(
+                f"For the input PoseJobs, there aren't metrics collected. Use the '{flags.analysis}' module or perform "
+                "some design module before selection")
+        designs_df = load_sql_design_metrics_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
+        if not designs_df.empty:
+            # designs_df has a multiplicity of number_of_entities from DesignEntityMetrics table join
+            # Use the pose_id index to join to the total_df
+            # Todo ensure non-numeric are here as well
+            designs_df.drop(design_id, axis=1, inplace=True)
+            pose_designs_mean_df = designs_df.groupby(pose_id).mean(numeric_only=True)
+            total_df = total_df.join(pose_designs_mean_df, on=pose_id, rsuffix='_DROP')
 
-    if job.filter or job.protocol:
-        df_multiplicity = len(pose_jobs[0].entity_data)
-        logger.warning('Filtering statistics have an increased representation due to included Entity metrics. '
-                       f'Typically, values reported for each filter will be ~{df_multiplicity}x over those actually '
-                       'present')
-    # Ensure the pose_id is the index to prioritize
-    total_df.set_index(pose_id, inplace=True)
-    selected_poses_df = \
-        metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight, protocols=job.protocol,
-                                          default_weight=default_weight_metric, function=job.weight_function)
-    # Remove excess pose instances
-    # selected_pose_ids = selected_poses_df.index.duplicated()[:job.select_number]
-    selected_pose_ids = utils.remove_duplicates(selected_poses_df.index.tolist())[:job.select_number]
-    selected_poses = [session.get(PoseJob, id_) for id_ in selected_pose_ids]
-
-    # # Select by clustering analysis
-    # if job.cluster:
-    # Sort results according to clustered poses if clustering exists
-    if job.cluster.map:
-        # cluster_map: dict[str | PoseJob, list[str | PoseJob]] = {}
-        if os.path.exists(job.cluster.map):
-            cluster_map = utils.unpickle(job.cluster.map)
+            # columns_to_keep = [c.name for c in sql.DesignMetrics.numeric_columns()]
+            # print(designs_df.columns.tolist())
+            # designs_df = designs_df.loc[:, [col for col in columns_to_keep if col in designs_df.columns]]
+            # print(designs_df.columns.tolist())
+            entity_designs_df = load_sql_design_entities_dataframe(session, pose_ids=pose_ids)  # design_ids=design_ids)
+            # logger.debug(f'entity_designs_df: {entity_designs_df}')
+            pose_design_entities_mean_df = entity_designs_df.groupby([pose_id, entity_id]).mean(numeric_only=True)
+            logger.debug(f'pose_design_entities_mean_df: {pose_design_entities_mean_df}')
+            # # Drop unused designs columns
+            # entity_columns = \
+            #     [c.name for c in sql.DesignEntityMetrics.__table__.columns if c.name in designs_df.columns]
+            # entity_designs_df = designs_df.loc[:, ['pose_id'] + entity_columns]
+            # designs_df.drop([design_id] + entity_columns, axis=1, inplace=True)
+            # This will create a total_df that is the number_of_entities X larger than the number of poses
+            total_df = total_df.join(pose_design_entities_mean_df, on=[pose_id, entity_id], rsuffix='_DROP')
+            total_df.drop(total_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
+            logger.debug(f'total_df: {total_df}')
+            logger.debug(f'total_df: {sorted(total_df.columns.tolist())}')
         else:
-            raise FileNotFoundError(f'No --{flags.cluster_map} "{job.cluster.map}" file was found')
+            raise NotImplementedError(f"Can't proceed without at least the PoseJob.pose_source")
 
-        # Make the selected_poses into strings
-        selected_pose_strs = list(map(str, selected_poses))
-        # Check if the cluster map is stored as PoseDirectories or strings and convert
-        representative_representative = next(iter(cluster_map))
-        if not isinstance(representative_representative, PoseJob):
-            # Make the cluster map based on strings
-            for representative in list(cluster_map.keys()):
-                # Remove old entry and convert all arguments to pose_id strings, saving as pose_id strings
-                cluster_map[str(representative)] = [str(member) for member in cluster_map.pop(representative)]
+        if job.filter or job.protocol:
+            df_multiplicity = len(pose_jobs[0].entity_data)
+            logger.warning('Filtering statistics have an increased representation due to included Entity metrics. '
+                           f'Typically, values reported for each filter will be ~{df_multiplicity}x over those actually '
+                           'present')
+        # Ensure the pose_id is the index to prioritize
+        total_df.set_index(pose_id, inplace=True)
+        selected_poses_df = \
+            metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight, protocols=job.protocol,
+                                              default_weight=default_weight_metric, function=job.weight_function)
+        # Remove excess pose instances
+        # selected_pose_ids = selected_poses_df.index.duplicated()[:job.select_number]
+        selected_pose_ids = utils.remove_duplicates(selected_poses_df.index.tolist())[:job.select_number]
+        selected_poses = [session.get(PoseJob, id_) for id_ in selected_pose_ids]
 
-        final_pose_indices = select_from_cluster_map(selected_pose_strs, cluster_map, number=job.cluster.number)
-        final_poses = [selected_poses[idx] for idx in final_pose_indices]
-        logger.info(f'Selected {len(final_poses)} poses after clustering')
-    else:  # Try to generate the cluster_map?
-        # raise utils.InputError(f'No --{flags.cluster_map} was provided. To cluster poses, specify:'
-        logger.info(f'No --{flags.cluster_map} was provided. To {flags.cluster_poses}, specify:'
-                    f'"{putils.program_command} {flags.cluster_poses}" or '
-                    f'"{putils.program_command} {flags.protocol} '
-                    f'--{flags.modules} {flags.cluster_poses} {flags.select_poses}"')
-        logger.info('Grabbing all selected poses')
-        final_poses = selected_poses
+        # # Select by clustering analysis
+        # if job.cluster:
+        # Sort results according to clustered poses if clustering exists
+        if job.cluster.map:
+            # cluster_map: dict[str | PoseJob, list[str | PoseJob]] = {}
+            if os.path.exists(job.cluster.map):
+                cluster_map = utils.unpickle(job.cluster.map)
+            else:
+                raise FileNotFoundError(f'No --{flags.cluster_map} "{job.cluster.map}" file was found')
 
-    if len(final_poses) > job.select_number:
-        final_poses = final_poses[:job.select_number]
-        logger.info(f'Found {len(final_poses)} Poses after applying your select-number criteria')
+            # Make the selected_poses into strings
+            selected_pose_strs = list(map(str, selected_poses))
+            # Check if the cluster map is stored as PoseDirectories or strings and convert
+            representative_representative = next(iter(cluster_map))
+            if not isinstance(representative_representative, PoseJob):
+                # Make the cluster map based on strings
+                for representative in list(cluster_map.keys()):
+                    # Remove old entry and convert all arguments to pose_id strings, saving as pose_id strings
+                    cluster_map[str(representative)] = [str(member) for member in cluster_map.pop(representative)]
 
-    final_pose_id_to_identifier = {pose_job.id: pose_job.pose_identifier for pose_job in final_poses}
+            final_pose_indices = select_from_cluster_map(selected_pose_strs, cluster_map, number=job.cluster.number)
+            final_poses = [selected_poses[idx] for idx in final_pose_indices]
+            logger.info(f'Selected {len(final_poses)} poses after clustering')
+        else:  # Try to generate the cluster_map?
+            # raise utils.InputError(f'No --{flags.cluster_map} was provided. To cluster poses, specify:'
+            logger.info(f'No --{flags.cluster_map} was provided. To {flags.cluster_poses}, specify:'
+                        f'"{putils.program_command} {flags.cluster_poses}" or '
+                        f'"{putils.program_command} {flags.protocol} '
+                        f'--{flags.modules} {flags.cluster_poses} {flags.select_poses}"')
+            logger.info('Grabbing all selected poses')
+            final_poses = selected_poses
 
-    # Format selected PoseJob ids for output, including all additional metrics/metadata
-    save_poses_df = pose_designs_mean_df.loc[selected_pose_ids]
-    save_poses_df = format_save_df(session, save_poses_df, selected_pose_ids)
+        if len(final_poses) > job.select_number:
+            final_poses = final_poses[:job.select_number]
+            logger.info(f'Found {len(final_poses)} Poses after applying your select-number criteria')
+
+        final_pose_id_to_identifier = {pose_job.id: pose_job.pose_identifier for pose_job in final_poses}
+
+        # Format selected PoseJob ids for output, including all additional metrics/metadata
+        save_poses_df = pose_designs_mean_df.loc[selected_pose_ids]
+        save_poses_df = format_save_df(session, save_poses_df, selected_pose_ids)
+    # End session
+
     # Rename the identifiers to human-readable names
     save_poses_df.reset_index(col_fill='pose', col_level=-1, inplace=True)
     save_poses_df['pose_identifier'] = save_poses_df[('pose', pose_id)].map(final_pose_id_to_identifier)
@@ -1538,13 +1541,10 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     Returns:
         The selected PoseJob instances with selected designs stored in the .current_designs attribute
     """
-    # global exceptions  # nonlocal exceptions
     job = job_resources_factory.get()
     default_weight_metric = config.default_weight_parameter[job.design.method]
-    session = job.current_session
 
-    # Figure out poses from a specification file, filters, and weights
-    # if job.specification_file:
+    # Select designs from a starting pool and provided filters and weights
     pose_ids = [pose_job.id for pose_job in pose_jobs]
     design_ids = [design.id for pose_job in pose_jobs for design in pose_job.current_designs]
     #     total_df = load_sql_design_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
@@ -1566,7 +1566,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # else:  # if job.total:  # Figure out poses from file/directory input, filters, and weights
     #     pose_ids = design_ids = None
     #     # total_df = load_total_dataframe(pose_jobs)
-    #     total_df = load_sql_design_metrics_dataframe(job.current_session)
+    #     total_df = load_sql_design_metrics_dataframe(session)
     #     if job.protocol:
     #         group_df = total_df.groupby('protocol')
     #         df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
@@ -1589,131 +1589,134 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     pose_id = 'pose_id'
     entity_id = 'entity_id'
     design_id = 'design_id'
-    # Figure out designs from dataframe, filters, and weights
-    total_df = load_sql_all_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
-    pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
-    entity_metadata_df = load_sql_entity_metadata_dataframe(session, pose_ids=pose_ids)
-    logger.debug(f'entity_metadata_df: {entity_metadata_df}')  # Todo remove
-    total_df = total_df.join(pose_metadata_df.set_index(pose_id), on=pose_id, rsuffix='_DROP')
-    total_df = \
-        total_df.join(entity_metadata_df.set_index([pose_id, entity_id]), on=[pose_id, entity_id], rsuffix='_DROP')
-    total_df.drop(total_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
-    logger.debug(f'total_df: {total_df}')
-    # logger.debug(f'total_df: {total_df.columns.tolist()}')
-    if total_df.empty:
-        raise utils.MetricsError(
-            f"For the input PoseJobs, there aren't metrics collected. Use the '{flags.analysis}' module or perform some"
-            " design module before selection")
-    if job.filter or job.protocol:
-        df_multiplicity = len(pose_jobs[0].entity_data)**2
-        logger.warning('Filtering statistics have an increased representation due to included Entity metrics. '
-                       f'Typically, values reported for each filter will be ~{df_multiplicity}x over those actually '
-                       'present')
-    # Ensure the design_id is the index to prioritize, though both pose_id and design_id are grabbed below
-    total_df.set_index(design_id, inplace=True)
-    selected_designs_df = \
-        metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight, protocols=job.protocol,
-                                          default_weight=default_weight_metric, function=job.weight_function)
-    # # Groupby the design_id to remove extra instances of 'entity_id'
-    # # This will turn these values into average which is fine since we just want the order
-    # pose_designs_mean_df = selected_designs_df.groupby('design_id').mean()
-    # Drop duplicated values keeping the order of the DataFrame
-    selected_designs_df.drop_duplicates(subset=design_id, inplace=True)
-    # Get the pose_id and the design_id for each found design
-    # # Set the index according to 'pose_id', 'design_id'
-    # selected_designs_df.set_index(['pose_id', 'design_id'], inplace=True)
-    # selected_designs = selected_designs_df.index.tolist()
-    # selected_designs = selected_designs_df[['pose_id', 'design_id']].values.tolist()
-    selected_design_ids = selected_designs_df[design_id].tolist()
-    selected_pose_ids = selected_designs_df[pose_id].tolist()
-    selected_designs = list(zip(selected_pose_ids, selected_design_ids))
+    with job.db.session(expire_on_commit=False) as session:
+        # Figure out designs from dataframe, filters, and weights
+        total_df = load_sql_all_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
+        pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
+        entity_metadata_df = load_sql_entity_metadata_dataframe(session, pose_ids=pose_ids)
+        logger.debug(f'entity_metadata_df: {entity_metadata_df}')  # Todo remove
+        total_df = total_df.join(pose_metadata_df.set_index(pose_id), on=pose_id, rsuffix='_DROP')
+        total_df = \
+            total_df.join(entity_metadata_df.set_index([pose_id, entity_id]), on=[pose_id, entity_id], rsuffix='_DROP')
+        total_df.drop(total_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
+        logger.debug(f'total_df: {total_df}')
+        # logger.debug(f'total_df: {total_df.columns.tolist()}')
+        if total_df.empty:
+            raise utils.MetricsError(
+                f"For the input PoseJobs, there aren't metrics collected. Use the '{flags.analysis}' module or perform some"
+                " design module before selection")
+        if job.filter or job.protocol:
+            df_multiplicity = len(pose_jobs[0].entity_data)**2
+            logger.warning('Filtering statistics have an increased representation due to included Entity metrics. '
+                           f'Typically, values reported for each filter will be ~{df_multiplicity}x over those actually '
+                           'present')
+        # Ensure the design_id is the index to prioritize, though both pose_id and design_id are grabbed below
+        total_df.set_index(design_id, inplace=True)
+        selected_designs_df = \
+            metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight, protocols=job.protocol,
+                                              default_weight=default_weight_metric, function=job.weight_function)
+        # # Groupby the design_id to remove extra instances of 'entity_id'
+        # # This will turn these values into average which is fine since we just want the order
+        # pose_designs_mean_df = selected_designs_df.groupby('design_id').mean()
+        # Drop duplicated values keeping the order of the DataFrame
+        selected_designs_df.drop_duplicates(subset=design_id, inplace=True)
+        # Get the pose_id and the design_id for each found design
+        # # Set the index according to 'pose_id', 'design_id'
+        # selected_designs_df.set_index(['pose_id', 'design_id'], inplace=True)
+        # selected_designs = selected_designs_df.index.tolist()
+        # selected_designs = selected_designs_df[['pose_id', 'design_id']].values.tolist()
+        selected_design_ids = selected_designs_df[design_id].tolist()
+        selected_pose_ids = selected_designs_df[pose_id].tolist()
+        selected_designs = list(zip(selected_pose_ids, selected_design_ids))
 
-    # Specify the result order according to any filtering, weighting, and number
-    number_selected = len(selected_designs_df)
-    job.select_number = number_selected if number_selected < job.select_number else job.select_number
-    designs_per_pose = job.designs_per_pose
-    logger.info(f'Choosing up to {job.select_number} Designs, with {designs_per_pose} Design(s) per Pose')
-    selected_designs_iter = iter(selected_designs)
-    number_chosen = count(0)
-    # selected_pose_id_to_design_ids = defaultdict(list)  # Alt way
-    selected_pose_id_to_design_ids = {}
-    try:
-        while next(number_chosen) <= job.select_number:
-            pose_id, design_id = next(selected_designs_iter)
-            # Alt way, but doesn't count designs_per_pose
-            # selected_pose_id_to_design_ids[pose_id].append(design_id)
-            _designs = selected_pose_id_to_design_ids.get(pose_id, None)
-            if _designs:
-                if len(_designs) >= designs_per_pose:
-                    # We already have too many for this pose, continue with search
-                    continue
-                _designs.append(design_id)
-            else:
-                selected_pose_id_to_design_ids[pose_id] = [design_id]
-    except StopIteration:  # We exhausted selected_designs_iter
-        pass
-
-    logger.info(f'{len(selected_pose_id_to_design_ids)} Poses were selected')
-    # Format selected designs for output
-    putils.make_path(job.output_directory)
-    logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
-
-    # Create new output of designed PDB's  # Todo attach the program state to these files for downstream use?
-    pose_id_to_identifier = {}
-    design_id_to_identifier = {}
-    results = []
-    selected_design_ids = []
-    for pose_id, design_ids in selected_pose_id_to_design_ids.items():
-        pose_job = session.get(PoseJob, pose_id)
-        pose_id_to_identifier[pose_id] = pose_job.pose_identifier
-        selected_design_ids.extend(design_ids)
-        current_designs = []
-        for design_id in design_ids:
-            design = session.get(sql.DesignData, design_id)
-            design_name = design.name
-            design_id_to_identifier[design_id] = design_name
-            design_structure_path = design.structure_path
-            if design_structure_path:
-                out_path = os.path.join(job.output_directory, f'{pose_job.project}-{design_name}.pdb')
-                if os.path.exists(design_structure_path):
-                    shutil.copy(design_structure_path, out_path)  # [i])))
+        # Specify the result order according to any filtering, weighting, and number
+        number_selected = len(selected_designs_df)
+        job.select_number = number_selected if number_selected < job.select_number else job.select_number
+        designs_per_pose = job.designs_per_pose
+        logger.info(f'Choosing up to {job.select_number} Designs, with {designs_per_pose} Design(s) per Pose')
+        selected_designs_iter = iter(selected_designs)
+        number_chosen = count(0)
+        # selected_pose_id_to_design_ids = defaultdict(list)  # Alt way
+        selected_pose_id_to_design_ids = {}
+        try:
+            while next(number_chosen) <= job.select_number:
+                pose_id, design_id = next(selected_designs_iter)
+                # Alt way, but doesn't count designs_per_pose
+                # selected_pose_id_to_design_ids[pose_id].append(design_id)
+                _designs = selected_pose_id_to_design_ids.get(pose_id, None)
+                if _designs:
+                    if len(_designs) >= designs_per_pose:
+                        # We already have too many for this pose, continue with search
+                        continue
+                    _designs.append(design_id)
                 else:
-                    pose_job.log.error(f'No file found for "{design_structure_path}"')
-                # exceptions.append(utils.ReportException(f'No file found for "{file_path}"'))
-                continue
-            # Tod0 is this grabbing the structure everytime? We need to ensure no other files exist or refine this glob
-            #  with an extension
-            # file_path = os.path.join(pose_job.designs_path, f'*{design_name}*')
-            # # print('file_path', file_path)
-            # file = sorted(glob(file_path))
-            # # print('files', file)
-            # if not file:  # Add to exceptions
-            #     pose_job.log.error(f'No file found for "{file_path}"')
-            #     # exceptions.append(utils.ReportException(f'No file found for "{file_path}"'))
-            #     continue
-            # out_path = os.path.join(job.output_directory, f'{pose_job.output_modifier}-{design_name}.pdb')
-            # if not os.path.exists(out_path):
-            #     shutil.copy(file[0], out_path)  # [i])))
+                    selected_pose_id_to_design_ids[pose_id] = [design_id]
+        except StopIteration:  # We exhausted selected_designs_iter
+            pass
 
-            current_designs.append(design)
+        logger.info(f'{len(selected_pose_id_to_design_ids)} Poses were selected')
+        # Format selected designs for output
+        putils.make_path(job.output_directory)
+        logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
 
-        pose_job.current_designs = current_designs
-        results.append(pose_job)
+        # Create new output of designed PDB's  # Todo attach the program state to these files for downstream use?
+        pose_id_to_identifier = {}
+        design_id_to_identifier = {}
+        results = []
+        selected_design_ids = []
+        for pose_id, design_ids in selected_pose_id_to_design_ids.items():
+            pose_job = session.get(PoseJob, pose_id)
+            pose_id_to_identifier[pose_id] = pose_job.pose_identifier
+            selected_design_ids.extend(design_ids)
+            current_designs = []
+            for design_id in design_ids:
+                design = session.get(sql.DesignData, design_id)
+                design_name = design.name
+                design_id_to_identifier[design_id] = design_name
+                design_structure_path = design.structure_path
+                if design_structure_path:
+                    out_path = os.path.join(job.output_directory, f'{pose_job.project}-{design_name}.pdb')
+                    if os.path.exists(design_structure_path):
+                        shutil.copy(design_structure_path, out_path)  # [i])))
+                    else:
+                        pose_job.log.error(f'No file found for "{design_structure_path}"')
+                    # exceptions.append(utils.ReportException(f'No file found for "{file_path}"'))
+                    continue
+                # Tod0 is this grabbing the structure everytime? We need to ensure no other files exist or refine this glob
+                #  with an extension
+                # file_path = os.path.join(pose_job.designs_path, f'*{design_name}*')
+                # # print('file_path', file_path)
+                # file = sorted(glob(file_path))
+                # # print('files', file)
+                # if not file:  # Add to exceptions
+                #     pose_job.log.error(f'No file found for "{file_path}"')
+                #     # exceptions.append(utils.ReportException(f'No file found for "{file_path}"'))
+                #     continue
+                # out_path = os.path.join(job.output_directory, f'{pose_job.output_modifier}-{design_name}.pdb')
+                # if not os.path.exists(out_path):
+                #     shutil.copy(file[0], out_path)  # [i])))
 
-    # Todo incorporate design_metadata_df
-    design_metadata_df = load_sql_design_metadata_dataframe(session, design_ids=selected_design_ids)
-    design_metrics_df = load_sql_design_metrics_dataframe(session, design_ids=selected_design_ids)
-    # designs_df has a multiplicity of number_of_entities from DesignEntityMetrics table join
-    design_metrics_df = design_metadata_df.join(design_metrics_df.set_index(design_id), on=design_id, rsuffix='_DROP')
-    # Format selected PoseJob with metrics for output
-    # save_designs_df = selected_designs_df
-    save_designs_df = format_save_df(session, design_metrics_df,
-                                     selected_pose_id_to_design_ids.keys(),
-                                     design_ids=selected_design_ids
-                                     # # Remove the 'design_id' index
-                                     # selected_designs_df.droplevel(-1, axis=0))
-                                     )
-    #                                  selected_designs_df.set_index('design_id').loc[selected_design_ids, :])
+                current_designs.append(design)
+
+            pose_job.current_designs = current_designs
+            results.append(pose_job)
+
+        # Todo incorporate design_metadata_df
+        design_metadata_df = load_sql_design_metadata_dataframe(session, design_ids=selected_design_ids)
+        design_metrics_df = load_sql_design_metrics_dataframe(session, design_ids=selected_design_ids)
+        # designs_df has a multiplicity of number_of_entities from DesignEntityMetrics table join
+        design_metrics_df = design_metadata_df.join(design_metrics_df.set_index(design_id), on=design_id, rsuffix='_DROP')
+        # Format selected PoseJob with metrics for output
+        # save_designs_df = selected_designs_df
+        save_designs_df = format_save_df(session, design_metrics_df,
+                                         selected_pose_id_to_design_ids.keys(),
+                                         design_ids=selected_design_ids
+                                         # # Remove the 'design_id' index
+                                         # selected_designs_df.droplevel(-1, axis=0))
+                                         )
+        #                                  selected_designs_df.set_index('design_id').loc[selected_design_ids, :])
+    # End session
+
     # Rename the identifiers to human-readable names
     save_designs_df.reset_index(inplace=True, col_level=-1, col_fill='pose')
     save_designs_df[('pose', 'design_name')] = save_designs_df[('pose', design_id)].map(design_id_to_identifier)

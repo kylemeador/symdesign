@@ -798,23 +798,23 @@ class JobResources:
     def modules(self, modules: Iterable[str]) -> list[str]:
         self._modules = list(modules)
 
-    @property
-    def current_session(self) -> Session:
-        """Contains the sqlalchemy.orm.Session that is currently in use for access to database attributes"""
-        try:
-            return self._session
-        except AttributeError:  # No session connected
-            raise AttributeError("Couldn't return current_session as there is not an active Session. Ensure you "
-                                 "initialize a job context manager, i.e.\n"
-                                 "with job.db.session() as session:\n"
-                                 "    job.current_session = session\n"
-                                 "Before you attempt to use the current_session")
-
-    @current_session.setter
-    def current_session(self, session: Session):
-        """Set the sqlalchemy.orm.Session that is currently in use to access database attributes later during the job"""
-        if isinstance(session, Session):
-            self._session = session
+    # @property
+    # def current_session(self) -> Session:
+    #     """Contains the sqlalchemy.orm.Session that is currently in use for access to database attributes"""
+    #     try:
+    #         return self._session
+    #     except AttributeError:  # No session connected
+    #         raise AttributeError("Couldn't return current_session as there is not an active Session. Ensure you "
+    #                              "initialize a job context manager, i.e.\n"
+    #                              "with job.db.session() as session:\n"
+    #                              "    job.current_session = session\n"
+    #                              "Before you attempt to use the current_session")
+    #
+    # @current_session.setter
+    # def current_session(self, session: Session):
+    #     """Set the sqlalchemy.orm.Session that is currently in use to access database attributes later during the job"""
+    #     if isinstance(session, Session):
+    #         self._session = session
 
     @property
     def output_to_directory(self) -> bool:

@@ -262,9 +262,6 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None, residues: pd
     #             "Performing multiple metrics SQL transactions will only return results for the last transaction")
     #         warned = True
 
-    # job = sym_job.job_resources_factory()
-    # engine = job.db.engine
-    # session = job.current_session
     if poses is not None:
         # warn = True
         poses.replace({np.nan: None}, inplace=True)
