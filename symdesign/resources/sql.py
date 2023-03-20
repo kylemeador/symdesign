@@ -7,6 +7,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, select, UniqueConstraint
 from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.ext.orderinglist import ordering_list
 from sqlalchemy.orm import column_property, declarative_base, relationship, Session
 # from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, declarative_base  # Todo sqlalchemy 2.0
@@ -71,9 +72,13 @@ class PoseMetadata(Base):
                       )
     project = Column(String(100), nullable=False)  # Todo? , index=True)
     name = Column(String(100), nullable=False, index=True)
-    # This isn't a column in the __table__, but is an attribute of Class and derived instances
-    pose_identifier = column_property(project + os.sep + name)
-    # pose_identifier = column_property(f'{project}{os.sep}{name}')
+    # # This isn't a column in the __table__, but is an attribute of Class and derived instances
+    # pose_identifier = column_property(project + os.sep + name)
+    # # pose_identifier = column_property(f'{project}{os.sep}{name}')
+
+    @hybrid_property
+    def pose_identifier(self) -> str:
+        return self.project + os.sep + self.name
 
     # # Relationships concerning construction
     # # Set up many-to-one relationship with trajectory_metadata table
