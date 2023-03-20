@@ -2723,10 +2723,6 @@ class PoseProtocol(PoseData):
             residues.dropna(how='all', axis=1, inplace=True)
 
         if session is not None:
-            # Add the pose identifier to the dataframes
-            # pose_identifier = self._pose_id  # reliant on foreign keys...
-            # pose_identifier = self.pose_id  # reliant on SymDesign names...
-            # pose_identifier = self.id
             if designs is not None:
                 # design_index_names = ['pose', 'design']
                 # These are reliant on foreign keys...
@@ -2739,8 +2735,6 @@ class PoseProtocol(PoseData):
                 designs.index.set_names(sql.DesignMetrics.design_id.name, inplace=True)
                 # _design_ids = metrics.sql.write_dataframe(session, designs=designs)
                 metrics.sql.write_dataframe(session, designs=designs)
-            # else:
-            #     _design_ids = []
 
             if residues is not None:
                 # residue_index_names = ['pose', 'design']
@@ -2767,7 +2761,7 @@ class PoseProtocol(PoseData):
                 residues = residues.fillna(0.)
                 residues.sort_index(inplace=True)
                 residues.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-                # residue_metric_columns = residues.columns.levels[-1].to_list()
+                # residue_metric_columns = residues.columns.levels[-1].tolist()
                 # self.log.debug(f'Residues metrics present: {residue_metric_columns}')
 
                 residues.to_csv(self.residues_metrics_csv)
@@ -2775,7 +2769,7 @@ class PoseProtocol(PoseData):
 
             if designs is not None:
                 designs.sort_index(inplace=True, axis=1)
-                # designs_metric_columns = designs.columns.to_list()
+                # designs_metric_columns = designs.columns.tolist()
                 # self.log.debug(f'Designs metrics present: {designs_metric_columns}')
 
                 # if self.job.merge:
@@ -2819,14 +2813,14 @@ class PoseProtocol(PoseData):
         # scores_df = pd.concat([source_df, scores_df]).fillna(method='ffill')
         # Gather all columns into specific types for processing and formatting
         per_res_columns = []
-        for column in scores_df.columns.to_list():
+        for column in scores_df.columns.tolist():
             if 'res_' in column:
                 per_res_columns.append(column)
 
         # Check proper input
         metric_set = metrics.rosetta_required.difference(set(scores_df.columns))
         if metric_set:
-            self.log.debug(f'Score columns present before required metric check: {scores_df.columns.to_list()}')
+            self.log.debug(f'Score columns present before required metric check: {scores_df.columns.tolist()}')
             raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
 
         # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
@@ -2875,7 +2869,7 @@ class PoseProtocol(PoseData):
         # scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
 
         # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
-        viable_designs = scores_df.index.to_list()
+        viable_designs = scores_df.index.tolist()
         if not viable_designs:
             raise DesignError(
                 f'No viable designs remain after {self.process_rosetta_metrics.__name__} data processing steps')
@@ -2920,7 +2914,7 @@ class PoseProtocol(PoseData):
         Returns:
             A per-design metric DataFrame where each index is the design id and the columns are design metrics,
         """
-        scores_columns = scores_df.columns.to_list()
+        scores_columns = scores_df.columns.tolist()
         self.log.debug(f'Metrics present: {scores_columns}')
         summation_pairs = \
             {'buried_unsatisfied_hbonds_unbound':
@@ -3217,12 +3211,13 @@ class PoseProtocol(PoseData):
                 for attr, value in metrics_.__dict__.items():
                     if attr == '_sa_instance_state':
                         continue
-                    current_metrics.__setattr__(attr, value)
+                    setattr(current_metrics, attr, value)
             else:
                 return
         else:
-            raise NotImplementedError(f"{self.calculate_pose_metrics.__name__} doesn't output anything yet"
-                                      f" when {type(self.job).__name__}.db = {self.job.db}")
+            raise NotImplementedError(
+                f"{self.calculate_pose_metrics.__name__} doesn't output anything yet when {type(self.job).__name__}.db"
+                f"={self.job.db}")
             raise NotImplementedError(f"The reference=SymEntry.resulting_symmetry center_of_mass is needed as well")
             pose_df = self.pose.df  # Also performs entity.calculate_metrics()
 
@@ -4256,7 +4251,7 @@ class PoseProtocol(PoseData):
             # Gather all columns into specific types for processing and formatting
             per_res_columns = []
             # hbonds_columns = []
-            for column in scores_df.columns.to_list():
+            for column in scores_df.columns.tolist():
                 if 'res_' in column:  # if column.startswith('per_res_'):
                     per_res_columns.append(column)
                 # elif column.startswith('hbonds_res_selection'):
@@ -4299,7 +4294,7 @@ class PoseProtocol(PoseData):
                 scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
                 # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
 
-            viable_designs = scores_df.index.to_list()
+            viable_designs = scores_df.index.tolist()
             if not viable_designs:
                 raise DesignError('No viable designs remain after processing!')
 
@@ -4356,7 +4351,7 @@ class PoseProtocol(PoseData):
             # scores_df = pd.concat([source_df, scores_df]).fillna(method='ffill')
 
             remove_columns = metrics.rosetta_terms + metrics.unnecessary
-            residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.to_list()})
+            residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.tolist()})
             # Todo generate energy scores internally which matches output from residue_processing
             viable_designs = [pose.name for pose in designs]
 
@@ -4708,7 +4703,7 @@ class PoseProtocol(PoseData):
         #     scores_df[residue_class] = residues_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
 
         # Calculate metrics from combinations of metrics with variable integer number metric names
-        scores_columns = scores_df.columns.to_list()
+        scores_columns = scores_df.columns.tolist()
         self.log.debug(f'Metrics present: {scores_columns}')
         # sum columns using list[0] + list[1] + list[n]
         # residues_df = residues_df.drop([column
@@ -4796,7 +4791,7 @@ class PoseProtocol(PoseData):
                                                                         for protocol in unique_design_protocols})
         # Remove std rows if there is no stdev
         # number_of_trajectories = len(designs_df) + len(protocol_groups) + 1  # 1 for the mean
-        # final_trajectory_indices = designs_df.index.to_list() + unique_protocols + [mean]
+        # final_trajectory_indices = designs_df.index.tolist() + unique_protocols + [mean]
         designs_df = pd.concat([designs_df]
                                + [df.dropna(how='all', axis=0) for df in protocol_stats]  # v don't add if nothing
                                + [pd.to_numeric(s).to_frame().T for s in pose_stats if not all(s.isna())])
@@ -4918,8 +4913,8 @@ class PoseProtocol(PoseData):
                     # sim_stdev['energy_distance'] = grouped_pc_energy_df
 
             # Find the significance between each pair of protocols
-            protocol_sig_s = pd.concat([pvalue_df.loc[[pair], :].squeeze() for pair in pvalue_df.index.to_list()],
-                                       keys=[tuple(pair) for pair in pvalue_df.index.to_list()])
+            protocol_sig_s = pd.concat([pvalue_df.loc[[pair], :].squeeze() for pair in pvalue_df.index.tolist()],
+                                       keys=[tuple(pair) for pair in pvalue_df.index.tolist()])
             # squeeze turns the column headers into series indices. Keys appends to make a multi-index
 
             # Find total protocol similarity for different metrics

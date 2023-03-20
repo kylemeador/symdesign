@@ -1599,7 +1599,7 @@ def main():
                                          'relevant dataframe')
 
                 df = pd.read_csv(job.dataframe, index_col=0, header=[0])
-                print('INDICES:\n %s' % df.index.to_list()[:4])
+                print('INDICES:\n %s' % df.index.tolist()[:4])
                 ordered_files = []
                 for index in df.index:
                     for file in files:

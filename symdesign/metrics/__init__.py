@@ -1336,7 +1336,7 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dic
                     filter_name = f'{metric_name}({idx})'
                 else:
                     filter_name = metric_name
-                filtered_indices[filter_name] = filtered_df.index.to_list()
+                filtered_indices[filter_name] = filtered_df.index.tolist()
             # Currently below operations aren't necessary because of how index_intersection works
             #  indices = operation1(pre_operation(**kwargs)[metric], value)
             #  AND if more than one argument, only 2 args are possible...
@@ -1351,10 +1351,10 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dic
                 specification = filter_df.loc['direction', substituted_metric_name]
 
             if specification == 'max':
-                filtered_indices[metric_name] = df[df[metric_name] >= filter_ops].index.to_list()
+                filtered_indices[metric_name] = df[df[metric_name] >= filter_ops].index.tolist()
                 operator_string = '>='
             elif specification == 'min':
-                filtered_indices[metric_name] = df[df[metric_name] <= filter_ops].index.to_list()
+                filtered_indices[metric_name] = df[df[metric_name] <= filter_ops].index.tolist()
                 operator_string = '<='
             # Add to the filters
             print_filters.append((metric_name, f'{operator_string} {filter_ops}'))
@@ -1439,7 +1439,7 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filters: dict | bool = 
             # These were passed as parsed values
             pass
         else:  # --filter was provided, but as a boolean-esq dict. Query the user for them
-            available_filters = simple_df.columns.to_list()
+            available_filters = simple_df.columns.tolist()
             filters = query_user_for_metrics(available_filters, df=simple_df, mode='filter', level='design')
         logger.info(f'Number of starting designs: {len(df)}')
         # When df is not ranked by percentage
@@ -1468,7 +1468,7 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filters: dict | bool = 
             # These were passed as parsed values
             pass
         else:  # --weight was provided, but as a boolean-esq dict. Query the user for them
-            available_metrics = simple_df.columns.to_list()
+            available_metrics = simple_df.columns.tolist()
             weights = query_user_for_metrics(available_metrics, df=simple_df, mode='weight', level='design')
     elif default_weight in simple_df.columns:
         weights = None
@@ -1500,7 +1500,7 @@ def describe_data(df: pd.DataFrame = None) -> None:
     if not chosen_metrics:
         columns_of_interest = slice(None)
     else:
-        columns_of_interest = [idx for idx, column in enumerate(df.columns.get_level_values(-1).to_list())
+        columns_of_interest = [idx for idx, column in enumerate(df.columns.get_level_values(-1).tolist())
                                if column in chosen_metrics]
     # Format rows/columns for data display, then revert
     max_columns, min_columns = pd.get_option('display.max_columns'), pd.get_option('display.max_rows')

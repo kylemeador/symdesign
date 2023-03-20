@@ -306,8 +306,8 @@ def cluster_poses_by_value(identifier_pairs: Iterable[tuple[Any, Any]], values: 
         # take mean (doesn't matter which axis) and find the minimum (most similar to others) as representative
         cluster_representative_idx = pair_df.iloc[iloc_indices, iloc_indices].mean().argmin()
         # set all the cluster members belonging to the cluster representative
-        # pose_cluster_members = pair_df.index[iloc_indices].to_list()
-        clustered_poses[pair_df.index[cluster_representative_idx]] = pair_df.index[iloc_indices].to_list()
+        # pose_cluster_members = pair_df.index[iloc_indices].tolist()
+        clustered_poses[pair_df.index[cluster_representative_idx]] = pair_df.index[iloc_indices].tolist()
 
     # Add all outliers to the clustered poses as a representative
     outlier_poses = pair_df.index[np.where(dbscan.labels_ == outlier)]

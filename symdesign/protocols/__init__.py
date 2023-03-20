@@ -827,12 +827,12 @@ def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = No
     if protocols:
         designs = []
         for protocol in protocols:
-            designs.extend(designs_df[designs_df['protocol'] == protocol].index.to_list())
+            designs.extend(designs_df[designs_df['protocol'] == protocol].index.tolist())
 
         if not designs:
             raise DesignError(f'No designs found for protocols {protocols}!')
     else:
-        designs = designs_df.index.to_list()
+        designs = designs_df.index.tolist()
 
     job.log.info(f'Number of starting trajectories = {len(designs_df)}')
     df = designs_df.loc[designs, :]
@@ -847,7 +847,7 @@ def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = No
     if weights:
         # No filtering of protocol/indices to use as poses should have similar protocol scores coming in
         job.log.info(f'Using weighting parameters: {weights}')
-        designs = metrics.pareto_optimize_trajectories(df, weights=weights, **kwargs).index.to_list()
+        designs = metrics.pareto_optimize_trajectories(df, weights=weights, **kwargs).index.tolist()
     else:
         # sequences_pickle = glob(os.path.join(job.job.all_scores, '%s_Sequences.pkl' % str(job)))
         # assert len(sequences_pickle) == 1, 'Couldn\'t find files for %s' % \
@@ -929,7 +929,7 @@ def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = No
         if len(final_designs) > number:
             energy_s = df.loc[final_designs.keys(), 'interface_energy']
             energy_s.sort_values(inplace=True)
-            designs = energy_s.index.to_list()
+            designs = energy_s.index.tolist()
         else:
             designs = list(final_designs.keys())
 

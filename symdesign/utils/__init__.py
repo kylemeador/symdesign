@@ -758,12 +758,6 @@ def bytes2human(number: int, return_format: str = "{:.1f} {}") -> str:
         value = number
     return return_format.format(value, symbol)
 
-    # for symbol in reversed(symbols[1:]):
-    #     if number >= prefix[symbol]:
-    #         value = float(number) / prefix[symbol]
-    #         return format % locals()
-    # return format % dict(symbol=symbols[0], value=number)
-
 
 SYMBOLS = {
     'customary': ('B', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'),
@@ -801,7 +795,7 @@ def human2bytes(human_byte_str: AnyStr) -> int:
         The number of bytes from a human-readable expression of bytes
     """
     # Find the scale prefix/abbreviation
-    letter = human_byte_str.translate(remove_digit_table).replace('. ', '')
+    letter = human_byte_str.translate(remove_digit_table).replace('.', '').replace(' ', '')
     for name, symbol_set in SYMBOLS.items():
         if letter in symbol_set:
             break
@@ -815,20 +809,11 @@ def human2bytes(human_byte_str: AnyStr) -> int:
 
     # Find the size value
     number = human_byte_str.strip(letter).strip()
-    # num = ""
-    # while human_byte_str and human_byte_str[0:1].isdigit() or human_byte_str[0:1] == '.':
-    #     num += human_byte_str[0]
-    #     human_byte_str = human_byte_str[1:]
     try:
         number = float(number)
     except ValueError:
         raise ValueError(f"{human2bytes.__name__}: Can't interpret {human_byte_str}")
     else:
-        # prefix = {sset[0]:1}
-        # for i, human_byte_str in enumerate(sset[1:]):
-        #     prefix[human_byte_str] = 1 << (i + 1) * 10
-        # return int(number * prefix[letter])
-
         # Convert to numeric bytes
         letter_index = symbol_set.index(letter)
         return int(number * (1 << letter_index * 10))

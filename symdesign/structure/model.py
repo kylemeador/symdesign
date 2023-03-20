@@ -7225,28 +7225,13 @@ class Pose(SymmetricModel, Metrics):
 
         contact_order_z = np.concatenate(contact_order_z)
         hydrophobic_collapse = np.concatenate(hydrophobic_collapse)
-        if missing:
+        if sum(missing):  # Need to sum as it could be empty from no .entities and then wouldn't collect either
             hydrophobic_collapse_profile = np.empty(0)
-            self.log.warning(f'There were missing SequenceProfile objects on {sum(missing)} Entity '
-                             'instances. The collapse_profile will not be captured for the entire '
-                             f'{self.__class__.__name__}.')
+            self.log.warning(f'There were {sum(missing)} missing Entity.SequenceProfile instances. The collapse_profile'
+                             f' will not be captured for the entire {self.__class__.__name__}.')
         #     self.log.warning(f'There were missing MultipleSequenceAlignment objects on {sum(missing)} Entity '
         #                      'instances. The collapse_profile will not be captured for the entire '
         #                      f'{self.__class__.__name__}.')
-        #     # empty_list = []
-        #     # hydrophobic_collapse_profile = np.ndarray(empty_list)
-        #     # print('empty_list', empty_list)
-        #     # _hydrophobic_collapse_profile = np.ndarray([])
-        #     # print('inside function !', hydrophobic_collapse_profile)  # This was printing 7.0. wtf??
-        #     # print('inside function _!', _hydrophobic_collapse_profile)  # This was printing 3.5e-323. wtf??
-        #     # if hydrophobic_collapse_profile is not None and hydrophobic_collapse_profile.size:  # Not equal to zero
-        #     #     print('collapse_profile', hydrophobic_collapse_profile)
-        #     #     print('collapse_profile.size', hydrophobic_collapse_profile.size)
-        #     # >>> empty_list []
-        #     # >>> inside function ! 7.0
-        #     # >>> inside function _! 3.5e-323
-        #     # >>> collapse_profile 7.0
-        #     # >>> collapse_profile.size 1
         # else:
         #     # We have to concatenate where the values will be different
         #     # axis=1 is along the residues, so the result should be the length of the pose

@@ -46,18 +46,18 @@ def load_total_dataframe(pose_jobs: Iterable[PoseJob], pose: bool = False) -> pd
         for pose_job, df in zip(pose_jobs, all_dfs):
             df.fillna(0., inplace=True)  # Shouldn't be necessary if saved files were formatted correctly
             # try:
-            df.drop([index for index in df.index.to_list() if isinstance(index, float)], inplace=True)
+            df.drop([index for index in df.index.tolist() if isinstance(index, float)], inplace=True)
             # Get rid of all individual trajectories and std, not mean
             pose_name = pose_job.name
-            df.drop([index for index in df.index.to_list() if pose_name in index or 'std' in index], inplace=True)
+            df.drop([index for index in df.index.tolist() if pose_name in index or 'std' in index], inplace=True)
             # except TypeError:
-            #     for index in df.index.to_list():
+            #     for index in df.index.tolist():
             #         print(index, type(index))
     else:  # designs
         for pose_job, df in zip(pose_jobs, all_dfs):
             # Get rid of all statistic entries, mean, std, etc.
             pose_name = pose_job.name
-            df.drop([index for index in df.index.to_list() if pose_name not in index], inplace=True)
+            df.drop([index for index in df.index.tolist() if pose_name not in index], inplace=True)
 
     # Add pose directory str as MultiIndex
     try:
@@ -494,7 +494,7 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         # Remove excess pose instances
         number_chosen = 0
         selected_indices, selected_poses = [], set()
-        for pose_job, design in selected_poses_df.index.to_list():
+        for pose_job, design in selected_poses_df.index.tolist():
             if pose_job not in selected_poses:
                 selected_poses.add(pose_job)
                 selected_indices.append((pose_job, design))
@@ -524,7 +524,7 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         # Remove excess pose instances
         number_chosen = 0
         selected_indices, selected_poses = [], set()
-        for pose_job, design in selected_poses_df.index.to_list():
+        for pose_job, design in selected_poses_df.index.tolist():
             if pose_job not in selected_poses:
                 selected_poses.add(pose_job)
                 selected_indices.append((pose_job, design))
@@ -554,7 +554,7 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #     save_poses_df = selected_poses_df.droplevel(0, axis=1).droplevel(0, axis=1)
     #     program_root = job.program_root
     #     selected_poses = [PoseJob.from_directory(pose, root=job.projects)
-    #                       for pose in save_poses_df.index.to_list()]
+    #                       for pose in save_poses_df.index.tolist()]
     # else:  # Generate design metrics on the spot
     #     raise NotImplementedError('This functionality is currently broken')
     #     selected_poses, selected_poses_df, total_df = [], pd.DataFrame(), pd.DataFrame()
@@ -733,7 +733,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                                               function=job.weight_function)
         # Specify the result order according to any filtering, weighting, and number
         selected_poses = {}
-        for pose_job, design in selected_poses_df.index.to_list()[:job.select_number]:
+        for pose_job, design in selected_poses_df.index.tolist()[:job.select_number]:
             _designs = selected_poses.get(pose_job, None)
             if _designs:
                 _designs.append(design)
@@ -758,7 +758,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                                                               protocols=job.protocol,
                                                               default_weight=default_weight_metric,
                                                               function=job.weight_function)
-        selected_designs = selected_poses_df.index.to_list()
+        selected_designs = selected_poses_df.index.tolist()
         job.select_number = \
             len(selected_designs) if len(selected_designs) < job.select_number else job.select_number
         # if job.allow_multiple_poses:
@@ -803,7 +803,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #             raise RuntimeError('Missing the required argument pose_jobs. It must be passed to continue')
     #         example_trajectory = representative_pose_job.designs_metrics_csv
     #         trajectory_df = pd.read_csv(example_trajectory, index_col=0, header=[0])
-    #         sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
+    #         sequence_metrics = set(trajectory_df.columns.get_level_values(-1).tolist())
     #
     #     if job.filter == list():
     #         sequence_filters = metrics.query_user_for_metrics(sequence_metrics, mode='filter', level='sequence')
@@ -1374,7 +1374,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #     # Remove excess pose instances
     #     number_chosen = 0
     #     selected_indices, selected_poses = [], set()
-    #     for pose_job, design in selected_poses_df.index.to_list():
+    #     for pose_job, design in selected_poses_df.index.tolist():
     #         if pose_job not in selected_poses:
     #             selected_poses.add(pose_job)
     #             selected_indices.append((pose_job, design))
@@ -1553,7 +1553,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #                                           protocols=job.protocol, function=job.weight_function)
     #     # Specify the result order according to any filtering, weighting, and number
     #     results = {}
-    #     for pose_id, design in selected_poses_df.index.to_list()[:job.select_number]:
+    #     for pose_id, design in selected_poses_df.index.tolist()[:job.select_number]:
     #         if pose_id in results:
     #             results[pose_id].append(design)
     #         else:
@@ -1576,7 +1576,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #     # Figure out designs from dataframe, filters, and weights
     #     selected_poses_df = metrics.prioritize_design_indices(df, filters=job.filter, weights=job.weight,
     #                                                           protocols=job.protocol, function=job.weight_function)
-    #     selected_designs = selected_poses_df.index.to_list()
+    #     selected_designs = selected_poses_df.index.tolist()
     #     job.select_number = \
     #         len(selected_designs) if len(selected_designs) < job.select_number else job.select_number
     #

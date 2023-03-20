@@ -46,7 +46,7 @@ def insert_dataframe(session: Session, table: sql.Base, df: pd.DataFrame, mysql:
 
     insert_stmt = insert(table)
     # # Get the columns that should be updated
-    # new_columns = df.index.names + df.columns.to_list()
+    # new_columns = df.columns.tolist()
     # # logger.debug(f'Provided columns: {new_columns}')
     # excluded_columns = insert_stmt.excluded
     # update_columns = [c for c in excluded_columns if c.name in new_columns]
@@ -157,7 +157,7 @@ def upsert_dataframe(session: Session, table: sql.Base, df: pd.DataFrame, mysql:
         excluded_columns = insert_stmt.excluded
 
     # Get the columns that should be updated
-    new_columns = df.index.names + df.columns.to_list()
+    new_columns = df.columns.tolist()
     # logger.debug(f'Provided columns: {new_columns}')
     update_columns = [c for c in excluded_columns if c.name in new_columns]
     update_dict = {c.name: c for c in update_columns if not c.primary_key}
@@ -205,7 +205,7 @@ def format_residues_df_for_write(df: pd.DataFrame) -> pd.DataFrame:
         The transformed DataFrame
     """
     # df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-    # # residue_metric_columns = residues.columns.levels[-1].to_list()
+    # # residue_metric_columns = residues.columns.levels[-1].tolist()
     # # self.log.debug(f'Residues metrics present: {residue_metric_columns}')
 
     # Place the residue indices from the column names into the index at position -1
