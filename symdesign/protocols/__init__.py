@@ -26,12 +26,6 @@ from symdesign.utils import condensed_to_square, get_directory_file_paths, Input
 
 
 logger = logging.getLogger(__name__)
-# Protocols
-nanohedra = fragdock.fragment_dock
-cluster_poses = cluster.cluster_poses
-select_poses = select.sql_poses  # select.poses
-select_designs = select.sql_designs  # select.designs
-select_sequences = select.sql_sequences  # select.sequences
 warn_missing_symmetry = \
     f'Cannot %s without providing symmetry! Provide symmetry with "--symmetry" or "--{putils.sym_entry}"'
 
@@ -84,6 +78,28 @@ def handle_design_errors(errors: tuple[Type[Exception], ...] = (DesignError,)) -
     return wrapper
 
 
+def handle_job_errors(errors: tuple[Type[Exception], ...] = (DesignError,)) -> Callable:
+    """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
+
+    This argument is typically self and is in a class with .log attribute
+
+    Args:
+        errors: A tuple of exceptions to monitor. Must be a tuple even if single exception
+    Returns:
+        Function return upon proper execution, else is error if exception raised, else None
+    """
+    def wrapper(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapped(*args, **kwargs) -> Any:
+            try:
+                return func(*args, **kwargs)
+            except errors as error:
+                # Perform exception reporting
+                return [ReportException(str(error))]
+        return wrapped
+    return wrapper
+
+
 def protocol_decorator(errors: tuple[Type[Exception], ...] = (DesignError,)) -> Callable:
     """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
 
@@ -101,7 +117,7 @@ def protocol_decorator(errors: tuple[Type[Exception], ...] = (DesignError,)) -> 
             try:
                 func_return = func(job, *args, **kwargs)
             except errors as error:
-                # Perform exception reporting using self.log
+                # Perform exception reporting using job.log
                 job.log.error(error)
                 job.log.info(''.join(traceback.format_exc()))  # .format_exception(error)))
                 func_return = ReportException(str(error))
@@ -119,6 +135,14 @@ def protocol_decorator(errors: tuple[Type[Exception], ...] = (DesignError,)) -> 
             return func_return
         return wrapped
     return wrapper
+
+
+# Protocols
+nanohedra = handle_job_errors()(fragdock.fragment_dock)
+cluster_poses = handle_job_errors()(cluster.cluster_poses)
+select_poses = handle_job_errors()(select.sql_poses)  # select.poses
+select_designs = handle_job_errors()(select.sql_designs)  # select.designs
+select_sequences = handle_job_errors()(select.sql_sequences)  # select.sequences
 
 
 @protocol_decorator()
