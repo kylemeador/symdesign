@@ -4312,32 +4312,32 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         # Populate the database with pose information. Has access to nonlocal session
         populate_pose_metadata()
 
-        # Todo 2 modernize with the new SQL database and 6D transform aspirations
-        # Cluster by perturbation if perturb_dof:
-        if number_perturbations_applied > 1:
-            perturbation_identifier = '-p_'
-            cluster_type_str = 'ByPerturbation'
-            seed_transforms = utils.remove_duplicates(
-                [pose_name.split(perturbation_identifier)[0] for pose_name in pose_names])
-            cluster_map = {seed_transform: pose_names[idx * number_perturbations_applied:
-                                                      (idx + 1) * number_perturbations_applied]
-                           for idx, seed_transform in enumerate(seed_transforms)}
-            # for pose_name in pose_names:
-            #     seed_transform, *perturbation = pose_name.split(perturbation_identifier)
-            #     clustered_transformations[seed_transform].append(pose_name)
-
-            # Set the number of poses to cluster equal to the sqrt of the search area
-            job.cluster.number = math.sqrt(number_perturbations_applied)
-        else:
-            cluster_type_str = 'ByTransformation'
-            cluster_map = cluster.cluster_by_transformations(*create_transformation_group(),
-                                                             values=project_pose_names)
-        # Output clustering results
-        job.cluster.map = utils.pickle_object(cluster_map,
-                                              name=putils.default_clustered_pose_file.format('', cluster_type_str),
-                                              out_path=project_dir)
-        logger.info(f'Found {len(cluster_map)} unique clusters from {len(pose_names)} pose inputs. '
-                    f'Wrote cluster map to {job.cluster.map}')
+        # # Todo 2 modernize with the new SQL database and 6D transform aspirations
+        # # Cluster by perturbation if perturb_dof:
+        # if number_perturbations_applied > 1:
+        #     perturbation_identifier = '-p_'
+        #     cluster_type_str = 'ByPerturbation'
+        #     seed_transforms = utils.remove_duplicates(
+        #         [pose_name.split(perturbation_identifier)[0] for pose_name in pose_names])
+        #     cluster_map = {seed_transform: pose_names[idx * number_perturbations_applied:
+        #                                               (idx + 1) * number_perturbations_applied]
+        #                    for idx, seed_transform in enumerate(seed_transforms)}
+        #     # for pose_name in pose_names:
+        #     #     seed_transform, *perturbation = pose_name.split(perturbation_identifier)
+        #     #     clustered_transformations[seed_transform].append(pose_name)
+        #
+        #     # Set the number of poses to cluster equal to the sqrt of the search area
+        #     job.cluster.number = math.sqrt(number_perturbations_applied)
+        # else:
+        #     cluster_type_str = 'ByTransformation'
+        #     cluster_map = cluster.cluster_by_transformations(*create_transformation_group(),
+        #                                                      values=project_pose_names)
+        # # Output clustering results
+        # job.cluster.map = utils.pickle_object(cluster_map,
+        #                                       name=putils.default_clustered_pose_file.format('', cluster_type_str),
+        #                                       out_path=project_dir)
+        # logger.info(f'Found {len(cluster_map)} unique clusters from {len(pose_names)} pose inputs. '
+        #             f'Wrote cluster map to {job.cluster.map}')
 
         # Write trajectory if specified
         if job.output_trajectory:
