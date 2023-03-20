@@ -540,8 +540,19 @@ def main():
         # Select entities, orient them, then load each Structure for further database processing
         return job.structure_db.orient_structures(structure_names, symmetry=symmetry, by_file=by_file)
 
-    def create_protein_metadata(structures: list[Model | Entity], symmetry: str = None):
-        """"""
+    def create_protein_metadata(structures: list[Model | Entity], symmetry: str = None) \
+            -> tuple[list[tuple[str, list[tuple[str]]]], dict[tuple[str], sql.ProteinMetadata]]:
+        """From a Structure instance, extract the unique metadata to identify the entities involved
+
+        Args:
+            structures: The Structure instances to initialize to ProteinMetadata
+            symmetry: The symmetry to use in initialization of ProteinMetadata
+        Returns:
+            A tuple comprising the pair(
+                A mapping of the Structure name to the UniProtIDs of each Structure Entity,
+                A mapping of the UniProtIDs to the ProteinMetadata for each unique Entity instance
+            )
+        """
         structures_ids: list[tuple[str, list[tuple[str, ...]]]] = []
         uniprot_ids_to_prot_metadata = {}
         for structure in structures:
@@ -554,9 +565,7 @@ def main():
                     symmetry_group=symmetry,
                     model_source=entity.file_path
                 )
-                # # Set the Entity with .metadata attribute to fetch in fragdock()
-                # entity.metadata = protein_metadata
-                # for uniprot_id in entity.uniprot_ids:
+
                 try:
                     ''.join(entity.uniprot_ids)
                 except TypeError:  # Uniprot_ids is (None,)
@@ -570,7 +579,6 @@ def main():
                     # This Entity already found for processing, and we shouldn't have duplicates
                     logger.error(f"Found duplicate UniProtID identifier, {uniprot_ids}, for {protein_metadata}. "
                                  f"This error wasn't expected to occur.{putils.report_issue}")
-                    # raise RuntimeError(f"This error wasn't expected to occur.{putils.report_issue}")
                 else:  # Process for persistent state
                     uniprot_ids_to_prot_metadata[uniprot_ids] = protein_metadata
                 structure_uniprot_ids.append(uniprot_ids)  # protein_metadata)

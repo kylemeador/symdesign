@@ -2832,14 +2832,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self._copy_structure_containers()  # Copy each Chain in chains
                 # Reindex all residue and atom indices
                 reset_passed_structures(self.chains)
-                # chain0, *other_chains = self.chains
-                # chain0.reset_state()
-                # chain0._start_indices(at=0, dtype='atom')
-                # chain0._start_indices(at=0, dtype='residue')
-                # for prior_chain, chain in zip(self.chains, other_chains):
-                #     chain.reset_state()
-                #     chain._start_indices(at=prior_chain.atom_indices[-1] + 1, dtype='atom')
-                #     chain._start_indices(at=prior_chain.residue_indices[-1] + 1, dtype='residue')
 
                 # Set the parent attribute for all containers
                 self._update_structure_container_attributes(_parent=self)
@@ -2860,14 +2852,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self._copy_structure_containers()  # Copy each Entity in entities
                 # Reindex all residue and atom indices
                 reset_passed_structures(self.entities)
-                # entity0, *other_entities = self.entities
-                # entity0.reset_state()
-                # entity0._start_indices(at=0, dtype='atom')
-                # entity0._start_indices(at=0, dtype='residue')
-                # for prior_entity, entity in zip(self.entities, other_entities):
-                #     entity.reset_state()
-                #     entity._start_indices(at=prior_entity.atom_indices[-1] + 1, dtype='atom')
-                #     entity._start_indices(at=prior_entity.residue_indices[-1] + 1, dtype='residue')
 
                 # Set the parent attribute for all containers
                 self._update_structure_container_attributes(_parent=self)
@@ -5931,7 +5915,7 @@ class SymmetricModel(Models):
         number_of_symmetry_mates = self.number_of_symmetry_mates
         if self.number_of_entities * number_of_symmetry_mates == self.number_of_chains:
             self.log.critical(f'Setting the {self.__class__.__name__} to an ASU from a symmetric representation. '
-                              'This method has not been thoroughly debugged')
+                              "This method hasn't been thoroughly debugged")
             # Set base Structure attributes
             # Can't do this as they may not be symmetric!
             # # Set the symmetric coords according to existing coords
@@ -5973,7 +5957,7 @@ class SymmetricModel(Models):
             # for entity in self.entities:
             #     entity.remove_mate_chains()
         else:
-            self.log.debug(f'Setting {self.__class__.__name__} ASU to the ASU with the most contacting interface')
+            self.log.debug(f'Setting {self.__class__.__name__}.coords to the ASU with the most contacting interface')
             entities = self.find_contacting_asu(**kwargs)
 
             # With perfect symmetry, v this is sufficient

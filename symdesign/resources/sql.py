@@ -312,7 +312,7 @@ class ProteinMetadata(Base):
     # symmetry = Column(ForeignKey('symmetry_groups.id'))
 
     @property
-    def uniprot_ids(self) -> dict[str, dict[str, Any]]:
+    def uniprot_ids(self) -> tuple[str, ...]:
         """Access the UniProtID's associated with this instance"""
         return tuple(uni_entity.id for uni_entity in self.uniprot_entities)
 

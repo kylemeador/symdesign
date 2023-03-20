@@ -1357,9 +1357,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                         self.log.info(f'Entity {entity.name} oligomer written to: "{oligomer_path}"')
 
         if self.job.output_fragments:
+            # if not self.pose.fragment_pairs:
+            #     self.pose.generate_interface_fragments()
             if self.pose.fragment_pairs:
-                # Make directories to output matched fragment files
-                putils.make_path(self.frags_path)
                 self.pose.write_fragment_pairs(out_path=self.frags_path)
 
         if self.job.output_interface:
