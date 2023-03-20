@@ -17,6 +17,7 @@ import sqlalchemy.exc
 import tensorflow as tf
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, Session
 
 from . import config, distribute, sql, structure_db, wrapapi
@@ -780,7 +781,8 @@ class JobResources:
                 session.add(job_protocol)
                 session.commit()
             elif len(job_protocol_result) > 1:
-                raise sqlalchemy.exc.IntegrityError(f"Can't have more than one matching {sql.JobProtocol.__name__}")
+                raise IntegrityError(
+                    f"Can't have more than one matching {sql.JobProtocol.__name__}")
             else:
                 job_protocol = job_protocol_result[0]
 

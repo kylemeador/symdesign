@@ -17,7 +17,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 from sqlalchemy import select
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import selectinload
 from tqdm import tqdm
 
@@ -4105,7 +4105,8 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
             session.add_all(pose_jobs)
             try:  # Flush PoseJobs to the current session to generate ids
                 session.flush()
-            except SQLAlchemyError:  # We already inserted this PoseJob.project/.name
+            # except SQLAlchemyError:  # We already inserted this PoseJob.project/.name
+            except IntegrityError:  # We already inserted this PoseJob.project/.name
                 session.rollback()
                 # Find the actual pose_jobs_to_commit and place in session
                 # pose_identifiers = [pose_job.new_pose_identifier for pose_job in pose_jobs]
