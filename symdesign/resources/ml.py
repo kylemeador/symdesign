@@ -40,23 +40,31 @@ mpnn_alphabet_length = len(mpnn_alphabet)
 MPNN_NULL_IDX = 20
 
 
-def get_device_memory(device: torch.device) -> int:
+def get_device_memory(device: torch.device | int | str | None, free: bool = False) -> int:
     """Get the memory available for a requested device to calculate computational constraints
 
     Args:
         device: The current device of the pytorch model in question
+        free: Whether to return the free memory if the device is a cuda GPU, otherwise return all pytorch memory
     Returns:
         The bytes of memory available
     """
+    if not isinstance(device, torch.device):
+        device = torch.device(device)
+
     if device.type == 'cpu':  # device is None or
         memory_constraint = utils.get_available_memory()
         logger.debug(f'The available cpu memory is: {memory_constraint}')
     else:
-        free_memory, gpu_memory_total = torch.cuda.mem_get_info()
+        free_memory, gpu_memory_total = torch.cuda.mem_get_info(device)
         logger.debug(f'The available gpu memory is: {free_memory}')
-        memory_reserved = torch.cuda.memory_reserved()
+        memory_reserved = torch.cuda.memory_reserved(device)
         logger.debug(f'The reserved gpu memory is: {memory_reserved}')
-        memory_constraint = free_memory + memory_reserved
+        if free:
+            memory_constraint = free_memory
+        else:
+            memory_constraint = free_memory + memory_reserved
+
     return memory_constraint
 
 
@@ -68,7 +76,7 @@ def calculate_proteinmpnn_batch_length(model: ProteinMPNN, number_of_residues: i
         number_of_residues: The number of residues used in the ProteinMPNN model
         element_memory: Where each element is np.int64, np.float32, etc.
     Returns:
-
+        The size of the batch that can be completed for the ProteinMPNN model given it's device
     """
     memory_constraint = get_device_memory(model.device)
 
@@ -95,7 +103,31 @@ def calculate_proteinmpnn_batch_length(model: ProteinMPNN, number_of_residues: i
     logger.debug(f'The number of model_elements is: {model_elements}')
 
     number_of_batches = number_of_elements_available // model_elements
-    return number_of_batches // proteinmpnn_batch_divisor
+    batch_length = number_of_batches // proteinmpnn_batch_divisor
+    if batch_length == 0:
+        old_device = model.device
+        # This won't work. Try to put the model on a new device
+        max_memory = vanilla_model_memory
+        for device_int in range(torch.cuda.device_count()):
+            available_memory = get_device_memory(torch.device(device_int), free=True)
+            if available_memory > max_memory:
+                max_memory = available_memory
+                device_id = device_int
+        try:
+            device: torch.device = torch.device(device_id)
+        except UnboundLocalError:  # No device has memory greater than ProteinMPNN minimum required
+            device = torch.device('cpu')
+
+        if device != old_device:
+            model.to(device)
+            # Recurse
+            return calculate_proteinmpnn_batch_length(model, number_of_residues, element_memory)
+        else:  # This hasn't been changed
+            raise RunTimeError(
+                f"Can't find a device for {model} with enough memory to complete a single batch of work"
+                f"with {number_of_residues} residues in the model")
+
+    return batch_length
 
 
 # This heuristic was decided based on successful runs and the batch_length at which they succeeded
@@ -296,10 +328,18 @@ def create_decoding_order(randn: torch.Tensor, chain_mask: torch.Tensor, tied_po
     return decoding_order
 
 
+vanilla_model_memory = 14680064  # 14 M
+ca_model_memory = 14680064  # NEED TO UPDATE
+
+
 class _ProteinMPNN(ProteinMPNN):
     """Implemented to instruct logging outputs"""
     log = logging.getLogger(f'{__name__}.ProteinMPNN')
     device: torch.device
+    model_name: str
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({self.model_name})'
 
 
 class ProteinMPNNFactory:
@@ -330,17 +370,32 @@ class ProteinMPNNFactory:
                 logger.error(f"No such ca_only model 'v_48_030'. Loading ca_only model 'v_48_020' (highest "
                              f"backbone noise ca_only model) instead")
                 model_name = 'v_48_020'
+            weights_dir = utils.path.protein_mpnn_ca_weights_dir
+            required_memory = ca_model_memory
         else:
             ca = ''
+            weights_dir = utils.path.protein_mpnn_weights_dir
+            required_memory = vanilla_model_memory
+
         model_name_key = f'{model_name}{ca}_{backbone_noise}'
         model = self._models.get(model_name_key)
         if model:
             return model
         else:  # Create a new ProteinMPNN model instance
-            if not self._models:  # Nothing initialized
-                # Acquire a adequate computing device
-                if torch.cuda.is_available():
-                    self.device: torch.device = torch.device('cuda:0')
+            # if not self._models:  # Nothing initialized
+            # Acquire an adequate computing device
+            if torch.cuda.is_available():
+                max_memory = required_memory
+                for device_int in range(torch.cuda.device_count()):
+                    available_memory = get_device_memory(torch.device(device_int), free=True)
+                    if available_memory > max_memory:
+                        max_memory = available_memory
+                        device_id = device_int
+                try:
+                    device: torch.device = torch.device(device_id)
+                except UnboundLocalError:  # No device has memory greater than ProteinMPNN minimum required
+                    device = torch.device('cpu')
+                else:
                     # Set the environment to use memory efficient cuda management
                     max_split = 1000
                     pytorch_conf = f'max_split_size_mb:{max_split},' \
@@ -349,14 +404,10 @@ class ProteinMPNNFactory:
                     os.environ['PYTORCH_CUDA_ALLOC_CONF'] = pytorch_conf
                     logger.debug(f'Setting pytorch configuration:\n{pytorch_conf}\n'
                                  f'Result:{os.getenv("PYTORCH_CUDA_ALLOC_CONF")}')
-                else:
-                    self.device = torch.device('cpu')
-
-            if ca_only:
-                weights_dir = utils.path.protein_mpnn_ca_weights_dir
             else:
-                weights_dir = utils.path.protein_mpnn_weights_dir
-            checkpoint = torch.load(os.path.join(weights_dir, f'{model_name}.pt'), map_location=self.device)
+                device = torch.device('cpu')
+
+            checkpoint = torch.load(os.path.join(weights_dir, f'{model_name}.pt'), map_location=device)
             hidden_dim = 128
             num_layers = 3
             with torch.no_grad():
@@ -367,13 +418,15 @@ class ProteinMPNNFactory:
                                      num_encoder_layers=num_layers,
                                      num_decoder_layers=num_layers,
                                      augment_eps=backbone_noise,
-                                     k_neighbors=checkpoint['num_edges'])
-                model.to(self.device)
+                                     k_neighbors=checkpoint['num_edges'],
+                                     ca_only=ca_only)
+                model.to(device)
                 model.load_state_dict(checkpoint['model_state_dict'])
                 model.eval()
-                model.device = self.device
+                model.device = device
+                model.model_name = model_name_key
 
-            model.log.info(f'ProteinMPNN model "{model_name_key}" on device "{self.device}" has '
+            model.log.info(f'ProteinMPNN model "{model_name_key}" on device "{device}" has '
                            f'{checkpoint["num_edges"]} edges and {checkpoint["noise_level"]} Angstroms of training '
                            'noise')
             # number_of_mpnn_model_parameters = sum([math.prod(param.size()) for param in model.parameters()])
