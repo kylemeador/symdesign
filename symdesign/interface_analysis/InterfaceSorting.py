@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 
 from symdesign import utils
 from symdesign.interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_interfaces
@@ -97,7 +98,7 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
 #                 return None
 #         else:
 #             print("Connection to MySQL DB not yet supported")
-#             exit()
+#             sys.exit()
 #
 #         # interface_data = pisa_data['interfaces']
 #         if pisa_polymer_interface(pisa_data['interfaces'][interface_id]):
@@ -371,7 +372,7 @@ if __name__ == '__main__':
             pisa_d = verify_pisa(pisa_d, pdb_code)
             if pisa_d:  # we modified the pisa_d and should re-pickle
                 utils.pickle_object(pisa_d, pisa_path, out_path='')
-        exit()
+        sys.exit()
     current_interface_file_path = '/yeates1/kmeador/fragment_database/current_pdb_lists/'  # Todo parameterize
 
     # pdb_directory = '/yeates1/kmeador/fragment_database/all_pdb'  # sub directoried

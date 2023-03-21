@@ -656,7 +656,7 @@ if __name__ == '__main__':
                 translations = np.insert(translations, 0, origin, axis=0)
         # print(rotations)
         # print(translations)
-        # exit()
+        # sys.exit()
         space_group_operators[symmetry_group] = (rotations, translations[:, None, :])
         # sym_op_outfile_path = os.path.join(putils.sym_op_location, f'{symmetry_group}.pkl')
         # pickle_object(sym_op, name=symmetry_group, out_path=pickled_dir)

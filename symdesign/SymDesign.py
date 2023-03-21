@@ -225,7 +225,7 @@ def main():
         #     print('Average_design_directory_size equals %f' %
         #           (float(psutil.virtual_memory().used) / len(pose_jobs)))
 
-        exit(exit_code)
+        sys.exit(exit_code)
 
     def initialize_entities(uniprot_entities: Iterable[wrapapi.UniProtEntity],
                             metadata: Iterable[sql.ProteinMetadata], batch_commands: bool = False):
@@ -566,30 +566,27 @@ def main():
     if args.module:
         if args.guide:
             try:
-                module_guide = getattr(utils.guide, args.module.replace('-', '_'))
-                exit(module_guide)
+                print(getattr(utils.guide, args.module.replace('-', '_')))
             except AttributeError:
-                exit(f'There is no guide created for {args.module} yet. Try --help instead of --guide')
-            # Tod0 below are known to be missing
-            # custom_script
-            # check_clashes
-            # residue_selector
-            # visualize
+                print(f'There is no guide created for {args.module} yet. Try --help instead of --guide')
+            sys.exit()
+            # Known to be missing
+            # [custom_script, check_clashes, residue_selector, visualize]
             #     print('Usage: %s -r %s -- [-d %s, -df %s, -f %s] visualize --range 0-10'
             #           % (putils.ex_path('pymol'), putils.program_command.replace('python ', ''),
             #              putils.ex_path('pose_directory'), SDUtils.ex_path('DataFrame.csv'),
             #              putils.ex_path('design.paths')))
         # else:  # Print the full program readme and exit
         #     utils.guide.print_guide()
-        #     exit()
+        #     sys.exit()
     elif args.setup:
         utils.guide.setup_instructions()
-        exit()
+        sys.exit()
     elif args.help:
         pass  # Let the entire_parser handle their formatting
     else:  # Print the full program readme and exit
         utils.guide.print_guide()
-        exit()
+        sys.exit()
 
     # ---------------------------------------------------
     # elif args.flags:  # Todo
@@ -633,7 +630,7 @@ def main():
     elif args.module == flags.nanohedra:
         if args.query:  # Submit before we check for additional_args as query comes with additional args
             utils.nanohedra.cmdline.query_mode([__file__, '-query'] + additional_args)
-            exit()
+            sys.exit()
         else:  # Add a dummy input for argparse to happily continue with required args
             additional_args.extend(['--file', 'dummy'])
             remove_dummy = True
@@ -676,10 +673,11 @@ def main():
         args, additional_args = flags.argparsers[argparser].parse_known_args(args=additional_args, namespace=args)
 
     if additional_args:
-        exit(f"\nSuspending run. Found flag(s) that aren't recognized: {', '.join(additional_args)}\n"
-             'Please correct/remove them and resubmit your command. Try adding -h/--help for available formatting\n'
-             f"If you want to view all {putils.program_name} flags, "
-             f"replace the MODULE '{args.module}' with '{flags.all_flags}'")
+        print(f"\nFound flag(s) that aren't recognized with the requested job/module(s): {', '.join(additional_args)}\n"
+              'Please correct/remove them and resubmit your command. Try adding -h/--help for available formatting\n'
+              f"If you want to view all {putils.program_name} flags, "
+              f"replace the MODULE '{args.module}' with '{flags.all_flags}'")
+        sys.exit(1)
 
     if remove_dummy:  # Remove the dummy input
         del args.file
@@ -767,8 +765,9 @@ def main():
         if job.module == flags.multicistronic:
             create_mulitcistronic_sequences(args)
         else:  # if job.module in decoy_modules:
-            pass  # exit()
-        exit()
+            pass
+        # Shut down, this is just a tool
+        sys.exit()
 
     # Set up module specific arguments
     # Todo we should run this check before every module used as in the case of universal protocols
@@ -815,7 +814,7 @@ def main():
         #     # , 'custom_script', 'find_asu', 'status', 'visualize'
         #     # We have no module passed. Print the guide and exit
         #     utils.guide.print_guide()
-        #     exit()
+        #     sys.exit()
         # else:
         #     # Set up design directories
         #     pass
@@ -1017,8 +1016,9 @@ def main():
 
         job.location = f'NanohedraEntry{job.sym_entry.number}'  # Used for terminate()
         if not pose_jobs:  # No pairs were located
-            exit('No docking pairs were located from your input. Please ensure that your flags are as intended.'
-                 f'{putils.issue_submit_warning}')
+            print('No docking pairs were located from your input. Please ensure that your flags are as intended.'
+                  f'{putils.issue_submit_warning}')
+            sys.exit(1)
         # Todo
         #  This could be moved above Entity/Pose load as it's not necessary in that situation
         elif job.distribute_work:
@@ -1539,7 +1539,9 @@ def main():
 
             # if 'escher' in sys.argv[1]:
             if not args.directory:
-                exit(f'A directory with the desired designs must be specified using -d/--{flags.directory}')
+                print('A directory with the desired designs must be specified using '
+                      f'{flags.format_args(flags.directory_args)}')
+                sys.exit(1)
 
             if ':' in args.directory:  # args.file  Todo job.location
                 print('Starting the data transfer from remote source now...')
@@ -1601,7 +1603,8 @@ def main():
                 files = ordered_files
 
             if not files:
-                exit(f'No .pdb files found at location "{job.location}"')
+                print(f'No .pdb files found at location "{job.location}"')
+                sys.exit(1)
 
             if job.range:
                 start_idx = job.low
@@ -1626,7 +1629,8 @@ def main():
                         profile(protocol)(pose_jobs[0])
                     else:
                         logger.critical(f"The module 'memory_profiler' isn't installed {profile_error}")
-                    exit('Done profiling')
+                    print('Done profiling')
+                    sys.exit()
 
             if args.multi_processing:
                 results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
@@ -1652,7 +1656,7 @@ def app():
         main()
     except KeyboardInterrupt:
         print('\nRun Ended By KeyboardInterrupt\n')
-        exit(2)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

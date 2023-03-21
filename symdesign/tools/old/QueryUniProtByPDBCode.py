@@ -1,5 +1,6 @@
 #lookup_uniprotdict.py
 import pickle
+import sys
 
 # single call reduces the sources of error if we modify anything in the future
 with open('200121_UniProtPDBMasterDict.pkl', 'rb') as unidictf:
@@ -113,7 +114,7 @@ def main():
         main()
     else:
         print('--END--')
-        exit()
+        sys.exit()
 
 
 if __name__ == '__main__':

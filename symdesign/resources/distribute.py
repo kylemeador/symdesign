@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import subprocess
+import sys
 from typing import AnyStr, Iterable, Literal, Sequence, get_args
 
 from symdesign import flags
@@ -358,9 +359,9 @@ def update_status(serialized_info: AnyStr, stage: str, mode: str = 'check'):
     elif mode == 'remove':
         info['status'][stage] = False
         pickle_object(info, name=serialized_info, out_path='')
-        # exit()
+        # sys.exit()
     else:
-        exit(127)
+        sys.exit(1)
 
 
 def write_script(command: str, name: str = 'script', out_path: AnyStr = os.getcwd(),

@@ -9,6 +9,7 @@ import os
 import pickle
 import string
 import subprocess
+import sys
 import time
 from collections import defaultdict
 from functools import reduce, wraps
@@ -956,7 +957,7 @@ def collect_nanohedra_designs(files: Sequence = None, directory: str = None, doc
         for file in files:
             if not os.path.exists(file):
                 logger.critical(f'No "{file}" file found! Please ensure correct location/name!')
-                exit()
+                sys.exit(1)
             if '.pdb' in file:  # single .pdb files were passed as input and should be loaded as such
                 all_paths.append(file)
             else:  # assume a file that specifies individual designs was passed and load all design names in that file
@@ -1053,7 +1054,7 @@ def collect_designs(files: Sequence = None, directory: AnyStr = None, projects: 
         for file in files:
             if not os.path.exists(file):
                 logger.critical(f'No "{file}" file found! Please ensure correct location/name!')
-                exit()
+                sys.exit(1)
             if '.pdb' in file:  # single .pdb files were passed as input and should be loaded as such
                 all_paths.append(file)
             else:  # assume a file that specifies individual designs was passed and load all design names in that file

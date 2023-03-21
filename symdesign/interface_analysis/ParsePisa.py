@@ -470,8 +470,8 @@ def download_pisa(pdb, pisa_type, out_path=os.getcwd(), force_singles=False):
             failures.extend(modified_pdb_code.split(','))
 
     if pisa_type not in pisa_ref_d:
-        logger.error('%s is not a valid PISA file type' % pisa_type)
-        sys.exit()
+        logger.error(f'{pisa_type} is not a valid PISA file type')
+        sys.exit(1)
     if pisa_type == 'multimer':
         force_singles = True
 
@@ -481,7 +481,7 @@ def download_pisa(pdb, pisa_type, out_path=os.getcwd(), force_singles=False):
     multiple_mod_code, successful_downloads, failures = [], [], []
     for pdb in clean_list:
         pdb_code = pdb[0:4].lower()
-        file = os.path.join(out_path, '%s_%s' % (pdb_code.upper(), pisa_ref_d[pisa_type]['ext']))
+        file = os.path.join(out_path, f'{pdb_code.upper()}_{pisa_ref_d[pisa_type]["ext"]}')
         if file not in os.listdir(out_path):
             if not force_singles:  # concatenate retrieval
                 count += 1
@@ -489,13 +489,13 @@ def download_pisa(pdb, pisa_type, out_path=os.getcwd(), force_singles=False):
                 if count == 50:
                     count = 0
                     total_count += count
-                    logger.info('Iterations: %d' % total_count)
+                    logger.info(f'Iterations: {total_count}')
                     modified_pdb_code = ','.join(multiple_mod_code)
                 else:
                     continue
             else:
-                modified_pdb_code = '%s%s' % (pdb_code, pisa_ref_d[pisa_type]['mod'])
-                logger.info('Fetching: %s' % pdb_code)
+                modified_pdb_code = f'{pdb_code}{pisa_ref_d[pisa_type]["mod"]}'
+                logger.info(f'Fetching: {pdb_code}')
 
             process_download(modified_pdb_code, file)
             multiple_mod_code = []
@@ -549,8 +549,8 @@ def parse_pisas(pdb_code, out_path=utils.path.pisa_db):  #  download=False,
     #         download_pisa(pdb_code, i)
 
     path = os.path.join(out_path, pdb_code.upper())
-    multimers = parse_pisa_multimers_xml('%s_multimers.xml' % path)
-    interfaces, chain_data = parse_pisa_interfaces_xml('%s_interfaces.xml' % path)
+    multimers = parse_pisa_multimers_xml(f'{path}_multimers.xml')
+    interfaces, chain_data = parse_pisa_interfaces_xml(f'{path}_interfaces.xml')
 
     return multimers, interfaces, chain_data
 

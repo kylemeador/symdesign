@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import operator
+import sys
 import warnings
 from itertools import repeat
 from json import loads
@@ -1618,7 +1619,8 @@ def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = 
             if verify_choice():
                 break
     except KeyboardInterrupt:
-        exit('\nSelection was ended by Ctrl-C!')
+        print('\nSelection was ended by Ctrl-C!')
+        sys.exit(1)
 
     return metric_values
 

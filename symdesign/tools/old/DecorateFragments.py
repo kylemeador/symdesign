@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import sys
 
 import numpy as np
 from sklearn.neighbors import BallTree
@@ -91,7 +92,8 @@ if __name__ == '__main__':
     elif args.single:
         file_paths = [args.single]
     else:
-        exit('Specify either a file or a directory to locate the files!')
+        print('Specify either a file or a directory to locate the files!')
+        sys.exit(1)
 
     logger.info('Getting Fragment Information')
     ijk_frag_db = fragment.db.fragment_factory(source=utils.path.biological_interfaces)

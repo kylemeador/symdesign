@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import os
+import sys
 import warnings
 from typing import AnyStr, Iterable
 
@@ -1307,7 +1308,7 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
                   f'{", ".join(map(str, matching_entries))}\033[0m')
             print_matching_entries(matching_entries)
             print(repeat_with_sym_entry)
-            exit()
+            sys.exit()
         logger.debug(f'Found matching SymEntry number {matching_entries[0]}')
     elif symmetry_operators:
         raise ValueError('The specified symmetries "%s" could not be coerced to make the resulting symmetry "%s". '
@@ -1321,7 +1322,7 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
             print(f'\033[1mFound specified symmetries matching including {", ".join(map(str, result_entries))}\033[0m')
             print_matching_entries(result_entries)
             print(repeat_with_sym_entry)
-            exit()
+            sys.exit()
         else:  # no matches
             raise ValueError(f"The resulting symmetry {result} didn't match any possible symmetry_combinations. You "
                              f'are likely requesting a symmetry that is outside of the parameterized SymEntry entries.'

@@ -168,9 +168,10 @@ cmd.extend('save_group', save_group)
 # if __name__ == 'pymol':
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        exit('Usage:     pymol -r VisualizeUtils.py -- path/to/designs 0-10 [original_name original_order ranked_order]'
-             '\n'
-             'pymol executable       this script               design range      flags for naming/sorting designs')
+        print('Usage:     pymol -r VisualizeUtils.py -- path/to/designs 0-10 '
+              '[original_name original_order ranked_order]\n'
+              'pymol executable       this script               design range      flags for naming/sorting designs')
+        sys.exit()
 
     original_name, original_order = False, False
     ranked_order = False
@@ -214,14 +215,15 @@ if __name__ == '__main__':
     #     files = ordered_files
 
     if not files:
-        exit('No .pdb files found in directory %s. Are you sure this is correct?' % sys.argv[1])
+        print(f'No .pdb files found in directory {sys.argv[1]}. Are you sure this is correct?')
+        sys.exit(1)
 
     if len(sys.argv) > 2:
         low, high = map(float, sys.argv[2].split('-'))
         low_range, high_range = int((low / 100) * len(files)), int((high / 100) * len(files))
         if low_range < 0 or high_range > len(files):
             raise ValueError('The input range is outside of the acceptable bounds [0-100]')
-        print('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
+        print(f'Selecting Designs within range: {low_range if low_range else 1}-{high_range}')
     else:
         low_range, high_range = None, None
 
@@ -231,5 +233,5 @@ if __name__ == '__main__':
         else:
             cmd.load(file, object=idx)
 
-    print('\nTo expand all designs to the proper symmetry, issue:\n\texpand name=all, symmetry=T')
-          # '\nReplace \'T\' with whatever symmetry your design is in\n')
+    print('\nTo expand all designs to the proper symmetry, issue:\n\texpand name=all, symmetry=T\n'
+          "Replace 'T' with whatever symmetry your design is in\n")

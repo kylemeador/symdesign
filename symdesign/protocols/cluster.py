@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
+import sys
 from itertools import combinations, repeat
 from typing import Iterable, AnyStr, Any, Sequence
 import warnings
@@ -116,7 +117,8 @@ def cluster_poses(pose_jobs: list[PoseJob]):
         for result in results:
             pose_cluster_map.update(result.items())
     # else:
-    #     exit(f"{job.cluster.mode} isn't a viable mode")
+    #     print(f"{job.cluster.mode} isn't a viable mode")
+    #     sys.exit()
 
     if pose_cluster_map:
         if job.cluster.as_objects:
@@ -153,7 +155,7 @@ def cluster_poses(pose_jobs: list[PoseJob]):
         # return pose_cluster_map
 
     logger.warning('No significant clusters were located. Clustering ended')
-    exit()
+    sys.exit()
     # return None
 
 

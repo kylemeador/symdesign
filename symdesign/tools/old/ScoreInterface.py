@@ -100,7 +100,7 @@ if __name__ == '__main__':
     else:
         interface_poses = False
     #     logger.critical('Either --file or --directory must be specified')
-    #     exit()
+    #     sys.exit()
 
     if args.multi_processing:
         # # used without Pose

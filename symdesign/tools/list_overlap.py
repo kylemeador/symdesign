@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 
 import numpy as np
 
@@ -23,7 +24,8 @@ def set_overlap(_set):
     try:
         set_op_func = set_ops[op_char]
     except KeyError as e:
-        exit('%s not available!' % e.args)
+        print(f'{e.args} not available!')
+        sys.exit()
 
     for i in range(num_sets):
         for j in range(num_sets):
@@ -37,11 +39,12 @@ def set_overlap(_set):
         row = int(input('What comparison are you interested in? Hit enter to terminate\nRow #:'))
         column = int(input('Column #:'))
     except ValueError:
-        exit()
+        sys.exit()
     try:
         set_of_interest = comparison_set[row - 1][column - 1]
     except IndexError as e:
-        exit('%s is out of range' % e.args)
+        print(f'{e.args} is out of range')
+        sys.exit()
 
     list_of_interest = sorted(set_of_interest)
     utils.io_save(list_of_interest)
@@ -62,7 +65,8 @@ if __name__ == '__main__':
     sets = [[] for x in range(num_lists)]
 
     if num_lists < 1:
-        exit(f'No list files found: {args.files}')
+        print(f'No list files found: {args.files}')
+        sys.exit()
     for i in range(num_lists):
         file[i] = args.files[i]
         _list[i] = utils.to_iterable(file[i], ensure_file=True, skip_comma=args.skip_commas)

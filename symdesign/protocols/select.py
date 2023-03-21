@@ -543,7 +543,7 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #         logger.critical(f'If using a --{flags.dataframe} for selection, you must include the directory where '
     #                         f'the designs are located in order to properly select designs. Please specify '
     #                         f'-d/--{flags.directory} with your command')
-    #         exit(1)
+    #         sys.exit(1)
     #
     #     total_df = pd.read_csv(job.dataframe, index_col=0, header=[0, 1, 2])
     #     total_df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
@@ -586,12 +586,12 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     #             f.write(top_designs_string % '\n\t'.join(results_strings))
     #         logger.info(f'Stdout performed a cutoff of ranked Designs at ranking 500. See the output design file '
     #                     f'"{designs_file}" for the remainder')
-    #     exit()  # terminate(output=False)
+    #     sys.exit()  # terminate(output=False)
     # else:
     #     logger.critical('Missing a required method to provide or find metrics from %s. If you meant to gather '
     #                     'metrics from every pose in your input specification, ensure you include the --global '
     #                     'argument' % putils.program_output)
-    #     exit()
+    #     sys.exit()
 
     # Format selected poses for output
     putils.make_path(job.output_directory)

@@ -30,8 +30,8 @@ def main(directory, num_threads, cluster_size_limit, rmsd_thresh, rmsd_source=Fr
         args = combinations(all_atoms, 2)
         zipped_args = zip(args, repeat(rmsd_thresh))
     else:
-        print('%s Couldn\'t find any atoms from %s \nEnsure proper input!!' % (module, directory))
-        sys.exit()
+        print(f"{module} Couldn't find any atoms from {directory} \nEnsure proper input!!")
+        sys.exit(1)
 
     print('%s Processing RMSD calculation on %d cores. This may take awhile...' % (module, num_threads))
     results = Frag.mp_starmap(Frag.mp_guide_atom_rmsd, zipped_args, num_threads)
@@ -41,7 +41,8 @@ def main(directory, num_threads, cluster_size_limit, rmsd_thresh, rmsd_source=Fr
     with open(outfile, 'w') as outfile:
         for result in results:
             if result is not None:
-                outfile.write('%s %s %s\n' % (result[0], result[1], result[2]))
+                # If result is more than 3 this will fail. Fix result in results
+                outfile.write('{} {} {}\n'.format(*result))
 
     # print('%s Finished' % module)
 

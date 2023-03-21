@@ -41,13 +41,11 @@ if __name__ == '__main__':
                                                                        'If true, provide directory where output logs '
                                                                        'are written as -c /path/to/output and jobID as'
                                                                        '-j user_designs.cmd4789392')
-    parser.add_argument('-c', '--commands', type=str, help='Path to command file.', default=None)
+    parser.add_argument('-c', '--commands', type=str, help='Path to command file.', required=True)
     parser.add_argument('-j', '--job_id', type=str, help='Job name + jobID number of sbatch submission', default='')
     parser.add_argument('-o', '--no_output', action='store_true', help='Output map objects to current working '
                                                                        'directory? Default = False')
     args = parser.parse_args()
-    if not args.commands:
-        sys.exit('Must specify a command file!')
 
     if args.processed:
         command, array = map_commands_started(args.commands, args.job_id)

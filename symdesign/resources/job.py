@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import subprocess
+import sys
 from copy import deepcopy
 from itertools import repeat
 from subprocess import list2cmdline
@@ -630,18 +631,20 @@ class JobResources:
         if output_directory:
             if os.path.exists(output_directory):
                 if not self.overwrite:
-                    exit(f'The specified output directory "{output_directory}" already exists, this will overwrite '
-                         'your old data! Please specify a new name with with '
-                         f'{flags.format_args(flags.output_directory_args)}, '
-                         '--prefix or --suffix, or append --overwrite to your command')
+                    print(f'The specified output directory "{output_directory}" already exists, this will overwrite '
+                          'your old data! Please specify a new name with with '
+                          f'{flags.format_args(flags.output_directory_args)}, '
+                          '--prefix or --suffix, or append --overwrite to your command')
+                    sys.exit(1)
             self.output_directory = output_directory
 
         self.output_file = kwargs.get(putils.output_file)
         if self.output_file and os.path.exists(self.output_file) and self.module not in flags.analysis \
                 and not self.overwrite:
-            exit(f'The specified output file "{self.output_file}" already exists, this will overwrite your old '
-                 f'data! Please specify a new name with with {flags.format_args(flags.output_file_args)}, '
-                 'or append --overwrite to your command')  # Todo --prefix/--suffix?
+            print(f'The specified output file "{self.output_file}" already exists, this will overwrite your old '
+                  f'data! Please specify a new name with with {flags.format_args(flags.output_file_args)}, '
+                  'or append --overwrite to your command')  # Todo --prefix/--suffix?
+            sys.exit(1)
 
         # When we are performing expand-asu, make sure we set output_assembly to True
         if self.module == flags.expand_asu:
@@ -1116,7 +1119,7 @@ class JobResources:
                             f'{psutil.virtual_memory().available / gb_divisior:.2f} GB')
             #                 '\tPlease allocate the job to a computer with more memory or the process will fail, '
             #                 f'otherwise, submit the job with --no-{flags.evolution_constraint}')
-            # exit(1)
+            # sys.exit(1)
             logger.critical(f'Creating scripts that can be distributed to a capable computer instead')
             return False
         return True
