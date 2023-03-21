@@ -328,8 +328,9 @@ def create_decoding_order(randn: torch.Tensor, chain_mask: torch.Tensor, tied_po
     return decoding_order
 
 
+# These seem to be the same, but when loading a second model, the amount is much less, 6291456 bytes or 6 M
 vanilla_model_memory = 14680064  # 14 M
-ca_model_memory = 14680064  # NEED TO UPDATE
+ca_model_memory = 14680064  # 14 M
 
 
 class _ProteinMPNN(ProteinMPNN):
