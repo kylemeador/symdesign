@@ -842,6 +842,7 @@ def main():
                         if data.entity_id == protein_metadata.entity_id:
                             data.model_source = protein_metadata.model_source
                             logger.info(f'Set existing {data}.model_source to new {protein_metadata}.model_source')
+                print(data.entity_id, data.uniprot_ids)
                 uniprot_entities.extend(data.uniprot_entities)
 
             if job.update_metadata:
