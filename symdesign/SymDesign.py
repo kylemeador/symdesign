@@ -1282,8 +1282,8 @@ def main():
             #         # Importantly, we add oriented attribute to aid in any future processing
             #         protein_metadata.model_source = entity.file_path
             #
-            # # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
-            # initialize_entities(uniprot_entities, all_uniprot_id_to_prot_data.values())
+            # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
+            initialize_entities(uniprot_entities, [])  # all_uniprot_id_to_prot_data.values())
             #
             # # Todo replace the passed files with the processed versions?
             # #  See PoseJob.load_pose()
