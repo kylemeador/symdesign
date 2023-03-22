@@ -332,8 +332,9 @@ def main():
             return {}, []
 
         # Get the set of all UniProtIDs
-        possibly_new_uniprot_ids = set(possibly_new_uniprot_to_prot_data.keys())
-
+        possibly_new_uniprot_ids = set()
+        for uniprot_ids in possibly_new_uniprot_to_prot_data.keys():
+            possibly_new_uniprot_ids.update(uniprot_ids)
         # Find existing UniProtEntity instances from database
         if existing_uniprot_entities:
             existing_uniprot_ids = {unp_ent.id for unp_ent in existing_uniprot_entities}
