@@ -956,7 +956,6 @@ def main():
                         # This data may not be the one that is initialized, grab the correct one
                         data = all_uniprot_id_to_prot_data[uniprot_ids]
                         entity = Entity.from_file(data.model_source, name=data.entity_id, metadata=data)
-                        print(entity.name, entity.uniprot_ids)
                         entity.stride(to_file=job.api_db.stride.path_to(name=data.entity_id))
                         data.n_terminal_helix = entity.is_termini_helical()
                         data.c_terminal_helix = entity.is_termini_helical('c')
@@ -967,7 +966,6 @@ def main():
                     # Don't include symmetry as this will be initialized by fragdock.fragment_dock()
                     structures.append(Pose.from_entities(entities, name=orient_structure.name))  # symmetry=symmetry))
                 grouped_docking_structures.append(structures)
-            input('EXIT ME')
             session.commit()
 
         # Make all possible structure pairs given input entities by finding entities from entity_names
