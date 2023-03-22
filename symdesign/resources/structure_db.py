@@ -695,10 +695,12 @@ class StructureDatabase(Database):
         Returns:
             Any instructions if processing is needed, otherwise an empty list
         """
-        if distribute.is_sbatch_available():
-            shell = distribute.sbatch
-        else:
-            shell = distribute.default_shell
+        if batch_commands:
+            putils.make_path(script_out_path)
+            if distribute.is_sbatch_available():
+                shell = distribute.sbatch
+            else:
+                shell = distribute.default_shell
 
         api_db = self.job.api_db  # resources.wrapapi.api_database_factory()
         self.full_models.make_path()
