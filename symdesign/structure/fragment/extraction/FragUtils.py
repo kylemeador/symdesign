@@ -154,20 +154,6 @@ def get_rmsd_atoms(filepaths, function):
     return all_rmsd_atoms
 
 
-# def mp_function(function, process_args, threads, thresh=None):  #, dir1=None, dir2=None):
-#     with mp.Pool(processes=threads) as p:
-#         if thresh:
-#             results = p.map(partial(function, rmsd_thresh=thresh), process_args)
-#         # elif dir1 and dir2:
-#         #     results = p.map(partial(function, dir1=dir1, dir2=dir2), process_args)
-#         else:
-#             print('mp_function is missing required arguments')
-#             sys.exit()
-#     p.join()
-#
-#     return results
-
-
 def mp_starmap(function, process_args, threads):
     with mp.Pool(processes=threads) as p:
         results = p.starmap(function, process_args)

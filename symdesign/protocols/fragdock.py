@@ -373,7 +373,7 @@ def make_contiguous_ghosts(ghost_frags_by_residue: list[list[GhostFragment]], re
         residue_idx1_ghost_indices, residue_idx2_ghost_indices = np.nonzero(type_bool_matrix)
         # # Iterate over each matrix rox/column to pull out necessary guide coordinate pairs
         # # HERE v
-        # # ij_matching_ghost1_indices = (type_bool_matrix * np.arange(type_bool_matrix.shape[0]))[type_bool_matrix]
+        # # ij_matching_ghost1_indices = (type_bool_matrix * np.arange(len(type_bool_matrix)))[type_bool_matrix]
 
         # These should pick out each instance of the guide_coords identified as overlapping by indexing bool type
         # Resulting instances should be present multiple times from residue_idxN_ghost_indices
@@ -460,7 +460,7 @@ def check_tree_for_query_overlap(batch_slice: slice,
     # Transform the coordinates
     # Todo 3 for performing broadcasting of this operation
     #  s_broad = np.matmul(tiled_coords2[None, :, None, :], _full_rotation2[:, None, :, :])
-    #  produces a shape of (_full_rotation2.shape[0], tiled_coords2.shape[0], 1, 3)
+    #  produces a shape of (len(_full_rotation2), len(tiled_coords2), 1, 3)
     #  inverse_transformed_model2_tiled_coords = transform_coordinate_sets(transform_coordinate_sets()).squeeze()
     transformed_query_points = \
         transform_coordinate_sets(
@@ -802,7 +802,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
     ij_type_match_lookup_table = compute_ij_type_lookup(ghost_j_indices1, surf_i_indices2)
     # Axis 0 is ghost frag, 1 is surface frag
     # ij_matching_ghost1_indices = \
-    #     (ij_type_match_lookup_table * np.arange(ij_type_match_lookup_table.shape[0]))[ij_type_match_lookup_table]
+    #     (ij_type_match_lookup_table * np.arange(len(ij_type_match_lookup_table)))[ij_type_match_lookup_table]
     # ij_matching_surf2_indices = \
     #     (ij_type_match_lookup_table * np.arange(ij_type_match_lookup_table.shape[1])[:, None])[
     #         ij_type_match_lookup_table]
@@ -1010,7 +1010,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
     #                 euler_lookup.check_lookup_table(test_ghost_guide_coords, tnsfmd_surf_coords_inv, return_bool=True)
     #             # Change the shape to allow for relation to guide_coords
     #             different = np.where(int_euler_matching_array != int_euler_matching_array_inv,
-    #                                  True, False).reshape(tnsfmd_ghost_coords.shape[0], -1)
+    #                                  True, False).reshape(len(tnsfmd_ghost_coords), -1)
     #             ghost_indices, surface_indices = np.nonzero(different)
     #             logger.debug(f'different.shape {different.shape}')
     #
@@ -1159,12 +1159,12 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
     #     else:
     #         print(f'{title} offset_index: {pose.entities[-1].offset_index}')
     if job.dock.quick:  # job.development:
-        rotations_to_perform1 = min(rotation_matrices1.shape[0], 13)
-        rotations_to_perform2 = min(rotation_matrices2.shape[0], 12)
+        rotations_to_perform1 = min(len(rotation_matrices1), 13)
+        rotations_to_perform2 = min(len(rotation_matrices2), 12)
         logger.critical(f'Development: Only sampling {rotations_to_perform1} by {rotations_to_perform2} rotations')
     else:
-        rotations_to_perform1 = rotation_matrices1.shape[0]
-        rotations_to_perform2 = rotation_matrices2.shape[0]
+        rotations_to_perform1 = len(rotation_matrices1)
+        rotations_to_perform2 = len(rotation_matrices2)
 
     # Todo 2 multiprocessing
     def initial_euler_search():
@@ -1240,7 +1240,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
     # # the rotation of the second set of fragment information into the setting of the first by applying the inverse
     # # rotation and setting matrices to the second (or third...) set of fragments. Forget about this for now
     # init_time_start = time.time()
-    # for idx1 in range(rotation_matrices1.shape[0]):  # min(rotation_matrices1.shape[0], 5)):  # Todo remove min
+    # for idx1 in range(len(rotation_matrices1)):  # min(len(rotation_matrices1), 5)):  # Todo remove min
     #     # Rotate Oligomer1 Surface and Ghost Fragment Guide Coordinates using rot_mat1 and set_mat1
     #     rot1_count = idx1 % number_of_rotations1 + 1
     #     degen1_count = idx1 // number_of_rotations1 + 1
@@ -1250,7 +1250,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
     #     # surf_guide_coords_rot_and_set1 = \
     #     #     transform_coordinate_sets(init_surf_guide_coords1, rotation=rot_mat1, rotation2=set_mat1)
     #
-    #     for idx2 in range(rotation_matrices2.shape[0]):  # min(rotation_matrices2.shape[0], 5)):  # Todo remove min
+    #     for idx2 in range(len(rotation_matrices2)):  # min(len(rotation_matrices2), 5)):  # Todo remove min
     #         # Rotate Oligomer2 Surface and Ghost Fragment Guide Coordinates using rot_mat2 and set_mat2
     #         rot2_count = idx2 % number_of_rotations2 + 1
     #         degen2_count = idx2 // number_of_rotations2 + 1
@@ -1308,7 +1308,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
                     # Next, use residue number indices to search for the same residue numbers in the extracted pairs
                     # The output array slice is only valid if the forward_index is the result of
                     # forward_surface_indices2 being in ascending order, which for check_lookup_table is True
-                    current = prior + forward_index.shape[0]
+                    current = prior + len(forward_index)
                     possible_overlaps[prior:current] = \
                         np.in1d(forward_ghosts_indices1[forward_index], reverse_surface_indices1[reverse_index])
                     prior = current
@@ -1322,7 +1322,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
             # indexing_possible_overlap_time = time.time() - indexing_possible_overlap_start
 
             # number_of_successful = possible_overlaps.sum()
-            # logger.info(f'\tIndexing {number_overlapping_pairs * euler_matched_surf_indices2.shape[0]} '
+            # logger.info(f'\tIndexing {number_overlapping_pairs * len(euler_matched_surf_indices2)} '
             #             f'possible overlap pairs found only {number_of_successful} possible out of '
             #             f'{number_overlapping_pairs} (took {time.time() - forward_reverse_comparison_start:8f}s)')
 
@@ -1359,10 +1359,10 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
                 optimal_tx.solve_optimal_shifts(passing_ghost_coords, passing_surf_coords, reference_rmsds)
             optimal_shifts_time = time.time() - optimal_shifts_start
 
-            pre_cluster_passing_shifts = transform_passing_shifts.shape[0]
+            pre_cluster_passing_shifts = len(transform_passing_shifts)
             if pre_cluster_passing_shifts == 0:
                 # logger.debug(f'optimal_shifts length: {len(optimal_shifts)}')
-                # logger.debug(f'transform_passing_shifts shape: {transform_passing_shifts.shape[0]}')
+                # logger.debug(f'transform_passing_shifts shape: {len(transform_passing_shifts)}')
                 logger.info(f'\tNo transforms were found passing optimal shift criteria '
                             f'(took {optimal_shifts_time:8f}s)')
                 continue
@@ -1391,7 +1391,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
                 # Must find positive indices before external_dof1 multiplication in case negatives there
                 positive_indices = \
                     np.flatnonzero(np.all(transform_passing_shifts[:, :sym_entry.number_dof_external] >= 0, axis=1))
-                number_passing_shifts = positive_indices.shape[0]
+                number_passing_shifts = len(positive_indices)
                 optimal_ext_dof_shifts = np.zeros((number_passing_shifts, 3), dtype=float)
                 optimal_ext_dof_shifts[:, :sym_entry.number_dof_external] = \
                     transform_passing_shifts[positive_indices, :sym_entry.number_dof_external]
@@ -1399,7 +1399,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
 
                 full_optimal_ext_dof_shifts.append(optimal_ext_dof_shifts)
             else:
-                number_passing_shifts = transform_passing_shifts.shape[0]
+                number_passing_shifts = len(transform_passing_shifts)
 
             # logger.debug(f'\tFound {number_passing_shifts} transforms after clustering from '
             #              f'{pre_cluster_passing_shifts} possible transforms (took '
@@ -1424,7 +1424,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
             full_rotation2.append(np.tile(rot_mat2, (number_passing_shifts, 1, 1)))
 
             logger.debug(f'\tOptimal shift search took {optimal_shifts_time:8f}s for '
-                         f'{euler_matched_ghost_indices1.shape[0]} guide coordinate pairs')
+                         f'{len(euler_matched_ghost_indices1)} guide coordinate pairs')
             logger.info(f'\t{number_passing_shifts if number_passing_shifts else "No"} initial interface '
                         f'match{"es" if number_passing_shifts != 1 else ""} found '
                         f'(took {time.time() - euler_start:8f}s)')
@@ -1433,7 +1433,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
             # # tx_param_list = []
             # init_pass_ghost_numbers = init_ghost_residue_indices1[possible_ghost_frag_indices]
             # init_pass_surf_numbers = init_surf_residue_indices2[possible_surf_frag_indices]
-            # for index in range(passing_ghost_coords.shape[0]):
+            # for index in range(len(passing_ghost_coords)):
             #     o = OptimalTxOLD(set_mat1, set_mat2, sym_entry.is_internal_tx1, sym_entry.is_internal_tx2,
             #                      reference_rmsds[index],
             #                      passing_ghost_coords[index], passing_surf_coords[index], sym_entry.external_dof)
@@ -1470,20 +1470,17 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         unsqueezed_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[:, :, None]
         full_ext_tx1 = np.sum(unsqueezed_optimal_ext_dof_shifts * sym_entry.external_dof1, axis=-2)
         full_ext_tx2 = np.sum(unsqueezed_optimal_ext_dof_shifts * sym_entry.external_dof2, axis=-2)
-        # full_ext_tx1 = np.concatenate(full_ext_tx1, axis=0)  # .sum(axis=-2)
-        # full_ext_tx2 = np.concatenate(full_ext_tx2, axis=0)  # .sum(axis=-2)
         full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+        del unsqueezed_optimal_ext_dof_shifts
     else:
-        # stacked_external_tx1, stacked_external_tx2 = None, None
-        full_ext_tx1 = full_ext_tx2 = full_optimal_ext_dof_shifts = None
+        full_ext_tx1 = full_ext_tx2 = full_ext_tx_sum = full_optimal_ext_dof_shifts = None
         # full_optimal_ext_dof_shifts = list(repeat(None, number_passing_shifts))
-        full_ext_tx_sum = None
 
     # fragment_pairs = np.array(fragment_pairs)
     # Make full, numpy vectorized transformations overwriting individual variables for memory management
     full_rotation1 = np.concatenate(full_rotation1, axis=0)
     full_rotation2 = np.concatenate(full_rotation2, axis=0)
-    starting_transforms = full_rotation1.shape[0]
+    starting_transforms = len(full_rotation1)
 
     if not starting_transforms:  # There were no successful transforms
         logger.warning(f'No optimal translations found. Terminating {building_blocks} docking')
@@ -1498,22 +1495,14 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         # Add the translation to Z (axis=1)
         stacked_internal_tx_vectors1[:, -1] = full_int_tx1
         full_int_tx1 = stacked_internal_tx_vectors1
-        # del stacked_internal_tx_vectors1
+        del stacked_internal_tx_vectors1
 
     if sym_entry.is_internal_tx2:
         stacked_internal_tx_vectors2 = np.zeros((starting_transforms, 3), dtype=float)
         # Add the translation to Z (axis=1)
         stacked_internal_tx_vectors2[:, -1] = full_int_tx2
         full_int_tx2 = stacked_internal_tx_vectors2
-        # del stacked_internal_tx_vectors2
-
-    # full_int_tx1 = np.concatenate(full_int_tx1, axis=0)
-    # full_int_tx2 = np.concatenate(full_int_tx2, axis=0)
-    # starting_transforms = len(full_int_tx1)
-    # logger.debug(f'Shape of full_rotation1: {full_rotation1.shape}')
-    # logger.debug(f'Shape of full_rotation2: {full_rotation2.shape}')
-    # logger.debug(f'Shape of full_int_tx1: {full_int_tx1.shape}')
-    # logger.debug(f'Shape of full_int_tx2: {full_int_tx2.shape}')
+        del stacked_internal_tx_vectors2
 
     # Make inverted transformations
     inv_setting1 = np.linalg.inv(set_mat1)
@@ -1597,14 +1586,13 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
                                                  )
         # cluster_representative_indices, cluster_labels = \
         #     find_cluster_representatives(transform_neighbor_tree, transform_cluster)
-        del transform_neighbor_tree
         # representative_labels = cluster_labels[cluster_representative_indices]
         # Todo 3
         #  _, cluster_labels = find_cluster_representatives(transform_neighbor_tree, transform_cluster)
-        cluster_labels = transform_cluster.labels_
+        # cluster_labels = transform_cluster.labels_
         # logger.debug(f'Shape of cluster_labels: {cluster_labels.shape}')
-        passing_transforms = cluster_labels != -1
-        sufficiently_dense_indices = np.flatnonzero(passing_transforms)
+        # passing_transforms = cluster_labels != -1
+        sufficiently_dense_indices = np.flatnonzero(transform_cluster.labels_ != -1)
         number_of_dense_transforms = len(sufficiently_dense_indices)
 
         logger.info(f'After clustering, {starting_transforms - number_of_dense_transforms} are missing the minimum '
@@ -1617,6 +1605,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         # Update the transformation array and counts with the sufficiently_dense_indices
         # Remove non-viable transforms by indexing sufficiently_dense_indices
         remove_non_viable_indices_inverse(sufficiently_dense_indices)
+        del transform_neighbor_tree, transform_cluster
     else:
         sufficiently_dense_indices = np.arange(starting_transforms)
         number_of_dense_transforms = starting_transforms
@@ -1657,7 +1646,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
     asu_clash_counts = overlap_return['overlap_counts']
     # Find those indices where the asu_clash_counts is not zero (inverse of nonzero by using the array == 0)
     asu_is_viable_indices = np.flatnonzero(asu_clash_counts == 0)
-    number_non_clashing_transforms = asu_is_viable_indices.shape[0]
+    number_non_clashing_transforms = len(asu_is_viable_indices)
     # Update the passing_transforms
     # passing_transforms contains all the transformations that are still passing
     # index the previously passing indices (sufficiently_dense_indices) by new pasing indices (asu_is_viable_indices)
@@ -1666,72 +1655,56 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
     logger.info(f"Clash testing for identified poses found {number_non_clashing_transforms} viable ASU's out of "
                 f'{number_of_dense_transforms} (took {time.time() - check_clash_coords_start:8f}s)')
 
-    if not number_non_clashing_transforms:  # There were no successful asus that don't clash
+    if not number_non_clashing_transforms:
         logger.warning(f'No viable asymmetric units. Terminating {building_blocks} docking')
         return []
     # ------------------ TERMINATE DOCKING ------------------------
+    # Clean memory
+    del asu_clash_counts, ball_tree_kwargs, overlap_return
     # Remove non-viable transforms by indexing asu_is_viable_indices
     remove_non_viable_indices_inverse(asu_is_viable_indices)
 
-    # logger.debug('Checking rotation and translation fidelity after removing non-viable asu indices')
-    # check_forward_and_reverse(ghost_guide_coords1,
-    #                           full_rotation1, full_int_tx_inv1,
-    #                           surf_guide_coords2,
-    #                           _full_rotation2, _full_int_tx2,
-    #                           ghost_rmsds1)
-
-    #################
     # Query PDB1 CB Tree for all PDB2 CB Atoms within "cb_distance" in A of a PDB1 CB Atom
     # alternative route to measure clashes of each transform. Move copies of component2 to interact with model1 ORIGINAL
     int_cb_and_frags_start = time.time()
     # Transform the CB coords of oligomer 2 to each identified transformation
     # Transforming only surface frags has large speed benefits from not having to transform all ghosts
     inverse_transformed_model2_tiled_cb_coords = \
-        transform_coordinate_sets(transform_coordinate_sets(np.tile(model2.cb_coords,
-                                                                    (number_non_clashing_transforms, 1, 1)),
-                                                            rotation=_full_rotation2,
-                                                            translation=None if full_int_tx2 is None
-                                                            else _full_int_tx2[:, None, :],
-                                                            rotation2=set_mat2,
-                                                            translation2=None if sym_entry.unit_cell is None
-                                                            else full_ext_tx_sum[:, None, :]),
-                                  rotation=inv_setting1,
-                                  translation=None if full_int_tx1 is None else full_int_tx_inv1[:, None, :],
-                                  rotation2=full_inv_rotation1)
+        transform_coordinate_sets(
+            transform_coordinate_sets(np.tile(model2.cb_coords, (number_non_clashing_transforms, 1, 1)),
+                                      rotation=_full_rotation2,
+                                      translation=None if full_int_tx2 is None else _full_int_tx2[:, None, :],
+                                      rotation2=set_mat2,
+                                      translation2=None if sym_entry.unit_cell is None
+                                      else full_ext_tx_sum[:, None, :]),
+            rotation=inv_setting1,
+            translation=None if full_int_tx1 is None else full_int_tx_inv1[:, None, :],
+            rotation2=full_inv_rotation1)
 
     # Transform the surface guide coords of oligomer 2 to each identified transformation
-    # Makes a shape (full_rotations.shape[0], surf_guide_coords.shape[0], 3, 3)
+    # Makes a shape (len(full_rotations), len(surf_guide_coords), 3, 3)
     inverse_transformed_surf_frags2_guide_coords = \
-        transform_coordinate_sets(transform_coordinate_sets(surf_guide_coords2[None, :, :, :],
-                                                            rotation=_full_rotation2[:, None, :, :],
-                                                            translation=None if full_int_tx2 is None
-                                                            else _full_int_tx2[:, None, None, :],
-                                                            rotation2=set_mat2[None, None, :, :],
-                                                            translation2=None if sym_entry.unit_cell is None
-                                                            else full_ext_tx_sum[:, None, None, :]),
-                                  rotation=inv_setting1[None, None, :, :],
-                                  translation=None if full_int_tx1 is None else full_int_tx_inv1[:, None, None, :],
-                                  rotation2=full_inv_rotation1[:, None, :, :])
+        transform_coordinate_sets(
+            transform_coordinate_sets(surf_guide_coords2[None, :, :, :],
+                                      rotation=_full_rotation2[:, None, :, :],
+                                      translation=None if full_int_tx2 is None else _full_int_tx2[:, None, None, :],
+                                      rotation2=set_mat2[None, None, :, :],
+                                      translation2=None if sym_entry.unit_cell is None
+                                      else full_ext_tx_sum[:, None, None, :]),
+            rotation=inv_setting1[None, None, :, :],
+            translation=None if full_int_tx1 is None else full_int_tx_inv1[:, None, None, :],
+            rotation2=full_inv_rotation1[:, None, :, :])
 
     logger.info(f'\tTransformation of viable oligomer 2 CB atoms and surface fragments took '
                 f'{time.time() - int_cb_and_frags_start:8f}s')
 
-    # Todo 3 if using individual Poses
-    #  def clone_pose(idx: int) -> Pose:
-    #      # Create a copy of the base Pose
-    #      new_pose = copy.copy(pose)
-    #      if sym_entry.unit_cell:
-    #          # Set the next unit cell dimensions
-    #          new_pose.uc_dimensions = full_uc_dimensions[idx]
-    #      # Update the Pose coords
-    #      new_pose.coords = np.concatenate(new_coords)
-    #      return new_pose
-
+    del full_inv_rotation1, _full_rotation2, full_int_tx_inv1, _full_int_tx2, full_ext_tx_sum
+    del surf_guide_coords2
     # Use below instead of this until can Todo 3 vectorize asu_interface_residue_processing
     # asu_interface_residues = \
     #     np.array([oligomer1_backbone_cb_tree.query_radius(inverse_transformed_model2_tiled_cb_coords[idx],
     #                                                       cb_distance)
-    #               for idx in range(inverse_transformed_model2_tiled_cb_coords.shape[0])])
+    #               for idx in range(len(inverse_transformed_model2_tiled_cb_coords))])
 
     # Full Interface Fragment Match
     # Gather the data for efficient querying of model1 and model2 interactions
@@ -1800,7 +1773,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         all_fragment_match_time_start = time.time()
 
         # unique_interface_frag_count_model1, unique_interface_frag_count_model2 = \
-        #     ghost_indices_in_interface1.shape[0], surf_indices_in_interface2.shape[0]
+        #     len(ghost_indices_in_interface1), len(surf_indices_in_interface2)
         # get_int_frags_time = time.time() - int_frags_time_start
         # logger.debug(f'\tNewly formed interface contains {unique_interface_frag_count_model1} unique Fragments on '
         #              f'Oligomer 1 from {len(interface_residue_numbers1)} Residues and '
@@ -1809,8 +1782,8 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         #              f'{model1_cb_balltree_time:8f}s to query distances, '
         #              f'{is_in_index_time:8f}s to index residue numbers)')
 
-        number_int_surf = surf_indices_in_interface2.shape[0]
-        number_int_ghost = ghost_indices_in_interface1.shape[0]
+        number_int_surf = len(surf_indices_in_interface2)
+        number_int_ghost = len(ghost_indices_in_interface1)
         # maximum_number_of_pairs = number_int_ghost*number_int_surf
         # if maximum_number_of_pairs < euler_lookup_size_threshold:
         # Tod0 at one point, there might have been a memory leak by Pose objects sharing memory with persistent objects
@@ -1824,7 +1797,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         # ij_type_match = np.array([True for _ in range(len(ij_type_match))])
         # Surface selecting
         # [0, 1, 3, 5, ...] with fancy indexing [0, 1, 5, 10, 12, 13, 34, ...]
-        possible_fragments_pairs = ghost_indices_repeated.shape[0]
+        # possible_fragments_pairs = len(ghost_indices_repeated)
         passing_ghost_indices = ghost_indices_repeated[ij_type_match]
         passing_surf_indices = surf_indices_tiled[ij_type_match]
         # else:  # Narrow candidates by EulerLookup
@@ -1853,7 +1826,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         #         ij_type_match_lookup_table[
         #             ghost_indices_in_interface1[int_euler_matching_ghost_indices1],
         #             surf_indices_in_interface2[int_euler_matching_surf_indices2]]
-        #     possible_fragments_pairs = int_euler_matching_ghost_indices1.shape[0]
+        #     possible_fragments_pairs = len(int_euler_matching_ghost_indices1)
         #
         #     # Get only euler matching fragment indices that pass ij filter. Then index their associated coords
         #     passing_ghost_indices = int_euler_matching_ghost_indices1[ij_type_match]
@@ -1873,23 +1846,22 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         # all_fragment_match = calculate_match(ghost_guide_coords1[passing_ghost_indices],
         #                                      inverse_transformed_surf_frags2_guide_coords[idx, passing_surf_indices],
         #                                      ghost_rmsds1[passing_ghost_indices])
+        # number_of_checks = len(passing_ghost_indices)
         logger.debug(
-            # f'\tEuler Lookup found {int_euler_matching_ghost_indices1.shape[0]} passing overlaps '
+            # f'\tEuler Lookup found {len(int_euler_matching_ghost_indices1)} passing overlaps '
             #      f'(took {eul_lookup_time:8f}s) for '
             #      f'{unique_interface_frag_count_model1 * unique_interface_frag_count_model2} fragment pairs and '
             f'\tZ-score calculation took {time.time() - overlap_score_time_start:8f}s for '
-            f'{passing_ghost_indices.shape[0]} successful ij type matches (indexing time '
+            f'{len(passing_ghost_indices)} successful ij type matches (indexing time '
             f'{overlap_score_time_start - index_ij_pairs_start_time:8f}s) from '
-            f'{possible_fragments_pairs} possible fragment pairs')
-        # logger.debug(f'Found ij_type_match with shape {ij_type_match.shape}')
-        # logger.debug(f'And Data: {ij_type_match[:3]}')
-        # logger.debug(f'Found all_fragment_match with shape {all_fragment_match.shape}')
-        # logger.debug(f'And Data: {all_fragment_match[:3]}')
+            f'{len(ghost_indices_repeated)} possible fragment pairs')
 
         # Check if the pose has enough high quality fragment matches
         # high_qual_match_indices = np.flatnonzero(all_fragment_match >= high_quality_match_value)
-        high_qual_match_indices = np.flatnonzero(all_fragment_z_score <= high_quality_z_value)
-        high_qual_match_count = len(high_qual_match_indices)
+        # high_qual_match_indices = np.flatnonzero(all_fragment_z_score <= high_quality_z_value)
+        # Using ar.size() - np.count_nonzero(ar) to count
+        # high_qual_match_count = number_of_checks - np.count_nonzero(all_fragment_z_score <= high_quality_z_value)
+        high_qual_match_count = np.count_nonzero(all_fragment_z_score <= high_quality_z_value)
         all_fragment_match_time = time.time() - all_fragment_match_time_start
         if high_qual_match_count < min_matched:
             logger.debug(f'\t{high_qual_match_count} < {min_matched}, the minimal high quality fragment matches '
@@ -1902,8 +1874,10 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         else:
             # Find the passing overlaps to limit the output to only those passing the low_quality_match_value
             # passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
-            passing_overlaps_indices = np.flatnonzero(all_fragment_z_score <= low_quality_z_value)
-            number_passing_overlaps = passing_overlaps_indices.shape[0]
+            # passing_overlaps_indices = np.flatnonzero(all_fragment_z_score <= low_quality_z_value)
+            # number_passing_overlaps = len(passing_overlaps_indices)
+            # number_passing_overlaps = number_of_checks - np.count_nonzero(all_fragment_z_score <= low_quality_z_value)
+            number_passing_overlaps = np.count_nonzero(all_fragment_z_score <= low_quality_z_value)
             logger.info(f'\t{high_qual_match_count} high quality fragments out of {number_passing_overlaps} matches '
                         f'found (took {all_fragment_match_time:8f}s)')
             # Return the indices sorted by z_value in ascending order, truncated at the number of passing
@@ -1925,37 +1899,46 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
 
     logger.debug(f'Found {len(zero_counts)} zero counts')
     number_viable_pose_interfaces = len(interface_is_viable)
-    if number_viable_pose_interfaces == 0:  # There were no successful transforms
+    if number_viable_pose_interfaces == 0:
         logger.warning(f'No interfaces have enough fragment matches. Terminating {building_blocks} docking')
         return []
     # ------------------ TERMINATE DOCKING ------------------------
+    # Clean memory
+    del inverse_transformed_model2_tiled_cb_coords, inverse_transformed_surf_frags2_guide_coords
+    del ghost_residue_indices1, surf_residue_indices2
+    del ghost_guide_coords1, ghost_rmsds1
+    del model1_cb_indices, model1_coords_indexed_residues
+    del model2_cb_indices, model2_coords_indexed_residues
+    del model1_cb_balltree, model2_query, contacting_residue_idx_pairs
+    del interface_residue_indices1, interface_residue_indices2
+    del ghost_indices_in_interface1, surf_indices_in_interface2
+    del ij_type_match, ghost_indices_repeated, surf_indices_tiled
+    del all_fragment_z_score, zero_counts
+    # del all_fragment_z_score, zero_counts, passing_overlaps_indices
     logger.info(f'Found {number_viable_pose_interfaces} poses with viable interfaces')
     # Generate the Pose for output handling
-    # entity_bb_coords = [entity.backbone_coords for model in models for entity in model.entities]
-    entity_start_coords = [entity.coords for model in models for entity in model.entities]
-    entity_idx = count(0)
-    transform_indices = {next(entity_idx): transform_idx
-                         for transform_idx, model in enumerate(models)
-                         for _ in model.entities}
     entity_info = {entity_name: data for model in models
                    for entity_name, data in model.entity_info.items()}
     chain_gen = chain_id_generator()
     for entity_name, data in entity_info.items():
         data['chains'] = [next(chain_gen)]
 
-    pose = Pose.from_entities([entity for model in models for entity in model.entities],
-                              log=None,
-                              name='asu', entity_info=entity_info,  # entity_names=entity_names,  # log=logger,
-                              sym_entry=sym_entry, surrounding_uc=job.output_surrounding_uc,
-                              fragment_db=job.fragment_db, ignore_clashes=True, rename_chains=True)
+    pose = Pose.from_entities([entity for model in models for entity in model.entities], log=None,
+                              sym_entry=sym_entry, name='asu', entity_info=entity_info, fragment_db=job.fragment_db,
+                              surrounding_uc=job.output_surrounding_uc, ignore_clashes=True, rename_chains=True)
 
-    # Ensure we pass the .metadata attribute to each entity in the full assembly
+    # Ensure .metadata attribute is passed to each entity in the full assembly
     # This is crucial for sql usage
     entity_idx = count()
     for model in models:
         for entity in model.entities:
             pose.entities[next(entity_idx)].metadata = entity.metadata
-
+    # Set up coordinates to transform the Pose with each Entity individually
+    entity_start_coords = [entity.coords for model in models for entity in model.entities]
+    entity_idx = count()
+    transform_indices = {next(entity_idx): transform_idx
+                         for transform_idx, model in enumerate(models)
+                         for _ in model.entities}
     # Calculate thermophilicity
     is_thermophilic = [entity.thermophilicity for idx, entity in enumerate(pose.entities, idx)]
     pose_thermophilicity = sum(is_thermophilic) / pose.number_of_entities
@@ -1990,6 +1973,17 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
     #     specific_transformation2 = dict(rotation=full_rotation2[idx], translation=internal_tx_param2,
     #                                     rotation2=set_mat2, translation2=external_tx2)
     #     return specific_transformation1, specific_transformation2
+
+    # Todo 3 if using individual Poses
+    #  def clone_pose(idx: int) -> Pose:
+    #      # Create a copy of the base Pose
+    #      new_pose = copy.copy(pose)
+    #      if sym_entry.unit_cell:
+    #          # Set the next unit cell dimensions
+    #          new_pose.uc_dimensions = full_uc_dimensions[idx]
+    #      # Update the Pose coords
+    #      new_pose.coords = np.concatenate(new_coords)
+    #      return new_pose
 
     def update_pose_coords(idx: int):
         """Take the current transformation index and update the reference coordinates with the provided transforms
@@ -2026,14 +2020,6 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         # Transform each starting coords to the candidate pose coords then update the Pose coords
         new_coords = []
         for entity_idx, entity in enumerate(pose.entities):
-            # logger.debug(f'transform_indices[entity_idx]={transform_indices[entity_idx]}'
-            #              f'entity_idx={entity_idx}')
-            # tsnfmd = transform_coordinate_sets(entity_start_coords[entity_idx],
-            #                                    **specific_transformations[transform_indices[entity_idx]])
-            # logger.debug(f'Equality of tsnfmd and original {np.allclose(tsnfmd, entity_start_coords[entity_idx])}')
-            # logger.debug(f'tsnfmd: {tsnfmd[:5]}')
-            # logger.debug(f'start_coords: {entity_start_coords[entity_idx][:5]}')
-            # logger.debug(f'entity_start_coords{entity_idx + 1}: {entity_start_coords[entity_idx][:2]}')
             new_coords.append(transform_coordinate_sets(entity_start_coords[entity_idx],
                                                         **specific_transformations[transform_indices[entity_idx]]))
         pose.coords = np.concatenate(new_coords)
@@ -2051,16 +2037,10 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         # Assume the pose will fail the clash test (0), otherwise, (1) for passing
         _passing_symmetric_clashes = [0 for _ in range(len(viable_pose_indices))]
         for result_idx, transform_idx in enumerate(viable_pose_indices):
-            # exp_des_clash_time_start = time.time()
             # Find the pose
             update_pose_coords(transform_idx)
             if not pose.symmetric_assembly_is_clash():
                 _passing_symmetric_clashes[result_idx] = 1
-            #     logger.info(f'\tNO Backbone Clash when pose is expanded (took '
-            #                 f'{time.time() - exp_des_clash_time_start:8f}s)')
-            # else:
-            #     logger.info(f'\tBackbone Clash when pose is expanded (took '
-            #                 f'{time.time() - exp_des_clash_time_start:8f}s)')
 
         return np.flatnonzero(_passing_symmetric_clashes)
 
@@ -2089,7 +2069,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
 
         # passing_symmetric_clash_indices = find_viable_symmetric_indices(number_viable_pose_interfaces)
         passing_symmetric_clash_indices = find_viable_symmetric_indices(passing_transforms_indices.tolist())
-        number_passing_symmetric_clashes = passing_symmetric_clash_indices.shape[0]
+        number_passing_symmetric_clashes = len(passing_symmetric_clash_indices)
         logger.info(f'After symmetric clash testing, found {number_passing_symmetric_clashes} viable poses')
 
         if number_passing_symmetric_clashes == 0:  # There were no successful transforms
@@ -2098,7 +2078,8 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         # ------------------ TERMINATE DOCKING ------------------------
         # Update the passing_transforms
         # passing_transforms contains all the transformations that are still passing
-        # index the previously passing indices (sufficiently_dense_indices) and (asu_is_viable_indices) and (interface_is_viable)
+        # index the previously passing indices (sufficiently_dense_indices)
+        # and (asu_is_viable_indices) and (interface_is_viable)
         # by new passing indices (passing_symmetric_clash_indices)
         # and set each of these indices to 1 (True)
         # passing_transforms_indices = \
@@ -2109,7 +2090,10 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
 
     # Remove non-viable transforms from the original transformations due to clashing
     filter_transforms_by_indices(passing_transforms_indices)
-    number_of_transforms = passing_transforms_indices.shape[0]
+    number_of_transforms = len(passing_transforms_indices)
+    # Clean memory
+    del passing_transforms_indices, sufficiently_dense_indices, passing_symmetric_clash_indices
+    del asu_is_viable_indices, interface_is_viable
 
     # # all_passing_ghost_indices = [all_passing_ghost_indices[idx] for idx in passing_symmetric_clash_indices.tolist()]
     # # all_passing_surf_indices = [all_passing_surf_indices[idx] for idx in passing_symmetric_clash_indices.tolist()]
@@ -2234,8 +2218,10 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
                 full_int_tx2 = original_int_tx2[idx] + translation_perturbations2  # translation2
             if sym_entry.unit_cell:
                 # perturbed_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[None] + ext_dof_perturbations
-                # full_ext_tx_perturb1 = (perturbed_optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof1).sum(axis=-2)
-                # full_ext_tx_perturb2 = (perturbed_optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof2).sum(axis=-2)
+                # full_ext_tx_perturb1 = (perturbed_optimal_ext_dof_shifts[:, :, None] \
+                #     * sym_entry.external_dof1).sum(axis=-2)
+                # full_ext_tx_perturb2 = (perturbed_optimal_ext_dof_shifts[:, :, None] \
+                #     * sym_entry.external_dof2).sum(axis=-2)
                 # Below is for the individual perturbation
                 # optimal_ext_dof_shift = full_optimal_ext_dof_shifts[idx]
                 # perturbed_ext_dof_shift = optimal_ext_dof_shift + ext_dof_perturbations
@@ -2278,7 +2264,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         # Concatenate the stacked perturbations
         full_rotation1 = np.concatenate(perturb_rotation1, axis=0)
         full_rotation2 = np.concatenate(perturb_rotation2, axis=0)
-        number_of_transforms = full_rotation1.shape[0]
+        number_of_transforms = len(full_rotation1)
         logger.info(f'After perturbation, found {number_of_transforms} viable solutions')
         if sym_entry.is_internal_tx1:
             full_int_tx1 = np.zeros((number_of_transforms, 3), dtype=float)
@@ -2347,7 +2333,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
                 #     num_zeros += 1
                 last_perturb_start = perturb_end
 
-            number_of_transforms = full_rotation1.shape[0]
+            number_of_transforms = len(full_rotation1)
             logger.info(f'After culling duplicated transforms, found {number_of_transforms} viable solutions')
             num_zeros = perturbation_shape.count(0)
             if num_zeros:
@@ -2363,9 +2349,6 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
     # Calculate metrics on input Pose before any manipulation
     pose_length = pose.number_of_residues
     residue_indices = list(range(pose_length))
-    # residue_numbers = [residue.number for residue in pose.residues]
-    # entity_tuple = tuple(pose.entities)
-    # model_tuple = tuple(models)
 
     def add_fragments_to_pose(overlap_ghosts: list[int] = None, overlap_surf: list[int] = None,
                               sorted_z_scores: np.ndarray = None):
@@ -2415,17 +2398,11 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
 
     # Load evolutionary profiles of interest for optimization/analysis
     if job.design.evolution_constraint:
-        # profile_background = {}
         measure_evolution, measure_alignment = load_evolutionary_profile(job.api_db, pose)
 
-        # if pose.evolutionary_profile:
-        # profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
         evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
         batch_evolutionary_profile = \
             torch.from_numpy(np.tile(evolutionary_profile_array, (batch_length, 1, 1)))
-        # torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
-        # else:
-        #     pose.log.info('No evolution information')
     else:  # Make an empty collapse_profile
         # pose.add_profile(null=True) ACTUALLY, don't use, keep pose.evolutionary_profile == {}
         measure_evolution = measure_alignment = False
@@ -2441,21 +2418,6 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         pose.get_folding_metrics(hydrophobicity=hydrophobicity)
     if measure_evolution:  # collapse_profile.size:  # Not equal to zero, use the profile instead
         reference_collapse = collapse_profile
-    #     reference_mean = np.nanmean(collapse_profile, axis=-2)
-    #     reference_std = np.nanstd(collapse_profile, axis=-2)
-    #     # How different are the collapse of the MSA profile and the mean of the collapse profile?
-    #     reference_collapse = metrics.hydrophobic_collapse_index(evolutionary_profile_array,
-    #                                                             alphabet_type=protein_letters_alph1,
-    #                                                             hydrophobicity='expanded')
-    #     # seq_reference_collapse = reference_collapse
-    #     # reference_difference1 = reference_collapse - seq_reference_collapse
-    #     # logger.critical('Found a collapse difference between the MSA profile and the reference collapse'
-    #     #                 f' of {reference_difference1.sum()}')
-    #     # reference_difference2 = reference_collapse - reference_mean
-    #     # logger.critical('Found a collapse difference between the MSA profile and the mean of the collapse'
-    #                       f'profile of {reference_difference2.sum()}')
-    # else:
-    #     reference_mean = reference_std = None
 
     # Todo
     #  enable precise metric acquisition
@@ -2544,10 +2506,9 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         #     unbound_errat.append(oligomeric_errat[:entity.number_of_residues])
 
         torch_numeric_sequence = torch.from_numpy(pose.sequence_numeric)
-        if evolutionary_profile_array is not None:
-            # evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
-            # batch_evolutionary_profile = np.tile(evolutionary_profile_array, (number_of_sequences, 1, 1))
-            # torch_log_evolutionary_profile = torch.from_numpy(np.log(batch_evolutionary_profile))
+        if evolutionary_profile_array is None:
+            profile_loss = {}
+        else:
             with catch_warnings():
                 simplefilter('ignore', category=RuntimeWarning)
                 # divide by zero encountered in log
@@ -2558,8 +2519,6 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
                 # 'sequence_loss_design': per_residue_design_profile_loss,
                 'sequence_loss_evolution': per_residue_evolutionary_profile_loss,
             }
-        else:
-            profile_loss = {}
 
         sequence_params = {
             **pose.per_residue_contact_order(),
@@ -2666,7 +2625,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
                     # residue_mask_cpu = np.tile(residue_mask_cpu, (1, number_of_symmetry_mates))
                     # # bias_by_res = np.tile(bias_by_res, (1, number_of_symmetry_mates, 1))
                 else:
-                    # If entity_bb_coords are individually transformed, then axis=0 works
+                    # When batched_coords are individually transformed, axis=0 works
                     perturbed_bb_coords = np.concatenate(batched_coords, axis=0)
 
                 # Reshape for ProteinMPNN
@@ -2812,7 +2771,6 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         fragment_profiles = []
         interface_mask = []
         # Stack the entity coordinates to make up a contiguous block for each pose
-        # If entity_bb_coords are stacked, then must concatenate along axis=1 to get full pose
         new_coords = []
         for idx in tqdm(pose_ids, total=number_of_transforms):
             # logger.info(f'Metrics for Pose {idx + 1}/{number_of_transforms}')
@@ -2998,575 +2956,6 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
 
         return poses_df, residues_df
 
-    # def collect_dock_metrics() -> tuple[pd.DataFrame, pd.DataFrame]:  # -> dict[str, np.ndarray]:
-    #     """Perform analysis on the docked Pose instances
-    #
-    #     Returns:
-    #         A tuple of DataFrames representing the per-pose and the per-residue metrics. Each has indices from 0-N
-    #     """
-    #     logger.info(f'Collecting metrics for {number_of_transforms} active Poses')
-    #
-    #     # Initialize proteinmpnn for dock/design analysis
-    #     if job.dock.proteinmpnn_score:
-    #         # Retrieve the ProteinMPNN model
-    #         mpnn_model = ml.proteinmpnn_factory()  # Todo 1 accept model_name arg. Now just use the default
-    #         # Set up model sampling type based on symmetry
-    #         if pose.is_symmetric():
-    #             # number_of_symmetry_mates = pose.number_of_symmetry_mates
-    #             # mpnn_sample = mpnn_model.tied_sample
-    #             number_of_residues = pose_length * pose.number_of_symmetry_mates
-    #         else:
-    #             # mpnn_sample = mpnn_model.sample
-    #             number_of_residues = pose_length
-    #
-    #         # Modulate memory requirements
-    #         size = full_rotation1.shape[0]  # This is the number of transformations, i.e. the number_of_designs
-    #         # The batch_length indicates how many models could fit in the allocated memory
-    #         batch_length = ml.calculate_proteinmpnn_batch_length(mpnn_model, number_of_residues)
-    #         logger.info(f'Found ProteinMPNN batch_length={batch_length}')
-    #
-    #         # Set up Pose parameters
-    #         parameters = pose.get_proteinmpnn_params(ca_only=job.design.ca_only, interface=measure_interface_during_dock)
-    #         # Todo 2 reinstate if conditional_log_probs
-    #         # # Todo
-    #         # #  Must calculate randn individually if using some feature to describe order
-    #         # parameters['randn'] = pose.generate_proteinmpnn_decode_order()  # to_device=device)
-    #
-    #         # Set up interface unbound coordinates
-    #         if measure_interface_during_dock:
-    #             X_unbound = pose.get_proteinmpnn_unbound_coords(ca_only=job.design.ca_only)
-    #             # Add a parameter for the unbound version of X to X
-    #             # extra_batch_parameters = ml.proteinmpnn_to_device(device, **ml.batch_proteinmpnn_input(size=batch_length,
-    #             #                                                                                        X=X_unbound))
-    #             # parameters['X_unbound'] = X_unbound
-    #             unbound_batch = ml.proteinmpnn_to_device(
-    #                 device=mpnn_model.device,
-    #                 **ml.batch_proteinmpnn_input(size=1, X_unbound=X_unbound, mask=parameters['mask'],
-    #                                              residue_idx=parameters['residue_idx'],
-    #                                              chain_encoding=parameters['chain_encoding'])
-    #             )
-    #
-    #             # X_unbound = torch.from_numpy(unbound_batch['X_unbound']).to(device=device)
-    #             # mask = torch.from_numpy(unbound_batch['mask']).to(device=device)
-    #             # residue_idx = torch.from_numpy(unbound_batch['residue_idx']).to(device=device)
-    #             # chain_encoding = torch.from_numpy(unbound_batch['chain_encoding']).to(device=device)
-    #
-    #             X_unbound = unbound_batch['X_unbound']
-    #             mask = unbound_batch['mask']
-    #             residue_idx = unbound_batch['residue_idx']
-    #             chain_encoding = unbound_batch['chain_encoding']
-    #             with torch.no_grad():
-    #                 unconditional_log_probs_unbound = \
-    #                     mpnn_model.unconditional_probs(X_unbound, mask, residue_idx, chain_encoding).cpu()
-    #                 mpnn_null_idx = resources.ml.MPNN_NULL_IDX
-    #                 asu_conditional_softmax_seq_unbound = \
-    #                     np.exp(unconditional_log_probs_unbound[:, :pose_length, :mpnn_null_idx])
-    #         else:
-    #             raise NotImplementedError(f"{fragment_dock.__name__} isn't written to only measure the complexed state")
-    #             asu_conditional_softmax_seq_unbound = None
-    #         # Disregard X, chain_M_pos, and bias_by_res parameters return and use the pose specific data from below
-    #         # parameters.pop('X')  # overwritten by X_unbound
-    #         parameters.pop('chain_M_pos')
-    #         parameters.pop('bias_by_res')
-    #         # tied_pos = parameters.pop('tied_pos')
-    #         # # Todo 2 if modifying the amount of weight given to each of the copies
-    #         # tied_beta = parameters.pop('tied_beta')
-    #         # # Set the design temperature
-    #         # temperature = job.design.temperatures[0]
-    #
-    #         proteinmpnn_time_start = time.time()
-    #
-    #         @torch.no_grad()  # Ensure no gradients are produced
-    #         @resources.ml.batch_calculation(size=size, batch_length=batch_length,
-    #                                         setup=ml.setup_pose_batch_for_proteinmpnn,
-    #                                         compute_failure_exceptions=(RuntimeError,
-    #                                                                     np.core._exceptions._ArrayMemoryError))
-    #         def check_dock_for_designability(batch_slice: slice,
-    #                                          S: torch.Tensor = None,
-    #                                          chain_encoding: torch.Tensor = None,
-    #                                          residue_idx: torch.Tensor = None,
-    #                                          mask: torch.Tensor = None,
-    #                                          pose_length: int = None,
-    #                                          # X_unbound: torch.Tensor = None,
-    #                                          # Todo 2 reinstate if conditional_log_probs
-    #                                          # chain_mask: torch.Tensor = None,
-    #                                          # randn: torch.Tensor = None,
-    #                                          # tied_pos: Iterable[Container] = None,
-    #                                          **batch_parameters) -> dict[str, np.ndarray]:
-    #             actual_batch_length = batch_slice.stop - batch_slice.start
-    #             # # Get the null_idx
-    #             # mpnn_null_idx = resources.ml.MPNN_NULL_IDX
-    #             # Get the batch_length
-    #             if pose_length is None:
-    #                 batch_length, pose_length, *_ = S.shape
-    #             else:
-    #                 batch_length, *_ = S.shape
-    #
-    #             # Initialize pose data structures for interface design
-    #             residue_mask_cpu = np.zeros((actual_batch_length, pose_length),
-    #                                         dtype=np.int32)  # (batch, number_of_residues)
-    #             # Stack the entity coordinates to make up a contiguous block for each pose
-    #             # If entity_bb_coords are stacked, then must concatenate along axis=1 to get full pose
-    #             new_coords = np.zeros((actual_batch_length, pose_length * num_model_residues, 3),
-    #                                   dtype=np.float32)  # (batch, number_of_residues, coords_length)
-    #
-    #             fragment_profiles = []
-    #             design_profiles = []
-    #             # Use batch_idx to set new numpy arrays, transform_idx (includes perturb_idx) to set coords
-    #             for batch_idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
-    #                 # Get the transformations based on the global index from batch_length
-    #                 update_pose_coords(transform_idx)
-    #
-    #                 # pose.find_and_split_interface(distance=cb_distance)
-    #                 # This is done in the below call
-    #                 add_fragments_to_pose()  # <- here generating fragments fresh
-    #                 # Reset the fragment_profile and fragment_map for each Entity before calculate_fragment_profile
-    #                 for entity in pose.entities:
-    #                     entity.fragment_map = None
-    #                     # entity.alpha.clear()
-    #
-    #                 # Load fragment_profile into the analysis
-    #                 pose.calculate_fragment_profile()
-    #                 # if pose.fragment_profile:
-    #                 fragment_profiles.append(pose.fragment_profile.as_array())
-    #                 # else:
-    #                 #     fragment_profiles.append(pose.fragment_profile.as_array())
-    #
-    #                 # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.calculate_metrics()
-    #                 # # Remove saved pose attributes from the prior iteration calculations
-    #                 # pose.ss_sequence_indices.clear(), pose.ss_type_sequence.clear()
-    #                 # pose.fragment_metrics.clear()
-    #                 # for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
-    #                 #     try:
-    #                 #         delattr(pose, attribute)
-    #                 #     except AttributeError:
-    #                 #         pass
-    #                 #
-    #                 # # Calculate pose metrics
-    #                 # interface_metrics[design_id] = pose.calculate_metrics()
-    #                 # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.calculate_metrics()
-    #                 pose.calculate_profile()
-    #                 # # Todo if want to throw away missing fragments
-    #                 # if sum(pose.alpha) == 0:  # No useful fragment observations
-    #                 #     actual_batch_length -= 1
-    #                 #     continue
-    #                 design_profiles.append(pssm_as_array(pose.profile))
-    #
-    #                 # Add all interface residues
-    #                 if measure_interface_during_dock:  # job.design.interface:
-    #                     design_residues = []
-    #                     for number, residues in pose.residues_by_interface.items():
-    #                         design_residues.extend([residue.index for residue in residues])
-    #                 else:
-    #                     design_residues = list(range(pose_length))
-    #
-    #                 # Todo 2 reinstate if conditional_log_probs
-    #                 # Residues to design are 1, others are 0
-    #                 residue_mask_cpu[batch_idx, design_residues] = 1
-    #                 # Set coords
-    #                 new_coords[batch_idx] = getattr(pose, coords_type)
-    #
-    #             # If entity_bb_coords are individually transformed, then axis=0 works
-    #             perturbed_bb_coords = np.concatenate(new_coords, axis=0)
-    #             # # Todo if want to throw away missing fragments
-    #             # perturbed_bb_coords = np.concatenate(new_coords[:actual_batch_length], axis=0)
-    #
-    #             # Format the bb coords for ProteinMPNN
-    #             if pose.is_symmetric():
-    #                 # Make each set of coordinates symmetric. Lattice cases have uc_dimensions passed in update_pose_coords
-    #                 _perturbed_bb_coords = []
-    #                 for idx in range(perturbed_bb_coords.shape[0]):
-    #                     _perturbed_bb_coords.append(pose.return_symmetric_coords(perturbed_bb_coords[idx]))
-    #
-    #                 # Let -1 fill in the pose length dimension with the number of residues
-    #                 # 4 is shape of backbone coords (N, Ca, C, O), 3 is x,y,z
-    #                 perturbed_bb_coords = np.concatenate(_perturbed_bb_coords)
-    #
-    #                 # Todo 2 reinstate if conditional_log_probs
-    #                 # # Symmetrize other arrays
-    #                 # number_of_symmetry_mates = pose.number_of_symmetry_mates
-    #                 # # (batch, number_of_sym_residues, ...)
-    #                 # residue_mask_cpu = np.tile(residue_mask_cpu, (1, number_of_symmetry_mates))
-    #                 # # bias_by_res = np.tile(bias_by_res, (1, number_of_symmetry_mates, 1))
-    #
-    #             # Reshape for ProteinMPNN
-    #             logger.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
-    #             X = perturbed_bb_coords.reshape((actual_batch_length, -1, num_model_residues, 3))
-    #             logger.debug(f'X.shape: {X.shape}')
-    #             # Save design_indices
-    #             _residue_indices_of_interest = residue_mask_cpu.astype(bool)
-    #             # Todo 2 reinstate if conditional_log_probs
-    #             # _residue_indices_of_interest = residue_mask_cpu[:, :pose_length].astype(bool)
-    #
-    #             # Update different parameters to the identified device
-    #             batch_parameters.update(ml.proteinmpnn_to_device(device, X=X))  # , chain_M_pos=residue_mask_cpu))
-    #             # Different across poses
-    #             X = batch_parameters.pop('X')
-    #             # Todo 2 reinstate if conditional_log_probs
-    #             # residue_mask = batch_parameters.get('chain_M_pos', None)
-    #             # # Potentially different across poses
-    #             # bias_by_res = batch_parameters.get('bias_by_res', None)
-    #             # Todo calculate individually if using some feature to describe order
-    #             #  MUST reinstate the removal from scope after finished with this batch
-    #             # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=device)
-    #             # decoding_order.repeat(actual_batch_length, 1)
-    #             # with torch.no_grad():  # Ensure no gradients are produced
-    #             # Unpack constant parameters and slice reused parameters only once
-    #             # X_unbound = batch_parameters.pop('X')  # Remove once batch_calculation()
-    #             # chain_mask = batch_parameters.pop('chain_mask')
-    #             # chain_encoding = batch_parameters.pop('chain_encoding')
-    #             # residue_idx = batch_parameters.pop('residue_idx')
-    #             # mask = batch_parameters.pop('mask')
-    #             # randn = batch_parameters.pop('randn')
-    #
-    #             # ml.proteinmpnn_batch_design(batch_slice,
-    #             #                             mpnn_model: ProteinMPNN,
-    #             #                             temperatures=job.design.temperatures,
-    #             #                             **parameters,  # (randn, S, chain_mask, chain_encoding, residue_idx, mask, temperatures, pose_length, bias_by_res, tied_pos, X_unbound)
-    #             #                             **batch_parameters  # (X, chain_M_pos, bias_by_res)
-    #             # ml.proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
-    #             #                             X: torch.Tensor = None,
-    #             #                             randn: torch.Tensor = None,
-    #             #                             S: torch.Tensor = None,
-    #             #                             chain_mask: torch.Tensor = None,
-    #             #                             chain_encoding: torch.Tensor = None,
-    #             #                             residue_idx: torch.Tensor = None,
-    #             #                             mask: torch.Tensor = None,
-    #             #                             temperatures: Sequence[float] = (0.1,),
-    #             #                             pose_length: int = None,
-    #             #                             bias_by_res: torch.Tensor = None,
-    #             #                             tied_pos: Iterable[Container] = None,
-    #             #                             X_unbound: torch.Tensor = None,
-    #             #                             **batch_parameters
-    #             #                             ) -> dict[str, np.ndarray]:
-    #
-    #             # Todo 2 reinstate if conditional_log_probs
-    #             # # Clone the data from the sequence tensor so that it can be set with the null token below
-    #             # S_design_null = S.detach().clone()
-    #             # Get the provided batch_length from wrapping function. actual_batch_length may be smaller on last batch
-    #             # batch_length = X.shape[0]
-    #             # batch_length = X_unbound.shape[0]
-    #             if actual_batch_length != batch_length:
-    #                 # Slice these for the last iteration
-    #                 # X_unbound = X_unbound[:actual_batch_length]  # , None)
-    #                 chain_encoding = chain_encoding[:actual_batch_length]  # , None)
-    #                 residue_idx = residue_idx[:actual_batch_length]  # , None)
-    #                 mask = mask[:actual_batch_length]  # , None)
-    #                 # Todo 2 reinstate if conditional_log_probs
-    #                 # chain_mask = chain_mask[:actual_batch_length]  # , None)
-    #                 # randn = randn[:actual_batch_length]
-    #                 # S_design_null = S_design_null[:actual_batch_length]  # , None)
-    #                 # # Unpack, unpacked keyword args
-    #                 # omit_AA_mask = batch_parameters.get('omit_AA_mask')
-    #                 # pssm_coef = batch_parameters.get('pssm_coef')
-    #                 # pssm_bias = batch_parameters.get('pssm_bias')
-    #                 # pssm_log_odds_mask = batch_parameters.get('pssm_log_odds_mask')
-    #                 # # Set keyword args
-    #                 # batch_parameters['omit_AA_mask'] = omit_AA_mask[:actual_batch_length]
-    #                 # batch_parameters['pssm_coef'] = pssm_coef[:actual_batch_length]
-    #                 # batch_parameters['pssm_bias'] = pssm_bias[:actual_batch_length]
-    #                 # batch_parameters['pssm_log_odds_mask'] = pssm_log_odds_mask[:actual_batch_length]
-    #
-    #             # See if the pose is useful to design based on constraints of collapse
-    #             # Measure the conditional amino acid probabilities at each residue to see
-    #             # how they compare to various profiles from the Pose multiple sequence alignment
-    #             # If conditional_probs() are measured, then we need a batched_decoding order
-    #             # conditional_start_time = time.time()
-    #
-    #             # Use the sequence as an unknown token then guess the probabilities given the remaining
-    #             # information, i.e. the sequence and the backbone
-    #             # Calculations with this are done using cpu memory and numpy
-    #             # Todo 2 reinstate if conditional_log_probs
-    #             # S_design_null[residue_mask.type(torch.bool)] = mpnn_null_idx
-    #             # chain_residue_mask = chain_mask * residue_mask * mask
-    #             # decoding_order = ml.create_decoding_order(randn, chain_residue_mask, tied_pos=tied_pos, to_device=device)
-    #             # conditional_log_probs_null_seq = \
-    #             #     mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
-    #             #                None,  # This argument is provided but with below args, is not used
-    #             #                use_input_decoding_order=True, decoding_order=decoding_order).cpu()
-    #             unconditional_log_probs = \
-    #                 mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding).cpu()
-    #             #  Taking the KL divergence would indicate how divergent the interfaces are from the
-    #             #  surface. This should be simultaneously minimized (i.e. lowest evolutionary divergence)
-    #             #  while the aa frequency distribution cross_entropy compared to the fragment profile is
-    #             #  minimized
-    #             # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
-    #             # asu_conditional_softmax_null_seq = \
-    #             #     np.exp(conditional_log_probs_null_seq[:, :pose_length, :mpnn_null_idx])
-    #             asu_conditional_softmax_seq = \
-    #                 np.exp(unconditional_log_probs[:, :pose_length, :mpnn_null_idx])
-    #             _per_residue_proteinmpnn_dock_cross_entropy = \
-    #                 metrics.cross_entropy(asu_conditional_softmax_seq,
-    #                                       asu_conditional_softmax_seq_unbound[:actual_batch_length],
-    #                                       per_entry=True)
-    #             # asu_conditional_softmax
-    #             # tensor([[[0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
-    #             #          [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
-    #             #          [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
-    #             #          ...,
-    #             #          [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059],
-    #             #          [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059],
-    #             #          [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059]],
-    #             #          ...
-    #             #         [[0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
-    #             #          [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
-    #             #          [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
-    #             #          ...,
-    #             #          [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059],
-    #             #          [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059],
-    #             #          [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059]]])
-    #
-    #             if pose.fragment_profile:
-    #                 # Process the fragment_profiles into an array for cross entropy
-    #                 fragment_profile_array = np.array(fragment_profiles)
-    #                 # RuntimeWarning: divide by zero encountered in log
-    #                 # np.log causes -inf at 0, thus we need to correct these to a very large number
-    #                 batch_fragment_profile = torch.from_numpy(np.nan_to_num(fragment_profile_array, copy=False, nan=np.nan))
-    #                 _per_residue_fragment_cross_entropy = \
-    #                     metrics.cross_entropy(asu_conditional_softmax_seq,
-    #                                           batch_fragment_profile,
-    #                                           per_entry=True)
-    #                 #                         mask=_residue_indices_of_interest,
-    #                 #                         axis=1)
-    #                 # print('batch_fragment_profile', batch_fragment_profile[:, 20:23])
-    #                 # All per_residue metrics look the same. Shape batch_length, number_of_residues
-    #                 # per_residue_evolution_cross_entropy[batch_slice]
-    #                 # [[-3.0685883 -3.575249  -2.967545  ... -3.3111317 -3.1204746 -3.1201541]
-    #                 #  [-3.0685873 -3.5752504 -2.9675443 ... -3.3111336 -3.1204753 -3.1201541]
-    #                 #  [-3.0685952 -3.575687  -2.9675474 ... -3.3111277 -3.1428783 -3.1201544]]
-    #             else:
-    #                 _per_residue_fragment_cross_entropy = np.empty_like(_residue_indices_of_interest, dtype=np.float32)
-    #                 _per_residue_fragment_cross_entropy[:] = np.nan
-    #
-    #             if pose.evolutionary_profile:
-    #                 _per_residue_evolution_cross_entropy = \
-    #                     metrics.cross_entropy(asu_conditional_softmax_seq,
-    #                                           batch_evolutionary_profile[:actual_batch_length],
-    #                                           per_entry=True)
-    #                 #                         mask=_residue_indices_of_interest,
-    #                 #                         axis=1)
-    #             else:  # Populate with null data
-    #                 _per_residue_evolution_cross_entropy = np.empty_like(_per_residue_fragment_cross_entropy)
-    #                 _per_residue_evolution_cross_entropy[:] = np.nan
-    #
-    #             if pose.profile:
-    #                 # Process the design_profiles into an array for cross entropy
-    #                 # Todo 1
-    #                 #  need to make scipy.softmax(design_profiles) so scaling matches
-    #                 batch_design_profile = torch.from_numpy(np.array(design_profiles))
-    #                 _per_residue_design_cross_entropy = \
-    #                     metrics.cross_entropy(asu_conditional_softmax_seq,
-    #                                           batch_design_profile,
-    #                                           per_entry=True)
-    #                 #                         mask=_residue_indices_of_interest,
-    #                 #                         axis=1)
-    #             else:  # Populate with null data
-    #                 _per_residue_design_cross_entropy = np.empty_like(_per_residue_fragment_cross_entropy)
-    #                 _per_residue_design_cross_entropy[:] = np.nan
-    #
-    #             if collapse_profile.size:  # Not equal to zero
-    #                 # Make data structures
-    #                 _per_residue_collapse = np.zeros((actual_batch_length, pose_length), dtype=np.float32)
-    #                 _per_residue_dock_islands = np.zeros_like(_per_residue_collapse)
-    #                 _per_residue_dock_island_significance = np.zeros_like(_per_residue_collapse)
-    #                 _per_residue_dock_collapse_significance_by_contact_order_z = np.zeros_like(_per_residue_collapse)
-    #                 _per_residue_dock_collapse_increase_significance_by_contact_order_z = \
-    #                     np.zeros_like(_per_residue_collapse)
-    #                 _per_residue_dock_collapse_increased_z = np.zeros_like(_per_residue_collapse)
-    #                 _per_residue_dock_collapse_deviation_magnitude = np.zeros_like(_per_residue_collapse)
-    #                 _per_residue_dock_sequential_peaks_collapse_z = np.zeros_like(_per_residue_collapse)
-    #                 _per_residue_dock_collapse_sequential_z = np.zeros_like(_per_residue_collapse)
-    #
-    #                 # Include new axis for the sequence iteration to work on an array... v
-    #                 collapse_by_pose = \
-    #                     metrics.collapse_per_residue(asu_conditional_softmax_seq[:, np.newaxis],
-    #                                                  contact_order_per_res_z, reference_collapse,
-    #                                                  alphabet_type=protein_letters_alph1,
-    #                                                  hydrophobicity='expanded')
-    #                 for pose_idx, collapse_metrics in enumerate(collapse_by_pose):
-    #                     # Unpack each metric set and add to the batch arrays
-    #                     _per_residue_dock_collapse_deviation_magnitude[pose_idx] = \
-    #                         collapse_metrics['collapse_deviation_magnitude']
-    #                     _per_residue_dock_collapse_increase_significance_by_contact_order_z[pose_idx] = \
-    #                         collapse_metrics['collapse_increase_significance_by_contact_order_z']
-    #                     _per_residue_dock_collapse_increased_z[pose_idx] = collapse_metrics['collapse_increased_z']
-    #                     _per_residue_dock_islands[pose_idx] = collapse_metrics['collapse_new_positions']
-    #                     _per_residue_dock_island_significance[pose_idx] = \
-    #                         collapse_metrics['collapse_new_position_significance']
-    #                     _per_residue_dock_collapse_significance_by_contact_order_z[pose_idx] = \
-    #                         collapse_metrics['collapse_significance_by_contact_order_z']
-    #                     _per_residue_dock_sequential_peaks_collapse_z[pose_idx] = \
-    #                         collapse_metrics['collapse_sequential_peaks_z']
-    #                     _per_residue_dock_collapse_sequential_z[pose_idx] = collapse_metrics['collapse_sequential_z']
-    #                     _per_residue_collapse[pose_idx] = collapse_metrics['hydrophobic_collapse']
-    #
-    #                 # Check if there are new collapse islands and count
-    #                 # If there are any then there is a collapse violation
-    #                 number_collapse_new_positions_per_designed = \
-    #                     _per_residue_dock_islands[_residue_indices_of_interest].sum(axis=-1)
-    #                 # if np.any(np.logical_and(_per_residue_dock_islands[_residue_indices_of_interest],
-    #                 #                          _per_residue_dock_collapse_increased_z[_residue_indices_of_interest])):
-    #                 # _poor_collapse = designed_collapse_new_positions > 0
-    #                 collapse_fit_parameters = {
-    #                     # The below structures have a shape (batch_length, pose_length)
-    #                     'collapse_new_positions': _per_residue_dock_islands,
-    #                     'collapse_new_position_significance': _per_residue_dock_island_significance,
-    #                     'collapse_significance_by_contact_order_z':
-    #                         _per_residue_dock_collapse_significance_by_contact_order_z,
-    #                     'collapse_increase_significance_by_contact_order_z':
-    #                         _per_residue_dock_collapse_increase_significance_by_contact_order_z,
-    #                     'collapse_increased_z': _per_residue_dock_collapse_increased_z,
-    #                     'collapse_deviation_magnitude': _per_residue_dock_collapse_deviation_magnitude,
-    #                     'collapse_sequential_peaks_z': _per_residue_dock_sequential_peaks_collapse_z,
-    #                     'collapse_sequential_z': _per_residue_dock_collapse_sequential_z,
-    #                     # The below structure has shape (batch_length,)
-    #                     'collapse_violation': number_collapse_new_positions_per_designed > 0,
-    #                     'hydrophobic_collapse': _per_residue_collapse
-    #                 }
-    #             else:
-    #                 # _per_residue_dock_islands = _per_residue_dock_island_significance = \
-    #                 #     _per_residue_dock_collapse_significance_by_contact_order_z = \
-    #                 #     _per_residue_dock_collapse_increase_significance_by_contact_order_z =
-    #                 #     _per_residue_dock_collapse_increased_z = _per_residue_dock_collapse_deviation_magnitude = \
-    #                 #     _per_residue_dock_sequential_peaks_collapse_z = _per_residue_dock_collapse_sequential_z = \
-    #                 #     np.zeros((actual_batch_length, pose_length), dtype=np.float32)
-    #                 # Initialize collapse measurement container
-    #                 # _poor_collapse = [0 for _ in range(actual_batch_length)]
-    #                 collapse_fit_parameters = {}
-    #
-    #             # if collapse_profile.size:  # Not equal to zero
-    #             #     # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
-    #             #     _poor_collapse = [0 for _ in range(actual_batch_length)]
-    #             #     _per_residue_mini_batch_collapse_z = \
-    #             #         np.zeros((actual_batch_length, pose_length), dtype=np.float32)
-    #             #     for pose_idx in range(actual_batch_length):
-    #             #         # Only include the residues in the ASU
-    #             #         design_probs_collapse = \
-    #             #             hydrophobic_collapse_index(asu_conditional_softmax_null_seq[pose_idx],
-    #             #                                        # asu_unconditional_softmax,
-    #             #                                        alphabet_type=ml.mpnn_alphabet)
-    #             #         # Compare the sequence collapse to the pose collapse
-    #             #         # USE:
-    #             #         #  contact_order_per_res_z, reference_collapse, collapse_profile
-    #             #         # print('HCI profile mean', collapse_profile_mean)
-    #             #         # print('HCI profile std', collapse_profile_std)
-    #             #         _per_residue_mini_batch_collapse_z[pose_idx] = collapse_z = \
-    #             #             z_score(design_probs_collapse, collapse_profile_mean, collapse_profile_std)
-    #             #         # folding_loss = ml.sequence_nllloss(S_sample, design_probs_collapse)  # , mask_for_loss)
-    #             #         pose_idx_residues_of_interest = _residue_indices_of_interest[pose_idx]
-    #             #         designed_indices_collapse_z = collapse_z[pose_idx_residues_of_interest]
-    #             #         # magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
-    #             #         # Check if dock has collapse larger than collapse_significance_threshold and increased collapse
-    #             #         if np.any(np.logical_and(design_probs_collapse[pose_idx_residues_of_interest]
-    #             #                                  > collapse_significance_threshold,
-    #             #                                  designed_indices_collapse_z > 0)):
-    #             #             _poor_collapse[pose_idx] = 1
-    #             #             # logger.warning(f'***Collapse is larger than one standard deviation. '
-    #             #             #                f'Pose is *** being considered')
-    #             #             # print('design_probs_collapse', design_probs_collapse[pose_idx_residues_of_interest])
-    #             #             # This is the collapse value at each residue_of_interest
-    #             #             # print('designed_indices_collapse_z', designed_indices_collapse_z)
-    #             #             # This is the collapse z score from the Pose profile at each residue_of_interest
-    #             #             # design_probs_collapse
-    #             #             # [0.1229698  0.14987233 0.23318215 0.23268045 0.23882663 0.24801936
-    #             #             #  0.25622816 0.44975936 0.43138875 0.3607946  0.3140504  0.28207788
-    #             #             #  0.27033003 0.27388856 0.28031376 0.28897327 0.14254868 0.13711281
-    #             #             #  0.12078322 0.11563808 0.13515363 0.16421124 0.16638894 0.16817969
-    #             #             #  0.16234223 0.19553652 0.20065537 0.1901575  0.17455298 0.17621328
-    #             #             #  0.20747318 0.21465868 0.22461864 0.21520302 0.21346277 0.2054776
-    #             #             #  0.17700449 0.15074518 0.11202089 0.07674509 0.08504518 0.09990609
-    #             #             #  0.16057604 0.14554144 0.14646661 0.15743639 0.2136532  0.23222249
-    #             #             #  0.26718637]
-    #             #             # designed_indices_collapse_z
-    #             #             # [-0.80368181 -1.2787087   0.71124918  1.04688287  1.26099661 -0.17269616
-    #             #             #  -0.06417628  1.16625098  0.94364294  0.62500235  0.53019078  0.5038286
-    #             #             #   0.59372686  0.82563642  1.12022683  1.1989269  -1.07529947 -1.27769417
-    #             #             #  -1.24323295 -0.95376269  0.55229076  1.05845308  0.62604691  0.20474606
-    #             #             #  -0.20987778 -0.45545679 -0.40602295 -0.54974293 -0.72873982 -0.84489538
-    #             #             #  -0.8104777  -0.80596935 -0.71591074 -0.79774316 -0.75114322 -0.77010185
-    #             #             #  -0.63265472 -0.61240502 -0.69975283 -1.11501543 -0.81130281 -0.64497745
-    #             #             #  -0.10221637 -0.32925792 -0.53646227 -0.54949522 -0.35537453 -0.28560236
-    #             #             #   0.23599237]
-    #             #         # else:
-    #             #         #     _poor_collapse.append(0)
-    #             #         #     logger.critical(
-    #             #         #         f'Total deviation={magnitude_of_collapse_z_deviation.sum()}. '
-    #             #         #         f'Mean={designed_indices_collapse_z.mean()}'
-    #             #         #         f'Standard Deviation={designed_indices_collapse_z.std()}')
-    #             #     # _total_collapse_favorability.extend(_poor_collapse)
-    #             #     # per_residue_design_indices[batch_slice] = _residue_indices_of_interest
-    #             #     # per_residue_batch_collapse_z[batch_slice] = _per_residue_mini_batch_collapse_z
-    #             # else:  # Populate with null data
-    #             #     _per_residue_mini_batch_collapse_z = _per_residue_evolution_cross_entropy.copy()
-    #             #     _per_residue_mini_batch_collapse_z[:] = np.nan
-    #             #     _poor_collapse = _per_residue_mini_batch_collapse_z[:, 0]
-    #
-    #             return {
-    #                 **collapse_fit_parameters,
-    #                 # The below structures have a shape (batch_length, pose_length)
-    #                 'design_indices': _residue_indices_of_interest,
-    #                 'dock_cross_entropy': _per_residue_proteinmpnn_dock_cross_entropy,
-    #                 'design_cross_entropy': _per_residue_design_cross_entropy,
-    #                 'evolution_cross_entropy': _per_residue_evolution_cross_entropy,
-    #                 'fragment_cross_entropy': _per_residue_fragment_cross_entropy,
-    #             }
-    #
-    #         # Initialize correct data for the calculation
-    #         proteinmpnn_kwargs = dict(pose_length=pose_length,
-    #                                   temperatures=job.design.temperatures)
-    #         # probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length, dtype=np.float32))
-    #         # if job.dock.proteinmpnn_score:
-    #         # Set up ProteinMPNN output data structures
-    #         # To use torch.nn.NLLL() must use dtype Long -> np.int64, not Int -> np.int32
-    #         # generated_sequences = np.empty((size, pose_length), dtype=np.int64)
-    #         per_residue_proteinmpnn_dock_cross_entropy = np.empty((size, pose_length), dtype=np.float32)
-    #         per_residue_evolution_cross_entropy = np.empty_like(per_residue_proteinmpnn_dock_cross_entropy)
-    #         per_residue_fragment_cross_entropy = np.empty_like(per_residue_proteinmpnn_dock_cross_entropy)
-    #         per_residue_design_cross_entropy = np.empty_like(per_residue_proteinmpnn_dock_cross_entropy)
-    #         dock_returns = {
-    #             'dock_cross_entropy': per_residue_proteinmpnn_dock_cross_entropy,
-    #             'design_cross_entropy': per_residue_design_cross_entropy,
-    #             'evolution_cross_entropy': per_residue_evolution_cross_entropy,
-    #             'fragment_cross_entropy': per_residue_fragment_cross_entropy,
-    #         }
-    #
-    #         if collapse_profile.size:
-    #             per_residue_collapse = np.empty((size, pose_length), dtype=np.float32)
-    #             collapse_returns = {'collapse_new_positions': per_residue_collapse,
-    #                                 'collapse_new_position_significance': np.zeros_like(per_residue_collapse),
-    #                                 'collapse_significance_by_contact_order_z': np.zeros_like(per_residue_collapse),
-    #                                 'collapse_increase_significance_by_contact_order_z': np.zeros_like(per_residue_collapse),
-    #                                 'collapse_increased_z': np.zeros_like(per_residue_collapse),
-    #                                 'collapse_deviation_magnitude': np.zeros_like(per_residue_collapse),
-    #                                 'collapse_sequential_peaks_z': np.zeros_like(per_residue_collapse),
-    #                                 'collapse_sequential_z': np.zeros_like(per_residue_collapse),
-    #                                 'collapse_violation': np.zeros((size,), dtype=bool),
-    #                                 'hydrophobic_collapse': np.zeros_like(per_residue_collapse),
-    #                                 }
-    #         else:
-    #             collapse_returns = {}
-    #
-    #         # Perform the calculation
-    #         all_returns = {
-    #             # Include design indices in both dock and design (used for output of residues_df)
-    #             'design_indices': np.zeros((size, pose_length), dtype=bool),
-    #             **dock_returns,
-    #             **collapse_returns
-    #         }
-    #         logger.info(f'Starting scoring with ProteinMPNN')
-    #         # This is used for understanding dock fit only
-    #         scores = _check_dock_for_designability(**proteinmpnn_kwargs,
-    #                                                return_containers=all_returns,
-    #                                                setup_args=(device,),
-    #                                                setup_kwargs=parameters)
-    #         logger.info(f'ProteinMPNN docking analysis took {time.time() - proteinmpnn_time_start:8f}')
-    #     else:  # Interface metrics be captured in format_docking_metrics, return empty
-    #         scores = {}
-    #
-    #     # return scores
-    #     # Format metrics for each pose
-    #     return format_docking_metrics(scores)
-
     def optimize_found_transformations_by_metrics() -> tuple[pd.DataFrame, list[int]]:  # float:
         """Perform a cycle of (optional) transformation perturbation, and then score and select those which are ranked
         highest
@@ -3578,11 +2967,8 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         """
         nonlocal poses_df, residues_df
         nonlocal total_dof_perturbed
-        # nonlocal number_of_transforms, optimize_round, poses_df, residues_df
-        # # Set the cluster number to the incoming number_of_transforms
-        # number_of_transform_clusters = number_of_transforms
         # total_dof_perturbed = sym_entry.total_dof
-        # if job.dock.perturb_dof_rot or job.dock.perturb_dof_tx:
+
         if any((sym_entry.number_dof_rotation, sym_entry.number_dof_translation)):
             nonlocal rotation_steps, translation_perturb_steps
             # Perform perturbations to the allowed degrees of freedom
@@ -3633,7 +3019,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
                         # # Must find positive indices before external_dof1 multiplication in case negatives there
                         # positive_indices = \
                         #     np.flatnonzero(np.all(transform_passing_shifts[:, :sym_entry.number_dof_external] >= 0, axis=1))
-                        # number_passing_shifts = positive_indices.shape[0]
+                        # number_passing_shifts = len(positive_indices)
                         optimal_ext_dof_shifts[idx, :sym_entry.number_dof_external] = \
                             mean_transform[:sym_entry.number_dof_external]
 
@@ -4150,8 +3536,6 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
             pose_ids = [pose.id for pose in pose_jobs]
         else:
             pose_ids = pose_names
-        project_str = f'{project}{os.sep}'
-        project_pose_names = [f'{project_str}{pose_name}' for pose_name in pose_names]
 
         def populate_pose_metadata():
             """Add all required PoseJob information to output the created Pose instances for persistent storage"""
@@ -4173,7 +3557,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
             blank_parameter = list(repeat([None, None, None], number_of_transforms))
             if sym_entry.is_internal_tx1:
                 nonlocal full_int_tx1
-                if full_int_tx1.shape[0] > 1:
+                if len(full_int_tx1) > 1:
                     full_int_tx1 = full_int_tx1.squeeze()
                 z_heights1 = full_int_tx1[:, -1]
             else:
@@ -4181,7 +3565,7 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
 
             if sym_entry.is_internal_tx2:
                 nonlocal full_int_tx2
-                if full_int_tx2.shape[0] > 1:
+                if len(full_int_tx2) > 1:
                     full_int_tx2 = full_int_tx2.squeeze()
                 z_heights2 = full_int_tx2[:, -1]
             else:
