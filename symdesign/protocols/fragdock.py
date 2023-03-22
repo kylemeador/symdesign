@@ -2101,249 +2101,6 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         # Calculate the vectorized uc_dimensions
         full_uc_dimensions = sym_entry.get_uc_dimensions(full_optimal_ext_dof_shifts)
 
-    def perturb_transformations() -> tuple[np.ndarray, list[int], int]:
-        """From existing transformation parameters, sample parameters within a range of spatial perturbation
-
-        Returns:
-            A tuple consisting of the elements (
-            transformation hash - Integer mapping the possible 3D space for docking to each perturbed transformation,
-            size of each perturbation cluster - Number of perturbed transformations possible from starting transform,
-            degrees of freedom sampled - How many degrees of freedom were perturbed
-            )
-        """
-        logger.info(f'Perturbing transformations')
-        perturb_rotation1, perturb_rotation2, perturb_int_tx1, perturb_int_tx2, perturb_optimal_ext_dof_shifts = \
-            [], [], [], [], []
-
-        # Define a function to stack the transforms
-        def stack_viable_transforms(passing_indices: np.ndarray | list[int]):
-            """From indices with viable transformations, stack the corresponding transformations into full
-            perturbation transformations
-
-            Args:
-                passing_indices: The indices that should be selected from the full transformation sets
-            """
-            # nonlocal perturb_rotation1, perturb_rotation2, perturb_int_tx1, perturb_int_tx2
-            logger.debug(f'Perturb expansion found {len(passing_indices)} passing_perturbations')
-            perturb_rotation1.append(full_rotation1[passing_indices])
-            perturb_rotation2.append(full_rotation2[passing_indices])
-            if sym_entry.is_internal_tx1:
-                perturb_int_tx1.extend(full_int_tx1[passing_indices, -1])
-            if sym_entry.is_internal_tx2:
-                perturb_int_tx2.extend(full_int_tx2[passing_indices, -1])
-
-            if sym_entry.unit_cell:
-                nonlocal full_optimal_ext_dof_shifts  # , full_ext_tx1, full_ext_tx2
-                perturb_optimal_ext_dof_shifts.append(full_optimal_ext_dof_shifts[passing_indices])
-                # full_uc_dimensions = full_uc_dimensions[passing_indices]
-                # full_ext_tx1 = full_ext_tx1[passing_indices]
-                # full_ext_tx2 = full_ext_tx2[passing_indices]
-
-        # Expand successful poses from coarse search of transformational space to randomly perturbed offset
-        # By perturbing the transformation a random small amount, we generate transformational diversity from
-        # the already identified solutions.
-        perturbations, n_perturbed_dof = \
-            create_perturbation_transformations(sym_entry, number_of_rotations=job.dock.perturb_dof_steps_rot,
-                                                number_of_translations=job.dock.perturb_dof_steps_tx,
-                                                rotation_steps=rotation_steps,
-                                                translation_steps=translation_perturb_steps)
-        # Extract perturbation parameters and set the original transformation parameters to a new variable
-        nonlocal number_perturbations_applied
-        rotation_perturbations1 = perturbations['rotation1']
-        # Compute the length of each perturbation to separate into unique perturbation spaces
-        number_perturbations_applied = calculation_size_ = len(rotation_perturbations1)
-        # logger.debug(f'rotation_perturbations1.shape: {rotation_perturbations1.shape}')
-        # logger.debug(f'rotation_perturbations1[:5]: {rotation_perturbations1[:5]}')
-        batch_length_ = get_check_tree_for_query_overlap_batch_length(bb_cb_coords2)
-        batch_length_ = min((batch_length_, number_perturbations_applied))
-
-        # Define local check_tree_for_query_overlap function to check clashes
-        @resources.ml.batch_calculation(size=calculation_size_, batch_length=batch_length_, setup=np_tile_wrap,
-                                        compute_failure_exceptions=(np.core._exceptions._ArrayMemoryError,))
-        def perturb_check_tree_for_query_overlap(*args, **kwargs):
-            return check_tree_for_query_overlap(*args, **kwargs)
-
-        nonlocal number_of_transforms, full_rotation1, full_rotation2
-        # if sym_entry.is_internal_rot1:  # Todo 2
-        original_rotation1 = full_rotation1
-        # if sym_entry.is_internal_rot2:  # Todo 2
-        original_rotation2 = full_rotation2
-        rotation_perturbations2 = perturbations['rotation2']
-        # logger.debug(f'rotation_perturbations2.shape: {rotation_perturbations2.shape}')
-        # logger.debug(f'rotation_perturbations2[:5]: {rotation_perturbations2[:5]}')
-        # blank_parameter = list(repeat([None, None, None], number_of_transforms))
-        if sym_entry.is_internal_tx1:
-            nonlocal full_int_tx1
-            original_int_tx1 = full_int_tx1
-            translation_perturbations1 = perturbations['translation1']
-            # logger.debug(f'translation_perturbations1.shape: {translation_perturbations1.shape}')
-            # logger.debug(f'translation_perturbations1[:5]: {translation_perturbations1[:5]}')
-        # else:
-        #     translation_perturbations1 = blank_parameter
-
-        if sym_entry.is_internal_tx2:
-            nonlocal full_int_tx2
-            original_int_tx2 = full_int_tx2
-            translation_perturbations2 = perturbations['translation2']
-            # logger.debug(f'translation_perturbations2.shape: {translation_perturbations2.shape}')
-            # logger.debug(f'translation_perturbations2[:5]: {translation_perturbations2[:5]}')
-        # else:
-        #     translation_perturbations2 = blank_parameter
-
-        if sym_entry.unit_cell:
-            nonlocal full_optimal_ext_dof_shifts
-            nonlocal full_ext_tx1, full_ext_tx2
-            ext_dof_perturbations = perturbations['external_translations']
-            original_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts
-            # original_ext_tx1 = full_ext_tx1
-            # original_ext_tx2 = full_ext_tx2
-        else:
-            full_ext_tx1 = full_ext_tx2 = full_ext_tx_sum = None
-
-        # Apply the perturbation to each existing transformation
-        logger.info(f'Perturbing each transform {number_perturbations_applied} times')
-        for idx in range(number_of_transforms):
-            logger.info(f'Perturbing transform {idx + 1}')
-            # Rotate the unique rotation by the perturb_matrix_grid and set equal to the full_rotation* array
-            full_rotation1 = np.matmul(original_rotation1[idx], rotation_perturbations1.swapaxes(-1, -2))  # rotation1
-            full_inv_rotation1 = np.linalg.inv(full_rotation1)
-            full_rotation2 = np.matmul(original_rotation2[idx], rotation_perturbations2.swapaxes(-1, -2))  # rotation2
-
-            # Translate the unique translation according to the perturb_translation_grid
-            if sym_entry.is_internal_tx1:
-                full_int_tx1 = original_int_tx1[idx] + translation_perturbations1  # translation1
-            if sym_entry.is_internal_tx2:
-                full_int_tx2 = original_int_tx2[idx] + translation_perturbations2  # translation2
-            if sym_entry.unit_cell:
-                # perturbed_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[None] + ext_dof_perturbations
-                # full_ext_tx_perturb1 = (perturbed_optimal_ext_dof_shifts[:, :, None] \
-                #     * sym_entry.external_dof1).sum(axis=-2)
-                # full_ext_tx_perturb2 = (perturbed_optimal_ext_dof_shifts[:, :, None] \
-                #     * sym_entry.external_dof2).sum(axis=-2)
-                # Below is for the individual perturbation
-                # optimal_ext_dof_shift = full_optimal_ext_dof_shifts[idx]
-                # perturbed_ext_dof_shift = optimal_ext_dof_shift + ext_dof_perturbations
-                unsqueezed_perturbed_ext_dof_shifts = \
-                    (original_optimal_ext_dof_shifts[idx] + ext_dof_perturbations)[:, :, None]
-                # unsqueezed_perturbed_ext_dof_shifts = perturbed_ext_dof_shift[:, :, None]
-                full_ext_tx1 = np.sum(unsqueezed_perturbed_ext_dof_shifts * sym_entry.external_dof1, axis=-2)
-                full_ext_tx2 = np.sum(unsqueezed_perturbed_ext_dof_shifts * sym_entry.external_dof2, axis=-2)
-                full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
-
-            # Check for ASU clashes again
-            # Using the inverse transform of the model2 backbone and cb coordinates, check for clashes with the model1
-            # backbone and cb coordinates BallTree
-            ball_tree_kwargs = dict(binarytree=oligomer1_backbone_cb_tree, clash_distance=clash_dist,
-                                    rotation=full_rotation2, translation=full_int_tx2,
-                                    rotation2=set_mat2, translation2=full_ext_tx_sum,
-                                    rotation3=inv_setting1,
-                                    translation3=None if full_int_tx1 is None else full_int_tx1 * -1,
-                                    rotation4=full_inv_rotation1)
-            # Create a fresh asu_clash_counts
-            asu_clash_counts = np.ones(number_perturbations_applied)
-            # clash_time_start = time.time()
-            overlap_return = perturb_check_tree_for_query_overlap(
-                **ball_tree_kwargs, return_containers={'overlap_counts': asu_clash_counts}, setup_args=(bb_cb_coords2,))
-            # logger.debug(f'Perturb clash took {time.time() - clash_time_start:8f}s')
-
-            # Extract the data
-            asu_clash_counts = overlap_return['overlap_counts']
-            logger.debug(f'Perturb expansion found asu_clash_counts:\n{asu_clash_counts}')
-            passing_perturbations = np.flatnonzero(asu_clash_counts == 0)
-            # Check for symmetric clashes again
-            if not job.design.ignore_symmetric_clashes:
-                passing_symmetric_clash_indices_perturb = find_viable_symmetric_indices(passing_perturbations.tolist())
-            else:
-                passing_symmetric_clash_indices_perturb = slice(None)
-            # Index the passing ASU indices with the passing symmetric indices and keep all viable transforms
-            # Stack the viable perturbed transforms
-            stack_viable_transforms(passing_perturbations[passing_symmetric_clash_indices_perturb])
-
-        # Concatenate the stacked perturbations
-        full_rotation1 = np.concatenate(perturb_rotation1, axis=0)
-        full_rotation2 = np.concatenate(perturb_rotation2, axis=0)
-        number_of_transforms = len(full_rotation1)
-        logger.info(f'After perturbation, found {number_of_transforms} viable solutions')
-        if sym_entry.is_internal_tx1:
-            full_int_tx1 = np.zeros((number_of_transforms, 3), dtype=float)
-            # Add the translation to Z (axis=1)
-            full_int_tx1[:, -1] = perturb_int_tx1
-            # full_int_tx1 = stacked_internal_tx_vectors1
-
-        if sym_entry.is_internal_tx2:
-            full_int_tx2 = np.zeros((number_of_transforms, 3), dtype=float)
-            # Add the translation to Z (axis=1)
-            full_int_tx2[:, -1] = perturb_int_tx2
-            # full_int_tx2 = stacked_internal_tx_vectors2
-
-        if sym_entry.unit_cell:
-            # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
-            full_optimal_ext_dof_shifts = np.concatenate(perturb_optimal_ext_dof_shifts, axis=0)
-            unsqueezed_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[:, :, None]
-            full_ext_tx1 = np.sum(unsqueezed_optimal_ext_dof_shifts * sym_entry.external_dof1, axis=-2)
-            full_ext_tx2 = np.sum(unsqueezed_optimal_ext_dof_shifts * sym_entry.external_dof2, axis=-2)
-
-        transform_hashes = create_transformation_hash()
-        logger.debug(f'Found the TransformHasher.translation_bin_width={model_transform_hasher.translation_bin_width}, '
-                     f'.rotation_bin_width={model_transform_hasher.rotation_bin_width}\n'
-                     f'Current range of sampled translations={sum(translation_perturb_steps)}, '
-                     f'rotations={sum(rotation_steps)}')
-        # print(model_transform_hasher.translation_bin_width > sum(translation_perturb_steps))
-        # print(model_transform_hasher.rotation_bin_width > sum(rotation_steps))
-        if model_transform_hasher.translation_bin_width > sum(translation_perturb_steps) or \
-                model_transform_hasher.rotation_bin_width > sum(rotation_steps):
-            # The translation/rotation is smaller than bins, so further exploration only possible without minimization
-            # Get the shape of the passing perturbations
-            perturbation_shape = [len(perturb) for perturb in perturb_rotation1]
-            # sorted_unique_transform_hashes = transform_hashes
-        else:
-            # Minimize perturbation space by unique transform hashes
-            # Using the current transforms, create a hash to uniquely label them and apply to the indices
-            sorted_unique_transform_hashes, unique_indices = np.unique(transform_hashes, return_index=True)
-            # Create array to mark which are unique
-            unique_transform_hashes = np.zeros_like(transform_hashes)
-            unique_transform_hashes[unique_indices] = 1
-            # Filter by unique_indices, sorting the indices to maintain the order of the transforms
-            # filter_transforms_by_indices(unique_indices)
-            unique_indices.sort()
-            filter_transforms_by_indices(unique_indices)
-            transform_hashes = transform_hashes[unique_indices]
-            # sorted_transform_hashes = np.sort(transform_hashes, axis=None)
-            # unique_sorted_transform_hashes = np.zeros_like(sorted_transform_hashes, dtype=bool)
-            # unique_sorted_transform_hashes[1:] = sorted_transform_hashes[1:] == sorted_transform_hashes[:-1]
-            # unique_sorted_transform_hashes[0] = True
-            # # Alternative
-            # unique_transform_hashes = pd.Index(transform_hashes).duplicated('first')
-
-            # total_number_of_perturbations = number_of_transforms * number_perturbations_applied
-            # Get the shape of the passing perturbations
-            perturbation_shape = []
-            # num_zeros = 0
-            last_perturb_start = 0
-            for perturb in perturb_rotation1:
-                perturb_end = last_perturb_start + len(perturb)
-                perturbation_shape.append(unique_transform_hashes[last_perturb_start:perturb_end].sum())
-                # Use if removing zero counts...
-                # shape = unique_transform_hashes[last_perturb_start:perturb_end].sum()
-                # if shape:
-                #     perturbation_shape.append(shape)
-                # else:
-                #     num_zeros += 1
-                last_perturb_start = perturb_end
-
-            number_of_transforms = len(full_rotation1)
-            logger.info(f'After culling duplicated transforms, found {number_of_transforms} viable solutions')
-            num_zeros = perturbation_shape.count(0)
-            if num_zeros:
-                logger.info(f'A total of {num_zeros} original transformations had no unique perturbations')
-                # Could use if removing zero counts... but probably less clear than above
-                # pop_zero_index = perturbation_shape.index(0)
-                # while pop_zero_index != -1:
-                #     perturbation_shape.pop(pop_zero_index)
-                #     pop_zero_index = perturbation_shape.index(0)
-
-        return transform_hashes, perturbation_shape, n_perturbed_dof
-
     # Calculate metrics on input Pose before any manipulation
     pose_length = pose.number_of_residues
     residue_indices = list(range(pose_length))
@@ -2953,6 +2710,249 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         # logger.debug(f'Found poses_df with index: {poses_df.index.tolist()}')
 
         return poses_df, residues_df
+
+    def perturb_transformations() -> tuple[np.ndarray, list[int], int]:
+        """From existing transformation parameters, sample parameters within a range of spatial perturbation
+
+        Returns:
+            A tuple consisting of the elements (
+            transformation hash - Integer mapping the possible 3D space for docking to each perturbed transformation,
+            size of each perturbation cluster - Number of perturbed transformations possible from starting transform,
+            degrees of freedom sampled - How many degrees of freedom were perturbed
+            )
+        """
+        logger.info(f'Perturbing transformations')
+        perturb_rotation1, perturb_rotation2, perturb_int_tx1, perturb_int_tx2, perturb_optimal_ext_dof_shifts = \
+            [], [], [], [], []
+
+        # Define a function to stack the transforms
+        def stack_viable_transforms(passing_indices: np.ndarray | list[int]):
+            """From indices with viable transformations, stack the corresponding transformations into full
+            perturbation transformations
+
+            Args:
+                passing_indices: The indices that should be selected from the full transformation sets
+            """
+            # nonlocal perturb_rotation1, perturb_rotation2, perturb_int_tx1, perturb_int_tx2
+            logger.debug(f'Perturb expansion found {len(passing_indices)} passing_perturbations')
+            perturb_rotation1.append(full_rotation1[passing_indices])
+            perturb_rotation2.append(full_rotation2[passing_indices])
+            if sym_entry.is_internal_tx1:
+                perturb_int_tx1.extend(full_int_tx1[passing_indices, -1])
+            if sym_entry.is_internal_tx2:
+                perturb_int_tx2.extend(full_int_tx2[passing_indices, -1])
+
+            if sym_entry.unit_cell:
+                nonlocal full_optimal_ext_dof_shifts  # , full_ext_tx1, full_ext_tx2
+                perturb_optimal_ext_dof_shifts.append(full_optimal_ext_dof_shifts[passing_indices])
+                # full_uc_dimensions = full_uc_dimensions[passing_indices]
+                # full_ext_tx1 = full_ext_tx1[passing_indices]
+                # full_ext_tx2 = full_ext_tx2[passing_indices]
+
+        # Expand successful poses from coarse search of transformational space to randomly perturbed offset
+        # By perturbing the transformation a random small amount, we generate transformational diversity from
+        # the already identified solutions.
+        perturbations, n_perturbed_dof = \
+            create_perturbation_transformations(sym_entry, number_of_rotations=job.dock.perturb_dof_steps_rot,
+                                                number_of_translations=job.dock.perturb_dof_steps_tx,
+                                                rotation_steps=rotation_steps,
+                                                translation_steps=translation_perturb_steps)
+        # Extract perturbation parameters and set the original transformation parameters to a new variable
+        nonlocal number_perturbations_applied
+        rotation_perturbations1 = perturbations['rotation1']
+        # Compute the length of each perturbation to separate into unique perturbation spaces
+        number_perturbations_applied = calculation_size_ = len(rotation_perturbations1)
+        # logger.debug(f'rotation_perturbations1.shape: {rotation_perturbations1.shape}')
+        # logger.debug(f'rotation_perturbations1[:5]: {rotation_perturbations1[:5]}')
+        batch_length_ = get_check_tree_for_query_overlap_batch_length(bb_cb_coords2)
+        batch_length_ = min((batch_length_, number_perturbations_applied))
+
+        # Define local check_tree_for_query_overlap function to check clashes
+        @resources.ml.batch_calculation(size=calculation_size_, batch_length=batch_length_, setup=np_tile_wrap,
+                                        compute_failure_exceptions=(np.core._exceptions._ArrayMemoryError,))
+        def perturb_check_tree_for_query_overlap(*args, **kwargs):
+            return check_tree_for_query_overlap(*args, **kwargs)
+
+        nonlocal number_of_transforms, full_rotation1, full_rotation2
+        # if sym_entry.is_internal_rot1:  # Todo 2
+        original_rotation1 = full_rotation1
+        # if sym_entry.is_internal_rot2:  # Todo 2
+        original_rotation2 = full_rotation2
+        rotation_perturbations2 = perturbations['rotation2']
+        # logger.debug(f'rotation_perturbations2.shape: {rotation_perturbations2.shape}')
+        # logger.debug(f'rotation_perturbations2[:5]: {rotation_perturbations2[:5]}')
+        # blank_parameter = list(repeat([None, None, None], number_of_transforms))
+        if sym_entry.is_internal_tx1:
+            nonlocal full_int_tx1
+            original_int_tx1 = full_int_tx1
+            translation_perturbations1 = perturbations['translation1']
+            # logger.debug(f'translation_perturbations1.shape: {translation_perturbations1.shape}')
+            # logger.debug(f'translation_perturbations1[:5]: {translation_perturbations1[:5]}')
+        # else:
+        #     translation_perturbations1 = blank_parameter
+
+        if sym_entry.is_internal_tx2:
+            nonlocal full_int_tx2
+            original_int_tx2 = full_int_tx2
+            translation_perturbations2 = perturbations['translation2']
+            # logger.debug(f'translation_perturbations2.shape: {translation_perturbations2.shape}')
+            # logger.debug(f'translation_perturbations2[:5]: {translation_perturbations2[:5]}')
+        # else:
+        #     translation_perturbations2 = blank_parameter
+
+        if sym_entry.unit_cell:
+            nonlocal full_optimal_ext_dof_shifts
+            nonlocal full_ext_tx1, full_ext_tx2
+            ext_dof_perturbations = perturbations['external_translations']
+            original_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts
+            # original_ext_tx1 = full_ext_tx1
+            # original_ext_tx2 = full_ext_tx2
+        else:
+            full_ext_tx1 = full_ext_tx2 = full_ext_tx_sum = None
+
+        # Apply the perturbation to each existing transformation
+        logger.info(f'Perturbing each transform {number_perturbations_applied} times')
+        for idx in range(number_of_transforms):
+            logger.info(f'Perturbing transform {idx + 1}')
+            # Rotate the unique rotation by the perturb_matrix_grid and set equal to the full_rotation* array
+            full_rotation1 = np.matmul(original_rotation1[idx], rotation_perturbations1.swapaxes(-1, -2))  # rotation1
+            full_inv_rotation1 = np.linalg.inv(full_rotation1)
+            full_rotation2 = np.matmul(original_rotation2[idx], rotation_perturbations2.swapaxes(-1, -2))  # rotation2
+
+            # Translate the unique translation according to the perturb_translation_grid
+            if sym_entry.is_internal_tx1:
+                full_int_tx1 = original_int_tx1[idx] + translation_perturbations1  # translation1
+            if sym_entry.is_internal_tx2:
+                full_int_tx2 = original_int_tx2[idx] + translation_perturbations2  # translation2
+            if sym_entry.unit_cell:
+                # perturbed_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[None] + ext_dof_perturbations
+                # full_ext_tx_perturb1 = (perturbed_optimal_ext_dof_shifts[:, :, None] \
+                #     * sym_entry.external_dof1).sum(axis=-2)
+                # full_ext_tx_perturb2 = (perturbed_optimal_ext_dof_shifts[:, :, None] \
+                #     * sym_entry.external_dof2).sum(axis=-2)
+                # Below is for the individual perturbation
+                # optimal_ext_dof_shift = full_optimal_ext_dof_shifts[idx]
+                # perturbed_ext_dof_shift = optimal_ext_dof_shift + ext_dof_perturbations
+                unsqueezed_perturbed_ext_dof_shifts = \
+                    (original_optimal_ext_dof_shifts[idx] + ext_dof_perturbations)[:, :, None]
+                # unsqueezed_perturbed_ext_dof_shifts = perturbed_ext_dof_shift[:, :, None]
+                full_ext_tx1 = np.sum(unsqueezed_perturbed_ext_dof_shifts * sym_entry.external_dof1, axis=-2)
+                full_ext_tx2 = np.sum(unsqueezed_perturbed_ext_dof_shifts * sym_entry.external_dof2, axis=-2)
+                full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+
+            # Check for ASU clashes again
+            # Using the inverse transform of the model2 backbone and cb coordinates, check for clashes with the model1
+            # backbone and cb coordinates BallTree
+            ball_tree_kwargs = dict(binarytree=oligomer1_backbone_cb_tree, clash_distance=clash_dist,
+                                    rotation=full_rotation2, translation=full_int_tx2,
+                                    rotation2=set_mat2, translation2=full_ext_tx_sum,
+                                    rotation3=inv_setting1,
+                                    translation3=None if full_int_tx1 is None else full_int_tx1 * -1,
+                                    rotation4=full_inv_rotation1)
+            # Create a fresh asu_clash_counts
+            asu_clash_counts = np.ones(number_perturbations_applied)
+            # clash_time_start = time.time()
+            overlap_return = perturb_check_tree_for_query_overlap(
+                **ball_tree_kwargs, return_containers={'overlap_counts': asu_clash_counts}, setup_args=(bb_cb_coords2,))
+            # logger.debug(f'Perturb clash took {time.time() - clash_time_start:8f}s')
+
+            # Extract the data
+            asu_clash_counts = overlap_return['overlap_counts']
+            logger.debug(f'Perturb expansion found asu_clash_counts:\n{asu_clash_counts}')
+            passing_perturbations = np.flatnonzero(asu_clash_counts == 0)
+            # Check for symmetric clashes again
+            if not job.design.ignore_symmetric_clashes:
+                passing_symmetric_clash_indices_perturb = find_viable_symmetric_indices(passing_perturbations.tolist())
+            else:
+                passing_symmetric_clash_indices_perturb = slice(None)
+            # Index the passing ASU indices with the passing symmetric indices and keep all viable transforms
+            # Stack the viable perturbed transforms
+            stack_viable_transforms(passing_perturbations[passing_symmetric_clash_indices_perturb])
+
+        # Concatenate the stacked perturbations
+        full_rotation1 = np.concatenate(perturb_rotation1, axis=0)
+        full_rotation2 = np.concatenate(perturb_rotation2, axis=0)
+        number_of_transforms = len(full_rotation1)
+        logger.info(f'After perturbation, found {number_of_transforms} viable solutions')
+        if sym_entry.is_internal_tx1:
+            full_int_tx1 = np.zeros((number_of_transforms, 3), dtype=float)
+            # Add the translation to Z (axis=1)
+            full_int_tx1[:, -1] = perturb_int_tx1
+            # full_int_tx1 = stacked_internal_tx_vectors1
+
+        if sym_entry.is_internal_tx2:
+            full_int_tx2 = np.zeros((number_of_transforms, 3), dtype=float)
+            # Add the translation to Z (axis=1)
+            full_int_tx2[:, -1] = perturb_int_tx2
+            # full_int_tx2 = stacked_internal_tx_vectors2
+
+        if sym_entry.unit_cell:
+            # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
+            full_optimal_ext_dof_shifts = np.concatenate(perturb_optimal_ext_dof_shifts, axis=0)
+            unsqueezed_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[:, :, None]
+            full_ext_tx1 = np.sum(unsqueezed_optimal_ext_dof_shifts * sym_entry.external_dof1, axis=-2)
+            full_ext_tx2 = np.sum(unsqueezed_optimal_ext_dof_shifts * sym_entry.external_dof2, axis=-2)
+
+        transform_hashes = create_transformation_hash()
+        logger.debug(f'Found the TransformHasher.translation_bin_width={model_transform_hasher.translation_bin_width}, '
+                     f'.rotation_bin_width={model_transform_hasher.rotation_bin_width}\n'
+                     f'Current range of sampled translations={sum(translation_perturb_steps)}, '
+                     f'rotations={sum(rotation_steps)}')
+        # print(model_transform_hasher.translation_bin_width > sum(translation_perturb_steps))
+        # print(model_transform_hasher.rotation_bin_width > sum(rotation_steps))
+        if model_transform_hasher.translation_bin_width > sum(translation_perturb_steps) or \
+                model_transform_hasher.rotation_bin_width > sum(rotation_steps):
+            # The translation/rotation is smaller than bins, so further exploration only possible without minimization
+            # Get the shape of the passing perturbations
+            perturbation_shape = [len(perturb) for perturb in perturb_rotation1]
+            # sorted_unique_transform_hashes = transform_hashes
+        else:
+            # Minimize perturbation space by unique transform hashes
+            # Using the current transforms, create a hash to uniquely label them and apply to the indices
+            sorted_unique_transform_hashes, unique_indices = np.unique(transform_hashes, return_index=True)
+            # Create array to mark which are unique
+            unique_transform_hashes = np.zeros_like(transform_hashes)
+            unique_transform_hashes[unique_indices] = 1
+            # Filter by unique_indices, sorting the indices to maintain the order of the transforms
+            # filter_transforms_by_indices(unique_indices)
+            unique_indices.sort()
+            filter_transforms_by_indices(unique_indices)
+            transform_hashes = transform_hashes[unique_indices]
+            # sorted_transform_hashes = np.sort(transform_hashes, axis=None)
+            # unique_sorted_transform_hashes = np.zeros_like(sorted_transform_hashes, dtype=bool)
+            # unique_sorted_transform_hashes[1:] = sorted_transform_hashes[1:] == sorted_transform_hashes[:-1]
+            # unique_sorted_transform_hashes[0] = True
+            # # Alternative
+            # unique_transform_hashes = pd.Index(transform_hashes).duplicated('first')
+
+            # total_number_of_perturbations = number_of_transforms * number_perturbations_applied
+            # Get the shape of the passing perturbations
+            perturbation_shape = []
+            # num_zeros = 0
+            last_perturb_start = 0
+            for perturb in perturb_rotation1:
+                perturb_end = last_perturb_start + len(perturb)
+                perturbation_shape.append(unique_transform_hashes[last_perturb_start:perturb_end].sum())
+                # Use if removing zero counts...
+                # shape = unique_transform_hashes[last_perturb_start:perturb_end].sum()
+                # if shape:
+                #     perturbation_shape.append(shape)
+                # else:
+                #     num_zeros += 1
+                last_perturb_start = perturb_end
+
+            number_of_transforms = len(full_rotation1)
+            logger.info(f'After culling duplicated transforms, found {number_of_transforms} viable solutions')
+            num_zeros = perturbation_shape.count(0)
+            if num_zeros:
+                logger.info(f'A total of {num_zeros} original transformations had no unique perturbations')
+                # Could use if removing zero counts... but probably less clear than above
+                # pop_zero_index = perturbation_shape.index(0)
+                # while pop_zero_index != -1:
+                #     perturbation_shape.pop(pop_zero_index)
+                #     pop_zero_index = perturbation_shape.index(0)
+
+        return transform_hashes, perturbation_shape, n_perturbed_dof
 
     def optimize_found_transformations_by_metrics() -> tuple[pd.DataFrame, list[int]]:  # float:
         """Perform a cycle of (optional) transformation perturbation, and then score and select those which are ranked
