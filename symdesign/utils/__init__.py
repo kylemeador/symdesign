@@ -1078,7 +1078,8 @@ def collect_designs(files: Sequence = None, directory: AnyStr = None, projects: 
             all_paths = get_directory_file_paths(directory, extension='.pdb')
             directory = os.path.basename(directory)  # This is for the location variable return
         else:  # function was called with all set to None. This shouldn't happen
-            raise InputError(f"Can't {type(collect_designs.__name__)} with no arguments passed")
+            raise InputError(
+                f"Can't {collect_designs.__name__}() with no arguments passed")
 
     location = (files or directory or projects or singles)
 

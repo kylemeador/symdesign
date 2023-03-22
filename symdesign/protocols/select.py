@@ -598,7 +598,8 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
 
     if job.save_total:
-        total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
+        total_df = total_df[total_df.index.duplicated()]
+        total_df_filename = os.path.join(job.output_directory, 'TotalPoseMetrics.csv')
         total_df.to_csv(total_df_filename)
         logger.info(f'Total Pose DataFrame was written to: {total_df_filename}')
 
@@ -839,7 +840,8 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
 
     if job.save_total:
-        total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
+        total_df = total_df[total_df.index.duplicated()]
+        total_df_filename = os.path.join(job.output_directory, 'TotalDesignMetrics.csv')
         total_df.to_csv(total_df_filename)
         logger.info(f'Total Pose/Designs DataFrame was written to: {total_df}')
 
@@ -1507,7 +1509,6 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
 
     # Rename the identifiers to human-readable names
     save_poses_df.reset_index(col_fill='pose', col_level=-1, inplace=True)
-    save_poses_df['pose_identifier'] = save_poses_df[('pose', pose_id)].map(final_pose_id_to_identifier)
     save_poses_df.set_index(
         save_poses_df[('pose', pose_id)].map(final_pose_id_to_identifier).rename('pose_identifier'), inplace=True)
 
@@ -1516,12 +1517,12 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
 
     if job.save_total:
-        total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
+        total_df = total_df[total_df.index.duplicated()]
+        total_df_filename = os.path.join(job.output_directory, 'TotalPoseMetrics.csv')
         total_df.to_csv(total_df_filename)
         logger.info(f'Total Pose DataFrame written to: {total_df_filename}')
 
     logger.info(f'{len(save_poses_df)} Poses were selected')
-    # if len(save_poses_df) != len(total_df):
     if job.filter or job.weight:
         new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
                                                            f'{"Weighted" if job.weight else ""}PoseMetrics.csv')
@@ -1619,7 +1620,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         # # This will turn these values into average which is fine since we just want the order
         # pose_designs_mean_df = selected_designs_df.groupby('design_id').mean()
         # Drop duplicated values keeping the order of the DataFrame
-        selected_designs_df.drop_duplicates(subset=design_id, inplace=True)
+        selected_designs_df.drop_duplicates(design_id, inplace=True)
         # Get the pose_id and the design_id for each found design
         # # Set the index according to 'pose_id', 'design_id'
         # selected_designs_df.set_index(['pose_id', 'design_id'], inplace=True)
@@ -1728,7 +1729,8 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # print('AFTER set_index', save_designs_df)
 
     if job.save_total:
-        total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
+        total_df = total_df[total_df.index.duplicated()]
+        total_df_filename = os.path.join(job.output_directory, 'TotalDesignMetrics.csv')
         total_df.to_csv(total_df_filename)
         logger.info(f'Total Pose/Designs DataFrame written to: {total_df_filename}')
 

@@ -1064,7 +1064,7 @@ def main():
                     f"{flags.format_args(flags.single_args)}")
             if paths:  # There are files present
                 pose_jobs = [PoseJob.from_directory(path) for path in job.get_range_slice(paths)]
-        elif args.poses or args.specification_file or select_from_directory or args.project or args.single:
+        elif args.poses or args.specification_file or args.project or args.single:
             # Use sqlalchemy database selection to find the requested work
             pose_identifiers = []
             if args.poses or args.specification_file:
@@ -1139,7 +1139,8 @@ def main():
             # Todo this needs a more informative error. Is the location of the correct format?
             #  For instance, a --project provided with the directory of type --single would die without much
             #  knowledge of why
-            raise utils.InputError(f"No {PoseJob.__name__}'s found at location '{job.location}'")
+            raise utils.InputError(
+                f"No {PoseJob.__name__}'s found from input location '{job.location}'")
         """Check to see that proper data/files have been created 
         Data includes:
         - UniProtEntity
@@ -1241,9 +1242,9 @@ def main():
         for idx in reversed(remove_pose_jobs):
             pose_jobs.pop(idx)
 
-        if not pose_jobs:
+        if not pose_jobs and not select_from_directory:
             raise utils.InputError(
-                f"No viable {PoseJob.__name__}'s found at location '{job.location}'")
+                f"No viable {PoseJob.__name__}'s found at location '{job.location}'. See the log for details")
 
         with job.db.session(expire_on_commit=False) as session:
             # Deal with new data compared to existing entries
@@ -1336,7 +1337,7 @@ def main():
                 job.api_db.load_all_data()
 
             logger.info(f'Found {len(pose_jobs)} unique poses from provided input location "{job.location}"')
-            if not job.debug and not job.skip_logging:
+            if not job.debug and not job.skip_logging and not select_from_directory:
                 representative_pose_job = next(iter(pose_jobs))
                 if representative_pose_job.log_path:
                     logger.info(f'All design specific logs are located in their corresponding directories\n\tEx: '
