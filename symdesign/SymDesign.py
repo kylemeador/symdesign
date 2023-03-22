@@ -515,6 +515,12 @@ def main():
                     # This Entity already found for processing, and we shouldn't have duplicates
                     logger.error(f"Found duplicate UniProtID identifier, {uniprot_ids}, for {protein_metadata}. "
                                  f"This error wasn't expected to occur.{putils.report_issue}")
+                    attrs_of_interest = \
+                        ['entity_id', 'reference_sequence', 'thermophilicity', 'symmetry_group', 'model_source']
+                    exist = '\n\t.'.join([f'{attr}={getattr(protein_metadata, attr)}' for attr in attrs_of_interest])
+                    found_metadata = uniprot_ids_to_prot_metadata[uniprot_ids]
+                    found = '\n\t.'.join([f'{attr}={getattr(found_metadata, attr)}' for attr in attrs_of_interest])
+                    logger.critical(f'Existing ProteinMetadata:\n{exist}\nNew ProteinMetadata:{found}\n')
                 else:  # Process for persistent state
                     uniprot_ids_to_prot_metadata[uniprot_ids] = protein_metadata
                 structure_uniprot_ids.append(uniprot_ids)  # protein_metadata)
@@ -1191,7 +1197,7 @@ def main():
 
                     # Check if the tuple of UniProtIDs has already been observed
                     protein_metadata = possibly_new_uniprot_to_prot_metadata.get(uniprot_ids, None)
-                    if protein_metadata is None:  # uniprot_ids in possibly_new_uniprot_to_prot_metadata:
+                    if protein_metadata is None:
                         # Process for persistent state
                         protein_metadata = sql.ProteinMetadata(
                             entity_id=entity.name,
@@ -1219,8 +1225,25 @@ def main():
 
                         possibly_new_uniprot_to_prot_metadata[uniprot_ids] = protein_metadata
                         preprocess_entities_by_symmetry[symmetry].append(entity)
-                    # else:  # This Entity already found for processing
-                    #     pass  # protein_metadata = protein_metadata
+                    else:
+                        # This Entity already found for processing, and we shouldn't have duplicates
+                        found_metadata = sql.ProteinMetadata(
+                            entity_id=entity.name,
+                            reference_sequence=entity.reference_sequence,
+                            thermophilicity=entity.thermophilicity,
+                            # There could be no sym_entry, so fall back on the entity.symmetry
+                            symmetry_group=symmetry if symmetry else entity.symmetry
+                        )
+                        logger.error(f"Found duplicate UniProtID identifier, {uniprot_ids}, for {protein_metadata}. "
+                                     f"This error wasn't expected to occur.{putils.report_issue}")
+                        attrs_of_interest = \
+                            ['entity_id', 'reference_sequence', 'thermophilicity', 'symmetry_group', 'model_source']
+                        exist = '\n\t.'.join(
+                            [f'{attr}={getattr(protein_metadata, attr)}' for attr in attrs_of_interest])
+
+                        found = '\n\t.'.join([f'{attr}={getattr(found_metadata, attr)}' for attr in attrs_of_interest])
+                        logger.critical(f'Existing ProteinMetadata:\n{exist}\nNew ProteinMetadata:{found}\n')
+
                     # # Create EntityData
                     # # entity_data.append(sql.EntityData(pose=pose_job,
                     # sql.EntityData(pose=pose_job,
