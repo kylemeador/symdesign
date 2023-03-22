@@ -496,12 +496,12 @@ def get_check_tree_for_query_overlap_batch_length(coords: np.ndarry) -> int:
     return int((number_of_elements_available//model_elements) // 16)
 
 
-def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
+def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     # model1: Structure | AnyStr, model2: Structure | AnyStr,
     """Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
 
     Args:
-        models: The Structures to be used in docking
+        input_models: The Structures to be used in docking
     Returns:
         The resulting Poses satisfying docking criteria
     """
@@ -592,13 +592,13 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         default_weight_metric = resources.config.default_weight_parameter[weight_method]
 
     # Initialize incoming Structures
-    models = list(models)
+    models = []
     """The Structure instances to be used in docking"""
     # Ensure models are oligomeric with make_oligomer()
     # Assumes model is oriented with major axis of symmetry along z
     entity_count = count(1)
-    for idx, (model, symmetry) in enumerate(zip(models, sym_entry.groups)):
-        for entity in model.entities:
+    for idx, (input_model, symmetry) in enumerate(zip(input_models, sym_entry.groups)):
+        for entity in input_model.entities:
             if entity.is_symmetric():  # oligomeric():
                 pass
             else:
@@ -611,27 +611,28 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
                 raise NotImplementedError(f"Can't dock 2 Model instances with > 2 total Entity instances")
 
         # Make, then save a new model based on the symmetric version of each Entity in the Model
-        _model = Model.from_chains([chain for entity in model.entities
-                                    for chain in entity.chains],  # log=logger
-                                   entity_info=model.entity_info, name=model.name)
-        _model.file_path = model.file_path
-        _model.fragment_db = job.fragment_db
-        # Ensure we pass the .metadata attribute to each entity in the full assembly
-        # This is crucial for sql usage
-        for _entity, entity in zip(_model.entities, model.entities):
-            _entity.metadata = entity.metadata
-        models[idx] = _model
+        # model = input_model.assembly  # This is essentially what is happening here
+        model = Model.from_chains([chain for entity in input_model.entities for chain in entity.chains],
+                                  entities=False, name=input_model.name)
+        # model.file_path = input_model.file_path
+        model.fragment_db = job.fragment_db
+        # # Ensure the .metadata attribute is passed to each entity in the full assembly
+        # # This is crucial for sql usage
+        # for _entity, entity in zip(model.entities, input_model.entities):
+        #     _entity.metadata = entity.metadata
+        models.append(model)
 
     # Todo 2 figure out for single component
     model1: Model
     model2: Model
     model1, model2 = models
+    del models
     logger.info(f'DOCKING {model1.name} TO {model2.name}')
     #            f'\nOligomer 1 Path: {model1.file_path}\nOligomer 2 Path: {model2.file_path}')
 
     # Set up output mechanism
     entry_string = f'NanohedraEntry{sym_entry.number}'
-    building_blocks = '-'.join(model.name for model in models)
+    building_blocks = '-'.join(input_model.name for input_model in input_models)
     if job.prefix:
         project = f'{job.prefix}{building_blocks}'
     else:
@@ -1905,8 +1906,8 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
     del inverse_transformed_model2_tiled_cb_coords, inverse_transformed_surf_frags2_guide_coords
     del ghost_residue_indices1, surf_residue_indices2
     del ghost_guide_coords1, ghost_rmsds1
-    del model1_cb_indices, model1_coords_indexed_residues
-    del model2_cb_indices, model2_coords_indexed_residues
+    del model1, model1_cb_indices, model1_coords_indexed_residues
+    del model2, model2_cb_indices, model2_coords_indexed_residues
     del model1_cb_balltree, model2_query, contacting_residue_idx_pairs
     del interface_residue_indices1, interface_residue_indices2
     del ghost_indices_in_interface1, surf_indices_in_interface2
@@ -1914,29 +1915,31 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
     del all_fragment_z_score, zero_counts
     # del all_fragment_z_score, zero_counts, passing_overlaps_indices
     logger.info(f'Found {number_viable_pose_interfaces} poses with viable interfaces')
-    # Generate the Pose for output handling
-    entity_info = {entity_name: data for model in models
-                   for entity_name, data in model.entity_info.items()}
-    chain_gen = chain_id_generator()
-    for entity_name, data in entity_info.items():
-        data['chains'] = [next(chain_gen)]
+    # # Tod0 remove below. It is never accessed by pose. Perhaps downstream it could be but Entity instances are
+    # #  already solved now with sql.ProteinMetadata
+    # # Generate the Pose for output handling
+    # entity_info = {entity_name: data for model in models
+    #                for entity_name, data in model.entity_info.items()}
+    # chain_gen = chain_id_generator()
+    # for entity_name, data in entity_info.items():
+    #     data['chains'] = [next(chain_gen)]
 
-    pose = Pose.from_entities([entity for model in models for entity in model.entities], log=None,
-                              sym_entry=sym_entry, name='asu', entity_info=entity_info, fragment_db=job.fragment_db,
+    pose = Pose.from_entities([entity for model in input_models for entity in model.entities], log=None,
+                              sym_entry=sym_entry, name='asu', fragment_db=job.fragment_db,  # entity_info=entity_info,
                               surrounding_uc=job.output_surrounding_uc, ignore_clashes=True, rename_chains=True)
 
     # Ensure .metadata attribute is passed to each entity in the full assembly
     # This is crucial for sql usage
     entity_idx = count()
-    for model in models:
-        for entity in model.entities:
+    for input_model in input_models:
+        for entity in input_model.entities:
             pose.entities[next(entity_idx)].metadata = entity.metadata
     # Set up coordinates to transform the Pose with each Entity individually
-    entity_start_coords = [entity.coords for model in models for entity in model.entities]
+    entity_start_coords = [entity.coords for input_model in input_models for entity in input_model.entities]
     entity_idx = count()
     transform_indices = {next(entity_idx): transform_idx
-                         for transform_idx, model in enumerate(models)
-                         for _ in model.entities}
+                         for transform_idx, input_model in enumerate(input_models)
+                         for _ in input_model.entities}
     # Calculate thermophilicity
     is_thermophilic = [entity.thermophilicity for idx, entity in enumerate(pose.entities, idx)]
     pose_thermophilicity = sum(is_thermophilic) / pose.number_of_entities
