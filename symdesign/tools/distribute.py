@@ -4,6 +4,7 @@ import argparse
 import os
 import signal
 import subprocess
+import sys
 from itertools import repeat
 
 from symdesign.resources.distribute import create_file, default_shell, process_scale, run
@@ -145,6 +146,7 @@ if __name__ == '__main__':
     #    iteration += 1
 
     # Write out successful and failed commands
+    exit_code = 0
     with open(args.success_file, 'a') as f_success, open(args.failure_file, 'a') as f_failure:
         for result, specific_command in zip(results, specific_commands):
             if program:
@@ -155,6 +157,7 @@ if __name__ == '__main__':
             if result:
                 f_success.write(f'{command_out}\n')
             else:  # if not result:
+                exit_code = 1
                 f_failure.write(f'{command_out}\n')
 
     # # Append SLURM output to log_file(s)
@@ -164,3 +167,4 @@ if __name__ == '__main__':
     #     # file = '%s_%s.out' % (job_id, task_id)
     #     run(file, log_files[i], program='cat')
     #     # run(file, '/dev/null', program='rm')
+    sys.exit(exit_code)
