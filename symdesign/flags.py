@@ -1198,7 +1198,7 @@ protocol_args = (f'--{protocol}',)
 protocol_kwargs = dict(type=str, default=None, nargs='*', help='Use specific protocol(s) to filter designs?')
 
 save_total_args = ('--save-total',)
-save_total_kwargs = dict(action='store_false', help='Should the total dataframe accessed by selection be saved?')
+save_total_kwargs = dict(action='store_true', help='Should the total dataframe accessed by selection be saved?')
 pose_select_number_kwargs = \
     dict(type=int, default=sys.maxsize, metavar='int', help='Number to return\nDefault=No Limit')
 select_number_args = (f'--{select_number}',)

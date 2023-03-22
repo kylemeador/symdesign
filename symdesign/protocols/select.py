@@ -600,9 +600,9 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     if job.save_total:
         total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
         total_df.to_csv(total_df_filename)
-        logger.info(f'Total Pose/Designs DataFrame was written to: {total_df_filename}')
+        logger.info(f'Total Pose DataFrame was written to: {total_df_filename}')
 
-    logger.info(f'{len(save_poses_df)} poses were selected')
+    logger.info(f'{len(save_poses_df)} Poses were selected')
     if len(save_poses_df) != len(total_df):
         if job.filter or job.weight:
             new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
@@ -1518,7 +1518,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     if job.save_total:
         total_df_filename = os.path.join(job.output_directory, 'TotalPosesTrajectoryMetrics.csv')
         total_df.to_csv(total_df_filename)
-        logger.info(f'Total Pose/Designs DataFrame written to: {total_df_filename}')
+        logger.info(f'Total Pose DataFrame written to: {total_df_filename}')
 
     logger.info(f'{len(save_poses_df)} Poses were selected')
     # if len(save_poses_df) != len(total_df):
