@@ -1477,18 +1477,16 @@ def fragment_dock(models: Iterable[Structure]) -> list[PoseJob] | list:
         # full_optimal_ext_dof_shifts = list(repeat(None, number_passing_shifts))
 
     # fragment_pairs = np.array(fragment_pairs)
+    if not full_rotation1:  # There were no successful transforms
+        logger.warning(f'No optimal translations found. Terminating {building_blocks} docking')
+        return []
+        # ------------------ TERMINATE DOCKING ------------------------
     # Make full, numpy vectorized transformations overwriting individual variables for memory management
     full_rotation1 = np.concatenate(full_rotation1, axis=0)
     full_rotation2 = np.concatenate(full_rotation2, axis=0)
     starting_transforms = len(full_rotation1)
-
-    if not starting_transforms:  # There were no successful transforms
-        logger.warning(f'No optimal translations found. Terminating {building_blocks} docking')
-        return []
-        # ------------------ TERMINATE DOCKING ------------------------
-    else:
-        logger.info(f'Initial optimal translation search found {starting_transforms} total transforms '
-                    f'in {time.time() - init_translation_time_start:8f}s')
+    logger.info(f'Initial optimal translation search found {starting_transforms} total transforms '
+                f'in {time.time() - init_translation_time_start:8f}s')
 
     if sym_entry.is_internal_tx1:
         stacked_internal_tx_vectors1 = np.zeros((starting_transforms, 3), dtype=float)
