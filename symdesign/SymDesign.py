@@ -319,7 +319,7 @@ def main():
                             possibly_new_uniprot_to_prot_data: dict[tuple[str, ...], sql.ProteinMetadata] = None,
                             existing_uniprot_entities: Iterable[wrapapi.UniProtEntity] = None,
                             existing_protein_metadata: Iterable[sql.ProteinMetadata] = None) -> \
-            tuple[dict[tuple[str, ...], sql.ProteinMetadata] | dict, list[wrapapi.UniProtEntity] | list]:
+            dict[tuple[str, ...], sql.ProteinMetadata] | dict:
         """Compare newly described work to the existing database and set up metadata for all described entities
 
         Args:
@@ -329,19 +329,19 @@ def main():
             existing_protein_metadata: If any ProteinMetadata instances are already loaded, pass them to expedite setup
         """
         if not possibly_new_uniprot_to_prot_data:
-            return {}, []
+            return {}
 
         # Get the set of all UniProtIDs
         possibly_new_uniprot_ids = set()
         for uniprot_ids in possibly_new_uniprot_to_prot_data.keys():
             possibly_new_uniprot_ids.update(uniprot_ids)
         # Find existing UniProtEntity instances from database
-        if existing_uniprot_entities:
-            existing_uniprot_ids = {unp_ent.id for unp_ent in existing_uniprot_entities}
-            existing_uniprot_entities = list(existing_uniprot_entities)
-        else:
-            existing_uniprot_ids = set()
+        if existing_uniprot_entities is None:
             existing_uniprot_entities = []
+        else:
+            existing_uniprot_entities = list(existing_uniprot_entities)
+
+        existing_uniprot_ids = {unp_ent.id for unp_ent in existing_uniprot_entities}
         # Remove the certainly existing from possibly new and query for any new that already exist
         query_additional_existing_uniprot_entities_stmt = \
             select(wrapapi.UniProtEntity).where(wrapapi.UniProtEntity.id.in_(
@@ -385,12 +385,12 @@ def main():
              for protein_data in possibly_new_uniprot_to_prot_data.values()}
         possibly_new_entity_ids = set(possible_entity_id_to_protein_data.keys())
 
-        if existing_protein_metadata:
-            existing_entity_ids = {data.entity_id for data in existing_protein_metadata}
-            existing_protein_metadata = list(existing_protein_metadata)
-        else:
-            existing_entity_ids = set()
+        if existing_protein_metadata is None:
             existing_protein_metadata = []
+        else:
+            existing_protein_metadata = list(existing_protein_metadata)
+
+        existing_entity_ids = {data.entity_id for data in existing_protein_metadata}
         # Remove the certainly existing from possibly new and query the new
         existing_protein_metadata_stmt = \
             select(sql.ProteinMetadata) \
@@ -436,7 +436,7 @@ def main():
         session.commit()
 
         # Also, return all UniProtEntity instances for evolutionary profile creation
-        return uniprot_id_to_prot_data, list(uniprot_id_to_entity.values())
+        return uniprot_id_to_metadata
 
     def initialize_structures(symmetry: str = None, oligomer: bool = False, pdb_codes: AnyStr | list = False,
                               query_codes: bool = False) -> list[Model | Entity]:
@@ -830,10 +830,11 @@ def main():
 
         # Write new data to the database
         with job.db.session(expire_on_commit=False) as session:
-            all_uniprot_id_to_prot_data, uniprot_entities = \
+            all_uniprot_id_to_prot_data = \
                 initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
 
-            # Fix ProteinMetadata that is already loaded
+            # Get all uniprot_entities, and fix ProteinMetadata that is already loaded
+            uniprot_entities = []
             for data in all_uniprot_id_to_prot_data.values():
                 if data.model_source is None:
                     logger.info(f'{data}.model_source is None')
@@ -841,6 +842,7 @@ def main():
                         if data.entity_id == protein_metadata.entity_id:
                             data.model_source = protein_metadata.model_source
                             logger.info(f'Set existing {data}.model_source to new {protein_metadata}.model_source')
+                uniprot_entities.extend(data.uniprot_entities)
 
             if job.update_metadata:
                 for attribute, value in job.update_metadata.items():
@@ -920,10 +922,11 @@ def main():
 
         # Write new data to the database
         with job.db.session(expire_on_commit=False) as session:
-            all_uniprot_id_to_prot_data, uniprot_entities = \
+            all_uniprot_id_to_prot_data = \
                 initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
 
-            # Fix ProteinMetadata that is already loaded
+            # Get all uniprot_entities, and fix ProteinMetadata that is already loaded
+            uniprot_entities = []
             for data in all_uniprot_id_to_prot_data.values():
                 if data.model_source is None:
                     logger.info(f'{data}.model_source is None')
@@ -931,6 +934,7 @@ def main():
                         if data.entity_id == protein_metadata.entity_id:
                             data.model_source = protein_metadata.model_source
                             logger.info(f'Set existing {data}.model_source to new {protein_metadata}.model_source')
+                uniprot_entities.extend(data.uniprot_entities)
 
             # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
             initialize_entities(uniprot_entities, all_uniprot_id_to_prot_data.values(),
@@ -1244,10 +1248,15 @@ def main():
 
         with job.db.session(expire_on_commit=False) as session:
             # Deal with new data compared to existing entries
-            all_uniprot_id_to_prot_data, uniprot_entities = \
+            all_uniprot_id_to_prot_data = \
                 initialize_metadata(session, possibly_new_uniprot_to_prot_metadata,
                                     existing_uniprot_entities=existing_uniprot_entities,
                                     existing_protein_metadata=existing_protein_metadata)
+
+            # Get all uniprot_entities, and fix ProteinMetadata that is already loaded
+            uniprot_entities = []
+            for data in all_uniprot_id_to_prot_data.values():
+                uniprot_entities.extend(data.uniprot_entities)
 
             # # Populate all_structures to set up structure dependent resources
             # all_structures = []
