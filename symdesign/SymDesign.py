@@ -477,7 +477,7 @@ def main():
         return job.structure_db.orient_structures(structure_names, symmetry=symmetry, by_file=by_file)
 
     def create_protein_metadata(structures: list[Model | Entity], symmetry: str = None) \
-            -> tuple[list[tuple[str, list[tuple[str]]]], dict[tuple[str], sql.ProteinMetadata]]:
+            -> tuple[list[list[tuple[str, ...]]], dict[tuple[str, ...], sql.ProteinMetadata]]:
         """From a Structure instance, extract the unique metadata to identify the entities involved
 
         Args:
@@ -489,7 +489,7 @@ def main():
                 A mapping of the UniProtIDs to the ProteinMetadata for each unique Entity instance
             )
         """
-        structures_ids: list[tuple[str, list[tuple[str, ...]]]] = []
+        structures_uniprot_ids: list[list[tuple[str, ...]]] = []
         uniprot_ids_to_prot_metadata = {}
         for structure in structures:
             structure_uniprot_ids = []
@@ -518,10 +518,9 @@ def main():
                 else:  # Process for persistent state
                     uniprot_ids_to_prot_metadata[uniprot_ids] = protein_metadata
                 structure_uniprot_ids.append(uniprot_ids)  # protein_metadata)
-            structures_ids.append((structure.name, structure_uniprot_ids))
+            structures_uniprot_ids.append(structure_uniprot_ids)
 
-        # Todo could simplify the return to not return (name, [uniprot_ids, ...]), just [uniprot_ids]
-        return structures_ids, uniprot_ids_to_prot_metadata
+        return structures_uniprot_ids, uniprot_ids_to_prot_metadata
     # -----------------------------------------------------------------------------------------------------------------
     # Start Program
     # -----------------------------------------------------------------------------------------------------------------
@@ -821,10 +820,10 @@ def main():
     if job.module == flags.initialize_building_blocks:
         logger.critical(f'Ensuring provided building blocks are oriented')
         symmetry = job.sym_entry.group1
-        structures = initialize_structures(symmetry=symmetry, oligomer=args.oligomer1,
-                                           pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
-        structures_ids, possibly_new_uniprot_to_prot_metadata = \
-            create_protein_metadata(structures, symmetry=symmetry)
+        orient_structures = initialize_structures(symmetry=symmetry, oligomer=args.oligomer1,
+                                                  pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
+        structures_uniprot_ids, possibly_new_uniprot_to_prot_metadata = \
+            create_protein_metadata(orient_structures, symmetry=symmetry)
 
         # Make a copy of the new ProteinMetadata if they were already loaded without a .model_source attribute
         possibly_new_uniprot_to_prot_metadata_copy = possibly_new_uniprot_to_prot_metadata.copy()
@@ -870,11 +869,11 @@ def main():
         #     job.output_directory = job.projects
         #     putils.make_path(job.output_directory)
         # Transform input entities to canonical orientation and return their ASU
-        grouped_structures: list[list[Model | Entity]] = []
+        grouped_orient_structures: list[list[Model | Entity]] = []
         logger.critical(f'Ensuring provided building blocks are oriented for docking')
         structures1 = initialize_structures(symmetry=job.sym_entry.group1, oligomer=args.oligomer1,
                                             pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
-        grouped_structures.append(structures1)
+        grouped_orient_structures.append(structures1)
         structures2 = []
         # See if they are the same input
         if args.oligomer1 != args.oligomer2 or job.pdb_codes1 != job.pdb_codes2 or args.query_codes2:
@@ -886,7 +885,7 @@ def main():
                 single_component_design = True
         else:  # The entities are the same symmetry, or there is a single component and bad input
             single_component_design = True
-        grouped_structures.append(structures2)
+        grouped_orient_structures.append(structures2)
 
         # Initialize the local database
         # Populate all_entities to set up sequence dependent resources
@@ -905,17 +904,16 @@ def main():
         #  Essentially this would make oligomer/assembly keywords the same
         #  and allow a multi-entity Model/Pose as an Entity in a Pose... Recursion baby
         #
-        grouped_structures_ids: list[tuple[str, list]] = []
+        grouped_structures_uniprot_ids: list[list[list[tuple[str, ...]]]] = []
         possibly_new_uniprot_to_prot_metadata = {}
         # symmetry_map = job.sym_entry.groups if job.sym_entry else repeat(None)
-        for structures, symmetry in zip(grouped_structures, job.sym_entry.groups):  # symmetry_map):
-            if not structures:  # Useful in a case where symmetry groups are the same or group is None
+        for orient_structures, symmetry in zip(grouped_orient_structures, job.sym_entry.groups):
+            if not orient_structures:  # Useful in a case where symmetry groups are the same or group is None
                 continue
-            # structures_metadata: list[tuple[str, list[sql.ProteinMetadata]]] = []
-            structures_ids, uniprot_to_prot_metadata = create_protein_metadata(structures, symmetry=symmetry)
-            # grouped_structures_ids[symmetry] = structures_metadata
-            grouped_structures_ids.append((symmetry, structures_ids))
-            possibly_new_uniprot_to_prot_metadata.update(uniprot_to_prot_metadata)
+            structures_uniprot_ids, possibly_new_uni_to_prot_metadata = \
+                create_protein_metadata(orient_structures, symmetry=symmetry)
+            grouped_structures_uniprot_ids.append(structures_uniprot_ids)
+            possibly_new_uniprot_to_prot_metadata.update(possibly_new_uni_to_prot_metadata)
 
         # Make a copy of the new ProteinMetadata if they were already loaded without a .model_source attribute
         possibly_new_uniprot_to_prot_metadata_copy = possibly_new_uniprot_to_prot_metadata.copy()
@@ -942,15 +940,13 @@ def main():
             #  then usage for docking pairs below...
 
             # Correct existing ProteinMetadata, now that Entity instances are processed
-            # # Get api wrapper
-            # retrieve_stride_info = job.api_db.stride.retrieve_data
-            grouped_structures = []
-            # for symmetry, structures_metadata in grouped_structures_ids.items():
-            for symmetry, structures_ids in grouped_structures_ids:
+            grouped_docking_structures = []
+            # for symmetry, structures_ids in grouped_structures_ids:
+            # for group_idx, (symmetry, structures_uniprot_ids) in enumerate(
+            #         zip(job.sym_entry.groups, grouped_structures_uniprot_ids)):
+            for orient_structures, structures_uniprot_ids in zip(grouped_orient_structures, grouped_structures_uniprot_ids):
                 structures = []
-                for structure_name, structure_uniprot_ids in structures_ids:
-                    # entities = [Entity.from_file(data.model_source, name=data.entity_id)
-                    #             for data in structure_metadata]
+                for orient_structure, structure_uniprot_ids in zip(orient_structures, structures_uniprot_ids):
                     entities = []
                     for uniprot_ids in structure_uniprot_ids:
                         # This data may not be the one that is initialized, grab the correct one
@@ -964,8 +960,8 @@ def main():
                         # entity.properties_id = data.id
                         entities.append(entity)
                     # Don't include symmetry as this will be initialized by fragdock.fragment_dock()
-                    structures.append(Pose.from_entities(entities, name=structure_name))  # , symmetry=symmetry))
-                grouped_structures.append(structures)
+                    structures.append(Pose.from_entities(entities, name=orient_structure.name))  # symmetry=symmetry))
+                grouped_docking_structures.append(structures)
             session.commit()
 
         # Make all possible structure pairs given input entities by finding entities from entity_names
@@ -975,7 +971,7 @@ def main():
             # structures1 = [entity for entity in all_entities if entity.name in structures1]
             # ^ doesn't work as entity_id is set in orient_structures, but structure name is entry_id
             all_structures = []
-            for structures in grouped_structures:
+            for structures in grouped_docking_structures:
                 all_structures.extend(structures)
             pose_jobs.extend(combinations(all_structures, 2))
         else:
@@ -983,7 +979,7 @@ def main():
             # # structures1 = [entity for entity in all_entities if entity.name in structures1]
             # # structures2 = [entity for entity in all_entities if entity.name in structures2]
             pose_jobs = []
-            for structures1, structures2 in combinations(grouped_structures, 2):
+            for structures1, structures2 in combinations(grouped_docking_structures, 2):
                 pose_jobs.extend(product(structures1, structures2))
 
         job.location = f'NanohedraEntry{job.sym_entry.number}'  # Used for terminate()
