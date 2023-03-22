@@ -331,6 +331,10 @@ def main():
         if not possibly_new_uniprot_to_prot_data:
             return {}
 
+        # Todo
+        #  If I ever adopt the UniqueObjectValidatedOnPending recipe, that could perform the work of getting the
+        #  correct objects attached to the database
+
         # Get the set of all UniProtIDs
         possibly_new_uniprot_ids = set()
         for uniprot_ids in possibly_new_uniprot_to_prot_data.keys():
@@ -364,26 +368,28 @@ def main():
         #     # NEED TO GROUP THESE BY ProteinMetadata.uniprot_entities
 
         # Map the existing uniprot_id to UniProtEntity
-        uniprot_id_to_entity = {unp_entity.id: unp_entity
-                                for unp_entity in existing_uniprot_entities}
-        insert_uniprot_ids = possibly_new_uniprot_ids.difference(uniprot_id_to_entity.keys())
+        uniprot_id_to_unp_entity = {unp_entity.id: unp_entity for unp_entity in existing_uniprot_entities}
+        insert_uniprot_ids = possibly_new_uniprot_ids.difference(uniprot_id_to_unp_entity.keys())
 
         # Get the remaining UniProtIDs as UniProtEntity entries
         new_uniprot_id_to_unp_entity = {uniprot_id: wrapapi.UniProtEntity(id=uniprot_id)
                                         for uniprot_id in insert_uniprot_ids}
         # Update entire dictionary for ProteinMetadata ops below
-        uniprot_id_to_entity.update(new_uniprot_id_to_unp_entity)
+        uniprot_id_to_unp_entity.update(new_uniprot_id_to_unp_entity)
         # Insert new
         new_uniprot_entities = list(new_uniprot_id_to_unp_entity.values())
         session.add_all(new_uniprot_entities)
 
         # Repeat the process for ProteinMetadata
-        # # NEVER SET UP This time we insert all new ProteinMetadata and let the UniqueObjectValidatedOnPending recipe
-        # # associated with PoseJob finish the work of getting the correct objects attached
-        possible_entity_id_to_protein_data = \
+        # Map entity_id to uniprot_id for later cleaning of UniProtEntity
+        possibly_new_entity_id_to_uniprot_ids = \
+            {protein_data.entity_id: uniprot_ids
+             for uniprot_ids, protein_data in possibly_new_uniprot_to_prot_data.items()}
+        # Map entity_id to ProteinMetadata
+        possibly_new_entity_id_to_protein_data = \
             {protein_data.entity_id: protein_data
              for protein_data in possibly_new_uniprot_to_prot_data.values()}
-        possibly_new_entity_ids = set(possible_entity_id_to_protein_data.keys())
+        possibly_new_entity_ids = set(possibly_new_entity_id_to_protein_data.keys())
 
         if existing_protein_metadata is None:
             existing_protein_metadata = []
@@ -398,44 +404,33 @@ def main():
         # Add all requested to those known about
         existing_protein_metadata += session.scalars(existing_protein_metadata_stmt).all()
 
-        # Map the existing entity_id to ProteinMetadata
-        existing_entity_id_to_protein_data = {protein_data.entity_id: protein_data
-                                              for protein_data in existing_protein_metadata}
-        existing_entity_ids = list(existing_entity_id_to_protein_data.keys())
-        insert_entity_ids = possibly_new_entity_ids.difference(existing_entity_ids)
-
-        # Insert the remaining ProteinMetadata
-        session.add_all(tuple(possible_entity_id_to_protein_data[entity_id]
-                              for entity_id in insert_entity_ids))
-
-        # Fix the "possible" protein_property with true set of all (now) existing
-        possible_entity_id_to_uniprot_ids = \
-            {protein_data.entity_id: uniprot_ids
-             for uniprot_ids, protein_data in possibly_new_uniprot_to_prot_data.items()}
-
-        # Remove any pre-existing ProteinMetadata for the correct addition to UniProtEntity
-        for entity_id in existing_entity_ids:
-            possibly_new_uniprot_to_prot_data.pop(possible_entity_id_to_uniprot_ids[entity_id])
+        # Get the existing ProteinMetadata.entity_ids
+        existing_entity_ids = {protein_data.entity_id for protein_data in existing_protein_metadata}
+        # The remaining entity_ids are new and must be added
+        new_entity_ids = possibly_new_entity_ids.difference(existing_entity_ids)
+        uniprot_ids_to_new_metadata = {
+            possibly_new_entity_id_to_uniprot_ids[entity_id]: possibly_new_entity_id_to_protein_data[entity_id]
+            for entity_id in new_entity_ids}
 
         # Attach UniProtEntity to new ProteinMetadata by UniProtID
-        for uniprot_ids, protein_metadata in possibly_new_uniprot_to_prot_data.items():
+        for uniprot_ids, protein_metadata in uniprot_ids_to_new_metadata.items():
             # Create the ordered_list of UniProtIDs (UniProtEntity) on ProteinMetadata entry
             try:
-                protein_metadata.uniprot_entities.extend(uniprot_id_to_entity[uniprot_id]
-                                                         for uniprot_id in uniprot_ids)
-            except KeyError:  # uniprot_id_to_entity is missing a key, but I can't see a way it would be here...
+                protein_metadata.uniprot_entities.extend(
+                    uniprot_id_to_unp_entity[uniprot_id] for uniprot_id in uniprot_ids)
+            except KeyError:  # uniprot_id_to_unp_entity is missing a key, but I can't see a way it would be here...
                 raise utils.SymDesignException(putils.report_issue)
 
-        # Seal all gaps in data by mapping all UniProtIDs to all ProteinMetadata
-        uniprot_id_to_prot_data = {
-            possible_entity_id_to_uniprot_ids[entity_id]: protein_data
-            for entity_id, protein_data in existing_entity_id_to_protein_data.items()}
-        uniprot_id_to_prot_data.update(possibly_new_uniprot_to_prot_data)
-
+        # Insert the remaining ProteinMetadata
+        session.add_all(uniprot_ids_to_new_metadata.values())
         # Finalize additions to the database
         session.commit()
 
-        # Also, return all UniProtEntity instances for evolutionary profile creation
+        # Now that new are found, map all UniProtIDs to all ProteinMetadata
+        uniprot_id_to_metadata = {protein_data.uniprot_ids: protein_data
+                                  for protein_data in existing_protein_metadata}
+        uniprot_id_to_metadata.update(uniprot_ids_to_new_metadata)
+
         return uniprot_id_to_metadata
 
     def initialize_structures(symmetry: str = None, oligomer: bool = False, pdb_codes: AnyStr | list = False,
