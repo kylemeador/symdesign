@@ -1251,8 +1251,7 @@ def main():
                 for data in pose_job.entity_data:
                     existing_protein_metadata.add(data.meta)
                     for uniprot_entity in data.meta.uniprot_entities:
-                        if uniprot_entity.id not in existing_uniprot_ids:
-                            existing_uniprot_entities.add(uniprot_entity)
+                        existing_uniprot_entities.add(uniprot_entity)
                     # meta = data.meta
                     # if meta.uniprot_id in possibly_new_uniprot_to_prot_metadata:
                     #     existing_uniprot_entities.add(meta.uniprot_entity)

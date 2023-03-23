@@ -1298,29 +1298,29 @@ def format_save_df(session: Session, designs_df: pd.DataFrame, pose_ids: Iterabl
             have an entry for each PoseJob with separate metric columns grouped by 'structure_entity', i.e. Pose and
             Entity metrics
     """
-    structure_type = 'structure_entity'
+    structure_entity = 'structure_entity'
     pose_id = 'pose_id'
     entity_id = 'entity_id'
     pose_metrics_df = load_sql_pose_metrics_dataframe(session, pose_ids=pose_ids)
     pose_metrics_df.set_index(pose_id, inplace=True)
-    logger.debug(f'pose_metrics_df:\n{pose_metrics_df}')  # Todo remove
+    logger.debug(f'pose_metrics_df:\n{pose_metrics_df}')
     # save_df = pose_metrics_df.join(designs_df)  # , on='pose_id')
 
     pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
     pose_metrics_df = pose_metrics_df.join(pose_metadata_df.set_index(pose_id), rsuffix='_DROP')
-    logger.debug(f'pose_metrics_df after metadata join:\n{pose_metrics_df}')  # Todo remove
+    logger.debug(f'pose_metrics_df after metadata join:\n{pose_metrics_df}')
 
     # Join the designs_df (which may not have pose_id as index, but must have pose_id as a column)
     # with the pose_id indexed pose_metrics_df. This keeps the designs_df index in save_df
     save_df = designs_df.join(pose_metrics_df, on=pose_id, rsuffix='_DROP')
     save_df.drop(save_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
     save_df.columns = pd.MultiIndex.from_product([['pose'], save_df.columns.tolist()],
-                                                 names=[structure_type, 'metric'])
-    logger.debug(f'save_df:\n{save_df}')  # Todo remove
+                                                 names=[structure_entity, 'metric'])
+    logger.debug(f'save_df:\n{save_df}')
     # Get EntityMetrics
     entity_metrics_df = load_sql_entity_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
     # entity_metrics_df.set_index(pose_id, inplace=True)
-    logger.debug(f'entity_metrics_df: {entity_metrics_df}')  # Todo remove
+    logger.debug(f'entity_metrics_df: {entity_metrics_df}')
     # Manipulate to combine with Pose data for the final format:
     # structure_entity        1        2 |    pose
     # metric            go fish  go fish | go fish
@@ -1328,29 +1328,30 @@ def format_save_df(session: Session, designs_df: pd.DataFrame, pose_ids: Iterabl
     # pose_id2           5    3   3    3 |  8    3
     # ...
     entity_metadata_df = load_sql_entity_metadata_dataframe(session, pose_ids=pose_ids)
-    logger.debug(f'entity_metadata_df: {entity_metadata_df}')  # Todo remove
+    logger.debug(f'entity_metadata_df:\n{entity_metadata_df}')
     # entity_metadata_df.set_index(pose_id, inplace=True)
     # entity_metrics_df = entity_metrics_df.join(entity_metadata_df.set_index(pose_id), on=pose_id, rsuffix='_DROP')
     entity_metrics_df = entity_metrics_df.join(entity_metadata_df.set_index([pose_id, entity_id]),
                                                on=[pose_id, entity_id], rsuffix='_DROP')
     entity_metrics_df.drop(entity_metrics_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
-    logger.debug(f'entity_metrics_df after metadata.join: {entity_metrics_df}')  # Todo remove
+    logger.debug(f'entity_metrics_df after metadata.join:\n{entity_metrics_df}')
     # Get the first return from factorize since we just care about the unique "code" values
-    entity_metrics_df[structure_type] = \
+    entity_metrics_df[structure_entity] = \
         entity_metrics_df.groupby(pose_id).entity_id.transform(lambda x: pd.factorize(x)[0]) + 1
     # Todo add numeric_only=True? to groupby ops
-    # entity_metrics_df[structure_type] = entity_metrics_df.groupby(pose_id).entity_id.cumcount() + 1
-    # entity_metrics_df[structure_type] = \
+    # entity_metrics_df[structure_entity] = entity_metrics_df.groupby(pose_id).entity_id.cumcount() + 1
+    # entity_metrics_df[structure_entity] = \
     #     (entity_metrics_df.groupby('pose_id').entity_id.cumcount() + 1).apply(lambda x: f'entity_{x}')
-    entity_metrics_df = entity_metrics_df.drop_duplicates([pose_id, structure_type])
-    logger.debug(f'entity_metrics_df AFTER factorize and deduplication: {entity_metrics_df}')  # Todo remove
+    entity_metrics_df = entity_metrics_df.drop_duplicates([pose_id, structure_entity])
+    logger.debug(f'entity_metrics_df AFTER factorize and deduplication:\n{entity_metrics_df}')
     # Make the stacked entity df and use the pose_id index to join with the above df
-    pose_oriented_entity_df = entity_metrics_df.set_index([pose_id, structure_type]).unstack().swaplevel(axis=1)
+    pose_oriented_entity_df = entity_metrics_df.set_index([pose_id, structure_entity]).unstack().swaplevel(axis=1)
+    # pose_oriented_entity_df.index = pd.MultiIndex.from_product([['pose'], pose_oriented_entity_df.index])
     # pose_oriented_entity_df = entity_metrics_df.unstack().swaplevel(axis=1)
     logger.debug(f'pose_oriented_entity_df: {pose_oriented_entity_df}')  # Todo remove
     save_df = save_df.join(pose_oriented_entity_df, rsuffix='_DROP')  # , on=pose_id
     # save_df.drop(save_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
-    logger.debug(f'Final save_df: {save_df}')  # Todo remove
+    logger.debug(f'Final save_df:\n{save_df}')
 
     return save_df
 
@@ -1719,7 +1720,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # End session
 
     # Rename the identifiers to human-readable names
-    save_designs_df.reset_index(inplace=True, col_level=-1, col_fill='pose')
+    save_designs_df.reset_index(col_fill='pose', col_level=-1, inplace=True)
     save_designs_df[('pose', 'design_name')] = save_designs_df[('pose', design_id)].map(design_id_to_identifier)
     # print('AFTER design_name', save_designs_df)
     save_designs_df[('pose', 'pose_identifier')] = save_designs_df[('pose', pose_id)].map(pose_id_to_identifier)

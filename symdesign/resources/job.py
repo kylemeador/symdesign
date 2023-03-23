@@ -1140,7 +1140,7 @@ class JobResources:
         hhblits_cmds, bmdca_cmds = [], []
         # Set up sequence data using hhblits and profile bmDCA for each input entity
         putils.make_path(self.sequences)
-        if uniprot_entities:
+        if uniprot_entities is not None:
             for uniprot_entity in uniprot_entities:
                 evolutionary_profile = self.api_db.hhblits_profiles.retrieve_data(name=uniprot_entity.id)
                 if not evolutionary_profile:
@@ -1155,7 +1155,7 @@ class JobResources:
                 # bmdca_cmds.append([putils.bmdca_exe_path,
                 #                    '-i', os.path.join(self.profiles, f'{uniprot_entity.id}.fasta'),
                 #                    '-d', os.path.join(self.profiles, f'{uniprot_entity.id}_bmDCA')])
-        else:
+        elif entities is not None:
             for entity in entities:
                 entity.sequence_file = self.api_db.sequences.retrieve_file(name=entity.name)
                 if not entity.sequence_file:

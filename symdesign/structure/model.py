@@ -1026,7 +1026,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     rotation_d: dict[str, dict[str, int | np.ndarray]] | dict
     """Maps mate entities to their rotation matrix"""
     # symmetry: str | None
-    _uniprot_ids: tuple[str, ...] | None
+    _uniprot_ids: tuple[str | None, ...]
     state_attributes = Chain.state_attributes | {'_oligomer'}  # '_chains' handled specifically
     # | ContainsChainsMixin.state_attributes
 
@@ -1147,7 +1147,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # Todo remove self.thermophilicity once sql load more streamlined
             self.thermophilicity = metadata.thermophilicity
             if metadata.uniprot_entities is not None:
-                self.uniprot_ids = tuple(entity.uniprot_id for entity in metadata.uniprot_entities)
+                self.uniprot_ids = metadata.uniprot_ids
 
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
@@ -1251,7 +1251,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
     # @hybrid_property Todo wrapapi.UniProtEntity
     @property
-    def uniprot_ids(self) -> tuple[str, ...]:
+    def uniprot_ids(self) -> tuple[str | None, ...]:
         """The UniProt ID for the Entity used for accessing genomic and homology features"""
         # Todo wrapapi.UniProtEntity
         # try:
@@ -1265,21 +1265,18 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             return self._uniprot_ids
         except AttributeError:
             # Set None but attempt to get from the API
-            self._uniprot_ids = None
+            self._uniprot_ids = (None,)
             self._retrieve_info_from_api()
         return self._uniprot_ids
 
     @uniprot_ids.setter
-    def uniprot_ids(self, uniprot_ids: tuple[str, ...] | str):  # dict[str, str] |
-        # if isinstance(dbref, dict) and dbref.get('db') == 'UNP':
-        #     self._uniprot_id = dbref['accession']
-        # else:
-        if isinstance(uniprot_ids, tuple):
-            self._uniprot_ids = uniprot_ids
+    def uniprot_ids(self, uniprot_ids: Iterable[str, ...] | str):
+        if isinstance(uniprot_ids, Iterable):  # tuple):
+            self._uniprot_ids = tuple(uniprot_ids)
         elif isinstance(uniprot_ids, str):
             self._uniprot_ids = (uniprot_ids,)
         else:
-            raise ValueError(f"Couldn't set {self.uniprot_ids.__name__}. Expected tuple[str, ...] or str, not "
+            raise ValueError(f"Couldn't set {self.uniprot_ids.__name__}. Expected Iterable[str, ...] or str, not "
                              f"{type(uniprot_ids).__name__}")
 
     @property
@@ -2743,8 +2740,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             if isinstance(model, Structure):
                 super().__init__(**model.get_structure_containers(), **kwargs)
             else:
-                raise NotImplementedError(f"Setting {self.__class__.__name__} with a {type(model).__name__} isn't "
-                                          'supported')
+                raise NotImplementedError(
+                    f"Setting {self.__class__.__name__} with a {type(model).__name__} isn't supported")
         else:
             super().__init__(**kwargs)
 
@@ -3720,8 +3717,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             self.entity_info
         """
         if not 0 < tolerance <= 1:
-            raise ValueError(f"{self._get_entity_info_from_atoms.__name__} tolerance={tolerance} isn't allowed. "
-                             'Must be bounded between (0-1]')
+            raise ValueError(
+                f"{self._get_entity_info_from_atoms.__name__} tolerance={tolerance} isn't allowed. Must be bounded "
+                "between (0-1]")
         if length_difference is None:
             length_difference = 1 - tolerance
 
