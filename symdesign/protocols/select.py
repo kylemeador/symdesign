@@ -118,14 +118,19 @@ def load_sql_all_metrics_dataframe(session: Session, pose_ids: Iterable[int] = N
                         # *entity_metadata_c,
                         *sql.DesignEntityMetrics.__table__.columns)
             if not c.primary_key]
-    # Remove design_id
+    # Remove design_id (its duplicated?)
     em_c.pop(em_c.index(sql.DesignEntityMetrics.design_id))
+    # Remove entity_id, it's duplicated
+    em_c.pop(em_c.index(sql.DesignEntityMetrics.entity_id))
     em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
     selected_columns = (*pm_c, *dm_c, *em_c)
     selected_column_names = (*pm_names, *dm_names, *em_names)
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
-    join_stmt = select(selected_columns).select_from(PoseJob).join(sql.PoseMetrics).join(sql.EntityData).join(
-        sql.EntityMetrics).join(sql.DesignData).join(sql.DesignMetrics).join(sql.DesignEntityMetrics)
+    join_stmt = select(selected_columns).select_from(PoseJob).join(sql.PoseMetrics)\
+        .join(sql.EntityData, sql.EntityData.pose_id == PoseJob.id)\
+        .join(sql.EntityMetrics, sql.EntityMetrics.entity_id == sql.EntityData.id)\
+        .join(sql.DesignData).join(sql.DesignMetrics)\
+        .join(sql.DesignEntityMetrics, sql.DesignEntityMetrics.design_id == sql.DesignData.id)
 
     if pose_ids:
         stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
