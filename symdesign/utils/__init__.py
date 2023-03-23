@@ -862,23 +862,19 @@ def get_available_memory(human_readable: bool = False, gpu: bool = False) -> int
         Use plus 10 characters to parse. Value could be 50 I suppose and the split will get this variable only...
         """
         # try:
-        memory_constraint = out[start_index:start_index + 10].split()[0]
+        memory_allocated = out[start_index:start_index + 10].split()[0]
         # except IndexError:
         #     print(out)
         #     print(f"start_index where 'MinMemoryCPU=' '=' was found: {start_index}")
-        logger.debug(f'Found memory allocated of: {memory_constraint}')
-        if human_readable:
-            pass
-        else:
-            # try:
-            memory_constraint = human2bytes(memory_constraint)
-            # except ValueError:
-            #     print(out)
-            #     print(f"start_index where 'MinMemoryCPU=' '=' was found: {start_index}")
+        logger.debug(f'Found memory allocated: {memory_allocated}')
+        memory_available = psutil.virtual_memory().available
+        logger.debug(f'Found memory available: {bytes2human(memory_available)}')
+        memory_constraint = human2bytes(memory_allocated) - memory_available
     else:
         memory_constraint = psutil.virtual_memory().available
-        if human_readable:
-            memory_constraint = bytes2human(memory_constraint)
+
+    if human_readable:
+        memory_constraint = bytes2human(memory_constraint)
 
     return memory_constraint
 
