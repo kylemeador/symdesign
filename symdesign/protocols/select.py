@@ -1331,8 +1331,12 @@ def format_save_df(session: Session, designs_df: pd.DataFrame, pose_ids: Iterabl
     logger.debug(f'entity_metadata_df:\n{entity_metadata_df}')
     # entity_metadata_df.set_index(pose_id, inplace=True)
     # entity_metrics_df = entity_metrics_df.join(entity_metadata_df.set_index(pose_id), on=pose_id, rsuffix='_DROP')
-    entity_metrics_df = entity_metrics_df.join(entity_metadata_df.set_index([pose_id, entity_id]),
-                                               on=[pose_id, entity_id], rsuffix='_DROP')
+    if entity_metrics_df.empty:
+        # In the case there are no designs and therefore no design_entity_metrics entries
+        entity_metrics_df = entity_metadata_df
+    else:
+        entity_metrics_df = entity_metrics_df.join(entity_metadata_df.set_index([pose_id, entity_id]),
+                                                   on=[pose_id, entity_id], rsuffix='_DROP')
     entity_metrics_df.drop(entity_metrics_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
     logger.debug(f'entity_metrics_df after metadata.join:\n{entity_metrics_df}')
     # Get the first return from factorize since we just care about the unique "code" values
@@ -1421,7 +1425,11 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                 f"For the input PoseJobs, there aren't metrics collected. Use the '{flags.analysis}' module or perform "
                 "some design module before selection")
         designs_df = load_sql_design_metrics_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
-        if not designs_df.empty:
+        if designs_df.empty:
+            pose_designs_mean_df = pd.DataFrame()
+            # print(total_df)
+            # raise NotImplementedError(f"Can't proceed without at least the PoseJob.pose_source")
+        else:
             # designs_df has a multiplicity of number_of_entities from DesignEntityMetrics table join
             # Use the pose_id index to join to the total_df
             # Todo ensure non-numeric are here as well
@@ -1446,9 +1454,6 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             total_df = total_df.join(pose_design_entities_mean_df, on=[pose_id, entity_id], rsuffix='_DROP')
             total_df.drop(total_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
             logger.debug(f'total_df: {total_df}')
-            logger.debug(f'total_df: {sorted(total_df.columns.tolist())}')
-        else:
-            raise NotImplementedError(f"Can't proceed without at least the PoseJob.pose_source")
 
         if job.filter or job.protocol:
             df_multiplicity = len(pose_jobs[0].entity_data)
@@ -1457,9 +1462,14 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                            'present')
         # Ensure the pose_id is the index to prioritize
         total_df.set_index(pose_id, inplace=True)
-        selected_poses_df = \
-            metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight, protocols=job.protocol,
-                                              default_weight=default_weight_metric, function=job.weight_function)
+        if not job.filter and not job.weight and not job.protocol and default_weight_metric not in total_df.columns:
+            # Nothing to filter/weight
+            selected_poses_df = total_df
+        else:  # Filter/weight
+            selected_poses_df = \
+                metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight,
+                                                  protocols=job.protocol, default_weight=default_weight_metric,
+                                                  function=job.weight_function)
         # Remove excess pose instances
         # selected_pose_ids = selected_poses_df.index.duplicated()[:job.select_number]
         selected_pose_ids = utils.remove_duplicates(selected_poses_df.index.tolist())[:job.select_number]
@@ -1504,7 +1514,13 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         final_pose_id_to_identifier = {pose_job.id: pose_job.pose_identifier for pose_job in final_poses}
 
         # Format selected PoseJob ids for output, including all additional metrics/metadata
-        save_poses_df = pose_designs_mean_df.loc[selected_pose_ids]
+        if not pose_designs_mean_df.empty:
+            save_poses_df = pose_designs_mean_df.loc[selected_pose_ids].reset_index()
+        else:
+            save_poses_df = pd.DataFrame(zip(selected_pose_ids, range(len(selected_pose_ids))),
+                                         columns=[pose_id, 'idx_DROP'])
+            # save_poses_df.index = pd.Index(selected_pose_ids, name=pose_id)
+            # save_poses_df = pd.Series(selected_pose_ids, name=pose_id).to_frame()
         save_poses_df = format_save_df(session, save_poses_df, selected_pose_ids)
     # End session
 
@@ -1614,9 +1630,14 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                            'present')
         # Ensure the design_id is the index to prioritize, though both pose_id and design_id are grabbed below
         total_df.set_index(design_id, inplace=True)
-        selected_designs_df = \
-            metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight, protocols=job.protocol,
-                                              default_weight=default_weight_metric, function=job.weight_function)
+        if not job.filter and not job.weight and not job.protocol and default_weight_metric not in total_df.columns:
+            # Nothing to filter/weight
+            selected_designs_df = total_df
+        else:  # Filter/weight
+            selected_designs_df = \
+                metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight,
+                                                  protocols=job.protocol, default_weight=default_weight_metric,
+                                                  function=job.weight_function)
         # # Groupby the design_id to remove extra instances of 'entity_id'
         # # This will turn these values into average which is fine since we just want the order
         # pose_designs_mean_df = selected_designs_df.groupby('design_id').mean()
