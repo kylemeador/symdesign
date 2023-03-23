@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+from collections import defaultdict
 from glob import glob
 from itertools import repeat, count
 from typing import Any, Iterable, Sequence
@@ -381,7 +382,7 @@ def load_sql_pose_metadata_dataframe(session: Session, pose_ids: Iterable[int] =
 
 def load_sql_design_metadata_dataframe(session: Session, pose_ids: Iterable[int] = None,
                                        design_ids: Iterable[int] = None) -> pd.DataFrame:
-    """Load and format every PoseJob instance associated metadata including protocol information
+    """Load and format requested identifiers DesignData/DesignProtocol
 
     Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
 
@@ -393,10 +394,14 @@ def load_sql_design_metadata_dataframe(session: Session, pose_ids: Iterable[int]
         The pandas DataFrame formatted with the every metric in DesignMetrics. The final DataFrame will
             have an entry for each DesignData
     """
-    raise NotImplementedError()
-    # Todo what DesignData is needed? How to join history of DesignProtocols..?
     dd_c = [c for c in sql.DesignData.__table__.columns if not c.primary_key]
-    dd_names = [c.name for c in dd_c]
+    dd_c.pop(dd_c.index(sql.DesignData.name))
+    # dd_names = [c.name for c in dd_c]
+    # name REMOVE
+    # pose_id NEED
+    # design_parent_id
+    # structure_path
+    # sequence
     dp_c = [c for c in sql.DesignProtocol.__table__.columns if not c.primary_key]
     dp_names = [c.name for c in dp_c]
     # pj_c = [c for c in PoseJob.__table__.columns if not c.primary_key]
@@ -598,7 +603,7 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
 
     if job.save_total:
-        total_df = total_df[total_df.index.duplicated()]
+        total_df = total_df[~total_df.index.duplicated()]
         total_df_filename = os.path.join(job.output_directory, 'TotalPoseMetrics.csv')
         total_df.to_csv(total_df_filename)
         logger.info(f'Total Pose DataFrame was written to: {total_df_filename}')
@@ -840,7 +845,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
 
     if job.save_total:
-        total_df = total_df[total_df.index.duplicated()]
+        total_df = total_df[~total_df.index.duplicated()]
         total_df_filename = os.path.join(job.output_directory, 'TotalDesignMetrics.csv')
         total_df.to_csv(total_df_filename)
         logger.info(f'Total Pose/Designs DataFrame was written to: {total_df}')
@@ -1352,8 +1357,8 @@ def format_save_df(session: Session, designs_df: pd.DataFrame, pose_ids: Iterabl
     pose_oriented_entity_df = entity_metrics_df.set_index([pose_id, structure_entity]).unstack().swaplevel(axis=1)
     # pose_oriented_entity_df.index = pd.MultiIndex.from_product([['pose'], pose_oriented_entity_df.index])
     # pose_oriented_entity_df = entity_metrics_df.unstack().swaplevel(axis=1)
-    logger.debug(f'pose_oriented_entity_df: {pose_oriented_entity_df}')  # Todo remove
-    save_df = save_df.join(pose_oriented_entity_df, rsuffix='_DROP')  # , on=pose_id
+    logger.debug(f'pose_oriented_entity_df:\n{pose_oriented_entity_df}')
+    save_df = save_df.join(pose_oriented_entity_df, on=[('pose', pose_id)])  # , rsuffix='_DROP')  # , on=pose_id
     # save_df.drop(save_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
     logger.debug(f'Final save_df:\n{save_df}')
 
@@ -1414,7 +1419,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         total_df = load_sql_poses_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
         pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
         entity_metadata_df = load_sql_entity_metadata_dataframe(session, pose_ids=pose_ids)
-        logger.debug(f'entity_metadata_df: {entity_metadata_df}')  # Todo remove
+        logger.debug(f'entity_metadata_df:\n{entity_metadata_df}')
         total_df = total_df.join(pose_metadata_df.set_index(pose_id), on=pose_id, rsuffix='_DROP')
         total_df = \
             total_df.join(entity_metadata_df.set_index([pose_id, entity_id]), on=[pose_id, entity_id], rsuffix='_DROP')
@@ -1453,7 +1458,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             # This will create a total_df that is the number_of_entities X larger than the number of poses
             total_df = total_df.join(pose_design_entities_mean_df, on=[pose_id, entity_id], rsuffix='_DROP')
             total_df.drop(total_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
-            logger.debug(f'total_df: {total_df}')
+            logger.debug(f'total_df:\n{total_df}')
 
         if job.filter or job.protocol:
             df_multiplicity = len(pose_jobs[0].entity_data)
@@ -1471,7 +1476,6 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                                                   protocols=job.protocol, default_weight=default_weight_metric,
                                                   function=job.weight_function)
         # Remove excess pose instances
-        # selected_pose_ids = selected_poses_df.index.duplicated()[:job.select_number]
         selected_pose_ids = utils.remove_duplicates(selected_poses_df.index.tolist())[:job.select_number]
         selected_poses = [session.get(PoseJob, id_) for id_ in selected_pose_ids]
 
@@ -1524,8 +1528,9 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         save_poses_df = format_save_df(session, save_poses_df, selected_pose_ids)
     # End session
 
+    # No need to rename as the index aren't design_id
+    # save_poses_df.reset_index(col_fill='pose', col_level=-1, inplace=True)
     # Rename the identifiers to human-readable names
-    save_poses_df.reset_index(col_fill='pose', col_level=-1, inplace=True)
     save_poses_df.set_index(
         save_poses_df[('pose', pose_id)].map(final_pose_id_to_identifier).rename('pose_identifier'), inplace=True)
 
@@ -1534,7 +1539,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
 
     if job.save_total:
-        total_df = total_df[total_df.index.duplicated()]
+        total_df = total_df[~total_df.index.duplicated()]
         total_df_filename = os.path.join(job.output_directory, 'TotalPoseMetrics.csv')
         total_df.to_csv(total_df_filename)
         logger.info(f'Total Pose DataFrame written to: {total_df_filename}')
@@ -1612,12 +1617,12 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         total_df = load_sql_all_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
         pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
         entity_metadata_df = load_sql_entity_metadata_dataframe(session, pose_ids=pose_ids)
-        logger.debug(f'entity_metadata_df: {entity_metadata_df}')  # Todo remove
+        logger.debug(f'entity_metadata_df:\n{entity_metadata_df}')
         total_df = total_df.join(pose_metadata_df.set_index(pose_id), on=pose_id, rsuffix='_DROP')
         total_df = \
             total_df.join(entity_metadata_df.set_index([pose_id, entity_id]), on=[pose_id, entity_id], rsuffix='_DROP')
         total_df.drop(total_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
-        logger.debug(f'total_df: {total_df}')
+        logger.debug(f'total_df:\n{total_df}')
         # logger.debug(f'total_df: {total_df.columns.tolist()}')
         if total_df.empty:
             raise utils.MetricsError(
@@ -1638,42 +1643,40 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                 metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight,
                                                   protocols=job.protocol, default_weight=default_weight_metric,
                                                   function=job.weight_function)
-        # # Groupby the design_id to remove extra instances of 'entity_id'
+        # # Groupby design_id to remove extra instances of 'entity_id'
         # # This will turn these values into average which is fine since we just want the order
-        # pose_designs_mean_df = selected_designs_df.groupby('design_id').mean()
+        # pose_designs_mean_df = selected_designs_df.groupby(design_id).mean()
+
         # Drop duplicated values keeping the order of the DataFrame
-        selected_designs_df.drop_duplicates(design_id, inplace=True)
-        # Get the pose_id and the design_id for each found design
-        # # Set the index according to 'pose_id', 'design_id'
-        # selected_designs_df.set_index(['pose_id', 'design_id'], inplace=True)
-        # selected_designs = selected_designs_df.index.tolist()
-        # selected_designs = selected_designs_df[['pose_id', 'design_id']].values.tolist()
-        selected_design_ids = selected_designs_df[design_id].tolist()
-        selected_pose_ids = selected_designs_df[pose_id].tolist()
-        selected_designs = list(zip(selected_pose_ids, selected_design_ids))
+        selected_designs_df = selected_designs_df[~selected_designs_df.index.duplicated()]
 
         # Specify the result order according to any filtering, weighting, and number
         number_selected = len(selected_designs_df)
         job.select_number = number_selected if number_selected < job.select_number else job.select_number
         designs_per_pose = job.designs_per_pose
         logger.info(f'Choosing up to {job.select_number} Designs, with {designs_per_pose} Design(s) per Pose')
+
+        # Get the pose_id and the design_id for each found design
+        selected_design_ids = selected_designs_df.index.tolist()
+        selected_pose_ids = selected_designs_df[pose_id].tolist()
+        selected_designs = list(zip(selected_pose_ids, selected_design_ids))
         selected_designs_iter = iter(selected_designs)
-        number_chosen = count(0)
+        number_chosen = count()
         # selected_pose_id_to_design_ids = defaultdict(list)  # Alt way
         selected_pose_id_to_design_ids = {}
         try:
             while next(number_chosen) <= job.select_number:
-                pose_id, design_id = next(selected_designs_iter)
+                pose_id_, design_id_ = next(selected_designs_iter)
                 # Alt way, but doesn't count designs_per_pose
                 # selected_pose_id_to_design_ids[pose_id].append(design_id)
-                _designs = selected_pose_id_to_design_ids.get(pose_id, None)
+                _designs = selected_pose_id_to_design_ids.get(pose_id_, None)
                 if _designs:
-                    if len(_designs) >= designs_per_pose:
-                        # We already have too many for this pose, continue with search
-                        continue
-                    _designs.append(design_id)
+                    if len(_designs) < designs_per_pose:
+                        _designs.append(design_id_)
+                    # else:  # Number of designs already satisfied for this pose
+                    #     continue
                 else:
-                    selected_pose_id_to_design_ids[pose_id] = [design_id]
+                    selected_pose_id_to_design_ids[pose_id_] = [design_id_]
         except StopIteration:  # We exhausted selected_designs_iter
             pass
 
@@ -1687,15 +1690,15 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         design_id_to_identifier = {}
         results = []
         selected_design_ids = []
-        for pose_id, design_ids in selected_pose_id_to_design_ids.items():
-            pose_job = session.get(PoseJob, pose_id)
-            pose_id_to_identifier[pose_id] = pose_job.pose_identifier
+        for pose_id_, design_ids in selected_pose_id_to_design_ids.items():
+            pose_job = session.get(PoseJob, pose_id_)
+            pose_id_to_identifier[pose_id_] = pose_job.pose_identifier
             selected_design_ids.extend(design_ids)
             current_designs = []
-            for design_id in design_ids:
-                design = session.get(sql.DesignData, design_id)
+            for design_id_ in design_ids:
+                design = session.get(sql.DesignData, design_id_)
                 design_name = design.name
-                design_id_to_identifier[design_id] = design_name
+                design_id_to_identifier[design_id_] = design_name
                 design_structure_path = design.structure_path
                 if design_structure_path:
                     out_path = os.path.join(job.output_directory, f'{pose_job.project}-{design_name}.pdb')
@@ -1728,20 +1731,19 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         design_metadata_df = load_sql_design_metadata_dataframe(session, design_ids=selected_design_ids)
         design_metrics_df = load_sql_design_metrics_dataframe(session, design_ids=selected_design_ids)
         # designs_df has a multiplicity of number_of_entities from DesignEntityMetrics table join
-        design_metrics_df = design_metadata_df.join(design_metrics_df.set_index(design_id), on=design_id, rsuffix='_DROP')
+        design_metrics_df = \
+            design_metadata_df.join(design_metrics_df.set_index(design_id), on=design_id, rsuffix='_DROP')
         # Format selected PoseJob with metrics for output
         # save_designs_df = selected_designs_df
         save_designs_df = format_save_df(session, design_metrics_df,
                                          selected_pose_id_to_design_ids.keys(),
                                          design_ids=selected_design_ids
-                                         # # Remove the 'design_id' index
-                                         # selected_designs_df.droplevel(-1, axis=0))
                                          )
-        #                                  selected_designs_df.set_index('design_id').loc[selected_design_ids, :])
     # End session
 
+    # No need to rename as the index aren't design_id
+    # save_designs_df.reset_index(col_fill='pose', col_level=-1, inplace=True)
     # Rename the identifiers to human-readable names
-    save_designs_df.reset_index(col_fill='pose', col_level=-1, inplace=True)
     save_designs_df[('pose', 'design_name')] = save_designs_df[('pose', design_id)].map(design_id_to_identifier)
     # print('AFTER design_name', save_designs_df)
     save_designs_df[('pose', 'pose_identifier')] = save_designs_df[('pose', pose_id)].map(pose_id_to_identifier)
@@ -1751,7 +1753,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # print('AFTER set_index', save_designs_df)
 
     if job.save_total:
-        total_df = total_df[total_df.index.duplicated()]
+        total_df = total_df[~total_df.index.duplicated()]
         total_df_filename = os.path.join(job.output_directory, 'TotalDesignMetrics.csv')
         total_df.to_csv(total_df_filename)
         logger.info(f'Total Pose/Designs DataFrame written to: {total_df_filename}')

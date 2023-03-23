@@ -1076,7 +1076,7 @@ def get_equivalent_indices(target: Sequence = None, query: Sequence = None, muta
     # Get only those indices where there is an aligned aa on the opposite chain
     sequence1_indices, sequence2_indices = [], []
     # to_idx = from_idx = 0
-    to_idx, from_idx = count(0), count(0)
+    to_idx, from_idx = count(), count()
     # sequence1 'from' is fixed, sequence2 'to' is moving
     for mutation_idx, mutation in enumerate(mutations.values()):
         if mutation['to'] == mutation['from']:  # They are equal
