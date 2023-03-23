@@ -123,7 +123,7 @@ def calculate_proteinmpnn_batch_length(model: ProteinMPNN, number_of_residues: i
             # Recurse
             return calculate_proteinmpnn_batch_length(model, number_of_residues, element_memory)
         else:  # This hasn't been changed
-            raise RunTimeError(
+            raise RuntimeError(
                 f"Can't find a device for {model} with enough memory to complete a single batch of work"
                 f"with {number_of_residues} residues in the model")
 
