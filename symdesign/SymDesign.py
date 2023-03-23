@@ -328,7 +328,15 @@ def main():
             existing_protein_metadata: If any ProteinMetadata instances are already loaded, pass them to expedite setup
         """
         if not possibly_new_uniprot_to_prot_data:
-            return {}
+            if existing_protein_metadata:
+                pass
+                # uniprot_id_to_metadata = {protein_data.uniprot_ids: protein_data for protein_data in existing_protein_metadata}
+            elif existing_uniprot_entities:
+                existing_protein_metadata = {unp_entity.protein_metadata for unp_entity in existing_uniprot_entities}
+            else:
+                existing_protein_metadata = {}
+
+            return {protein_data.uniprot_ids: protein_data for protein_data in existing_protein_metadata}
 
         # Todo
         #  If I ever adopt the UniqueObjectValidatedOnPending recipe, that could perform the work of getting the
