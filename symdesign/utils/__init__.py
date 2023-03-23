@@ -867,9 +867,12 @@ def get_available_memory(human_readable: bool = False, gpu: bool = False) -> int
         #     print(out)
         #     print(f"start_index where 'MinMemoryCPU=' '=' was found: {start_index}")
         logger.debug(f'Found memory allocated: {memory_allocated}')
-        memory_available = psutil.virtual_memory().available
-        logger.debug(f'Found memory available: {bytes2human(memory_available)}')
-        memory_constraint = human2bytes(memory_allocated) - memory_available
+        # memory_available = psutil.virtual_memory().available
+        # logger.debug(f'Found memory available: {bytes2human(memory_available)}')
+        process = psutil.Process()
+        memory_used = process.memory_info().rss
+        logger.debug(f'Found memory used: {bytes2human(memory_used)}')
+        memory_constraint = human2bytes(memory_allocated) - memory_used
     else:
         memory_constraint = psutil.virtual_memory().available
 
