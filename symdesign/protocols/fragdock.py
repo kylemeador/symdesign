@@ -2255,8 +2255,10 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             A tuple of DataFrames representing the per-pose and the per-residue metrics. Each has indices from 0-N
         """
         logger.info(f'Collecting metrics for {number_of_transforms} active Poses')
+        # Remove old DataFrames to save memory. These are going to be calculated fresh
+        nonlocal poses_df, residues_df
+        poses_df = residues_df = pd.DataFrame()
 
-        # Get metrics for each Pose
         # nan_blank_data = list(repeat(np.nan, pose_length))
         # unbound_errat = []
         # for idx, entity in enumerate(pose.entities):
@@ -2530,6 +2532,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         interface_mask = []
         # Stack the entity coordinates to make up a contiguous block for each pose
         new_coords = []
+        # Get metrics for each Pose
         for idx in tqdm(pose_ids, total=number_of_transforms):
             # logger.info(f'Metrics for Pose {idx + 1}/{number_of_transforms}')
             # Add the next set of coordinates
@@ -3028,7 +3031,11 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             current_transformation_ids = create_transformation_hash()
             minimize_translations()
 
-        weighted_trajectory_df: pd.DataFrame = prioritize_transforms_by_selection()
+        poses_df, residues_df = collect_dock_metrics()
+        # Todo
+        #  enable precise metric acquisition
+        # dock_metrics = collect_dock_metrics(score_functions)
+        weighted_trajectory_df: pd.DataFrame = prioritize_transforms_by_selection(poses_df)
         weighted_trajectory_df_index = weighted_trajectory_df.index
 
         if number_perturbations_applied > 1:
@@ -3234,35 +3241,30 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
 
         return hashed_transforms
 
-    def prioritize_transforms_by_selection() -> pd.DataFrame:
+    def prioritize_transforms_by_selection(df: pd.DataFrame) -> pd.DataFrame:
         """Using the active transformations, measure the Pose metrics and filter/weight according to defaults/provided
         parameters
 
-        Sets:
-            poses_df and residues_df according to the current transformations
+        Args:
+            df: The Pose DataFrame which should be prioritized from docking
         Returns:
             The DataFrame that has been sorted according to the specified filters/weights
         """
-        nonlocal poses_df, residues_df
-        poses_df, residues_df = collect_dock_metrics()
-        # Todo
-        #  enable precise metric acquisition
-        # dock_metrics = collect_dock_metrics(score_functions)
-        weighted_trajectory_df = \
-            metrics.prioritize_design_indices(poses_df, filters=job.dock.filter, weights=job.dock.weight,
+        weighted_df = \
+            metrics.prioritize_design_indices(df, filters=job.dock.filter, weights=job.dock.weight,
                                               default_weight=default_weight_metric)
         # Set the metrics_of_interest to the default weighting metric name as well as any weights that are specified
         metrics_of_interest = [metrics.selection_weight_column]
         if job.dock.weight:
             metrics_of_interest += list(job.dock.weight.keys())
-        #     weighted_trajectory_df = weighted_trajectory_df.loc[:, list(job.dock.weight.keys())]
+        #     weighted_df = weighted_trajectory_df.loc[:, list(job.dock.weight.keys())]
         # else:
-        #     weighted_trajectory_df = weighted_trajectory_df.loc[:, metrics.selection_weight_column]
-        weighted_trajectory_df = weighted_trajectory_df.loc[:, metrics_of_interest]
+        #     weighted_df = weighted_trajectory_df.loc[:, metrics.selection_weight_column]
+        weighted_df = weighted_df.loc[:, metrics_of_interest]
         # weighted_trajectory_s = metrics.pareto_optimize_trajectories(poses_df, weights=job.dock.weight,
         #                                                              default_sort=default_weight_metric)
         # weighted_trajectory_s is sorted with best transform in index 0, regardless of whether it is ascending or not
-        return weighted_trajectory_df
+        return weighted_df
 
     # Todo use append_total_results() for global search
     # def append_total_results(additional_trajectory_df: pd.DataFrame) -> pd.DataFrame:
@@ -3300,8 +3302,11 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     #     # other_metrics_df.mean(axis=1)
 
     # Initialize output DataFrames which are set in prioritize_transforms_by_selection()
-    poses_df = residues_df = pd.DataFrame()
-    weighted_trajectory_df = prioritize_transforms_by_selection()
+    poses_df, residues_df = collect_dock_metrics()
+    # Todo
+    #  enable precise metric acquisition
+    # dock_metrics = collect_dock_metrics(score_functions)
+    weighted_trajectory_df = prioritize_transforms_by_selection(poses_df)
     # # Get selected indices (sorted in original order)
     # selected_indices = weighted_trajectory_df.index.sort_values().tolist()
     # Get selected indices (sorted in weighted_trajectory_df order)
@@ -3470,7 +3475,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     filter_transforms_by_indices(np.flatnonzero(deduplicated_indices))
     # Finally, tabulate the ProteinMPNN metrics if they weren't already
     if job.dock.proteinmpnn_score:
-        pass  # These are already collected
+        pass  # ProteinMPNN metrics already collected
     else:  # Collect
         logger.info(f'Measuring quality of docked interfaces with ProteinMPNN unconditional probabilities')
         poses_df, residues_df = collect_dock_metrics(proteinmpnn_score=True)
@@ -3739,8 +3744,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     with job.db.session(expire_on_commit=False) as session:
         pose_jobs = terminate(pose, poses_df, residues_df)
         session.commit()
-        metrics_stmt = select(PoseJob).where(PoseJob.id.in_([pose_job.id for pose_job in pose_jobs]))\
-            .execution_options(populate_existing=True)\
+        metrics_stmt = select(PoseJob).where(PoseJob.id.in_([pose_job.id for pose_job in pose_jobs])) \
+            .execution_options(populate_existing=True) \
             .options(selectinload(PoseJob.metrics))
         pose_jobs = session.scalars(metrics_stmt).all()
         # # Load all the committed metrics to the PoseJob instances
