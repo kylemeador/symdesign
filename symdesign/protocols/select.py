@@ -408,16 +408,24 @@ def load_sql_design_metadata_dataframe(session: Session, pose_ids: Iterable[int]
     # structure_path
     # sequence
     dp_c = [c for c in sql.DesignProtocol.__table__.columns if not c.primary_key]
-    dp_names = [c.name for c in dp_c]
-    # pj_c = [c for c in PoseJob.__table__.columns if not c.primary_key]
-    # pj_names = [c.name for c in pj_c]
-    selected_columns = (*dp_c, *dd_c,)
-    selected_column_names = (*dp_names, *dd_names,)
+    # dp_names = [c.name for c in dp_c]
+    # protocol
+    # job_id JOIN
+    # design_id NEED
+    # file
+    # temperature
+    # alphafold_model
+
+    job_c = [c for c in sql.JobProtocol.__table__.columns if not c.primary_key]
+    # job_names = [c.name for c in job_c]
+    selected_columns = (*dp_c, *dd_c, *job_c)
+    # selected_column_names = (*dp_names, *dd_names, *job_names)
+    selected_column_names = [c.name for c in selected_columns]
 
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
     join_stmt = select(selected_columns).select_from(PoseJob)\
-        .join(sql.DesignData).join(sql.DesignProtocol)
+        .join(sql.DesignData).join(sql.DesignProtocol).join(sql.JobProtocol)
     if pose_ids:
         stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
     else:
