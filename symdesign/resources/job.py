@@ -758,7 +758,8 @@ class JobResources:
         job_protocol_stmt = select(sql.JobProtocol)\
             .where(*[getattr(sql.JobProtocol, table_column) == job_resources_attr
                      for table_column, job_resources_attr in protocol_kwargs.items()])
-        input(job_protocol_stmt)
+        print(job_protocol_stmt)
+        print(job_protocol_stmt.compile(compile_kwargs={"literal_binds": True}))
         # Todo
         #  This == operation is probably not working... need to test
         # job_protocol_stmt = select(sql.JobProtocol)\
@@ -777,6 +778,7 @@ class JobResources:
         #     .where(sql.JobProtocol.use_gpu_relax == self.predict.use_gpu_relax)
         with self.db.session(expire_on_commit=False) as session:
             job_protocol_result = session.scalars(job_protocol_stmt).all()
+            input(job_protocol_result)
             if not job_protocol_result:  # Create a new one
                 job_protocol = sql.JobProtocol(**protocol_kwargs)
                 session.add(job_protocol)
