@@ -139,7 +139,7 @@ def load_sql_all_metrics_dataframe(session: Session, pose_ids: Iterable[int] = N
         .join(sql.DesignMetrics, sql.DesignMetrics.design_id == sql.DesignEntityMetrics.design_id)
 
     if pose_ids:
-        stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
+        stmt = join_stmt.where(sql.PoseMetrics.pose_id.in_(pose_ids))
     else:
         stmt = join_stmt
 
@@ -186,7 +186,7 @@ def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None) -
         .join(sql.EntityMetrics, sql.EntityMetrics.entity_id == sql.EntityData.id)
 
     if pose_ids:
-        stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
+        stmt = join_stmt.where(sql.PoseMetrics.pose_id.in_(pose_ids))
     else:
         stmt = join_stmt
 
@@ -213,10 +213,9 @@ def load_sql_pose_metrics_dataframe(session: Session, pose_ids: Iterable[int] = 
 
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
-    join_stmt = select(selected_columns).select_from(PoseJob)\
-        .join(sql.PoseMetrics)
+    join_stmt = select(selected_columns).select_from(sql.PoseMetrics)
     if pose_ids:
-        stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
+        stmt = join_stmt.where(sql.PoseMetrics.pose_id.in_(pose_ids))
     else:
         stmt = join_stmt
 
@@ -262,7 +261,7 @@ def load_sql_entity_metrics_dataframe(session: Session, pose_ids: Iterable[int] 
         .join(sql.DesignEntityMetrics, sql.DesignEntityMetrics.entity_id == sql.EntityData.id)
 
     if pose_ids:
-        stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
+        stmt = join_stmt.where(sql.EntityData.pose_id.in_(pose_ids))
     else:
         stmt = join_stmt
 
@@ -303,9 +302,9 @@ def load_sql_design_metrics_dataframe(session: Session, pose_ids: Iterable[int] 
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
     join_stmt = select(selected_columns).select_from(sql.DesignData)\
-        .join(sql.DesignMetrics).join(PoseJob)  # .join(sql.DesignEntityMetrics)
+        .join(sql.DesignMetrics)
     if pose_ids:
-        stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
+        stmt = join_stmt.where(sql.DesignData.pose_id.in_(pose_ids))
     else:
         stmt = join_stmt
 
@@ -348,7 +347,7 @@ def load_sql_design_entities_dataframe(session: Session, pose_ids: Iterable[int]
     join_stmt = select(selected_columns).select_from(sql.DesignData)\
         .join(sql.DesignEntityMetrics)  # .join(PoseJob)
     if pose_ids:
-        stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
+        stmt = join_stmt.where(sql.DesignData.pose_id.in_(pose_ids))
     else:
         stmt = join_stmt
 
@@ -374,10 +373,8 @@ def load_sql_pose_metadata_dataframe(session: Session, pose_ids: Iterable[int] =
         The pandas DataFrame formatted with the every metric in DesignMetrics. The final DataFrame will
             have an entry for each DesignData
     """
-    pj_c = [c for c in PoseJob.__table__.columns if not c.primary_key]
-    pj_names = [c.name for c in pj_c]
-    selected_columns = (PoseJob.id, *pj_c,)
-    selected_column_names = ('pose_id', *pj_names,)
+    selected_columns = PoseJob.__table__.columns  # (PoseJob.id, *pj_c,)
+    selected_column_names = [c.name for c in selected_columns]  # ('pose_id', *pj_names,)
 
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
@@ -434,10 +431,10 @@ def load_sql_design_metadata_dataframe(session: Session, pose_ids: Iterable[int]
 
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
-    join_stmt = select(selected_columns).select_from(PoseJob)\
-        .join(sql.DesignData).join(sql.DesignProtocol).join(sql.JobProtocol)
+    join_stmt = select(selected_columns).select_from(sql.DesignData) \
+        .join(sql.DesignProtocol).join(sql.JobProtocol)
     if pose_ids:
-        stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
+        stmt = join_stmt.where(sql.DesignData.pose_id.in_(pose_ids))
     else:
         stmt = join_stmt
 
@@ -489,7 +486,7 @@ def load_sql_entity_metadata_dataframe(session: Session, pose_ids: Iterable[int]
         .join(sql.UniProtProteinAssociation)
 
     if pose_ids:
-        stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
+        stmt = join_stmt.where(sql.EntityData.pose_id.in_(pose_ids))
     else:
         stmt = join_stmt
 
@@ -1604,7 +1601,8 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     save_poses_df.to_csv(new_dataframe)
     logger.info(f'New DataFrame with selected poses written to: {new_dataframe}')
 
-    return final_poses
+    return selected_pose_ids
+    # return final_poses
 
 
 def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
