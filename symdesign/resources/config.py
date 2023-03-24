@@ -448,21 +448,26 @@ metrics = {
         dict(description='The minimum radius any entity approaches the assembly core',
              direction=max_, function=rank, filter=True),
     'multiple_fragment_ratio':
-        dict(description='The extent to which fragment observations are connected in the interface. Higher '
-                         'ratio means multiple fragment observations per residue',
+        dict(description='The extent that central fragment residues are represented by multiple fragment observations. '
+                         'Higher ratio means more fragment observations per residue, i.e. a value of 3 would mean on '
+                         'average, 3 fragments are observed to be overlapping every "central fragment residue" in the '
+                         'interface',
              direction=max_, function=rank, filter=True),
     'nanohedra_score':
         dict(description='Sum of total fragment containing residue match scores (1 / 1 + Z-score^2) weighted '
                          'by their ranked match score. Maximum of 2/residue',
              direction=max_, function=rank, filter=True),
     'nanohedra_score_center':
-        dict(description='nanohedra_score for the central fragment residues only',
+        dict(description='The nanohedra_score for the center residue of a fragment observation. These residues are the'
+                         ' captain of their observed member fragments, are most likely involved in interactions with '
+                         'the member fragments, and therefore most closely align with their attributes',
              direction=max_, function=rank, filter=True),
     'nanohedra_score_center_normalized':
-        dict(description='The central Nanohedra Score normalized by number of central fragment residues',
+        dict(description='The central Nanohedra Score normalized by number of central fragment residues. The maximum '
+                         'value is 2',
              direction=max_, function=rank, filter=True),
     'nanohedra_score_normalized':
-        dict(description='The Nanohedra Score normalized by number of fragment residues',
+        dict(description='The Nanohedra Score normalized by number of fragment residues. The maximum value is 2',
              direction=max_, function=rank, filter=True),
     'number_residues_interface_fragment_total':
         dict(description='The number of residues in the interface with fragment observationsfound',

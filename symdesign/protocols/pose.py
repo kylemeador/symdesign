@@ -2710,7 +2710,7 @@ class PoseProtocol(PoseData):
         """Format each possible DataFrame type for output via csv or SQL database
 
         Args:
-            session: The session instance with a connection to the database of interest
+            session: A currently open transaction within sqlalchemy
             designs: The typical per-design metric DataFrame where each index is the design id and the columns are
                 design metrics
             design_residues: The typical per-residue metric DataFrame where each index is the design id and the columns

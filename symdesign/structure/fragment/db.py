@@ -212,10 +212,10 @@ class FragmentDatabase(info.FragmentInfo):
             mapped_total_indices_with_fragment_overlap + paired_total_indices_with_fragment_overlap
         # -------------------------------------------
         # Get the individual multiple fragment observation ratio observed for each side of the fragment query
-        mapped_multiple_frag_ratio = total_observations / mapped_central_residues_with_fragment_overlap
-        paired_multiple_frag_ratio = total_observations / paired_central_residues_with_fragment_overlap
+        mapped_multiple_fragment_ratio = total_observations / mapped_central_residues_with_fragment_overlap
+        paired_multiple_fragment_ratio = total_observations / paired_central_residues_with_fragment_overlap
         # Combine
-        multiple_frag_ratio = total_observations*2 / central_residues_with_fragment_overlap
+        multiple_fragment_ratio = total_observations*2 / central_residues_with_fragment_overlap
         # -------------------------------------------
         # Turn individual index counts into paired counts
         for index, count in fragment_i_index_count_d.items():
@@ -238,7 +238,7 @@ class FragmentDatabase(info.FragmentInfo):
             total=dict(score=mapped_total_score,
                        # number=mapped_total_indices_with_fragment_overlap,
                        indices=entity1_total_indices),
-            multiple_ratio=mapped_multiple_frag_ratio
+            multiple_ratio=mapped_multiple_fragment_ratio
         )
         separated_fragment_metrics['paired'] = dict(
             center=dict(score=paired_center_score,
@@ -250,22 +250,22 @@ class FragmentDatabase(info.FragmentInfo):
             total=dict(score=paired_total_score,
                        # number=paired_total_indices_with_fragment_overlap,
                        indices=entity2_total_indices),
-            multiple_ratio=paired_multiple_frag_ratio
+            multiple_ratio=paired_multiple_fragment_ratio
         )
         # separated_fragment_metrics['mapped']['center']['score'] = mapped_center_score
         # separated_fragment_metrics['mapped']['center']['number'] = mapped_central_residues_with_fragment_overlap
         # separated_fragment_metrics['mapped']['total']['score'] = mapped_total_score
         # separated_fragment_metrics['mapped']['total']['number'] = mapped_total_indices_with_fragment_overlap
-        # separated_fragment_metrics['mapped']['multiple_ratio'] = mapped_multiple_frag_ratio
+        # separated_fragment_metrics['mapped']['multiple_ratio'] = mapped_multiple_fragment_ratio
         # separated_fragment_metrics['paired']['center']['score'] = paired_center_score
         # separated_fragment_metrics['paired']['center']['number'] = paired_central_residues_with_fragment_overlap
         # separated_fragment_metrics['paired']['total']['score'] = paired_total_score
         # separated_fragment_metrics['paired']['total']['number'] = paired_total_indices_with_fragment_overlap
-        # separated_fragment_metrics['paired']['multiple_ratio'] = paired_multiple_frag_ratio
+        # separated_fragment_metrics['paired']['multiple_ratio'] = paired_multiple_fragment_ratio
 
         separated_fragment_metrics['total'] = dict(
             observations=total_observations,
-            multiple_ratio=multiple_frag_ratio,
+            multiple_ratio=multiple_fragment_ratio,
             index_count=total_fragment_content,
             center=dict(score=center_residue_score, number=central_residues_with_fragment_overlap),
             total=dict(score=all_residue_score, number=total_indices_with_fragment_overlap)
