@@ -374,7 +374,7 @@ def load_sql_pose_metadata_dataframe(session: Session, pose_ids: Iterable[int] =
             have an entry for each DesignData
     """
     selected_columns = PoseJob.__table__.columns  # (PoseJob.id, *pj_c,)
-    selected_column_names = [c.name for c in selected_columns]  # ('pose_id', *pj_names,)
+    selected_column_names = ['pose_id' if c.name == 'id' else c.name for c in selected_columns]  # ('pose_id', *pj_names,)
 
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
