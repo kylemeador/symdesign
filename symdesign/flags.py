@@ -97,6 +97,7 @@ predict_pose = 'predict_pose'
 num_predictions_per_model = 'num_predictions_per_model'
 predict_entities = 'predict_entities'
 models_to_relax = 'models_to_relax'
+debug_db = 'debug_db'
 reset_db = 'reset_db'
 load_to_db = 'load_to_db'
 all_flags = 'all_flags'
@@ -275,6 +276,7 @@ profile_memory = format_for_cmdline(profile_memory)
 process_rosetta_metrics = format_for_cmdline(process_rosetta_metrics)
 pose_format = format_for_cmdline(pose_format)
 use_gpu_relax = format_for_cmdline(use_gpu_relax)
+debug_db = format_for_cmdline(debug_db)
 reset_db = format_for_cmdline(reset_db)
 load_to_db = format_for_cmdline(load_to_db)
 all_flags = format_for_cmdline(all_flags)
@@ -781,6 +783,7 @@ options_arguments = {
                                  help='Skip logging to files and direct all logging to stream'),
     sym_entry_args: sym_entry_kwargs,
     symmetry_args: symmetry_kwargs,
+    (f'--{debug_db}',): dict(action='store_true', help='Whether to log SQLAlchemy output for db development'),
     (f'--{reset_db}',): dict(action='store_true', help='Whether to reset the database for development')
 }
 # ---------------------------------------------------

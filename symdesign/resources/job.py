@@ -334,11 +334,6 @@ class JobResources:
         self.structure_db.job = self
         self.fragment_db: structure.fragment.db.FragmentDatabase | None = None
         if kwargs.get('database'):
-            if self.development or self.debug:
-                echo_db = True
-            else:
-                echo_db = False
-
             default_db = f'sqlite:///{os.path.join(self.data, f"{putils.program_name}.db")}'
             self.db_config = os.path.join(self.data, 'db.cfg')
             database_url = kwargs.get('database_url')
@@ -361,7 +356,8 @@ class JobResources:
                 else:  # This should always exist
                     database_url = default_db
 
-            self.db: DBInfo = DBInfo(database_url, echo=echo_db)
+            self.debug_db = kwargs.get('debug_db')
+            self.db: DBInfo = DBInfo(database_url, echo=self.debug_db)
             if initial:  # if not os.path.exists(self.internal_db):
                 # Emit CREATE TABLE DDL
                 sql.Base.metadata.create_all(self.db.engine)
