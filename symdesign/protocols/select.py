@@ -125,12 +125,18 @@ def load_sql_all_metrics_dataframe(session: Session, pose_ids: Iterable[int] = N
     em_names = [f'entity_{c.name}' if c.name != 'entity_id' else c.name for c in em_c]
     selected_columns = (*pm_c, *dm_c, *em_c)
     selected_column_names = (*pm_names, *dm_names, *em_names)
-    # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
-    join_stmt = select(selected_columns).select_from(PoseJob).join(sql.PoseMetrics)\
-        .join(sql.EntityData, sql.EntityData.pose_id == PoseJob.id)\
-        .join(sql.EntityMetrics, sql.EntityMetrics.entity_id == sql.EntityData.id)\
-        .join(sql.DesignData).join(sql.DesignMetrics)\
-        .join(sql.DesignEntityMetrics, sql.DesignEntityMetrics.design_id == sql.DesignData.id)
+    # # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
+    # join_stmt = select(selected_columns).select_from(sql.PoseMetrics)\
+    #     .join(sql.EntityData, sql.EntityData.pose_id == sql.PoseMetrics.pose_id)\
+    #     .join(sql.EntityMetrics, sql.EntityMetrics.entity_id == sql.EntityData.id)\
+    #     .join(sql.DesignData, sql.DesignData.pose_id == sql.PoseMetrics.pose_id, ).join(sql.DesignMetrics)\
+    #     .join(sql.DesignEntityMetrics, sql.DesignEntityMetrics.design_id == sql.DesignData.id)
+
+    join_stmt = select(selected_columns).select_from(sql.EntityData) \
+        .join(sql.PoseMetrics, sql.PoseMetrics.pose_id == sql.EntityData.pose_id) \
+        .join(sql.EntityMetrics, sql.EntityMetrics.entity_id == sql.EntityData.id) \
+        .join(sql.DesignEntityMetrics, sql.DesignEntityMetrics.entity_id == sql.EntityData.id) \
+        .join(sql.DesignMetrics, sql.DesignMetrics.design_id == sql.DesignEntityMetrics.design_id)
 
     if pose_ids:
         stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
@@ -175,8 +181,10 @@ def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None) -
 
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
-    join_stmt = select(selected_columns).select_from(PoseJob)\
-        .join(sql.PoseMetrics).join(sql.EntityData).join(sql.EntityMetrics)
+    join_stmt = select(selected_columns).select_from(sql.EntityData) \
+        .join(sql.PoseMetrics, sql.PoseMetrics.pose_id == sql.EntityData.pose_id) \
+        .join(sql.EntityMetrics, sql.EntityMetrics.entity_id == sql.EntityData.id)
+
     if pose_ids:
         stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
     else:
@@ -249,8 +257,10 @@ def load_sql_entity_metrics_dataframe(session: Session, pose_ids: Iterable[int] 
 
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
-    join_stmt = select(selected_columns).select_from(PoseJob)\
-        .join(sql.EntityData).join(sql.EntityMetrics).join(sql.DesignData).join(sql.DesignEntityMetrics)
+    join_stmt = select(selected_columns).select_from(sql.EntityData)\
+        .join(sql.EntityMetrics, sql.EntityMetrics.entity_id == sql.EntityData.id) \
+        .join(sql.DesignEntityMetrics, sql.DesignEntityMetrics.entity_id == sql.EntityData.id)
+
     if pose_ids:
         stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
     else:
@@ -474,8 +484,9 @@ def load_sql_entity_metadata_dataframe(session: Session, pose_ids: Iterable[int]
     selected_column_names = (*pose_id_name, *em_names, *uni_names)
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
-    join_stmt = select(selected_columns).select_from(PoseJob) \
-        .join(sql.EntityData).join(sql.ProteinMetadata).join(sql.UniProtProteinAssociation)
+    join_stmt = select(selected_columns).select_from(sql.EntityData) \
+        .join(sql.ProteinMetadata) \
+        .join(sql.UniProtProteinAssociation)
 
     if pose_ids:
         stmt = join_stmt.where(PoseJob.id.in_(pose_ids))
