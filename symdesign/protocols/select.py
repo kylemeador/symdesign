@@ -1440,6 +1440,11 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     entity_id = 'entity_id'
     design_id = 'design_id'
     with job.db.session(expire_on_commit=False) as session:
+
+        def load_pose_identifier_from_id(pose_ids):
+            pose_id_stmt = select((PoseJob.id, PoseJob.project, PoseJob.name)).where(PoseJob.id.in_(pose_ids))
+            return {id_: PoseJob.convert_pose_identifier(project, name) for id_, project, name in session.execute(pose_id_stmt)}
+
         # Figure out designs from dataframe, filters, and weights
         total_df = load_sql_poses_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
         pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
@@ -1495,6 +1500,22 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                            ' present')
         # Ensure the pose_id is the index to prioritize
         total_df.set_index(pose_id, inplace=True)
+
+        if job.save_total:
+            putils.make_path(job.output_directory)
+            logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
+            # Todo reintroduce if pose_identifiers is preferred
+            # total_df.reset_index(inplace=True)
+            # total_df.index = total_df.index.map(final_pose_id_to_identifier) \
+            #     .rename('pose_identifier')
+            # # total_df['pose_identifier'] = total_df[pose_id].map(final_pose_id_to_identifier)
+            # # total_df.set_index('pose_identifier', inplace=True)
+
+            total_df = total_df[~total_df.index.duplicated()]
+            total_df_filename = os.path.join(job.output_directory, 'TotalPoseMetrics.csv')
+            total_df.to_csv(total_df_filename)
+            logger.info(f'Total Pose DataFrame written to: {total_df_filename}')
+
         if not job.filter and not job.weight and not job.protocol and default_weight_metric not in total_df.columns:
             # Nothing to filter/weight
             selected_poses_df = total_df
@@ -1505,45 +1526,51 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                                                   function=job.weight_function)
         # Remove excess pose instances
         selected_pose_ids = utils.remove_duplicates(selected_poses_df.index.tolist())[:job.select_number]
-        selected_poses = [session.get(PoseJob, id_) for id_ in selected_pose_ids]
+        #
+        # selected_poses = [session.get(PoseJob, id_) for id_ in selected_pose_ids]
+        # Todo, instead of ^ when needed for protocol ?
+        #  pose_jobs = load_pose_identifier_from_id(pose_ids)
+        # # # Select by clustering analysis
+        # # if job.cluster:
+        # # Sort results according to clustered poses if clustering exists
+        # if job.cluster.map:
+        #     # cluster_map: dict[str | PoseJob, list[str | PoseJob]] = {}
+        #     if os.path.exists(job.cluster.map):
+        #         cluster_map = utils.unpickle(job.cluster.map)
+        #     else:
+        #         raise FileNotFoundError(f'No --{flags.cluster_map} "{job.cluster.map}" file was found')
+        #
+        #     # Make the selected_poses into strings
+        #     selected_pose_strs = list(map(str, selected_poses))
+        #     # Check if the cluster map is stored as PoseDirectories or strings and convert
+        #     representative_representative = next(iter(cluster_map))
+        #     if not isinstance(representative_representative, PoseJob):
+        #         # Make the cluster map based on strings
+        #         for representative in list(cluster_map.keys()):
+        #             # Remove old entry and convert all arguments to pose_id strings, saving as pose_id strings
+        #             cluster_map[str(representative)] = [str(member) for member in cluster_map.pop(representative)]
+        #
+        #     final_pose_indices = select_from_cluster_map(selected_pose_strs, cluster_map, number=job.cluster.number)
+        #     final_poses = [selected_poses[idx] for idx in final_pose_indices]
+        #     logger.info(f'Selected {len(final_poses)} poses after clustering')
+        # else:  # Try to generate the cluster_map?
+        #     # raise utils.InputError(f'No --{flags.cluster_map} was provided. To cluster poses, specify:'
+        #     logger.info(f'No --{flags.cluster_map} was provided. To {flags.cluster_poses}, specify:'
+        #                 f'"{putils.program_command} {flags.cluster_poses}" or '
+        #                 f'"{putils.program_command} {flags.protocol} '
+        #                 f'--{flags.modules} {flags.cluster_poses} {flags.select_poses}"')
+        #     logger.info('Grabbing all selected poses')
+        #     final_poses = selected_poses
+        #
+        # if len(final_poses) > job.select_number:
+        #     final_poses = final_poses[:job.select_number]
+        #     logger.info(f'Found {len(final_poses)} Poses after applying your --select-number criteria')
+        #
+        # final_pose_id_to_identifier = {pose_job.id: pose_job.pose_identifier for pose_job in final_poses}
 
-        # # Select by clustering analysis
-        # if job.cluster:
-        # Sort results according to clustered poses if clustering exists
-        if job.cluster.map:
-            # cluster_map: dict[str | PoseJob, list[str | PoseJob]] = {}
-            if os.path.exists(job.cluster.map):
-                cluster_map = utils.unpickle(job.cluster.map)
-            else:
-                raise FileNotFoundError(f'No --{flags.cluster_map} "{job.cluster.map}" file was found')
-
-            # Make the selected_poses into strings
-            selected_pose_strs = list(map(str, selected_poses))
-            # Check if the cluster map is stored as PoseDirectories or strings and convert
-            representative_representative = next(iter(cluster_map))
-            if not isinstance(representative_representative, PoseJob):
-                # Make the cluster map based on strings
-                for representative in list(cluster_map.keys()):
-                    # Remove old entry and convert all arguments to pose_id strings, saving as pose_id strings
-                    cluster_map[str(representative)] = [str(member) for member in cluster_map.pop(representative)]
-
-            final_pose_indices = select_from_cluster_map(selected_pose_strs, cluster_map, number=job.cluster.number)
-            final_poses = [selected_poses[idx] for idx in final_pose_indices]
-            logger.info(f'Selected {len(final_poses)} poses after clustering')
-        else:  # Try to generate the cluster_map?
-            # raise utils.InputError(f'No --{flags.cluster_map} was provided. To cluster poses, specify:'
-            logger.info(f'No --{flags.cluster_map} was provided. To {flags.cluster_poses}, specify:'
-                        f'"{putils.program_command} {flags.cluster_poses}" or '
-                        f'"{putils.program_command} {flags.protocol} '
-                        f'--{flags.modules} {flags.cluster_poses} {flags.select_poses}"')
-            logger.info('Grabbing all selected poses')
-            final_poses = selected_poses
-
-        if len(final_poses) > job.select_number:
-            final_poses = final_poses[:job.select_number]
-            logger.info(f'Found {len(final_poses)} Poses after applying your select-number criteria')
-
-        final_pose_id_to_identifier = {pose_job.id: pose_job.pose_identifier for pose_job in final_poses}
+        if len(selected_pose_ids) > job.select_number:
+            selected_pose_ids = selected_pose_ids[:job.select_number]
+            logger.info(f'Found {len(selected_pose_ids)} Poses after applying your --select-number criteria')
 
         # Format selected PoseJob ids for output, including all additional metrics/metadata
         if not pose_designs_mean_df.empty:
@@ -1554,6 +1581,8 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             # save_poses_df.index = pd.Index(selected_pose_ids, name=pose_id)
             # save_poses_df = pd.Series(selected_pose_ids, name=pose_id).to_frame()
         save_poses_df = format_save_df(session, save_poses_df, selected_pose_ids)
+
+        final_pose_id_to_identifier = load_pose_identifier_from_id(selected_pose_ids)
     # End session
 
     # No need to rename as the index aren't design_id
@@ -1565,18 +1594,6 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # Format selected poses for output
     putils.make_path(job.output_directory)
     logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
-
-    if job.save_total:
-        total_df.reset_index(inplace=True)
-        total_df.index = total_df.index.map(final_pose_id_to_identifier) \
-            .rename('pose_identifier')
-        # total_df['pose_identifier'] = total_df[pose_id].map(final_pose_id_to_identifier)
-        # total_df.set_index('pose_identifier', inplace=True)
-
-        total_df = total_df[~total_df.index.duplicated()]
-        total_df_filename = os.path.join(job.output_directory, 'TotalPoseMetrics.csv')
-        total_df.to_csv(total_df_filename)
-        logger.info(f'Total Pose DataFrame written to: {total_df_filename}')
 
     logger.info(f'{len(save_poses_df)} Poses were selected')
     if job.filter or job.weight:

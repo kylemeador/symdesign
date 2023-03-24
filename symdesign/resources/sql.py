@@ -81,6 +81,10 @@ class PoseMetadata(Base):
     def pose_identifier(self) -> str:
         return self.project + os.sep + self.name
 
+    @staticmethod
+    def convert_pose_identifier(project, name) -> str:
+        return f'{project}{os.sep}{name}'
+
     # # Relationships concerning construction
     # # Set up many-to-one relationship with trajectory_metadata table
     # trajectory_id = Column(ForeignKey('trajectory_metadata.id'))
