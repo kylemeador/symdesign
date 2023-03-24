@@ -99,7 +99,7 @@ def load_sql_all_metrics_dataframe(session: Session, pose_ids: Iterable[int] = N
     Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
 
     Args:
-        session: A session object to complete the transaction
+        session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
         design_ids: DesignData instance identifiers for which metrics are desired
     Returns:
@@ -152,7 +152,7 @@ def load_sql_poses_dataframe(session: Session, pose_ids: Iterable[int] = None) -
     Optionally limit those loaded to certain PoseJob.id's
 
     Args:
-        session: A session object to complete the transaction
+        session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
     Returns:
         A DataFrame formatted with every metric in PoseMetrics and EntityMetrics. The final DataFrame will have an entry
@@ -191,7 +191,7 @@ def load_sql_pose_metrics_dataframe(session: Session, pose_ids: Iterable[int] = 
     Optionally limit those loaded to certain PoseJob.id's
 
     Args:
-        session: A session object to complete the transaction
+        session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
     Returns:
         A DataFrame formatted with every metric in PoseMetrics. The final DataFrame will have an entry corresponding to
@@ -222,7 +222,7 @@ def load_sql_entity_metrics_dataframe(session: Session, pose_ids: Iterable[int] 
     Optionally limit those loaded to certain PoseJob.id's
 
     Args:
-        session: A session object to complete the transaction
+        session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
         design_ids: DesignData instance identifiers for which metrics are desired
     Returns:
@@ -271,7 +271,7 @@ def load_sql_design_metrics_dataframe(session: Session, pose_ids: Iterable[int] 
     Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
 
     Args:
-        session: A session object to complete the transaction
+        session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
         design_ids: DesignData instance identifiers for which metrics are desired
     Returns:
@@ -314,7 +314,7 @@ def load_sql_design_entities_dataframe(session: Session, pose_ids: Iterable[int]
     Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
 
     Args:
-        session: A session object to complete the transaction
+        session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
         design_ids: DesignData instance identifiers for which metrics are desired
     Returns:
@@ -357,7 +357,7 @@ def load_sql_pose_metadata_dataframe(session: Session, pose_ids: Iterable[int] =
     Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
 
     Args:
-        session: A session object to complete the transaction
+        session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
         design_ids: Not used, but here for API. DesignData instance identifiers for which metrics are desired
     Returns:
@@ -392,7 +392,7 @@ def load_sql_design_metadata_dataframe(session: Session, pose_ids: Iterable[int]
     Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
 
     Args:
-        session: A session object to complete the transaction
+        session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
         design_ids: DesignData instance identifiers for which metrics are desired
     Returns:
@@ -446,7 +446,7 @@ def load_sql_entity_metadata_dataframe(session: Session, pose_ids: Iterable[int]
     Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
 
     Args:
-        session: A session object to complete the transaction
+        session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
         design_ids: DesignData instance identifiers for which metrics are desired
     Returns:
@@ -1307,7 +1307,7 @@ def format_save_df(session: Session, designs_df: pd.DataFrame, pose_ids: Iterabl
     """Given a DataFrame with Pose/Design information, clean Pose and Entity information for readable output
 
     Args:
-        session: A session object to complete the transaction
+        session: A currently open transaction within sqlalchemy
         designs_df: A DataFrame with design metrics. Must contain a column corresponding to PoseJob.id named "pose_id"
         pose_ids: PoseJob instance identifiers for which metrics are desired
         design_ids: DesignData instance identifiers for which metrics are desired
@@ -1337,6 +1337,7 @@ def format_save_df(session: Session, designs_df: pd.DataFrame, pose_ids: Iterabl
     logger.debug(f'save_df:\n{save_df}')
     # Get EntityMetrics
     entity_metrics_df = load_sql_entity_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
+    logger.debug(f'entity_metrics_df:\n{entity_metrics_df}')
     # entity_metrics_df.set_index(pose_id, inplace=True)
     logger.debug(f'entity_metrics_df: {entity_metrics_df}')
     # Manipulate to combine with Pose data for the final format:
@@ -1552,6 +1553,12 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
 
     if job.save_total:
+        total_df.reset_index(inplace=True)
+        total_df.index = total_df.index.map(final_pose_id_to_identifier) \
+            .rename('pose_identifier')
+        # total_df['pose_identifier'] = total_df[pose_id].map(final_pose_id_to_identifier)
+        # total_df.set_index('pose_identifier', inplace=True)
+
         total_df = total_df[~total_df.index.duplicated()]
         total_df_filename = os.path.join(job.output_directory, 'TotalPoseMetrics.csv')
         total_df.to_csv(total_df_filename)
@@ -1766,10 +1773,19 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # print('AFTER set_index', save_designs_df)
 
     if job.save_total:
-        total_df = total_df[~total_df.index.duplicated()]
-        total_df_filename = os.path.join(job.output_directory, 'TotalDesignMetrics.csv')
-        total_df.to_csv(total_df_filename)
-        logger.info(f'Total Pose/Designs DataFrame written to: {total_df_filename}')
+        total_df.reset_index(inplace=True)
+        if True:
+            raise NotImplementedError(f"ERROR: Need to final a way to output total_df for sql.design()")
+        else:
+            total_df.index = total_df.index.map(final_pose_id_to_identifier) \
+                .rename('pose_identifier')
+            # total_df['pose_identifier'] = total_df[pose_id].map(final_pose_id_to_identifier)
+            # total_df.set_index('pose_identifier', inplace=True)
+
+            total_df = total_df[~total_df.index.duplicated()]
+            total_df_filename = os.path.join(job.output_directory, 'TotalDesignMetrics.csv')
+            total_df.to_csv(total_df_filename)
+            logger.info(f'Total Pose/Designs DataFrame written to: {total_df_filename}')
 
     if job.filter or job.weight:
         new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
