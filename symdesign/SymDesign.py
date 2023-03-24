@@ -237,7 +237,7 @@ def initialize_metadata(session: Session,
     # Remove the certainly existing from possibly new and query the new
     existing_protein_metadata_stmt = \
         select(sql.ProteinMetadata) \
-            .where(sql.ProteinMetadata.entity_id.in_(possibly_new_entity_ids.difference(existing_entity_ids)))
+        .where(sql.ProteinMetadata.entity_id.in_(possibly_new_entity_ids.difference(existing_entity_ids)))
     # Add all requested to those known about
     existing_protein_metadata += session.scalars(existing_protein_metadata_stmt).all()
 
@@ -1136,9 +1136,22 @@ def main():
                 #         name, project, *_ = reversed(single.split(os.sep))
                 #         pose_identifiers.append(f'{project}{os.sep}{name}')
 
+            if not pose_identifiers:
+                raise utils.InputError(
+                    f"No pose identifiers's found from input location '{job.location}'")
             # Fetch identified. No writes
             with job.db.session(expire_on_commit=False) as session:
-                fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
+                identifiers_are_database_id = True
+                id_ = pose_identifiers[0]
+                try:
+                    int(id_)
+                except TypeError:  # Can't convert to integer
+                    identifiers_are_database_id = False
+
+                if identifiers_are_database_id:
+                    fetch_jobs_stmt = select(PoseJob).where(PoseJob.id.in_(pose_identifiers))
+                else:
+                    fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
                 pose_jobs = session.scalars(fetch_jobs_stmt).all()
 
             # Check all jobs that were checked out against those that were requested
