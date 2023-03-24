@@ -1601,7 +1601,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     save_poses_df.to_csv(new_dataframe)
     logger.info(f'New DataFrame with selected poses written to: {new_dataframe}')
 
-    return selected_pose_ids
+    return final_pose_id_to_identifier.values()
     # return final_poses
 
 
