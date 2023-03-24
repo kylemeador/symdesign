@@ -1475,10 +1475,13 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             logger.debug(f'total_df:\n{total_df}')
 
         if job.filter or job.protocol:
-            df_multiplicity = len(pose_jobs[0].entity_data)
+            if pose_ids:
+                df_multiplicity = len(pose_jobs[0].entity_data)
+            else:
+                df_multiplicity = 2  # Todo default...
             logger.warning('Filtering statistics have an increased representation due to included Entity metrics. '
-                           f'Typically, values reported for each filter will be ~{df_multiplicity}x over those actually '
-                           'present')
+                           f'Typically, values reported for each filter will be ~{df_multiplicity}x over those actually'
+                           ' present')
         # Ensure the pose_id is the index to prioritize
         total_df.set_index(pose_id, inplace=True)
         if not job.filter and not job.weight and not job.protocol and default_weight_metric not in total_df.columns:
