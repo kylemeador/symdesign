@@ -16,6 +16,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=f'{os.path.basename(__file__)}\nGather commands set up by '
                                                  f'{putils.program_name} and distribute to computational nodes for '
                                                  f'processing')
+    parser.add_argument(f'--number-of-processes', help='The number of processes to spawn'),
     parser.add_argument('--stage', choices=tuple(process_scale.keys()),
                         help='The stage of design to be distributed. Each stage has optimal computing requirements to '
                              f'maximally utilize computers. One of {", ".join(list(process_scale.keys()))}')
@@ -56,8 +57,11 @@ if __name__ == '__main__':
         all_commands = cmd_f.readlines()
 
     # Select exact poses to be handled according to array_ID and design stage
-    # Todo change to args.number_of_processes instead of args.stage
-    number_of_processes = process_scale.get(args.stage, 1)
+    if args.stage:
+        number_of_processes = process_scale[args.stage]
+    else:
+        number_of_processes = args.number_of_processes
+
     array_number = os.environ.get('SLURM_ARRAY_TASK_ID')
     if array_number:
         array_task_number = int(array_number)
@@ -139,8 +143,11 @@ if __name__ == '__main__':
     number_of_commands = len(specific_commands)
     if number_of_commands > 1:
         # The args.jobs was set by the process_scale dictionary
-        results = mp_starmap(run, zipped_commands,
-                             processes=calculate_mp_cores(cores=number_of_commands, jobs=args.jobs))
+        number_of_mp_processes = calculate_mp_cores(cores=number_of_commands, jobs=args.jobs)
+        if number_of_mp_processes > 1:
+            results = mp_starmap(run, zipped_commands, processes=number_of_mp_processes)
+        else:
+            results = [run(*command) for command in zipped_commands]
     else:
         results = [run(*command) for command in zipped_commands]
     #    iteration += 1
