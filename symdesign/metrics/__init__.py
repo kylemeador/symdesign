@@ -1474,9 +1474,12 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filters: dict | bool = 
     elif default_weight in simple_df.columns:
         weights = None
     else:
-        raise KeyError(
-            f"No 'weight' provided and couldn't find the metric key {default_weight} in the DataFrame\n"
-            f"Available metric keys: {simple_df.columns.tolist()}")
+        # raise KeyError(
+        logger.warning(
+            f"No 'weight' provided and couldn't find the metric key {default_weight} in the DataFrame\n")
+        # f"Available metric keys: {simple_df.columns.tolist()}")
+        return simple_df
+
     ranking_s = pareto_optimize_trajectories(simple_df, weights=weights, default_weight=default_weight, **kwargs)
     # Using the sorted indices of the ranking_s, rename, then join the existing df indices to it
     # This maintains ranking order
