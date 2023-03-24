@@ -1145,7 +1145,7 @@ def main():
                 id_ = pose_identifiers[0]
                 try:
                     int(id_)
-                except TypeError:  # Can't convert to integer
+                except ValueError:  # Can't convert to integer
                     identifiers_are_database_id = False
 
                 if identifiers_are_database_id:
