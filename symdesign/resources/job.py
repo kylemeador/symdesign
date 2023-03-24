@@ -758,7 +758,9 @@ class JobResources:
         job_protocol_stmt = select(sql.JobProtocol)\
             .where(*[getattr(sql.JobProtocol, table_column) == job_resources_attr
                      for table_column, job_resources_attr in protocol_kwargs.items()])
-
+        input(job_protocol_stmt)
+        # Todo
+        #  This == operation is probably not working... need to test
         # job_protocol_stmt = select(sql.JobProtocol)\
         #     .where(sql.JobProtocol.module == self.module)\
         #     .where(sql.JobProtocol.ca_only == self.design.ca_only)\
