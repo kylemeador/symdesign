@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=f'{os.path.basename(__file__)}\nGather commands set up by '
                                                  f'{putils.program_name} and distribute to computational nodes for '
                                                  f'processing')
-    parser.add_argument(f'--number-of-processes', help='The number of processes to spawn'),
+    parser.add_argument(f'--number-of-processes', type=int, help='The number of processes to spawn'),
     parser.add_argument('--stage', choices=tuple(process_scale.keys()),
                         help='The stage of design to be distributed. Each stage has optimal computing requirements to '
                              f'maximally utilize computers. One of {", ".join(list(process_scale.keys()))}')
@@ -68,7 +68,7 @@ if __name__ == '__main__':
         # Adjust from SLURM one index and figure out how many commands to grab from command pool
         cmd_start_slice = (array_task_number - index_offset) * number_of_processes
         if cmd_start_slice > len(all_commands):
-            exit()
+            sys.exit(1)
         cmd_end_slice = cmd_start_slice + number_of_processes
     else:  # Not in SLURM, use multiprocessing
         cmd_start_slice = cmd_end_slice = None
