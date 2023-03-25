@@ -758,27 +758,9 @@ class JobResources:
         job_protocol_stmt = select(sql.JobProtocol)\
             .where(*[getattr(sql.JobProtocol, table_column) == job_resources_attr
                      for table_column, job_resources_attr in protocol_kwargs.items()])
-        print(job_protocol_stmt)
-        print(job_protocol_stmt.compile(compile_kwargs={"literal_binds": True}))
-        # Todo
-        #  This == operation is probably not working... need to test
-        # job_protocol_stmt = select(sql.JobProtocol)\
-        #     .where(sql.JobProtocol.module == self.module)\
-        #     .where(sql.JobProtocol.ca_only == self.design.ca_only)\
-        #     .where(sql.JobProtocol.contiguous_ghosts == self.dock.contiguous_ghosts)\
-        #     .where(sql.JobProtocol.evolution_constraint == self.design.evolution_constraint)\
-        #     .where(sql.JobProtocol.initial_z_value == self.dock.initial_z_value)\
-        #     .where(sql.JobProtocol.interface == self.design.interface)\
-        #     .where(sql.JobProtocol.match_value == self.dock.match_value)\
-        #     .where(sql.JobProtocol.minimum_matched == self.dock.minimum_matched)\
-        #     .where(sql.JobProtocol.neighbors == self.design.neighbors)\
-        #     .where(sql.JobProtocol.number_predictions == self.predict.number_predictions)\
-        #     .where(sql.JobProtocol.prediction_model == self.predict.prediction_model)\
-        #     .where(sql.JobProtocol.term_constraint == self.design.term_constraint)\
-        #     .where(sql.JobProtocol.use_gpu_relax == self.predict.use_gpu_relax)
+        # logger.debug(job_protocol_stmt.compile(compile_kwargs={"literal_binds": True}))
         with self.db.session(expire_on_commit=False) as session:
             job_protocol_result = session.scalars(job_protocol_stmt).all()
-            input(job_protocol_result)
             if not job_protocol_result:  # Create a new one
                 job_protocol = sql.JobProtocol(**protocol_kwargs)
                 session.add(job_protocol)
