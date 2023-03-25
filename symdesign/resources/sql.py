@@ -577,9 +577,9 @@ class JobProtocol(Base):
     proteinmpnn_model_name = Column(String(10))  # design/score
     contiguous_ghosts = Column(Boolean)  # dock
     evolution_constraint = Column(Boolean)  # design
-    initial_z_value = Column(Integer)  # dock
+    initial_z_value = Column(Float)  # dock
     interface = Column(Boolean)  # design
-    match_value = Column(Integer)  # dock
+    match_value = Column(Float)  # dock
     minimum_matched = Column(Integer)  # dock
     neighbors = Column(Boolean)  # design
     number_predictions = Column(Integer)  # structure-predict
