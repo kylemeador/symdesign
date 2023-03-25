@@ -635,7 +635,7 @@ def remove_duplicates(iter_: Iterable[Any]) -> list[Any]:
 
 
 def calculate_mp_cores(cores: int = None, mpi: bool = False, jobs: int = None) -> int:
-    """Calculate the number of multiprocessing cores to use for a specific application
+    """Calculate the number of multiprocessing cores to use for a specific application, taking the minimum
 
     Default options specify to leave at least one CPU available for the machine. If a SLURM environment is used,
     the number of cores will reflect the environmental variable SLURM_CPUS_PER_TASK
@@ -652,9 +652,10 @@ def calculate_mp_cores(cores: int = None, mpi: bool = False, jobs: int = None) -
     else:  # logical=False only uses physical cpus, not logical threads
         max_cpus_to_use = psutil.cpu_count(logical=False) - 1  # leave CPU available for computer
 
-    if cores or jobs:  # test if cores or jobs is None, then take the minimum
+    if cores or jobs:
+        # Take the minimum
         infinity = float('inf')
-        return min((cores or infinity), (jobs or infinity))
+        return min((cores or infinity), (jobs or infinity), allocated_cpus)
 
     if mpi:  # Todo grab an environmental variable for mpi cores?
         return int(max_cpus_to_use / 6)  # distribute.mpi)
