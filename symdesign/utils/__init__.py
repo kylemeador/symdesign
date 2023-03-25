@@ -655,7 +655,7 @@ def calculate_mp_cores(cores: int = None, mpi: bool = False, jobs: int = None) -
     if cores or jobs:
         # Take the minimum
         infinity = float('inf')
-        return min((cores or infinity), (jobs or infinity), allocated_cpus)
+        return min((cores or infinity), (jobs or infinity), max_cpus_to_use)
 
     if mpi:  # Todo grab an environmental variable for mpi cores?
         return int(max_cpus_to_use / 6)  # distribute.mpi)
