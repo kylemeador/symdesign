@@ -873,7 +873,11 @@ def get_available_memory(human_readable: bool = False, gpu: bool = False) -> int
         process = psutil.Process()
         memory_used = process.memory_info().rss
         logger.debug(f'Found memory used: {bytes2human(memory_used)}')
-        memory_constraint = human2bytes(memory_allocated) - memory_used
+        try:
+            memory_constraint = human2bytes(memory_allocated) - memory_used
+        except ValueError:
+            logger.critical(f"Found the scontrol out: {out}")
+            raise
     else:
         memory_constraint = psutil.virtual_memory().available
 
