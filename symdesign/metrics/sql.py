@@ -264,10 +264,11 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None,
     #         logger.warning(
     #             "Performing multiple metrics SQL transactions will only return results for the last transaction")
     #         warned = True
+    replace_values = {np.nan: None, float('inf'): 1e6, float('-inf'): -1e6}
 
     if poses is not None:
         # warn = True
-        df = poses.replace({np.nan: None}).reset_index()
+        df = poses.replace(replace_values).reset_index()
         table = sql.PoseMetrics
         dataframe_function(session, table=table, df=df, **transaction_kwargs)
         logger.info(f'Wrote {table.__tablename__} to Database')
@@ -275,7 +276,7 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None,
     if designs is not None:
         # warn_multiple_update_results()
         # warn = True
-        df = designs.replace({np.nan: None}).reset_index()
+        df = designs.replace(replace_values).reset_index()
         table = sql.DesignMetrics
         dataframe_function(session, table=table, df=df, **transaction_kwargs)
         logger.info(f'Wrote {table.__tablename__} to Database')
@@ -283,7 +284,7 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None,
     if entity_designs is not None:
         # warn_multiple_update_results()
         # warn = True
-        df = entity_designs.replace({np.nan: None}).reset_index()
+        df = entity_designs.replace(replace_values).reset_index()
         table = sql.DesignEntityMetrics
         dataframe_function(session, table=table, df=df, **transaction_kwargs)
         logger.info(f'Wrote {table.__tablename__} to Database')
@@ -291,7 +292,7 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None,
     if design_residues is not None:
         # warn_multiple_update_results()
         # warn = True
-        df = format_residues_df_for_write(design_residues).replace({np.nan: None}).reset_index()
+        df = format_residues_df_for_write(design_residues).replace(replace_values).reset_index()
         table = sql.DesignResidues
         dataframe_function(session, table=table, df=df, **transaction_kwargs)
         logger.info(f'Wrote {table.__tablename__} to Database')
@@ -299,7 +300,7 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None,
     if residues is not None:
         # warn_multiple_update_results()
         # warn = True
-        df = format_residues_df_for_write(residues).replace({np.nan: None}).reset_index()
+        df = format_residues_df_for_write(residues).replace(replace_values).reset_index()
         table = sql.ResidueMetrics
         dataframe_function(session, table=table, df=df, **transaction_kwargs)
         logger.info(f'Wrote {table.__tablename__} to Database')
@@ -307,7 +308,7 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None,
     if pose_residues is not None:
         # warn_multiple_update_results()
         # warn = True
-        df = format_residues_df_for_write(pose_residues).replace({np.nan: None}).reset_index()
+        df = format_residues_df_for_write(pose_residues).replace(replace_values).reset_index()
         table = sql.PoseResidueMetrics
         dataframe_function(session, table=table, df=df, **transaction_kwargs)
         logger.info(f'Wrote {table.__tablename__} to Database')
