@@ -1416,7 +1416,7 @@ input_arguments = {
     (f'--{pre_refined}',):
         dict(action='store_true', help='Whether the input building blocks have been preprocessed by refinement into the'
                                        f' {current_energy_function}'),
-    range_args: dict(type=float, default=None, metavar='INT-INT',
+    range_args: dict(default=None, metavar='INT-INT',  # type=float,
                      help='The range of poses to process from a larger specification.\n'
                           'Specify a %% between 0 and 100, separating the range by "-"\n'
                           # Required ^ for formatting
