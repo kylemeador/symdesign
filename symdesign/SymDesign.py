@@ -1092,6 +1092,8 @@ def main():
         elif args.poses or args.specification_file or args.project or args.single:
             # Use sqlalchemy database selection to find the requested work
             pose_identifiers = []
+            designs = []
+            directives = []
             if args.poses or args.specification_file:
                 # Todo no --file and --specification-file at the same time
                 # These poses are already included in the "program state"
@@ -1108,8 +1110,6 @@ def main():
                         pose_identifiers.extend(utils.PoseSpecification(pose_file).pose_identifiers)
                 else:
                     job.location = args.specification_file
-                    designs = []
-                    directives = []
                     for specification_file in args.specification_file:
                         # Returns list of _designs and _directives in addition to pose_identifiers
                         _pose_identifiers, _designs, _directives = \
@@ -1139,6 +1139,9 @@ def main():
             if not pose_identifiers:
                 raise utils.InputError(
                     f"No pose identifiers's found from input location '{job.location}'")
+            else:
+                pose_identifiers = job.get_range_slice(pose_identifiers)
+
             # Fetch identified. No writes
             with job.db.session(expire_on_commit=False) as session:
                 identifiers_are_database_id = True
@@ -1162,6 +1165,12 @@ def main():
                     "Couldn't find the following identifiers:\n%s" % '\n'.join(missing_input_identifiers))
 
             if args.specification_file:
+                # Todo
+                #  Ensure that the job.get_range_slice() slice from above turns out the same way here
+                if designs:
+                    designs = job.get_range_slice(designs)
+                if directives:
+                    directives = job.get_range_slice(directives)
                 # Set up PoseJob with the specific designs and any directives
                 for pose_job, _designs, _directives in zip(pose_jobs, designs, directives):
                     pose_job.use_specific_designs(_designs, _directives)
