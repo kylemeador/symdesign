@@ -105,8 +105,8 @@ def calculate_proteinmpnn_batch_length(model: ProteinMPNN, number_of_residues: i
     number_of_batches = number_of_elements_available // model_elements
     batch_length = number_of_batches // proteinmpnn_batch_divisor
     if batch_length == 0:
-        not_enough_proteinmpnn_memory = f"Can't find a device for {model} with enough memory to complete a single batch" \
-                                        f" of work with {number_of_residues} residues in the model"
+        not_enough_proteinmpnn_memory = f"Can't find a device for {model} with enough memory to complete a single " \
+                                        f"batch of work with {number_of_residues} residues in the model"
         if model.device.type == 'cpu':
             raise RuntimeError(not_enough_proteinmpnn_memory)
 
@@ -123,15 +123,18 @@ def calculate_proteinmpnn_batch_length(model: ProteinMPNN, number_of_residues: i
         except UnboundLocalError:  # No device has memory greater than ProteinMPNN minimum required
             device = torch.device('cpu')
 
-        if device != old_device:
-            model.to(device)
-        # Solve using gpu is stuck. Try one more time ensuring cpu
-        elif device.type != 'cpu':
-            model.to(torch.device('cpu'))
-        else:
-            # This hasn't been changed or device is cpu
-            # If it was a cpu previously, this should be caught above
-            raise RuntimeError(not_enough_proteinmpnn_memory)
+        if device == old_device:
+            # Solve using gpu is stuck
+            if device.type == 'cpu':
+                # This hasn't been changed or device is cpu
+                raise RuntimeError(not_enough_proteinmpnn_memory)
+            else:
+                # Try one more time ensuring cpu. This will be caught above if still not enough memory
+                device = torch.device('cpu')
+
+        # Set the device parameters
+        model.to(device)
+        model.device = device
         # Recurse
         return calculate_proteinmpnn_batch_length(model, number_of_residues, element_memory)
 
