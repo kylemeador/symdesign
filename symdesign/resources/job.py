@@ -10,7 +10,7 @@ import sys
 from copy import deepcopy
 from itertools import repeat
 from subprocess import list2cmdline
-from typing import Annotated, AnyStr, Any, Iterable, Sized
+from typing import Annotated, AnyStr, Any, Iterable, Sequence
 
 import jax
 import psutil
@@ -855,8 +855,14 @@ class JobResources:
         else:
             raise ValueError(f"Couldn't handle the provided location type {type(location).__name__}")
 
-    def get_range_slice(self, paths: Sized) -> Iterable[any]:
-        """Slice the input work by a set increment. This is parsed from the flags.range_args"""
+    def get_range_slice(self, paths: Sequence) -> Sequence[Any]:
+        """Slice the input work by a set increment. This is parsed from the flags.range_args
+
+        Args:
+            paths: The work that should be sliced by the specified range
+        Returns:
+            The work, limited to the range provided by -r/--range input flag
+        """
         if self.range:
             path_number = len(paths)
             low_range = int((self.low / 100) * path_number)
