@@ -1108,6 +1108,7 @@ def main():
                     job.location = args.poses
                     for pose_file in args.poses:
                         pose_identifiers.extend(utils.PoseSpecification(pose_file).pose_identifiers)
+                    input(pose_identifiers)
                 else:
                     job.location = args.specification_file
                     for specification_file in args.specification_file:
@@ -1135,12 +1136,13 @@ def main():
                 #     for single in singles:
                 #         name, project, *_ = reversed(single.split(os.sep))
                 #         pose_identifiers.append(f'{project}{os.sep}{name}')
-
+            input(pose_identifiers)
             if not pose_identifiers:
                 raise utils.InputError(
-                    f"No pose identifiers's found from input location '{job.location}'")
+                    f"No pose identifiers found from input location '{job.location}'")
             else:
                 pose_identifiers = job.get_range_slice(pose_identifiers)
+            input(pose_identifiers)
 
             # Fetch identified. No writes
             with job.db.session(expire_on_commit=False) as session:
