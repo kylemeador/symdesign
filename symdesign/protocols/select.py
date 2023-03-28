@@ -1612,11 +1612,13 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     # return final_poses
 
 
-def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
+def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) -> list[PoseJob]:
     """Select PoseJob instances based on filters and weighting of all design summary metrics
 
     Args:
         pose_jobs: The PoseJob instances for which selection is desired
+        return_pose_jobs: Whether to force the creation of PoseJob instances and load selected designs into
+            PoseJob.current_designs
     Returns:
         The selected PoseJob instances with selected designs stored in the .current_designs attribute
     """
@@ -1798,8 +1800,19 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         else:
             pose_ids, design_ids, design_identifier = zip(*load_design_identifier_from_id(session, selected_design_ids))
             design_id_to_identifier = dict(zip(design_ids, design_identifier))
-            pose_id_to_identifier = load_pose_identifier_from_id(session, set(pose_ids))
-            results = pose_id_to_identifier.values()
+            unique_pose_ids = utils.remove_duplicates(pose_ids)
+            pose_id_to_identifier = load_pose_identifier_from_id(session, unique_pose_ids)
+            if return_pose_jobs:
+                pose_job_stmt = select(PoseJob).where(PoseJob.id.in_(unique_pose_ids))
+                results = session.scalars(pose_job_stmt).all()
+                pose_id_to_design_ids = defaultdict(list)
+                for idx, pose_id in enumerate(pose_ids):
+                    pose_id_to_design_ids[pose_id].append(design_ids[idx])
+
+                for pose_job in results:
+                    pose_job.current_designs = pose_id_to_design_ids[pose_job.id]
+            else:
+                results = pose_id_to_identifier.values()
 
         # Todo incorporate design_metadata_df
         design_metadata_df = load_sql_design_metadata_dataframe(session, design_ids=selected_design_ids)
@@ -1847,7 +1860,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
     """
     from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
     job = job_resources_factory.get()
-    results = sql_designs(pose_jobs)
+    results = sql_designs(pose_jobs, return_pose_jobs=True)
     # Set up output_file pose_jobs for __main__.terminate()
     return_pose_jobs = results
     job.output_file = os.path.join(job.output_directory, 'SelectedDesigns.poses')
