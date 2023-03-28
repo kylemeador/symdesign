@@ -1386,6 +1386,19 @@ def format_save_df(session: Session, designs_df: pd.DataFrame, pose_ids: Iterabl
     return save_df
 
 
+def load_pose_identifier_from_id(session: Session, ids: Iterable[int]) -> dict[int, str]:
+    pose_id_stmt = select((PoseJob.id, PoseJob.project, PoseJob.name)).where(PoseJob.id.in_(ids))
+    return {id_: PoseJob.convert_pose_identifier(project, name)
+            for id_, project, name in session.execute(pose_id_stmt)}
+
+
+def load_design_identifier_from_id(session: Session, ids: Iterable[int]) -> list[tuple[int, int, str]]:
+    design_id_stmt = select((sql.DesignData.pose_id, sql.DesignData.id, sql.DesignData.name)) \
+        .where(sql.DesignData.id.in_(ids))
+    return session.execute(design_id_stmt).all()
+    # return dict(session.execute(design_id_stmt).all())
+
+
 def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     """Select PoseJob instances based on filters and weighting of all design summary metrics
 
@@ -1436,11 +1449,6 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     entity_id = 'entity_id'
     design_id = 'design_id'
     with job.db.session(expire_on_commit=False) as session:
-
-        def load_pose_identifier_from_id(pose_ids):
-            pose_id_stmt = select((PoseJob.id, PoseJob.project, PoseJob.name)).where(PoseJob.id.in_(pose_ids))
-            return {id_: PoseJob.convert_pose_identifier(project, name) for id_, project, name in session.execute(pose_id_stmt)}
-
         # Figure out designs from dataframe, filters, and weights
         total_df = load_sql_poses_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
         pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
@@ -1493,22 +1501,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                            'actually present')
         # Ensure the pose_id is the index to prioritize
         total_df.set_index(pose_id, inplace=True)
-
-        if job.save_total:
-            putils.make_path(job.output_directory)
-            logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
-            # Todo reintroduce if pose_identifiers is preferred
-            # total_df.reset_index(inplace=True)
-            # total_df.index = total_df.index.map(final_pose_id_to_identifier) \
-            #     .rename('pose_identifier')
-            # # total_df['pose_identifier'] = total_df[pose_id].map(final_pose_id_to_identifier)
-            # # total_df.set_index('pose_identifier', inplace=True)
-
-            total_df = total_df[~total_df.index.duplicated()]
-            total_df_filename = os.path.join(job.output_directory, 'TotalPoseMetrics.csv')
-            total_df.to_csv(total_df_filename)
-            logger.info(f'Total Pose DataFrame written to: {total_df_filename}')
-
+        # Perform selection using provided arguments
         if not job.filter and not job.weight and not job.protocol and default_weight_metric not in total_df.columns:
             # Nothing to filter/weight
             selected_poses_df = total_df
@@ -1575,7 +1568,23 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             # save_poses_df = pd.Series(selected_pose_ids, name=pose_id).to_frame()
         save_poses_df = format_save_df(session, save_poses_df, selected_pose_ids)
 
-        final_pose_id_to_identifier = load_pose_identifier_from_id(selected_pose_ids)
+        final_pose_id_to_identifier = load_pose_identifier_from_id(session, selected_pose_ids)
+
+        putils.make_path(job.output_directory)
+        logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
+        if job.save_total:
+            out_total_df = total_df[~total_df[pose_id].duplicated()]
+            total_pose_ids = out_total_df[pose_id].tolist()
+            total_pose_id_to_identifier = load_pose_identifier_from_id(session, total_pose_ids)
+            # Map the names to existing identifiers
+            out_total_df['pose_identifier'] = out_total_df[pose_id].map(total_pose_id_to_identifier)
+            out_total_df.set_index('pose_identifier', inplace=True)
+            out_total_df.index.rename('pose_identifier', inplace=True)
+            # Write
+            total_df_filename = os.path.join(job.output_directory, 'TotalPoseMetrics.csv')
+            out_total_df.to_csv(total_df_filename)
+            logger.info(f'Total Pose DataFrame written to: {total_df_filename}')
+            del out_total_df
     # End session
 
     # No need to rename as the index aren't design_id
@@ -1585,9 +1594,6 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         save_poses_df[('pose', pose_id)].map(final_pose_id_to_identifier).rename('pose_identifier'), inplace=True)
 
     # Format selected poses for output
-    putils.make_path(job.output_directory)
-    logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
-
     logger.info(f'{len(save_poses_df)} Poses were selected')
     if job.filter or job.weight:
         new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
@@ -1727,6 +1733,29 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             pass
 
         logger.info(f'{len(selected_pose_id_to_design_ids)} Poses were selected')
+        putils.make_path(job.output_directory)
+        logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
+        if job.save_total:
+            # Remove duplicate entries
+            out_total_df = total_df[~total_df.index.duplicated()].copy()
+            total_design_ids = out_total_df.index.tolist()
+            total_pose_ids, total_design_ids, total_design_identifier = \
+                zip(*load_design_identifier_from_id(session, total_design_ids))
+            total_design_id_to_identifier = dict(zip(total_design_ids, total_design_identifier))
+            total_pose_id_to_identifier = load_pose_identifier_from_id(session, set(total_pose_ids))
+            # Map the names to existing identifiers
+            out_total_df['pose_identifier'] = out_total_df[pose_id].map(total_pose_id_to_identifier)
+            # Put the design_ids to a column
+            out_total_df.reset_index(inplace=True)
+            out_total_df['design_name'] = out_total_df[design_id].map(total_design_id_to_identifier)
+            out_total_df.set_index(['pose_identifier', 'design_name'], inplace=True)
+            out_total_df.index.rename(['pose_identifier', 'design_name'], inplace=True)
+            # Write
+            total_df_filename = os.path.join(job.output_directory, 'TotalDesignMetrics.csv')
+            out_total_df.to_csv(total_df_filename)
+            logger.info(f'Total Pose/Designs DataFrame written to: {total_df_filename}')
+            del out_total_df
+
         # Format selected designs for output
         putils.make_path(job.output_directory)
         logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
@@ -1797,21 +1826,6 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     save_designs_df.set_index([('pose', 'pose_identifier'), ('pose', 'design_name')], inplace=True)
     save_designs_df.index.rename(['pose_identifier', 'design_name'], inplace=True)
     # print('AFTER set_index', save_designs_df)
-
-    if job.save_total:
-        total_df.reset_index(inplace=True)
-        if True:
-            raise NotImplementedError(f"ERROR: Need to final a way to output total_df for sql.design()")
-        else:
-            total_df.index = total_df.index.map(final_pose_id_to_identifier) \
-                .rename('pose_identifier')
-            # total_df['pose_identifier'] = total_df[pose_id].map(final_pose_id_to_identifier)
-            # total_df.set_index('pose_identifier', inplace=True)
-
-            total_df = total_df[~total_df.index.duplicated()]
-            total_df_filename = os.path.join(job.output_directory, 'TotalDesignMetrics.csv')
-            total_df.to_csv(total_df_filename)
-            logger.info(f'Total Pose/Designs DataFrame written to: {total_df_filename}')
 
     if job.filter or job.weight:
         new_dataframe = os.path.join(job.output_directory, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
