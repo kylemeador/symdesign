@@ -827,13 +827,26 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     self._current_designs.append(potential_design)
                 elif isinstance(potential_design, str):
                     for design in self.designs:
-                        if design.name == potential_design or design.id == potential_design:
+                        if design.id == potential_design:
                             self._current_designs.append(design)
                             break
                     else:
                         raise DesignError(
                             f"Couldn't set self.current_designs as there was no {sql.DesignData.__class__.__name__} "
                             f"matching the name '{potential_design}'")
+                elif isinstance(potential_design, int):
+                    for design in self.designs:
+                        if design.id == potential_design:
+                            self._current_designs.append(design)
+                            break
+                    else:
+                        raise DesignError(
+                            f"Couldn't set self.current_designs as there was no {sql.DesignData.__class__.__name__} "
+                            f"matching the name '{potential_design}'")
+                else:
+                    raise ValueError(
+                        f"Couldn't set .current_designs with a 'design'={potential_design} of type "
+                        f"{type(potential_design).__name__}")
 
     @property
     def structure_source(self) -> AnyStr:
