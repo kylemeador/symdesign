@@ -2605,7 +2605,7 @@ class PoseProtocol(PoseData):
 
             # analysis_start = time.time()
             designs_df, residues_df = self.analyze_proteinmpnn_metrics(design_ids, sequences_and_scores)
-            entity_designs_df = self.analyze_design_entities_per_residue(residues_df, design_ids)
+            entity_designs_df = self.analyze_design_entities_per_residue(residues_df)
             metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
 
             # self.log.debug(f"Took {time.time() - analysis_start:8f}s for analyze_proteinmpnn_metrics. "
@@ -3137,8 +3137,7 @@ class PoseProtocol(PoseData):
             design_name_to_id_map = dict((getattr(design, 'provided_name',
                                                   getattr(design, 'name')),
                                           design.id) for design in self.current_designs)
-            design_ids = design_name_to_id_map.values()
-            entity_designs_df = self.analyze_design_entities_per_residue(mpnn_residues_df, design_ids)
+            entity_designs_df = self.analyze_design_entities_per_residue(mpnn_residues_df)
             metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
 
             # Join DataFrames
@@ -3151,6 +3150,7 @@ class PoseProtocol(PoseData):
             # Rename all designs and clean up resulting metrics for storage
             # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
             designs_df.index = designs_df.index.map(design_name_to_id_map)
+            entity_designs_df.index = entity_designs_df.index.map(design_name_to_id_map)
             residues_df.index = residues_df.index.map(design_name_to_id_map)
 
             # Commit the newly acquired metrics to the database
@@ -3274,13 +3274,13 @@ class PoseProtocol(PoseData):
             designs_df = self.rosetta_column_combinations(designs_df.join(scores_df))
             residues_df = residues_df.join(rosetta_residues_df)
 
-        # Correct the index of the DataFrame by changing from "name" to database ID
-        name_to_id_map = {pose_name: self.pose_source.id}
-        designs_df.index = designs_df.index.map(name_to_id_map)
-        residues_df.index = residues_df.index.map(name_to_id_map)
-
         with self.job.db.session(expire_on_commit=False) as session:
             session.merge(self)
+            # Correct the index of the DataFrame by changing from "name" to database ID
+            name_to_id_map = {pose_name: self.pose_source.id}
+            designs_df.index = designs_df.index.map(name_to_id_map)
+            entity_designs_df.index = entity_designs_df.index.map(name_to_id_map)
+            residues_df.index = residues_df.index.map(name_to_id_map)
             self.output_metrics(session, designs=designs_df)
             output_residues = False
             if output_residues:  # Todo job.metrics.residues
@@ -3434,14 +3434,12 @@ class PoseProtocol(PoseData):
 
         return designs_df, residues_df
 
-    def analyze_design_entities_per_residue(self, residues_df: pd.DataFrame, design_ids: Iterable[int] = None) \
-            -> pd.DataFrame:
+    def analyze_design_entities_per_residue(self, residues_df: pd.DataFrame) -> pd.DataFrame:
         """Gather sequence metrics on a per-entity basis and write to the database
 
         Args:
             residues_df: A per-residue metric DataFrame where each index is the design id and the columns are
                 (residue index, residue metric)
-            design_ids: If the identifiers should be specified, provide them, otherwise will use self.current_designs
         Returns:
             A per-entity metric DataFrame where each index is a combination of (design_id, entity_id) and the columns
                 are design metrics
@@ -3460,14 +3458,9 @@ class PoseProtocol(PoseData):
                 percent_mutations=number_mutations / entity.number_of_residues)
 
         # Set up the DesignEntityMetrics dataframe for writing
-        # logger.debug(entity_designs)
-        # logger.debug([pd.DataFrame(data) for data in entity_designs.values()])
-        if design_ids is None:
-            design_ids = [design.id for design in self.current_designs]
-            # logger.debug(f'Found the design ids: {design_ids}')
-
         entity_designs_df = pd.concat([pd.DataFrame(data) for data in entity_designs.values()],
                                       keys=entity_designs.keys())
+        design_ids = residues_df.index.tolist()
         entity_designs_df.index = entity_designs_df.index.set_levels(design_ids, level=-1)
         # entity_designs_df = pd.concat([pd.DataFrame(data) for data in entity_designs.values()])
         # design_name_to_id_map = dict(zip(entity_designs_df.index.get_level_values(-1), design_ids))
@@ -3666,7 +3659,7 @@ class PoseProtocol(PoseData):
 
         mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
         # The DataFrame.index needs to become the design.id not design.name. Modify after all processing
-        entity_designs_df = self.analyze_design_entities_per_residue(mpnn_residues_df, design_ids=design_ids)
+        entity_designs_df = self.analyze_design_entities_per_residue(mpnn_residues_df)
 
         # Process all desired files to Pose
         design_paths_to_process = [design.structure_path for design in designs]
@@ -3694,6 +3687,7 @@ class PoseProtocol(PoseData):
         design_name_to_id_map = dict((design.name, design.id) for design in designs)
         # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
         designs_df.index = designs_df.index.map(design_name_to_id_map)
+        entity_designs_df.index = entity_designs_df.index.map(design_name_to_id_map)
         residues_df.index = residues_df.index.map(design_name_to_id_map)
 
         # Commit the newly acquired metrics to the database
@@ -3774,8 +3768,7 @@ class PoseProtocol(PoseData):
         # design_residues[interface_residue_indices] = 1
         sequences_and_scores['design_indices'] = np.zeros((1, pose_length), dtype=bool)
         mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics([pose_name], sequences_and_scores)
-        design_ids = [self.pose_source.id]
-        entity_designs_df = self.analyze_design_entities_per_residue(mpnn_residues_df, design_ids)
+        entity_designs_df = self.analyze_design_entities_per_residue(mpnn_residues_df)
         designs_df = designs_df.join(mpnn_designs_df)
         # sequences_df = self.analyze_sequence_metrics_per_design(sequences=[self.pose.sequence],
         #                                                         design_ids=[pose_source_id])
