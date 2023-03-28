@@ -17,7 +17,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from tqdm import tqdm
 
@@ -34,7 +34,6 @@ from symdesign.structure.fragment.metrics import rmsd_z_score, z_value_from_matc
 from symdesign.structure.fragment.visuals import write_fragment_pairs_as_accumulating_states
 from symdesign.structure.model import Pose, Model, Models
 from symdesign.structure.sequence import pssm_as_array
-from symdesign.structure.utils import chain_id_generator
 from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
 from symdesign.utils.symmetry import identity_matrix
 putils = utils.path

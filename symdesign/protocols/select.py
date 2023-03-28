@@ -1347,7 +1347,6 @@ def format_save_df(session: Session, designs_df: pd.DataFrame, pose_ids: Iterabl
     entity_metrics_df = load_sql_entity_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
     logger.debug(f'entity_metrics_df:\n{entity_metrics_df}')
     # entity_metrics_df.set_index(pose_id, inplace=True)
-    logger.debug(f'entity_metrics_df: {entity_metrics_df}')
     # Manipulate to combine with Pose data for the final format:
     # structure_entity        1        2 |    pose
     # metric            go fish  go fish | go fish
@@ -1488,13 +1487,10 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             logger.debug(f'total_df:\n{total_df}')
 
         if job.filter or job.protocol:
-            if pose_ids:
-                df_multiplicity = len(pose_jobs[0].entity_data)
-            else:
-                df_multiplicity = 2  # Todo default...
+            entity_multiplicity = len(entity_metadata_df) / len(pose_metadata_df)
             logger.warning('Filtering statistics have an increased representation due to included Entity metrics. '
-                           f'Typically, values reported for each filter will be ~{df_multiplicity}x over those actually'
-                           ' present')
+                           f'Typically, values reported for each filter will be ~{entity_multiplicity}x over those '
+                           'actually present')
         # Ensure the pose_id is the index to prioritize
         total_df.set_index(pose_id, inplace=True)
 
@@ -1675,15 +1671,16 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         # logger.debug(f'total_df: {total_df.columns.tolist()}')
         if total_df.empty:
             raise utils.MetricsError(
-                f"For the input PoseJobs, there aren't metrics collected. Use the '{flags.analysis}' module or perform some"
-                " design module before selection")
+                f"For the input PoseJobs, there aren't metrics collected. Use the '{flags.analysis}' module or perform "
+                f"some design module before {job.module}")
         if job.filter or job.protocol:
-            df_multiplicity = len(pose_jobs[0].entity_data)**2
+            entity_multiplicity = len(entity_metadata_df) / len(pose_metadata_df)
             logger.warning('Filtering statistics have an increased representation due to included Entity metrics. '
-                           f'Typically, values reported for each filter will be ~{df_multiplicity}x over those actually '
-                           'present')
+                           f'Typically, values reported for each filter will be ~{entity_multiplicity}x over those '
+                           'actually present')
         # Ensure the design_id is the index to prioritize, though both pose_id and design_id are grabbed below
         total_df.set_index(design_id, inplace=True)
+        # Perform selection using provided arguments
         if not job.filter and not job.weight and not job.protocol and default_weight_metric not in total_df.columns:
             # Nothing to filter/weight
             selected_designs_df = total_df

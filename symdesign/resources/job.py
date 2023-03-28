@@ -782,7 +782,7 @@ class JobResources:
             return [self.module]
 
     @modules.setter
-    def modules(self, modules: Iterable[str]) -> list[str]:
+    def modules(self, modules: Iterable[str]):
         self._modules = list(modules)
 
     # @property
@@ -805,7 +805,7 @@ class JobResources:
 
     @property
     def output_to_directory(self) -> bool:
-        """Set to broadcast that output is not typical putils.program_output directory structure"""
+        """If True, broadcasts that output is not typical putils.program_output directory structure"""
         # self.output_to_directory: bool = True if self.output_directory else False
         if self.module in flags.select_modules:
             # Make this explicitly False so that selection doesn't copy extra files
@@ -1102,7 +1102,7 @@ class JobResources:
         # Run specific checks
         if psutil.virtual_memory().available <= distribute.hhblits_memory_threshold:
             print('\n')
-            logger.critical(f'The available RAM is insufficient to run {putils.hhblits}. '
+            logger.critical(f'The available RAM is probably insufficient to run {putils.hhblits}. '
                             f'Required/Available memory: {distribute.hhblits_memory_threshold / gb_divisior:.2f} GB/'
                             f'{psutil.virtual_memory().available / gb_divisior:.2f} GB')
             #                 '\tPlease allocate the job to a computer with more memory or the process will fail, '

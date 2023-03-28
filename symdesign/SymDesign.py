@@ -479,7 +479,7 @@ def main():
                 logger.critical(f'The file "{designs_file}" contains the pose identifier and design identifier, of '
                                 f'every design selected by this job. Utilize this file to input these designs in future'
                                 f' {putils.program_name} commands such as:\n\t{putils.program_command} MODULE '
-                                f'--{flags.specification_file} {designs_file} ...')
+                                f'{flags.format_args(flags.specification_file_args)} {designs_file} ...')
 
             # if job.module == flags.analysis:
             #     # Save Design DataFrame
@@ -855,8 +855,7 @@ def main():
 
         # Write new data to the database
         with job.db.session(expire_on_commit=False) as session:
-            all_uniprot_id_to_prot_data = \
-                initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
+            all_uniprot_id_to_prot_data = initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
 
             # Get all uniprot_entities, and fix ProteinMetadata that is already loaded
             uniprot_entities = []
@@ -947,8 +946,7 @@ def main():
 
         # Write new data to the database
         with job.db.session(expire_on_commit=False) as session:
-            all_uniprot_id_to_prot_data = \
-                initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
+            all_uniprot_id_to_prot_data = initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
 
             # Get all uniprot_entities, and fix ProteinMetadata that is already loaded
             uniprot_entities = []
@@ -1108,7 +1106,6 @@ def main():
                     job.location = args.poses
                     for pose_file in args.poses:
                         pose_identifiers.extend(utils.PoseSpecification(pose_file).pose_identifiers)
-                    input(pose_identifiers)
                 else:
                     job.location = args.specification_file
                     for specification_file in args.specification_file:
@@ -1136,13 +1133,11 @@ def main():
                 #     for single in singles:
                 #         name, project, *_ = reversed(single.split(os.sep))
                 #         pose_identifiers.append(f'{project}{os.sep}{name}')
-            input(pose_identifiers)
             if not pose_identifiers:
                 raise utils.InputError(
                     f"No pose identifiers found from input location '{job.location}'")
             else:
                 pose_identifiers = job.get_range_slice(pose_identifiers)
-            input(pose_identifiers)
 
             # Fetch identified. No writes
             with job.db.session(expire_on_commit=False) as session:
