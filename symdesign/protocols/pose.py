@@ -1263,7 +1263,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     data.transform.transformation = transformation
                 # Ensure this information is persistent
                 with self.job.db.session(expire_on_commit=False) as session:
-                    session.merge(self)
+                    session.add(self)
                     session.commit()
 
         # if not self.entity_names:  # Store the entity names if they were never generated
@@ -3275,7 +3275,7 @@ class PoseProtocol(PoseData):
             residues_df = residues_df.join(rosetta_residues_df)
 
         with self.job.db.session(expire_on_commit=False) as session:
-            session.merge(self)
+            session.add(self)
             # Correct the index of the DataFrame by changing from "name" to database ID
             name_to_id_map = {pose_name: self.pose_source.id}
             designs_df.index = designs_df.index.map(name_to_id_map)
