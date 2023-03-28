@@ -4203,8 +4203,8 @@ class PoseProtocol(PoseData):
                              'solv_complex': 0., 'solv_bound': entity_energies.copy(),
                              'solv_unbound': entity_energies.copy(), 'fsp': 0., 'cst': 0., 'hbond': 0}
              for entity in self.pose.entities for residue in entity.residues}
-        pose_source_id = self.pose_source.id
-        residue_info = {pose_source_id: pose_source_residue_info}
+        pose_name = self.name
+        residue_info = {pose_name: pose_source_residue_info}
 
         # Gather miscellaneous pose specific metrics
         # other_pose_metrics = self.pose.calculate_metrics()
@@ -4229,14 +4229,14 @@ class PoseProtocol(PoseData):
             empty_source[f'buns{idx}_unbound'] = 0
             empty_source[f'entity{idx}_interface_connectivity'] = 0
 
-        source_df = pd.DataFrame(empty_source, index=[pose_source_id])
+        source_df = pd.DataFrame(empty_source, index=[pose_name])
 
         # Get the metrics from the score file for each design
         if os.path.exists(self.scores_file):  # Rosetta scores file is present  # Todo PoseJob(.path)
             self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseJob(.path)
             design_was_performed = True
             # # Get the scores from the score file on design trajectory metrics
-            # source_df = pd.DataFrame.from_dict({pose_source_id: {putils.protocol: job_key}}, orient='index')
+            # source_df = pd.DataFrame.from_dict({pose_name: {putils.protocol: job_key}}, orient='index')
             # for idx, entity in enumerate(self.pose.entities, 1):
             #     source_df[f'buns{idx}_unbound'] = 0
             #     source_df[f'entity{idx}_interface_connectivity'] = 0
@@ -4344,7 +4344,7 @@ class PoseProtocol(PoseData):
             design_was_performed = False
             # Todo add relevant missing scores such as those specified as 0 below
             # Todo may need to put source_df in scores file alternative
-            # source_df = pd.DataFrame.from_dict({pose_source_id: {putils.protocol: job_key}}, orient='index')
+            # source_df = pd.DataFrame.from_dict({pose_name: {putils.protocol: job_key}}, orient='index')
             # for idx, entity in enumerate(self.pose.entities, 1):
             #     source_df[f'buns{idx}_unbound'] = 0
             #     source_df[f'entity{idx}_interface_connectivity'] = 0
@@ -4401,10 +4401,10 @@ class PoseProtocol(PoseData):
         # perform SASA measurements
         # pose_assembly_minimally_contacting.get_sasa()
         # assembly_asu_residues = pose_assembly_minimally_contacting.residues[:pose_length]
-        # per_residue_data['sasa_hydrophobic_complex'][pose_source_id] = \
+        # per_residue_data['sasa_hydrophobic_complex'][pose_name] = \
         #     [residue.sasa_apolar for residue in assembly_asu_residues]
-        # per_residue_data['sasa_polar_complex'][pose_source_id] = [residue.sasa_polar for residue in assembly_asu_residues]
-        # per_residue_data['sasa_relative_complex'][pose_source_id] = \
+        # per_residue_data['sasa_polar_complex'][pose_name] = [residue.sasa_polar for residue in assembly_asu_residues]
+        # per_residue_data['sasa_relative_complex'][pose_name] = \
         #     [residue.relative_sasa for residue in assembly_asu_residues]
 
         # Grab metrics for the pose source. Checks if self.pose was designed
@@ -4414,8 +4414,8 @@ class PoseProtocol(PoseData):
         # source_errat_accuracy, inverse_residue_contact_order_z = [], []
 
         per_residue_data: dict[str, dict[str, Any]] = \
-            {pose_source_id: {**self.pose.per_residue_interface_surface_area(),
-                              **self.pose.per_residue_contact_order()}
+            {pose_name: {**self.pose.per_residue_interface_surface_area(),
+                         **self.pose.per_residue_contact_order()}
              }
 
         number_of_entities = self.pose.number_of_entities
@@ -4431,18 +4431,18 @@ class PoseProtocol(PoseData):
         #     pose_source_errat = np.concatenate(source_errat)
         # else:
         #     # pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
-        #     # # atomic_deviation[pose_source_id], pose_per_residue_errat = \
+        #     # # atomic_deviation[pose_name], pose_per_residue_errat = \
         #     # _, pose_per_residue_errat = \
         #     #     pose_assembly_minimally_contacting.errat(out_path=os.path.devnull)
         #     # pose_source_errat = pose_per_residue_errat[:pose_length]
         #     # Get errat measurement
-        #     # per_residue_data[pose_source_id].update(self.pose.per_residue_interface_errat())
+        #     # per_residue_data[pose_name].update(self.pose.per_residue_interface_errat())
         #     pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
         #
-        # per_residue_data[pose_source_id]['errat_deviation'] = pose_source_errat
+        # per_residue_data[pose_name]['errat_deviation'] = pose_source_errat
 
         # Compute structural measurements for all designs
-        interface_local_density = {pose_source_id: self.pose.local_density_interface()}
+        interface_local_density = {pose_name: self.pose.local_density_interface()}
         for pose in designs:  # Takes 1-2 seconds for Structure -> assembly -> errat
             # Must find interface residues before measure local_density
             pose.find_and_split_interface()
@@ -4501,8 +4501,8 @@ class PoseProtocol(PoseData):
         residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
         # Fill in missing pose_source metrics for each design not calculated in rosetta
-        # residues_df.fillna(residues_df.loc[pose_source_id, idx_slice[:, 'contact_order']], inplace=True)
-        residues_df.fillna(residues_df.loc[pose_source_id, :], inplace=True)
+        # residues_df.fillna(residues_df.loc[pose_name, idx_slice[:, 'contact_order']], inplace=True)
+        residues_df.fillna(residues_df.loc[pose_name, :], inplace=True)
 
         residues_df = residues_df.join(per_residue_collapse_df)
 
@@ -4675,7 +4675,7 @@ class PoseProtocol(PoseData):
         # # Get per-residue errat scores from the residues_df
         # errat_df = residues_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
         #
-        # pose_source_errat = errat_df.loc[pose_source_id, :]
+        # pose_source_errat = errat_df.loc[pose_name, :]
         # source_errat_inclusion_boolean = \
         #     np.logical_and(pose_source_errat < metrics.errat_2_sigma, pose_source_errat != 0.)
         # # Find residues where designs deviate above wild-type errat scores
@@ -4779,7 +4779,7 @@ class PoseProtocol(PoseData):
         # Consensus cst_weights are very large and destroy the mean.
         # Remove this drop for consensus or refine if they are run multiple times
         designs_df = \
-            scores_df.drop([pose_source_id, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
+            scores_df.drop([pose_name, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
 
         # Get total design statistics for every sequence in the pose and every protocol specifically
         scores_df[putils.protocol] = protocol_s
@@ -4815,7 +4815,7 @@ class PoseProtocol(PoseData):
         designs_df = pd.concat([designs_df]
                                + [df.dropna(how='all', axis=0) for df in protocol_stats]  # v don't add if nothing
                                + [pd.to_numeric(s).to_frame().T for s in pose_stats if not all(s.isna())])
-        # This concat puts back pose_source_id, refine, consensus index as protocol_stats is calculated on scores_df
+        # This concat puts back pose_name, refine, consensus index as protocol_stats is calculated on scores_df
         # # Add all pose information to each trajectory
         # pose_metrics_df = pd.DataFrame.from_dict({idx: other_pose_metrics for idx in final_trajectory_indices},
         #                                          orient='index')
@@ -5062,7 +5062,7 @@ class PoseProtocol(PoseData):
             collapse_ax = fig.subplots(1, 1, sharex=True)
             # add the contact order to a new plot
             contact_ax = collapse_ax.twinx()
-            contact_order_df = residues_df.loc[pose_source_id, idx_slice[:, 'contact_order']].droplevel(-1, axis=1)
+            contact_order_df = residues_df.loc[pose_name, idx_slice[:, 'contact_order']].droplevel(-1, axis=1)
             # source_contact_order_s = pd.Series(source_contact_order, index=residue_indices, name='contact_order')
             contact_ax.plot(contact_order_df, label='Contact Order',
                             color='#fbc0cb', lw=1, linestyle='-')  # pink
@@ -5149,7 +5149,7 @@ class PoseProtocol(PoseData):
             # # errat_graph_df = residues_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
             # # errat_graph_df = errat_df
             # # wt_errat_concatenated_s = pd.Series(np.concatenate(list(source_errat.values())), name='clean_asu')
-            # # errat_graph_df[pose_source_id] = pose_source_errat
+            # # errat_graph_df[pose_name] = pose_source_errat
             # # errat_graph_df.columns += 1  # offset index to residue numbering
             # errat_df.sort_index(axis=0, inplace=True)
             # # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
