@@ -1660,10 +1660,13 @@ class PoseProtocol(PoseData):
         if self.current_designs:
             sequences = {design: design.sequence for design in self.current_designs}
         else:
-            sequences = {design: design.sequence for design in self.get_designs_without_structure()}
-            self.current_designs.extend(sequences.keys())
+            with self.job.db.session(expire_on_commit=False) as session:
+                session.add(self)
+                sequences = {design: design.sequence for design in self.get_designs_without_structure()}
+                self.current_designs.extend(sequences.keys())
 
         if self.job.predict.pose:
+            # self.pose_source is loaded in above session through get_designs_without_structure()
             pose_sequence = {self.pose_source: self.pose_source.sequence}
             if self.pose_source.structure_path is None:
                 sequences = {**pose_sequence, **sequences}
@@ -2587,7 +2590,7 @@ class PoseProtocol(PoseData):
 
         # Update the Pose with the number of designs
         with self.job.db.session(expire_on_commit=False) as session:
-            # session.merge(self)
+            session.add(self)
             designs_data = self.update_design_data(design_parent=self.pose_source)
             session.add_all(designs_data)
             session.flush()
@@ -2686,19 +2689,17 @@ class PoseProtocol(PoseData):
                     for design_id, protocol, temperature, file in zip(design_ids, protocols, temperatures, files)]
         return metadata
 
-    def update_design_data(self, design_parent: sql.DesignData = None, number: int = None) -> list[sql.DesignData]:
+    def update_design_data(self, design_parent: sql.DesignData, number: int = None) -> list[sql.DesignData]:
         """Update the PoseData with the newly created design identifiers using DesignData and flush to the database
 
         Sets:
             self.current_designs (list[DesignData]): Extends with the newly created DesignData instances
         Args:
-            design_parent: The design whom all new designs are based. If not provided, will use the self.pose_source
+            design_parent: The design whom all new designs are based
             number: The number of designs. If not provided, set according to job.design.number * job.design.temperature
         Returns:
             The new instances of the DesignData
         """
-        if design_parent is None:
-            design_parent = self.pose_source
         if number is None:
             number = len(self.job.design.number * self.job.design.temperatures)
 
@@ -2711,7 +2712,7 @@ class PoseProtocol(PoseData):
                                                 first_new_design_idx + number)]
         # designs = [sql.DesignData(name=name, design_parent=design_parent) for name in design_names]
         # self.designs.extend(designs)
-        designs = [sql.DesignData(name=name, pose=self, design_parent=design_parent)
+        designs = [sql.DesignData(name=name, pose_id=self.id, design_parent=design_parent)
                    for name in design_names]
         # Set the PoseJob.current_designs for access by subsequent functions/protocols
         self.current_designs.extend(designs)
@@ -2989,7 +2990,9 @@ class PoseProtocol(PoseData):
             return
 
         # Find all designs files
-        design_names = self.design_names
+        with self.job.db.session(expire_on_commit=False) as session:
+            session.add(self)
+            design_names = self.design_names
         design_files = self.get_design_files()  # Todo PoseJob(.path)
         scored_design_names = design_scores.keys()
         new_design_paths_to_process = []
@@ -3026,6 +3029,11 @@ class PoseProtocol(PoseData):
         # Process the parsed scores to scores_df, rosetta_residues_df
         scores_df, rosetta_residues_df = self.parse_rosetta_scores(design_scores)
 
+        # Format DesignData
+        # Get all existing
+        design_data = self.designs  # This is loaded above at 'design_names = self.design_names'
+        # Set current_designs to a fresh list
+        self._current_designs = [design_data[idx] for idx in existing_design_indices]
         # Find parent info and remove from scores_df
         if putils.design_parent in scores_df:
             # Replace missing values with the pose_source DesignData
@@ -3085,16 +3093,11 @@ class PoseProtocol(PoseData):
         sequences_and_scores.update({'design_indices': design_residues})
         mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
 
-        # Format DesignData
-        # Get all existing
-        design_data = self.designs
-        # Set current_designs to a fresh list
-        self._current_designs = [design_data[idx] for idx in existing_design_indices]
         # Update the Pose.designs with DesignData for each of the new designs
         with self.job.db.session(expire_on_commit=False) as session:
-            # session.merge(self)
-            # session.merge(self.designs)
-            new_designs_data = self.update_design_data(number=len(new_design_paths_to_process))  # design_parent=design_parent
+            session.add(self)
+            new_designs_data = \
+                self.update_design_data(design_parent=self.pose_source, number=len(new_design_paths_to_process))
             session.add_all(new_designs_data)
             session.flush()
             # design_ids = [design_data.id for design_data in designs_data]
@@ -3628,17 +3631,18 @@ class PoseProtocol(PoseData):
         Returns:
             Series containing summary metrics for all designs
         """
-        if designs is None:
-            self.current_designs = designs = self.designs
-
-        if not designs:
-            return  # There is nothing to analyze
-
-        design_ids = [design.id for design in designs]
-        select_stmt = select((sql.DesignData.id, sql.ResidueMetrics.index, sql.ResidueMetrics.design_residue))\
-            .join(sql.ResidueMetrics).where(sql.DesignData.id.in_(design_ids))
-        index_col = sql.ResidueMetrics.index.name
         with self.job.db.session(expire_on_commit=False) as session:
+            if designs is None:
+                session.add(self)
+                self.current_designs = designs = self.designs
+
+            if not designs:
+                return  # There is nothing to analyze
+
+            design_ids = [design.id for design in designs]
+            select_stmt = select((sql.DesignData.id, sql.ResidueMetrics.index, sql.ResidueMetrics.design_residue))\
+                .join(sql.ResidueMetrics).where(sql.DesignData.id.in_(design_ids))
+            index_col = sql.ResidueMetrics.index.name
             design_residue_df = \
                 pd.DataFrame.from_records(session.execute(select_stmt).all(),
                                           columns=['id', index_col, sql.ResidueMetrics.design_residue.name])

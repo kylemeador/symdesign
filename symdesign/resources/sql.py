@@ -111,7 +111,7 @@ class PoseMetadata(Base):
     # Set up one-to-many relationship with design_data table
     designs = relationship('DesignData', back_populates='pose',
                            # collection_class=ordering_list('id'),
-                           order_by='DesignData.id', lazy='selectin')
+                           order_by='DesignData.id')  # lazy='selectin'
 
     @property
     def number_of_designs(self) -> int:

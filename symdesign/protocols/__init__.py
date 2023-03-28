@@ -648,6 +648,8 @@ def design(job: pose.PoseJob):
         if not job.refined and not os.path.exists(job.refined_pdb):
             job.refine(gather_metrics=False)
         if job.job.design.interface:
+            raise NotImplementedError('Need to generate job.number_of_designs matching job.proteinmpnn_design()...')
+            # Todo update upon completion given results of designs list file...
             job.rosetta_interface_design()  # Sets job.protocol
         else:
             raise NotImplementedError(f'No function for all residue Rosetta design yet')
