@@ -1145,9 +1145,9 @@ def get_program_directories(base: str = None, projects: Iterable = None, singles
 #     lineterminator = '\n'
 #     quoting = csv.QUOTE_MINIMAL
 #     strict = False
+#         super().__init__()
 class PoseSpecification:
     def __init__(self, file: AnyStr):
-        super().__init__()
         self.directive_delimiter: str = ':'
         self.file: AnyStr = file
         self.directives: list[dict[int, str]] = []
