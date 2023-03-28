@@ -1478,9 +1478,9 @@ output_arguments = {
              help='Write the residues that comprise the interface for each Pose'),
     ('-Oo', f'--{output_oligomers}'):
         dict(action=argparse.BooleanOptionalAction, default=False, help='Write any oligomers generated for each Pose'),
-    output_structures_args:
-        dict(action=argparse.BooleanOptionalAction, default=True,
-             help=f'For any structures generated, write them.\n{boolean_positional_prevent_msg(output_structures)}'),
+    # output_structures_args:
+    #     dict(action=argparse.BooleanOptionalAction, default=True,
+    #          help=f'For any structures generated, write them.\n{boolean_positional_prevent_msg(output_structures)}'),
     ('-Ou', f'--{output_surrounding_uc}'):
         dict(action=argparse.BooleanOptionalAction, default=False,
              help='Whether the surrounding unit cells should be output?\nOnly for infinite materials'),

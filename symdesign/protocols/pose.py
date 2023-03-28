@@ -2068,7 +2068,7 @@ class PoseProtocol(PoseData):
             if output_residues:  # Todo job.metrics.residues
                 self.output_metrics(session, residues=residues_df)
             # else:  # Only save the 'design_residue' columns
-            #     residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+            #     residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
             #     self.output_metrics(session, design_residues=residues_df)
             # Commit the newly acquired metrics
             session.commit()
@@ -2618,7 +2618,7 @@ class PoseProtocol(PoseData):
             if output_residues:  # Todo job.metrics.residues
                 self.output_metrics(session, residues=residues_df)
             else:  # Only save the 'design_residue' columns
-                residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+                residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
                 self.output_metrics(session, design_residues=residues_df)
             # Commit the newly acquired metrics
             session.commit()
@@ -3186,7 +3186,7 @@ class PoseProtocol(PoseData):
             if output_residues:  # Todo job.metrics.residues
                 self.output_metrics(session, residues=residues_df)
             else:  # Only save the 'design_residue' columns
-                residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+                residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
                 self.output_metrics(session, design_residues=residues_df)
             # Rename the incoming files to their prescribed names
             for filename, temp_filename in temp_files_to_move.items():
@@ -3289,7 +3289,7 @@ class PoseProtocol(PoseData):
             if output_residues:  # Todo job.metrics.residues
                 self.output_metrics(session, residues=residues_df)
             else:  # Only save the 'design_residue' columns
-                residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+                residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
                 self.output_metrics(session, design_residues=residues_df)
             metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
             # Commit the newly acquired metrics
@@ -3703,7 +3703,7 @@ class PoseProtocol(PoseData):
                 self.output_metrics(session, residues=residues_df)
             # This function doesn't generate any 'design_residue'
             # else:  # Only save the 'design_residue' columns
-            #     residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+            #     residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
             #     self.output_metrics(session, design_residues=residues_df)
             # Commit the newly acquired metrics
             session.commit()
@@ -5030,7 +5030,7 @@ class PoseProtocol(PoseData):
             if output_residues:  # Todo job.metrics.residues
                 self.output_metrics(session, residues=residues_df)
             else:  # Only save the 'design_residue' columns
-                residues_df = residues_df.loc[:, idx_slice[:, 'design_residue']]
+                residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
                 self.output_metrics(session, design_residues=residues_df)
             # Commit the newly acquired metrics
             session.commit()
