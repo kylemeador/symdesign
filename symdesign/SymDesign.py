@@ -473,13 +473,18 @@ def main():
             if job.module in [flags.select_designs, flags.select_sequences]:
                 designs_file = \
                     os.path.join(job_paths, putils.default_specification_file.format(*job.default_output_tuple))
-                with open(designs_file, 'w') as f_out:
-                    f_out.write('%s\n' % '\n'.join(f'{pose_job}, {design.name}' for pose_job in successful_pose_jobs
-                                                   for design in pose_job.current_designs))
-                logger.critical(f'The file "{designs_file}" contains the pose identifier and design identifier, of '
-                                f'every design selected by this job. Utilize this file to input these designs in future'
-                                f' {putils.program_name} commands such as:\n\t{putils.program_command} MODULE '
-                                f'{flags.format_args(flags.specification_file_args)} {designs_file} ...')
+                try:
+                    with open(designs_file, 'w') as f_out:
+                        f_out.write('%s\n' % '\n'.join(f'{pose_job}, {design.name}' for pose_job in successful_pose_jobs
+                                                       for design in pose_job.current_designs))
+                        # Todo ensure .current_designs present ^
+                    logger.critical(f'The file "{designs_file}" contains the pose identifier and design identifier, of '
+                                    f'every design selected by this job. Utilize this file to input these designs in '
+                                    f'future'
+                                    f' {putils.program_name} commands such as:\n\t{putils.program_command} MODULE '
+                                    f'{flags.format_args(flags.specification_file_args)} {designs_file} ...')
+                except AttributeError:  # The pose_job variable is a str from select-designs
+                    pass
 
             # if job.module == flags.analysis:
             #     # Save Design DataFrame
@@ -1141,17 +1146,13 @@ def main():
 
             # Fetch identified. No writes
             with job.db.session(expire_on_commit=False) as session:
-                identifiers_are_database_id = True
-                id_ = pose_identifiers[0]
-                try:
-                    int(id_)
-                except ValueError:  # Can't convert to integer
-                    identifiers_are_database_id = False
-
-                if identifiers_are_database_id:
-                    fetch_jobs_stmt = select(PoseJob).where(PoseJob.id.in_(pose_identifiers))
-                else:
+                try:  # To convert the identifier to an integer
+                    int(pose_identifiers[0])
+                except ValueError:  # Can't convert to integer, identifiers_are_database_id = False
                     fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
+                else:
+                    fetch_jobs_stmt = select(PoseJob).where(PoseJob.id.in_(pose_identifiers))
+
                 pose_jobs = session.scalars(fetch_jobs_stmt).all()
 
             # Check all jobs that were checked out against those that were requested
@@ -1363,37 +1364,39 @@ def main():
             #         data.n_terminal_helix = entity.is_termini_helical()
             #         data.c_terminal_helix = entity.is_termini_helical('c')
 
-            # Write new data to the database with correct unique entries
-            for pose_job in pose_jobs_to_commit:
-                pose_job.entity_data.extend(
-                    sql.EntityData(meta=all_uniprot_id_to_prot_data[entity.uniprot_ids])
-                    for entity in pose_job.initial_model.entities)
-                # # Ensure that the pose has entity_transform information saved to the db
-                # pose_job.load_pose()
-            session.add_all(pose_jobs_to_commit)
-
-            # When pose_jobs_to_commit already exist, deal with it by getting those already
-            # OR raise a useful error for the user about input
-            try:
-                session.commit()
-            except SQLAlchemyError:
-                # Remove pose_jobs_to_commit from session
-                session.rollback()
-                # Find the actual pose_jobs_to_commit and place in session
-                pose_identifiers = [pose_job.new_pose_identifier for pose_job in pose_jobs_to_commit]
-                fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
-                existing_pose_jobs = session.scalars(fetch_jobs_stmt).all()
-
-                existing_pose_identifiers = [pose_job.pose_identifier for pose_job in existing_pose_jobs]
-                pose_jobs = []
+            if pose_jobs_to_commit:
+                # Write new data to the database with correct unique entries
                 for pose_job in pose_jobs_to_commit:
-                    if pose_job.new_pose_identifier not in existing_pose_identifiers:
-                        pose_jobs.append(pose_job)
-                        # session.add(pose_job)
+                    pose_job.entity_data.extend(
+                        sql.EntityData(meta=all_uniprot_id_to_prot_data[entity.uniprot_ids])
+                        for entity in pose_job.initial_model.entities)
+                    # Todo this could be useful if optimizing database access with concurrency
+                    # # Ensure that the pose has entity_transform information saved to the db
+                    # pose_job.load_pose()
+                session.add_all(pose_jobs_to_commit)
 
-                session.add_all(pose_jobs)
-                session.commit()
-                pose_jobs += existing_pose_jobs
+                # When pose_jobs_to_commit already exist, deal with it by getting those already
+                # OR raise a useful error for the user about input
+                try:
+                    session.commit()
+                except SQLAlchemyError:
+                    # Remove pose_jobs_to_commit from session
+                    session.rollback()
+                    # Find the actual pose_jobs_to_commit and place in session
+                    pose_identifiers = [pose_job.new_pose_identifier for pose_job in pose_jobs_to_commit]
+                    fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
+                    existing_pose_jobs = session.scalars(fetch_jobs_stmt).all()
+
+                    existing_pose_identifiers = [pose_job.pose_identifier for pose_job in existing_pose_jobs]
+                    pose_jobs = []
+                    for pose_job in pose_jobs_to_commit:
+                        if pose_job.new_pose_identifier not in existing_pose_identifiers:
+                            pose_jobs.append(pose_job)
+                            # session.add(pose_job)
+
+                    session.add_all(pose_jobs)
+                    session.commit()
+                    pose_jobs += existing_pose_jobs
 
             if args.multi_processing:  # and not args.skip_master_db:
                 logger.debug('Loading Database for multiprocessing fork')
