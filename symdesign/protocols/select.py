@@ -12,6 +12,7 @@ import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import Select
+from tqdm import tqdm
 
 from . import cluster
 from .pose import PoseJob
@@ -71,12 +72,16 @@ def load_total_dataframe(pose_jobs: Iterable[PoseJob], pose: bool = False) -> pd
 
 
 def load_and_format(session: Session, stmt: Select, selected_column_names: Iterable[str]) -> pd.DataFrame:
-    # Todo modify the upstream stmt to avoid this... if a problem
-    # SAWarning: SELECT statement has a cartesian product between FROM element(s) "pose_metrics", "pose_data",
-    # "entity_data", "design_data", "design_metrics", "entity_metrics" and FROM element "protein_metadata".
-    # Apply join condition(s) between each element to resolve.
-    # SAWarning: SELECT statement has a cartesian product between FROM element(s) "entity_data", "pose_data",
-    # "entity_metrics" and FROM element "protein_metadata".
+    """From a SELECTable query, fetch the requested columns/attributes from the database, load into a DataFrame,
+    and clean
+
+    Args:
+        session: A currently open transaction within sqlalchemy
+        stmt: The SELECTable query statement
+        selected_column_names: The column names to use during DataFrame construction
+    Returns:
+        The specified columns/attributes formatted as DataFrame.columns and their rows as the DataFrame.index
+    """
     # Apply join condition(s) between each element to resolve.
     df = pd.DataFrame.from_records(session.execute(stmt).all(), columns=selected_column_names)
     logger.debug(f'Loaded DataFrame with primary_id keys: '
@@ -266,7 +271,7 @@ def load_sql_entity_metrics_dataframe(session: Session, pose_ids: Iterable[int] 
         stmt = join_stmt
 
     if design_ids:
-        stmt = stmt.where(sql.DesignData.id.in_(design_ids))
+        stmt = stmt.where(sql.DesignEntityMetrics.design_id.in_(design_ids))
     else:
         stmt = stmt
 
@@ -1757,50 +1762,44 @@ def sql_designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             del out_total_df
 
         # Format selected designs for output
-        putils.make_path(job.output_directory)
-        logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
-
-        # Create new output of designed PDB's  # Todo attach the program state to these files for downstream use?
-        pose_id_to_identifier = {}
-        design_id_to_identifier = {}
-        results = []
         selected_design_ids = []
-        for pose_id_, design_ids in selected_pose_id_to_design_ids.items():
-            pose_job = session.get(PoseJob, pose_id_)
-            pose_id_to_identifier[pose_id_] = pose_job.pose_identifier
+        for design_ids in selected_pose_id_to_design_ids.values():
             selected_design_ids.extend(design_ids)
-            current_designs = []
-            for design_id_ in design_ids:
-                design = session.get(sql.DesignData, design_id_)
-                design_name = design.name
-                design_id_to_identifier[design_id_] = design_name
-                design_structure_path = design.structure_path
-                if design_structure_path:
-                    out_path = os.path.join(job.output_directory, f'{pose_job.project}-{design_name}.pdb')
-                    if os.path.exists(design_structure_path):
-                        shutil.copy(design_structure_path, out_path)  # [i])))
-                    else:
-                        pose_job.log.error(f'No file found for "{design_structure_path}"')
-                    # exceptions.append(utils.ReportException(f'No file found for "{file_path}"'))
-                    continue
-                # Tod0 is this grabbing the structure everytime? We need to ensure no other files exist or refine this glob
-                #  with an extension
-                # file_path = os.path.join(pose_job.designs_path, f'*{design_name}*')
-                # # print('file_path', file_path)
-                # file = sorted(glob(file_path))
-                # # print('files', file)
-                # if not file:  # Add to exceptions
-                #     pose_job.log.error(f'No file found for "{file_path}"')
-                #     # exceptions.append(utils.ReportException(f'No file found for "{file_path}"'))
-                #     continue
-                # out_path = os.path.join(job.output_directory, f'{pose_job.output_modifier}-{design_name}.pdb')
-                # if not os.path.exists(out_path):
-                #     shutil.copy(file[0], out_path)  # [i])))
 
-                current_designs.append(design)
+        if job.output_structures:
+            # Create new output of designed PDB's
+            pose_id_to_identifier = {}
+            design_id_to_identifier = {}
+            results = []
+            logger.info(f'Copying design files...')
+            for pose_id_, design_ids in tqdm(selected_pose_id_to_design_ids.items()):
+                pose_job = session.get(PoseJob, pose_id_)
+                pose_id_to_identifier[pose_id_] = pose_job.pose_identifier
+                current_designs = []
+                for design_id_ in design_ids:
+                    design = session.get(sql.DesignData, design_id_)
+                    design_name = design.name
+                    design_id_to_identifier[design_id_] = design_name
+                    design_structure_path = design.structure_path
+                    if design_structure_path:
+                        out_path = os.path.join(job.output_directory, f'{pose_job.project}-{design_name}.pdb')
+                        if os.path.exists(design_structure_path):
+                            # Todo attach the program state to these files for downstream use?
+                            shutil.copy(design_structure_path, out_path)
+                        else:
+                            pose_job.log.error(f'No file found for "{design_structure_path}"')
+                        # exceptions.append(utils.ReportException(f'No file found for "{file_path}"'))
+                        continue
 
-            pose_job.current_designs = current_designs
-            results.append(pose_job)
+                    current_designs.append(design)
+
+                pose_job.current_designs = current_designs
+                results.append(pose_job)
+        else:
+            pose_ids, design_ids, design_identifier = zip(*load_design_identifier_from_id(session, selected_design_ids))
+            design_id_to_identifier = dict(zip(design_ids, design_identifier))
+            pose_id_to_identifier = load_pose_identifier_from_id(session, set(pose_ids))
+            results = pose_id_to_identifier.values()
 
         # Todo incorporate design_metadata_df
         design_metadata_df = load_sql_design_metadata_dataframe(session, design_ids=selected_design_ids)

@@ -1197,6 +1197,7 @@ optimize_species_args = ('-opt', f'--{optimize_species}')
 optimize_species_kwargs = dict(type=str, default='e_coli',
                                help='The organism where expression will occur and nucleotide usage should be '
                                     'optimized\nDefault=%(default)s')
+output_structures_args = ('-Os', f'--{output_structures}')
 protocol_args = (f'--{protocol}',)
 protocol_kwargs = dict(type=str, default=None, nargs='*', help='Use specific protocol(s) to filter designs?')
 pose_select_number_kwargs = \
@@ -1228,6 +1229,9 @@ select_arguments = {
     filter_args: filter_kwargs,
     filter_file_args: filter_file_kwargs,
     select_number_args: select_number_kwargs,
+    output_structures_args:
+        dict(action='store_true', help='For the selection, should the corresponding structures\n'
+                                       'be written to the output directory?'),
     protocol_args: protocol_kwargs,
     save_total_args: save_total_kwargs,
     # total_args: total_kwargs,
@@ -1474,7 +1478,7 @@ output_arguments = {
              help='Write the residues that comprise the interface for each Pose'),
     ('-Oo', f'--{output_oligomers}'):
         dict(action=argparse.BooleanOptionalAction, default=False, help='Write any oligomers generated for each Pose'),
-    ('-Os', f'--{output_structures}'):
+    output_structures_args:
         dict(action=argparse.BooleanOptionalAction, default=True,
              help=f'For any structures generated, write them.\n{boolean_positional_prevent_msg(output_structures)}'),
     ('-Ou', f'--{output_surrounding_uc}'):
