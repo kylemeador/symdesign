@@ -3037,7 +3037,20 @@ class PoseProtocol(PoseData):
         # Find parent info and remove from scores_df
         if putils.design_parent in scores_df:
             # Replace missing values with the pose_source DesignData
-            parents = scores_df.pop(putils.design_parent).fillna(self.pose_source)  # .tolist()
+            # This is loaded above at 'design_names = self.design_names'
+            parents = scores_df.pop(putils.design_parent)  # .fillna(self.pose_source)
+            protocol_logger.critical(f"Setting parents functionality hasn't been tested. Proceed with caution")
+            for design, parent in parents.items():
+                if parent is np.nan:
+                    parents[design] = self.pose_source
+                try:
+                    design_name_index = design_names.index(parent)
+                except ValueError:  # This name isn't right
+                    raise DesignError(
+                        f"Couldn't find the design_parent for the design with name '{design}' and parent value of '"
+                        f"{parent}'. The available parents are:\n\t{', '.join(design_names)}")
+                else:
+                    parents[design] = design_data[design_name_index]
         else:  # Assume this is an offspring of the pose
             parents = {provided_name: self.pose_source for provided_name in rosetta_provided_new_design_names}
 
