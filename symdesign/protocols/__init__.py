@@ -48,8 +48,8 @@ def remove_structure_memory(func):
     def wrapped(job, *args, **kwargs):
         func_return = func(job, *args, **kwargs)
         if job.job.reduce_memory:
-            job.pose = None
-            # self.entities.clear()
+            job.measure_evolution = job.measure_alignment = \
+                job.pose = job.initial_model = None
         return func_return
     return wrapped
 
@@ -125,7 +125,6 @@ def protocol_decorator(errors: tuple[Type[Exception], ...] = (DesignError,)) -> 
             if job.job.reduce_memory:
                 job.measure_evolution = job.measure_alignment = \
                     job.pose = job.initial_model = None
-                # job.entities.clear()
             job.protocol = None
             # close_logs()
             # Adapted from https://stackoverflow.com/questions/15435652/python-does-not-release-filehandles-to-logfile
