@@ -570,7 +570,7 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
                         invert_ops = False
                         continue
                     else:  # We found two metrics...
-                        raise ValueError(f"Can't accept more than one value per filter as of now")
+                        raise ValueError(f"Can't accept more than one metric name per filter as of now")
                 else:  # Either a value or bad metric name
                     if component[-1] == '%':
                         # This should be treated as a percentage. Remove and parse

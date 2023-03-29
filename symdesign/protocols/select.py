@@ -378,8 +378,8 @@ def load_sql_pose_metadata_dataframe(session: Session, pose_ids: Iterable[int] =
         The pandas DataFrame formatted with the every metric in DesignMetrics. The final DataFrame will
             have an entry for each DesignData
     """
-    selected_columns = PoseJob.__table__.columns  # (PoseJob.id, *pj_c,)
-    selected_column_names = ['pose_id' if c.name == 'id' else c.name for c in selected_columns]  # ('pose_id', *pj_names,)
+    selected_columns = PoseJob.__table__.columns
+    selected_column_names = ['pose_id' if c.name == 'id' else c.name for c in selected_columns]
 
     # Construct the SQL query
     # Todo CAUTION Deprecated API features detected for 2.0! # Error issued for the below line
@@ -1502,8 +1502,8 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         if job.filter or job.protocol:
             entity_multiplicity = len(entity_metadata_df) / len(pose_metadata_df)
             logger.warning('Filtering statistics have an increased representation due to included Entity metrics. '
-                           f'Typically, values reported for each filter will be ~{entity_multiplicity}x over those '
-                           'actually present')
+                           f'Values reported for each filter will be {entity_multiplicity}x over those actually '
+                           f'present')
         # Ensure the pose_id is the index to prioritize
         total_df.set_index(pose_id, inplace=True)
         # Perform selection using provided arguments
@@ -1673,9 +1673,11 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
     with job.db.session(expire_on_commit=False) as session:
         # Figure out designs from dataframe, filters, and weights
         total_df = load_sql_all_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
+        design_metadata_df = load_sql_design_metadata_dataframe(session, design_ids=total_df[design_id].tolist())
         pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
         entity_metadata_df = load_sql_entity_metadata_dataframe(session, pose_ids=pose_ids)
         logger.debug(f'entity_metadata_df:\n{entity_metadata_df}')
+        total_df = total_df.join(design_metadata_df.set_index(design_id), on=design_id, rsuffix='_DROP')
         total_df = total_df.join(pose_metadata_df.set_index(pose_id), on=pose_id, rsuffix='_DROP')
         total_df = \
             total_df.join(entity_metadata_df.set_index([pose_id, entity_id]), on=[pose_id, entity_id], rsuffix='_DROP')
@@ -1689,8 +1691,8 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
         if job.filter or job.protocol:
             entity_multiplicity = len(entity_metadata_df) / len(pose_metadata_df)
             logger.warning('Filtering statistics have an increased representation due to included Entity metrics. '
-                           f'Typically, values reported for each filter will be ~{entity_multiplicity}x over those '
-                           'actually present')
+                           f'Values reported for each filter will be {entity_multiplicity}x over those actually '
+                           f'present')
         # Ensure the design_id is the index to prioritize, though both pose_id and design_id are grabbed below
         total_df.set_index(design_id, inplace=True)
         # Perform selection using provided arguments
