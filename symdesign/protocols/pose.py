@@ -3166,6 +3166,8 @@ class PoseProtocol(PoseData):
             # Rename all designs and clean up resulting metrics for storage
             # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
             designs_df.index = designs_df.index.map(design_name_to_id_map)
+            # Must move the entity_id to the columns for index.map to work
+            entity_designs_df.reset_index(level=0, inplace=True)
             entity_designs_df.index = entity_designs_df.index.map(design_name_to_id_map)
             residues_df.index = residues_df.index.map(design_name_to_id_map)
 
@@ -3295,6 +3297,8 @@ class PoseProtocol(PoseData):
             # Correct the index of the DataFrame by changing from "name" to database ID
             name_to_id_map = {pose_name: self.pose_source.id}
             designs_df.index = designs_df.index.map(name_to_id_map)
+            # Must move the entity_id to the columns for index.map to work
+            entity_designs_df.reset_index(level=0, inplace=True)
             entity_designs_df.index = entity_designs_df.index.map(name_to_id_map)
             residues_df.index = residues_df.index.map(name_to_id_map)
             self.output_metrics(session, designs=designs_df)
@@ -3704,6 +3708,8 @@ class PoseProtocol(PoseData):
         design_name_to_id_map = dict((design.name, design.id) for design in designs)
         # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
         designs_df.index = designs_df.index.map(design_name_to_id_map)
+        # Must move the entity_id to the columns for index.map to work
+        entity_designs_df.reset_index(level=0, inplace=True)
         entity_designs_df.index = entity_designs_df.index.map(design_name_to_id_map)
         residues_df.index = residues_df.index.map(design_name_to_id_map)
 
