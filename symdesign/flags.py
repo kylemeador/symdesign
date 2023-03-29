@@ -93,6 +93,7 @@ use_gpu_relax = 'use_gpu_relax'
 design_method = 'design_method'
 predict_method = 'predict_method'
 predict_assembly = 'predict_assembly'
+predict_designs = 'predict_designs'
 predict_pose = 'predict_pose'
 num_predictions_per_model = 'num_predictions_per_model'
 predict_entities = 'predict_entities'
@@ -129,8 +130,8 @@ init_namespace = {
     loop_model_input, refine_input, pre_loop_modeled, pre_refined
 }
 predict_namespace = {
-    models_to_relax, num_predictions_per_model, predict_assembly, predict_entities, predict_method, predict_pose,
-    use_gpu_relax
+    models_to_relax, num_predictions_per_model, predict_assembly, predict_designs, predict_entities, predict_method,
+    predict_pose, use_gpu_relax
 }
 namespaces = dict(
     cluster=cluster_namespace,
@@ -145,7 +146,7 @@ modify_options = dict(
     design=[design_method, design_number],
     dock=[dock_filter, dock_filter_file, dock_weight, dock_weight_file],
     init=[],  # loop_model_input, refine_input],
-    predict=[predict_assembly, predict_entities, predict_method, predict_pose],
+    predict=[predict_assembly, predict_designs, predict_entities, predict_method, predict_pose],
 )
 
 
@@ -190,6 +191,7 @@ predict_method = format_for_cmdline(predict_method)
 num_predictions_per_model = format_for_cmdline(num_predictions_per_model)
 predict_pose = format_for_cmdline(predict_pose)
 predict_assembly = format_for_cmdline(predict_assembly)
+predict_designs = format_for_cmdline(predict_designs)
 predict_entities = format_for_cmdline(predict_entities)
 models_to_relax = format_for_cmdline(models_to_relax)
 cluster_poses = format_for_cmdline(cluster_poses)
@@ -875,6 +877,10 @@ predict_structure_arguments = {
                   'Default=5(multimer mode),1(monomer mode)'),
     ('-A', f'--{predict_assembly}'):
         dict(action='store_true', help='Whether the assembly state should be predicted\ninstead of the ASU'),
+    (f'--{predict_designs}',):
+        dict(action=argparse.BooleanOptionalAction, default=True,
+             help='Whether the full design state should be predicted\nincluding all entities\n'
+                  f'{boolean_positional_prevent_msg(_metrics)}'),
     ('-E', f'--{predict_entities}'):
         dict(action='store_true', help='Whether individual entities should be predicted\ninstead of the entire Pose'),
     (f'--{predict_pose}',):

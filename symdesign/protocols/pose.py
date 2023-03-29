@@ -1723,6 +1723,8 @@ class PoseProtocol(PoseData):
                 raise DesignError(f'The length of the sequence {len(sequence)} != {number_of_residues}, '
                                   f'the number of residues in the pose')
         protocol_logger.info(f'Performing structure prediction on {len(sequences)} sequences')
+        # Get the DesignData.ids for metrics output
+        design_ids = [design.id for design in sequences]
 
         # Hardcode parameters
         if model_type == 'monomer_casp14':
@@ -1936,142 +1938,131 @@ class PoseProtocol(PoseData):
         pose_kwargs.update({'ignore_clashes': True})
 
         # Get features for the Pose and predict
-        if self.job.predict.assembly:
-            if self.pose.number_of_symmetric_residues > resources.ml.MULTIMER_RESIDUE_LIMIT:
-                protocol_logger.critical(f"Predicting on a single symmetric input isn't recommended due to "
-                                         'size limitations')
-            features = self.pose.get_alphafold_features(symmetric=True, multimer=multimer, no_msa=no_msa)
-            # Todo may need to this if the pose isn't completely symmetric despite it being specified as such
-            number_of_residues = self.pose.number_of_symmetric_residues
-            # prev_position_coords = get_prev_pos_coords(assembly=True)  # jnp.asarra(self.pose.assembly.alphafold_coords)
-            # protocol_logger.debug(f'Found assembly_atom_positions with shape: {assembly_atom_positions.shape}')
-            # protocol_logger.debug(f'Found asu with length: {number_of_residues}')
-            # protocol_logger.critical(f'Found assembly_atom_positions[0] with values: '
-            #                          '{assembly_atom_positions[0].tolist()}')
-            # model_features = {'prev_pos': get_prev_pos_coords(assembly=True)}
-        else:
-            number_of_residues = self.pose.number_of_residues
-            features = self.pose.get_alphafold_features(symmetric=False, multimer=multimer, no_msa=no_msa)
-
-            # prev_position_coords = get_prev_pos_coords()  # jnp.asarray(self.pose.alphafold_coords)
-            # protocol_logger.debug(f'Found asu_atom_positions with shape: {asu_atom_positions.shape}')
-            # protocol_logger.debug(f'Found asu with length: {number_of_residues}')
-            # protocol_logger.critical(f'Found asu_atom_positions[0] with values: {asu_atom_positions[0].tolist()}')
-            # model_features = {'prev_pos': get_prev_pos_coords()}
-
-        if multimer:  # Get the length
-            multimer_sequence_length = features['seq_length']
-        else:
-            multimer_sequence_length = None
-
-        # Get the DesignData.ids for metrics output
-        design_ids = [design.id for design in sequences]
-
-        putils.make_path(self.designs_path)
-        model_names = []
-        asu_design_structures = []  # structure_by_design = {}
-        asu_design_scores = {}  # []  # scores_by_design = {}
-        for design, sequence in sequences.items():
-            this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
-            protocol_logger.debug(f'Found this_seq_features:\n\t%s'
-                                  % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
-            model_features = {'prev_pos': get_prev_pos_coords(sequence, assembly=self.job.predict.assembly)}
-            protocol_logger.info(f'Predicting Design {design.name} structure')
-            asu_structures, asu_scores = \
-                resources.ml.af_predict({**features, **this_seq_features, **model_features},
-                                        model_runners, gpu_relax=self.job.predict.use_gpu_relax,
-                                        models_to_relax=self.job.predict.models_to_relax)
-            if relaxed:
-                structures_to_load = asu_structures.get('relaxed', [])
+        if self.job.predict.designs:
+            if self.job.predict.assembly:
+                if self.pose.number_of_symmetric_residues > resources.ml.MULTIMER_RESIDUE_LIMIT:
+                    protocol_logger.critical(f"Predicting on a single symmetric input isn't recommended due to "
+                                             'size limitations')
+                features = self.pose.get_alphafold_features(symmetric=True, multimer=multimer, no_msa=no_msa)
+                # Todo may need to this if the pose isn't completely symmetric despite it being specified as such
+                number_of_residues = self.pose.number_of_symmetric_residues
             else:
-                structures_to_load = asu_structures.get('unrelaxed', [])
-            # Todo remove this after debug is done
-            output_alphafold_structures(asu_structures, design_name=f'{design}-asu')
-            # asu_models = load_alphafold_structures(structures_to_load, name=str(design),  # Get '.name'
-            #                                        entity_info=self.pose.entity_info)
-            # Load the Model in while ignoring any potential clashes
-            # Todo should I limit the .splitlines by the number_of_residues? Assembly v asu considerations
-            asu_models = {model_name: Pose.from_pdb_lines(structure.splitlines(), name=str(design), **pose_kwargs)
-                          for model_name, structure in structures_to_load.items()}
-            # Because the pdb_lines are not oriented, we must handle orientation of incoming files to match sym_entry
-            # This is handled in find_model_with_minimal_rmsd(), however, the symmetry isn't set up correctly, i.e.
-            # we need to pose.make_oligomers() in the correct orientation
-            # Do this all at once after every design
-            if relaxed:  # Set b-factor data as relaxed get overwritten
-                for model_name, model in asu_models.items():
-                    model.set_b_factor_data(asu_scores[model_name]['plddt'][:number_of_residues])
-            # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
-            rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.cb_coords)
-            # rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
-            if minimum_model is None:
-                self.log.critical(f"Couldn't find the asu model with the minimal rmsd for Design {design}")
-            # Append each ASU result to the full return
-            asu_design_structures.append(asu_models[minimum_model])
-            model_names.append(minimum_model)
-            # structure_by_design[design].append(asu_models[minimum_model])
-            # asu_design_scores.append({'rmsd_prediction_ensemble': rmsds, **asu_scores[minimum_model]})
-            # Average all models scores to get the ensemble of the predictions
-            combined_scores = combine_model_scores(list(asu_scores.values()))
-            asu_design_scores[str(design)] = {'rmsd_prediction_ensemble': rmsds, **combined_scores}
-            # asu_design_scores[str(design)] = {'rmsd_prediction_ensemble': rmsds, **asu_scores[minimum_model]}
-            """Each design in asu_design_scores contain the following features
-            {'predicted_aligned_error': [(n_residues, n_residues), ...]  # multimer/monomer_ptm
-             'plddt': [(n_residues,), ...]
-             'predicted_interface_template_modeling_score': [float, ...]  # multimer
-             'predicted_template_modeling_score': [float, ...]  # multimer/monomer_ptm
-             'rmsd_prediction_ensemble: [(number_of_models), ...]
-             }
-            """
+                number_of_residues = self.pose.number_of_residues
+                features = self.pose.get_alphafold_features(symmetric=False, multimer=multimer, no_msa=no_msa)
 
-        # Write the folded structure to designs_path and update DesignProtocols
-        for idx, (design_data, pose) in enumerate(zip(sequences.keys(), asu_design_structures)):
-            design_data.structure_path = pose.write(out_path=os.path.join(self.designs_path, f'{design_data.name}.pdb'))
-            design_data.protocols.append(sql.DesignProtocol(design_id=design_data.id,
-                                                            job_id=self.job.id,
-                                                            protocol=self.protocol,
-                                                            alphafold_model=model_names[idx],
-                                                            file=design_data.structure_path))
-            # # This corrects the oligomeric specification for each Entity
-            # # by using the inherent _assign_pose_transformation()
-            # pose.make_oligomers()
-            # This would explicitly pass the transformation parameters which are correct for the PoseJob
-            # for entity in pose.entities:
-            #     entity.remove_mate_chains()
-            pose.make_oligomers(transformations=self.transformations)
-            pose.write(out_path=os.path.join(self.designs_path, f'{pose.name}-asu-check.pdb'))
-            pose.write(assembly=True, out_path=os.path.join(self.designs_path, f'{pose.name}-assembly-check.pdb'))
-            for entity in pose.entities:
-                entity.write(
-                    out_path=os.path.join(self.designs_path, f'{pose.name}{entity.name}-oligomer-asu-check.pdb'))
-                entity.write(oligomer=True,
-                             out_path=os.path.join(self.designs_path, f'{pose.name}{entity.name}-oligomer-check.pdb'))
+            if multimer:  # Get the length
+                multimer_sequence_length = features['seq_length']
+            else:
+                multimer_sequence_length = None
 
-        residues_df = self.analyze_residue_metrics_per_design(asu_design_structures)
-        designs_df = self.analyze_design_metrics_per_design(residues_df, asu_design_structures)
-        # Use the .interface_residues attribute to discern whether the interface should be examined
-        predict_designs_df, predict_residues_df = \
-            self.analyze_alphafold_metrics(asu_design_scores, number_of_residues,
-                                           model_type=model_type, interface=self.pose.interface_residues)
-        residue_indices = list(range(number_of_residues))
-        # Set the index to use the design.id for each design instance
-        design_index = pd.Index(design_ids, name=sql.ResidueMetrics.design_id.name)
-        residue_sequences_df = pd.DataFrame([list(seq) for seq in sequences.values()], index=predict_residues_df.index,
-                                            columns=pd.MultiIndex.from_product([residue_indices,
-                                                                                [sql.ResidueMetrics.type.name]]))
-        residues_df = residues_df.join([predict_residues_df, residue_sequences_df])
-        designs_df = designs_df.join(predict_designs_df)
-        designs_df.index = residues_df.index = design_index
-        # Output collected metrics
-        with self.job.db.session(expire_on_commit=False) as session:
-            self.output_metrics(session, designs=designs_df)
-            output_residues = False
-            if output_residues:  # Todo job.metrics.residues
-                self.output_metrics(session, residues=residues_df)
-            # else:  # Only save the 'design_residue' columns
-            #     residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
-            #     self.output_metrics(session, design_residues=residues_df)
-            # Commit the newly acquired metrics
-            session.commit()
+            putils.make_path(self.designs_path)
+            model_names = []
+            asu_design_structures = []  # structure_by_design = {}
+            asu_design_scores = {}  # []  # scores_by_design = {}
+            for design, sequence in sequences.items():
+                this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
+                protocol_logger.debug(f'Found this_seq_features:\n\t%s'
+                                      % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
+                model_features = {'prev_pos': get_prev_pos_coords(sequence, assembly=self.job.predict.assembly)}
+                protocol_logger.info(f'Predicting Design {design.name} structure')
+                asu_structures, asu_scores = \
+                    resources.ml.af_predict({**features, **this_seq_features, **model_features}, model_runners,
+                                            gpu_relax=self.job.predict.use_gpu_relax,
+                                            models_to_relax=self.job.predict.models_to_relax)
+                if relaxed:
+                    structures_to_load = asu_structures.get('relaxed', [])
+                else:
+                    structures_to_load = asu_structures.get('unrelaxed', [])
+                # # Tod0 remove this after debug is done
+                # output_alphafold_structures(asu_structures, design_name=f'{design}-asu')
+                # asu_models = load_alphafold_structures(structures_to_load, name=str(design),  # Get '.name'
+                #                                        entity_info=self.pose.entity_info)
+                # Load the Model in while ignoring any potential clashes
+                # Todo should I limit the .splitlines by the number_of_residues? Assembly v asu considerations
+                asu_models = {model_name: Pose.from_pdb_lines(structure.splitlines(), name=str(design), **pose_kwargs)
+                              for model_name, structure in structures_to_load.items()}
+                # Because the pdb_lines aren't oriented, must handle orientation of incoming files to match sym_entry
+                # This is handled in find_model_with_minimal_rmsd(), however, the symmetry isn't set up correctly, i.e.
+                # we need to pose.make_oligomers() in the correct orientation
+                # Do this all at once after every design
+                if relaxed:  # Set b-factor data as relaxed get overwritten
+                    for model_name, model in asu_models.items():
+                        model.set_b_factor_data(asu_scores[model_name]['plddt'][:number_of_residues])
+                # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
+                rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.cb_coords)
+                # rmsds, minimum_model = find_model_with_minimal_rmsd(asu_models, self.pose.backbone_and_cb_coords)
+                if minimum_model is None:
+                    self.log.critical(f"Couldn't find the asu model with the minimal rmsd for Design {design}")
+                # Append each ASU result to the full return
+                asu_design_structures.append(asu_models[minimum_model])
+                model_names.append(minimum_model)
+                # structure_by_design[design].append(asu_models[minimum_model])
+                # asu_design_scores.append({'rmsd_prediction_ensemble': rmsds, **asu_scores[minimum_model]})
+                # Average all models scores to get the ensemble of the predictions
+                combined_scores = combine_model_scores(list(asu_scores.values()))
+                asu_design_scores[str(design)] = {'rmsd_prediction_ensemble': rmsds, **combined_scores}
+                # asu_design_scores[str(design)] = {'rmsd_prediction_ensemble': rmsds, **asu_scores[minimum_model]}
+                """Each design in asu_design_scores contain the following features
+                {'predicted_aligned_error': [(n_residues, n_residues), ...]  # multimer/monomer_ptm
+                 'plddt': [(n_residues,), ...]
+                 'predicted_interface_template_modeling_score': [float, ...]  # multimer
+                 'predicted_template_modeling_score': [float, ...]  # multimer/monomer_ptm
+                 'rmsd_prediction_ensemble: [(number_of_models), ...]
+                 }
+                """
+
+            # Write the folded structure to designs_path and update DesignProtocols
+            for idx, (design_data, pose) in enumerate(zip(sequences.keys(), asu_design_structures)):
+                design_data.structure_path = \
+                    pose.write(out_path=os.path.join(self.designs_path, f'{design_data.name}.pdb'))
+                design_data.protocols.append(sql.DesignProtocol(design_id=design_data.id,
+                                                                job_id=self.job.id,
+                                                                protocol=self.protocol,
+                                                                alphafold_model=model_names[idx],
+                                                                file=design_data.structure_path))
+                # # This corrects the oligomeric specification for each Entity
+                # # by using the inherent _assign_pose_transformation()
+                # pose.make_oligomers()
+                # This would explicitly pass the transformation parameters which are correct for the PoseJob
+                # for entity in pose.entities:
+                #     entity.remove_mate_chains()
+                pose.make_oligomers(transformations=self.transformations)
+                pose.write(out_path=os.path.join(self.designs_path, f'{pose.name}-asu-check.pdb'))
+                pose.write(assembly=True, out_path=os.path.join(self.designs_path, f'{pose.name}-assembly-check.pdb'))
+                for entity in pose.entities:
+                    entity.write(
+                        out_path=os.path.join(self.designs_path, f'{pose.name}{entity.name}-oligomer-asu-check.pdb'))
+                    entity.write(oligomer=True,
+                                 out_path=os.path.join(self.designs_path,
+                                                       f'{pose.name}{entity.name}-oligomer-check.pdb'))
+
+            residues_df = self.analyze_residue_metrics_per_design(asu_design_structures)
+            designs_df = self.analyze_design_metrics_per_design(residues_df, asu_design_structures)
+            # Use the .interface_residues attribute to discern whether the interface should be examined
+            predict_designs_df, predict_residues_df = \
+                self.analyze_alphafold_metrics(asu_design_scores, number_of_residues,
+                                               model_type=model_type, interface=self.pose.interface_residues)
+            residue_indices = list(range(number_of_residues))
+            # Set the index to use the design.id for each design instance
+            design_index = pd.Index(design_ids, name=sql.ResidueMetrics.design_id.name)
+            residue_sequences_df = pd.DataFrame([list(seq) for seq in sequences.values()],
+                                                index=predict_residues_df.index,
+                                                columns=pd.MultiIndex.from_product([residue_indices,
+                                                                                    [sql.ResidueMetrics.type.name]]))
+            residues_df = residues_df.join([predict_residues_df, residue_sequences_df])
+            designs_df = designs_df.join(predict_designs_df)
+            designs_df.index = residues_df.index = design_index
+            # Output collected metrics
+            with self.job.db.session(expire_on_commit=False) as session:
+                self.output_metrics(session, designs=designs_df)
+                output_residues = False
+                if output_residues:  # Todo job.metrics.residues
+                    self.output_metrics(session, residues=residues_df)
+                # else:  # Only save the 'design_residue' columns
+                #     residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
+                #     self.output_metrics(session, design_residues=residues_df)
+                # Commit the newly acquired metrics
+                session.commit()
 
         # Prepare the features to feed to the model
         if self.job.predict.entities:  # and self.number_of_entities > 1:
@@ -2184,7 +2175,13 @@ class PoseProtocol(PoseData):
                 for entity_designs_df in entity_design_dfs:
                     metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
                 session.commit()
-            try:
+
+            # Try to perform an analysis of the separated versus the combined prediction
+            if self.job.predict.designs:
+                # Reorder the entity structures
+                for design, entity_structs in entity_structure_by_design.items():
+                    entity_structure_by_design[design] = \
+                        [entity_structs[idx] for idx in entity_idx_sorted_residue_number_highest_to_lowest]
                 # Combine Entity structure to compare with the Pose prediction
                 entity_design_structures = [
                     Pose.from_entities([entity for model in entity_models for entity in model.entities],
