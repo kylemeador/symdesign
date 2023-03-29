@@ -38,6 +38,9 @@ metrics = {
                                    direction=None, function=None, filter=True),
     'external_translation_z': dict(description='The external_translation_z transformation parameter',
                                    direction=None, function=None, filter=True),
+    'alphafold_model':
+        dict(description='The identifier of the AlphaFold model/parameters that was used for predict-structures',
+             direction=None, function='equals', filter=True),
     'area_hydrophobic_complex':
         dict(description='Total hydrophobic solvent accessible surface area in the complexed state',
              direction=min_, function=rank, filter=True),
@@ -76,12 +79,21 @@ metrics = {
     'buried_unsatisfied_hbonds_unbound':
         dict(description='Buried unsatisfied H-bonds in the unbound interface state',
              direction=min_, function=rank, filter=True),
+    'ca_only':
+        dict(description='True if a Ca representation was used for designed',
+             direction=None, function=boolean, filter=True),
+    'commit':
+        dict(description=f'The git commit of the {putils.program_name} source code',
+             direction=None, function='equals', filter=True),
     'contact_count':
         dict(description='Number of carbon-carbon contacts across interface',
              direction=max_, function=rank, filter=True),
     'contact_order':
         dict(description='The distance of contacts to other residues in the structure',
              direction=max_, function=rank, filter=True),
+    'contiguous_ghosts':
+        dict(description='Whether ghost fragments were filtered for contiguous occurrences during docking',
+             direction=None, function=boolean, filter=True),
     'collapse_deviation_magnitude':
         dict(description='The total deviation in the hydrophobic collapse. Either more or less collapse prone',
              direction=min_, function=rank, filter=True),
@@ -347,13 +359,23 @@ metrics = {
     'errat_deviation':
         dict(description='Whether a residue window deviates significantly from typical Errat distribution',
              direction=min_, function=boolean, filter=True),
+    'evolution_constraint':
+        dict(description='Whether evolutionary constraints were used to constrain design/perform analysis',
+             direction=None, function=boolean, filter=True),
     'favor_residue_energy':
         dict(description='Total weight of sequence constraints used to favor certain amino acids in design. '
                          'Only protocols with a favored profile have values',
              direction=max_, function=normalize, filter=True),
+    'initial_z_value':
+        dict(description='The z-value of the observed fragment pair root mean squared deviation (RMSD) compared to the '
+                         'fragment cluster RMSD that is required for an initial fragment match during docking',
+             direction=min_, function=normalize, filter=True),
     'interaction_energy_complex':
         dict(description='The two-body (residue-pair) energy of the complexed interface. No solvation '
                          'energies', direction=min_, function=rank, filter=True),
+    'interface':
+        dict(description='True if only interface residues were designed',
+             direction=None, function=boolean, filter=True),
     'interface_area_hydrophobic':
         dict(description='Total hydrophobic interface buried surface area',
              direction=min_, function=rank, filter=True),
@@ -441,9 +463,15 @@ metrics = {
         dict(description='The desolvation free energy of the separated, repacked, interface surfaces. Positive'
                          ' values indicate energy is required to desolvate',
              direction=min_, function=rank, filter=True),
+    'match_value':
+        dict(description='The value that is required for a high quality fragment match during docking',
+             direction=max_, function=normalize, filter=True),
     'maximum_radius':
         dict(description='The maximum radius any entity extends from the assembly core',
              direction=min_, function=rank, filter=True),
+    'minimum_matched':
+        dict(description='The number of matches required for a docked interface to pass',
+             direction=max_, function=normalize, filter=True),
     'minimum_radius':
         dict(description='The minimum radius any entity approaches the assembly core',
              direction=max_, function=rank, filter=True),
@@ -469,6 +497,9 @@ metrics = {
     'nanohedra_score_normalized':
         dict(description='The Nanohedra Score normalized by number of fragment residues. The maximum value is 2',
              direction=max_, function=rank, filter=True),
+    'neighbors':
+        dict(description='True if neighbors of design residues were designed',
+             direction=None, function=boolean, filter=True),
     'number_residues_interface_fragment_total':
         dict(description='The number of residues in the interface with fragment observationsfound',
              direction=max_, function=rank, filter=True),
@@ -494,6 +525,9 @@ metrics = {
     'number_mutations':
         dict(description='The number of mutations made to the pose (ie. wild-type residue to any other '
                          'amino acid)',
+             direction=min_, function=normalize, filter=True),
+    'number_predictions':
+        dict(description='The number of predictions performed during the predict-structures module',
              direction=min_, function=normalize, filter=True),
     'observations':
         dict(description='Number of unique design trajectories contributing to statistics',
@@ -588,6 +622,9 @@ metrics = {
         dict(description='This can serve for a visualisation of domain packing confidence within the structure, where a'
                          'value of 0 means most confident. See pmid:15476259',
              direction=max_, function=normalize, filter=True),
+    'prediction_model':
+        dict(description='The name of the model used to perform predict-structures',
+             direction=None, function='equals', filter=True),
     'proteinmpnn_dock_cross_entropy_loss':
         dict(description='The total loss between ProteinMPNN probabilities in the unbound and complexed states',
              direction=max_, function=normalize, filter=True),
@@ -595,6 +632,9 @@ metrics = {
         dict(description='The per-docked interface residue loss between ProteinMPNN probabilities in the unbound and '
                          'complexed states',
              direction=max_, function=normalize, filter=True),
+    'proteinmpnn_model_name':
+        dict(description='The name of the ProteinMPNN model used for design',
+             direction=None, function='equals', filter=True),
     'proteinmpnn_v_design_probability_cross_entropy_loss':
         dict(description='The total loss between the ProteinMPNN probabilities and the design profile probabilities',
              direction=min_, function=normalize, filter=True),
@@ -708,7 +748,7 @@ metrics = {
              direction=min_, function=normalize, filter=True),
     'sequence':
         dict(description='The amino acid sequence of the design',
-             direction=None, function=None, filter=False),
+             direction=None, function='equals', filter=False),
     'shape_complementarity':
         dict(description='Measure of fit between two surfaces from Lawrence and Colman 1993',
              direction=max_, function=normalize, filter=True),
@@ -737,7 +777,16 @@ metrics = {
     'symmetry_dimension':  # 'design_dimension':
         dict(description='The underlying dimension of the design. 0 - point, 2 - layer, 3 - space group',
              direction=None, function=None, filter=True),
+    'temperature':
+        dict(description='The temperature that the design was performed at. Bounded between (0-1]',
+             direction=min_, function=normalize, filter=True),
+    'term_constraint':
+        dict(description='Whether tertiary constraints were used to constrain design/perform analysis',
+             direction=None, function=boolean, filter=True),
     # 'total_charge_per_res': dict(),  # Todo
+    'use_gpu_relax':
+        dict(description='Whether a GPU was used for AlphaFold prediction relaxation',
+             direction=None, function=boolean, filter=True),
     # Rosetta based scores
     'REU':
         dict(description='Rosetta Energy Units. Always 0. We can disregard',
