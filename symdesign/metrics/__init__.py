@@ -1267,7 +1267,7 @@ def position_specific_divergence(frequencies: np.ndarray, bgd_frequencies: np.nd
 
 
 def df_permutation_test(grouped_df: pd.DataFrame, diff_s: pd.Series, group1_size: int = 0, compare: str = 'mean',
-                        permutations: int = 1000) -> pd.Series:  # TODO SDUtils
+                        permutations: int = 1000) -> pd.Series:
     """Run a permutation test on a dataframe with two categorical groups. Default uses mean to compare significance
 
     Args:
@@ -1328,10 +1328,28 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dic
                 print_filters.append((metric_name, f'{flags.operator_strings[operation]} {value}'))
 
                 try:
-                    filtered_df = df[operation(pre_operation(df[metric_name], **pre_kwargs), value)]
+                    prepared_df = pre_operation(df[metric_name], **pre_kwargs)
                 except KeyError:  # metric_name is missing from df
                     logger.error(f"The metric {metric_name} wasn't available in the DataFrame")
                     filtered_df = df
+                else:
+                    # if isinstance(value, Iterable):
+                    #     # In the case that contains or not_contains operators are used
+                    #     filtered_indices = []
+                    #     print(value)
+                    #     for value_ in value:
+                    #         print(value_)
+                    #         op_return = operation(prepared_df, value_)
+                    #         print(op_return)
+                    #         filtered_df = df[op_return]
+                    #         # filtered_df = df[operation(prepared_df, value_)]
+                    #         filtered_indices.append(filtered_df.index.tolist())
+                    #     filtered_indices = index_intersection(filtered_indices)
+                    # else:
+                    filtered_df = df[operation(prepared_df, value)]
+                    # filtered_indices_ = filtered_df.index.tolist()
+
+                # Save found indices
                 if multiple_ops:
                     # Add and index as the metric_name could be used a couple of times
                     filter_name = f'{metric_name}({idx})'

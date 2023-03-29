@@ -381,18 +381,21 @@ def load_flags(file):
     with open(file, 'r') as f:
         return {dict(tuple(flag.lstrip('-').split())) for flag in f.readlines()}
 
+# def not_contains(__a: Container[object], __b: object) -> bool:
+#     return operator.not_(operator.contains(__a, __b))
+
+
+def not_contains(__a: pd.Sereies, __b: object) -> pd.Series:
+    return operator.invert(pd.Series.isin(__a, __b))
+
 
 # Put longer operations first so that they are scanned first, then shorter ones i.e. '>=' then '>'
-def not_contains(__a: Container[object], __b: object) -> bool:
-    return operator.not_(operator.contains(__a, __b))
-
-
 viable_operations = {
     # '+': operator.add, '-': operator.sub,
     # '*': operator.mul, '@': operator.matmul,
     # '/': operator.truediv, '//': operator.floordiv,
     '!->': not_contains,
-    '->': operator.contains,  # value in metric
+    '->': pd.Series.isin,  # operator.contains,  # value in metric
     '>=': operator.ge,  # '=>': operator.ge,
     '<=': operator.le,  # '=<': operator.le,
     '!=': operator.ne,  # '=!': operator.ne,
@@ -415,7 +418,8 @@ inverse_operations = {
 }
 operator_strings = {
     not_contains: '!->',
-    operator.contains: '->',
+    # operator.contains: '->',
+    pd.Series.isin: '->',
     operator.ge: '>=',
     operator.le: '<=',
     operator.ne: '!=',
@@ -511,8 +515,15 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
             + [filter_str[full_indices[-1]:]]
 
         # Set up function to parse values properly
-        def extract_format_value(_value: Any) -> Any:
-            """Values can be of type int, float, or string. Further, strings could be a list of int/float"""
+        def extract_format_value(_value: str) -> Any:
+            """Values can be of type int, float, or string. Further, strings could be a list of int/float
+            comma separated
+
+            Args:
+                _value: The string to format
+            Returns:
+                The value formatted from a string input to the correct python type for filter evaluation
+            """
             try:
                 formatted_value = int(_value)
             except ValueError:  # Not simply an integer
