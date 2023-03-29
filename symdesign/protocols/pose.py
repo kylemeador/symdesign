@@ -2067,10 +2067,18 @@ class PoseProtocol(PoseData):
             # Get the features for each oligomeric Entity
             # The folding_scores will all be the length of the gene Entity, not oligomer
             # entity_scores_by_design = {design: [] for design in sequences}
+            # Sort the entity instances by their length to improve compile time.
+            # The only compile should be the first prediction
+            entity_number_of_residues = [(entity.number_of_residues, idx)
+                                         for idx, entity in enumerate(self.pose.entities)]
+            entity_idx_sorted_residue_number_highest_to_lowest = \
+                [idx for _, idx in sorted(entity_number_of_residues, key=lambda pair: pair[0], reverse=True)]
+            sorted_entities_and_data = [(self.pose.entities[idx], self.entity_data[idx])
+                                        for idx in entity_idx_sorted_residue_number_highest_to_lowest]
             entity_structure_by_design = {design: [] for design in sequences}
             entity_design_dfs = []
             entity_residue_dfs = []
-            for entity, entity_data in zip(self.pose.entities, self.entity_data):
+            for entity, entity_data in sorted_entities_and_data:
                 # Fold with symmetry True. If it isn't symmetric, symmetry won't be used
                 features = entity.get_alphafold_features(symmetric=True, no_msa=no_msa)
                 if multimer:  # Get the length

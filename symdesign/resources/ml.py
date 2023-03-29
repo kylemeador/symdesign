@@ -1330,9 +1330,9 @@ def amber_relax(prot: afprotein, gpu: bool = False):
     return min_pdb, violations
 
 
-def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
-               gpu_relax: bool = False, models_to_relax: relax_options_literal = None, random_seed: int = None) \
-        -> tuple[dict[str, dict[str, str]], dict[str, FeatureDict]]:
+def af_predict(features: FeatureDict, model_runners: dict[str, RunModel], gpu_relax: bool = False,
+               models_to_relax: relax_options_literal = None, random_seed: int = None,
+               confidence_stop_threshold: float = 0.85) -> tuple[dict[str, dict[str, str]], dict[str, FeatureDict]]:
     """Run Alphafold to predict a structure from sequence/msa/template features
 
     Args:
@@ -1342,6 +1342,9 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
         gpu_relax: Whether predictions should be relaxed using a GPU (if one is available)
         models_to_relax: Specify which predictions should be relaxed
         random_seed: A random integer to seed the model. Could be provided to ensure consistency across runs
+        confidence_stop_threshold: The confidence threshold to stop prediction if a prediction scores higher than it.
+            Value provided should be between [0-1]. Will use mean plddt if the model is monomer, if model is multimer,
+            will use 0.8*interface_predicted_template_modeling_score + 0.2*predicted_template_modeling_score
     Returns:
         The tuple of structure and score dictionaries. Where structures contains the keys 'relaxed' and
         'unrelaxed' mapped to the model name and the model PDB string and folding_scores contain the model name
@@ -1351,6 +1354,10 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
     num_models = len(model_runners)
     if random_seed is None:  # Make one
         random_seed = random.randrange(sys.maxsize // num_models)
+
+    if confidence_stop_threshold > 1:
+        raise ValueError(f"confidence_stop_threshold must be between 0 and 1. If using monomer models with plddt, "
+                         f"will take the confidence metric as the percent plddt (out of a maximum of 100)")
 
     # # Set up folding_scores dictionary
     # scores = {
@@ -1462,6 +1469,14 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
         for score in unneeded_scores:
             np_prediction_result.pop(score, None)
         scores[model_name] = np_prediction_result
+
+        if model_runner.multimer_mode:
+            pass
+        else:  # monomer mode. Divide by 100 to get a percentage
+            confidence_metric /= 100
+        if confidence_metric > confidence_stop_threshold:
+            # The prediction quality is already satisfactory
+            break
 
     # Rank model names by model confidence.
     ranked_order = [design_model_name for design_model_name, confidence in

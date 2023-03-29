@@ -734,8 +734,8 @@ class JobResources:
             )
         elif self.module == flags.predict_structure:
             protocol_kwargs = dict(
-                number_predictions=self.predict.number_predictions,
-                prediction_model=self.predict.prediction_model,
+                number_predictions=self.predict.num_predictions_per_model,
+                prediction_model=self.predict.method,
                 use_gpu_relax=self.predict.use_gpu_relax,
             )
         elif self.module == flags.analysis:
