@@ -2326,7 +2326,8 @@ class PoseProtocol(PoseData):
                 # Write the designed_files_file with all "tentatively" designed file paths
                 out_file_string = f'%s{os.sep}{pdb_out_path}{os.sep}%s'
                 with open(designed_files_file, 'w') as f:
-                    f.write('%s\n' % '\n'.join(out_file_string % os.path.split(file) for file in design_files))
+                    f.write('%s\n' % '\n'.join(os.path.join(pdb_out_path, os.path.basename(file))
+                                               for file in design_files))
             else:
                 raise ValueError(
                     f"Couldn't run {self.refine.__name__} without passing parameter 'design_files' or 'in_file_list'")
