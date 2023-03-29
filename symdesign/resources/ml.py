@@ -1379,8 +1379,9 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
 
     unneeded_scores = [
         'distogram', 'experimentally_resolved', 'masked_msa', 'predicted_lddt', 'structure_module',
-        'final_atom_positions', 'ranking_confidence', 'num_recycles', 'aligned_confidence_probs',
+        'final_atom_positions', 'num_recycles', 'aligned_confidence_probs',
         'max_predicted_aligned_error',
+        # 'ranking_confidence',
         # 'ptm', 'iptm', 'predicted_aligned_error', 'plddt',
     ]
     scores = {}
@@ -1453,7 +1454,7 @@ def af_predict(features: FeatureDict, model_runners: dict[str, RunModel],
         unrelaxed_proteins[model_name] = unrelaxed_protein
         unrelaxed_pdbs_[model_name] = afprotein.to_pdb(unrelaxed_protein)
 
-        ranking_confidences[model_name] = np_prediction_result['ranking_confidence']
+        ranking_confidences[model_name] = confidence_metric = np_prediction_result.pop('ranking_confidence')
         # Process incoming scores to be returned
         for old_score, new_score in change_scores:
             np_prediction_result[new_score] = np_prediction_result.pop(old_score)

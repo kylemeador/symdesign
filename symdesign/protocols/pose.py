@@ -1736,17 +1736,14 @@ class PoseProtocol(PoseData):
         multimer = heteromer or self.pose.number_of_chains > 1
         run_multimer_system = self.pose.number_of_entities > 1 or self.pose.number_of_chains > 1
         if run_multimer_system:
-            # multimer = True
             model_type = 'multimer'
             self.log.info(f'The alphafold model was automatically set to {model_type} due to detected multimeric pose')
-        # else:
-        #     multimer = False
 
         # # Todo enable compilation time savings by returning a precomputed model_factory. Padding the size of this may
         # #  help quite a bit
         # model_runners = resources.ml.alphafold_model_factory.get()
         if self.job.predict.num_predictions_per_model is None:
-            if run_multimer_system:  # 'multimer
+            if run_multimer_system:
                 # Default is 5, with 5 models for 25 outputs. Could do 1 to increase speed...
                 num_predictions_per_model = 5
             else:
@@ -2159,8 +2156,7 @@ class PoseProtocol(PoseData):
 
                 sequence_length = entity_slice.stop - entity_slice.start
                 entity_designs_df, entity_residues_df = \
-                    self.analyze_alphafold_metrics(entity_scores_by_design,
-                                                   sequence_length, model_type=model_type)
+                    self.analyze_alphafold_metrics(entity_scores_by_design, sequence_length, model_type=model_type)
                 # Set the index to use the design.id for each design instance and EntityData.id as an additional column
                 entity_designs_df.index = pd.MultiIndex.from_product([design_ids, [entity_data.id]],
                                                                      names=[sql.DesignEntityMetrics.design_id.name,
