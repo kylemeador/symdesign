@@ -2203,68 +2203,67 @@ class PoseProtocol(PoseData):
                     #                                          entity.c_terminal_residue.index)
                     #                                    )))
                 entity_residues_df = pd.concat(entity_residue_dfs, axis=1)
-                entity_designs_df, extra_entity_designs_df = entity_design_dfs
-                for df in extra_entity_designs_df:
-                    entity_designs_df += df
+                try:
+                    self.log.info('Testing the addition of entity_designs_df. They were not adding correctly without '
+                                  '*unpack')
+                    entity_designs_df, *extra_entity_designs_df = entity_design_dfs
+                    for df in extra_entity_designs_df:
+                        entity_designs_df += df
 
-                entity_designs_df /= number_of_entities
-                # entity_designs_df = pd.concat(entity_design_dfs, axis=0)
-                # score_types_mean = ['rmsd_prediction_ensemble']
-                # if 'multimer' in model_type:
-                #     score_types_mean += ['predicted_interface_template_modeling_score',
-                #                          'predicted_template_modeling_score']
-                # elif 'ptm' in model_type:
-                #     score_types_mean += ['predicted_template_modeling_score']
-                #
-                # score_types_concat = ['predicted_aligned_error', 'plddt']
-                #
-                # entity_design_scores = []
-                # for design in sequences:
-                #     entity_scores = entity_scores_by_design[design]
-                #     protocol_logger.debug(f'Found entity_scores with contents:\n{entity_scores}')
-                #     scalar_scores = {score_type: sum([sum(scores[score_type]) for scores in entity_scores])
-                #                      / number_of_entities
-                #                      for score_type in score_types_mean}
-                #     # 'predicted_aligned_error' won't concat correctly, so we average over each residue first
-                #     for scores in entity_scores:
-                #         scores['predicted_aligned_error'] = scores['predicted_aligned_error'].mean(axis=-1)
-                #     array_scores = {score_type: np.concatenate([scores[score_type] for scores in entity_scores])
-                #                     for score_type in score_types_concat}
-                #     scalar_scores.update(array_scores)
-                #     protocol_logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
-                #     entity_design_scores.append(scalar_scores)
+                    entity_designs_df /= number_of_entities
+                    # entity_designs_df = pd.concat(entity_design_dfs, axis=0)
+                    # score_types_mean = ['rmsd_prediction_ensemble']
+                    # if 'multimer' in model_type:
+                    #     score_types_mean += ['predicted_interface_template_modeling_score',
+                    #                          'predicted_template_modeling_score']
+                    # elif 'ptm' in model_type:
+                    #     score_types_mean += ['predicted_template_modeling_score']
+                    #
+                    # score_types_concat = ['predicted_aligned_error', 'plddt']
+                    #
+                    # entity_design_scores = []
+                    # for design in sequences:
+                    #     entity_scores = entity_scores_by_design[design]
+                    #     protocol_logger.debug(f'Found entity_scores with contents:\n{entity_scores}')
+                    #     scalar_scores = {score_type: sum([sum(scores[score_type]) for scores in entity_scores])
+                    #                      / number_of_entities
+                    #                      for score_type in score_types_mean}
+                    #     # 'predicted_aligned_error' won't concat correctly, so we average over each residue first
+                    #     for scores in entity_scores:
+                    #         scores['predicted_aligned_error'] = scores['predicted_aligned_error'].mean(axis=-1)
+                    #     array_scores = {score_type: np.concatenate([scores[score_type] for scores in entity_scores])
+                    #                     for score_type in score_types_concat}
+                    #     scalar_scores.update(array_scores)
+                    #     protocol_logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
+                    #     entity_design_scores.append(scalar_scores)
 
-                # scores = {}
-                rmsds = []
-                for idx, design in enumerate(sequences):
-                    # separate_scores = entity_design_scores[idx]
-                    # combined_scores = asu_design_scores[idx]
-                    # score_deviation = {score_name: abs(score - separate_scores[score_name])
-                    #                    for score_name, score in combined_scores.items()}
-                    # # write_json(separate_scores, os.path.join(self.data_path, f'af_separate_scores-{design}.json'))
-                    # # write_json(combined_scores, os.path.join(self.data_path, f'af_combined_scores-{design}.json'))
-                    entity_pose = entity_design_structures[idx]
-                    asu_model = asu_design_structures[idx]
-                    # Find the RMSD between each type
-                    rmsd, rot, tx = superposition3d(asu_model.backbone_and_cb_coords, entity_pose.backbone_and_cb_coords)
-                    # score_deviation['rmsd'] = rmsd
-                    # scores[design] = score_deviation
-                    # self.log.critical(f'Found rmsd between separated entities and combined pose: {rmsd}')
-                    rmsds.append(rmsd)
+                    # scores = {}
+                    rmsds = []
+                    for idx, design in enumerate(sequences):
+                        entity_pose = entity_design_structures[idx]
+                        asu_model = asu_design_structures[idx]
+                        # Find the RMSD between each type
+                        rmsd, rot, tx = superposition3d(asu_model.backbone_and_cb_coords,
+                                                        entity_pose.backbone_and_cb_coords)
+                        # score_deviation['rmsd'] = rmsd
+                        # scores[design] = score_deviation
+                        # self.log.critical(f'Found rmsd between separated entities and combined pose: {rmsd}')
+                        rmsds.append(rmsd)
 
-                # Compare all folding_scores
-                design_deviation_df = (predict_designs_df - entity_designs_df).abs()
-                design_deviation_df['rmsd_prediction_deviation'] = rmsds
-                design_deviation_file = \
-                    os.path.join(self.data_path, f'{starttime}-af_pose-entity-designs-deviation_scores.csv')
-                design_deviation_df.to_csv(design_deviation_file)
-                protocol_logger.info(f'Wrote the design deviation file (between separate Entity instances and Pose) to: '
-                                     f'{design_deviation_file}')
-                residue_deviation_df = (predict_residues_df - entity_residues_df).abs()
-                deviation_file = os.path.join(self.data_path, f'{starttime}-af_pose-entity-residues-deviation_scores.csv')
-                residue_deviation_df.to_csv(deviation_file)
-            except Exception as error:
-                raise DesignError(error)
+                    # Compare all folding_scores
+                    design_deviation_df = (predict_designs_df - entity_designs_df).abs()
+                    design_deviation_df['rmsd_prediction_deviation'] = rmsds
+                    design_deviation_file = \
+                        os.path.join(self.data_path, f'{starttime}-af_pose-entity-designs-deviation_scores.csv')
+                    design_deviation_df.to_csv(design_deviation_file)
+                    protocol_logger.info(f'Wrote the design deviation file (between separate Entity instances and Pose)'
+                                         f' to: {design_deviation_file}')
+                    residue_deviation_df = (predict_residues_df - entity_residues_df).abs()
+                    deviation_file = \
+                        os.path.join(self.data_path, f'{starttime}-af_pose-entity-residues-deviation_scores.csv')
+                    residue_deviation_df.to_csv(deviation_file)
+                except Exception as error:
+                    raise DesignError(error)
 
     # Todo move to_pose_directory version to own PoseProtocol method.
     #  Use refine as a means to refine Designs?
