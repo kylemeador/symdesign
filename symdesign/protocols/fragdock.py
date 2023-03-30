@@ -3589,37 +3589,6 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                 # Add the next set of coordinates
                 update_pose_coords(idx)
 
-                if job.output:
-                    if job.output_fragments:
-                        add_fragments_to_pose()  # <- here generating fragments fresh
-                    if job.output_trajectory:
-                        if idx % 2 == 0:
-                            new_pose = pose.copy()
-                            # new_pose = pose.models[0]copy()
-                            for entity in new_pose.chains[1:]:  # new_pose.entities[1:]:
-                                entity.chain_id = 'D'
-                                # Todo make more reliable
-                                # Todo NEED TO MAKE SymmetricModel copy .entities and .chains correctly!
-                            trajectory_models.append_model(new_pose)
-                    # Set the ASU, then write to a file
-                    pose.set_contacting_asu(distance=cb_distance)
-                    try:  # Remove existing cryst_record
-                        del pose._cryst_record
-                    except AttributeError:
-                        pass
-                    # pose.uc_dimensions
-                    # if sym_entry.unit_cell:  # 2, 3 dimensions
-                    #     cryst_record = generate_cryst1_record(full_uc_dimensions[idx], sym_entry.resulting_symmetry)
-                    # else:
-                    #     cryst_record = None
-                    # Todo make a copy of the Pose and add to the PoseJob, then no need for PoseJob.pose = None
-                    pose_job.pose = pose
-                    putils.make_path(pose_job.pose_directory)
-                    pose_job.output_pose(path=pose_job.pose_path)
-                    pose_job.source_path = pose_job.pose_path
-                    pose_job.pose = None
-                    logger.info(f'OUTPUT POSE: {pose_job.pose_directory}')
-
                 # Update the sql.EntityData with transformations
                 external_translation_x1, external_translation_y1, external_translation_z1 = _full_ext_tx1[idx]
                 external_translation_x2, external_translation_y2, external_translation_z2 = _full_ext_tx2[idx]
@@ -3668,6 +3637,40 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                 # pose_job.entity_data.append(sql.EntityData(pose=pose_job,
 
                 session.add_all(entity_transforms + entity_data)
+                # Need to generate the EntityData.id
+                session.flush()
+                # if job.output:
+                if job.output_fragments:
+                    add_fragments_to_pose()  # <- here generating fragments fresh
+                if job.output_trajectory:
+                    if idx % 2 == 0:
+                        new_pose = pose.copy()
+                        # new_pose = pose.models[0]copy()
+                        for entity in new_pose.chains[1:]:  # new_pose.entities[1:]:
+                            entity.chain_id = 'D'
+                            # Todo make more reliable
+                            # Todo NEED TO MAKE SymmetricModel copy .entities and .chains correctly!
+                        trajectory_models.append_model(new_pose)
+                # Set the ASU, then write to a file
+                pose.set_contacting_asu(distance=cb_distance)
+                try:  # Remove existing cryst_record
+                    del pose._cryst_record
+                except AttributeError:
+                    pass
+                # pose.uc_dimensions
+                # if sym_entry.unit_cell:  # 2, 3 dimensions
+                #     cryst_record = generate_cryst1_record(full_uc_dimensions[idx], sym_entry.resulting_symmetry)
+                # else:
+                #     cryst_record = None
+                # Todo make a copy of the Pose and add to the PoseJob, then no need for PoseJob.pose = None
+                pose_job.pose = pose
+                pose_job.calculate_pose_design_metrics(session)
+                putils.make_path(pose_job.pose_directory)
+                pose_job.output_pose(path=pose_job.pose_path)
+                pose_job.source_path = pose_job.pose_path
+                pose_job.pose = None
+                logger.info(f'OUTPUT POSE: {pose_job.pose_directory}')
+
                 # Reset entity.metrics
                 for entity in pose.entities:
                     entity.clear_metrics()

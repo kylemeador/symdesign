@@ -2983,8 +2983,8 @@ class PoseProtocol(PoseData):
 
         pose_design_scores = design_scores.pop(self.name, None)
         if pose_design_scores:
-            # We have included the pose_source in the calculations
-            self.calculate_pose_metrics(pose_design_scores)
+            # The pose_source is included in the calculations
+            self.calculate_pose_metrics(scores=pose_design_scores)
 
         if not design_scores:
             # No design scores were found
@@ -3213,11 +3213,12 @@ class PoseProtocol(PoseData):
             # Commit all new data
             session.commit()
 
-    def calculate_pose_metrics(self, scores: dict[str, str | int | float] = None):
-        """Perform a metrics update only on the reference Pose
+    def calculate_pose_metrics(self, **kwargs):
+        """Collect Pose metrics using the reference Pose
 
-        Args:
-            scores: Parsed Pose scores from Rosetta output
+        Keyword Args:
+            scores: dict[str, str | int | float] = None - Parsed Pose scores from Rosetta output
+            novel_interface: bool = True - Whether the pose interface is novel (i.e. docked) or from a bona-fide input
         """
         self.load_pose()
         # self.identify_interface()
@@ -3248,18 +3249,22 @@ class PoseProtocol(PoseData):
 
         # Check if PoseMetrics have been captured
         if self.job.db:
-            if self.metrics is None:
-                self.metrics = get_metrics()
-            elif scores or self.job.force:
-                # Update existing self.metrics
-                current_metrics = self.metrics
-                metrics_ = get_metrics()
-                for attr, value in metrics_.__dict__.items():
-                    if attr == '_sa_instance_state':
-                        continue
-                    setattr(current_metrics, attr, value)
-            else:
-                return
+            if self.metrics is None or self.job.force:
+                with self.job.db.session(expire_on_commit=False) as session:
+                    session.add(self)
+                    metrics_ = get_metrics()
+                    if self.metrics is None:
+                        self.metrics = metrics_
+                    else:  # Update existing self.metrics
+                        current_metrics = self.metrics
+                        for attr, value in metrics_.__dict__.items():
+                            if attr == '_sa_instance_state':
+                                continue
+                            setattr(current_metrics, attr, value)
+                    # Todo back out this code from the session
+                    # Update the design_metrics for this Pose
+                    self.calculate_pose_design_metrics(session, **kwargs)
+                    session.commit()
         else:
             raise NotImplementedError(
                 f"{self.calculate_pose_metrics.__name__} doesn't output anything yet when {type(self.job).__name__}.db"
@@ -3277,10 +3282,80 @@ class PoseProtocol(PoseData):
             # Stack the Series on the columns to turn into a dataframe where the metrics are rows and entity are columns
             entity_df = pd.concat(entity_dfs, keys=list(range(1, 1 + len(entity_dfs))), axis=1)
 
-        # Output
+    # Todo remove the session arg?
+    def calculate_pose_design_metrics(self, session: Session, scores: dict[str, str | int | float] = None, novel_interface: bool = True):
+        """Collect 'design' and per-residue metrics on the reference Pose
+
+        Args:
+            session: A currently open transaction within sqlalchemy
+            scores: Parsed Pose scores from Rosetta output
+            novel_interface: Whether the pose interface is novel (i.e. docked) or from a bona-fide input
+        """
+        # self.load_pose()
+
+        pose_length = self.pose.number_of_residues
+        residue_indices = list(range(pose_length))
+
+        designs = [self.pose]
+        # Todo
+        #  This function call is sort of accomplished by the following code
+        #  residues_df = self.analyze_residue_metrics_per_design(designs=designs)
+        #  Only differences are inclusion of interface_residue (^) and the novel_interface flag
+
+        # novel_interface = False if not self.pose_source.protocols else True
+        # if novel_interface:  # The input structure wasn't meant to be together, take the errat measurement as such
+        #     source_errat = []
+        #     for idx, entity in enumerate(self.pose.entities):
+        #         _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
+        #         source_errat.append(oligomeric_errat[:entity.number_of_residues])
+        #     # atomic_deviation[pose_source_name] = sum(source_errat_accuracy) / float(self.pose.number_of_entities)
+        #     pose_source_errat = np.concatenate(source_errat)
+        # else:
+        #     # pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
+        #     # # atomic_deviation[pose_source_name], pose_per_residue_errat = \
+        #     # _, pose_per_residue_errat = \
+        #     #     pose_assembly_minimally_contacting.errat(out_path=os.path.devnull)
+        #     # pose_source_errat = pose_per_residue_errat[:pose_length]
+        #     # Get errat measurement
+        #     # per_residue_data[pose_source_name].update(self.pose.per_residue_interface_errat())
+        #     pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
+
         pose_name = self.pose.name
-        designs_df, residues_df, entity_designs_df = self.analyze_pose_metrics()
-        #     self.analyze_pose_metrics(novel_interface=False if not self.pose_source.protocols else True)
+        # pose_source_id = self.pose_source.id
+        # Collect reference Structure metrics
+        per_residue_data = {pose_name:
+                            {**self.pose.per_residue_interface_surface_area(),
+                             **self.pose.per_residue_contact_order(),
+                             # 'errat_deviation': pose_source_errat
+                             **self.pose.per_residue_spatial_aggregation_propensity()
+                             }}
+        # Convert per_residue_data into a dataframe matching residues_df orientation
+        residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
+                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
+        # Make buried surface area (bsa) columns, and residue classification
+        residues_df = metrics.calculate_residue_surface_area(residues_df)
+        # Todo same to here
+
+        designs_df = self.analyze_design_metrics_per_design(residues_df, designs)
+
+        # Score using proteinmpnn
+        sequences = [self.pose.sequence]
+        sequences_and_scores = self.pose.score(sequences, model_name=self.job.design.proteinmpnn_model_name)
+        # design_residues = np.zeros((1, pose_length), dtype=bool)
+        # design_residues[interface_residue_indices] = 1
+        sequences_and_scores['design_indices'] = np.zeros((1, pose_length), dtype=bool)
+        mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics([pose_name], sequences_and_scores)
+        entity_designs_df = self.analyze_design_entities_per_residue(mpnn_residues_df)
+        designs_df = designs_df.join(mpnn_designs_df)
+        # sequences_df = self.analyze_sequence_metrics_per_design(sequences=[self.pose.sequence],
+        #                                                         design_ids=[pose_source_id])
+
+        # designs_df = designs_df.join(self.analyze_design_metrics_per_residue(sequences_df))
+        # # Join per-residue like DataFrames
+        # # Each of these could have different index/column, so we use concat to perform an outer merge
+        # residues_df = residues_df.join([mpnn_residues_df, sequences_df])
+        residues_df = residues_df.join(mpnn_residues_df)
+
         if scores:
             # pose_source_id = self.pose_source.id
             scores_with_identifier = {pose_name: scores}
@@ -3293,25 +3368,26 @@ class PoseProtocol(PoseData):
             designs_df = self.rosetta_column_combinations(designs_df.join(scores_df))
             residues_df = residues_df.join(rosetta_residues_df)
 
-        with self.job.db.session(expire_on_commit=False) as session:
-            session.add(self)
-            # Correct the index of the DataFrame by changing from "name" to database ID
-            name_to_id_map = {pose_name: self.pose_source.id}
-            designs_df.index = designs_df.index.map(name_to_id_map)
-            # Must move the entity_id to the columns for index.map to work
-            entity_designs_df.reset_index(level=0, inplace=True)
-            entity_designs_df.index = entity_designs_df.index.map(name_to_id_map)
-            residues_df.index = residues_df.index.map(name_to_id_map)
-            self.output_metrics(session, designs=designs_df)
-            output_residues = False
-            if output_residues:  # Todo job.metrics.residues
-                self.output_metrics(session, residues=residues_df)
-            else:  # Only save the 'design_residue' columns
-                residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
-                self.output_metrics(session, design_residues=residues_df)
-            metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
-            # Commit the newly acquired metrics
-            session.commit()
+        # with self.job.db.session(expire_on_commit=False) as session:
+        # Currently, self isn't producing any new information from database, session only important for metrics
+        # session.add(self)
+        # Correct the index of the DataFrame by changing from "name" to database ID
+        name_to_id_map = {pose_name: self.pose_source.id}
+        designs_df.index = designs_df.index.map(name_to_id_map)
+        # Must move the entity_id to the columns for index.map to work
+        entity_designs_df.reset_index(level=0, inplace=True)
+        entity_designs_df.index = entity_designs_df.index.map(name_to_id_map)
+        residues_df.index = residues_df.index.map(name_to_id_map)
+        self.output_metrics(session, designs=designs_df)
+        output_residues = False
+        if output_residues:  # Todo job.metrics.residues
+            self.output_metrics(session, residues=residues_df)
+        else:  # Only save the 'design_residue' columns
+            residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
+            self.output_metrics(session, design_residues=residues_df)
+        metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
+            # # Commit the newly acquired metrics
+            # session.commit()
 
     def analyze_alphafold_metrics(self, folding_scores: dict[str, [dict[str, np.ndarray]]], pose_length: int,
                                   model_type: str = None, interface: bool = False) \
@@ -3727,84 +3803,6 @@ class PoseProtocol(PoseData):
             #     self.output_metrics(session, design_residues=residues_df)
             # Commit the newly acquired metrics
             session.commit()
-
-    def analyze_pose_metrics(self, novel_interface: bool = True) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-        """Perform per-residue analysis on the PoseJob.pose
-
-        Args:
-            novel_interface: Whether the pose interface is novel (i.e. docked) or from a bonafide input
-        Returns:
-            A tuple of DataFrame where each contains (
-                A per-design metric DataFrame where each index is the design id and the columns are design metrics,
-                A per-residue metric DataFrame where each index is the design id and the columns are
-                    (residue index, residue metric)
-                A per-entity metric DataFrame where each index is a combination of (design_id, entity_id) and the
-                    columns are design metrics
-            )
-        """
-        self.load_pose()
-
-        pose_length = self.pose.number_of_residues
-        residue_indices = list(range(pose_length))
-
-        designs = [self.pose]
-        # This function call is accomplished below by the following code
-        # residues_df = self.analyze_residue_metrics_per_design(designs=designs)
-        # Only difference is inclusion of the novel_interface flag
-
-        # if novel_interface:  # The input structure wasn't meant to be together, take the errat measurement as such
-        #     source_errat = []
-        #     for idx, entity in enumerate(self.pose.entities):
-        #         _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
-        #         source_errat.append(oligomeric_errat[:entity.number_of_residues])
-        #     # atomic_deviation[pose_source_name] = sum(source_errat_accuracy) / float(self.pose.number_of_entities)
-        #     pose_source_errat = np.concatenate(source_errat)
-        # else:
-        #     # pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
-        #     # # atomic_deviation[pose_source_name], pose_per_residue_errat = \
-        #     # _, pose_per_residue_errat = \
-        #     #     pose_assembly_minimally_contacting.errat(out_path=os.path.devnull)
-        #     # pose_source_errat = pose_per_residue_errat[:pose_length]
-        #     # Get errat measurement
-        #     # per_residue_data[pose_source_name].update(self.pose.per_residue_interface_errat())
-        #     pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
-
-        pose_name = self.pose.name
-        # pose_source_id = self.pose_source.id
-        # Collect reference Structure metrics
-        per_residue_data = {pose_name:
-                            {**self.pose.per_residue_interface_surface_area(),
-                             **self.pose.per_residue_contact_order(),
-                             # 'errat_deviation': pose_source_errat
-                             }}
-        # Convert per_residue_data into a dataframe matching residues_df orientation
-        residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
-                                for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
-        # Make buried surface area (bsa) columns, and residue classification
-        residues_df = metrics.calculate_residue_surface_area(residues_df)
-
-        designs_df = self.analyze_design_metrics_per_design(residues_df, designs)
-
-        # Score using proteinmpnn
-        sequences = [self.pose.sequence]
-        sequences_and_scores = self.pose.score(sequences, model_name=self.job.design.proteinmpnn_model_name)
-        # design_residues = np.zeros((1, pose_length), dtype=bool)
-        # design_residues[interface_residue_indices] = 1
-        sequences_and_scores['design_indices'] = np.zeros((1, pose_length), dtype=bool)
-        mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics([pose_name], sequences_and_scores)
-        entity_designs_df = self.analyze_design_entities_per_residue(mpnn_residues_df)
-        designs_df = designs_df.join(mpnn_designs_df)
-        # sequences_df = self.analyze_sequence_metrics_per_design(sequences=[self.pose.sequence],
-        #                                                         design_ids=[pose_source_id])
-
-        # designs_df = designs_df.join(self.analyze_design_metrics_per_residue(sequences_df))
-        # # Join per-residue like DataFrames
-        # # Each of these could have different index/column, so we use concat to perform an outer merge
-        # residues_df = residues_df.join([mpnn_residues_df, sequences_df])
-        residues_df = residues_df.join(mpnn_residues_df)
-
-        # return residues_df.join(sequences_df)
-        return designs_df, residues_df, entity_designs_df
 
     def analyze_pose_metrics_per_design(self, residues_df: pd.DataFrame, designs_df: pd.DataFrame = None,
                                         designs: Iterable[Pose] | Iterable[AnyStr] = None) -> pd.Series:
