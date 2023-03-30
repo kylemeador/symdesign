@@ -870,7 +870,7 @@ class JobResources:
             if low_range < 0 or high_range > path_number:
                 raise ValueError(
                     f'The {flags.format_args(flags.range_args)} flag is outside of the acceptable bounds [0-100]')
-            logger.info(f'Selecting poses within range: {low_range if low_range else 1}-{high_range}')
+            logger.debug(f'Selecting input work ({path_number}) with range: {low_range}-{high_range}')
             range_slice = slice(low_range, high_range)
         else:
             range_slice = slice(None)

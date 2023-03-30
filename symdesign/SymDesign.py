@@ -1143,6 +1143,9 @@ def main():
                     f"No pose identifiers found from input location '{job.location}'")
             else:
                 pose_identifiers = job.get_range_slice(pose_identifiers)
+                if not pose_identifiers:
+                    raise utils.InputError(
+                        f"No pose identifiers found with {flags.format_args(flags.range_args)}={job.range}'")
 
             # Fetch identified. No writes
             with job.db.session(expire_on_commit=False) as session:
@@ -1161,23 +1164,22 @@ def main():
 
                 pose_jobs = session.scalars(fetch_jobs_stmt).all()
 
-            # Check all jobs that were checked out against those that were requested
-            checked_out_identifiers = {pose_job.pose_identifier for pose_job in pose_jobs}
-            missing_input_identifiers = checked_out_identifiers.difference(pose_identifiers)
-            if missing_input_identifiers:
-                logger.warning(
-                    "Couldn't find the following identifiers:\n%s" % '\n'.join(missing_input_identifiers))
+                # Check all jobs that were checked out against those that were requested
+                checked_out_identifiers = {pose_job.pose_identifier for pose_job in pose_jobs}
+                missing_input_identifiers = checked_out_identifiers.difference(pose_identifiers)
+                if missing_input_identifiers:
+                    logger.warning(
+                        "Couldn't find the following identifiers:\n%s" % '\n'.join(missing_input_identifiers))
 
-            if args.specification_file:
-                # Todo
-                #  Ensure that the job.get_range_slice() slice from above turns out the same way here
-                if designs:
+                if args.specification_file:
+                    # designs and directives should always be the same length
+                    # if designs:
                     designs = job.get_range_slice(designs)
-                if directives:
+                    # if directives:
                     directives = job.get_range_slice(directives)
-                # Set up PoseJob with the specific designs and any directives
-                for pose_job, _designs, _directives in zip(pose_jobs, designs, directives):
-                    pose_job.use_specific_designs(_designs, _directives)
+                    # Set up PoseJob with the specific designs and any directives
+                    for pose_job, _designs, _directives in zip(pose_jobs, designs, directives):
+                        pose_job.use_specific_designs(_designs, _directives)
         elif select_from_directory:
             # Can make an empty pose_jobs when the program_root is args.directory
             job.location = args.directory

@@ -1198,28 +1198,29 @@ class PoseSpecification:
         """Retrieve the parsed PoseID, Design Name, and Mutation Directive information from a Specification file
 
         Returns:
-            An iterator which returns tuples containing the PoseID potentially followed by the corresponding DesignID
-                and design directives
+            An Iterator of tuples where each tuple contains the PoseID potentially followed by the corresponding
+                DesignID and design directives, if these were provided in the parsed file. If they weren't then None
+                will be returned
         """
         # Calculate whether there are multiple designs present per pose
-        found_poses = {}
+        found_poses = defaultdict(list)
         for idx, pose in enumerate(self.pose_identifiers):
-            if pose in found_poses:
-                found_poses[pose].append(idx)
-            else:
-                found_poses[pose] = [idx]
+            # if pose in found_poses:
+            found_poses[pose].append(idx)
+            # else:
+            #     found_poses[pose] = [idx]
 
         # Ensure correctly sized inputs. Create blank data otherwise
         number_pose_identifiers = len(self.pose_identifiers)
         if self.directives:
             if number_pose_identifiers != len(self.directives):
-                raise ValueError('The inputs to the PoseSpecification have different lengths!')
+                raise ValueError('The inputs to the PoseSpecification have different lengths')
         else:
             directives = list(repeat(None, number_pose_identifiers))
 
         if self.design_names:  # design_file
             if number_pose_identifiers != len(self.design_names):
-                raise ValueError('The inputs to the PoseSpecification have different lengths!')
+                raise ValueError('The inputs to the PoseSpecification have different lengths')
         else:
             design_names = list(repeat(None, number_pose_identifiers))
 
@@ -1239,6 +1240,7 @@ class PoseSpecification:
                 for indices in found_poses.values():
                     design_names.append([self.design_names[index] for index in indices])
 
+        # With above logic, it isn't possible to have UnboundLocalError of design_names, directives
         return zip(self.pose_identifiers, design_names, directives)
 
 
