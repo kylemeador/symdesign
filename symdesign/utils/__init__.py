@@ -1181,18 +1181,25 @@ class PoseSpecification:
             residue_directives = []
             # print('splitting residues', design_directives.split())
             # print('splitting directives', list(map(str.split, design_directives.split(), repeat(self.directive_delimiter))))
-            for residues_s, directive in map(str.split, design_directives.split(), repeat(self.directive_delimiter)):
-                # residues_s, directive = _directive.split(self.directive_delimiter)
-                residue_directives.extend([(residue, directive) for residue in format_index_string(residues_s)])
+            # for residues_s, directive in map(str.split, design_directives.split(), repeat(self.directive_delimiter)):
+            for design_directive in design_directives.split():
+                try:
+                    residues_s, directive = design_directive.split(self.directive_delimiter)
+                except ValueError:  # Not enough values to unpack
+                    break
+                else:
+                    # residues_s, directive = _directive.split(self.directive_delimiter)
+                    residue_directives.extend([(residue, directive) for residue in format_index_string(residues_s)])
             # print('Residue Directives', residue_directives)
-            self.directives.append(dict(residue_directive for residue_directive in residue_directives))
+            self.directives.append(dict(residue_directives))
         # print('Total Design Directives', self.directives)
 
     def get_directives(self) -> Iterator[tuple[str, list[str] | None, list[dict[int, str]] | None]]:
         """Retrieve the parsed PoseID, Design Name, and Mutation Directive information from a Specification file
 
         Returns:
-            An iterator which returns tuples containing the PoseID followed by corresponding
+            An iterator which returns tuples containing the PoseID potentially followed by the corresponding DesignID
+                and design directives
         """
         # Calculate whether there are multiple designs present per pose
         found_poses = {}
