@@ -818,7 +818,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             return self._current_designs
 
     @current_designs.setter
-    def current_designs(self, designs: Iterable[str]):
+    def current_designs(self, designs: Iterable[sql.DesignData | str | int]):
         """Configure the current_designs"""
         if designs:
             self._current_designs = []
@@ -827,12 +827,12 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     self._current_designs.append(potential_design)
                 elif isinstance(potential_design, str):
                     for design in self.designs:
-                        if design.id == potential_design:
+                        if design.name == potential_design:
                             self._current_designs.append(design)
                             break
                     else:
                         raise DesignError(
-                            f"Couldn't set self.current_designs as there was no {sql.DesignData.__class__.__name__} "
+                            f"Couldn't set self.current_designs as there was no {sql.DesignData.__name__} "
                             f"matching the name '{potential_design}'")
                 elif isinstance(potential_design, int):
                     for design in self.designs:
@@ -841,7 +841,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                             break
                     else:
                         raise DesignError(
-                            f"Couldn't set self.current_designs as there was no {sql.DesignData.__class__.__name__} "
+                            f"Couldn't set self.current_designs as there was no {sql.DesignData.__name__} "
                             f"matching the name '{potential_design}'")
                 else:
                     raise ValueError(
