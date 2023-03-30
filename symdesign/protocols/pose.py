@@ -2128,26 +2128,35 @@ class PoseProtocol(PoseData):
                     # else:
                     structures_to_load = entity_structures.get('unrelaxed', [])
 
-                    # Todo should I limit the .splitlines by the entity_number_of_residues? Assembly v asu consideration
+                    # Todo should I limit the .splitlines by the entity.number_of_atoms? Assembly v asu consideration
                     design_models = {model_name: Model.from_pdb_lines(structure.splitlines(), **entity_model_kwargs)
                                      for model_name, structure in structures_to_load.items()}
                     # if relaxed:  # Set b-factor data as relaxed get overwritten
+                    #     type_str = ''
                     #     for model_name, model in design_models.items():
                     #         model.set_b_factor_data(entity_scores[model_name]['plddt'][:entity_number_of_residues])
                     #     entity_structures['relaxed'] = \
                     #         {model_name: model.get_atom_record() for model_name, model in design_models.items()}
+                    # else:
+                    type_str = 'un'
 
-                    # Todo put these sequences into a directory in pose/designs/pose-design_id/design-entity.name.pdb?
-                    output_alphafold_structures(entity_structures, design_name=f'{design}-{entity.name}')
-
+                    # output_alphafold_structures(entity_structures, design_name=f'{design}-{entity.name}')
                     # Check for the prediction rmsd between the backbone of the Entity Model and Alphafold Model
+                    # Also, perform an alignment to the pose Entity
                     rmsds, minimum_model = find_model_with_minimal_rmsd(design_models, entity_cb_coords)
                     # rmsds, minimum_model = find_model_with_minimal_rmsd(design_models, entity_backbone_and_cb_coords)
                     if minimum_model is None:
-                        self.log.critical(f"Couldn't find the Entity {entity.name} model with the minimal rmsd for "
-                                          f"Design {design}")
+                        raise DesignError(
+                            f"Couldn't find the Entity {entity.name} model with the minimal rmsd for Design {design}")
+                    else:
+                        # Put Entity Model into a directory in pose/designs/pose-design_id/entity.name.pdb
+                        out_dir = os.path.join(self.designs_path, f'{design}')
+                        putils.make_path(out_dir)
+                        path = os.path.join(out_dir, f'{entity.name}-{model_name}-{type_str}relaxed.pdb')
+                        minimum_entity = design_models[minimum_model]
+                        minimum_entity.write(out_path=path)
                     # Append each Entity result to the full return
-                    entity_structure_by_design[design].append(design_models[minimum_model])
+                    entity_structure_by_design[design].append(minimum_entity)
                     # Average all models scores to get the ensemble of the predictions
                     combined_scores = combine_model_scores(list(entity_scores.values()))
                     entity_scores_by_design[str(design)] = {'rmsd_prediction_ensemble': rmsds, **combined_scores}
