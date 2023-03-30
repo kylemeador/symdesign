@@ -1676,10 +1676,11 @@ class PoseProtocol(PoseData):
                 protocol_logger.warning(f"The flag --{flags.predict_pose} was specified, but the pose has already been "
                                         f"predicted. If you meant to overwrite this pose, explicitly pass --overwrite")
         if not sequences:
-            raise DesignError(f"Couldn't find any sequences to {self.predict_structure.__name__}")
+            raise DesignError(
+                f"Couldn't find any sequences to {self.predict_structure.__name__}")
 
         # match self.job.predict.method:  # Todo python 3.10
-        #     case 'thread':  # , 'proteinmpnn']:
+        #     case 'thread':
         #         self.thread_sequences_to_backbone(sequences)
         #     case 'alphafold':
         #         # Sequences use within alphafold requires .fasta...
@@ -1689,13 +1690,13 @@ class PoseProtocol(PoseData):
         #                                   f"{self.job.predict.method} isn't implemented yet")
 
         self.protocol = self.job.predict.method
-        if self.job.predict.method == 'thread':  # , 'proteinmpnn']:
+        if self.job.predict.method == 'thread':
             self.thread_sequences_to_backbone(sequences)
         elif self.job.predict.method == 'alphafold':
             self.alphafold_predict_structure(sequences)
         else:
-            raise NotImplementedError(f"For {self.predict_structure.__name__}, the method "
-                                      f"{self.job.predict.method} isn't implemented yet")
+            raise NotImplementedError(
+                f"For {self.predict_structure.__name__}, the method {self.job.predict.method} isn't implemented yet")
 
     def alphafold_predict_structure(self, sequences: dict[sql.DesignData, str],
                                     model_type: resources.ml.af_model_literal = 'monomer', **kwargs):
@@ -1737,7 +1738,7 @@ class PoseProtocol(PoseData):
         run_multimer_system = self.pose.number_of_entities > 1 or self.pose.number_of_chains > 1
         if run_multimer_system:
             model_type = 'multimer'
-            self.log.info(f'The alphafold model was automatically set to {model_type} due to detected multimeric pose')
+            self.log.info(f'The AlphaFold model was automatically set to {model_type} due to detected multimeric pose')
 
         # # Todo enable compilation time savings by returning a precomputed model_factory. Padding the size of this may
         # #  help quite a bit
@@ -1868,9 +1869,9 @@ class PoseProtocol(PoseData):
                 rmsds.append(rmsd)
                 if rmsd < min_rmsd:
                     min_rmsd = rmsd
+                    minimum_model = af_model_name
                     # Move the Alphafold model into the Pose reference frame
                     model.transform(rotation=rot, translation=tx)
-                    minimum_model = af_model_name  # model
 
             return rmsds, minimum_model
 
@@ -1906,7 +1907,7 @@ class PoseProtocol(PoseData):
                 # Make an all Alanine structure backbone as the prev_pos
                 sequence_ = 'A' * structure.number_of_residues
 
-            # Mutate to a 'lame' version of sequence/structure, removing any sidechain atoms not present
+            # Mutate to a 'lame' version of sequence/structure, removing any side-chain atoms not present
             for residue, residue_type in zip(structure.residues, sequence_):
                 deleted_indices = pose_copy.mutate_residue(index=residue.index, to=residue_type)
 

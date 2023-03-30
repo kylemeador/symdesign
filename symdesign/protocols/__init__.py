@@ -687,7 +687,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     generate_files_cmd = pose.null_cmd
 
     # Create file output
-    raise NotImplementedError('Must make the infile a in:file:s derivative')
+    raise NotImplementedError('Must make the infile an "in:file:s" derivative')
     designed_files_file = os.path.join(job.scripts_path, f'{starttime}_{job.protocol}_files_output.txt')
     if job.current_designs:
         design_files = [design_.structure_file for design_ in job.current_designs]
@@ -710,7 +710,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     #     job.load_pose(structure_source=design.structure_path)
     #     job.identify_interface()
 
-    # format all amino acids in job.interface_design_residue_numbers with frequencies above the threshold to a set
+    # Format all amino acids in design with frequencies above the threshold to a set
     # Todo, make threshold and return set of strings a property of a profile object
     # Locate the desired background profile from the pose
     background_profile = getattr(job.pose, job.job.background_profile)
@@ -806,12 +806,13 @@ def process_rosetta_metrics(job: pose.PoseJob):
     if os.path.exists(job.scores_file):
         job.process_rosetta_metrics()
     else:
-        raise DesignError(f'No scores from Rosetta present at "{job.scores_file}"')
+        raise DesignError(
+            f'No scores from Rosetta present at "{job.scores_file}"')
 
 
 @protocol_decorator()
 def analysis(job: pose.PoseJob, designs: Iterable[Pose] | Iterable[AnyStr] = None) -> pd.Series:
-    """Retrieve all score information from a PoseJob and write results to .csv file
+    """Retrieve all metrics information from a PoseJob
 
     Args:
         job: The PoseJob for which the protocol should be performed on

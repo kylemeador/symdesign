@@ -443,7 +443,7 @@ def main():
                         job.output_file = os.path.join(job.all_scores, job.output_file)
                     if not job.output_file.endswith('.csv'):
                         job.output_file = f'{job.output_file}.csv'
-                    if not args.output:  # No output is specified
+                    if not job.output:  # No output is specified
                         output_analysis = False
                 else:
                     # Set the poses_file to the provided job.output_file
@@ -489,7 +489,7 @@ def main():
             # if job.module == flags.analysis:
             #     # Save Design DataFrame
             #     design_df = pd.DataFrame([result_ for result_ in results if not isinstance(result_, BaseException)])
-            #     if args.output:  # Create a new file
+            #     if job.output:  # Create a new file
             #         design_df.to_csv(args.output_file)
             #     else:
             #         # This is the mechanism set up to append to an existing file. Check if we should add a header
@@ -1424,9 +1424,9 @@ def main():
 
     if job.multi_processing:
         logger.info(f'Starting multiprocessing using {job.cores} cores')
-    else:
-        logger.info('Starting processing. To increase processing speed, '
-                    f'use --{flags.multi_processing} during submission')
+    # else:
+    #     logger.info('Starting processing. To increase processing speed, '
+    #                 f'use --{flags.multi_processing} during submission')
 
     job.calculate_memory_requirements(len(pose_jobs))
     # -----------------------------------------------------------------------------------------------------------------
