@@ -1657,24 +1657,24 @@ class PoseProtocol(PoseData):
         design that is missing a structure file. Additionally, add the Pose sequence to the prediction by using the
         job.predict.pose flag
         """
-        if self.current_designs:
-            sequences = {design: design.sequence for design in self.current_designs}
-        else:
-            with self.job.db.session(expire_on_commit=False) as session:
-                session.add(self)
+        with self.job.db.session(expire_on_commit=False) as session:
+            session.add(self)
+            if self.current_designs:
+                sequences = {design: design.sequence for design in self.current_designs}
+            else:
                 sequences = {design: design.sequence for design in self.get_designs_without_structure()}
                 self.current_designs.extend(sequences.keys())
 
-        if self.job.predict.pose:
-            # self.pose_source is loaded in above session through get_designs_without_structure()
-            pose_sequence = {self.pose_source: self.pose_source.sequence}
-            if self.pose_source.structure_path is None:
-                sequences = {**pose_sequence, **sequences}
-            elif self.job.overwrite:
-                sequences = {**pose_sequence, **sequences}
-            else:
-                protocol_logger.warning(f"The flag --{flags.predict_pose} was specified, but the pose has already been "
-                                        f"predicted. If you meant to overwrite this pose, explicitly pass --overwrite")
+            if self.job.predict.pose:
+                # self.pose_source is loaded in above session through get_designs_without_structure()
+                pose_sequence = {self.pose_source: self.pose_source.sequence}
+                if self.pose_source.structure_path is None:
+                    sequences = {**pose_sequence, **sequences}
+                elif self.job.overwrite:
+                    sequences = {**pose_sequence, **sequences}
+                else:
+                    protocol_logger.warning(f"The flag --{flags.predict_pose} was specified, but the pose has already been "
+                                            f"predicted. If you meant to overwrite this pose, explicitly pass --overwrite")
         if not sequences:
             raise DesignError(
                 f"Couldn't find any sequences to {self.predict_structure.__name__}")
