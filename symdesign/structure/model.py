@@ -3217,7 +3217,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         return delete_indices
 
-    # def reset_state(self):  # Todo this seems to introduce errors during Pose.find_interface_residues()
+    # def reset_state(self):  # Todo this seems to introduce errors during Pose.get_interface_residues()
     #     """Remove StructureBase attributes that are invalid for the current state for each member Structure instance
     #
     #     This is useful for transfer of ownership, or changes in the Model state that should be overwritten
@@ -7743,8 +7743,9 @@ class Pose(SymmetricModel, Metrics):
         else:
             return contacting_pairs
 
-    def find_interface_residues(self, entity1: Entity = None, entity2: Entity = None, **kwargs):
-        """Get unique Residues across an interface provided by two Entities
+    def get_interface_residues(self, entity1: Entity = None, entity2: Entity = None, **kwargs) \
+            -> tuple[list[Residue] | list, list[Residue] | list]:
+        """Get unique Residues across an interface between two Entities
 
         If the interface occurs between the same Entity which is non-symmetrically defined, but happens to occur along a
         dimeric axis of symmetry (evaluates to True when the same Residue is found on each side of the interface), then
@@ -7756,17 +7757,15 @@ class Pose(SymmetricModel, Metrics):
         Keyword Args:
             oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
             distance: float = 8. - The distance to measure Residues across an interface
-        Sets:
-            self.interface_residues_by_entity_pair (dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]):
-                The Entity1/Entity2 interface mapped to the interface Residues
+        Returns:
+            The Entity1 and Entity2 interface Residue instances
         """
         entity1_residues, entity2_residues = \
             split_residue_pairs(self._find_interface_residue_pairs(entity1=entity1, entity2=entity2, **kwargs))
 
         if not entity1_residues or not entity2_residues:
             self.log.info(f'Interface search at {entity1.name} | {entity2.name} found no interface residues')
-            self.interface_residues_by_entity_pair[(entity1, entity2)] = ([], [])
-            return
+            return [], []
 
         if entity1 == entity2:  # If symmetric query
             # Is the interface is across a dimeric interface?
@@ -7780,10 +7779,10 @@ class Pose(SymmetricModel, Metrics):
                       f'\n\t{entity1.name} found residue numbers: {", ".join(str(r.number) for r in entity1_residues)}'
                       f'\n\t{entity2.name} found residue numbers: {", ".join(str(r.number) for r in entity2_residues)}')
 
-        self.interface_residues_by_entity_pair[(entity1, entity2)] = (entity1_residues, entity2_residues)
+        return entity1_residues, entity2_residues
 
-    def _find_interface_atom_pairs(self, entity1: Entity = None, entity2: Entity = None, distance: float = 4.68) -> \
-            list[tuple[int, int]] | None:
+    def _find_interface_atom_pairs(self, entity1: Entity = None, entity2: Entity = None, distance: float = 4.68,
+                                   **kwargs) -> list[tuple[int, int]] | None:
         """Get pairs of heavy atom indices that are within a distance at the interface between two Entities
 
         Caution: Pose must have Coords representing all atoms! Residue pairs are found using CB indices from all atoms
@@ -7794,18 +7793,25 @@ class Pose(SymmetricModel, Metrics):
             entity1: First Entity to measure interface between
             entity2: Second Entity to measure interface between
             distance: The distance to measure contacts between atoms. Default = CB radius + 2.8 H2O probe. Was 3.28
+        Keyword Args:
+            oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
+        Sets:
+            self.interface_residues_by_entity_pair (dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]):
+                The Entity1/Entity2 interface mapped to the interface Residues
         Returns:
             The Atom indices for the interface
         """
         try:
             residues1, residues2 = self.interface_residues_by_entity_pair[(entity1, entity2)]
         except KeyError:  # When interface_residues haven't been set
-            self.find_interface_residues(entity1=entity1, entity2=entity2)
+            self.interface_residues_by_entity_pair[(entity1, entity2)] = \
+                self.get_interface_residues(entity1=entity1, entity2=entity2, **kwargs)
             try:
                 residues1, residues2 = self.interface_residues_by_entity_pair[(entity1, entity2)]
             except KeyError:
-                raise DesignError(f"{self._find_interface_atom_pairs.__name__} can't access interface_residues as "
-                                  f"the Entity pair {entity1.name}, {entity2.name} hasn't located interface_residues")
+                raise DesignError(
+                    f"{self._find_interface_atom_pairs.__name__} can't access interface_residues as the Entity pair "
+                    f"{entity1.name}, {entity2.name} hasn't located interface_residues")
 
         if not residues1:
             return
@@ -7987,18 +7993,22 @@ class Pose(SymmetricModel, Metrics):
     def center_residue_indices(self, indices: Iterable[int]):
         self._center_residue_indices = sorted(indices)
 
-    def score_interface(self, entity1: Chain = None, entity2: Chain = None, **kwargs) -> dict:
+    def score_interface(self, entity1: Entity = None, entity2: Entity = None, **kwargs) -> dict:
         """Generate the fragment metrics for a specified interface between two entities
 
         Keyword Args:
             distance: float = 8. - The distance to measure Residues across an interface
             oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
+        Sets:
+            self.interface_residues_by_entity_pair (dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]):
+                The Entity1/Entity2 interface mapped to the interface Residues
         Returns:
-            Fragment metrics as key (metric type) value (measurement) pairs
+            Fragment metrics and measurements as key, value pairs
         """
         # Check for either orientation as the final interface score will be the same
         if (entity1, entity2) not in self.fragment_queries or (entity2, entity1) not in self.fragment_queries:
-            self.find_interface_residues(entity1=entity1, entity2=entity2, **kwargs)
+            self.interface_residues_by_entity_pair[(entity1, entity2)] = \
+                self.get_interface_residues(entity1=entity1, entity2=entity2, **kwargs)
             self.query_interface_for_fragments(entity1=entity1, entity2=entity2, **kwargs)
 
         return self.get_fragment_metrics(by_entity=True, entity1=entity1, entity2=entity2)
@@ -8010,24 +8020,29 @@ class Pose(SymmetricModel, Metrics):
             distance: float = 8. - The distance to measure Residues across an interface
             oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
         Sets:
-            self.interface_residues_by_interface (dict[int, list[Residue]]): Residue instances at each interface
-            at the interface identified by interface id as split by topology
+            self.interface_residues_by_entity_pair (dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]):
+                The Entity1/Entity2 interface mapped to the interface Residues
+            self.interface_residues_by_interface (dict[int, list[Residue]]): Residue instances separated by
+                interface topology
+            self.interface_residues_by_interface_unique (dict[int, list[Residue]]): Residue instances separated by
+                interface topology removing any dimeric duplicates
         """
         if self.interface_residues_by_interface:
             self.log.debug("Interface residues weren't set as they are already set. If they have been changed, the "
-                           "atribute 'interface_residues_by_interface' should be reset")
+                           "attribute 'interface_residues_by_interface' should be reset")
             # Todo add to reset_state()/reset_pose()
             return
 
         self.log.debug('Find and split interface using active_entities: '
                        f'{", ".join(entity.name for entity in self.active_entities)}')
-        entity_pair: tuple[Entity, Entity]
         if self.is_symmetric():
-            for entity_pair in combinations_with_replacement(self.active_entities, 2):
-                self.find_interface_residues(*entity_pair, **kwargs)
+            entity_combinations = combinations_with_replacement(self.active_entities, 2)
         else:
-            for entity_pair in combinations(self.active_entities, 2):
-                self.find_interface_residues(*entity_pair, **kwargs)
+            entity_combinations = combinations(self.active_entities, 2)
+
+        entity_pair: tuple[Entity, Entity]
+        for entity_pair in entity_combinations:
+            self.interface_residues_by_entity_pair[entity_pair] = self.get_interface_residues(*entity_pair, **kwargs)
 
         self.check_interface_topology()
 
