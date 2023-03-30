@@ -3461,24 +3461,28 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     # Set the passing transformation identifiers as the trajectory metrics index
     # These should all be the same order as w/ or w/o optimize_found_transformations_by_metrics() the order of
     # passing_transform_ids is fetched from the order of the selected_indices and each _df is sorted accordingly
-    _pose_names = [f'{identifier:d}' for identifier in passing_transform_ids]
-    passing_index = pd.Index(_pose_names, name=sql.PoseMetrics.pose_id.name)
+    passing_index = pd.Index([f'{identifier:d}' for identifier in passing_transform_ids],
+                             name=sql.PoseMetrics.pose_id.name)
+    starting_transforms = len(passing_index)
     # Deduplicate the indices by keeping the first instance
     # The above sorting ensures that the first instance is the "best"
     deduplicated_indices = ~passing_index.duplicated(keep='first')
+    # Filter data structures
+    passing_index = passing_index[deduplicated_indices]
     poses_df = poses_df[deduplicated_indices]
     residues_df = residues_df[deduplicated_indices]
-    poses_df.index = residues_df.index = passing_index[deduplicated_indices]
-    pose_names = poses_df.index.tolist()
-    number_of_transforms = len(pose_names)
     filter_transforms_by_indices(np.flatnonzero(deduplicated_indices))
+    number_of_transforms = len(passing_index)
+    if starting_transforms != number_of_transforms:
+        logger.info(f'Removed {starting_transforms - number_of_transforms} due to transformation duplication')
     # Finally, tabulate the ProteinMPNN metrics if they weren't already
     if job.dock.proteinmpnn_score:
         pass  # ProteinMPNN metrics already collected
     else:  # Collect
         logger.info(f'Measuring quality of docked interfaces with ProteinMPNN unconditional probabilities')
         poses_df, residues_df = collect_dock_metrics(proteinmpnn_score=True)
-        poses_df.index = residues_df.index = pd.Index(_pose_names, name=sql.PoseMetrics.pose_id.name)
+    poses_df.index = residues_df.index = passing_index
+    pose_names = poses_df.index.tolist()
 
     def terminate(pose: Pose, poses_df_: pd.DataFrame, residues_df_: pd.DataFrame):
         """Finalize any remaining work and return to the caller"""
