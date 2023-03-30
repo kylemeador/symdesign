@@ -19,7 +19,7 @@ from typing import Any, AnyStr, Iterable
 import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, lazyload
 
 try:
     from memory_profiler import profile
@@ -1146,12 +1146,18 @@ def main():
 
             # Fetch identified. No writes
             with job.db.session(expire_on_commit=False) as session:
+                if job.module in flags.select_modules:
+                    pose_job_stmt = select(PoseJob).options(
+                        lazyload(PoseJob.entity_data),
+                        lazyload(PoseJob.metrics))
+                else:  # Load all attributes
+                    pose_job_stmt = select(PoseJob)
                 try:  # To convert the identifier to an integer
                     int(pose_identifiers[0])
                 except ValueError:  # Can't convert to integer, identifiers_are_database_id = False
-                    fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
+                    fetch_jobs_stmt = pose_job_stmt.where(PoseJob.pose_identifier.in_(pose_identifiers))
                 else:
-                    fetch_jobs_stmt = select(PoseJob).where(PoseJob.id.in_(pose_identifiers))
+                    fetch_jobs_stmt = pose_job_stmt.where(PoseJob.id.in_(pose_identifiers))
 
                 pose_jobs = session.scalars(fetch_jobs_stmt).all()
 
@@ -1180,237 +1186,255 @@ def main():
             if file_paths:
                 pose_jobs = [PoseJob.from_path(path, project=project_name)
                              for path in job.get_range_slice(file_paths)]
-        if not pose_jobs and not select_from_directory:
-            # Todo this needs a more informative error. Is the location of the correct format?
-            #  For instance, a --project provided with the directory of type --single would die without much
-            #  knowledge of why
-            raise utils.InputError(
-                f"No {PoseJob.__name__}'s found from input location '{job.location}'")
-        """Check to see that proper data/files have been created 
-        Data includes:
-        - UniProtEntity
-        - ProteinMetadata
-        Files include:
-        - Structure in orient, refined, loop modelled
-        - Profile from hhblits, bmdca?
-        """
+        if job.module not in flags.select_modules:  # select_from_directory:
+            if not pose_jobs and not select_from_directory:
+                # Todo this needs a more informative error. Is the location of the correct format?
+                #  For instance, a --project provided with the directory of type --single would die without much
+                #  knowledge of why
+                raise utils.InputError(
+                    f"No {PoseJob.__name__}'s found from input location '{job.location}'")
+            """Check to see that proper data/files have been created 
+            Data includes:
+            - UniProtEntity
+            - ProteinMetadata
+            Files include:
+            - Structure in orient, refined, loop modelled
+            - Profile from hhblits, bmdca?
+            """
 
-        if job.sym_entry:
-            symmetry_map = job.sym_entry.groups
-            preprocess_entities_by_symmetry: dict[str, list[Entity]] = \
-                {symmetry: [] for symmetry in job.sym_entry.groups}
-        else:
-            symmetry_map = repeat('C1')
-            preprocess_entities_by_symmetry = {'C1': []}
+            if job.sym_entry:
+                symmetry_map = job.sym_entry.groups
+                preprocess_entities_by_symmetry: dict[str, list[Entity]] = \
+                    {symmetry: [] for symmetry in job.sym_entry.groups}
+            else:
+                symmetry_map = repeat('C1')
+                preprocess_entities_by_symmetry = {'C1': []}
 
-        # Get api wrapper
-        retrieve_stride_info = job.api_db.stride.retrieve_data
-        possibly_new_uniprot_to_prot_metadata: dict[tuple[str, ...], sql.ProteinMetadata] = {}
-        existing_uniprot_ids = set()
-        existing_uniprot_entities = set()
-        existing_protein_metadata = set()
-        remove_pose_jobs = []
-        pose_jobs_to_commit = []
-        for idx, pose_job in enumerate(pose_jobs):
-            if pose_job.id is None:
-                # Todo expand the definition of SymEntry/Entity to include
-                #  specification of T:{T:{C3}{C3}}{C1}
-                #  where an Entity is composed of multiple Entity (Chain) instances
-                # Need to initialize the local database. Load this model to get required info
-                try:
-                    pose_job.load_initial_model()
-                except utils.InputError as error:
-                    logger.error(error)
-                    remove_pose_jobs.append(idx)
-                    continue
-
-                for entity, symmetry in zip(pose_job.initial_model.entities, symmetry_map):
+            # Get api wrapper
+            retrieve_stride_info = job.api_db.stride.retrieve_data
+            possibly_new_uniprot_to_prot_metadata: dict[tuple[str, ...], sql.ProteinMetadata] = {}
+            # Todo
+            # existing_uniprot_ids = set()
+            # existing_protein_properties_ids = set()
+            existing_uniprot_entities = set()
+            existing_protein_metadata = set()
+            remove_pose_jobs = []
+            pose_jobs_to_commit = []
+            for idx, pose_job in enumerate(pose_jobs):
+                if pose_job.id is None:
+                    # Todo expand the definition of SymEntry/Entity to include
+                    #  specification of T:{T:{C3}{C3}}{C1}
+                    #  where an Entity is composed of multiple Entity (Chain) instances
+                    # Need to initialize the local database. Load this model to get required info
                     try:
-                        ''.join(entity.uniprot_ids)
-                    except TypeError:  # Uniprot_ids is (None,)
-                        entity.uniprot_ids = (entity.name,)
-                    except AttributeError:  # Unable to retrieve .uniprot_ids
-                        entity.uniprot_ids = (entity.name,)
-                    # else:  # .uniprot_ids work. Use as parsed
-                    uniprot_ids = entity.uniprot_ids
+                        pose_job.load_initial_model()
+                    except utils.InputError as error:
+                        logger.error(error)
+                        remove_pose_jobs.append(idx)
+                        continue
 
-                    # Check if the tuple of UniProtIDs has already been observed
-                    protein_metadata = possibly_new_uniprot_to_prot_metadata.get(uniprot_ids, None)
-                    if protein_metadata is None:
-                        # Process for persistent state
-                        protein_metadata = sql.ProteinMetadata(
-                            entity_id=entity.name,
-                            reference_sequence=entity.reference_sequence,
-                            thermophilicity=entity.thermophilicity,
-                            # There could be no sym_entry, so fall back on the entity.symmetry
-                            symmetry_group=symmetry if symmetry else entity.symmetry
-                        )
-                        # Try to get the already parsed secondary structure information
-                        parsed_secondary_structure = retrieve_stride_info(name=entity.name)
-                        if parsed_secondary_structure:
-                            # We already have this SS information
-                            entity.secondary_structure = parsed_secondary_structure
+                    for entity, symmetry in zip(pose_job.initial_model.entities, symmetry_map):
+                        try:
+                            ''.join(entity.uniprot_ids)
+                        except TypeError:  # Uniprot_ids is (None,)
+                            entity.uniprot_ids = (entity.name,)
+                        except AttributeError:  # Unable to retrieve .uniprot_ids
+                            entity.uniprot_ids = (entity.name,)
+                        # else:  # .uniprot_ids work. Use as parsed
+                        uniprot_ids = entity.uniprot_ids
+
+                        # Check if the tuple of UniProtIDs has already been observed
+                        protein_metadata = possibly_new_uniprot_to_prot_metadata.get(uniprot_ids, None)
+                        if protein_metadata is None:
+                            # Process for persistent state
+                            protein_metadata = sql.ProteinMetadata(
+                                entity_id=entity.name,
+                                reference_sequence=entity.reference_sequence,
+                                thermophilicity=entity.thermophilicity,
+                                # There could be no sym_entry, so fall back on the entity.symmetry
+                                symmetry_group=symmetry if symmetry else entity.symmetry
+                            )
+                            # Try to get the already parsed secondary structure information
+                            parsed_secondary_structure = retrieve_stride_info(name=entity.name)
+                            if parsed_secondary_structure:
+                                # We already have this SS information
+                                entity.secondary_structure = parsed_secondary_structure
+                            else:
+                                # entity = Entity.from_file(data.model_source, name=data.entity_id, metadata=data)
+                                entity.stride(to_file=job.api_db.stride.path_to(name=entity.name))
+                            protein_metadata.n_terminal_helix = entity.is_termini_helical()
+                            protein_metadata.c_terminal_helix = entity.is_termini_helical('c')
+                            # for uniprot_id in entity.uniprot_ids:
+                            #     if uniprot_id in possibly_new_uniprot_to_prot_metadata:
+                            #         # This Entity already found for processing
+                            #         pass
+                            #     else:  # Process for persistent state
+                            #         possibly_new_uniprot_to_prot_metadata[uniprot_id] = protein_metadata
+
+                            possibly_new_uniprot_to_prot_metadata[uniprot_ids] = protein_metadata
+                            preprocess_entities_by_symmetry[symmetry].append(entity)
                         else:
-                            # entity = Entity.from_file(data.model_source, name=data.entity_id, metadata=data)
-                            entity.stride(to_file=job.api_db.stride.path_to(name=entity.name))
-                        protein_metadata.n_terminal_helix = entity.is_termini_helical()
-                        protein_metadata.c_terminal_helix = entity.is_termini_helical('c')
-                        # for uniprot_id in entity.uniprot_ids:
-                        #     if uniprot_id in possibly_new_uniprot_to_prot_metadata:
-                        #         # This Entity already found for processing
-                        #         pass
-                        #     else:  # Process for persistent state
-                        #         possibly_new_uniprot_to_prot_metadata[uniprot_id] = protein_metadata
+                            # This Entity already found for processing, and we shouldn't have duplicates
+                            found_metadata = sql.ProteinMetadata(
+                                entity_id=entity.name,
+                                reference_sequence=entity.reference_sequence,
+                                thermophilicity=entity.thermophilicity,
+                                # There could be no sym_entry, so fall back on the entity.symmetry
+                                symmetry_group=symmetry if symmetry else entity.symmetry
+                            )
+                            logger.error(f"Found duplicate UniProtID identifier, {uniprot_ids}, for {protein_metadata}. "
+                                         f"This error wasn't expected to occur.{putils.report_issue}")
+                            attrs_of_interest = \
+                                ['entity_id', 'reference_sequence', 'thermophilicity', 'symmetry_group', 'model_source']
+                            exist = '\n\t.'.join(
+                                [f'{attr}={getattr(protein_metadata, attr)}' for attr in attrs_of_interest])
 
-                        possibly_new_uniprot_to_prot_metadata[uniprot_ids] = protein_metadata
-                        preprocess_entities_by_symmetry[symmetry].append(entity)
-                    else:
-                        # This Entity already found for processing, and we shouldn't have duplicates
-                        found_metadata = sql.ProteinMetadata(
-                            entity_id=entity.name,
-                            reference_sequence=entity.reference_sequence,
-                            thermophilicity=entity.thermophilicity,
-                            # There could be no sym_entry, so fall back on the entity.symmetry
-                            symmetry_group=symmetry if symmetry else entity.symmetry
-                        )
-                        logger.error(f"Found duplicate UniProtID identifier, {uniprot_ids}, for {protein_metadata}. "
-                                     f"This error wasn't expected to occur.{putils.report_issue}")
-                        attrs_of_interest = \
-                            ['entity_id', 'reference_sequence', 'thermophilicity', 'symmetry_group', 'model_source']
-                        exist = '\n\t.'.join(
-                            [f'{attr}={getattr(protein_metadata, attr)}' for attr in attrs_of_interest])
+                            found = '\n\t.'.join([f'{attr}={getattr(found_metadata, attr)}' for attr in attrs_of_interest])
+                            logger.critical(f'Existing ProteinMetadata:\n{exist}\nNew ProteinMetadata:{found}\n')
 
-                        found = '\n\t.'.join([f'{attr}={getattr(found_metadata, attr)}' for attr in attrs_of_interest])
-                        logger.critical(f'Existing ProteinMetadata:\n{exist}\nNew ProteinMetadata:{found}\n')
+                        # # Create EntityData
+                        # # entity_data.append(sql.EntityData(pose=pose_job,
+                        # sql.EntityData(pose=pose_job,
+                        #                meta=protein_metadata
+                        #                )
+                    # # Update PoseJob
+                    # pose_job.entity_data = entity_data
+                    pose_jobs_to_commit.append(pose_job)
+                else:  # PoseJob is initialized
+                    # # Add each UniProtEntity to existing_uniprot_entities to limit work
+                    # Todo
+                    # for data in pose_job.entity_data:
+                    #     existing_protein_properties_ids.add(data.properties_id)
+                    #     # Now loading these in initialize_metadata()
+                    #     # for uniprot_id in data.meta.uniprot_ids:
+                    #     #     existing_uniprot_ids.add(uniprot_id)
+                    # Add each UniProtEntity to existing_uniprot_entities to limit work
+                    for data in pose_job.entity_data:
+                        existing_protein_metadata.add(data.meta)
+                        for uniprot_entity in data.meta.uniprot_entities:
+                            existing_uniprot_entities.add(uniprot_entity)
 
-                    # # Create EntityData
-                    # # entity_data.append(sql.EntityData(pose=pose_job,
-                    # sql.EntityData(pose=pose_job,
-                    #                meta=protein_metadata
-                    #                )
-                # # Update PoseJob
-                # pose_job.entity_data = entity_data
-                pose_jobs_to_commit.append(pose_job)
-            else:  # PoseJob is initialized
-                # Add each UniProtEntity to existing_uniprot_entities to limit work
-                for data in pose_job.entity_data:
-                    existing_protein_metadata.add(data.meta)
-                    for uniprot_entity in data.meta.uniprot_entities:
-                        existing_uniprot_entities.add(uniprot_entity)
-                    # meta = data.meta
-                    # if meta.uniprot_id in possibly_new_uniprot_to_prot_metadata:
-                    #     existing_uniprot_entities.add(meta.uniprot_entity)
-        for idx in reversed(remove_pose_jobs):
-            pose_jobs.pop(idx)
+            for idx in reversed(remove_pose_jobs):
+                pose_jobs.pop(idx)
 
-        if not pose_jobs and not select_from_directory:
-            raise utils.InputError(
-                f"No viable {PoseJob.__name__}'s found at location '{job.location}'. See the log for details")
+            if not pose_jobs and not select_from_directory:
+                raise utils.InputError(
+                    f"No viable {PoseJob.__name__}'s found at location '{job.location}'. See the log for details")
 
-        with job.db.session(expire_on_commit=False) as session:
-            # Deal with new data compared to existing entries
-            all_uniprot_id_to_prot_data = \
-                initialize_metadata(session, possibly_new_uniprot_to_prot_metadata,
-                                    existing_uniprot_entities=existing_uniprot_entities,
-                                    existing_protein_metadata=existing_protein_metadata)
+            with job.db.session(expire_on_commit=False) as session:
+                # Deal with new data compared to existing entries
+                all_uniprot_id_to_prot_data = \
+                    initialize_metadata(session, possibly_new_uniprot_to_prot_metadata,
+                                        existing_uniprot_entities=existing_uniprot_entities,
+                                        existing_protein_metadata=existing_protein_metadata)
+                # # Deal with new data compared to existing entries
+                # # Todo
+                # all_uniprot_id_to_prot_data = \
+                #     initialize_metadata(session, possibly_new_uniprot_to_prot_metadata,
+                #                         # existing_uniprot_ids=existing_uniprot_ids,
+                #                         existing_protein_metadata_ids=existing_protein_properties_ids)
 
-            # Get all uniprot_entities, and fix ProteinMetadata that is already loaded
-            uniprot_entities = []
-            for data in all_uniprot_id_to_prot_data.values():
-                uniprot_entities.extend(data.uniprot_entities)
+                # Get all uniprot_entities, and fix ProteinMetadata that is already loaded
+                uniprot_entities = []
+                for data in all_uniprot_id_to_prot_data.values():
+                    uniprot_entities.extend(data.uniprot_entities)
 
-            # # Populate all_structures to set up structure dependent resources
-            # all_structures = []
-            # # Orient entities, then load each entity to all_structures for further database processing
-            # for symmetry, entities in preprocess_entities_by_symmetry.items():
-            #     if not entities:  # Useful in a case where symmetry groups are the same or group is None
-            #         continue
-            #     # all_entities.extend(entities)
-            #     # job.structure_db.orient_structures(
-            #     #     [entity.name for entity in entities], symmetry=symmetry)
-            #     # Can't do this ^ as structure_db.orient_structures sets .name, .symmetry, and .file_path on each Entity
-            #     all_structures.extend(job.structure_db.orient_structures(
-            #         [entity.name for entity in entities], symmetry=symmetry))
-            #     # Todo orient Entity individually, which requires symmetric oligomer be made
-            #     #  This could be found from Pose._assign_pose_transformation() or new mechanism
-            #     #  Where oligomer is deduced from available surface fragment overlap with the specified symmetry...
-            #     #  job.structure_db.orient_entities(entities, symmetry=symmetry)
-            #
-            # # Indicate for the ProteinMetadata the characteristics of the Structure in the database
-            # for structure in all_structures:
-            #     for entity in structure.entities:
-            #         protein_metadata = all_uniprot_id_to_prot_data[entity.uniprot_ids]
-            #         # Importantly, we add oriented attribute to aid in any future processing
-            #         protein_metadata.model_source = entity.file_path
-            #
-            # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
-            initialize_entities(job, uniprot_entities, [])  # all_uniprot_id_to_prot_data.values())
-            #
-            # # Todo replace the passed files with the processed versions?
-            # #  See PoseJob.load_pose()
-            # # for pose_job in pose_jobs:
-            # #     for idx, entity in enumerate(pose_job.initial_model.entities):
-            # #         pose_job.initial_model.entities[idx]
-            #
-            # for uniprot_ids, data in all_uniprot_id_to_prot_data.items():
-            #     # Try to get the already parsed secondary structure information
-            #     parsed_secondary_structure = retrieve_stride_info(name=entity.name)
-            #     if parsed_secondary_structure:
-            #         continue  # We already have this SS information
-            #         # entity.secondary_structure = parsed_secondary_structure
-            #     else:
-            #         entity = Entity.from_file(data.model_source, name=data.entity_id, metadata=data)
-            #         entity.stride(to_file=job.api_db.stride.path_to(name=data.entity_id))
-            #         data.n_terminal_helix = entity.is_termini_helical()
-            #         data.c_terminal_helix = entity.is_termini_helical('c')
+                # # Populate all_structures to set up structure dependent resources
+                # all_structures = []
+                # # Orient entities, then load each entity to all_structures for further database processing
+                # for symmetry, entities in preprocess_entities_by_symmetry.items():
+                #     if not entities:  # Useful in a case where symmetry groups are the same or group is None
+                #         continue
+                #     # all_entities.extend(entities)
+                #     # job.structure_db.orient_structures(
+                #     #     [entity.name for entity in entities], symmetry=symmetry)
+                #     # Can't do this ^ as structure_db.orient_structures sets .name, .symmetry, and .file_path on each Entity
+                #     all_structures.extend(job.structure_db.orient_structures(
+                #         [entity.name for entity in entities], symmetry=symmetry))
+                #     # Todo orient Entity individually, which requires symmetric oligomer be made
+                #     #  This could be found from Pose._assign_pose_transformation() or new mechanism
+                #     #  Where oligomer is deduced from available surface fragment overlap with the specified symmetry...
+                #     #  job.structure_db.orient_entities(entities, symmetry=symmetry)
+                #
+                # # Indicate for the ProteinMetadata the characteristics of the Structure in the database
+                # for structure in all_structures:
+                #     for entity in structure.entities:
+                #         protein_metadata = all_uniprot_id_to_prot_data[entity.uniprot_ids]
+                #         # Importantly, we add oriented attribute to aid in any future processing
+                #         protein_metadata.model_source = entity.file_path
+                #
+                # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
+                initialize_entities(job, uniprot_entities, [])  # all_uniprot_id_to_prot_data.values())
+                #
+                # # Todo replace the passed files with the processed versions?
+                # #  See PoseJob.load_pose()
+                # # for pose_job in pose_jobs:
+                # #     for idx, entity in enumerate(pose_job.initial_model.entities):
+                # #         pose_job.initial_model.entities[idx]
+                #
+                # for uniprot_ids, data in all_uniprot_id_to_prot_data.items():
+                #     # Try to get the already parsed secondary structure information
+                #     parsed_secondary_structure = retrieve_stride_info(name=entity.name)
+                #     if parsed_secondary_structure:
+                #         continue  # We already have this SS information
+                #         # entity.secondary_structure = parsed_secondary_structure
+                #     else:
+                #         entity = Entity.from_file(data.model_source, name=data.entity_id, metadata=data)
+                #         entity.stride(to_file=job.api_db.stride.path_to(name=data.entity_id))
+                #         data.n_terminal_helix = entity.is_termini_helical()
+                #         data.c_terminal_helix = entity.is_termini_helical('c')
 
-            if pose_jobs_to_commit:
-                # Write new data to the database with correct unique entries
-                for pose_job in pose_jobs_to_commit:
-                    pose_job.entity_data.extend(
-                        sql.EntityData(meta=all_uniprot_id_to_prot_data[entity.uniprot_ids])
-                        for entity in pose_job.initial_model.entities)
-                    # Todo this could be useful if optimizing database access with concurrency
-                    # # Ensure that the pose has entity_transform information saved to the db
-                    # pose_job.load_pose()
-                session.add_all(pose_jobs_to_commit)
-
-                # When pose_jobs_to_commit already exist, deal with it by getting those already
-                # OR raise a useful error for the user about input
-                try:
-                    session.commit()
-                except SQLAlchemyError:
-                    # Remove pose_jobs_to_commit from session
-                    session.rollback()
-                    # Find the actual pose_jobs_to_commit and place in session
-                    pose_identifiers = [pose_job.new_pose_identifier for pose_job in pose_jobs_to_commit]
-                    fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
-                    existing_pose_jobs = session.scalars(fetch_jobs_stmt).all()
-
-                    existing_pose_identifiers = [pose_job.pose_identifier for pose_job in existing_pose_jobs]
-                    pose_jobs = []
+                if pose_jobs_to_commit:
+                    # Write new data to the database with correct unique entries
                     for pose_job in pose_jobs_to_commit:
-                        if pose_job.new_pose_identifier not in existing_pose_identifiers:
-                            pose_jobs.append(pose_job)
-                            # session.add(pose_job)
+                        pose_job.entity_data.extend(
+                            sql.EntityData(meta=all_uniprot_id_to_prot_data[entity.uniprot_ids])
+                            for entity in pose_job.initial_model.entities)
+                        # Todo this could be useful if optimizing database access with concurrency
+                        # # Ensure that the pose has entity_transform information saved to the db
+                        # pose_job.load_pose()
+                    session.add_all(pose_jobs_to_commit)
 
-                    session.add_all(pose_jobs)
-                    session.commit()
-                    pose_jobs += existing_pose_jobs
+                    # When pose_jobs_to_commit already exist, deal with it by getting those already
+                    # OR raise a useful error for the user about input
+                    try:
+                        session.commit()
+                    except SQLAlchemyError:
+                        # Remove pose_jobs_to_commit from session
+                        session.rollback()
+                        # Find the actual pose_jobs_to_commit and place in session
+                        pose_identifiers = [pose_job.new_pose_identifier for pose_job in pose_jobs_to_commit]
+                        fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
+                        existing_pose_jobs = session.scalars(fetch_jobs_stmt).all()
 
-            if args.multi_processing:  # and not args.skip_master_db:
-                logger.debug('Loading Database for multiprocessing fork')
-                # Todo set up a job based data acquisition as this takes some time and loading everythin isn't necessary!
-                job.structure_db.load_all_data()
-                job.api_db.load_all_data()
+                        existing_pose_identifiers = [pose_job.pose_identifier for pose_job in existing_pose_jobs]
+                        pose_jobs = []
+                        for pose_job in pose_jobs_to_commit:
+                            if pose_job.new_pose_identifier not in existing_pose_identifiers:
+                                pose_jobs.append(pose_job)
+                                # session.add(pose_job)
 
-            logger.info(f'Found {len(pose_jobs)} unique poses from provided input location "{job.location}"')
-            if not job.debug and not job.skip_logging and not select_from_directory:
-                representative_pose_job = next(iter(pose_jobs))
-                if representative_pose_job.log_path:
-                    logger.info(f'All design specific logs are located in their corresponding directories\n\tEx: '
-                                f'{representative_pose_job.log_path}')
-        # End session
+                        session.add_all(pose_jobs)
+                        session.commit()
+                        pose_jobs += existing_pose_jobs
+            # End session
+        else:  # This is a select_module
+            pass
+
+        if args.multi_processing:  # and not args.skip_master_db:
+            logger.debug('Loading Database for multiprocessing fork')
+            # Todo set up a job based data acquisition as this takes some time and loading everythin isn't necessary!
+            job.structure_db.load_all_data()
+            job.api_db.load_all_data()
+
+        # Todo
+        #  f'Found {len(pose_jobs)}...' not accurate with select_from_directory
+        logger.info(f'Found {len(pose_jobs)} unique poses from provided input location "{job.location}"')
+        if not job.debug and not job.skip_logging and not select_from_directory:
+            representative_pose_job = next(iter(pose_jobs))
+            if representative_pose_job.log_path:
+                logger.info(f'All design specific logs are located in their corresponding directories\n\tEx: '
+                            f'{representative_pose_job.log_path}')
     # -----------------------------------------------------------------------------------------------------------------
     #  Set up Job specific details and resources
     # -----------------------------------------------------------------------------------------------------------------

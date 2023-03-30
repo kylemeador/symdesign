@@ -1673,7 +1673,8 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
     with job.db.session(expire_on_commit=False) as session:
         # Figure out designs from dataframe, filters, and weights
         total_df = load_sql_all_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
-        design_metadata_df = load_sql_design_metadata_dataframe(session, design_ids=total_df[design_id].tolist())
+        design_ids = total_df[design_id].unique().tolist()
+        design_metadata_df = load_sql_design_metadata_dataframe(session, design_ids=design_ids)
         pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
         entity_metadata_df = load_sql_entity_metadata_dataframe(session, pose_ids=pose_ids)
         logger.debug(f'entity_metadata_df:\n{entity_metadata_df}')
