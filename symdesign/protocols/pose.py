@@ -33,7 +33,7 @@ from symdesign import flags, metrics, resources
 from symdesign.resources import distribute, sql
 from symdesign.sequence import MultipleSequenceAlignment, read_fasta_file, write_sequences
 from symdesign.structure import fragment
-from symdesign.structure.base import Structure
+from symdesign.structure.base import Residue, Structure
 from symdesign.structure.coords import superposition3d
 from symdesign.structure.model import Pose, Models, Model, Entity
 from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
@@ -2039,10 +2039,11 @@ class PoseProtocol(PoseData):
 
             residues_df = self.analyze_residue_metrics_per_design(asu_design_structures)
             designs_df = self.analyze_design_metrics_per_design(residues_df, asu_design_structures)
-            # Use the .interface_residues attribute to discern whether the interface should be examined
             predict_designs_df, predict_residues_df = \
                 self.analyze_alphafold_metrics(asu_design_scores, number_of_residues,
-                                               model_type=model_type, interface=self.pose.interface_residues)
+                                               model_type=model_type,
+                                               # Using the 2-fold aware pose.interface_residues_by_interface
+                                               interface_residues=self.pose.interface_residues_by_interface.values())
             residue_indices = list(range(number_of_residues))
             # Set the index to use the design.id for each design instance
             design_index = pd.Index(design_ids, name=sql.ResidueMetrics.design_id.name)
@@ -2107,6 +2108,8 @@ class PoseProtocol(PoseData):
                 #     entity_cb_coords = entity.cb_coords
 
                 # model_features = {'prev_pos': jnp.asarray(entity.oligomer.alphafold_coords)}
+                entity_interface_residues = self.pose.get_interface_residues(entity1=entity, entity2=entity,
+                                                                             oligomeric_interfaces=True)
                 entity_name = entity.name
                 this_entity_info = {entity_name: self.pose.entity_info[entity_name]}
                 entity_model_kwargs = dict(name=entity_name, entity_info=this_entity_info)
@@ -2176,7 +2179,8 @@ class PoseProtocol(PoseData):
 
                 sequence_length = entity_slice.stop - entity_slice.start
                 entity_designs_df, entity_residues_df = \
-                    self.analyze_alphafold_metrics(entity_scores_by_design, sequence_length, model_type=model_type)
+                    self.analyze_alphafold_metrics(entity_scores_by_design, sequence_length, model_type=model_type,
+                                                   interface_residues=entity_interface_residues)
                 # Set the index to use the design.id for each design instance and EntityData.id as an additional column
                 entity_designs_df.index = pd.MultiIndex.from_product([design_ids, [entity_data.id]],
                                                                      names=[sql.DesignEntityMetrics.design_id.name,
@@ -3402,7 +3406,8 @@ class PoseProtocol(PoseData):
             # session.commit()
 
     def analyze_alphafold_metrics(self, folding_scores: dict[str, [dict[str, np.ndarray]]], pose_length: int,
-                                  model_type: str = None, interface: bool = False) \
+                                  model_type: str = None,
+                                  interface_residues: tuple[Iterable[Residue], Iterable[Residue]] = False) \
             -> tuple[pd.DataFrame, pd.DataFrame] | tuple[None, None]:
         """From a set of folding metrics output by Alphafold (or possible other)
 
@@ -3416,7 +3421,7 @@ class PoseProtocol(PoseData):
                  }
             pose_length: The length of the scores to return for metrics with an array
             model_type: The type of model used during prediction
-            interface: Whether an interface was predicted
+            interface_residues: The Residue instance of two sides of a predicted interface
         Returns:
             A tuple of DataFrame where each contains (
                 A per-design metric DataFrame where each index is the design id and the columns are design metrics,
@@ -3427,12 +3432,17 @@ class PoseProtocol(PoseData):
         if not folding_scores:
             return None, None
 
-        if interface:
-            # Using the 2-fold aware pose.interface_residues_by_interface
-            interface_indices = [[residue.index for residue in residues]
-                                 for number, residues in self.pose.interface_residues_by_interface.items()]
+        if interface_residues:
+            if len(interface_residues) != 2:
+                raise ValueError(
+                    f'The length of "interface_residues" must be 2. Got {len(interface_residues)}')
+            interface_indices1, interface_indices2 = \
+                [[residue.index for residue in residues] for residues in interface_residues]
+            # # Using the 2-fold aware pose.interface_residues_by_interface
+            # interface_indices = [[residue.index for residue in residues]
+            #                      for number, residues in self.pose.interface_residues_by_interface.items()]
         else:
-            interface_indices = []
+            interface_indices1 = interface_indices2 = []
 
         # def describe_metrics(array_like: Iterable[int] | np.ndarray) -> dict[str, float]:
         #     length = len(array_like)
@@ -3501,13 +3511,12 @@ class PoseProtocol(PoseData):
                     array_scores['predicted_aligned_error'] = pae.mean(axis=0)[:pose_length]
                     # scalar_scores['predicted_aligned_error_deviation'] = array_scores['predicted_aligned_error'].std()
 
-                    if interface_indices:
+                    if interface_indices1:
                         # Index the resulting pae to get the error at the interface residues in particular
-                        indices1, indices2 = interface_indices
-                        # interface_pae_means = [model_pae[indices1][:, indices2].mean()
+                        # interface_pae_means = [model_pae[interface_indices1][:, interface_indices2].mean()
                         #                        for model_pae in scores['predicted_aligned_error']]
                         # scalar_scores['predicted_aligned_error_interface'] = sum(interface_pae_means) / number_models
-                        interface_pae = pae[indices1][:, indices2]
+                        interface_pae = pae[interface_indices1][:, interface_indices2]
                         scalar_scores['predicted_aligned_error_interface'] = interface_pae.mean()
                         scalar_scores['predicted_aligned_error_interface_deviation'] = interface_pae.std()
                 elif score_type == 'plddt':  # Todo combine with above
