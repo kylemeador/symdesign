@@ -1608,6 +1608,7 @@ class PoseProtocol(PoseData):
             # refine_sequences = unpickle(self.designed_sequences_file)
             sequences = {seq.id: seq.seq for seq in read_fasta_file(self.designed_sequences_file)}
 
+        self.load_pose()
         # Write each "threaded" structure out for further processing
         number_of_residues = self.pose.number_of_residues
         # Ensure that mutations to the Pose aren't saved to state
@@ -1716,14 +1717,14 @@ class PoseProtocol(PoseData):
         """
         self.load_pose()
         number_of_residues = self.pose.number_of_residues
+        protocol_logger.info(f'Performing structure prediction on {len(sequences)} sequences')
         for design, sequence in sequences.items():
             # Todo if differentially sized sequence inputs
             self.log.debug(f'Found sequence {sequence}')
             # max_sequence_length = max([len(sequence) for sequence in sequences.values()])
             if len(sequence) != number_of_residues:
-                raise DesignError(f'The length of the sequence {len(sequence)} != {number_of_residues}, '
-                                  f'the number of residues in the pose')
-        protocol_logger.info(f'Performing structure prediction on {len(sequences)} sequences')
+                raise DesignError(
+                    f'The sequence length {len(sequence)} != {number_of_residues}, the number of residues in the pose')
         # Get the DesignData.ids for metrics output
         design_ids = [design.id for design in sequences]
 
@@ -1733,9 +1734,9 @@ class PoseProtocol(PoseData):
         else:
             num_ensemble = 1
 
-        heteromer = self.number_of_entities > 1
-        multimer = heteromer or self.pose.number_of_chains > 1
-        run_multimer_system = self.pose.number_of_entities > 1 or self.pose.number_of_chains > 1
+        number_of_entities = self.number_of_entities
+        heteromer = number_of_entities > 1
+        run_multimer_system = heteromer or self.pose.number_of_chains > 1
         if run_multimer_system:
             model_type = 'multimer'
             self.log.info(f'The AlphaFold model was automatically set to {model_type} due to detected multimeric pose')
@@ -1791,9 +1792,9 @@ class PoseProtocol(PoseData):
 
                 multimer_number, remainder = divmod(multimer_length, sequence_length)
                 if remainder:
-                    raise ValueError('The multimer_sequence_length and the sequence_length must differ by an '
-                                     f'integer number. Found multimer ({multimer_sequence_length}) /'
-                                     f' monomer ({sequence_length}) with remainder {remainder}')
+                    raise ValueError(
+                        'The multimer_sequence_length and the sequence_length must differ by an integer number. Found '
+                        f'multimer/monomer ({multimer_sequence_length})/({sequence_length}) with remainder {remainder}')
                 for key in ['aatype', 'residue_index']:
                     _seq_features[key] = np.tile(_seq_features[key], multimer_number)
                 # # For 'domain_name', 'sequence', and 'seq_length', transform the 1-D array to a scaler
@@ -1937,18 +1938,20 @@ class PoseProtocol(PoseData):
 
         # Get features for the Pose and predict
         if self.job.predict.designs:
+            # For interface analysis the interface residues are needed
+            self.identify_interface()
             if self.job.predict.assembly:
                 if self.pose.number_of_symmetric_residues > resources.ml.MULTIMER_RESIDUE_LIMIT:
                     protocol_logger.critical(f"Predicting on a single symmetric input isn't recommended due to "
                                              'size limitations')
-                features = self.pose.get_alphafold_features(symmetric=True, multimer=multimer, no_msa=no_msa)
+                features = self.pose.get_alphafold_features(symmetric=True, multimer=run_multimer_system, no_msa=no_msa)
                 # Todo may need to this if the pose isn't completely symmetric despite it being specified as such
                 number_of_residues = self.pose.number_of_symmetric_residues
             else:
-                number_of_residues = self.pose.number_of_residues
-                features = self.pose.get_alphafold_features(symmetric=False, multimer=multimer, no_msa=no_msa)
+                features = self.pose.get_alphafold_features(symmetric=False, multimer=run_multimer_system,
+                                                            no_msa=no_msa)
 
-            if multimer:  # Get the length
+            if run_multimer_system:  # Get the length
                 multimer_sequence_length = features['seq_length']
             else:
                 multimer_sequence_length = None
@@ -2064,7 +2067,6 @@ class PoseProtocol(PoseData):
 
         # Prepare the features to feed to the model
         if self.job.predict.entities:  # and self.number_of_entities > 1:
-            number_of_entities = self.pose.number_of_entities
             # Get the features for each oligomeric Entity
             # The folding_scores will all be the length of the gene Entity, not oligomer
             # entity_scores_by_design = {design: [] for design in sequences}
@@ -2082,7 +2084,7 @@ class PoseProtocol(PoseData):
             for entity, entity_data in sorted_entities_and_data:
                 # Fold with symmetry True. If it isn't symmetric, symmetry won't be used
                 features = entity.get_alphafold_features(symmetric=True, no_msa=no_msa)
-                if multimer:  # Get the length
+                if run_multimer_system:  # Get the length
                     multimer_sequence_length = features['seq_length']
                     entity_number_of_residues = entity.oligomer.number_of_residues
                 else:
@@ -2097,7 +2099,7 @@ class PoseProtocol(PoseData):
                 # protocol_logger.critical(f'Found oligomeric atom_positions[0] with values: '
                 #                          f'{model_features["prev_pos"][0].tolist()}')
 
-                # if multimer:
+                # if run_multimer_system:
                 entity_cb_coords = np.concatenate([mate.cb_coords for mate in entity.chains])
                 # Todo
                 #  entity_backbone_and_cb_coords = entity.oligomer.cb_coords
