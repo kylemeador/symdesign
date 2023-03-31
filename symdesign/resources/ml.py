@@ -1096,6 +1096,7 @@ from typing import Any, Mapping, Optional, Union
 from absl import logging
 import haiku as hk
 import jax
+import jaxlib.xla_extension as jax_xla
 import ml_collections
 import numpy as np
 import tensorflow.compat.v1 as tf
@@ -1111,7 +1112,17 @@ class RunModel(afmodel.RunModel):
 
     def __init__(self,
                  config: ml_collections.ConfigDict,
-                 params: Optional[Mapping[str, Mapping[str, jnp.ndarray]]] = None):
+                 params: Optional[Mapping[str, Mapping[str, jnp.ndarray]]] = None,
+                 # SYMDESIGN
+                 device: jax_xla.Device = None):
+      """
+
+      Args:
+          config:
+          params:
+          device: The device the model should be compiled on
+      """
+      # SYMDESIGN
       self.config = config
       self.params = params
       self.multimer_mode = config.model.global_config.multimer_mode
@@ -1138,8 +1149,8 @@ class RunModel(afmodel.RunModel):
               compute_loss=False,
               ensemble_representations=True)
 
-      self.apply = jax.jit(hk.transform(_forward_fn).apply)
-      self.init = jax.jit(hk.transform(_forward_fn).init)
+      self.apply = jax.jit(hk.transform(_forward_fn).apply, device=device)
+      self.init = jax.jit(hk.transform(_forward_fn).init, device=device)
 
     def predict(self,
                 feat: features.FeatureDict,
@@ -1221,6 +1232,125 @@ class RunModel(afmodel.RunModel):
     # SYMDESIGN
 
 
+# Todo reflect the usage in eval_shape from AlphaFoldInitialGuess
+def calculate_alphafold_batch_length(device: jax_xla.Device, number_of_residues: int, element_memory: int = 4) -> int:
+    """
+
+    Args:
+        device: The ProteinMPNN model
+        number_of_residues: The number of residues used in the ProteinMPNN model
+        element_memory: Where each element is np.int64, np.float32, etc.
+    Returns:
+        The size of the batch that can be completed for the ProteinMPNN model given it's device
+    """
+    memory_constraint = get_device_memory(device)
+
+    number_of_elements_available = memory_constraint // element_memory
+    logger.debug(f'The number_of_elements_available is: {number_of_elements_available}')
+    number_of_model_parameter_elements = sum([math.prod(param.size()) for param in model.parameters()])
+    logger.debug(f'The number_of_model_parameter_elements is: {number_of_model_parameter_elements}')
+    model_elements = number_of_model_parameter_elements
+    # Todo use 5 as ideal CB is added by the model later with ca_only = False
+    num_model_residues = 5
+    model_elements += math.prod((number_of_residues, num_model_residues, 3))  # X,
+    model_elements += number_of_residues  # S.shape
+    model_elements += number_of_residues  # chain_mask.shape
+    model_elements += number_of_residues  # chain_encoding.shape
+    model_elements += number_of_residues  # residue_idx.shape
+    model_elements += number_of_residues  # mask.shape
+    model_elements += number_of_residues  # residue_mask.shape
+    model_elements += math.prod((number_of_residues, 21))  # omit_AA_mask.shape
+    model_elements += number_of_residues  # pssm_coef.shape
+    model_elements += math.prod((number_of_residues, 20))  # pssm_bias.shape
+    model_elements += math.prod((number_of_residues, 20))  # pssm_log_odds_mask.shape
+    model_elements += number_of_residues  # tied_beta.shape
+    model_elements += math.prod((number_of_residues, 21))  # bias_by_res.shape
+    logger.debug(f'The number of model_elements is: {model_elements}')
+
+    number_of_batches = number_of_elements_available // model_elements
+    batch_length = number_of_batches // proteinmpnn_batch_divisor
+    if batch_length == 0:
+        not_enough_proteinmpnn_memory = f"Can't find a device for {model} with enough memory to complete a single " \
+                                        f"batch of work with {number_of_residues} residues in the model"
+        if device.platform == 'cpu':
+            raise RuntimeError(not_enough_proteinmpnn_memory)
+
+        old_device = device
+        # This won't work. Try to put the model on a new device
+        max_memory = vanilla_model_memory
+        for device_int in range(torch.cuda.device_count()):
+            available_memory = get_device_memory(torch.device(device_int), free=True)
+            if available_memory > max_memory:
+                max_memory = available_memory
+                device_id = device_int
+        try:
+            device: torch.device = torch.device(device_id)
+        except UnboundLocalError:  # No device has memory greater than ProteinMPNN minimum required
+            device = jax.devices('cpu')[0]
+
+        if device == old_device:
+            # Solve using gpu is stuck
+            if device.type == 'cpu':
+                # This hasn't been changed or device is cpu
+                raise RuntimeError(not_enough_proteinmpnn_memory)
+            else:
+                # Try one more time ensuring cpu. This will be caught above if still not enough memory
+                device = torch.device('cpu')
+
+        # Recurse
+        return calculate_proteinmpnn_batch_length(model, number_of_residues, element_memory)
+
+    return device
+
+
+def get_jax_device_memory(device_int: int) -> int:  # jax_xla.Device
+    """Based on the device number, use torch to get the device memory"""
+    return get_device_memory(device_int)
+
+
+def alphafold_required_memory(number_of_residues: int):
+    """Get the bytes required for the number of residues in the model
+
+    Args:
+        number_of_residues: The number of residues in the model
+    """
+    if number_of_residues > 100:
+        return 629145600  # '600 M'
+    elif number_of_residues > 200:
+        return 1258291200  # '1200 M'
+    elif number_of_residues > 400:
+        return 2516582400  # '2400 M'
+    elif number_of_residues > 800:
+        return 5033164800  # '4800 M'
+    elif number_of_residues > 1000:
+        return 6291456000  # '6000 M'
+    else:  # Assume 2000+
+        return 12582912000  # '12000 M'
+
+
+def get_alphafold_model_device(number_of_residues: int) -> jax_xla.Device:
+    """Get the GPU capable of performing the AlphaFold inference for the number of residues in the model
+
+    Args:
+        number_of_residues: The number of residues in the model
+    Returns:
+        The jax.Device to use with the number of residues present in the model
+    """
+    use_device = None
+    max_memory = alphafold_required_memory(number_of_residues)
+    for int, device in enumerate(jax.devices('gpu')):
+        available_memory = get_jax_device_memory(int)
+        if available_memory > max_memory:
+            max_memory = available_memory
+            use_device = device
+
+    if use_device is None:
+        raise RuntimeError(
+            f"Couldn't find a usable device with the memory requirement {max_memory}")
+    else:
+        return use_device
+
+
 model_type_to_config_name = {
     'multimer': 'model_1_multimer_v3',
     'monomer_ptm': 'model_1_ptm',
@@ -1229,13 +1359,15 @@ model_type_to_config_name = {
 }
 
 
-def set_up_model_runners(model_type: af_model_literal = 'monomer', num_predictions_per_model: int = 1,
+def set_up_model_runners(model_type: af_model_literal = 'monomer', number_of_residues: int = 1000, num_predictions_per_model: int = 1,
                          num_ensemble: int = 1, development: bool = False) -> dict[str, RunModel]:
     """Produce Alphafold RunModel class loaded with their training parameters
 
     Args:
         model_type: The type of model to load. Should be one of the viable Alphafold models including:
             'monomer', 'monomer_casp14', 'monomer_ptm', 'multimer'
+        number_of_residues: The number of residues in the model. Used only to calculate approximate memory needs during
+            device allocation
         num_predictions_per_model: The number of predictions to make for each Alphafold model. Essentially duplicates
             the original models 'num_predictions_per_model' times
         num_ensemble: The number of model ensembles to make. Typically, 1 is sufficient, but during CASP14, 8 were used
@@ -1283,8 +1415,10 @@ def set_up_model_runners(model_type: af_model_literal = 'monomer', num_predictio
             # Using the config for model_1 as it is most similar to other models
             #  model_1/2 includes template embeddings (monomer),
             #  while multimer model_1 is fairly similar to 2-5
+            af_device = get_alphafold_model_device(number_of_residues)
+            logger.info(f'Using device {af_device} for model calculations')
             # RunModel is using prev_pos init
-            model_runner = RunModel(model_config, model_param)
+            model_runner = RunModel(model_config, model_param, device=af_device)
             # # ?? Not sure why this would be the case -> if the prediction is not for a design and there is an msa
             # model_runner = afmodel.RunModel(model_config, model_params)
             if development:
