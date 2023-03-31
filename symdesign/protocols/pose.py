@@ -1980,7 +1980,7 @@ class PoseProtocol(PoseData):
                 #                                        entity_info=self.pose.entity_info)
                 # Load the Model in while ignoring any potential clashes
                 # Todo should I limit the .splitlines by the number_of_residues? Assembly v asu considerations
-                asu_models = {model_name: Pose.from_pdb_lines(structure.splitlines(), name=str(design), **pose_kwargs)
+                asu_models = {model_name: Pose.from_pdb_lines(structure.splitlines(), name=design.name, **pose_kwargs)
                               for model_name, structure in structures_to_load.items()}
                 # Because the pdb_lines aren't oriented, must handle orientation of incoming files to match sym_entry
                 # This is handled in find_model_with_minimal_rmsd(), however, the symmetry isn't set up correctly, i.e.
@@ -2001,7 +2001,7 @@ class PoseProtocol(PoseData):
                 # asu_design_scores.append({'rmsd_prediction_ensemble': rmsds, **asu_scores[minimum_model]})
                 # Average all models scores to get the ensemble of the predictions
                 combined_scores = combine_model_scores(list(asu_scores.values()))
-                asu_design_scores[str(design)] = {'rmsd_prediction_ensemble': rmsds, **combined_scores}
+                asu_design_scores[design.name] = {'rmsd_prediction_ensemble': rmsds, **combined_scores}
                 # asu_design_scores[str(design)] = {'rmsd_prediction_ensemble': rmsds, **asu_scores[minimum_model]}
                 """Each design in asu_design_scores contain the following features
                 {'predicted_aligned_error': [(n_residues, n_residues), ...]  # multimer/monomer_ptm
@@ -2037,6 +2037,7 @@ class PoseProtocol(PoseData):
                                  out_path=os.path.join(self.designs_path,
                                                        f'{pose.name}{entity.name}-oligomer-check.pdb'))
 
+            # All index are based on design.name
             residues_df = self.analyze_residue_metrics_per_design(asu_design_structures)
             designs_df = self.analyze_design_metrics_per_design(residues_df, asu_design_structures)
             predict_designs_df, predict_residues_df = \
@@ -2156,7 +2157,7 @@ class PoseProtocol(PoseData):
                             f"Couldn't find the Entity {entity.name} model with the minimal rmsd for Design {design}")
                     else:
                         # Put Entity Model into a directory in pose/designs/pose-design_id/entity.name.pdb
-                        out_dir = os.path.join(self.designs_path, f'{design}')
+                        out_dir = os.path.join(self.designs_path, f'{design.name}')
                         putils.make_path(out_dir)
                         path = os.path.join(out_dir, f'{entity.name}-{minimum_model}-{type_str}relaxed.pdb')
                         minimum_entity = design_models[minimum_model]
@@ -2165,7 +2166,7 @@ class PoseProtocol(PoseData):
                     entity_structure_by_design[design].append(minimum_entity)
                     # Average all models scores to get the ensemble of the predictions
                     combined_scores = combine_model_scores(list(entity_scores.values()))
-                    entity_scores_by_design[str(design)] = {'rmsd_prediction_ensemble': rmsds, **combined_scores}
+                    entity_scores_by_design[design.name] = {'rmsd_prediction_ensemble': rmsds, **combined_scores}
                     # entity_scores_by_design[str(design)] = \
                     #     {'rmsd_prediction_ensemble': rmsds, **entity_scores[minimum_model]}
                     """Each design in entity_scores_by_design contains the following features
@@ -2205,7 +2206,7 @@ class PoseProtocol(PoseData):
                 # Combine Entity structure to compare with the Pose prediction
                 entity_design_structures = [
                     Pose.from_entities([entity for model in entity_models for entity in model.entities],
-                                       name=str(design), **pose_kwargs)
+                                       name=design.name, **pose_kwargs)
                     for design, entity_models in entity_structure_by_design.items()
                 ]
                 # Combine Entity scores to compare with the Pose prediction
