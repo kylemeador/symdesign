@@ -3486,9 +3486,12 @@ class PoseProtocol(PoseData):
                     if isinstance(score, list):
                         score_len = len(score)
                         scalar_scores[score_type] = mean_ = sum(score) / score_len
-                        # Using the standard deviation of a sample
-                        scalar_scores[f'{score_type}_deviation'] = \
-                            sqrt(sum([(score_-mean_) ** 2 for score_ in score]) / (score_len-1))
+                        if score_len > 1:
+                            # Using the standard deviation of a sample
+                            deviation = sqrt(sum([(score_-mean_) ** 2 for score_ in score]) / (score_len-1))
+                        else:
+                            deviation = 0.
+                        scalar_scores[f'{score_type}_deviation'] = deviation
                     else:
                         scalar_scores[score_type] = score
                 # Process 'predicted_aligned_error' when multimer/monomer_ptm. shape is (n_residues, n_residues)
@@ -3500,7 +3503,8 @@ class PoseProtocol(PoseData):
                         pae, *other_pae = score
                         for pae_ in other_pae:
                             pae += pae_
-                        pae /= number_models
+                        if number_models > 1:
+                            pae /= number_models
                         # pae_container = np.zeros((number_models, pose_length), dtype=np.float32)
                         # for idx, pae_ in enumerate(score):
                         #     pae_container[idx, :] = pae_.mean(axis=0)[:pose_length]
@@ -3525,7 +3529,8 @@ class PoseProtocol(PoseData):
                         plddt, *other_plddt = score
                         for plddt_ in other_plddt:
                             plddt += plddt_
-                        plddt /= number_models
+                        if number_models > 1:
+                            plddt /= number_models
                     else:
                         plddt = score
                     array_scores['plddt'] = plddt[:pose_length]
