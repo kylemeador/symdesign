@@ -3446,6 +3446,9 @@ class PoseProtocol(PoseData):
                     f'The argument "interface_indices" must contain a pair of indices for each side of an interfaces. '
                     f'Found the number of interfaces, {len(interface_indices)} != 2, the number expected')
             interface_indices1, interface_indices2 = interface_indices
+            # Check if this interface is 2-fold symetric. If so, the interface_indices2 will be empty
+            if not interface_indices2:
+                interface_indices2 = interface_indices1
             # # Using the 2-fold aware pose.interface_residues_by_interface
             # interface_indices = [[residue.index for residue in residues]
             #                      for number, residues in self.pose.interface_residues_by_interface.items()]
@@ -3527,6 +3530,8 @@ class PoseProtocol(PoseData):
                         # interface_pae_means = [model_pae[interface_indices1][:, interface_indices2].mean()
                         #                        for model_pae in scores['predicted_aligned_error']]
                         # scalar_scores['predicted_aligned_error_interface'] = sum(interface_pae_means) / number_models
+                        self.log.critical(f'Found interface_indices1: {interface_indices1}')
+                        self.log.critical(f'Found interface_indices2: {interface_indices2}')
                         interface_pae = pae[interface_indices1][:, interface_indices2]
                         scalar_scores['predicted_aligned_error_interface'] = interface_pae.mean()
                         scalar_scores['predicted_aligned_error_interface_deviation'] = interface_pae.std()
