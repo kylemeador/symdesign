@@ -3488,7 +3488,7 @@ class PoseProtocol(PoseData):
                         scalar_scores[score_type] = mean_ = sum(score) / score_len
                         # Using the standard deviation of a sample
                         scalar_scores[f'{score_type}_deviation'] = \
-                            sqrt(sum([(score-mean_) ** 2 for score in scores]) / (score_len-1))
+                            sqrt(sum([(score_-mean_) ** 2 for score_ in score]) / (score_len-1))
                     else:
                         scalar_scores[score_type] = score
                 # Process 'predicted_aligned_error' when multimer/monomer_ptm. shape is (n_residues, n_residues)
