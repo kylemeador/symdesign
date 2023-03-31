@@ -2158,7 +2158,7 @@ class PoseProtocol(PoseData):
                         # Put Entity Model into a directory in pose/designs/pose-design_id/entity.name.pdb
                         out_dir = os.path.join(self.designs_path, f'{design}')
                         putils.make_path(out_dir)
-                        path = os.path.join(out_dir, f'{entity.name}-{model_name}-{type_str}relaxed.pdb')
+                        path = os.path.join(out_dir, f'{entity.name}-{minimum_model}-{type_str}relaxed.pdb')
                         minimum_entity = design_models[minimum_model]
                         minimum_entity.write(out_path=path)
                     # Append each Entity result to the full return
