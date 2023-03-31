@@ -2182,7 +2182,10 @@ class PoseProtocol(PoseData):
                      }
                     """
 
-                sequence_length = entity_slice.stop - entity_slice.start
+                # Todo
+                #  Ensure the sequence length is the size of the entity. If saving the entity_residues_df need to
+                #  change the column index to reflect the number of residues
+                entity_sequence_length = entity_slice.stop - entity_slice.start
                 entity_designs_df, entity_residues_df = \
                     self.analyze_alphafold_metrics(entity_scores_by_design, entity_sequence_length,
                                                    model_type=model_type, interface_indices=entity_interface_indices)
