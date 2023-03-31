@@ -2037,14 +2037,15 @@ class PoseProtocol(PoseData):
                                  out_path=os.path.join(self.designs_path,
                                                        f'{pose.name}{entity.name}-oligomer-check.pdb'))
 
+            # Using the 2-fold aware pose.interface_residues_by_interface
+            interface_indices = tuple([residue.index for residue in residues]
+                                      for residues in self.pose.interface_residues_by_interface.values())
             # All index are based on design.name
             residues_df = self.analyze_residue_metrics_per_design(asu_design_structures)
             designs_df = self.analyze_design_metrics_per_design(residues_df, asu_design_structures)
             predict_designs_df, predict_residues_df = \
                 self.analyze_alphafold_metrics(asu_design_scores, number_of_residues,
-                                               model_type=model_type,
-                                               # Using the 2-fold aware pose.interface_residues_by_interface
-                                               interface_residues=self.pose.interface_residues_by_interface.values())
+                                               model_type=model_type, interface_indices=interface_indices)
             residue_indices = list(range(number_of_residues))
             # Set the index to use the design.id for each design instance
             design_index = pd.Index(design_ids, name=sql.ResidueMetrics.design_id.name)
@@ -2109,11 +2110,11 @@ class PoseProtocol(PoseData):
                 #     entity_cb_coords = entity.cb_coords
 
                 # model_features = {'prev_pos': jnp.asarray(entity.oligomer.alphafold_coords)}
-                entity_interface_residues = \
+                entity_interface_indices = \
                     self.pose.get_interface_residues(entity1=entity, entity2=entity, oligomeric_interfaces=True)
                 offset_index = entity.offset_index
-                entity_interface_residues = [[residue.index - offset_index for residue in residues]
-                                             for residues in entity_interface_residues]
+                entity_interface_indices = tuple([residue.index - offset_index for residue in residues]
+                                                 for residues in entity_interface_indices)
                 entity_name = entity.name
                 this_entity_info = {entity_name: self.pose.entity_info[entity_name]}
                 entity_model_kwargs = dict(name=entity_name, entity_info=this_entity_info)
@@ -2183,8 +2184,8 @@ class PoseProtocol(PoseData):
 
                 sequence_length = entity_slice.stop - entity_slice.start
                 entity_designs_df, entity_residues_df = \
-                    self.analyze_alphafold_metrics(entity_scores_by_design, sequence_length, model_type=model_type,
-                                                   interface_residues=entity_interface_residues)
+                    self.analyze_alphafold_metrics(entity_scores_by_design, entity_sequence_length,
+                                                   model_type=model_type, interface_indices=entity_interface_indices)
                 # Set the index to use the design.id for each design instance and EntityData.id as an additional column
                 entity_designs_df.index = pd.MultiIndex.from_product([design_ids, [entity_data.id]],
                                                                      names=[sql.DesignEntityMetrics.design_id.name,
@@ -3411,7 +3412,7 @@ class PoseProtocol(PoseData):
 
     def analyze_alphafold_metrics(self, folding_scores: dict[str, [dict[str, np.ndarray]]], pose_length: int,
                                   model_type: str = None,
-                                  interface_residues: tuple[Iterable[Residue], Iterable[Residue]] = False) \
+                                  interface_indices: tuple[Iterable[int], Iterable[int]] = False) \
             -> tuple[pd.DataFrame, pd.DataFrame] | tuple[None, None]:
         """From a set of folding metrics output by Alphafold (or possible other)
 
@@ -3425,7 +3426,7 @@ class PoseProtocol(PoseData):
                  }
             pose_length: The length of the scores to return for metrics with an array
             model_type: The type of model used during prediction
-            interface_residues: The Residue instance of two sides of a predicted interface
+            interface_indices: The Residue instance of two sides of a predicted interface
         Returns:
             A tuple of DataFrame where each contains (
                 A per-design metric DataFrame where each index is the design id and the columns are design metrics,
@@ -3436,17 +3437,17 @@ class PoseProtocol(PoseData):
         if not folding_scores:
             return None, None
 
-        if interface_residues:
-            if len(interface_residues) != 2:
+        if interface_indices:
+            if len(interface_indices) != 2:
                 raise ValueError(
-                    f'The length of "interface_residues" must be 2. Got {len(interface_residues)}')
-            interface_indices1, interface_indices2 = \
-                [[residue.index for residue in residues] for residues in interface_residues]
+                    f'The argument "interface_indices" must contain a pair of indices for each side of an interfaces. '
+                    f'Found the number of interfaces, {len(interface_indices)} != 2, the number expected')
+            interface_indices1, interface_indices2 = interface_indices
             # # Using the 2-fold aware pose.interface_residues_by_interface
             # interface_indices = [[residue.index for residue in residues]
             #                      for number, residues in self.pose.interface_residues_by_interface.items()]
         else:
-            interface_indices1 = interface_indices2 = []
+            interface_indices1 = interface_indices2 = slice(None)
 
         # def describe_metrics(array_like: Iterable[int] | np.ndarray) -> dict[str, float]:
         #     length = len(array_like)
