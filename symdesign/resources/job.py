@@ -958,21 +958,25 @@ class JobResources:
         for idx, module in enumerate(self.modules):
             if module == flags.nanohedra:
                 if idx > 0:
-                    raise InputError(f"For {flags.protocol} module, {flags.nanohedra} can currently only be run as "
-                                     f"module position #1")
+                    raise InputError(f"For {flags.protocol} module, {module} can only be run in --modules position #1")
                 nanohedra_prior = True
                 continue
+            elif module in flags.select_modules:
+                if idx != self.number_of_modules:
+                    raise InputError(f"For {flags.protocol} module, {module} can only be run in --modules position N, "
+                                     f"i.e. #1,2,...N")
+
             elif module == flags.predict_structure:
                 if gpu_device_kind is None:
                     # Check for GPU access
                     gpu_device_kind = check_gpu()
 
                 if gpu_device_kind:
-                    logger.info(f'Running {flags.predict_structure} on {gpu_device_kind} GPU')
-                    # disable GPU on tensorflow
+                    logger.info(f'Running {module} on {gpu_device_kind} GPU')
+                    # Disable GPU on tensorflow. I think that this is so tensorflow doesn't leak any calculations
                     tf.config.set_visible_devices([], 'GPU')
                 else:  # device.platform == 'cpu':
-                    logger.warning(f'No GPU detected, will {flags.predict_structure} using CPU')
+                    logger.warning(f'No GPU detected, will {module} using CPU')
             elif module == flags.design:
                 if self.design.method == putils.proteinmpnn:
                     if gpu_device_kind is None:
@@ -980,9 +984,9 @@ class JobResources:
                         gpu_device_kind = check_gpu()
 
                     if gpu_device_kind:
-                        logger.info(f'Running {flags.design} on {gpu_device_kind} GPU')
+                        logger.info(f'Running {module} on {gpu_device_kind} GPU')
                     else:  # device.platform == 'cpu':
-                        logger.warning(f'No GPU detected, will {flags.design} using CPU')
+                        logger.warning(f'No GPU detected, will {module} using CPU')
 
             if nanohedra_prior:
                 if module in flags.select_modules:
@@ -1086,7 +1090,7 @@ class JobResources:
         logger.debug(f'Available memory: {available_memory / gb_divisior:.2f} GB')
         logger.debug(f'Required memory: {required_memory / gb_divisior:.2f} GB')
         # If we are running a protocol, check for reducing memory requirements
-        if self.protocol_module and len(self.modules) > 2:
+        if self.protocol_module and self.number_of_modules > 2:
             self.reduce_memory = True
         elif available_memory < required_memory:
             self.reduce_memory = True
@@ -1095,6 +1099,11 @@ class JobResources:
             #  self.reduce_memory = False
             self.reduce_memory = True
         logger.debug(f'Reduce job memory?: {self.reduce_memory}')
+
+    @property
+    def number_of_modules(self) -> int:
+        """The number of modules for the specified Job"""
+        return len(self.modules)
 
     @staticmethod
     def can_process_evolutionary_profiles() -> bool:
