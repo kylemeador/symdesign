@@ -3474,7 +3474,7 @@ class PoseProtocol(PoseData):
 
         # number_models, number_of_residues = len(representative_plddt_per_model[0])
         # number_models = 1
-        residue_scores = {}
+        per_residue_data = {}
         design_scores = {}
         for design_name, scores in folding_scores.items():
             protocol_logger.debug(f'Found metrics with contents:\n{scores}')
@@ -3539,20 +3539,20 @@ class PoseProtocol(PoseData):
             protocol_logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
             protocol_logger.debug(f'Found array_scores with contents:\n{array_scores}')
 
-            residue_scores[design_name] = array_scores
+            per_residue_data[design_name] = array_scores
             design_scores[design_name] = scalar_scores
 
         designs_df = pd.DataFrame.from_dict(design_scores, orient='index')
-        # residues_df = pd.DataFrame.from_dict(residue_scores, orient='index')
+        # residues_df = pd.DataFrame.from_dict(per_residue_data, orient='index')
         residue_indices = range(pose_length)
         residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
-                                 for name, data in residue_scores.items()}).unstack().swaplevel(0, 1, axis=1)
+                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
         designs_df = designs_df.join(metrics.sum_per_residue_metrics(residues_df))
         designs_df['plddt'] /= pose_length
-        designs_df['plddt_deviation'] = residues_df[:, idx_slice[:, 'plddt']].std(axis=1)
+        designs_df['plddt_deviation'] = residues_df.loc[:, idx_slice[:, 'plddt']].std(axis=1)
         designs_df['predicted_aligned_error'] /= pose_length
         designs_df['predicted_aligned_error_deviation'] = \
-            residues_df[:, idx_slice[:, 'predicted_aligned_error']].std(axis=1)
+            residues_df.loc[:, idx_slice[:, 'predicted_aligned_error']].std(axis=1)
 
         return designs_df, residues_df
 
