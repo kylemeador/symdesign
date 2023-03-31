@@ -779,8 +779,8 @@ class DesignMetrics(Base):
     plddt_deviation = Column(Float)
     predicted_aligned_error = Column(Float)
     predicted_aligned_error_deviation = Column(Float)
-    predicted_aligned_interface = Column(Float)
-    predicted_aligned_interface_deviation = Column(Float)
+    predicted_aligned_error_interface = Column(Float)
+    predicted_aligned_error_interface_deviation = Column(Float)
     predicted_interface_template_modeling_score = Column(Float)
     predicted_interface_template_modeling_score_deviation = Column(Float)
     predicted_template_modeling_score = Column(Float)
@@ -824,8 +824,8 @@ class DesignEntityMetrics(Base):
     plddt_deviation = Column(Float)  # entity_ is in config.metrics
     predicted_aligned_error = Column(Float)  # entity_ is in config.metrics
     predicted_aligned_error_deviation = Column(Float)  # entity_ is in config.metrics
-    predicted_aligned_interface = Column(Float)  # entity_ is in config.metrics
-    predicted_aligned_interface_deviation = Column(Float)  # entity_ is in config.metrics
+    predicted_aligned_error_interface = Column(Float)  # entity_ is in config.metrics
+    predicted_aligned_error_interface_deviation = Column(Float)  # entity_ is in config.metrics
     predicted_interface_template_modeling_score = Column(Float)  # entity_ is in config.metrics
     predicted_interface_template_modeling_score_deviation = Column(Float)  # entity_ is in config.metrics
     predicted_template_modeling_score = Column(Float)  # entity_ is in config.metrics

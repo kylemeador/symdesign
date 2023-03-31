@@ -3485,10 +3485,10 @@ class PoseProtocol(PoseData):
                 if score_type in score_types_mean:
                     if isinstance(score, list):
                         score_len = len(score)
-                        scalar_scores[score_type] = mean = sum(score) / score_len
+                        scalar_scores[score_type] = mean_ = sum(score) / score_len
                         # Using the standard deviation of a sample
                         scalar_scores[f'{score_type}_deviation'] = \
-                            sqrt(sum([(score-mean) ** 2 for score in scores]) / (score_len-1))
+                            sqrt(sum([(score-mean_) ** 2 for score in scores]) / (score_len-1))
                     else:
                         scalar_scores[score_type] = score
                 # Process 'predicted_aligned_error' when multimer/monomer_ptm. shape is (n_residues, n_residues)
@@ -3509,7 +3509,6 @@ class PoseProtocol(PoseData):
                     else:
                         pae = score
                     array_scores['predicted_aligned_error'] = pae.mean(axis=0)[:pose_length]
-                    # scalar_scores['predicted_aligned_error_deviation'] = array_scores['predicted_aligned_error'].std()
 
                     if interface_indices1:
                         # Index the resulting pae to get the error at the interface residues in particular
@@ -3530,7 +3529,6 @@ class PoseProtocol(PoseData):
                     else:
                         plddt = score
                     array_scores['plddt'] = plddt[:pose_length]
-                    # scalar_scores['plddt_deviation'] = array_scores['plddt'].std()
 
             protocol_logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
             protocol_logger.debug(f'Found array_scores with contents:\n{array_scores}')
