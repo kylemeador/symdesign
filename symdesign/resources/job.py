@@ -961,10 +961,10 @@ class JobResources:
                     raise InputError(f"For {flags.protocol} module, {module} can only be run in --modules position #1")
                 nanohedra_prior = True
                 continue
-            elif module in flags.select_modules:
+            elif module in flags.select_modules and self.protocol_module:
                 if idx != self.number_of_modules:
-                    raise InputError(f"For {flags.protocol} module, {module} can only be run in --modules position N, "
-                                     f"i.e. #1,2,...N")
+                    raise InputError(
+                        f"For {flags.protocol} module, {module} can only be run in --modules position N i.e. #1,2,...N")
 
             elif module == flags.predict_structure:
                 if gpu_device_kind is None:
