@@ -832,7 +832,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                             break
                     else:
                         raise DesignError(
-                            f"Couldn't set self.current_designs as there was no {sql.DesignData.__name__} "
+                            f"Couldn't set {self}.current_designs as there was no {sql.DesignData.__name__} "
                             f"matching the name '{potential_design}'")
                 elif isinstance(potential_design, int):
                     for design in self.designs:
@@ -841,11 +841,11 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                             break
                     else:
                         raise DesignError(
-                            f"Couldn't set self.current_designs as there was no {sql.DesignData.__name__} "
+                            f"Couldn't set {self}.current_designs as there was no {sql.DesignData.__name__} "
                             f"matching the name '{potential_design}'")
                 else:
                     raise ValueError(
-                        f"Couldn't set .current_designs with a 'design'={potential_design} of type "
+                        f"Couldn't set {self}.current_designs with a 'design'={potential_design} of type "
                         f"{type(potential_design).__name__}")
 
     @property
