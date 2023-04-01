@@ -1189,9 +1189,9 @@ def main():
                     # if directives:
                     directives = job.get_range_slice(directives)
                     # Set up PoseJob with the specific designs and any directives
-                    for pose_job, _designs, _directives in zip(pose_identifiers, designs, directives):
+                    for pose_identifier, _designs, _directives in zip(pose_identifiers, designs, directives):
                         # Since the PoseJob were loaded from the database, the order of inputs needs to be used
-                        pose_identifier_to_pose_job_map[pose_identifiers].use_specific_designs(_designs, _directives)
+                        pose_identifier_to_pose_job_map[pose_identifier].use_specific_designs(_designs, _directives)
         elif select_from_directory:
             # Can make an empty pose_jobs when the program_root is args.directory
             job.location = args.directory
