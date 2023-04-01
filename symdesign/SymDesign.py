@@ -1165,21 +1165,33 @@ def main():
                 pose_jobs = session.scalars(fetch_jobs_stmt).all()
 
                 # Check all jobs that were checked out against those that were requested
-                checked_out_identifiers = {pose_job.pose_identifier for pose_job in pose_jobs}
-                missing_input_identifiers = checked_out_identifiers.difference(pose_identifiers)
-                if missing_input_identifiers:
+                pose_identifier_to_pose_job_map = {pose_job.pose_identifier: pose_job for pose_job in pose_jobs}
+                missing_pose_identifiers = set(pose_identifier_to_pose_job_map.keys()).difference(pose_identifiers)
+                if missing_pose_identifiers:
                     logger.warning(
-                        "Couldn't find the following identifiers:\n%s" % '\n'.join(missing_input_identifiers))
+                        "Couldn't find the following identifiers:\n\t%s\nRemoving them from the Job"
+                        % '\n'.join(missing_pose_identifiers))
+                    remove_missing_identifiers = [pose_identifiers.index(identifier)
+                                                  for identifier in missing_pose_identifiers]
+                    for index in sorted(remove_missing_identifiers, reverse=True):
+                        pose_identifiers.pop(index)
+                # else:
+                #     remove_missing_identifiers = []
 
                 if args.specification_file:
                     # designs and directives should always be the same length
+                    # if remove_missing_identifiers:
+                    #     raise utils.InputError(
+                    #         f"Can't set up job from {flags.format_args(flags.specification_file_args)} with missing "
+                    #         f"pose identifier(s)")
                     # if designs:
                     designs = job.get_range_slice(designs)
                     # if directives:
                     directives = job.get_range_slice(directives)
                     # Set up PoseJob with the specific designs and any directives
-                    for pose_job, _designs, _directives in zip(pose_jobs, designs, directives):
-                        pose_job.use_specific_designs(_designs, _directives)
+                    for pose_job, _designs, _directives in zip(pose_identifiers, designs, directives):
+                        # Since the PoseJob were loaded from the database, the order of inputs needs to be used
+                        pose_identifier_to_pose_job_map[pose_identifiers].use_specific_designs(_designs, _directives)
         elif select_from_directory:
             # Can make an empty pose_jobs when the program_root is args.directory
             job.location = args.directory
