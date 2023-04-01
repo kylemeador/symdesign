@@ -149,7 +149,7 @@ def load_sql_all_metrics_dataframe(session: Session, pose_ids: Iterable[int] = N
         stmt = join_stmt
 
     if design_ids:
-        stmt = stmt.where(sql.DesignData.id.in_(design_ids))
+        stmt = stmt.where(sql.DesignMetrics.design_id.in_(design_ids))
     else:
         stmt = stmt
 
@@ -451,8 +451,8 @@ def load_sql_design_metadata_dataframe(session: Session, pose_ids: Iterable[int]
     return load_and_format(session, stmt, selected_column_names)
 
 
-def load_sql_entity_metadata_dataframe(session: Session, pose_ids: Iterable[int] = None,
-                                       design_ids: Iterable[int] = None) -> pd.DataFrame:
+def load_sql_entity_metadata_dataframe(session: Session, pose_ids: Iterable[int] = None) -> pd.DataFrame:
+                                       # design_ids: Iterable[int] = None
     """Load and format every PoseJob instance associated metadata including protocol information
 
     Optionally limit those loaded to certain PoseJob.id's and DesignData.id's
@@ -460,7 +460,7 @@ def load_sql_entity_metadata_dataframe(session: Session, pose_ids: Iterable[int]
     Args:
         session: A currently open transaction within sqlalchemy
         pose_ids: PoseJob instance identifiers for which metrics are desired
-        design_ids: DesignData instance identifiers for which metrics are desired
+        # design_ids: DesignData instance identifiers for which metrics are desired
     Returns:
         The pandas DataFrame formatted with the every metric in DesignMetrics. The final DataFrame will
             have an entry for each DesignData
@@ -495,10 +495,10 @@ def load_sql_entity_metadata_dataframe(session: Session, pose_ids: Iterable[int]
     else:
         stmt = join_stmt
 
-    if design_ids:
-        stmt = stmt.where(sql.DesignData.id.in_(design_ids))
-    else:
-        stmt = stmt
+    # if design_ids:
+    #     stmt = stmt.where(sql.DesignData.id.in_(design_ids))  # Maybe can optimize joins
+    # else:
+    #     stmt = stmt
 
     return load_and_format(session, stmt, selected_column_names)
 
