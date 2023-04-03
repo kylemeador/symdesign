@@ -1613,9 +1613,6 @@ class PoseProtocol(PoseData):
         number_of_residues = self.pose.number_of_residues
         # Ensure that mutations to the Pose aren't saved to state
         pose_copy = self.pose.copy()
-        self.log.critical(f'In {self.thread_sequences_to_backbone__name__}, ensure that the pose was copied correctly '
-                          f'before trusting output. The residue in mutate_residue() should be equal after the copy... '
-                          'Delete this log if everything checks out')
         design_files = []
         for sequence_id, sequence in sequences.items():
             if len(sequence) != number_of_residues:
