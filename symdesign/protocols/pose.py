@@ -1671,8 +1671,9 @@ class PoseProtocol(PoseData):
                 elif self.job.overwrite:
                     sequences = {**pose_sequence, **sequences}
                 else:
-                    protocol_logger.warning(f"The flag --{flags.predict_pose} was specified, but the pose has already been "
-                                            f"predicted. If you meant to overwrite this pose, explicitly pass --overwrite")
+                    protocol_logger.warning(f"The flag --{flags.predict_pose} was specified, but the pose has already"
+                                            f" been predicted. If you meant to overwrite this pose, explicitly pass "
+                                            f"--overwrite")
         if not sequences:
             raise DesignError(
                 f"Couldn't find any sequences to {self.predict_structure.__name__}")
@@ -1939,10 +1940,11 @@ class PoseProtocol(PoseData):
             self.identify_interface()
             if self.job.predict.assembly:
                 if self.pose.number_of_symmetric_residues > resources.ml.MULTIMER_RESIDUE_LIMIT:
-                    protocol_logger.critical(f"Predicting on a single symmetric input isn't recommended due to "
-                                             'size limitations')
+                    protocol_logger.critical(
+                        f"Predicting on a symmetric input with {self.pose.number_of_symmetric_residues} isn't "
+                        'recommended due to memory limitations')
                 features = self.pose.get_alphafold_features(symmetric=True, multimer=run_multimer_system, no_msa=no_msa)
-                # Todo may need to this if the pose isn't completely symmetric despite it being specified as such
+                # Todo may need to modify this if the pose isn't completely symmetric despite it being specified as such
                 number_of_residues = self.pose.number_of_symmetric_residues
             else:
                 features = self.pose.get_alphafold_features(symmetric=False, multimer=run_multimer_system,
@@ -3087,7 +3089,6 @@ class PoseProtocol(PoseData):
         # Process all desired files to Pose
         design_poses = [Pose.from_file(file, **self.pose_kwargs) for file in design_paths_to_process]
         design_sequences = {pose.name: pose.sequence for pose in design_poses}
-        design_names = list(design_sequences.keys())
         # sequences_df = self.analyze_sequence_metrics_per_design(sequences=design_sequences)
 
         # The DataFrame.index needs to become design.id not design.name as it is here. Modify after processing
@@ -3102,31 +3103,21 @@ class PoseProtocol(PoseData):
         # Finish calculation of Rosetta scores with included metrics
         designs_df = self.rosetta_column_combinations(designs_df)
 
-        # Score using proteinmpnn
-        # pose_length = self.pose.number_of_residues
-        # # residue_indices = list(range(pose_length))
-        # # # During rosetta_residues_df unstack, all residues with missing dicts are copied as nan
-        # # Todo get residues_df['design_indices'] worked out with set up using sql.DesignProtocol?
-        # #  See self.analyze_pose_designs()
-        # # Set each position that was parsed as "designable"
-        # # This includes packable residues from neighborhoods. How can we get only designable?
-        # # Right now, it is only the interface residues that go into Rosetta
-        # # Use simple reporting here until that changes...
-        # interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
-        # design_residues = np.zeros((len(designs), pose_length), dtype=bool)
-        # design_residues[:, interface_residue_indices] = 1
-        design_residues = residues_df.loc[:, idx_slice[:, 'interface_residue']].to_numpy()
-        # 'design_residue' is now integrated using analyze_proteinmpnn_metrics()
-        # design_indices_df = pd.DataFrame(design_residues, index=scores_df.index,
-        #                                  columns=pd.MultiIndex.from_product([residue_indices, ['design_residue']]))
-        # rosetta_residues_df = rosetta_residues_df.stack().unstack(1)
-        # rosetta_residues_df['design_residue'] = 1
-        # rosetta_residues_df = rosetta_residues_df.unstack().swaplevel(0, 1, axis=1)
-        # Todo only score if it hasn't been scored previously...
-        sequences_and_scores = self.pose.score(list(design_sequences.values()),
+        # Score using proteinmpnn only if the design was created by Rosetta
+        score_sequences = [design_sequences[new_file_name] for new_file_name in rosetta_provided_new_design_names]
+        sequences_and_scores = self.pose.score(score_sequences,
                                                model_name=self.job.design.proteinmpnn_model_name)
+        # Set each position that was parsed as "designable"
+        # This includes packable residues from neighborhoods. How can we get only designable?
+        # Right now, it is only the interface residues that go into Rosetta
+        # Use simple reporting here until that changes...
+        # Todo get residues_df['design_indices'] worked out with set up using sql.DesignProtocol?
+        #  See self.analyze_pose_designs()
+        design_residues = residues_df.loc[rosetta_provided_new_design_names,
+                                          idx_slice[:, 'interface_residue']].to_numpy()
         sequences_and_scores.update({'design_indices': design_residues})
-        mpnn_designs_df, mpnn_residues_df = self.analyze_proteinmpnn_metrics(design_names, sequences_and_scores)
+        mpnn_designs_df, mpnn_residues_df = \
+            self.analyze_proteinmpnn_metrics(rosetta_provided_new_design_names, sequences_and_scores)
 
         # Update the Pose.designs with DesignData for each of the new designs
         with self.job.db.session(expire_on_commit=False) as session:
@@ -3172,9 +3163,9 @@ class PoseProtocol(PoseData):
             # new_design_ids = [design_data.id for design_data in new_designs_data]
 
             # Get the name/provided_name to design_id mapping
-            design_name_to_id_map = dict((getattr(design, 'provided_name',
-                                                  getattr(design, 'name')),
-                                          design.id) for design in self.current_designs)
+            design_name_to_id_map = {
+                getattr(design, 'provided_name', getattr(design, 'name')): design.id
+                for design in self.current_designs}
             entity_designs_df = self.analyze_design_entities_per_residue(mpnn_residues_df)
 
             # Join DataFrames
