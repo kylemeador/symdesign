@@ -3176,7 +3176,6 @@ class PoseProtocol(PoseData):
                                                   getattr(design, 'name')),
                                           design.id) for design in self.current_designs)
             entity_designs_df = self.analyze_design_entities_per_residue(mpnn_residues_df)
-            metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
 
             # Join DataFrames
             designs_df = designs_df.join(mpnn_designs_df)
@@ -3219,6 +3218,7 @@ class PoseProtocol(PoseData):
 
             # If so, proceed with insert, file rename and commit
             self.output_metrics(session, designs=designs_df)
+            metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
             output_residues = False
             if output_residues:  # Todo job.metrics.residues
                 self.output_metrics(session, residues=residues_df)
@@ -3407,8 +3407,8 @@ class PoseProtocol(PoseData):
             residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
             self.output_metrics(session, design_residues=residues_df)
         metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
-            # # Commit the newly acquired metrics
-            # session.commit()
+        #     # Commit the newly acquired metrics
+        #     session.commit()
 
     def analyze_alphafold_metrics(self, folding_scores: dict[str, [dict[str, np.ndarray]]], pose_length: int,
                                   model_type: str = None,
