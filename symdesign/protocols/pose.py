@@ -3224,8 +3224,9 @@ class PoseProtocol(PoseData):
             if output_residues:  # Todo job.metrics.residues
                 self.output_metrics(session, residues=residues_df)
             else:  # Only save the 'design_residue' columns
-                residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
-                self.output_metrics(session, design_residues=residues_df)
+                if rosetta_provided_new_design_names:
+                    residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
+                    self.output_metrics(session, design_residues=residues_df)
             # Rename the incoming files to their prescribed names
             for filename, temp_filename in temp_files_to_move.items():
                 shutil.move(filename, temp_filename)
