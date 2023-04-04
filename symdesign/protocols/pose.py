@@ -3104,20 +3104,21 @@ class PoseProtocol(PoseData):
         designs_df = self.rosetta_column_combinations(designs_df)
 
         # Score using proteinmpnn only if the design was created by Rosetta
-        score_sequences = [design_sequences[new_file_name] for new_file_name in rosetta_provided_new_design_names]
-        sequences_and_scores = self.pose.score(score_sequences,
-                                               model_name=self.job.design.proteinmpnn_model_name)
-        # Set each position that was parsed as "designable"
-        # This includes packable residues from neighborhoods. How can we get only designable?
-        # Right now, it is only the interface residues that go into Rosetta
-        # Use simple reporting here until that changes...
-        # Todo get residues_df['design_indices'] worked out with set up using sql.DesignProtocol?
-        #  See self.analyze_pose_designs()
-        design_residues = residues_df.loc[rosetta_provided_new_design_names,
-                                          idx_slice[:, 'interface_residue']].to_numpy()
-        sequences_and_scores.update({'design_indices': design_residues})
-        mpnn_designs_df, mpnn_residues_df = \
-            self.analyze_proteinmpnn_metrics(rosetta_provided_new_design_names, sequences_and_scores)
+        if rosetta_provided_new_design_names:
+            score_sequences = [design_sequences[new_file_name] for new_file_name in rosetta_provided_new_design_names]
+            sequences_and_scores = self.pose.score(score_sequences,
+                                                   model_name=self.job.design.proteinmpnn_model_name)
+            # Set each position that was parsed as "designable"
+            # This includes packable residues from neighborhoods. How can we get only designable?
+            # Right now, it is only the interface residues that go into Rosetta
+            # Use simple reporting here until that changes...
+            # Todo get residues_df['design_indices'] worked out with set up using sql.DesignProtocol?
+            #  See self.analyze_pose_designs()
+            design_residues = residues_df.loc[rosetta_provided_new_design_names,
+                                              idx_slice[:, 'interface_residue']].to_numpy()
+            sequences_and_scores.update({'design_indices': design_residues})
+            mpnn_designs_df, mpnn_residues_df = \
+                self.analyze_proteinmpnn_metrics(rosetta_provided_new_design_names, sequences_and_scores)
 
         # Update the Pose.designs with DesignData for each of the new designs
         with self.job.db.session(expire_on_commit=False) as session:
