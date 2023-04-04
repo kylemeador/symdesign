@@ -3105,7 +3105,8 @@ class PoseProtocol(PoseData):
 
         # Score using proteinmpnn only if the design was created by Rosetta
         if rosetta_provided_new_design_names:
-            score_sequences = [design_sequences[new_file_name] for new_file_name in rosetta_provided_new_design_names]
+            score_sequences = [design_sequences.pop(new_file_name)
+                               for new_file_name in rosetta_provided_new_design_names]
             sequences_and_scores = self.pose.score(score_sequences,
                                                    model_name=self.job.design.proteinmpnn_model_name)
             # Set each position that was parsed as "designable"
@@ -3119,6 +3120,15 @@ class PoseProtocol(PoseData):
             sequences_and_scores.update({'design_indices': design_residues})
             mpnn_designs_df, mpnn_residues_df = \
                 self.analyze_proteinmpnn_metrics(rosetta_provided_new_design_names, sequences_and_scores)
+            # Join DataFrames
+            designs_df = designs_df.join(mpnn_designs_df)
+            residues_df = residues_df.join(mpnn_residues_df)
+        # else:
+        #     mpnn_residues_df = pd.DataFrame()
+        #
+        # # Calculate sequence metrics for the remaining sequences
+        # sequences_df = self.analyze_sequence_metrics_per_design(sequences=design_sequences)
+        # sequences_df = sequences_df.join(mpnn_residues_df)
 
         # Update the Pose.designs with DesignData for each of the new designs
         with self.job.db.session(expire_on_commit=False) as session:
@@ -3167,11 +3177,7 @@ class PoseProtocol(PoseData):
             design_name_to_id_map = {
                 getattr(design, 'provided_name', getattr(design, 'name')): design.id
                 for design in self.current_designs}
-            entity_designs_df = self.analyze_design_entities_per_residue(mpnn_residues_df)
 
-            # Join DataFrames
-            designs_df = designs_df.join(mpnn_designs_df)
-            residues_df = residues_df.join(mpnn_residues_df)
             # This call is redundant with the analyze_proteinmpnn_metrics(design_names, sequences_and_scores) above
             # Todo remove from above the sequences portion..? Commenting out below for now
             # designs_df = designs_df.join(self.analyze_design_metrics_per_residue(sequences_df))
@@ -3179,10 +3185,12 @@ class PoseProtocol(PoseData):
             # Rename all designs and clean up resulting metrics for storage
             # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
             designs_df.index = designs_df.index.map(design_name_to_id_map)
-            # Must move the entity_id to the columns for index.map to work
-            entity_designs_df.reset_index(level=0, inplace=True)
-            entity_designs_df.index = entity_designs_df.index.map(design_name_to_id_map)
             residues_df.index = residues_df.index.map(design_name_to_id_map)
+            if rosetta_provided_new_design_names:
+                # Must move the entity_id to the columns for index.map to work
+                entity_designs_df = self.analyze_design_entities_per_residue(mpnn_residues_df)
+                entity_designs_df.reset_index(level=0, inplace=True)
+                entity_designs_df.index = entity_designs_df.index.map(design_name_to_id_map)
 
             # Commit the newly acquired metrics to the database
             # First check if the files are situated correctly
@@ -3210,7 +3218,8 @@ class PoseProtocol(PoseData):
 
             # If so, proceed with insert, file rename and commit
             self.output_metrics(session, designs=designs_df)
-            metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
+            if rosetta_provided_new_design_names:
+                metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
             output_residues = False
             if output_residues:  # Todo job.metrics.residues
                 self.output_metrics(session, residues=residues_df)
