@@ -690,7 +690,9 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     raise NotImplementedError('Must make the infile an "in:file:s" derivative')
     designed_files_file = os.path.join(job.scripts_path, f'{starttime}_{job.protocol}_files_output.txt')
     if job.current_designs:
+        design_ids = [design_.id for design_ in job.current_designs]
         design_files = [design_.structure_file for design_ in job.current_designs]
+        design_poses = [Pose.from_file(file, **job.pose_kwargs) for file in design_files]
         design_files_file = os.path.join(job.scripts_path, f'{starttime}_{job.protocol}_files.txt')
         with open(design_files_file, 'w') as f:
             f.write('%s\n' % '\n'.join(design_files))
@@ -714,22 +716,37 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     # Todo, make threshold and return set of strings a property of a profile object
     # Locate the desired background profile from the pose
     background_profile = getattr(job.pose, job.job.background_profile)
-    raise NotImplementedError("background_profile doesn't account for residue.index versus residue.number")
-    background = {residue: {protein_letters_1to3.get(aa) for aa in protein_letters_1to3
-                            if background_profile[residue.number].get(aa, -1) > threshold}
-                  for residue in job.pose.interface_residues}
-    # include the wild-type residue from PoseJob Pose source and the residue identity of the selected design
-    wt = {residue: {background_profile[residue.number].get('type'), protein_letters_3to1[residue.type]}
+    raise NotImplementedError("Chain.*_profile all need to be zero-index to account for residue.index")
+    background = {residue: {aaa for a, aaa in protein_letters_1to3.items()
+                            if background_profile[residue.index].get(a, -1) > threshold}
+                  for residue in job.pose.residues}
+    # Include the wild-type residue from PoseJob.pose and the residue identity of the selected design
+    wt = {residue: {background_profile[residue.index].get('type'), protein_letters_3to1[residue.type]}
           for residue in background}
     bkgnd_directives = dict(zip(background.keys(), repeat(None)))
 
-    directives = [bkgnd_directives.copy() for _ in job.directives]
-    for idx, design_directives in enumerate(self.directives):
-        directives[idx].update({residue: design_directives[residue.number]
-                                for residue in job.pose.get_residues(design_directives.keys())})
+    design_directives = []
+    # design_directives = [bkgnd_directives.copy() for _ in job.directives]
+    for design_pose, directive in zip(design_poses, job.directives):
+        # Grab those residues from background that are considered designed in the current design
+        raise NotImplementedError(
+            f"Must only use the background amino acid types for the positions that were marked as "
+            f"designable for each design in job.current_designs")
+        # Todo
+        #  with job.job.db.session(expire_on_commit=False) as session:
+        #      designable_residues_stmt = select((sql.DesignResidues.design_id, sql.DesignResidues.index)) \
+        #          .where(sql.DesignResidues.design_id.in_(design_ids)) \
+        #          .where(sql.DesignResidues.design_residue == True)
+        #      designable_residues = session.execute(designable_residues_stmt).all()
+        design_directive = {residue: background[residue] for residue in design_designed_residues}
+        design_directive.update({residue: directive[residue.index]
+                                for residue in design_pose.get_residues(directive.keys())})
+        design_directives.append(design_directive)
+        # design_directive.update({residue: directive[residue.index]
+        #                          for residue in job.pose.get_residues(directive.keys())})
 
-    res_files = [job.pose.make_resfile(directives_, out_path=job.data_path, include=wt, background=background)
-                 for directives_ in directives]
+    res_files = [design_pose.make_resfile(directive, out_path=job.data_path, include=wt, background=background)
+                 for design_pose, directive in zip(design_poses, design_directives)]
 
     # nstruct_instruct = ['-no_nstruct_label', 'true']
     nstruct_instruct = ['-nstruct', str(job.job.design.number)]
@@ -750,12 +767,12 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     profile_cmd = ['-in:file:pssm', job.evolutionary_profile_file] \
         if os.path.exists(job.evolutionary_profile_file) else []
     design_cmds = []
-    for res_file in res_files:
+    for res_file, design_ in zip(res_files, job.current_designs):
         design_cmds.append(
-            main_cmd + profile_cmd + infile  # Todo this must be in:file:s
+            main_cmd + profile_cmd + infile  # Todo this must be 'in:file:s'
             + [f'@{job.flags}', '-out:suffix', f'_{job.protocol}', '-packing:resfile', res_file, '-parser:protocol',
                os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml')]
-            + nstruct_instruct)
+            + nstruct_instruct + ['-parser:script_vars', f'{putils.design_parent}={design_.name}'])
 
     # metrics_pdb = ['-in:file:l', designed_files_file]
     # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
