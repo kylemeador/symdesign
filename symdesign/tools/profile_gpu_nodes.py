@@ -49,6 +49,7 @@ if __name__ == '__main__':
             # start_index = out.find('Nodes=') + 6  # <- 6 is length of search string
             node_allocated = out[start_index:start_index + 15].split()[0]
         else:
-            raise RuntimeError(f'Not running in SLURM environment')
+            # raise RuntimeError(f'Not running in SLURM environment')
+            node_allocated = ''
 
         print(f'{node_allocated},{",".join(gpu_type)}')
