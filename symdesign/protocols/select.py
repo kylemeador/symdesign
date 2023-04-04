@@ -1573,10 +1573,25 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             # save_poses_df = pd.Series(selected_pose_ids, name=pose_id).to_frame()
         save_poses_df = format_save_df(session, save_poses_df, selected_pose_ids)
 
-        final_pose_id_to_identifier = load_pose_identifier_from_id(session, selected_pose_ids)
-
         putils.make_path(job.output_directory)
         logger.info(f'Relevant files will be saved in the output directory: {job.output_directory}')
+        if job.output_structures:
+            logger.info(f'Copying Pose files...')
+            # Create new output of designed PDB's
+            final_pose_id_to_identifier = {}
+            for pose_id_ in tqdm(selected_pose_ids):
+                pose_job = session.get(PoseJob, pose_id_)
+                final_pose_id_to_identifier[pose_id_] = pose_job.pose_identifier
+                structure_path = pose_job.get_pose_file()
+                if structure_path and os.path.exists(structure_path):
+                    out_path = os.path.join(job.output_directory, f'{pose_job.project}-{pose_job.name}.pdb')
+                    # Todo attach the program state to these files for downstream use?
+                    shutil.copy(structure_path, out_path)
+                else:
+                    pose_job.log.error(f"Expected file '{structure_path}' wasn't found for {pose_job.pose_identifier}")
+        else:
+            final_pose_id_to_identifier = load_pose_identifier_from_id(session, selected_pose_ids)
+
         if job.save_total:
             out_total_df = total_df[~total_df[pose_id].duplicated()]
             total_pose_ids = out_total_df[pose_id].tolist()
@@ -1772,11 +1787,11 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
             selected_design_ids.extend(design_ids)
 
         if job.output_structures:
+            logger.info(f'Copying Design files...')
             # Create new output of designed PDB's
             pose_id_to_identifier = {}
             design_id_to_identifier = {}
             results = []
-            logger.info(f'Copying design files...')
             for pose_id_, design_ids in tqdm(selected_pose_id_to_design_ids.items()):
                 pose_job = session.get(PoseJob, pose_id_)
                 pose_id_to_identifier[pose_id_] = pose_job.pose_identifier
@@ -1792,9 +1807,11 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
                             # Todo attach the program state to these files for downstream use?
                             shutil.copy(design_structure_path, out_path)
                         else:
-                            pose_job.log.error(f'No file found for "{design_structure_path}"')
-                        # exceptions.append(utils.ReportException(f'No file found for "{file_path}"'))
+                            pose_job.log.error(f"Expected file '{design_structure_path}' wasn't found for "
+                                               f"{design_structure_path}")
                         continue
+                    else:
+                        pose_job.log.error(f'No structure found for "{design}"')
 
                     current_designs.append(design)
 
