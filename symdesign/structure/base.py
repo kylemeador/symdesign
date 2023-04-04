@@ -838,7 +838,7 @@ class Atom(StructureBase):
 
     def detach_from_parent(self):
         """Remove the current instance from the parent that created it"""
-        setattr(self, parent_variable, None)  # set parent explicitly as None
+        self.__setattr__(parent_variable, None)  # Set parent explicitly as None
         # # Extract the coordinates
         # coords = self.coords
         # create a new, empty Coords instance
@@ -1774,7 +1774,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
 
     def detach_from_parent(self):
         """Remove the current instance from the parent that created it"""
-        setattr(self, parent_variable, None)  # set parent explicitly as None
+        self.__setattr__(parent_variable, None)  # Set parent explicitly as None
         # # Extract the coordinates
         # coords = self.coords
         # create a new, empty Coords instance
@@ -3034,7 +3034,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     def detach_from_parent(self):
         """Remove the current instance from the parent that created it"""
-        setattr(self, parent_variable, None)  # set parent explicitly as None
+        self.__setattr__(parent_variable, None)  # Set parent explicitly as None
         # # Extract the coordinates
         # coords = self.coords
         # create a new, empty Coords instance
@@ -4721,8 +4721,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             with open(os.path.join(utils.path.sasa_debug_dir, f'SASA-OUTPUT-{self.name}.pdb'), 'w') as f:
                 f.write('%s\n' % '\n'.join(sasa_output))
 
-            raise stutils.DesignError('Measurement of SASA is not working, probably due to a missing Atom. '
-                                      f'Debug files written to {utils.path.sasa_debug_dir}')
+            raise stutils.DesignError(
+                "Measurement of SASA isn't working, probably due to a missing Atom. Debug files written to "
+                f'{utils.path.sasa_debug_dir}')
 
     @property
     def relative_sasa(self) -> list[float]:

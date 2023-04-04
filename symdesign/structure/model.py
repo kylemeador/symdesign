@@ -3725,15 +3725,16 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         entity_start_idx = 1
         if self.entity_info:
-            start_with_info = True
-            warn_parameters_msg = f"'tolerance' = {tolerance} and 'length_difference' = {length_difference} parameters"\
-                                  f" aren't compatible with the chain.sequence and the soon to be Entity sequence"
+            start_with_entity_info = True
+            warn_parameters_msg = f"The parameters 'tolerance' and 'length_difference' aren't compatible with the " \
+                                  f"chain.sequence and the soon to be Entity sequence.\n" \
+                                  f"tolerance={tolerance}\tlength_difference={length_difference}"
             # Remove existing chain IDs
             for data in self.entity_info.values():
                 data['chains'] = []
             entity_idx = count(entity_start_idx + len(self.entity_info))
         else:  # Assume that all chains are new_entities
-            start_with_info = False
+            start_with_entity_info = False
             entity_idx = count(entity_start_idx)
 
         for chain in self.chains:
@@ -3794,9 +3795,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     self.log.debug(f'Chain {chain_id} matches Entity {entity_name}')
                     # If number of sequence matches is > tolerance, and the length difference < tolerance
                     # the current chain is the same as the Entity, add to chains, and move on to the next chain
-                    if start_with_info:
-                        # We have information, but we need to make sure it is the best info
-                        # Especially if we don't have a structure_sequence, we are using the reference to align
+                    if start_with_entity_info:
+                        # There is information, however, ensure it is the best info
+                        # Especially if there isn't a structure_sequence, the reference is used to align
                         # so check all references then set a struct_sequence, i.e. data['sequence'] in the else clause
                         if not struct_sequence:  # ref_sequence
                             # There is more lenience between the chain.sequence and entity sequence
@@ -3812,13 +3813,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     else:  # The entity isn't unique, add to the possible chain IDs
                         data['chains'].append(chain_id)
                         break
-                elif start_with_info and match_score > best_score:
+                elif start_with_entity_info and match_score > best_score:
                     # Set the best_score and best_entity
                     best_score = match_score
                     best_entity = entity_name
                     warn_bad_parameters = True
-            else:  # We didn't find a match, this is new
-                if start_with_info:
+            else:  # No match, this is a new Entity
+                if start_with_entity_info:
                     # self.log.warning(f"Couldn't find a matching Entity from those existing for Chain {chain_id}")
                     # Set the 'sequence' to the structure sequence
                     try:
@@ -3829,7 +3830,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     data['chains'].append(chain_id)
                     del best_entity
                     if warn_bad_parameters:
-                        self.log.warning(warn_parameters_msg)
+                        self.log.debug(warn_parameters_msg)
                 else:  # No existing entity matches, add new entity
                     entity_name = f'{self.name}_{next(entity_idx)}'
                     self.log.debug(f'Chain {chain_id} is a new Entity "{entity_name}"')
@@ -4346,8 +4347,9 @@ class SymmetricModel(Models):
                       symmetry: str = None, **kwargs):
         """Initialize from a symmetric assembly"""
         if symmetry is None and sym_entry is None:
-            raise ValueError(f"Can't initialize {cls.__name__} without symmetry! Pass symmetry or "
-                             f'sym_entry to constructor {cls.from_assembly.__name__}')
+            raise ValueError(
+                "Can't initialize without symmetry. Pass 'symmetry' or 'sym_entry' to "
+                f'{cls.__name__}.{cls.from_assembly.__name__}() constructor')
         return cls(models=assembly, sym_entry=sym_entry, symmetry=symmetry, **kwargs)
 
     def __init__(self, sym_entry: utils.SymEntry.SymEntry | int = None, symmetry: str = None,
@@ -4714,7 +4716,7 @@ class SymmetricModel(Models):
             self.generate_symmetric_coords(surrounding_uc=self.is_surrounding_uc())
 
         # Delete any saved attributes from the SymmetricModel (or Model)
-        try:  # To see if the coords setting doesn't require updating attributes in the case we are doing ourselves
+        try:  # To see if setting doesn't require attribute reset in the case this instance is performing .coords set
             self._no_reset  # This is only set in Pose now
         except AttributeError:
             # self.log.debug(f'Resetting {self.__class__.__name__} state_attributes')
@@ -4876,11 +4878,8 @@ class SymmetricModel(Models):
         for idx in model_indices:
             chains.extend(models[idx].chains)
 
-        self._assembly_minimally_contacting = \
-            Model.from_chains(chains, name=name, log=self.log, biomt_header=self.format_biomt(),
-                              cryst_record=self.cryst_record, entity_info=self.entity_info)  # entities=False)
-
-        return self._assembly_minimally_contacting
+        return Model.from_chains(chains, name=name, log=self.log, biomt_header=self.format_biomt(),
+                                     cryst_record=self.cryst_record, entity_info=self.entity_info)  # entities=False)
 
     # def report_symmetric_coords_issue(self, func_name: str):
     #     """Debug the symmetric coords for equallity across instances"""
@@ -4973,8 +4972,9 @@ class SymmetricModel(Models):
         if not self.is_symmetric():
             # self.log.critical('%s: No symmetry set for %s! Cannot get symmetry mates'  # Todo
             #                   % (self.generate_assembly_symmetry_models.__name__, self.name))
-            raise SymmetryError(f'{self.generate_assembly_symmetry_models.__name__}: No symmetry set for '
-                                f'{self.name}. Cannot get symmetry mates')
+            raise SymmetryError(
+                f'{self.generate_assembly_symmetry_models.__name__}: No symmetry set for {self.name}. '
+                "Can't get symmetry mates")
         # if return_side_chains:  # get different function calls depending on the return type
         #     extract_pdb_atoms = getattr(PDB, 'atoms')
         # else:
@@ -5447,8 +5447,8 @@ class SymmetricModel(Models):
                 #  (generated using self.expand_matrices) and/or the entity_com as this is set up within a
                 #  cartesian expand matrix environment is going to yield wrong results on the expand matrix indexing
                 assert self.number_of_symmetry_mates == self.number_of_uc_symmetry_mates, \
-                    'Cannot have more models (%d) than a single unit cell (%d)!' \
-                    % (self.number_of_symmetry_mates, self.number_of_uc_symmetry_mates)
+                    f"Can't have more models ({self.number_of_symmetry_mates}) than a single unit cell " \
+                    f"({self.number_of_uc_symmetry_mates})"
                 expand_matrices = utils.symmetry.point_group_symmetry_operators[self.point_group_symmetry]
             else:
                 expand_matrices = self.expand_matrices
@@ -7081,7 +7081,8 @@ class Pose(SymmetricModel, Metrics):
                 entity_chain = chain
                 break
         else:
-            raise DesignError(f"Couldn't find a corresponding assembly chain for the passed Entity {entity.name}")
+            raise DesignError(
+                f"Couldn't find a corresponding assembly chain for the passed Entity {entity.name}")
 
         # # Find the chain that matches the Entity
         # entity_chain = None

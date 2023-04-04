@@ -350,7 +350,7 @@ if __name__ == '__main__':
         if os.path.exists(rosetta_main):
             print(f'Wonderful, Rosetta environment located and exists. You can now use all the features of '
                   f'{putils.program_name} to interface with Rosetta')
-            make_types = ['mpi', 'default', 'python', 'mpi' 'cxx11thread', 'cxx11threadmpi']
+            make_types = ['default', 'python', 'mpi', 'cxx11thread', 'cxx11threadmpi']
             # if rosetta_env_variable == '':
             rosetta_make = utils.validate_input(
                 'Did you make Rosetta with any particular build? This is usually a string of '
