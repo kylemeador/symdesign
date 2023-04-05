@@ -866,8 +866,9 @@ class JobResources:
         """
         if self.range:
             path_number = len(paths)
-            low_range = int((self.low / 100) * path_number)
-            high_range = int((self.high / 100) * path_number)
+            # Adding 0.5 to ensure rounding occurs
+            low_range = int((self.low/100) * path_number + 0.5)
+            high_range = int((self.high/100) * path_number + 0.5)
             if low_range < 0 or high_range > path_number:
                 raise ValueError(
                     f'The {flags.format_args(flags.range_args)} flag is outside of the acceptable bounds [0-100]')
