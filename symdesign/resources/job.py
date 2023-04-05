@@ -593,6 +593,7 @@ class JobResources:
         self.nucleotide = kwargs.get(flags.nucleotide)
         self.optimize_species = kwargs.get(putils.optimize_species)
         self.preferred_tag = kwargs.get(putils.preferred_tag)
+        self.tag_linker = kwargs.get('tag_linker')
         self.multicistronic = kwargs.get(putils.multicistronic)
         self.multicistronic_intergenic_sequence = kwargs.get(putils.multicistronic_intergenic_sequence)
 

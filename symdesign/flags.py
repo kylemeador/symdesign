@@ -112,6 +112,7 @@ pdb_codes1 = 'pdb_codes1'
 pdb_codes2 = 'pdb_codes2'
 update_metadata = 'update_metadata'
 proteinmpnn_model_name = 'proteinmpnn_model_name'
+tag_linker = 'tag_linker'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -292,6 +293,7 @@ pdb_codes1 = format_for_cmdline(pdb_codes1)
 pdb_codes2 = format_for_cmdline(pdb_codes2)
 update_metadata = format_for_cmdline(update_metadata)
 proteinmpnn_model_name = format_for_cmdline(proteinmpnn_model_name)
+tag_linker = format_for_cmdline(tag_linker)
 
 select_modules = (
     select_poses,
@@ -1300,6 +1302,8 @@ _select_designs_arguments = {
         dict(type=os.path.abspath, default=None,
              help=f'Where should the output be written?\nDefault={ex_path(os.getcwd(), "SelectedDesigns")}'),
 }
+tagging_literal = Literal['all', 'none', 'single']
+tagging_args: tuple[str, ...] = get_args(tagging_literal)
 parser_select_sequences = {select_sequences: dict(description=select_sequences_help, help=select_sequences_help)}
 select_sequences_arguments = {
     **select_arguments,
@@ -1316,13 +1320,19 @@ select_sequences_arguments = {
     ('-t', f'--{preferred_tag}'): dict(type=str.lower, choices=constants.expression_tags.keys(), default='his_tag',
                                        metavar='', help='The name of your preferred expression tag\n'
                                                         'Choices=%(choices)s\nDefault=%(default)s'),
-    (f'--{tag_entities}',): dict(type=str,
-                                 help='If there are specific entities in the designs you want to tag,\nindicate how '
-                                      'tagging should occur. Viable options include:\n\t"single" - a single entity\n\t'
-                                      '"all" - all entities\n\t"none" - no entities\n\tcomma separated list such as '
+    (f'--{tag_entities}',): dict(type=str.lower,  # choices=tagging_args,
+                                 help='If there are specific entities in the designs you want to tag,\n'
+                                      'indicate how tagging should occur. Choices:\n\t'
+                                      '"single" - a single entity\n\t'
+                                      '"all" - all entities\n\t'
+                                      '"none" - no entities\n\t'
+                                      'comma separated list such as '
                                       '"1,0,1" where\n'
                                       '\t    - "1" indicates a tag is required\n'
                                       '\t    - "0" indicates no tag is required'),
+    (f'--{tag_linker}',): dict(type=str.upper, choices=constants.expression_tags.keys(), metavar='',
+                               help='The amino acid sequence of the linker region between each\n'
+                                    f'expression tag and the protein\nDefault={constants.default_tag_linker}'),
     **multicistronic_args,
 }
 # ---------------------------------------------------

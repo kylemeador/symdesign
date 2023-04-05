@@ -2,11 +2,16 @@
 from __future__ import annotations
 
 import logging
+from itertools import count
+from typing import Sequence
 
-from . import generate_alignment
-from .constants import expression_tags, h2o_mass, aa_polymer_molecular_weights, instability_order, instability_array
+import numpy as np
+
+from . import generate_alignment, protein_letters_alph1
+from .constants import expression_tags, h2o_mass, aa_polymer_molecular_weights, instability_array
 from symdesign.resources import query
 from symdesign import utils
+
 putils = utils.path
 
 # Globals
@@ -15,42 +20,224 @@ logger = logging.getLogger(__name__)
 uniprot_pdb_d = utils.unpickle(putils.uniprot_pdb_map)
 
 
-def calculate_protein_molecular_weight(sequence: str) -> float:
-    sequence = sequence.upper()
+def format_sequence_to_numeric(sequence: Sequence[str | int]) -> Sequence[int]:
+    try:
+        seq0 = sequence[0]
+    except IndexError:
+        raise IndexError('The passed value of sequence must be a Sequence of str or int. Found an empty Sequence')
+    if isinstance(seq0, str):
+        seq_index = [protein_letters_alph1.index(aa) for aa in sequence]
+    elif isinstance(seq0, int):
+        seq_index = sequence
+    else:
+        raise ValueError(
+            f"Couldn't {format_sequence_to_numeric.__name__} with the input sequence with type {seq0}")
+    return seq_index
 
 
-    # Find the molecular mass for each aa in the sequence
-    seq_index = [instability_order.index(aa) for aa in sequence]
+def get_sequence_features(sequence: Sequence[str | int]) -> dict[str, float]:
+    """For the specified amino acid sequence perform biochemical calculations related to solution properties
+
+    Args:
+        sequence: The sequence to measure
+    Returns:
+        A feature dictionary with each feature from the set below mapped to a float.
+        {'extinction_coefficient_reduced',
+         'extinction_coefficient_oxidized',
+         'instability_index',
+         'molecular_weight',
+         'isoelectric_point',
+         'absorbance_0.1_red',
+         'absorbance_0.1_ox',
+         }
+    """
+    sequence = format_sequence_to_numeric(sequence)
+    ox_coef, red_coef = molecular_extinction_coefficient(sequence)
+    mw = calculate_protein_molecular_weight(sequence)
+    abs_01_ox = ox_coef / mw
+    abs_01_red = red_coef / mw
+    return {
+        'number_of_residues': len(sequence),
+        'extinction_coefficient_reduced': red_coef,
+        'extinction_coefficient_oxidized': ox_coef,
+        'instability_index': calculate_instability_index(sequence),
+        'molecular_weight': mw,
+        'isoelectric_point': calculate_protein_isoelectric_point(sequence),
+        'absorbance_0.1_red': abs_01_red,
+        'absorbance_0.1_ox': abs_01_ox
+    }
+
+
+def calculate_protein_molecular_weight(sequence: Sequence[str | int]) -> float:
+    """Find the total molecular mass for the amino acids present in a sequence
+
+    Args:
+        sequence: The sequence to measure
+    Returns:
+        The molecular weight in daltons/atomic mass units
+    """
+    seq_index = format_sequence_to_numeric(sequence)
+
     # Add h2o_mass as the n- and c-term are free
     return aa_polymer_molecular_weights[seq_index].sum() + h2o_mass
 
 
-def calculate_instability_index(sequence):
-    sequence = sequence.upper()
-    # dipeptide_stability_sum = 0.
-    # for idx, aa in enumerate(sequence[:-2], 1):  # only want to iterate until the second to last amino acid
-    #     # get the current amino acid and the next amino acid
-    #     dipeptide_stability_sum += instability_array[instability_order.index(aa)][instability_order.index(sequence[idx])]
-    #
-    # return dipeptide_stability_sum
+# 1-amino acid alphabetical order
+cys_index = 1
+asp_index = 2
+glu_index = 3
+his_index = 6
+lys_index = 8
+arg_index = 14
+trp_index = 18
+tyr_index = 19
+# These amino acid side chain values are from protein polymers derived from the fit by the publication PMID: 27769290
+# [9.094,  # N-term
+#  7.555,  # C
+#  3.872,  # D
+#  4.412,  # E
+#  5.637,  # H
+#  9.052,  # K
+#  11.84,  # R
+#  10.85,  # Y
+#  2.869,  # C-term
+# ]
+positive_charged_pka = np.array([9.094, 5.637, 9.052, 11.84])
+negative_charged_pka = np.array([7.555, 3.872, 4.412, 10.85, 2.869])
 
-    # index1, index2 = [], []
-    # for idx, aa in enumerate(sequence[:-2], 1):  # only want to iterate until the second to last amino acid
-    #     index1.append(instability_order.index(aa))
-    #     index2.append(instability_order.index(sequence[idx]))
-    # return instability_array[index1, index2].sum()
 
-    # index_pairs = list(zip(*((instability_order.index(aa), instability_order.index(sequence[idx])) for idx, aa in
-    #                          enumerate(sequence[:-1], 1))))
-    # return instability_array[index_pairs].sum()
+def calculate_protein_isoelectric_point(sequence: Sequence[str | int], threshold: float = 0.01) -> float:
+    """Find the total isoelectric point (pI) for the amino acids present in a sequence
 
-    # use this to input all sequences to SequenceProfile. This will form the basis for all sequence handling by array
-    seq_index = [instability_order.index(aa) for aa in sequence]
-    return instability_array[seq_index[:-1], seq_index[1:]].sum()
+    Args:
+        sequence: The sequence to measure
+        threshold: The pH unit value to consider the found pI passing
+    Returns:
+        The molecular weight in daltons/atomic mass units
+    """
+    seq_index = format_sequence_to_numeric(sequence)
+    # # Take the mean of every individual pI
+    # return aa_isoelectric_point[seq_index].mean()
+
+    n_cys = seq_index.count(cys_index)
+    n_asp = seq_index.count(asp_index)
+    n_glu = seq_index.count(glu_index)
+    n_his = seq_index.count(his_index)
+    n_lys = seq_index.count(lys_index)
+    n_arg = seq_index.count(arg_index)
+    n_tyr = seq_index.count(tyr_index)
+
+    # def calculate_aa_charge_contribution(aa: str, pka_sol: float = 7.5):
+    #     negative_charged = {'C': 7.555, 'D': 3.872, 'E': 4.412, 'Y': 10.85}
+    #     positive_charged = {'H': 5.637, 'K': 9.052, 'R': 11.84}
+    #     pka_aa = positive_charged.get(aa)
+    #     if pka_aa:
+    #         pka_aa = 1 / (1 + 10**(pka_sol-pka_aa))  # positive
+    #     else:
+    #         pka_aa = -1 / (1 + 10**(negative_charged[aa]-pka_sol))  # negative
+
+    # Array version
+    # Make an array of the counts padding respective ends with n- and c-termini counts (i.e. 1)
+    positive_counts = np.array([1, n_his, n_lys, n_arg])
+    negative_counts = np.array([n_cys, n_asp, n_glu, n_tyr, 1])
+
+    iterative_multiplier = 1
+    delta_magnitude = 4
+    test_pi = 7.  # - delta_magnitude  # <- ensures that the while loop search starts at 7.
+    # pka_aa_pos = 1 / (1 + 10 ** (test_pi - positive_charged_pka))  # positive
+    # pka_aa_neg = -1 / (1 + 10 ** (negative_charged_pka - test_pi))  # negative
+    # pos_charge = pka_aa_pos * positive_counts
+    # neg_charge = pka_aa_neg * negative_counts
+    # total_charge = neg_charge + pos_charge
+    # remaining_charge = abs(total_charge)
+    # negative_last = abs(neg_charge) > abs(pos_charge)
+    # neg_charge = pos_charge = negative_last = 0
+    if threshold < 0:
+        raise ValueError(f"The argument 'threshold' can't be lower than 0. Got {threshold}")
+    remaining_charge = threshold + 1
+    direction = 0
+    count_ = count()
+    tested_pis = {}
+    while remaining_charge >= threshold:
+        if next(count_) > 0:
+            # Check which type of charge has a larger magnitude
+            if abs(neg_charge) > abs(pos_charge):
+                # Estimation is more negative
+                direction = -1
+                if last_direction + direction == 0:
+                    # pass  # This was also negative last iteration, haven't gone far enough
+                # else:  # Searched this direction far enough, turn around and decrease step
+                    iterative_multiplier /= 2
+            else:  # Positive larger
+                direction = 1
+                if last_direction + direction == 0:
+                    # Searched this direction far enough, turn around and decrease step
+                    iterative_multiplier /= 2
+                # else:
+                #     pass  # This was positive last iteration, haven't gone far enough
+        last_direction = direction
+
+        # Calculate the error
+        pi_modifier = direction * delta_magnitude * iterative_multiplier
+        test_pi_ = pi_modifier + test_pi
+        if test_pi_ in tested_pis:
+            # This has already been checked. Cut the space in half again
+            iterative_multiplier /= 2
+            pi_modifier = direction * delta_magnitude * iterative_multiplier
+
+        test_pi += pi_modifier
+
+        pka_aa_pos = 1 / (1 + 10**(test_pi-positive_charged_pka))  # positive
+        pka_aa_neg = -1 / (1 + 10**(negative_charged_pka-test_pi))  # negative
+        # Multiply the individual contributions by the number of observations
+        pos_charge = (pka_aa_pos * positive_counts).sum()
+        neg_charge = (pka_aa_neg * negative_counts).sum()
+        total_charge = neg_charge + pos_charge
+        remaining_charge = abs(total_charge)
+        logger.debug(f'pI = {test_pi}, remainder = {remaining_charge}')  # Iteration {next(count_)}:
+        tested_pis[test_pi] = remaining_charge
+
+    return test_pi + (total_charge/2)  # Approximately the real pi
 
 
-# E(Prot) = Numb(Tyr) * Ext(Tyr) + Numb(Trp) * Ext(Trp) + Numb(Cystine) * Ext(Cystine)
-# where(for proteins in water measured at 280 nm): Ext(Tyr) = 1490, Ext(Trp) = 5500, Ext(Cystine) = 125
+def calculate_instability_index(sequence: Sequence[str | int]) -> float:
+    """Find the total instability index for the amino acids present in a sequence. See PMID: 2075190
+
+    Args:
+        sequence: The sequence to measure
+    Returns:
+        The value of the stability index where a value less than 40 indicates stability
+    """
+
+    seq_index = format_sequence_to_numeric(sequence)
+    return (instability_array[seq_index[:-1], seq_index[1:]].sum() * 10) / len(sequence)
+
+
+# For proteins in water measured at 280 nm absorbance
+ext_coef_cys_red = 0
+ext_coef_cys_ox = 125
+ext_coef_trp = 5500
+ext_coef_tyr = 1490
+
+
+def molecular_extinction_coefficient(sequence: Sequence[str | int]) -> tuple[float, float]:
+    """Calculate the molecular extinction coefficient for an amino acid sequence using the formula
+    E(Prot) = Numb(Tyr) * Ext(Tyr) + Numb(Trp) * Ext(Trp) + Numb(Cystine) * Ext(Cystine)
+
+    Args:
+        sequence: The sequence to measure
+    Returns:
+        The pair of molecular extinction coefficients, first with all Cystine oxidized, then reduced
+    """
+    seq_index = format_sequence_to_numeric(sequence)
+    n_tyr = seq_index.count(tyr_index)
+    n_trp = seq_index.count(trp_index)
+    n_cys = seq_index.count(cys_index)
+    coef_ox = n_tyr*ext_coef_tyr + n_trp*ext_coef_trp + n_cys*ext_coef_cys_ox
+    coef_red = n_tyr*ext_coef_tyr + n_trp*ext_coef_trp  # + n_cys*ext_coef_cys_red
+    return coef_ox, coef_red
+
+
 def pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=None):
     # uniprot_pdb_d = SDUtils.unpickle(putils.uniprot_pdb_map)
     source = 'unique_pdb'
@@ -134,7 +321,7 @@ def find_matching_expression_tags(uniprot_id: str = None, pdb_code: str = None, 
 
 
 def select_tags_for_sequence(sequence_id: str, matching_pdb_tags: list[dict[str, str]], preferred: str = None,
-                             n: bool = True, c: bool = True) -> dict[str, str]:
+                             n: bool = True, c: bool = True) -> dict[str, str | None]:
     """From a list of possible tags, solve for the tag with the most observations in the PDB. If there are
     discrepancies, query the user for a solution
 
@@ -221,21 +408,51 @@ def select_tags_for_sequence(sequence_id: str, matching_pdb_tags: list[dict[str,
     final_tags = {'termini': termini, 'name': all_tags}
     if not final_tags['name']:  # ensure list has at least one element
         return final_tag_sequence
+
+    formatted_tags = [(termini, tag, counts) for termini, tags_counts in pdb_tag_tally.items()
+                      for tag, counts in tags_counts.items()]
     custom = False
     final_choice = {}
     while True:
-        if preferred and preferred == final_tags['name'][0]:
-            default = 'y'
+        tag_type = final_tags['name'][0]
+        recommended_termini = final_tags["termini"]
+        if preferred:
+            if preferred == tag_type:
+                default = 'y'
+            else:
+                return final_tag_sequence
+                # default = 'y'
+                # logger.info(
+                #     f"The preferred tag '{preferred}' wasn't found from observations in the PDB. Using it anyway")
+                # # default = input(f'If you would like to proceed with it anyway, enter "y"'
+                # #                 f'.{query.utils.input_string}').lower()
+                # tag_type = preferred
+                # print(f'For {sequence_id}, the tag options are:\n\t%s'
+                #       % '\n\t'.join(utils.pretty_format_table([tag.values() for tag in matching_pdb_tags],
+                #                                               header=matching_pdb_tags[0].keys())))
+                # # Solve for the termini
+                # print(f'For {sequence_id}, the termini tag options are:\n\t%s'
+                #       % '\n\t'.join(utils.pretty_format_table(formatted_tags, header=('Termini', 'Tag', 'Count'))))
+                # while True:
+                #     termini_input = input(f'What termini would you like to use [n/c]?{query.utils.input_string}') \
+                #         .lower()
+                #     if termini_input in ['n', 'c']:
+                #         recommended_termini = termini_input
+                #         break
+                #     elif termini_input == 'none':
+                #         return final_tag_sequence
+                #     else:
+                #         print(f"Input '{termini_input}' doesn't match available options. Please try again")
         else:
-            default = \
-                input('For %s, the RECOMMENDED tag options are: Termini-%s Type-%s\nIf the Termini or Type is '
-                      'undesired, you can see the underlying options by specifying "options". Otherwise, "%s" will '
-                      'be chosen.\nIf you would like to proceed with the RECOMMENDED options, enter "y".%s'
-                      % (sequence_id, final_tags['termini'], final_tags['name'][0], final_tags['name'][0],
-                         query.utils.input_string)).lower()
+            logger.info(f'For {sequence_id}, the RECOMMENDED tag options are:\n'
+                        f'\tTermini-{recommended_termini} Type-{tag_type}\n'
+                        'If the Termini or Type is undesired, you can see the underlying options by specifying '
+                        "'options'. Otherwise, '{tag_type}' will be chosen")
+            default = input(f'If you would like to proceed with the \033[38;5;208mrecommended\033[0;0m: options, '
+                            f'enter "y".{query.utils.input_string}').lower()
         if default == 'y':
-            final_choice['name'] = final_tags['name'][0]
-            final_choice['termini'] = final_tags['termini']
+            final_choice['name'] = tag_type
+            final_choice['termini'] = recommended_termini
             break
         elif default == 'options':
             print(f'\nFor {sequence_id}, all tag options are:\n\tTermini Tag:\tCount\n%s\nAll tags:\n%s\n'
@@ -243,12 +460,12 @@ def select_tags_for_sequence(sequence_id: str, matching_pdb_tags: list[dict[str,
             # Todo pretty_table_format on the .values() from each item in above list() ('name', 'termini', 'sequence')
             while True:
                 termini_input = input('What termini would you like to use [n/c]? If no tag option is appealing, '
-                                      'enter "none" or specify the termini and select "custom" at the next step %s'
-                                      % query.utils.input_string).lower()
-                if termini in ['n', 'c']:
+                                      'enter "none" or specify the termini and select "custom" at the next step '
+                                      f'{query.utils.input_string}').lower()
+                if termini_input in ['n', 'c']:
                     final_choice['termini'] = termini_input
                     break
-                elif termini == 'none':
+                elif termini_input == 'none':
                     return final_tag_sequence
                 else:
                     print(f"Input '{termini_input}' doesn't match available options. Please try again")
@@ -284,13 +501,14 @@ def select_tags_for_sequence(sequence_id: str, matching_pdb_tags: list[dict[str,
     final_tag_sequence['name'] = final_choice['name']
     final_tag_sequence['termini'] = final_choice['termini']
     all_matching_tags = []
-    # [{'name': tag_name, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...]
+    tag: dict[str, str]
+    """{'name': tag_name, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}"""
     for tag in matching_pdb_tags:
         # for tag in pdb_match:
         if final_choice['name'] == tag['name'] and final_choice['termini'] == tag['termini']:
             all_matching_tags.append(tag['sequence'])
 
-    # TODO align multiple and choose the consensus
+    # Todo align multiple and choose the consensus
     # all_alignments = []
     # max_tag_idx, max_len = None, []  # 0
     # for idx, (tag1, tag2) in enumerate(combinations(all_matching_tags, 2)):
@@ -394,7 +612,7 @@ def remove_internal_tags(sequence: str, tag_names: list[str]) -> str:
         'MSGGKLKPNDLRI...' The modified sequence without the tag
     """
     if tag_names:
-        _expression_tags = {expression_tags[tag_name] for tag_name in tag_names}
+        _expression_tags = {tag_name: expression_tags[tag_name] for tag_name in tag_names}
     else:
         _expression_tags = expression_tags
 
@@ -423,7 +641,7 @@ def remove_terminal_tags(sequence: str, tag_names: list[str] = None) -> str:
         'GGKLKPNDLRI...' The modified sequence without the tagged termini
     """
     if tag_names:
-        _expression_tags = {expression_tags[tag_name] for tag_name in tag_names}
+        _expression_tags = {tag_name: expression_tags[tag_name] for tag_name in tag_names}
     else:
         _expression_tags = expression_tags
 

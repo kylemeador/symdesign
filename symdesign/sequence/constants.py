@@ -6,6 +6,7 @@ import numpy as np
 
 from symdesign.utils import path as putils
 
+default_tag_linker = 'GGS'
 ndeI_multicistronic_sequence = \
     'taatgcttaagtcgaacagaaagtaatcgtattgtacacggccgcataatcgaaat' \
     'taatacgactcactataggggaattgtgagcggataacaattccccatcttagtatattagttaagtataagaaggagatatacat'  # ATG
@@ -20,55 +21,51 @@ ncoI_multicistronic_sequence = \
 #                                                                                       ^ NcoI start
 # default_multicistronic_sequence = ncoI_multicistronic_sequence
 # Retrieved from https://www.chem.ucalgary.ca/courses/351/Carey5th/Ch27/ch27-1-4-2.html 12/22/21
-isoelectric_point_table = \
-    {'A': {'c': 2.34, 'n': 9.69, 'sc': None, 'pi': 6.00},
-     'C': {'c': 1.96, 'n': 8.18, 'sc': None, 'pi': 5.07},
-     'D': {'c': 1.88, 'n': 9.60, 'sc': 3.65, 'pi': 2.77},
-     'E': {'c': 2.19, 'n': 9.67, 'sc': 4.25, 'pi': 3.22},
-     'F': {'c': 1.83, 'n': 9.13, 'sc': None, 'pi': 5.48},
-     'G': {'c': 2.34, 'n': 9.60, 'sc': None, 'pi': 5.97},
-     'H': {'c': 1.82, 'n': 9.17, 'sc': 6.00, 'pi': 7.59},
-     'I': {'c': 2.36, 'n': 9.60, 'sc': None, 'pi': 6.02},
-     'K': {'c': 2.18, 'n': 8.95, 'sc': 10.53, 'pi': 9.74},
-     'L': {'c': 2.36, 'n': 9.60, 'sc': None, 'pi': 5.98},
-     'M': {'c': 2.28, 'n': 9.21, 'sc': None, 'pi': 5.74},
-     'N': {'c': 2.02, 'n': 8.80, 'sc': None, 'pi': 5.41},
-     'P': {'c': 1.99, 'n': 10.60, 'sc': None, 'pi': 6.30},
-     'Q': {'c': 2.17, 'n': 9.13, 'sc': None, 'pi': 5.65},
-     'R': {'c': 2.17, 'n': 9.04, 'sc': 12.48, 'pi': 10.76},
-     'S': {'c': 2.21, 'n': 9.15, 'sc': None, 'pi': 5.68},
-     'T': {'c': 2.09, 'n': 9.10, 'sc': None, 'pi': 5.60},
-     'V': {'c': 2.32, 'n': 9.62, 'sc': None, 'pi': 5.96},
-     'W': {'c': 2.83, 'n': 9.39, 'sc': None, 'pi': 5.89},
-     'Y': {'c': 2.20, 'n': 9.11, 'sc': None, 'pi': 5.66}}
-# these values are for individual amino acids (benchling), subtract h20_mass to get weight in a polymer
-# aa_molecular_weights = \
-#     {'A': 89.09,
-#      'B': 132.65,
-#      'C': 121.15,
-#      'D': 133.1,
-#      'E': 147.13,
-#      'F': 165.19,
-#      'G': 75.07,
-#      'H': 155.16,
-#      'I': 131.17,
-#      'J': 131.2,
-#      'K': 146.19,
-#      'L': 131.17,
-#      'M': 149.21,
-#      'N': 132.12,
-#      'O': 255.31,
-#      'P': 115.13,
-#      'Q': 146.15,
-#      'R': 174.2,
-#      'S': 105.09,
-#      'T': 119.12,
-#      'U': 168.06,
-#      'V': 117.15,
-#      'W': 204.23,
-#      'X': 143.7,
-#      'Y': 181.19,
-#      'Z': 146.75}
+# isoelectric_point_table = \
+#     {'A': {'c': 2.34, 'n': 9.69, 'sc': None, 'pi': 6.00},
+#      'C': {'c': 1.96, 'n': 8.18, 'sc': None, 'pi': 5.07},
+#      'D': {'c': 1.88, 'n': 9.60, 'sc': 3.65, 'pi': 2.77},
+#      'E': {'c': 2.19, 'n': 9.67, 'sc': 4.25, 'pi': 3.22},
+#      'F': {'c': 1.83, 'n': 9.13, 'sc': None, 'pi': 5.48},
+#      'G': {'c': 2.34, 'n': 9.60, 'sc': None, 'pi': 5.97},
+#      'H': {'c': 1.82, 'n': 9.17, 'sc': 6.00, 'pi': 7.59},
+#      'I': {'c': 2.36, 'n': 9.60, 'sc': None, 'pi': 6.02},
+#      'K': {'c': 2.18, 'n': 8.95, 'sc': 10.53, 'pi': 9.74},
+#      'L': {'c': 2.36, 'n': 9.60, 'sc': None, 'pi': 5.98},
+#      'M': {'c': 2.28, 'n': 9.21, 'sc': None, 'pi': 5.74},
+#      'N': {'c': 2.02, 'n': 8.80, 'sc': None, 'pi': 5.41},
+#      'P': {'c': 1.99, 'n': 10.60, 'sc': None, 'pi': 6.30},
+#      'Q': {'c': 2.17, 'n': 9.13, 'sc': None, 'pi': 5.65},
+#      'R': {'c': 2.17, 'n': 9.04, 'sc': 12.48, 'pi': 10.76},
+#      'S': {'c': 2.21, 'n': 9.15, 'sc': None, 'pi': 5.68},
+#      'T': {'c': 2.09, 'n': 9.10, 'sc': None, 'pi': 5.60},
+#      'V': {'c': 2.32, 'n': 9.62, 'sc': None, 'pi': 5.96},
+#      'W': {'c': 2.83, 'n': 9.39, 'sc': None, 'pi': 5.89},
+#      'Y': {'c': 2.20, 'n': 9.11, 'sc': None, 'pi': 5.66}}
+# aa_isoelectric_point = np.array([
+#     6.00,   # A
+#     5.07,   # C
+#     2.77,   # D
+#     3.22,   # E
+#     5.48,   # F
+#     5.97,   # G
+#     7.59,   # H
+#     6.02,   # I
+#     9.74,   # K
+#     5.98,   # L
+#     5.74,   # M
+#     5.41,   # N
+#     6.30,   # P
+#     5.65,   # Q
+#     10.76,  # R
+#     5.68,   # S
+#     5.60,   # T
+#     5.96,   # V
+#     5.89,   # W
+#     5.66,   # Y
+# ])
+# """These values are for the individual amino acids"""
+# Ordered according to protein_letters_alph1 -> """ACDEFGHIKLMNPQRSTVWY"""
 aa_molecular_weights = np.array(
     [89.09,   # A
      121.15,  # C
@@ -90,40 +87,17 @@ aa_molecular_weights = np.array(
      117.15,  # V
      204.23,  # W
      181.19]  # Y
+     # 132.65,  # B
+     # 131.2,   # J
+     # 255.31,  # O
+     # 168.06,  # U
+     # 143.7,   # X
+     # 146.75   # Z
 )
-# these values are for amino acids in a polypeptide. Add the weight of one water molecule to get the correct mass
-# average used here  monoisotopic    average isotopic
+"""These values are for individual amino acids (from benchling), subtract h20_mass to get weight in a polymer"""
 h2o_mass = 18.0152
-# aa_polymer_molecular_weights = \
-#     {'A': 71.0788,   #   71.03711  	    71.0788
-#      'B': 114.6348,  # calculated from individual values above
-#      'C': 103.1388,  #   103.00919  	103.1388
-#      'D': 115.0886,  # 	 115.02694  	115.0886
-#      'E': 129.1155,  # 	 129.04259  	129.1155
-#      'F': 147.1766,  # 	 147.06841  	147.1766
-#      'G': 57.0519,   # 	 57.02146  	    57.0519
-#      'H': 137.1411,  # 	 137.05891  	137.1411
-#      'I': 113.1594,  # 	 113.08406  	113.1594
-#      'J': 113.1848,  # calculated from individual values above
-#      'K': 128.1741,  # 	 128.09496  	128.1741
-#      'L': 113.1594,  # 	 113.08406  	113.1594
-#      'M': 131.1926,  # 	 131.04049  	131.1926
-#      'N': 114.1038,  #   114.04293  	114.1038
-#      'O': 237.3018,  #   237.147727  	237.3018
-#      'P': 97.1167,   # 	 97.05276  	    97.1167
-#      'Q': 128.1307,  # 	 128.05858  	128.1307
-#      'R': 156.1875,  # 	 156.10111  	156.1875
-#      'S': 87.0782,   # 	 87.03203  	    87.0782
-#      'T': 101.1051,  # 	 101.04768  	101.1051
-#      'U': 150.0388,  #   150.953636  	150.0388
-#      'V': 99.1326,   #   99.06841  	    99.1326
-#      'W': 186.2132,  # 	 186.07931  	186.2132
-#      'X': 125.6848,  # calculated from individual values above
-#      'Y': 163.1760,  #   163.06333  	163.1760
-#      'Z': 128.7348}  # calculated from individual values above
-
-# aa 1 letter alphabetical order
-# average used here  monoisotopic    average isotopic
+# Ordered according to protein_letters_alph1 -> """ACDEFGHIKLMNPQRSTVWY"""
+# Utilized value AA monoisotopic average isotopic
 aa_polymer_molecular_weights = np.array(
     [71.0788,   # A  71.03711    71.0788
      103.1388,  # C  103.00919   103.1388
@@ -145,7 +119,14 @@ aa_polymer_molecular_weights = np.array(
      99.1326,   # V  99.06841    99.1326
      186.2132,  # W  186.07931   186.2132
      163.1760]  # Y  163.06333   163.1760
+     # 114.6348,  # B calculated from individual values above
+     # 113.1848,  # J calculated from individual values above
+     # 237.3018,  # O   237.147727  	237.3018
+     # 150.0388,  # U   150.953636  	150.0388
+     # 125.6848,  # X calculated from individual values above
+     # 128.7348   # Z calculated from individual values above
 )
+"""These values are for amino acids in a polypeptide. Add the weight of one water molecule to get the individual mass"""
 
 #  biojava version
 # order = ['W', 'C', 'M', 'H', 'Y', 'F', 'Q', 'N', 'I', 'R', 'D', 'P', 'T', 'K', 'E', 'V', 'S', 'G', 'A', 'L']
@@ -172,13 +153,7 @@ aa_polymer_molecular_weights = np.array(
 #      [24.68, 1., 1., 1., 1., 1., 33.6, 1., 1., 20.26, 1., 20.26, 1., -7.49, 1., 1., 1., 1., 1., 1.]]
 # 1. 24.68 1. -14.03 1. 13.34 -1.88 <- W test when reordered as below
 
-# derived from
-# Guruprasad, K., Reddy, B.V.B. and Pandit, M.W. (1990)
-# Correlation between stability of a protein and its dipeptide composition: a novel approach for predicting in vivo
-# stability of a protein from its primary sequence.
-# Protein Eng. 4,155-161. Table III.
-# KM reorganization according to aa 1 letter alphabetical
-instability_order = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y']
+# KM reorganization according to protein_letters_alph1 -> """ACDEFGHIKLMNPQRSTVWY"""
 instability_array = np.array(
     [[1., 44.94, -7.49, 1., 1., 1., -7.49, 1., 1., 1., 1., 1., 20.26, 1., 1., 1., 1., 1., 1., 1.],
      [1., 1., 20.26, 1., 1., 1., 33.6, 1., 1., 20.26, 33.6, 1., 20.26, -6.54, 1., 1., 33.6, -6.54, 24.68, 1.],
@@ -201,6 +176,11 @@ instability_array = np.array(
      [-14.03, 1., 1., 1., 1., -9.37, 24.68, 1., 1., 13.34, 24.68, 13.34, 1., 1., 1., 1., -14.03, -7.49, 1., 1.],
      [24.68, 1., 24.68, -6.54, 1., -7.49, 13.34, 1., 1., 1., 44.94, 1., 13.34, 1., -15.91, 1., -7.49, 1., -9.37, 13.34]]
 )
+"""Derived from Guruprasad, K., Reddy, B.V.B. and Pandit, M.W. (1990)
+Correlation between stability of a protein and its dipeptide composition: a novel approach for predicting in vivo
+stability of a protein from its primary sequence.
+Protein Eng. 4,155-161. Table III.
+"""
 
 with open(putils.affinity_tags, 'r') as f:
     expression_tags = {'_'.join(map(str.lower, row[0].split())): row[1] for row in csv.reader(f)}
