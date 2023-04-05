@@ -767,7 +767,10 @@ class JobResources:
                 session.add(job_protocol)
                 session.commit()
             elif len(job_protocol_result) > 1:
-                raise IntegrityError(
+                for result in job_protocol_result:
+                    print(result)
+                raise InputError(
+                    f"sqlalchemy.IntegrityError should've been raised. "
                     f"Can't have more than one matching {sql.JobProtocol.__name__}")
             else:
                 job_protocol = job_protocol_result[0]

@@ -587,6 +587,26 @@ class JobProtocol(Base):
     term_constraint = Column(Boolean)  # design
     use_gpu_relax = Column(Boolean)  # structure-predict
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}(' \
+               f'id={self.id}, ' \
+               f'module={self.module}, ' \
+               f'commit={self.commit}, ' \
+               f'ca_only={self.ca_only}, ' \
+               f'proteinmpnn_model_name={self.proteinmpnn_model_name}, ' \
+               f'contiguous_ghosts={self.contiguous_ghosts}, ' \
+               f'evolution_constraint={self.evolution_constraint}, ' \
+               f'initial_z_value={self.initial_z_value}, ' \
+               f'interface={self.interface}, ' \
+               f'match_value={self.match_value}, ' \
+               f'minimum_matched={self.minimum_matched}, ' \
+               f'neighbors={self.neighbors}, ' \
+               f'number_predictions={self.number_predictions}, ' \
+               f'prediction_model={self.prediction_model}, ' \
+               f'term_constraint={self.term_constraint}, ' \
+               f'use_gpu_relax={self.use_gpu_relax}, ' \
+               ')'
+
 
 class DesignProtocol(Base):
     __tablename__ = 'design_protocol'
