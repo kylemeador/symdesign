@@ -12,7 +12,7 @@ import shutil
 import sys
 from argparse import Namespace
 from glob import glob
-from itertools import repeat, product, combinations
+from itertools import count, repeat, product, combinations
 from subprocess import list2cmdline
 from typing import Any, AnyStr, Iterable
 
@@ -765,6 +765,27 @@ def main():
     if job.module in symdesign_tools:
         if job.module == flags.multicistronic:
             create_mulitcistronic_sequences(args)
+        elif job.module == 'update_db':
+            with job.db.session() as session:
+                design_stmt = select(sql.DesignData).where(sql.DesignProtocol.file.is_not(None)) \
+                    .where(sql.DesignProtocol.design_id == sql.DesignData.id)
+
+                designs = session.scalars(design_stmt).unique().all()
+                for design in designs:
+                    for protocol in design.protocols:
+                        if protocol.protocol == 'thread':
+                            design.structure_path = protocol.file
+                        # else:
+                        #     print(protocol.protocol)
+
+                counter = count()
+                for design in designs:
+                    if design.structure_path is None:
+                        print(design)
+                    else:
+                        next(counter)
+                print(f'Found {next(counter)} updated designs')
+                session.rollback()
         else:  # if job.module in decoy_modules:
             pass
         # Shut down, this is just a tool

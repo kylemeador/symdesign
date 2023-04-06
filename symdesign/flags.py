@@ -6,7 +6,7 @@ import logging
 import os
 import operator
 import sys
-from typing import Any, AnyStr, Callable, Container, Literal, get_args, Sequence
+from typing import Any, AnyStr, Callable, Literal, get_args, Sequence
 
 import pandas as pd
 from psutil import cpu_count
@@ -113,6 +113,7 @@ pdb_codes2 = 'pdb_codes2'
 update_metadata = 'update_metadata'
 proteinmpnn_model_name = 'proteinmpnn_model_name'
 tag_linker = 'tag_linker'
+update_db = 'update_db'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -294,6 +295,7 @@ pdb_codes2 = format_for_cmdline(pdb_codes2)
 update_metadata = format_for_cmdline(update_metadata)
 proteinmpnn_model_name = format_for_cmdline(proteinmpnn_model_name)
 tag_linker = format_for_cmdline(tag_linker)
+update_db = format_for_cmdline(update_db)
 
 select_modules = (
     select_poses,
@@ -1357,6 +1359,9 @@ multicistronic_arguments = {
     number_args: dict(type=int, help='The number of protein sequences to concatenate into a '
                                      'multicistronic expression output'),
 }
+parser_update_db = {update_db: dict()}
+update_db_arguments = {}
+
 # ---------------------------------------------------
 # parser_asu = subparsers.add_parser('find_asu', description='From a symmetric assembly, locate an ASU and save the result.')
 # ---------------------------------------------------
@@ -1525,7 +1530,6 @@ output_arguments = {
 # If using mutual groups, for the dict "key" (parser name), you must add "_mutual" immediately after the submodule
 # string that own the group. i.e nanohedra"_mutual*" indicates nanohedra owns, or interface_design"_mutual*", etc
 module_parsers = {
-    all_flags: parser_all_flags,
     orient: parser_orient,
     refine: parser_refine,
     nanohedra: parser_nanohedra,
@@ -1537,28 +1541,32 @@ module_parsers = {
     interface_design: parser_interface_design,
     interface_metrics: parser_metrics,
     optimize_designs: parser_optimize_designs,
-    # custom_script: parser_custom,
     analysis: parser_analysis,
     process_rosetta_metrics: parser_process_rosetta_metrics,
     select_poses: parser_select_poses,
-    # select_poses_mutual: parser_select_poses_mutual_group,  # _mutual,
     select_designs: parser_select_designs,
     select_sequences: parser_select_sequences,
-    multicistronic: parser_multicistronic,
-    # flags: parser_flags,
     check_clashes: parser_check_clashes,
     expand_asu: parser_expand_asu,
     generate_fragments: parser_generate_fragments,
     rename_chains: parser_rename_chains,
-    input_: parser_input,
-    'input_mutual': parser_input_mutual_group,
-    output: parser_output,
-    options: parser_options,
     predict_structure: parser_predict_structure,
     initialize_building_blocks: parser_initialize_building_blocks,
     protocol: parser_protocol,
+    # These are "tools"
+    multicistronic: parser_multicistronic,
+    update_db: parser_update_db,
+    # These are decoy modules to help with argument parsing
+    all_flags: parser_all_flags,
+    input_: parser_input,
+    'input_mutual': parser_input_mutual_group,
+    options: parser_options,
+    output: parser_output,
     residue_selector: parser_residue_selector,
 }
+# custom_script: parser_custom,
+# select_poses_mutual: parser_select_poses_mutual_group,  # _mutual,
+# flags: parser_flags,
 input_parsers = dict(input=parser_input_group,
                      input_mutual=parser_input_mutual_group)  # _mutual
 output_parsers = dict(output=parser_output_group)
@@ -1571,9 +1579,6 @@ all_flags_arguments = {}
 #    # **residue_selector_arguments,
 # }
 parser_arguments = {
-    all_flags: all_flags_arguments,
-    options: options_arguments,
-    residue_selector: residue_selector_arguments,
     refine: refine_arguments,
     nanohedra: nanohedra_arguments,
     'nanohedra_mutual1': nanohedra_mutual1_arguments,  # mutually_exclusive_group
@@ -1590,17 +1595,23 @@ parser_arguments = {
     select_designs: select_designs_arguments,
     select_sequences: select_sequences_arguments,
     generate_fragments: generate_fragments_arguments,
-    multicistronic: multicistronic_arguments,
-    input_: input_arguments,
-    'input_mutual': input_mutual_arguments,  # add_mutually_exclusive_group
-    output: output_arguments,
     predict_structure: predict_structure_arguments,
     initialize_building_blocks: initialize_building_blocks_arguments,
     protocol: protocol_arguments,
-    # custom_script_arguments: parser_custom_script_arguments,
-    # select_poses_mutual_arguments: parser_select_poses_mutual_arguments, # mutually_exclusive_group
-    # flags_arguments: parser_flags_arguments,
+    # These are "tools"
+    multicistronic: multicistronic_arguments,
+    update_db: update_db_arguments,
+    # These are decoy modules to help with argument parsing
+    all_flags: all_flags_arguments,
+    input_: input_arguments,
+    'input_mutual': input_mutual_arguments,  # add_mutually_exclusive_group
+    options: options_arguments,
+    output: output_arguments,
+    residue_selector: residue_selector_arguments,
 }
+# custom_script_arguments: parser_custom_script_arguments,
+# select_poses_mutual_arguments: parser_select_poses_mutual_arguments, # mutually_exclusive_group
+# flags_arguments: parser_flags_arguments,
 parser_options = 'parser_options'
 parser_residue_selector = 'parser_residue_selector'
 parser_input = 'parser_input'
