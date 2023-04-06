@@ -8,6 +8,8 @@ if __name__ == '__main__':
                                                  f'identifiers in the --identifier-file from the job array')
     parser.add_argument('-j', '--job-file', help='File containing all job identifiers', required=True)
     parser.add_argument('-i', '--identifier-file', help='File with the identifiers of interest', required=True)
+    parser.add_argument('-n', '--not-present', action='store_true',
+                        help='Whether the indices displayed are the inverse of the ones passed')
     parser.add_argument('-z', '--zero-index', action='store_true',
                         help='Should identifier array be output as a zero indexed array?')
     # parser.add_argument('-sc', '--skip-commas', action='store_true',
@@ -17,20 +19,26 @@ if __name__ == '__main__':
     args, additional_args = parser.parse_known_args()
 
     with open(args.job_file, 'r') as f:
-        identifiers = f.readlines()
+        job_identifiers = f.readlines()
 
     with open(args.identifier_file, 'r') as f:
-        remaining_ids = f.readlines()
+        interest_ids = f.readlines()
 
-    identifier_indices = []
+    identifier_indices = set()
     not_found = []
-    for remaining_id in remaining_ids:
+    for interest in interest_ids:
         try:
-            identifier_index = identifiers.index(remaining_id)
+            identifier_index = job_identifiers.index(interest)
         except ValueError:  # Not found
-            not_found.append(remaining_id)
+            not_found.append(interest)
         else:
-            identifier_indices.append(identifier_index)
+            identifier_indices.add(identifier_index)
+
+    if args.not_present:
+        print('Taking the inverse of the --identifier-file ids')
+        identifier_indices = set(range(len(job_identifiers))).difference(identifier_indices)
+
+    identifier_indices = sorted(identifier_indices)
 
     if args.zero_index:
         print(f'Found the identifier array indices (zero-indexed):\n{",".join(map(str, identifier_indices))}')
