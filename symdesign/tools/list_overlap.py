@@ -17,23 +17,23 @@ def set_overlap(sets_of_interest):
     # comparison_set_descriptor = [[[] for x in range(num_lists)] for y in range(num_lists)]
     # comparison_set = np.zeros((num_lists, num_lists))
     # comparison_set = np.zeros((num_sets, num_sets))
-    comparison_set_descriptor = np.zeros((num_sets, num_sets))
     # print(str('\n'.join(list(set_operator_description.items()))))
-    op_char = input('Enter the set operand from one of:\n\t%s\nThen press Enter\n' %
-                    '\n\t'.join(f'{tup1} = {tup2}' for tup1, tup2 in set_operator_description.items()))
-    try:
-        set_op_func = set_ops[op_char]
-    except KeyError as e:
-        print(f'{e.args} not available!')
-        sys.exit()
+    operation_stmt = 'Enter the set operand from one of:\n\t%s\nThen press Enter\n' \
+                     % '\n\t'.join(f'{tup1} = {tup2}' for tup1, tup2 in set_operator_description.items())
+    op_char = utils.validate_input(operation_stmt, set_ops)
+    set_op_func = set_ops.get(op_char)
+    if set_op_func is None:
+        print(f"{op_char} isn't available")
+        sys.exit(1)
 
+    comparison_set_descriptor = np.zeros((num_sets, num_sets))
     for i in range(num_sets):
         for j in range(num_sets):
             comparison_set[i][j] = set_op_func(sets_of_interest[i], sets_of_interest[j])
             comparison_set_descriptor[i][j] = len(comparison_set[i][j])
 
     print(f'{set_operator_description[op_char]} operation produced final set matrix with lengths:\n'
-          f'{comparison_set_descriptor}\n')
+          f'{comparison_set_descriptor}\nWhere file1 is in index1, file2 is in index2, ...')
 
     try:
         row = int(input('What comparison are you interested in? Hit enter to terminate\nRow #:'))

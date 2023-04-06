@@ -91,7 +91,7 @@ lys_index = 8
 arg_index = 14
 trp_index = 18
 tyr_index = 19
-# These amino acid side chain values are from protein polymers derived from the fit by the publication PMID: 27769290
+# These amino acid side chain values are from protein polymers derived from the fit by the publication PMID:27769290
 # [9.094,  # N-term
 #  7.555,  # C
 #  3.872,  # D
@@ -201,7 +201,7 @@ def calculate_protein_isoelectric_point(sequence: Sequence[str | int], threshold
 
 
 def calculate_instability_index(sequence: Sequence[str | int]) -> float:
-    """Find the total instability index for the amino acids present in a sequence. See PMID: 2075190
+    """Find the total instability index for the amino acids present in a sequence. See PMID:2075190
 
     Args:
         sequence: The sequence to measure

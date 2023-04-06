@@ -136,7 +136,7 @@ gxg_sasa = {'A': 129, 'R': 274, 'N': 195, 'D': 193, 'C': 167, 'E': 223, 'Q': 225
             'L': 201, 'K': 236, 'M': 224, 'F': 240, 'P': 159, 'S': 155, 'T': 172, 'W': 285, 'Y': 263, 'V': 174,
             'ALA': 129, 'ARG': 274, 'ASN': 195, 'ASP': 193, 'CYS': 167, 'GLU': 223, 'GLN': 225, 'GLY': 104, 'HIS': 224,
             'ILE': 197, 'LEU': 201, 'LYS': 236, 'MET': 224, 'PHE': 240, 'PRO': 159, 'SER': 155, 'THR': 172, 'TRP': 285,
-            'TYR': 263, 'VAL': 174}  # From table 1, theoretical values of Tien et al. 2013, pmid:24278298
+            'TYR': 263, 'VAL': 174}  # From table 1, theoretical values of Tien et al. 2013, PMID:24278298
 sasa_burial_threshold = 0.25  # Default relative_sasa amount from Levy 2010
 # Set up hydrophobicity values for various calculations
 black_and_mould = [
@@ -146,7 +146,7 @@ black_and_mould = [
 hydrophobicity_values = \
     dict(black_and_mould=dict(zip(protein_letters3_alph1, black_and_mould)))
 glycine_val = black_and_mould[5]
-# This is used for the SAP calculation. See pmid:19571001
+# This is used for the SAP calculation. See PMID:19571001
 hydrophobicity_values_glycine_centered = {value_name: {aa: value - glycine_val for aa, value in values.items()}
                                           for value_name, values in hydrophobicity_values.items()}
 

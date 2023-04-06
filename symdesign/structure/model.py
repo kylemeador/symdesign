@@ -2006,7 +2006,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 all_chain_features[chain_name] = this_entity_features
 
             # Alternative to pair_and_merge using hhblits a3m output
-            # See pmid:36224222 "Structural predictions of dimeric and trimeric subcomponents" methods section
+            # See PMID:36224222 "Structural predictions of dimeric and trimeric subcomponents" methods section
             # The first of the two MSAs is constructed by extracting the organism identifiers (OX) from the resulting
             # a3m file and pairing sequences using the top hit from each OX. The second is constructed by block
             # diagonalizing the resulting a3m file.
@@ -7439,13 +7439,14 @@ class Pose(SymmetricModel, Metrics):
         return per_residue_data
 
     def per_residue_spatial_aggregation_propensity(self, distance: float = 5.0) -> dict[str, list[float]]:
-        """Return per-residue spatial_aggregation for the complexed and unbound states
+        """Return per-residue spatial_aggregation for the complexed and unbound states. Positive values are more
+        aggregation prone, while negative values are less prone
 
         Args:
             distance: The distance in angstroms to measure Atom instances in contact
         Returns:
             The dictionary of metrics mapped to arrays of values with shape (number_of_residues,)
-            Metrics include spatial_aggregation_propensity and spatial_aggregation_propensity_bound
+            Metrics include 'spatial_aggregation_propensity' and 'spatial_aggregation_propensity_unbound'
         """
         per_residue_sap = {}
         pose_length = self.number_of_residues
@@ -8617,8 +8618,8 @@ class Pose(SymmetricModel, Metrics):
 
             # Finally, check that we are cleaned for sanity
             if residue_data:
-                raise DesignError(f"Found a design that couldn't be cleaned from the input. "
-                                  f"Remaining contents:\n{residue_data}")
+                raise DesignError(
+                    f"Found a design that couldn't be cleaned from the input. Remaining contents:\n{residue_data}")
             parsed_design_residues[design] = clean_residue_data  # residue_data
 
         return parsed_design_residues

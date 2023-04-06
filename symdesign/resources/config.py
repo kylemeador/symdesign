@@ -331,7 +331,7 @@ metrics = {
     #          direction=min_, function=normalize, filter=True),
     'entity_predicted_interface_template_modeling_score':
         dict(description='This can serve for a visualisation of domain packing confidence within the interface, where a'
-                         'value of 0 means most confident. See pmid:15476259',
+                         'value of 0 means most confident. See PMID:15476259',
              direction=max_, function=normalize, filter=True),
     'entity_predicted_interface_template_modeling_score_deviation':
         dict(description='The deviation from multiple measurements of '
@@ -339,7 +339,7 @@ metrics = {
              direction=max_, function=normalize, filter=True),
     'entity_predicted_template_modeling_score':
         dict(description='This can serve for a visualisation of domain packing confidence within the structure, where a'
-                         'value of 0 means most confident. See pmid:15476259',
+                         'value of 0 means most confident. See PMID:15476259',
              direction=max_, function=normalize, filter=True),
     'entity_predicted_template_modeling_score_deviation':
         dict(description='The deviation from multiple measurements of entity_predicted_template_modeling_score',
@@ -640,14 +640,14 @@ metrics = {
     #          direction=min_, function=normalize, filter=True),
     'predicted_interface_template_modeling_score':
         dict(description='This can serve for a visualisation of domain packing confidence within the interface, where a'
-                         'value of 0 means most confident. See pmid:15476259',
+                         'value of 0 means most confident. See PMID:15476259',
              direction=max_, function=normalize, filter=True),
     'predicted_interface_template_modeling_score_deviation':
         dict(description='The deviation from multiple measurements of predicted_interface_template_modeling_score',
              direction=max_, function=normalize, filter=True),
     'predicted_template_modeling_score':
         dict(description='This can serve for a visualisation of domain packing confidence within the structure, where a'
-                         'value of 0 means most confident. See pmid:15476259',
+                         'value of 0 means most confident. See PMID:15476259',
              direction=max_, function=normalize, filter=True),
     'predicted_template_modeling_score_deviation':
         dict(description='The deviation from multiple measurements of predicted_template_modeling_score',
@@ -787,11 +787,13 @@ metrics = {
              direction=max_, function=normalize, filter=True),
     'spatial_aggregation_propensity':
         dict(description='A measure of the aggregation propensity of exposed hydrophobic surface patches in the '
-                         'complexed state. See pmid:19571001',
+                         'complexed state. Positive values are more aggregation prone, while negative values are less '
+                         'prone. See PMID:19571001',
              direction=min_, function=normalize, filter=True),
     'spatial_aggregation_propensity_unbound':
         dict(description='A measure of the aggregation propensity of exposed hydrophobic surface patches in the unbound'
-                         ' state. See pmid:19571001',
+                         ' state. Positive values are more aggregation prone, while negative values are less prone. '
+                         'See PMID:19571001',
              direction=min_, function=normalize, filter=True),
     'support':
         dict(description='The number of "support" residues as classified by E. Levy 2010',

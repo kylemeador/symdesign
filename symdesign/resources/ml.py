@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import functools
 import logging
 import math
@@ -13,7 +12,6 @@ import warnings
 from math import ceil
 from typing import Annotated, Iterable, Container, Literal, Type, Callable, Sequence, Any
 
-import psutil
 from Bio import BiopythonDeprecationWarning
 import jax.numpy as jnp
 import numpy as np

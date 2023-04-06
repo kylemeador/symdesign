@@ -24,8 +24,6 @@ from scipy.spatial.distance import pdist, cdist
 # import seaborn as sns
 import sklearn as skl
 from sqlalchemy import select
-# from sqlalchemy import select
-# from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Session, reconstructor
 import torch
 
@@ -44,7 +42,6 @@ from symdesign.third_party.alphafold.alphafold.common import residue_constants
 from symdesign.utils import all_vs_all, condensed_to_square, InputError, large_color_array, start_log, path as putils, \
     pickle_object, rosetta, starttime
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
-# from symdesign.utils.nanohedra.general import get_components_from_nanohedra_docking
 
 # Globals
 transformation_mapping: dict[str, list[float] | list[list[float]] | np.ndarray]

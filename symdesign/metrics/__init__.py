@@ -25,10 +25,9 @@ logger = logging.getLogger(__name__)
 residue_classification = ['core', 'rim', 'support']  # 'hot_spot'
 per_residue_energy_states = \
     ['complex', 'bound', 'unbound', 'energy_delta', 'solv_complex', 'solv_bound', 'solv_unbound']
-energy_metric_names = ['interface_energy_complex', 'interface_energy_bound', 'interface_energy_unbound',
-                       'interface_energy',
-                       'interface_solvation_energy_complex', 'interface_solvation_energy_bound',
-                       'interface_solvation_energy_unbound']
+energy_metric_names = [
+    'interface_energy_complex', 'interface_energy_bound', 'interface_energy_unbound', 'interface_energy',
+    'interface_solvation_energy_complex', 'interface_solvation_energy_bound', 'interface_solvation_energy_unbound']
 relative_sasa_states = ['sasa_relative_complex', 'sasa_relative_bound']
 per_residue_sasa_states = ['sasa_hydrophobic_bound', 'sasa_polar_bound', 'sasa_total_bound',
                            'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex']
