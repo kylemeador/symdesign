@@ -759,8 +759,11 @@ def main():
     # ---------------------------------------------------
     #  Check for tool request
     # ---------------------------------------------------
+    registered_tools = [flags.multicistronic, flags.update_db]
+    # Todo register these tools!
+    #  ['align', 'concatenate-files', 'list-overlap', 'retrieve-oligomers', 'retrieve-pdb-codes']
     decoy_modules = ['input', 'output', 'options', 'residue_selector']
-    symdesign_tools = [flags.multicistronic] + decoy_modules
+    symdesign_tools = registered_tools + decoy_modules
     #     flags.input, flags.output, flags.options, flags.residue_selector]
     if job.module in symdesign_tools:
         if job.module == flags.multicistronic:
