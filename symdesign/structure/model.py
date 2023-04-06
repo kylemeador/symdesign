@@ -3550,7 +3550,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             # if len(self.chain_ids) != len(found_entity_chains):
             if self.nucleotides_present:
                 # raise NotImplementedError(f"The parsing and integration of nucleotides hasn't been worked out")
-                self.log.debug(f"Integration of nucleotides hasn't been worked out yet, API information not useful")
+                self.log.warning(f"Integration of nucleotides hasn't been worked out yet, API information not useful")
 
             max_reference_sequence = 0
             for data in self.entity_info.values():
@@ -3745,7 +3745,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             numeric_chain_seq = sequence_to_numeric(
                 chain_sequence, translation_table=default_substitution_matrix_translation_table)
             perfect_score = default_substitution_matrix_array[numeric_chain_seq, numeric_chain_seq].sum()
-            best_score = 0
+            best_score = -1000  # Setting arbitrarily bad
             self.log.debug(f'Searching for matching entities for Chain {chain_id} with perfect_score={perfect_score}')
             for entity_name, data in self.entity_info.items():
                 # Todo implement structure check
@@ -3799,17 +3799,17 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                         # There is information, however, ensure it is the best info
                         # Especially if there isn't a structure_sequence, the reference is used to align
                         # so check all references then set a struct_sequence, i.e. data['sequence'] in the else clause
-                        if not struct_sequence:  # ref_sequence
-                            # There is more lenience between the chain.sequence and entity sequence
+                        if struct_sequence:
+                            # These should've matched perfectly unless there are mutations from model
+                            data['chains'].append(chain_id)
+                            break
+                        else:  # ref_sequence. There is more lenience between the chain.sequence and entity sequence
                             if match_score > best_score:
                                 # Set the best_score and best_entity
                                 best_score = match_score
                                 best_entity = entity_name
                             # Run again to ensure that the there isn't a better choice
                             continue
-                        else:  # These should've matched perfectly unless there are mutations from model
-                            data['chains'].append(chain_id)
-                            break
                     else:  # The entity isn't unique, add to the possible chain IDs
                         data['chains'].append(chain_id)
                         break
@@ -3824,7 +3824,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     # Set the 'sequence' to the structure sequence
                     try:
                         data = self.entity_info[best_entity]
-                    except UnboundLocalError:
+                    except UnboundLocalError:  # best_entity not set
                         raise DesignError(warn_parameters_msg)
                     data['sequence'] = struct_sequence
                     data['chains'].append(chain_id)
