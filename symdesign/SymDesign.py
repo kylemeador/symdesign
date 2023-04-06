@@ -765,7 +765,7 @@ def main():
     if job.module in symdesign_tools:
         if job.module == flags.multicistronic:
             create_mulitcistronic_sequences(args)
-        elif job.module == 'update_db':
+        elif job.module == flags.update_db:
             with job.db.session() as session:
                 design_stmt = select(sql.DesignData).where(sql.DesignProtocol.file.is_not(None)) \
                     .where(sql.DesignProtocol.design_id == sql.DesignData.id)
