@@ -1649,6 +1649,9 @@ class PoseProtocol(PoseData):
 
         # self.refine(in_file_list=design_files_file)
         self.refine(design_files=design_files)
+        # # Todo Ensure that the structure_path is updated, currenlty setting in self.process_rosetta_metrics()
+        # design_data.structure_path = \
+        #     pose.write(out_path=os.path.join(self.designs_path, f'{design_data.name}.pdb'))
 
     def predict_structure(self):
         """Perform structure prediction on the .current_designs. If there are no .current_designs, will use any
@@ -3163,6 +3166,8 @@ class PoseProtocol(PoseData):
                     design.structure_path = new_filename
                 else:
                     protocol_kwargs['file'] = os.path.join(designs_path, f'{name_or_provided_name}.pdb')
+                    if not design.structure_path:
+                        design.structure_path = protocol_kwargs['file']
                 design.protocols.append(sql.DesignProtocol(**protocol_kwargs))
             # else:  # Assume that no design was done and only metrics were acquired
             #     pass
