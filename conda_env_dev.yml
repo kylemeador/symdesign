@@ -41,6 +41,7 @@ dependencies:
   - pip
 # Dev below here
   - memory_profiler
+  - ipykernel
 # PyMol
   - pymol-bundle
   - pip:
