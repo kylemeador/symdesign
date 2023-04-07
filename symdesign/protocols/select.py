@@ -1458,6 +1458,8 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     with job.db.session(expire_on_commit=False) as session:
         # Figure out designs from dataframe, filters, and weights
         total_df = load_sql_poses_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
+        # # Todo
+        # job_metadata_df = load_sql_pose_job_metadata_dataframe(session, pose_ids=pose_ids)
         pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
         entity_metadata_df = load_sql_entity_metadata_dataframe(session, pose_ids=pose_ids)
         logger.debug(f'entity_metadata_df:\n{entity_metadata_df}')
@@ -1483,10 +1485,11 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             pose_designs_mean_df = designs_df.groupby(pose_id).mean(numeric_only=True)
             total_df = total_df.join(pose_designs_mean_df, on=pose_id, rsuffix='_DROP')
 
-            # columns_to_keep = [c.name for c in sql.DesignMetrics.numeric_columns()]
-            # print(designs_df.columns.tolist())
-            # designs_df = designs_df.loc[:, [col for col in columns_to_keep if col in designs_df.columns]]
-            # print(designs_df.columns.tolist())
+            # # Todo JobMetadata
+            # design_ids = total_df[design_id].unique().tolist()
+            # design_metadata_df = load_sql_design_metadata_dataframe(session, design_ids=design_ids)
+            # total_df = total_df.join(design_metadata_df.set_index(design_id), on=design_id, rsuffix='_DROP')
+
             entity_designs_df = load_sql_design_entities_dataframe(session, pose_ids=pose_ids)  # design_ids=design_ids)
             # logger.debug(f'entity_designs_df: {entity_designs_df}')
             pose_design_entities_mean_df = entity_designs_df.groupby([pose_id, entity_id]).mean(numeric_only=True)
@@ -1503,6 +1506,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
 
         if job.filter or job.protocol:
             entity_multiplicity = len(entity_metadata_df) / len(pose_metadata_df)
+            # Todo still not accurate, got 13914 from 4241 designs
             logger.warning('Filtering statistics have an increased representation due to included Entity metrics. '
                            f'Values reported for each filter will be {entity_multiplicity}x over those actually '
                            f'present')
