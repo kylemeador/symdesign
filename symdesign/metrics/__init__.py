@@ -289,13 +289,14 @@ rosetta_delta_pairs = {
 rosetta_division_pairs = {
     'buried_unsatisfied_hbond_density': ('buried_unsatisfied_hbonds', 'interface_area_total'),
     'interface_energy_density': ('interface_energy', 'interface_area_total'),
+    'interface_solvation_energy_density': ('interface_solvation_energy', 'interface_area_total'),
 }
 division_pairs = {
     'percent_interface_area_hydrophobic': ('interface_area_hydrophobic', 'interface_area_total'),
     'percent_interface_area_polar': ('interface_area_polar', 'interface_area_total'),
-    'percent_core': ('core', 'number_residues_interface'),
-    'percent_rim': ('rim', 'number_residues_interface'),
-    'percent_support': ('support', 'number_residues_interface'),
+    'percent_core': ('core', 'number_of_interface_class'),  # 'number_residues_interface'),
+    'percent_rim': ('rim', 'number_of_interface_class'),  # 'number_residues_interface'),
+    'percent_support': ('support', 'number_of_interface_class'),  # 'number_residues_interface'),
 }  # Rosetta
 
 # All Rosetta based score terms ref is most useful to keep for whole pose to give "unfolded ground state"
@@ -312,9 +313,9 @@ protocols_of_interest = {putils.design_profile, putils.structure_background, put
 
 protocol_column_types = ['mean', 'sequence_design']  # 'stats',
 # Specific columns of interest to distinguish between design trajectories
-significance_columns = ['buried_unsatisfied_hbonds',
-                        'contact_count', 'interface_energy', 'interface_area_total', 'number_hbonds',
-                        'percent_interface_area_hydrophobic', 'shape_complementarity', 'interface_solvation_energy']
+significance_columns = [
+    'buried_unsatisfied_hbonds', 'contact_count', 'interface_energy_desnity', 'interface_area_total', 'number_hbonds',
+    'percent_interface_area_hydrophobic', 'shape_complementarity', 'interface_solvation_energy_density']
 # sequence_columns = ['divergence_evolution_per_residue', 'divergence_fragment_per_residue',
 #                     'observed_evolution', 'observed_fragment']
 multiple_sequence_alignment_dependent_metrics = \

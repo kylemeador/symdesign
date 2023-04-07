@@ -748,6 +748,7 @@ class DesignMetrics(Base):
     interface_bound_activation_energy = Column(Float)
     interface_solvation_energy = Column(Float)
     interface_solvation_energy_activation = Column(Float)
+    interface_solvation_energy_density = Column(Float)
     interaction_energy_per_residue = Column(Float)
     interface_separation = Column(Float)
     rmsd_complex = Column(Float)
@@ -792,6 +793,7 @@ class DesignMetrics(Base):
     percent_core = Column(Float)  # Todo Potential column_property
     percent_rim = Column(Float)  # Todo Potential column_property
     percent_support = Column(Float)  # Todo Potential column_property
+    spatial_aggregation_propensity_interface = Column(Float)
     spatial_aggregation_propensity = Column(Float)
     spatial_aggregation_propensity_unbound = Column(Float)
     # Alphafold metrics

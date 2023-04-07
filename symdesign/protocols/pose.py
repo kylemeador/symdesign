@@ -3345,6 +3345,7 @@ class PoseProtocol(PoseData):
         #     # per_residue_data[pose_source_name].update(self.pose.per_residue_interface_errat())
         #     pose_source_errat = self.pose.per_residue_interface_errat()['errat_deviation']
 
+        interface_residues = [[residue.index for residue in self.pose.interface_residues]]
         pose_name = self.pose.name
         # pose_source_id = self.pose_source.id
         # Collect reference Structure metrics
@@ -3357,6 +3358,14 @@ class PoseProtocol(PoseData):
         # Convert per_residue_data into a dataframe matching residues_df orientation
         residues_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
                                  for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
+        # Construct interface residue array
+        interface_residue_bool = np.zeros((len(designs), pose_length), dtype=int)
+        for idx, interface_indices in enumerate(interface_residues):
+            interface_residue_bool[idx, interface_indices] = 1
+        interface_residue_df = pd.DataFrame(data=interface_residue_bool, index=residues_df.index,
+                                            columns=pd.MultiIndex.from_product((residue_indices,
+                                                                                ['interface_residue'])))
+        residues_df = residues_df.join(interface_residue_df)
         # Make buried surface area (bsa) columns, and residue classification
         residues_df = metrics.calculate_residue_surface_area(residues_df)
         # Todo same to here
@@ -3646,6 +3655,18 @@ class PoseProtocol(PoseData):
         # designs_df = pd.Series(interface_local_density, index=residues_df.index,
         #                        name='interface_local_density').to_frame()
         designs_df = metrics.sum_per_residue_metrics(residues_df)
+        interface_df = residues_df.loc[:, idx_slice[:, 'interface_residue']].droplevel(-1, axis=1)
+        designs_df['spatial_aggregation_propensity_interface'] = \
+            ((residues_df.loc[:, idx_slice[:, 'spatial_aggregation_propensity_unbound']].droplevel(-1, axis=1)
+              - residues_df.loc[:, idx_slice[:, 'spatial_aggregation_propensity']].droplevel(-1, axis=1))
+             * interface_df).sum(axis=1)
+        # Divide by the number of interface residues
+        designs_df['spatial_aggregation_propensity_interface'] /= interface_df.sum(axis=1)
+
+        # Find the average for these summed design metrics
+        pose_length = self.pose.number_of_residues
+        designs_df['spatial_aggregation_propensity_unbound'] /= pose_length
+        designs_df['spatial_aggregation_propensity'] /= pose_length
         # designs_df['number_residues_interface'] = pd.Series(number_residues_interface)
         designs_df['interface_local_density'] = pd.Series(interface_local_density)
 
@@ -3681,9 +3702,11 @@ class PoseProtocol(PoseData):
             (interface_bsa_df / (interface_bsa_df + designs_df['area_total_complex']))
 
         # designs_df['interface_area_total'] = pose_df['interface_area_total']
+        designs_df['number_of_interface_class'] = designs_df.loc[:, metrics.residue_classification].sum(axis=1)
         designs_df = metrics.columns_to_new_column(designs_df, metrics.division_pairs, mode='truediv')
         designs_df['interface_composition_similarity'] = \
             designs_df.apply(metrics.interface_composition_similarity, axis=1)
+        designs_df.drop('number_of_interface_class', axis=1, inplace=True)
 
         return designs_df
 
@@ -3709,7 +3732,7 @@ class PoseProtocol(PoseData):
 
         # CAUTION: Assumes each structure is the same length
         pose_length = self.pose.number_of_residues
-        residue_indices = list(range(pose_length))
+        # residue_indices = list(range(pose_length))
 
         designs_df = metrics.sum_per_residue_metrics(residues_df)
 

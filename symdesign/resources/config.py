@@ -474,6 +474,11 @@ metrics = {
         dict(description='The desolvation free energy of the complexed interface. Positive values indicate '
                          'energy is required to desolvate',
              direction=min_, function=rank, filter=True),
+    'interface_solvation_energy_density':
+        dict(description='The free energy resulting from hydration of the separated interface surfaces on a '
+                         'per-interface residue basis. Positive values indicate poorly soluble surfaces upon '
+                         'dissociation',
+             direction=min_, function=rank, filter=True),
     'interface_solvation_energy_unbound':
         dict(description='The desolvation free energy of the separated, repacked, interface surfaces. Positive'
                          ' values indicate energy is required to desolvate',
@@ -789,6 +794,10 @@ metrics = {
         dict(description='A measure of the aggregation propensity of exposed hydrophobic surface patches in the '
                          'complexed state. Positive values are more aggregation prone, while negative values are less '
                          'prone. See PMID:19571001',
+             direction=min_, function=normalize, filter=True),
+    'spatial_aggregation_propensity_interface':
+        dict(description='A measure of the aggregation propensity of the interface. Positive values are more '
+                         'aggregation prone, while negative values are less prone. See PMID:19571001',
              direction=min_, function=normalize, filter=True),
     'spatial_aggregation_propensity_unbound':
         dict(description='A measure of the aggregation propensity of exposed hydrophobic surface patches in the unbound'
