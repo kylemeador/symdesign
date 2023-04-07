@@ -8644,6 +8644,42 @@ class Pose(SymmetricModel, Metrics):
 
         return parsed_design_residues
 
+    def rosetta_hbond_processing(self, design_scores: dict[str, dict]) -> dict[str, set[int]]:
+        """Process Hydrogen bond Metrics from Rosetta score dictionary
+
+        if rosetta_numbering="true" in .xml then use offset, otherwise, hbonds are PDB numbering
+        Args:
+            design_scores: {'001': {'buns': 2.0, 'per_res_energy_complex_15A': -2.71, ...,
+                                    'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...',
+                                    'hbonds_res_selection_1_bound': '26A'}, ...}
+        Returns:
+            {'001': {34, 54, 67, 68, 106, 178}, ...}
+        """
+        pose_length = self.number_of_residues
+        hbonds = {}
+        for design, scores in design_scores.items():
+            unbound_bonds, complex_bonds = set(), set()
+            for column, value in scores.items():
+                if 'hbonds_res_' not in column:  # if not column.startswith('hbonds_res_selection'):
+                    continue
+                meta_data = column.split('_')  # ['hbonds', 'res', 'selection', 'complex/interface_number', '[unbound]']
+                # Offset rosetta numbering to python index and make asu index using the modulus
+                parsed_hbond_indices = set((int(hbond)-1) % pose_length
+                                           for hbond in value.split(',') if hbond != '')  # '' in case theres no hbonds
+                # if meta_data[-1] == 'bound' and offset:  # find offset according to chain
+                #     res_offset = offset[meta_data[-2]]
+                #     parsed_hbonds = set(residue + res_offset for residue in parsed_hbonds)
+                if meta_data[3] == 'complex':
+                    complex_bonds = parsed_hbond_indices
+                else:  # From another state
+                    unbound_bonds = unbound_bonds.union(parsed_hbond_indices)
+            if complex_bonds:  # 'complex', '1', '2'
+                hbonds[design] = complex_bonds.difference(unbound_bonds)
+            else:  # No hbonds were found in the complex
+                hbonds[design] = complex_bonds
+
+        return hbonds
+
     def generate_interface_fragments(self, oligomeric_interfaces: bool = False, **kwargs):
         """Generate fragments between the Pose interface(s). Finds interface(s) if not already available
 

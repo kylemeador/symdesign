@@ -47,7 +47,7 @@
 
 	<SIMPLE_METRICS> # symmetric scorefunction metrics indicated by S_
 		# gather the residues involved in a residue selector
-		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="interface_hbond_residues"/>
+		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="true" residue_selector="interface_hbond_residues"/>
 		# find the per residue energy of residues in a residue_selector
 		<PerResidueEnergyMetric name="S_M_int_energy_per_res" custom_type="" residue_selector="entity_interface_and_neighbors_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
 		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="" residue_selector="entity_interface_and_neighbors" use_native="false" scoretype="total_score" scorefxn="2015"/>

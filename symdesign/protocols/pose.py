@@ -2936,13 +2936,7 @@ class PoseProtocol(PoseData):
         # residue_info.update(self.pose.rosetta_residue_processing(structure_design_scores))
         residue_info = self.pose.rosetta_residue_processing(scores)
         # Can't use residue_processing (clean) ^ in the case there is a design without metrics... columns not found!
-        interface_hbonds = metrics.dirty_hbond_processing(scores)
-        # Can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
-        # interface_hbonds = hbond_processing(structure_design_scores, hbonds_columns)
-        # Convert interface_hbonds to indices
-        interface_hbonds = {design: [residue.index for residue in self.pose.get_residues(hbond_residues)]
-                            for design, hbond_residues in interface_hbonds.items()}
-        residue_info = metrics.process_residue_info(residue_info, hbonds=interface_hbonds)
+        residue_info = metrics.process_residue_info(residue_info, hbonds=self.pose.rosetta_hbond_processing(scores))
 
         # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
         # which ends up with multi-index column with residue index as first (top) column index, metric as second index
@@ -4374,13 +4368,8 @@ class PoseProtocol(PoseData):
             # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
             residue_info.update(self.pose.rosetta_residue_processing(structure_design_scores))
             # Can't use residue_processing (clean) ^ in the case there is a design without metrics... columns not found!
-            interface_hbonds = metrics.dirty_hbond_processing(structure_design_scores)
-            # Can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
-            # interface_hbonds = hbond_processing(structure_design_scores, hbonds_columns)
-            # Convert interface_hbonds to indices
-            interface_hbonds = {design: [residue.index for residue in self.pose.get_residues(hbond_residues)]
-                                for design, hbond_residues in interface_hbonds.items()}
-            residue_info = metrics.process_residue_info(residue_info, hbonds=interface_hbonds)
+            residue_info = metrics.process_residue_info(residue_info,
+                                                        hbonds=self.pose.rosetta_hbond_processing(structure_design_scores))
             # residue_info = metrics.incorporate_sequence_info(residue_info, pose_sequences)
 
             # Drop designs where required data isn't present
