@@ -778,6 +778,7 @@ def main():
                     for protocol in design.protocols:
                         if protocol.protocol == 'thread':
                             design.structure_path = protocol.file
+                            input(f'is design in session.dirty? {design in session.dirty}')
                         # else:
                         #     print(protocol.protocol)
 
