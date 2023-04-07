@@ -788,7 +788,7 @@ def main():
                     else:
                         next(counter)
                 print(f'Found {next(counter)} updated designs')
-                session.rollback()
+                session.commit()
         else:  # if job.module in decoy_modules:
             pass
         # Shut down, this is just a tool
