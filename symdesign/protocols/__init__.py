@@ -265,11 +265,9 @@ def interface_metrics(job: pose.PoseJob):
         job.prepare_rosetta_flags(out_dir=job.scripts_path)
         job.log.debug(f'Pose flags written to: {job.flags}')
 
-    design_files = \
-        os.path.join(job.scripts_path, f'{starttime}_design_files'
-                     f'{f"_{job.job.specific_protocol}" if job.job.specific_protocol else ""}.txt')
-
     if job.current_designs:
+        for design_ in job.current_designs:
+            print(design, design_.structure_path)
         file_paths = [design_.structure_path for design_ in job.current_designs if design_.structure_path]
     else:
         file_paths = get_directory_file_paths(
@@ -287,6 +285,9 @@ def interface_metrics(job: pose.PoseJob):
     if not file_paths:
         raise DesignError('No files found for interface-metrics')
 
+    design_files = \
+        os.path.join(job.scripts_path, f'{starttime}_design_files'
+                     f'{f"_{job.job.specific_protocol}" if job.job.specific_protocol else ""}.txt')
     with open(design_files, 'w') as f:
         f.write('%s\n' % '\n'.join(file_paths))
 
