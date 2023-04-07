@@ -8543,21 +8543,28 @@ class Pose(SymmetricModel, Metrics):
                  ...}
         """
         res_slice = slice(0, 4)
-        energy_template = {'complex': 0., 'bound': [0. for _ in self.entities], 'unbound': [0. for _ in self.entities],
-                           'solv_complex': 0., 'solv_bound': [0. for _ in self.entities],
-                           'solv_unbound': [0. for _ in self.entities], 'fsp': 0., 'cst': 0.}
+        # energy_template = {'complex': 0., 'bound': [0. for _ in self.entities], 'unbound': [0. for _ in self.entities],
+        #                    'solv_complex': 0., 'solv_bound': [0. for _ in self.entities],
+        #                    'solv_unbound': [0. for _ in self.entities], 'fsp': 0., 'cst': 0.}
         # residue_template = {'energy': {'complex': 0., 'fsp': 0., 'cst': 0.,
         #                                'unbound': [0. for _ in self.entities], 'bound': [0. for _ in self.entities]}}
         pose_length = self.number_of_residues
-        c_term_residue_numbers = [entity.c_terminal_residue.number for entity in self.entities]
+        # c_term_residue_numbers = [entity.c_terminal_residue.number for entity in self.entities]
         # Adjust the energy based on pose specifics
         pose_energy_multiplier = self.number_of_symmetry_mates  # Will be 1 if not self.is_symmetric()
         entity_energy_multiplier = [entity.number_of_symmetry_mates for entity in self.entities]
 
-        warn = warn_additional = True
+        def get_template(): return deepcopy({
+            'complex': 0., 'bound': [0. for _ in self.entities], 'unbound': [0. for _ in self.entities],
+            'solv_complex': 0., 'solv_bound': [0. for _ in self.entities],
+            'solv_unbound': [0. for _ in self.entities], 'fsp': 0., 'cst': 0.})
+
+        # keep_digit_table = utils.keep_digit_table
+        # warn = True
+        warn_additional = True
         parsed_design_residues = {}
         for design, scores in design_scores.items():
-            residue_data = {}
+            residue_data = defaultdict(get_template)
             for key, value in scores.items():
                 if key[res_slice] != 'res_':  # 'res_' not in key:  # if not key.startswith('per_res_'):
                     continue
@@ -8567,28 +8574,39 @@ class Pose(SymmetricModel, Metrics):
                 # metadata = key.strip('_').split('_')
                 # metric = metadata[1]  # energy [or sasa]
                 # entity_or_complex = metadata[2]  # 1,2,3,... or complex
-                # remove chain_id in rosetta_numbering="False"
-                # if we have enough chains, weird chain characters appear "per_res_energy_complex_19_" which mess up
-                # split. Also numbers appear, "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
+
+                # Take the "possibly" symmetric Rosetta residue index (one-indexed) and convert to python,
+                # then take the modulus for the pose numbering
                 try:
-                    residue_number = int(metadata[-1].translate(utils.keep_digit_table))
-                except ValueError as error:
-                    self.log.debug(f'{self.rosetta_residue_processing.__name__}: Found the following error converting '
-                                   f'to int(): {error}\n\tAssociated Key -> {key}')
-                    continue
-                if all(residue_number > last_residue for last_residue in c_term_residue_numbers):  # pose_length:
-                    if warn:
-                        warn = False
-                        logger.warning(
-                            f'Encountered {key} which has residue number > the pose length ({pose_length}). If this '
-                            'system is NOT a large symmetric system and output_as_pdb_nums="true" was used in Rosetta '
-                            'PerResidue SimpleMetrics, there is an error in processing that requires your '
-                            'debugging. Otherwise, this is likely a numerical chain and will be treated under '
-                            'that assumption. Always ensure that output_as_pdb_nums="true" is set'
-                        )
-                    residue_number = int(metadata[-1].translate(utils.keep_digit_table)[:-1])
-                if residue_number not in residue_data:
-                    residue_data[residue_number] = deepcopy(energy_template)  # deepcopy(residue_template)
+                    residue_index = (int(metadata[-1])-1) % pose_length
+                except ValueError:
+                    continue  # This is a residual metric
+                # Todo
+                #  Remove try: except: after removal of chain information from T33-round2 residue strings
+                #  residue_index = (int(metadata[-1])-1) % pose_length
+                # remove chain_id in rosetta_numbering="False"
+                # # If there are enough chains, weird chain characters appear "per_res_energy_complex_19_" which mess up
+                # # split. Also numbers appear, "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
+                # try:
+                #     residue_number = int(metadata[-1].translate(keep_digit_table))
+                # except ValueError as error:
+                #     self.log.debug(f'{self.rosetta_residue_processing.__name__}: Found the following error converting '
+                #                    f'to int(): {error}\n\tAssociated Key -> {key}')
+                #     continue
+                # if all(residue_number > last_residue for last_residue in c_term_residue_numbers):  # pose_length:
+                #     if warn:
+                #         warn = False
+                #         logger.warning(
+                #             f'Encountered {key} which has residue number > the pose length ({pose_length}). If this '
+                #             "system ISN'T a large symmetric system and output_as_pdb_nums="
+                #             '"true" was used in Rosetta PerResidue SimpleMetrics, there is an error in processing that '
+                #             'requires debugging. Otherwise, this is likely a numerical chain and will be treated under '
+                #             'that assumption. Always ensure that output_as_pdb_nums="true" is set'
+                #         )
+                #     # This assumes that the chain identifier is only 1 character long...
+                #     residue_number = int(metadata[-1].translate(keep_digit_table)[:-1])
+                # if residue_index not in residue_data:
+                #     residue_data[residue_index] = deepcopy(energy_template)  # deepcopy(residue_template)
 
                 # if metric == 'energy':
                 #     # pose_state could have either fsp (favor_sequence_profile) or cst (constraint) as well
@@ -8602,25 +8620,27 @@ class Pose(SymmetricModel, Metrics):
                         warn_additional = False
                         logger.warning(f"Found additional metrics that aren't being processed. Ex {key}={value}")
                     continue
-                # use += because instances of symmetric residues from symmetry related chains are summed
-                try:  # to convert to int. Will succeed if we have an entity as a string integer, ex: 1,2,3,...
-                    entity = int(entity_or_complex) - zero_offset
-                    residue_data[residue_number][metric_str][entity] += (value / entity_energy_multiplier[entity])
-                except ValueError:  # 'complex' is the value, use the pose state
-                    residue_data[residue_number][metric_str] += (value / pose_energy_multiplier)
                 # else:  # sasa or something else old
                 #     pass
-            # Turn the residue_data into Residue.index values
-            parsed_residue_numbers = list(residue_data.keys())
-            clean_residue_data = \
-                {residue.index: residue_data.pop(original_number)
-                 for original_number, residue in zip(parsed_residue_numbers, self.get_residues(parsed_residue_numbers))}
+                # Use += because instances of symmetric residues from symmetry related chains are summed
+                try:  # To convert to int. Will succeed if we have an entity as a string integer, ex: 1,2,3,...
+                    entity = int(entity_or_complex) - zero_offset
+                except ValueError:  # 'complex' is the value, use the pose state
+                    residue_data[residue_index][metric_str] += (value / pose_energy_multiplier)
+                else:
+                    residue_data[residue_index][metric_str][entity] += (value / entity_energy_multiplier[entity])
+            # # Turn the residue_data into Residue.index values
+            # parsed_residue_numbers = list(residue_data.keys())
+            # clean_residue_data = \
+            #     {residue.index: residue_data.pop(original_number)
+            #      for original_number, residue in zip(parsed_residue_numbers, self.get_residues(parsed_residue_numbers))}
 
-            # Finally, check that we are cleaned for sanity
-            if residue_data:
-                raise DesignError(
-                    f"Found a design that couldn't be cleaned from the input. Remaining contents:\n{residue_data}")
-            parsed_design_residues[design] = clean_residue_data  # residue_data
+            parsed_design_residues[design] = residue_data
+            # # Finally, check that we are cleaned for sanity
+            # if residue_data:
+            #     raise DesignError(
+            #         f"Found a design that couldn't be cleaned from the input. Remaining contents:\n{residue_data}")
+            # parsed_design_residues[design] = clean_residue_data
 
         return parsed_design_residues
 

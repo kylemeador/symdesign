@@ -33,7 +33,7 @@
 	</RESIDUE_SELECTORS>
 
     <SIMPLE_METRICS>
-        <PerResidueEnergyMetric name="M_chain_break_energy_per_residue" custom_type="" output_as_pdb_nums="true" residue_selector="full_pose" scoretype="chainbreak" scorefxn="2015_cst"/> # reference_name="" use_native="false"
+        <PerResidueEnergyMetric name="M_chain_break_energy_per_residue" custom_type="" residue_selector="full_pose" scoretype="chainbreak" scorefxn="2015_cst"/> # reference_name="" use_native="false"
         <ResidueSummaryMetric name="M_chain_break_energy" custom_type="" metric="M_chain_break_energy_per_residue" action="sum"/>
 <!--        <TotalEnergyMetric name="M_chain_break_energy" residue_selector="full_pose" scorefxn="2015_cst" custom_type="" force_rescore="false"/>-->
     </SIMPLE_METRICS>
@@ -92,9 +92,9 @@
 
                 <SIMPLE_METRICS>
                     # not reporting anything for chainbreak with 2015_cst...
-                    <PerResidueEnergyMetric name="M_chain_break_energy_per_residue" custom_type="" output_as_pdb_nums="true" residue_selector="full_pose" scoretype="chainbreak" scorefxn="2015_cst"/> # reference_name="" use_native="false"
+                    <PerResidueEnergyMetric name="M_chain_break_energy_per_residue" custom_type="" residue_selector="full_pose" scoretype="chainbreak" scorefxn="2015_cst"/> # reference_name="" use_native="false"
                     <ResidueSummaryMetric name="M_chain_break_energy" custom_type="" metric="M_chain_break_energy_per_residue" action="sum"/>
-<!--                    <PerResidueEnergyMetric name="M_fa_atr_energy_per_residue" scoretype="fa_atr" custom_type="" output_as_pdb_nums="true" residue_selector="full_pose" scorefxn="2015_cst"/> # reference_name="" use_native="false"-->
+<!--                    <PerResidueEnergyMetric name="M_fa_atr_energy_per_residue" scoretype="fa_atr" custom_type="" residue_selector="full_pose" scorefxn="2015_cst"/> # reference_name="" use_native="false"-->
 <!--                    <ResidueSummaryMetric name="M_pose_designed_energy" custom_type="" metric="M_fa_atr_energy_per_residue" action="sum"/>-->
 <!--                    <TotalEnergyMetric name="M_pose_designed_energy" scoretype="fa_atr" residue_selector="full_pose" scorefxn="2015_cst"/> # custom_type="" reference_name="" use_native=""-->
                     <TotalEnergyMetric name="M_pose_designed_energy" residue_selector="full_pose" scorefxn="2015_cst"/> # scoretype="total" custom_type="" reference_name="" use_native=""

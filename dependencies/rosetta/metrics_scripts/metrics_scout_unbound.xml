@@ -38,11 +38,11 @@
 		# gather the residues involved in a residue selector
 		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="hbond_residues_sym"/>
 		# find the per residue energy of residues in a residue_selector
-		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="interface%%interface%%_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
+		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="" residue_selector="interface%%interface%%_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
 		# gather the per residue SASA of a residue selection
-		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="hydrophobic_sasa"/>
-		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="polar_sasa"/>
-		<PerResidueSasaMetric name="M_sasa_total_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="all_sasa"/>
+		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="" residue_selector="interface%%interface%%" mode="hydrophobic_sasa"/>
+		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="" residue_selector="interface%%interface%%" mode="polar_sasa"/>
+		<PerResidueSasaMetric name="M_sasa_total_per_res" custom_type="" residue_selector="interface%%interface%%" mode="all_sasa"/>
 		# summarize the energy metrics from above
 		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum"/>
 		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum"/>

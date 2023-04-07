@@ -1627,7 +1627,7 @@ class PoseProtocol(PoseData):
         # # Modify each sequence score to reflect the new "decoy" name
         # # Todo update as a consequence of new SQL
         # sequence_ids = sequences.keys()
-        # design_scores = metrics.read_scores(self.scores_file)
+        # design_scores = metrics.parse_rosetta_scores(self.scores_file)
         # for design, scores in design_scores.items():
         #     if design in sequence_ids:
         #         # We previously saved data. Copy to the identifier that is present after threading
@@ -3002,7 +3002,7 @@ class PoseProtocol(PoseData):
     def process_rosetta_metrics(self):
         """From Rosetta based protocols, tally the resulting metrics and integrate with SymDesign metrics database"""
         self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseJob(.path)
-        design_scores = metrics.read_scores(self.scores_file)  # Todo PoseJob(.path)
+        design_scores = metrics.parse_rosetta_scores(self.scores_file)
 
         pose_design_scores = design_scores.pop(self.name, None)
         if pose_design_scores:
@@ -4314,7 +4314,7 @@ class PoseProtocol(PoseData):
             # source_df['rmsd_complex'] = 0
             # source_df['rosetta_reference_energy'] = 0
             # source_df['shape_complementarity'] = 0
-            design_scores = metrics.read_scores(self.scores_file)  # Todo PoseJob(.path)
+            design_scores = metrics.parse_rosetta_scores(self.scores_file)
             self.log.debug(f'All designs with scores: {", ".join(design_scores.keys())}')
             # Find designs with scores and structures
             structure_design_scores = {}
