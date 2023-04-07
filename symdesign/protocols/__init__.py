@@ -266,8 +266,6 @@ def interface_metrics(job: pose.PoseJob):
         job.log.debug(f'Pose flags written to: {job.flags}')
 
     if job.current_designs:
-        for design_ in job.current_designs:
-            print(design, design_.structure_path)
         file_paths = [design_.structure_path for design_ in job.current_designs if design_.structure_path]
     else:
         file_paths = get_directory_file_paths(
@@ -279,8 +277,6 @@ def interface_metrics(job: pose.PoseJob):
     # The user probably wants pose metrics without specifying so
     elif not file_paths and not job.designs and os.path.exists(job.pose_path):
         file_paths.append(job.pose_path)
-    else:
-        file_paths = []
 
     if not file_paths:
         raise DesignError('No files found for interface-metrics')
