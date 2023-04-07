@@ -1142,7 +1142,7 @@ def main():
                         _pose_identifiers, _designs, _directives = \
                             zip(*utils.PoseSpecification(specification_file).get_directives())
                         pose_identifiers.extend(_pose_identifiers)
-                        print(f'parsed designs: {designs})
+                        print(f'parsed designs: {designs}')
                         designs.extend(_designs)
                         directives.extend(_directives)
 
