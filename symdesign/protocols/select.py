@@ -704,41 +704,47 @@ def poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     return final_poses
 
 
-def select_from_cluster_map(selected_members: Sequence[Any], cluster_map: dict[Any, list[Any]], number: int = 1) \
+def select_from_cluster_map(selected_pose_jobs: Sequence[Any], cluster_map: dict[Any, list[Any]], number: int = 1) \
         -> list[int]:
     """From a mapping of cluster representatives to their members, select members based on their ranking in the
     selected_members sequence
 
     Args:
-        selected_members: A sorted list of members that are members of the cluster_map
+        selected_pose_jobs: A sorted list of members that are members of the cluster_map
         cluster_map: A mapping of cluster representatives to their members
         number: The number of members to select
     Returns:
         The indices of selected_members, trimmed and retrieved according to cluster_map membership
     """
-    membership_representative_map = cluster.invert_cluster_map(cluster_map)
-    representative_found: dict[Any, list[Any]] = {}
-    not_found = []
-    for idx, member in enumerate(selected_members):
-        cluster_representative = membership_representative_map.get(member, None)
-        if cluster_representative:
-            if cluster_representative not in representative_found:
-                # Include. This representative hasn't been identified
-                representative_found[cluster_representative] = [idx]  # [member]
-            else:
-                # This cluster has already been found, and it was identified again. Report and only
-                # include the highest ranked pose in the output as it provides info on all occurrences
-                representative_found[cluster_representative].append(idx)  # member)
-        else:
-            not_found.append(idx)  # member)
+    # Make the selected_poses into strings
+    selected_pose_identifiers = list(map(str, selected_pose_jobs))
+    # Check if the cluster map is stored as PoseDirectories or strings and convert
+    representative_representative = next(iter(cluster_map))
+    if not isinstance(representative_representative, PoseJob):
+        # Make the cluster map based on strings
+        for representative in list(cluster_map.keys()):
+            # Remove old entry and convert all arguments to pose_id strings, saving as pose_id strings
+            cluster_map[str(representative)] = [str(member) for member in cluster_map.pop(representative)]
 
+    membership_representative_map = cluster.invert_cluster_map(cluster_map)
+    representative_found: dict[Any, list[Any]] = defaultdict(list)
+    not_found = []
+    for idx, member in enumerate(selected_pose_identifiers):
+        try:
+            cluster_representative = membership_representative_map[member]
+        except KeyError:
+            not_found.append(idx)
+        else:
+            representative_found[cluster_representative].append(idx)
+
+    # Only include the highest ranked pose in the output as it provides info on all occurrences
     final_member_indices = []
     for member_indices in representative_found.values():
         final_member_indices.extend(member_indices[:number])
 
     if not_found:
         logger.warning(f"Couldn't locate the following members:\n\t%s\nAdding all of these to your selection..." %
-                       '\n\t'.join(map(str, [selected_members[idx] for idx in not_found])))
+                       '\n\t'.join(selected_pose_identifiers[idx] for idx in not_found))
         # 'Was {flags.cluster_poses} only run on a subset of the poses that were selected?
         final_member_indices.extend(not_found)
 
@@ -1362,6 +1368,31 @@ def format_save_df(session: Session, designs_df: pd.DataFrame, pose_ids: Iterabl
     return save_df
 
 
+def load_pose_job_from_id(session: Session, ids: Sequence[int]) -> list[PoseJob]:
+    """Given pose identifiers, either directory strings, or database ids, load PoseJobs
+
+    Args:
+        session:
+        ids:
+    Returns:
+        The matching PoseJobs
+    """
+    # if job.module in flags.select_modules:
+    #     pose_job_stmt = select(PoseJob).options(
+    #         lazyload(PoseJob.entity_data),
+    #         lazyload(PoseJob.metrics))
+    # else:  # Load all attributes
+    pose_job_stmt = select(PoseJob)
+    try:  # To convert the identifier to an integer
+        int(ids[0])
+    except ValueError:  # Can't convert to integer, identifiers_are_database_id = False
+        fetch_jobs_stmt = pose_job_stmt.where(PoseJob.pose_identifier.in_(ids))
+    else:
+        fetch_jobs_stmt = pose_job_stmt.where(PoseJob.id.in_(ids))
+
+    return session.scalars(fetch_jobs_stmt).all()
+
+
 def load_pose_identifier_from_id(session: Session, ids: Iterable[int]) -> dict[int, str]:
     pose_id_stmt = select((PoseJob.id, PoseJob.project, PoseJob.name)).where(PoseJob.id.in_(ids))
     return {id_: PoseJob.convert_pose_identifier(project, name)
@@ -1488,47 +1519,25 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                                                   function=job.weight_function)
         # Remove excess pose instances
         selected_pose_ids = utils.remove_duplicates(selected_poses_df.index.tolist())[:job.select_number]
-        #
-        # selected_poses = [session.get(PoseJob, id_) for id_ in selected_pose_ids]
-        # Todo, instead of ^ when needed for protocol ?
-        #  pose_jobs = load_pose_identifier_from_id(pose_ids)
-        # # # Select by clustering analysis
-        # # if job.cluster:
-        # # Sort results according to clustered poses if clustering exists
-        # if job.cluster.map:
-        #     # cluster_map: dict[str | PoseJob, list[str | PoseJob]] = {}
-        #     if os.path.exists(job.cluster.map):
-        #         cluster_map = utils.unpickle(job.cluster.map)
-        #     else:
-        #         raise FileNotFoundError(f'No --{flags.cluster_map} "{job.cluster.map}" file was found')
-        #
-        #     # Make the selected_poses into strings
-        #     selected_pose_strs = list(map(str, selected_poses))
-        #     # Check if the cluster map is stored as PoseDirectories or strings and convert
-        #     representative_representative = next(iter(cluster_map))
-        #     if not isinstance(representative_representative, PoseJob):
-        #         # Make the cluster map based on strings
-        #         for representative in list(cluster_map.keys()):
-        #             # Remove old entry and convert all arguments to pose_id strings, saving as pose_id strings
-        #             cluster_map[str(representative)] = [str(member) for member in cluster_map.pop(representative)]
-        #
-        #     final_pose_indices = select_from_cluster_map(selected_pose_strs, cluster_map, number=job.cluster.number)
-        #     final_poses = [selected_poses[idx] for idx in final_pose_indices]
-        #     logger.info(f'Selected {len(final_poses)} poses after clustering')
-        # else:  # Try to generate the cluster_map?
-        #     # raise utils.InputError(f'No --{flags.cluster_map} was provided. To cluster poses, specify:'
-        #     logger.info(f'No --{flags.cluster_map} was provided. To {flags.cluster_poses}, specify:'
-        #                 f'"{putils.program_command} {flags.cluster_poses}" or '
-        #                 f'"{putils.program_command} {flags.protocol} '
-        #                 f'--{flags.modules} {flags.cluster_poses} {flags.select_poses}"')
-        #     logger.info('Grabbing all selected poses')
-        #     final_poses = selected_poses
-        #
-        # if len(final_poses) > job.select_number:
-        #     final_poses = final_poses[:job.select_number]
-        #     logger.info(f'Found {len(final_poses)} Poses after applying your --select-number criteria')
-        #
-        # final_pose_id_to_identifier = {pose_job.id: pose_job.pose_identifier for pose_job in final_poses}
+
+        # Select by clustering analysis
+        if job.cluster_selection or job.cluster.map:
+            pose_jobs = load_pose_job_from_id(session, selected_pose_ids)
+            if job.cluster_selection:
+                pose_jobs = cluster.cluster_poses(pose_jobs)
+
+            # Sort results according to clustered poses
+            # cluster_map: dict[str | PoseJob, list[str | PoseJob]] = {}
+            if os.path.exists(job.cluster.map):
+                cluster_map = utils.unpickle(job.cluster.map)
+            else:
+                raise FileNotFoundError(
+                    f'No {flags.format_args(flags.cluster_map_args)} "{job.cluster.map}" file was found')
+
+            final_pose_indices = select_from_cluster_map(pose_jobs, cluster_map, number=job.cluster.number)
+            final_poses = [pose_jobs[idx] for idx in final_pose_indices]
+            logger.info(f'Selected {len(final_poses)} poses after clustering')
+            selected_pose_ids = [pose_job.id for pose_job in final_poses]
 
         if len(selected_pose_ids) > job.select_number:
             selected_pose_ids = selected_pose_ids[:job.select_number]
@@ -1691,12 +1700,30 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
                 metrics.prioritize_design_indices(total_df, filters=job.filter, weights=job.weight,
                                                   protocols=job.protocol, default_weight=default_weight_metric,
                                                   function=job.weight_function)
-        # # Groupby design_id to remove extra instances of 'entity_id'
-        # # This will turn these values into average which is fine since we just want the order
-        # pose_designs_mean_df = selected_designs_df.groupby(design_id).mean()
 
         # Drop duplicated values keeping the order of the DataFrame
         selected_designs_df = selected_designs_df[~selected_designs_df.index.duplicated()]
+
+        # Select by clustering analysis
+        if job.cluster_selection or job.cluster.map:
+            selected_pose_ids = selected_designs_df[pose_id].tolist()
+            pose_jobs = load_pose_job_from_id(session, selected_pose_ids)
+            if job.cluster_selection:
+                pose_jobs = cluster.cluster_poses(pose_jobs)
+
+            # Sort results according to clustered poses
+            # cluster_map: dict[str | PoseJob, list[str | PoseJob]] = {}
+            if os.path.exists(job.cluster.map):
+                cluster_map = utils.unpickle(job.cluster.map)
+            else:
+                raise FileNotFoundError(
+                    f'No {flags.format_args(flags.cluster_map_args)} "{job.cluster.map}" file was found')
+
+            final_pose_indices = select_from_cluster_map(pose_jobs, cluster_map, number=job.cluster.number)
+            final_poses = [pose_jobs[idx] for idx in final_pose_indices]
+            logger.info(f'Selected {len(final_poses)} poses after clustering')
+            selected_pose_ids = [pose_job.id for pose_job in final_poses]
+            selected_designs_df = selected_designs_df[selected_designs_df[pose_id].isin(selected_pose_ids)]
 
         # Specify the result order according to any filtering, weighting, and number
         number_selected = len(selected_designs_df)

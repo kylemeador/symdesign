@@ -115,6 +115,7 @@ proteinmpnn_model_name = 'proteinmpnn_model_name'
 tag_linker = 'tag_linker'
 update_db = 'update_db'
 measure_pose = 'measure_pose'
+cluster_selection = 'cluster_selection'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -298,6 +299,7 @@ proteinmpnn_model_name = format_for_cmdline(proteinmpnn_model_name)
 tag_linker = format_for_cmdline(tag_linker)
 update_db = format_for_cmdline(update_db)
 measure_pose = format_for_cmdline(measure_pose)
+cluster_selection = format_for_cmdline(cluster_selection)
 
 select_modules = (
     select_poses,
@@ -1032,6 +1034,9 @@ cluster_map_kwargs = dict(type=os.path.abspath,
                           metavar=ex_path(default_clustered_pose_file.format('TIMESTAMP', 'LOCATION')),
                           help='The location of a serialized file containing spatially\nor interfacial '
                                'clustered poses')
+cluster_selection_args = ('-Cs', f'--{cluster_selection}')
+cluster_selection_kwargs = dict(action='store_true',
+                                help='Whether clustering should be performed using select-* results')
 cluster_poses_help = 'Cluster all poses by their spatial or interfacial similarity. This is\n' \
                      'used to identify conformationally flexible docked configurations'
 parser_cluster = {cluster_poses: dict(description=cluster_poses_help, help=cluster_poses_help)}
@@ -1250,7 +1255,8 @@ weight_function_kwargs = dict(type=str.lower, choices=config.metric_weight_funct
                                    '\nChoices=%(choices)s\nDefault=%(default)s')
 # ---------------------------------------------------
 select_arguments = {
-    cluster_map_args: cluster_map_kwargs,
+    # cluster_map_args: cluster_map_kwargs,
+    cluster_selection_args: cluster_selection_kwargs,
     filter_args: filter_kwargs,
     filter_file_args: filter_file_kwargs,
     select_number_args: select_number_kwargs,

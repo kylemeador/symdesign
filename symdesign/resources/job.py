@@ -687,6 +687,7 @@ class JobResources:
 
         # Clustering flags
         # Todo this is pretty sloppy. I should modify this DataClass mechanism...
+        self.cluster_selection = kwargs.get('cluster_selection')
         # self.cluster_map = kwargs.get('cluster_map')
         # self.as_objects: bool = kwargs.get('as_objects')
         # self.mode: bool = kwargs.get('mode')
