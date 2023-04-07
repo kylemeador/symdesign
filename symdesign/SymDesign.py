@@ -1142,6 +1142,7 @@ def main():
                         _pose_identifiers, _designs, _directives = \
                             zip(*utils.PoseSpecification(specification_file).get_directives())
                         pose_identifiers.extend(_pose_identifiers)
+                        print(f'parsed designs: {designs})
                         designs.extend(_designs)
                         directives.extend(_directives)
 
@@ -1210,12 +1211,14 @@ def main():
                     #         f"pose identifier(s)")
                     # if designs:
                     designs = job.get_range_slice(designs)
+                    print(designs)
                     # if directives:
                     directives = job.get_range_slice(directives)
                     # Set up PoseJob with the specific designs and any directives
                     for pose_identifier, _designs, _directives in zip(pose_identifiers, designs, directives):
                         # Since the PoseJob were loaded from the database, the order of inputs needs to be used
                         pose_identifier_to_pose_job_map[pose_identifier].use_specific_designs(_designs, _directives)
+                        print(pose_identifier_to_pose_job_map[pose_identifier].current_designs)
         elif select_from_directory:
             # Can make an empty pose_jobs when the program_root is args.directory
             job.location = args.directory

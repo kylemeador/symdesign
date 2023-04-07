@@ -844,6 +844,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     raise ValueError(
                         f"Couldn't set {self}.current_designs with a 'design'={potential_design} of type "
                         f"{type(potential_design).__name__}")
+            self.log.debug(f'Added {len(self._current_designs)} designs to self.current_designs')
 
     @property
     def structure_source(self) -> AnyStr:
