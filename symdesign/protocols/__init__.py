@@ -270,7 +270,7 @@ def interface_metrics(job: pose.PoseJob):
                      f'{f"_{job.job.specific_protocol}" if job.job.specific_protocol else ""}.txt')
 
     if job.current_designs:
-        file_paths = [design_.structure_path for design_ in job.current_designs]
+        file_paths = [design_.structure_path for design_ in job.current_designs if design_.structure_path]
     else:
         file_paths = get_directory_file_paths(
             job.designs_path, suffix=job.job.specific_protocol if job.job.specific_protocol else '', extension='.pdb')

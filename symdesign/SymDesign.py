@@ -784,10 +784,10 @@ def main():
                 counter = count()
                 for design in designs:
                     if design.structure_path is None:
-                        print(design)
+                        logger.error(f'The design {design} has no .structure_path')
                     else:
                         next(counter)
-                print(f'Found {next(counter)} updated designs')
+                logger.info(f'Found {next(counter)} updated designs')
                 session.commit()
         else:  # if job.module in decoy_modules:
             pass
