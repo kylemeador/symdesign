@@ -713,10 +713,13 @@ class DesignMetrics(Base):
     proteinmpnn_loss_unbound = Column(Float)
     proteinmpnn_score_complex = Column(Float)
     proteinmpnn_score_complex_per_designed_residue = Column(Float)
+    proteinmpnn_score_complex_per_interface_residue = Column(Float)
     proteinmpnn_score_delta = Column(Float)
     proteinmpnn_score_delta_per_designed_residue = Column(Float)
+    proteinmpnn_score_delta_per_interface_residue = Column(Float)
     proteinmpnn_score_unbound = Column(Float)
     proteinmpnn_score_unbound_per_designed_residue = Column(Float)
+    proteinmpnn_score_unbound_per_interface_residue = Column(Float)
     # Sequence loss terms
     sequence_loss_design = Column(Float)
     sequence_loss_design_per_residue = Column(Float)

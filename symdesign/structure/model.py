@@ -6326,7 +6326,8 @@ class Pose(SymmetricModel, Metrics):
             return self._interface_neighbor_residues
         except AttributeError:
             self._interface_neighbor_residues = []
-            for idx, residue in self.interface_residues:
+            residue: Residue
+            for residue in self.interface_residues:
                 self._interface_neighbor_residues.extend(residue.get_neighbors())
 
             return self._interface_neighbor_residues

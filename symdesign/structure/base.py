@@ -2324,12 +2324,12 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         return next_residues  # Used before .pop() -> [residue for residue in next_residues if residue]
 
     def get_neighbors(self, distance: float = 8., **kwargs) -> list[Residue]:
-        """The neighbors to the Residue in the Structure if this Residue is part of a polymer
+        """If this Residue instance is part of a polymer, find neighboring Residue instances defined by a distance
 
         Args:
-            distance – The distance to measure neighbors by
+            distance: The distance to measure neighbors by
         Returns:
-            The Residues that are within the distance to this residue neighbors
+            The Residue instances that are within the distance to this Residue
         """
         # try:
         #     return self._neighbors
@@ -3577,16 +3577,16 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """Retrieve Residues in the Structure specified by Atom indices
 
         Args:
-            atom_indices: The atom indices to retrieve Residue objects from
+            atom_indices: The atom indices to retrieve Residue objects by
         Returns:
-            The Residues corresponding to the provided atom_indices
+            The sorted, unique Residue instances corresponding to the provided atom_indices
         """
         if self.is_parent():
             all_residues = self._coords_indexed_residues[atom_indices].tolist()
         else:
             all_residues = self.parent._coords_indexed_residues[atom_indices].tolist()
 
-        return sorted(set(all_residues), key=lambda residue: residue.number)
+        return sorted(set(all_residues), key=lambda residue: residue.index)
 
     # Todo
     #  The functions below don't really serve a purpose... but this pseudocode would apply to similar code patterns
