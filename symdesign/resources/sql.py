@@ -123,6 +123,16 @@ class PoseMetadata(Base):
         return len(self.entity_data)
 
     @property
+    def entity_names(self) -> list[str]:
+        """Return the names of each entity (Gene/Protein products) found in the PoseMetadata"""
+        return [entity.name for entity in self.entity_data]
+
+    # @property
+    # def entity_transformations(self) -> list[dict]:
+    #     """Return the names of each entity (Gene/Protein products) found in the PoseMetadata"""
+    #     return [entity.transform for entity in self.entity_data]
+
+    @property
     def design_ids(self) -> list[str]:
         """Get the names of each DesignData in the PoseJob"""
         return [design.id for design in self.designs]

@@ -235,9 +235,11 @@ class JobResources:
             if os.path.exists(program_root):
                 self.program_root = program_root
             else:
-                raise FileNotFoundError(f"Path doesn't exist\n\t{program_root}")
+                raise FileNotFoundError(
+                    f"Path doesn't exist\n\t{program_root}")
         except TypeError:
-            raise TypeError(f"Can't initialize {JobResources.__name__} without parameter 'program_root'")
+            raise TypeError(
+                f"Can't initialize {JobResources.__name__} without parameter 'program_root'")
 
         # Format argparse.Namespace arguments
         if arguments is not None:
@@ -962,10 +964,11 @@ class JobResources:
         not_recognized_modules = []
         nanohedra_prior = False
         gpu_device_kind = None
-        for idx, module in enumerate(self.modules):
+        for idx, module in enumerate(self.modules, 1):
             if module == flags.nanohedra:
-                if idx > 0:
-                    raise InputError(f"For {flags.protocol} module, {module} can only be run in --modules position #1")
+                if idx > 1:
+                    raise InputError(
+                        f"For {flags.protocol} module, {module} can only be run in --modules position #1")
                 nanohedra_prior = True
                 continue
             elif module in flags.select_modules and self.protocol_module:

@@ -878,8 +878,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if isinstance(sym_entry, SymEntry):
             self._sym_entry = sym_entry
         else:
-            raise InputError(f"Couldn't set the 'sym_entry' attribute with a type {type(sym_entry).__name__}. "
-                             f"Expected a SymEntry instance")
+            raise InputError(
+                f"Couldn't set the 'sym_entry' attribute with a type {type(sym_entry).__name__}. "
+                f"Expected a {SymEntry.__name__} instance")
 
     def is_symmetric(self) -> bool:
         """Is the PoseJob symmetric?"""
