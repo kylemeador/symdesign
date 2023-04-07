@@ -1831,7 +1831,7 @@ class PoseProtocol(PoseData):
             return _seq_features
 
         def output_alphafold_structures(structure_types: dict[str, dict[str, str]], design_name: str = None):
-            """From a PDB formatted string, output structures by design_name to self.designs_path"""
+            """From a PDB formatted string, output structures by design_name to self.designs_path/design_name"""
             if design_name is None:
                 design_name = ''
             # for design, design_scores in structures.items():
@@ -1841,7 +1841,9 @@ class PoseProtocol(PoseData):
                 structures = structure_types.get(f'{type_str}relaxed', [])
                 idx = count(1)
                 for model_name, structure in structures.items():
-                    path = os.path.join(self.designs_path,
+                    out_dir = os.path.join(self.designs_path, design_name)
+                    putils.make_path(out_dir)
+                    path = os.path.join(out_dir,
                                         f'{design_name}-{model_name}_rank{next(idx)}-{type_str}relaxed.pdb')
                     with open(path, 'w') as f:
                         f.write(structure)

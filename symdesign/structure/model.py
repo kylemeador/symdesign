@@ -8030,7 +8030,7 @@ class Pose(SymmetricModel, Metrics):
                 interface topology removing any dimeric duplicates
         """
         if self.interface_residues_by_interface:
-            self.log.debug("Interface residues weren't set as they are already set. If they have been changed, the "
+            self.log.debug("Interface residues weren't set as they're already set. If they've been changed, the "
                            "attribute 'interface_residues_by_interface' should be reset")
             # Todo add to reset_state()/reset_pose()
             return

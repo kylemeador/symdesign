@@ -74,10 +74,19 @@ if __name__ == '__main__':
         print(pose_ids[:5])
         # raise NotImplementedError('The format_pose_ids tool needs to be adapted for non-Nanohedra docking entries')
 
-    if args.keep_design_id:
+    # if args.keep_design_id:
+    #     final_pose_ids = [project + pose_id for pose_id in map(str.strip, pose_ids) if pose_id != '']
+    # elif args.split_design_id:  # assumes each design will have _clean_asu suffix appended
+    #     final_pose_ids = ['{}{},clean_asu{}'.format(project, *pose_id.split('_clean_asu'))
+    #                       for pose_id in map(str.strip, pose_ids) if pose_id != '']
+    # else:  # assumes each design will have _clean_asu suffix appended
+    #     final_pose_ids = \
+    #         [project + pose_id.split('_clean_asu')[0] for pose_id in map(str.strip, pose_ids) if pose_id != '']
+
+    if args.design_id:
         final_pose_ids = [project + pose_id for pose_id in map(str.strip, pose_ids) if pose_id != '']
     elif args.split_design_id:  # assumes each design will have _clean_asu suffix appended
-        final_pose_ids = ['%s,clean_asu%s' % (project + pose_id.split('_clean_asu')[0], pose_id.split('_clean_asu')[1])
+        final_pose_ids = ['{}{},clean_asu{}'.format(project, *pose_id.split('_clean_asu'))
                           for pose_id in map(str.strip, pose_ids) if pose_id != '']
     else:  # assumes each design will have _clean_asu suffix appended
         final_pose_ids = \
