@@ -2667,19 +2667,24 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             poses_df = poses_df.join(summed_poses_df.drop('number_residues_interface', axis=1))
             # .droplevel(-1, axis=1) operations are REQUIRED here or the calculations are messed up
             interface_df = residues_df.loc[:, idx_slice[:, 'interface_residue']].droplevel(-1, axis=1)
+            # number_interface_residues_s = interface_df.sum(axis=1)
+            number_interface_residues_s = poses_df['number_residues_interface']
             # Update the total loss according to those residues that were actually specified as designable
             poses_df['proteinmpnn_dock_cross_entropy_per_residue'] = \
                 (residues_df.loc[:, idx_slice[:, 'proteinmpnn_dock_cross_entropy_loss']].droplevel(-1, axis=1)
-                 * interface_df).mean(axis=1)
+                 * interface_df).sum(axis=1)
+            poses_df['proteinmpnn_dock_cross_entropy_per_residue'] /= number_interface_residues_s
             poses_df['proteinmpnn_v_design_probability_cross_entropy_per_residue'] = \
                 (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_design_probability_cross_entropy_loss']]
-                 .droplevel(-1, axis=1) * interface_df).mean(axis=1)
+                 .droplevel(-1, axis=1) * interface_df).sum(axis=1)
+            poses_df['proteinmpnn_v_design_probability_cross_entropy_per_residue'] /= number_interface_residues_s
             poses_df['proteinmpnn_v_evolution_probability_cross_entropy_per_residue'] = \
                 (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_evolution_probability_cross_entropy_loss']]
-                 .droplevel(-1, axis=1) * interface_df).mean(axis=1)
+                 .droplevel(-1, axis=1) * interface_df).sum(axis=1)
+            poses_df['proteinmpnn_v_evolution_probability_cross_entropy_per_residue'] /= number_interface_residues_s
             # poses_df['proteinmpnn_v_fragment_probability_cross_entropy_per_residue'] = \
             #     (residues_df.loc[:, idx_slice[:, 'proteinmpnn_v_fragment_probability_cross_entropy_loss']]
-            #      .droplevel(-1, axis=1) * interface_df).mean(axis=1)
+            #      .droplevel(-1, axis=1) * interface_df).sum(axis=1)
             # Update the per_residue loss according to fragment residues involved in the scoring
             poses_df['proteinmpnn_v_fragment_probability_cross_entropy_per_residue'] = \
                 poses_df['proteinmpnn_v_fragment_probability_cross_entropy_loss'] \

@@ -3936,21 +3936,41 @@ class PoseProtocol(PoseData):
         designs_df = self.analyze_design_metrics_per_residue(residues_df)
 
         designed_df = residues_df.loc[:, idx_slice[:, 'design_residue']].droplevel(-1, axis=1)
+        number_designed_residues_s = designed_df.sum(axis=1)
 
         # designs_df[putils.protocol] = 'proteinmpnn'
         designs_df['proteinmpnn_score_complex'] = designs_df['proteinmpnn_loss_complex'] / pose_length
         designs_df['proteinmpnn_score_unbound'] = designs_df['proteinmpnn_loss_unbound'] / pose_length
         designs_df['proteinmpnn_score_delta'] = \
             designs_df['proteinmpnn_score_complex'] - designs_df['proteinmpnn_score_unbound']
+        # Find the mean of each of these using the boolean like array and the sum
         designs_df['proteinmpnn_score_complex_per_designed_residue'] = \
             (residues_df.loc[:, idx_slice[:, 'proteinmpnn_loss_complex']].droplevel(-1, axis=1)
-             * designed_df).mean(axis=1)
+             * designed_df).sum(axis=1)
+        designs_df['proteinmpnn_score_complex_per_designed_residue'] /= number_designed_residues_s
         designs_df['proteinmpnn_score_unbound_per_designed_residue'] = \
             (residues_df.loc[:, idx_slice[:, 'proteinmpnn_loss_unbound']].droplevel(-1, axis=1)
-             * designed_df).mean(axis=1)
+             * designed_df).sum(axis=1)
+        designs_df['proteinmpnn_score_unbound_per_designed_residue'] /= number_designed_residues_s
         designs_df['proteinmpnn_score_delta_per_designed_residue'] = \
             designs_df['proteinmpnn_score_complex_per_designed_residue'] \
             - designs_df['proteinmpnn_score_unbound_per_designed_residue']
+
+        # Make an array the length of the designs and size of the pose to calculate the interface residues
+        interface_residues = np.zeros((len(designed_df), pose_length), dtype=bool)
+        interface_residues[:, [residue.index for residue in self.pose.interface_residues]] = 1
+        number_interface_residues = interface_residues.sum(axis=1)
+        designs_df['proteinmpnn_score_complex_per_interface_residue'] = \
+            (residues_df.loc[:, idx_slice[:, 'proteinmpnn_loss_complex']].droplevel(-1, axis=1)
+             * interface_residues).sum(axis=1)
+        designs_df['proteinmpnn_score_complex_per_interface_residue'] /= number_interface_residues
+        designs_df['proteinmpnn_score_unbound_per_interface_residue'] = \
+            (residues_df.loc[:, idx_slice[:, 'proteinmpnn_loss_unbound']].droplevel(-1, axis=1)
+             * interface_residues).sum(axis=1)
+        designs_df['proteinmpnn_score_unbound_per_interface_residue'] /= number_interface_residues
+        designs_df['proteinmpnn_score_delta_per_interface_residue'] = \
+            designs_df['proteinmpnn_score_complex_per_interface_residue'] \
+            - designs_df['proteinmpnn_score_unbound_per_interface_residue']
 
         # # Drop unused particular residues_df columns that have been summed
         # per_residue_drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states \
