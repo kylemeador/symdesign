@@ -18,6 +18,7 @@ run_on_pose_job = (
     flags.nanohedra
 )
 returns_pose_jobs = (
+    flags.cluster_poses,
     flags.nanohedra,
     flags.select_poses,
     flags.select_designs,

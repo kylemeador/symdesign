@@ -1618,7 +1618,7 @@ def main():
         #     terminate(results=results)
         # ---------------------------------------------------
         elif job.module == flags.cluster_poses:
-            protocols.cluster.cluster_poses(pose_jobs)
+            pose_jobs = results = protocols.cluster.cluster_poses(pose_jobs)
             terminate(output=False)
         # ---------------------------------------------------
         elif job.module == flags.select_poses:

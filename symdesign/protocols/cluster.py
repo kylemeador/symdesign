@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
-import sys
 from itertools import combinations, repeat
 from typing import Iterable, AnyStr, Any, Sequence
 import warnings
@@ -21,7 +20,7 @@ putils = utils.path
 logger = logging.getLogger(__name__)
 
 
-def cluster_poses(pose_jobs: list[PoseJob]):
+def cluster_poses(pose_jobs: list[PoseJob]) -> list[PoseJob] | list:
     # -> dict[str | PoseJob, list[str | PoseJob]] | None
     job = job_resources_factory.get()
     pose_cluster_map: dict[str | PoseJob, list[str | PoseJob]] = {}
@@ -85,33 +84,23 @@ def cluster_poses(pose_jobs: list[PoseJob]):
 
         # Return to prior directory
         os.chdir(prior_directory)
-    elif job.cluster.mode == 'transform':
+    else:
+        if job.cluster.mode == 'transform':
+            cluster_method = cluster_pose_by_transformations
+        else:  # if job.cluster.mode == 'rmsd':
+            cluster_method = pose_pair_by_rmsd
+            logger.critical(f"The mode {job.cluster.mode} hasn't been thoroughly debugged")
         # First, identify the same compositions
-        compositions: dict[tuple[str, ...], list[PoseJob]] = \
-            group_compositions(pose_jobs)
-        if job.multi_processing:
-            results = utils.mp_map(cluster_pose_by_transformations, compositions.values(), processes=job.cores)
-        else:
-            for composition_group in compositions.values():
-                results.append(cluster_pose_by_transformations(composition_group))
-
-        # Add all clusters to the pose_cluster_map
-        for result in results:
-            pose_cluster_map.update(result.items())
-    elif job.cluster.mode == 'rmsd':
-        logger.critical(f"The mode {job.mode} hasn't been thoroughly debugged")
-        # First, identify the same compositions
-        compositions: dict[tuple[str, ...], list[PoseJob]] = \
-            group_compositions(pose_jobs)
+        compositions: dict[tuple[str, ...], list[PoseJob]] = group_compositions(pose_jobs)
         # pairs_to_process = [grouping for entity_tuple, pose_jobs in compositions.items()
         #                     for grouping in combinations(pose_jobs, 2)]
         # composition_pairings = [combinations(pose_jobs, 2) for entity_tuple, pose_jobs in compositions.items()]
         # Find the rmsd between a pair of poses
         if job.multi_processing:
-            results = utils.mp_map(pose_pair_by_rmsd, compositions.items(), processes=job.cores)
+            results = utils.mp_map(cluster_method, compositions.items(), processes=job.cores)
         else:
             for entity_tuple, pose_jobs in compositions.items():
-                results.append(pose_pair_by_rmsd(pose_jobs))
+                results.append(cluster_method(pose_jobs))
 
         # Add all clusters to the pose_cluster_map
         for result in results:
@@ -121,13 +110,13 @@ def cluster_poses(pose_jobs: list[PoseJob]):
     #     sys.exit()
 
     if pose_cluster_map:
+        return_pose_jobs = pose_jobs  # list(pose_cluster_map.keys())
         if job.cluster.as_objects:
             pass  # They are by default objects
         else:
             for representative in list(pose_cluster_map.keys()):
                 # Remove old entry and convert all arguments to pose_id strings, saving as pose_id strings
-                pose_cluster_map[str(representative)] = \
-                    [str(member) for member in pose_cluster_map.pop(representative)]
+                pose_cluster_map[str(representative)] = [str(member) for member in pose_cluster_map.pop(representative)]
 
         if not job.output_file:
             job.output_file = putils.default_clustered_pose_file.format(utils.starttime, job.input_source)
@@ -136,6 +125,7 @@ def cluster_poses(pose_jobs: list[PoseJob]):
         #         job.output_file = os.path.join(job.clustered_poses, job.output_file)
         # else:
         # Prepend the job.clustered_poses location
+        putils.make_path(job.clustered_poses)
         job.output_file = os.path.join(job.clustered_poses, job.output_file)
 
         job.cluster.map = utils.pickle_object(pose_cluster_map, name=job.output_file, out_path='')
@@ -151,12 +141,12 @@ def cluster_poses(pose_jobs: list[PoseJob]):
                     'This will apply clustering to poses to select a cluster representative based on the most favorable'
                     ' cluster member')
 
-        return
+        return return_pose_jobs
         # return pose_cluster_map
 
     logger.warning('No significant clusters were located. Clustering ended')
-    sys.exit()
-    # return None
+    # sys.exit()
+    return []
 
 
 # Used with single argment for mp_map
@@ -443,8 +433,7 @@ def cluster_pose_by_transformations(compositions: list[PoseJob], **kwargs) -> di
         Cluster with representative pose as the key and matching poses as the values
     """
     # Format transforms for the selected compositions
-    stacked_transforms1, stacked_transforms2 = list(zip(pose_jobs.pose_transformation
-                                                        for pose_jobs in compositions))
+    stacked_transforms1, stacked_transforms2 = zip(*[pose_jobs.transformations for pose_jobs in compositions])
     trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = \
         zip(*[transform.values() for transform in stacked_transforms1])
     trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = \
@@ -457,7 +446,7 @@ def cluster_pose_by_transformations(compositions: list[PoseJob], **kwargs) -> di
                        'rotation2': np.array(trans2_rot2), 'translation2': np.array(trans2_tx2)[:, np.newaxis, :]}
 
     # Find the representatives of the cluster based on minimal distance of each point to its nearest neighbors
-    return cluster_by_transformations(compositions, transformation1, transformation2, **kwargs)
+    return cluster_by_transformations(transformation1, transformation2, values=compositions, **kwargs)
     # cluster_representative_indices, cluster_labels = \
     #     find_cluster_representatives(*cluster_transformation_pairs(transformation1, transformation2, **kwargs))
     #
