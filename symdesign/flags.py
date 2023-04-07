@@ -114,6 +114,7 @@ update_metadata = 'update_metadata'
 proteinmpnn_model_name = 'proteinmpnn_model_name'
 tag_linker = 'tag_linker'
 update_db = 'update_db'
+measure_pose = 'measure_pose'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -296,6 +297,7 @@ update_metadata = format_for_cmdline(update_metadata)
 proteinmpnn_model_name = format_for_cmdline(proteinmpnn_model_name)
 tag_linker = format_for_cmdline(tag_linker)
 update_db = format_for_cmdline(update_db)
+measure_pose = format_for_cmdline(measure_pose)
 
 select_modules = (
     select_poses,
@@ -1128,6 +1130,8 @@ interface_design_arguments = {
 interface_metrics_help = f'Analyze {interface_metrics} for each pose'
 parser_metrics = {interface_metrics: dict(description=interface_metrics_help, help=interface_metrics_help)}
 interface_metrics_arguments = {
+    (f'--{measure_pose}',): dict(action='store_true',
+                                 help=f'Whether {interface_metrics} should be measured on the pose'),
     ('-sp', f'--{specific_protocol}'): dict(type=str, metavar='PROTOCOL', default=None,
                                             help='A specific type of design protocol to perform metrics on.\n'
                                                  'If not provided, captures all design protocols')

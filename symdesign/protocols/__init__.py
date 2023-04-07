@@ -268,11 +268,25 @@ def interface_metrics(job: pose.PoseJob):
     design_files = \
         os.path.join(job.scripts_path, f'{starttime}_design_files'
                      f'{f"_{job.job.specific_protocol}" if job.job.specific_protocol else ""}.txt')
-    # Inclue the pose source in the designs to perform metrics on
-    file_paths = [job.pose_path] if os.path.exists(job.pose_path) else []
-    file_paths.extend(get_directory_file_paths(job.designs_path,
-                                               suffix=job.job.specific_protocol if job.job.specific_protocol else '',
-                                               extension='.pdb'))
+
+    if job.current_designs:
+        file_paths = [design_.structure_path for design_ in job.current_designs]
+    else:
+        file_paths = get_directory_file_paths(
+            job.designs_path, suffix=job.job.specific_protocol if job.job.specific_protocol else '', extension='.pdb')
+    # Include the pose source in the designs to perform metrics on
+    if job.job.measure_pose and os.path.exists(job.pose_path):
+        file_paths.append(job.pose_path)
+    # If no designs specified or found and the pose_path exists, add it
+    # The user probably wants pose metrics without specifying so
+    elif not file_paths and not job.designs and os.path.exists(job.pose_path):
+        file_paths.append(job.pose_path)
+    else:
+        file_paths = []
+
+    if not file_paths:
+        raise DesignError('No files found for interface-metrics')
+
     with open(design_files, 'w') as f:
         f.write('%s\n' % '\n'.join(file_paths))
 
