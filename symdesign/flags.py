@@ -866,7 +866,7 @@ residue_selector_arguments = {
 protocol_help = 'Perform a series of modules in a specified order'
 parser_protocol = {protocol: dict(description=protocol_help, help=protocol_help)}
 protocol_arguments = {
-    ('-m', f'--{modules}'): dict(nargs='*', help='The modules to run in order'),
+    ('-m', f'--{modules}'): dict(nargs='*', required=True, help='The modules to run in order'),
 }
 # ---------------------------------------------------
 predict_structure_help = 'Predict the 3D structure from specified sequence(s)'
