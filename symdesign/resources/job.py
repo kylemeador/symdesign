@@ -538,6 +538,7 @@ class JobResources:
         self.interface_to_alanine: bool = kwargs.get('interface_to_alanine')
         self.metrics: bool = kwargs.get(flags._metrics)
         # self.scout: bool = kwargs.get(scout, False)
+        self.measure_pose: str = kwargs.get('measure_pose')
         self.specific_protocol: str = kwargs.get('specific_protocol')
         # self.structure_background: bool = kwargs.get(structure_background, False)
         # Process symmetry
