@@ -99,8 +99,8 @@ def cluster_poses(pose_jobs: list[PoseJob]) -> list[PoseJob] | list:
         if job.multi_processing:
             results = utils.mp_map(cluster_method, compositions.items(), processes=job.cores)
         else:
-            for entity_tuple, pose_jobs in compositions.items():
-                results.append(cluster_method(pose_jobs))
+            for entity_tuple, pose_jobs_ in compositions.items():
+                results.append(cluster_method(pose_jobs_))
 
         # Add all clusters to the pose_cluster_map
         for result in results:
@@ -130,16 +130,16 @@ def cluster_poses(pose_jobs: list[PoseJob]) -> list[PoseJob] | list:
 
         job.cluster.map = utils.pickle_object(pose_cluster_map, name=job.output_file, out_path='')
         # elif job.module == flags.cluster_poses:
-        logger.info('Clustering analysis results in the following similar poses:\nRepresentatives\n\tMembers\n')
-        for representative, members, in pose_cluster_map.items():
-            print(f'{representative}\n\t%s' % '\n\t'.join(map(str, members)))
+        logger.info('Clustering analysis results in the following similar poses:\nRepresentatives\n\tMembers\n%s'
+                    % '\n'.join([f'{representative}\n\t%s' % '\n\t'.join(map(str, members))
+                                 for representative, members, in pose_cluster_map.items()]))
         logger.info(f'Found {len(pose_cluster_map)} unique clusters from {len(pose_jobs)} pose inputs. '
                     f'All clusters wrote to: {job.cluster.map}')
-        logger.info('Each cluster above has one representative which identifies with each of the members. For '
-                    f'{job.cluster.mode}, {mode_map_description}.')
-        logger.info(f'To utilize the clustering during {flags.select_poses}, provide the option --{flags.cluster_map}. '
-                    'This will apply clustering to poses to select a cluster representative based on the most favorable'
-                    ' cluster member')
+        logger.info('Each cluster above has one representative which identifies with each of the members. For the '
+                    f"clustering mode '{job.cluster.mode}', {mode_map_description}")
+        # logger.info(f'To utilize clustering during {flags.select_poses}, provide the option --{flags.cluster_map}. '
+        #             'This will apply clustering to select a cluster representative based on the most favorable'
+        #             ' cluster member')
 
         return return_pose_jobs
         # return pose_cluster_map
