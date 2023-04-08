@@ -478,7 +478,7 @@ metrics = {
         dict(description='The free energy resulting from hydration of the separated interface surfaces on a '
                          'per-interface residue basis. Positive values indicate poorly soluble surfaces upon '
                          'dissociation',
-             direction=min_, function=rank, filter=True),
+             direction=max_, function=rank, filter=True),
     'interface_solvation_energy_unbound':
         dict(description='The desolvation free energy of the separated, repacked, interface surfaces. Positive'
                          ' values indicate energy is required to desolvate',
@@ -502,8 +502,9 @@ metrics = {
                          'interface',
              direction=max_, function=rank, filter=True),
     'nanohedra_score':
-        dict(description='Sum of total fragment containing residue match scores (1 / 1 + Z-score^2) weighted '
-                         'by their ranked match score. Maximum of 2/residue',
+        dict(description='Sum of the match scores (1 / 1 + Z-score^2) for all fragment residues weighted by 2^i '
+                         'where i is an observation in the set of all observations'
+                         'by their ranked match score. Maximum value of 2',
              direction=max_, function=rank, filter=True),
     'nanohedra_score_center':
         dict(description='The nanohedra_score for the center residue of a fragment observation. These residues are the'
