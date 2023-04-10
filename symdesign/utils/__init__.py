@@ -1245,7 +1245,7 @@ class PoseSpecification:
                     design_names.append([self.design_names[index] for index in indices])
 
         # With above logic, it isn't possible to have UnboundLocalError of design_names, directives
-        return zip(self.pose_identifiers, design_names, directives)
+        return zip(found_poses, design_names, directives)
 
 
 ######################
