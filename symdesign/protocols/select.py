@@ -1745,7 +1745,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
         # selected_pose_id_to_design_ids = defaultdict(list)  # Alt way
         selected_pose_id_to_design_ids = {}
         try:
-            while chosen <= job.select_number:
+            while chosen < job.select_number:
                 pose_id_, design_id_ = next(selected_designs_iter)
                 # Alt way, but doesn't count designs_per_pose
                 # selected_pose_id_to_design_ids[pose_id].append(design_id)
