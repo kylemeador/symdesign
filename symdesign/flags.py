@@ -116,6 +116,7 @@ tag_linker = 'tag_linker'
 update_db = 'update_db'
 measure_pose = 'measure_pose'
 cluster_selection = 'cluster_selection'
+number_of_commands = 'number_of_commands'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -300,6 +301,7 @@ tag_linker = format_for_cmdline(tag_linker)
 update_db = format_for_cmdline(update_db)
 measure_pose = format_for_cmdline(measure_pose)
 cluster_selection = format_for_cmdline(cluster_selection)
+number_of_commands = format_for_cmdline(number_of_commands)
 
 select_modules = (
     select_poses,
@@ -1373,7 +1375,13 @@ multicistronic_arguments = {
 }
 parser_update_db = {update_db: dict()}
 update_db_arguments = {}
-
+# distribute = 'distribute'
+# parser_distribute = {distribute: dict()}
+# distribute_arguments = {
+#     (f'--command',): dict(help='The command to distribute over the input specification'),  # required=True,
+#     (f'--{number_of_commands}',): dict(type=int, required=True, help='The number of commands to spawn'),
+#     output_file_args: dict(required=True, help='The location to write the commands')
+# }
 # ---------------------------------------------------
 # parser_asu = subparsers.add_parser('find_asu', description='From a symmetric assembly, locate an ASU and save the result.')
 # ---------------------------------------------------
@@ -1568,6 +1576,7 @@ module_parsers = {
     # These are "tools"
     multicistronic: parser_multicistronic,
     update_db: parser_update_db,
+    # distribute: parser_distribute,
     # These are decoy modules to help with argument parsing
     all_flags: parser_all_flags,
     input_: parser_input,
@@ -1613,6 +1622,7 @@ parser_arguments = {
     # These are "tools"
     multicistronic: multicistronic_arguments,
     update_db: update_db_arguments,
+    # distribute: distribute_arguments,
     # These are decoy modules to help with argument parsing
     all_flags: all_flags_arguments,
     input_: input_arguments,
