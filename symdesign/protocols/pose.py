@@ -2401,7 +2401,8 @@ class PoseProtocol(PoseData):
         # '-no_nstruct_label', 'true' comes from v
         relax_cmd = main_cmd + rosetta.relax_flags_cmdline + additional_flags + symmetry_definition \
             + [f'@{flags_file}', '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'refine.xml'),
-               '-parser:script_vars', f'switch={switch}'] + infile + suffix
+               '-parser:script_vars', f'switch={switch}'] + infile + suffix \
+            + (['-overwrite'] if self.job.overwrite else [])
         self.log.info(f'{switch.title()} Command: {list2cmdline(relax_cmd)}')
 
         if gather_metrics or self.job.metrics:
