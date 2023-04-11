@@ -805,7 +805,7 @@ def designs(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
         #     results = {pose_job: design for pose_job, design in loc_result}
         # else:  # elif job.designs_per_pose:
         designs_per_pose = job.designs_per_pose
-        logger.info(f'Choosing up to {job.select_number} designs, with {designs_per_pose} designs per pose')
+        logger.info(f'Choosing up to {job.select_number} Designs, with {designs_per_pose} Design(s) per pose')
         number_chosen = count(1)
         selected_poses = {}
         for pose_job, design in selected_designs:
@@ -1741,10 +1741,11 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
         selected_designs = list(zip(selected_pose_ids, selected_design_ids))
         selected_designs_iter = iter(selected_designs)
         number_chosen = count()
+        chosen = next(number_chosen)
         # selected_pose_id_to_design_ids = defaultdict(list)  # Alt way
         selected_pose_id_to_design_ids = {}
         try:
-            while next(number_chosen) <= job.select_number:
+            while chosen <= job.select_number:
                 pose_id_, design_id_ = next(selected_designs_iter)
                 # Alt way, but doesn't count designs_per_pose
                 # selected_pose_id_to_design_ids[pose_id].append(design_id)
@@ -1752,10 +1753,11 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
                 if _designs:
                     if len(_designs) < designs_per_pose:
                         _designs.append(design_id_)
-                    # else:  # Number of designs already satisfied for this pose
-                    #     continue
+                    else:  # Number of designs already satisfied for this pose
+                        continue
                 else:
                     selected_pose_id_to_design_ids[pose_id_] = [design_id_]
+                chosen = next(number_chosen)
         except StopIteration:  # We exhausted selected_designs_iter
             pass
 
