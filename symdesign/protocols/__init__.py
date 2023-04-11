@@ -279,10 +279,11 @@ def interface_metrics(job: pose.PoseJob):
         file_paths.append(job.pose_path)
 
     if not file_paths:
-        raise DesignError('No files found for interface-metrics')
+        raise DesignError(
+            f'No files found for {job.job.module}')
 
     design_files = \
-        os.path.join(job.scripts_path, f'{starttime}_design_files'
+        os.path.join(job.scripts_path, f'{starttime}_{job.protocol}_files'
                      f'{f"_{job.job.specific_protocol}" if job.job.specific_protocol else ""}.txt')
     with open(design_files, 'w') as f:
         f.write('%s\n' % '\n'.join(file_paths))
@@ -483,9 +484,28 @@ def refine(job: pose.PoseJob):
     Args:
         job: The PoseJob for which the protocol should be performed on
     """
-    # job.load_pose()
     job.identify_interface()
-    job.refine()  # Inherently utilized... gather_metrics=job.job.metrics)
+    job.protocol = job.job.module
+    # Todo
+    #  Make a common helper. PoseJob.get_active_structure_paths()...
+    if job.current_designs:
+        file_paths = [design_.structure_path for design_ in job.current_designs if design_.structure_path]
+    else:
+        file_paths = get_directory_file_paths(
+            job.designs_path, suffix=job.job.specific_protocol if job.job.specific_protocol else '', extension='.pdb')
+    # Include the pose source in the designs to perform metrics on
+    if job.job.measure_pose and os.path.exists(job.pose_path):
+        file_paths.append(job.pose_path)
+    # If no designs specified or found and the pose_path exists, add it
+    # The user probably wants pose metrics without specifying so
+    elif not file_paths and not job.designs and os.path.exists(job.pose_path):
+        file_paths.append(job.pose_path)
+
+    if not file_paths:
+        raise DesignError(
+            f'No files found for {job.job.module}')
+
+    job.refine(design_files=file_paths)  # Inherently utilized... gather_metrics=job.job.metrics)
 
 
 @protocol_decorator()

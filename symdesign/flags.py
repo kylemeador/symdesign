@@ -904,12 +904,15 @@ predict_structure_arguments = {
 orient_help = 'Orient a symmetric assembly in a canonical orientation at the origin'
 parser_orient = {orient: dict(description=orient_help, help=orient_help)}
 # ---------------------------------------------------
+measure_pose_args = (f'--{measure_pose}',)
+measure_pose_kwargs = dict(action='store_true', help=f'Whether the pose should be included in measurements')
 refine_help = 'Process Structures into an energy function'
 parser_refine = {refine: dict(description=refine_help, help=refine_help)}
 refine_arguments = {
     ('-ala', f'--{interface_to_alanine}'): dict(action=argparse.BooleanOptionalAction, default=False,
                                                 help='Whether to mutate all interface residues to alanine before '
                                                      'refinement'),
+    measure_pose_args: measure_pose_kwargs,
     ('-met', f'--{_metrics}'): dict(action=argparse.BooleanOptionalAction, default=True,
                                     help='Whether to calculate metrics for contained interfaces after refinement\n'
                                          f'{boolean_positional_prevent_msg(_metrics)}')
@@ -1135,8 +1138,7 @@ interface_design_arguments = {
 interface_metrics_help = f'Analyze {interface_metrics} for each pose'
 parser_metrics = {interface_metrics: dict(description=interface_metrics_help, help=interface_metrics_help)}
 interface_metrics_arguments = {
-    (f'--{measure_pose}',): dict(action='store_true',
-                                 help=f'Whether {interface_metrics} should be measured on the pose'),
+    measure_pose_args: measure_pose_kwargs,
     ('-sp', f'--{specific_protocol}'): dict(type=str, metavar='PROTOCOL', default=None,
                                             help='A specific type of design protocol to perform metrics on.\n'
                                                  'If not provided, captures all design protocols')
