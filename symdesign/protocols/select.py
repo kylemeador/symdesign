@@ -2018,6 +2018,8 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 entity_names.append(entity_name)
                 mutations = generate_mutations(''.join(design_sequence), source_sequence, zero_index=True)
                 logger.debug(f'Found mutations: {mutations}')
+                # Make sequence as list instead of string to use list.insert()
+                inserted_design_sequence = list(design_sequence)
                 # Insert the disordered residues into the design sequence
                 for residue_index, mutation in source_gap_mutations[entity_idx].items():
                     # residue_index is zero indexed
