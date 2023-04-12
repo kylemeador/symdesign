@@ -1830,8 +1830,8 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
                 pose_job_stmt = select(PoseJob).where(PoseJob.id.in_(unique_pose_ids))
                 results = session.scalars(pose_job_stmt).all()
                 pose_id_to_design_ids = defaultdict(list)
-                for idx, pose_id in enumerate(pose_ids):
-                    pose_id_to_design_ids[pose_id].append(design_ids[idx])
+                for idx, pose_id_ in enumerate(pose_ids):
+                    pose_id_to_design_ids[pose_id_].append(design_ids[idx])
 
                 for pose_job in results:
                     pose_job.current_designs = pose_id_to_design_ids[pose_job.id]
