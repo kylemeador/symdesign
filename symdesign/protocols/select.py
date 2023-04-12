@@ -2134,13 +2134,13 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                     current_tag_options = \
                         '\n\t'.join(utils.pretty_format_table(
                             [(idx + 1, entity_names[idx],
-                              seq_tag_options['tag'] if seq_tag_options['tag']['name'] else None,
+                              seq_tag_options['tag'] if seq_tag_options['tag'].get('name') else None,
                               ','.join(term for term, available in entity_termini_availability[idx].items()
                                        if available)) + helical_info[idx]
                              for idx, seq_tag_options in enumerate(entity_sequence_and_tags)],
                             header=header))
                     print(f'Existing Entity tagging options:\n\t{current_tag_options}')
-                    satisfied = input('If this is acceptable, enter "C" (continue), otherwise, '
+                    satisfied = input('If this tagging scheme is acceptable, enter "C" (continue), otherwise, '
                                       f'you can modify the tagging options with any other input.{input_string}')
                     if satisfied == 'C':
                         number_of_found_tags = number_of_tags_requested
@@ -2184,8 +2184,8 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                                 # Adjust for python indexing
                                 tag_index = int(tag_input) - 1
                                 tag = list(expression.tags.keys())[tag_index]
-                                termini = validate_input(f'Your tag {tag} will be added to one of the termini'
-                                                         '. Which termini would you prefer?', ['n', 'c'])
+                                termini = validate_input(f"Your tag '{tag}' will be added to one of the termini. "
+                                                         'Which termini would you prefer?', ['n', 'c'])
                             selected_sequence_and_tag = entity_sequence_and_tags[entity_idx]
                             if termini == 'n':
                                 new_tag_sequence = expression.tags[tag] \
@@ -2230,7 +2230,8 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
             sequences_for_metrics = []
             for idx, (entity_name, sequence_tag) in enumerate(zip(entity_names, entity_sequence_and_tags)):
                 design_string = f'{design.name}_{entity_name}'
-                tag, sequence = sequence_tag['tag'], sequence_tag['sequence']
+                sequence = sequence_tag['sequence']
+                tag = sequence_tag['tag']
                 chimeric_tag_sequence = tag.get('sequence')
 
                 # tagged_sequence = expression.add_expression_tag(chimeric_tag_sequence, sequence)
@@ -2260,14 +2261,17 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
 
                     tagged_sequence = expression.add_expression_tag(chimeric_tag_sequence, sequence)
                 else:
-                    tagged_sequence = sequence
-                    tag_sequence = expression.tags[tag['name']]
-                    if tag.get('termini') == 'n':
-                        if tagged_sequence[0] == 'M':  # Remove existing n-term Met to append tag to n-term
-                            tagged_sequence = tagged_sequence[1:]
-                        tagged_sequence = tag_sequence + tag_linker + tagged_sequence
-                    else:  # termini == 'c'
-                        tagged_sequence = tagged_sequence + tag_linker + tag_sequence
+                    tag_name = tag.get('name')
+                    if tag_name:
+                        tag_sequence = expression.tags[tag_name]
+                        if tag['termini'] == 'n':
+                            if sequence[0] == 'M':  # Remove existing n-term Met to append tag to n-term
+                                sequence = sequence[1:]
+                            tagged_sequence = tag_sequence + tag_linker + sequence
+                        else:  # termini == 'c'
+                            tagged_sequence = sequence + tag_linker + tag_sequence
+                    else:
+                        tagged_sequence = sequence
 
                 # If no MET start site, include one
                 if tagged_sequence[0] != 'M':
