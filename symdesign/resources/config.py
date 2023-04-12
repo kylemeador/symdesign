@@ -387,7 +387,12 @@ metrics = {
              direction=min_, function=normalize, filter=True),
     'interaction_energy_complex':
         dict(description='The two-body (residue-pair) energy of the complexed interface. No solvation '
-                         'energies', direction=min_, function=rank, filter=True),
+                         'energies',
+             direction=min_, function=rank, filter=True),
+    'interaction_energy_per_residue':
+        dict(description='The two-body (residue-pair) energy of the complexed interface on a per-residue basis. No '
+                         'solvation energies',
+             direction=min_, function=rank, filter=True),
     'interface':
         dict(description='True if only interface residues were designed',
              direction=None, function=boolean, filter=True),
