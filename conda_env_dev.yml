@@ -41,7 +41,9 @@ dependencies:
   - pip
 # Dev below here
   - memory_profiler
+  - jupyterlab
   - ipykernel
+  - seaborn
 # PyMol
   - pymol-bundle
   - pip:
