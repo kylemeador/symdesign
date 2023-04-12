@@ -1346,7 +1346,7 @@ select_sequences_arguments = {
                                       '"1,0,1" where\n'
                                       '\t    - "1" indicates a tag is required\n'
                                       '\t    - "0" indicates no tag is required'),
-    (f'--{tag_linker}',): dict(type=str.upper, choices=constants.expression_tags.keys(), metavar='',
+    (f'--{tag_linker}',): dict(type=str.upper, metavar='',  # choices=constants.expression_tags.keys(),
                                help='The amino acid sequence of the linker region between each\n'
                                     f'expression tag and the protein\nDefault={constants.default_tag_linker}'),
     **multicistronic_args,
