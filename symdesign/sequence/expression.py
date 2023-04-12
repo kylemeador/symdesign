@@ -415,7 +415,7 @@ def select_tags_for_sequence(sequence_id: str, matching_pdb_tags: list[dict[str,
     final_choice = {}
     while True:
         tag_type = final_tags['name'][0]
-        recommended_termini = final_tags["termini"]
+        recommended_termini = final_tags['termini']
         if preferred:
             if preferred == tag_type:
                 default = 'y'
@@ -558,7 +558,7 @@ def add_expression_tag(tag: str, sequence: str) -> str:
     # # starting_index_of_seq2 = seq.find(sequence[0])
     # # i = -starting_index_of_seq2 + zero_offset  # make 1 index so residue value starts at 1
     final_seq = ''
-    for i, (seq1_aa, seq2_aa) in enumerate(zip(tag_seq, seq)):
+    for seq1_aa, seq2_aa in zip(tag_seq, seq):
         if seq2_aa == '-':
             # if seq1_aa in protein_letters_alph1:
             final_seq += seq1_aa

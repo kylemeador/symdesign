@@ -45,9 +45,13 @@ if __name__ == '__main__':
         nanohedra_building_blocks_query(query_params.symmetry, query_params.lower_length, query_params.upper_length,
                                         thermophile=True, groups=True)
     # group_ids = [group['identifier'] for group in query_json["group_set"]]
-    thermophilic_group_ids = parse_pdb_response_for_ids(thermophilic_groups, groups=True)
-    grouped_thermophilic_entity_ids = [parse_pdb_response_for_ids(group) for group in thermophilic_groups['group_set']]
-    logger.debug(f'Found the thermophilic return ids: {grouped_thermophilic_entity_ids}')
+    if thermophilic_groups:
+        thermophilic_group_ids = parse_pdb_response_for_ids(thermophilic_groups, groups=True)
+        grouped_thermophilic_entity_ids = [parse_pdb_response_for_ids(group) for group in thermophilic_groups['group_set']]
+        logger.debug(f'Found the thermophilic return ids: {grouped_thermophilic_entity_ids}')
+    else:
+        thermophilic_group_ids = []
+        grouped_thermophilic_entity_ids = []
     # top_thermophilic_entity_ids = [ids_[0] for ids_ in grouped_thermophilic_entity_ids]
 
     thermophilic_group_to_members = dict(zip(thermophilic_group_ids, grouped_thermophilic_entity_ids))
@@ -65,9 +69,13 @@ if __name__ == '__main__':
     other_symmetry_groups = \
         nanohedra_building_blocks_query(query_params.symmetry, query_params.lower_length, query_params.upper_length,
                                         groups=True, limit_by_groups=thermophilic_group_to_members.keys())
-    other_symmetry_group_ids = parse_pdb_response_for_ids(other_symmetry_groups, groups=True)
-    grouped_other_symmetry_entity_ids = \
-        [parse_pdb_response_for_ids(group) for group in other_symmetry_groups['group_set']]
+    if other_symmetry_groups:
+        other_symmetry_group_ids = parse_pdb_response_for_ids(other_symmetry_groups, groups=True)
+        grouped_other_symmetry_entity_ids = \
+            [parse_pdb_response_for_ids(group) for group in other_symmetry_groups['group_set']]
+    else:
+        other_symmetry_group_ids = []
+        grouped_other_symmetry_entity_ids = []
 
     other_symmetry_group_to_members = dict(zip(other_symmetry_group_ids, grouped_other_symmetry_entity_ids))
     top_other_symmetry_entity_ids, remove_other_groups = \

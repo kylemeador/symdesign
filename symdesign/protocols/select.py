@@ -2171,8 +2171,8 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                             # Solve by preferred_tag or user input
                             if job.preferred_tag:
                                 tag = job.preferred_tag
-                                termini = validate_input(f'Your preferred tag {tag} will be added to one of the termini'
-                                                         '. Which termini would you prefer?', ['n', 'c'])
+                                termini = validate_input(f"Your preferred tag '{tag}' will be added to one of the "
+                                                         'termini. Which termini would you prefer?', ['n', 'c'])
                             else:
                                 print('Tag options include:\n\t%s' %
                                       '\n\t'.join([f'{idx} - {tag}' for idx, tag in enumerate(expression.tags, 1)]))
@@ -2216,8 +2216,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                                 # Set that this entity is now missing a tag
                                 entity_missing_tags[tag_input - 1] = True
                                 selected_sequence_and_tag = entity_sequence_and_tags[tag_input - 1]
-                                selected_sequence_and_tag['tag'] = \
-                                    {'name': None, 'termini': None, 'sequence': None}
+                                selected_sequence_and_tag['tag'] = {'name': None, 'termini': None, 'sequence': None}
                                 # tag = list(expression.tags.keys())[tag_input - 1]
                                 break
                             else:
@@ -2232,11 +2231,37 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
             for idx, (entity_name, sequence_tag) in enumerate(zip(entity_names, entity_sequence_and_tags)):
                 design_string = f'{design.name}_{entity_name}'
                 tag, sequence = sequence_tag['tag'], sequence_tag['sequence']
-                # print('TAG:\n', tag.get('sequence'), '\nSEQUENCE:\n', sequence)
                 chimeric_tag_sequence = tag.get('sequence')
-                tagged_sequence = expression.add_expression_tag(chimeric_tag_sequence, sequence)
-                if chimeric_tag_sequence and tagged_sequence == sequence:  # tag exists and no tag added
-                    tag_sequence = expression.tags[tag.get('name')]
+
+                # tagged_sequence = expression.add_expression_tag(chimeric_tag_sequence, sequence)
+                if chimeric_tag_sequence:  # A tag exists
+                    # if tagged_sequence == sequence:  # No tag added
+                    #     tag_sequence = expression.tags[tag['name']]
+                    #     if tag.get('termini') == 'n':
+                    #         if tagged_sequence[0] == 'M':  # Remove existing n-term Met to append tag to n-term
+                    #             tagged_sequence = tagged_sequence[1:]
+                    #         tagged_sequence = tag_sequence + tag_linker + tagged_sequence
+                    #     else:  # termini == 'c'
+                    #         tagged_sequence = tagged_sequence + tag_linker + tag_sequence
+                    # else:
+                    logger.debug(f'Applying chimeric tag sequence: {chimeric_tag_sequence}')
+                    if tag_linker and tag_linker not in chimeric_tag_sequence:
+                        # Add the linker between the tag and designed sequence
+                        tag_sequence = expression.tags[tag['name']]
+                        if tag['termini'] == 'n':
+                            # Get the index from the c-term side
+                            tag_insert_index = chimeric_tag_sequence.rfind(tag_sequence)
+                        else:  # .find() from n-term side
+                            tag_insert_index = chimeric_tag_sequence.find(tag_sequence)
+                        chimeric_tag_sequence = chimeric_tag_sequence[:tag_insert_index] + tag_linker \
+                                                + chimeric_tag_sequence[tag_insert_index:]
+                        logger.debug(f'Formatted the chimeric tag sequence with the specified linker:'
+                                     f' {chimeric_tag_sequence}')
+
+                    tagged_sequence = expression.add_expression_tag(chimeric_tag_sequence, sequence)
+                else:
+                    tagged_sequence = sequence
+                    tag_sequence = expression.tags[tag['name']]
                     if tag.get('termini') == 'n':
                         if tagged_sequence[0] == 'M':  # Remove existing n-term Met to append tag to n-term
                             tagged_sequence = tagged_sequence[1:]

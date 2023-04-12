@@ -169,9 +169,9 @@ def parse_pdb_response_for_ids(response: dict[str, dict[str, str]], groups: bool
     """
     # logger.debug(f'Response contains the results: {response["result_set"]}')
     if groups:
-        return [result['identifier'] for result in response['group_set']]
+        return [result['identifier'] for result in response.get('group_set', [])]
     else:
-        return [result['identifier'] for result in response['result_set']]
+        return [result['identifier'] for result in response.get('result_set', [])]
 
 
 def parse_pdb_response_for_score(response: dict[str, dict[str, str]]) -> list[float] | list:
@@ -295,8 +295,10 @@ def pdb_id_matching_uniprot_id(uniprot_id, return_id: return_types_literal = 'po
     final_query = generate_group('and', uniprot_query)
     search_query = generate_query(final_query, return_id=return_id)
     response_d = query_pdb(search_query)
-
-    return parse_pdb_response_for_ids(response_d)
+    if response_d:
+        return parse_pdb_response_for_ids(response_d)
+    else:
+        return []
 
 
 def generate_group(operation, child_groups):
@@ -753,7 +755,10 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
         response_d = query_pdb(search_query)
     logger.debug(f'The server returned:\n{response_d}')
 
-    retrieved_ids = parse_pdb_response_for_ids(response_d)
+    if response_d:
+        retrieved_ids = parse_pdb_response_for_ids(response_d)
+    else:
+        return []
 
     if save:
         utils.io_save(retrieved_ids)
@@ -1798,7 +1803,10 @@ def solve_confirmed_assemblies(params: QueryParams, grouped_entity_ids: dict[str
     author_confirmed_assembly_result = \
         find_author_confirmed_assembly_from_entity_group(solve_group_by_pdb, params.symmetry, params.lower_length,
                                                          params.upper_length)
-    author_confirmed_assembly_ids = parse_pdb_response_for_ids(author_confirmed_assembly_result)
+    if author_confirmed_assembly_result:
+        author_confirmed_assembly_ids = parse_pdb_response_for_ids(author_confirmed_assembly_result)
+    else:
+        author_confirmed_assembly_ids = []
     author_confirmed_entry_ids = [id_[:4] for id_ in author_confirmed_assembly_ids]
     remove_group_ids = []
     remove_group_indices = []
