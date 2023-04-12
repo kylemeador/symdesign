@@ -2001,10 +2001,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
             for entity in pose_job.pose.entities:
                 # entity_number_residues_end += entity_data.metrics.number_of_residues
                 entity_number_residues_end += entity.number_of_residues
-                # Make sequence as list instead of string so can use list.insert()
-                designed_atom_sequences.append(
-                    list(design_sequence[entity_number_residues_begin:
-                                         entity_number_residues_end]))
+                designed_atom_sequences.append(design_sequence[entity_number_residues_begin:entity_number_residues_end])
                 entity_number_residues_begin = entity_number_residues_end
 
             # Loop over each Entity
@@ -2028,7 +2025,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                     logger.debug(f'Inserting {new_aa_type} into index {residue_index} on Entity {entity_name}')
                     # design_pose.insert_residue_type(new_aa_type, index=residue_index,
                     #                                 chain_id=entity.chain_id)
-                    design_sequence.insert(residue_index, new_aa_type)
+                    inserted_design_sequence.insert(residue_index, new_aa_type)
                     # Adjust mutations to account for insertion
                     for mutation_index in sorted(mutations.keys(), reverse=True):
                         if mutation_index < residue_index:
@@ -2037,7 +2034,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                             mutations[mutation_index + 1] = mutations.pop(mutation_index)
 
                 # Check for expression tag addition to the designed sequences after disorder addition
-                inserted_design_sequence = ''.join(design_sequence)
+                inserted_design_sequence = ''.join(inserted_design_sequence)
                 selected_tag = {}
                 available_tags = expression.find_expression_tags(inserted_design_sequence)
                 if available_tags:
@@ -2313,7 +2310,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 # formatted_comparison = {}
                 # for mutation_index in sorted(all_insertions.keys()):
                 generated_insertion_mutations = \
-                    generate_mutations(tagged_sequence, ''.join(designed_atom_sequences[idx]),
+                    generate_mutations(tagged_sequence, designed_atom_sequences[idx],
                                        return_all=True, keep_gaps=True, zero_index=True)
                 # for mutations in generated_insertion_mutations.values():
                 #     reference = mutations['from']
@@ -2321,8 +2318,8 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
 
                 # Reduce to sequence only
                 inserted_sequences[design_string] = \
-                    f'Designed : {"".join([res["to"] for res in generated_insertion_mutations.values()])}\n' \
-                    f'Formatted: {"".join([res["from"] for res in generated_insertion_mutations.values()])}'
+                    f'Expressed: {"".join([res["from"] for res in generated_insertion_mutations.values()])}\n' \
+                    f'Designed : {"".join([res["to"] for res in generated_insertion_mutations.values()])}'
                 # # Reduce to sequence only
                 # inserted_sequences[design_string] = \
                 #     f'{"".join([res["to"] for res in all_insertions.values()])}\n{tagged_sequence}'
