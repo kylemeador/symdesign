@@ -1604,8 +1604,10 @@ class PoseProtocol(PoseData):
                 the input sequence
         """
         if sequences is None:  # Gather all already designed sequences
+            raise NotImplementedError(f'Must pass sequences to {self.thread_sequences_to_backbone.__name__}')
+            # Todo, this doesn't work!
             # refine_sequences = unpickle(self.designed_sequences_file)
-            sequences = {seq.id: seq.seq for seq in read_fasta_file(self.designed_sequences_file)}
+            sequences = {seq: seq.seq for seq in read_fasta_file(self.designed_sequences_file)}
 
         self.load_pose()
         # Write each "threaded" structure out for further processing

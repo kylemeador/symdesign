@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import math
 from collections import defaultdict
-from typing import Annotated, Literal, get_args, Type, Union
+from typing import Annotated, Literal, get_args, Type, Union, Iterable
 
 import numpy as np
 import scipy.spatial.transform
@@ -185,10 +185,10 @@ class FragmentDatabase(info.FragmentInfo):
 
         # -------------------------------------------
         # Score the interface individually
-        mapped_center_score = nanohedra_fragment_match_score(entity1_center_match_scores)
-        paired_center_score = nanohedra_fragment_match_score(entity2_center_match_scores)
-        mapped_total_score = nanohedra_fragment_match_score(entity1_match_scores)
-        paired_total_score = nanohedra_fragment_match_score(entity2_match_scores)
+        mapped_center_score = nanohedra_fragment_match_score(entity1_center_match_scores.values())
+        paired_center_score = nanohedra_fragment_match_score(entity2_center_match_scores.values())
+        mapped_total_score = nanohedra_fragment_match_score(entity1_match_scores.values())
+        paired_total_score = nanohedra_fragment_match_score(entity2_match_scores.values())
         # Combine
         all_residue_score = mapped_total_score + paired_total_score
         center_residue_score = mapped_center_score + paired_center_score
@@ -359,7 +359,7 @@ fragment_factory: Annotated[FragmentDatabaseFactory,
  specified by the "source" keyword argument"""
 
 
-def nanohedra_fragment_match_score(per_residue_match_scores: dict[int, list[float]]) -> float:
+def nanohedra_fragment_match_score(per_residue_match_scores: Iterable[Iterable[float]]) -> float:
     """Calculate the Nanohedra score from a dictionary with the 'center' residues and 'match_scores'
 
     Args:
@@ -368,7 +368,7 @@ def nanohedra_fragment_match_score(per_residue_match_scores: dict[int, list[floa
         The Nanohedra score
     """
     score = 0
-    for residue_number, scores in per_residue_match_scores.items():
+    for scores in per_residue_match_scores:
         n = 1
         for observation in sorted(scores, reverse=True):
             score += observation / n

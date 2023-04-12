@@ -30,22 +30,22 @@ def get_total_match_scores(fragment_info: list[tuple[GhostFragment, Fragment, fl
 
 def nanohedra_score(pose: 'structure.model.Pose'):
     total_match_scores = get_total_match_scores(pose.fragment_pairs, pose.fragment_db)
-    return nanohedra_fragment_match_score(total_match_scores)
+    return nanohedra_fragment_match_score(total_match_scores.values())
 
 
 def nanohedra_score_center(pose: 'structure.model.Pose'):
     center_match_scores = get_center_match_scores(pose.fragment_pairs)
-    return nanohedra_fragment_match_score(center_match_scores)
+    return nanohedra_fragment_match_score(center_match_scores.values())
 
 
 def nanohedra_score_normalized(pose: 'structure.model.Pose'):
     total_match_scores = get_total_match_scores(pose.fragment_pairs, pose.fragment_db)
-    return nanohedra_fragment_match_score(total_match_scores) / len(total_match_scores)
+    return nanohedra_fragment_match_score(total_match_scores.values()) / len(total_match_scores)
 
 
 def nanohedra_score_center_normalized(pose: 'structure.model.Pose'):
     center_match_scores = get_center_match_scores(pose.fragment_pairs)
-    return nanohedra_fragment_match_score(center_match_scores) / len(center_match_scores)
+    return nanohedra_fragment_match_score(center_match_scores.values()) / len(center_match_scores)
 
 
 pose_metric_map = {

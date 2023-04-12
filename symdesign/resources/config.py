@@ -397,9 +397,11 @@ metrics = {
     'interface_area_polar':
         dict(description='Total polar interface buried surface area',
              direction=max_, function=rank, filter=True),
+    # Todo
+    #  Make a measure on a per-interface residue basis? This would prioritize continuous interfaces
     'interface_area_to_residue_surface_ratio':
-        dict(description='The average ratio of interface buried surface area to the surface accessible residue'
-                         ' area in the uncomplexed pose',
+        dict(description='The average ratio of interface buried surface area to the surface accessible residue area in '
+                         'the uncomplexed pose',
              direction=max_, function=rank, filter=True),
     'interface_area_total':
         dict(description='Total interface buried surface area',
@@ -425,8 +427,8 @@ metrics = {
         dict(description='Total interface residue energy summed in the complexed state',
              direction=min_, function=rank, filter=True),
     'interface_energy_density':
-        dict(description='Interface energy per interface area^2. How much energy is achieved within the '
-                         'given space?', direction=min_, function=rank, filter=True),
+        dict(description='Interface energy per interface area^2. How much energy is achieved within the given space?',
+             direction=min_, function=rank, filter=True),
     'interface_energy_unbound':
         dict(description='Total interface residue energy summed in the unbound state',
              direction=min_, function=rank, filter=True),
