@@ -745,6 +745,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if protocol is not None:
             pose_source.protocols.append(sql.DesignProtocol(protocol=protocol, job_id=self.job.id))
 
+    def clear_state(self):
+        """Set the current instance structural and sequence attributes to None to remove excess memory"""
+        self.measure_evolution = self.measure_alignment = self.pose = self.initial_model = None
+
     def use_specific_designs(self, designs: Sequence[str] = None, directives: list[dict[int, str]] = None,
                              **kwargs):
         """Set up the instance with the names and instructions to perform further sequence design

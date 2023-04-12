@@ -2345,6 +2345,8 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
             metrics_sequences[pose_job].append(sequences_for_metrics)
             if job.multicistronic:
                 nucleotide_sequences[str(pose_job)] = cistronic_sequence
+        # Clear memory of the PoseJob
+        pose_job.clear_state()
 
     # Format expression sequence metrics
     sequence_metrics = {}
