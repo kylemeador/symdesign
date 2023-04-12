@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from itertools import count
 from typing import Sequence
 
@@ -327,207 +328,174 @@ def select_tags_for_sequence(sequence_id: str, matching_pdb_tags: list[dict[str,
 
     Args:
         sequence_id: The sequence identifier
-        matching_pdb_tags: [{'name': His Tag, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...]
+        matching_pdb_tags: [{'name': 'his_tag', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...]
         preferred: The name of a preferred tag provided by the user
         n: Whether the n-termini can be tagged
         c: Whether the c-termini can be tagged
     Returns:
         {'name': 'his_tag', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}
     """
+    final_tag = {'name': None, 'termini': None, 'sequence': None}
     # Next, align all the tags to the reference sequence and tally the tag location and type
-    # {'n': {His Tag: 2}, 'c': {Spy Catcher: 1}}
-    pdb_tag_tally = {'n': {}, 'c': {}}
+    # {'n': {his_tag: 2}, 'c': {spy_catcher: 1}}
+    pdb_tag_tally: dict[str, dict[str, int]] = {'n': defaultdict(int), 'c': defaultdict(int)}
     for partner_tag in matching_pdb_tags:
         # if partner_pdb_tags:
         #     for partner_tag in partner_pdb_tags:
-        if partner_tag['name'] in pdb_tag_tally[partner_tag['termini']]:
-            pdb_tag_tally[partner_tag['termini']][partner_tag['name']] += 1
-        else:
-            pdb_tag_tally[partner_tag['termini']][partner_tag['name']] = 1
+        partner_termini = partner_tag['termini']
+        partner_name = partner_tag['name']
+        # if partner_name in pdb_tag_tally[partner_termini]:
+        pdb_tag_tally[partner_termini][partner_name] += 1
+        # else:
+        #     pdb_tag_tally[partner_termini][partner_name] = 1
 
-    final_tag_sequence = {'name': None, 'termini': None, 'sequence': None}
-    # n_term, c_term = 0, 0
     n_term = sum([pdb_tag_tally['n'][tag_name] for tag_name in pdb_tag_tally.get('n', {})])
     c_term = sum([pdb_tag_tally['c'][tag_name] for tag_name in pdb_tag_tally.get('c', {})])
     if n_term == 0 and c_term == 0:  # No tags found
-        return final_tag_sequence
+        return final_tag
+
+    termini_header = 'Termini', 'Tag name', 'Count'
+    formatted_tags = [(termini, name, counts) for termini, name_counts in pdb_tag_tally.items()
+                      for name, counts in name_counts.items()]
     if n_term > c_term and n or (n_term < c_term and n and not c):
         termini = 'n'
     elif n_term < c_term and c or (n_term > c_term and c and not n):
         termini = 'c'
     elif not c and not n:
-        while True:
-            termini = \
-                input('For sequence target %s, NEITHER termini are available for tagging.\n\n'
-                      'You can set up tags anyway and modify this sequence later, or skip tagging.\nThe tag options, '
-                      'are as follows:\n  Termini: {tag name: count}}\n\t%s\nWhich termini would you prefer '
-                      '[n/c]? To skip, input "skip"%s' %
-                      (sequence_id, '\n\t'.join('%s: %s' % it for it in pdb_tag_tally.items()), query.utils.input_string)).lower()
-            if termini in ['n', 'c']:
-                break
-            elif termini == 'skip':
-                return final_tag_sequence
-            else:
-                print('"%s" is an invalid input, one of "n", "c", or "skip" is required.' % termini)
+        print(f'For sequence target {sequence_id}, NEITHER termini are available for tagging.\n'
+              'You can set up tags anyway and modify this sequence later, or skip tagging.\n'
+              'The tag options, are as follows:\n%s\n' %
+              '\n\t'.join(utils.pretty_format_table(formatted_tags, header=termini_header)))
+        termini = utils.validate_input(f"Which termini would you prefer [n/c]? To skip, input 'skip'",
+                                       ['n', 'c', 'skip'])
+        if termini == 'skip':
+            return final_tag
     else:  # termini = 'Both'
         if c and not n:
             termini = 'c'
         elif not c and n:
             termini = 'n'
         else:
-            while True:
-                termini = \
-                    input('For sequence target %s, BOTH termini are available and have the same number of matched tags.'
-                          '\nThe tag options, are as follows:\n  Termini: {tag name: count}}\n\t%s\nWhich termini would'
-                          ' you prefer [n/c]? To skip, input "skip"%s' %
-                          (sequence_id, '\n\t'.join('%s: %s' % it for it in pdb_tag_tally.items()),
-                           query.utils.input_string)).lower()
-                if termini in ['n', 'c']:
-                    break
-                elif termini == 'skip':
-                    return final_tag_sequence
-                else:
-                    print('"%s" is an invalid input, one of "n", "c", or "skip" is required.' % termini)
+            print(f'For sequence target {sequence_id}, BOTH termini are available and have the same number of matched '
+                  f'tags.\nThe tag options, are as follows:\n%s\n' %
+                  '\n\t'.join(utils.pretty_format_table(formatted_tags, header=termini_header)))
+            termini = utils.validate_input(f"Which termini would you prefer [n/c]? To skip, input 'skip'",
+                                           ['n', 'c', 'skip'])
+            if termini == 'skip':
+                return final_tag
 
     # Find the most common tag at the specific termini
-    all_tags = []
-    max_type, max_count = None, 0
-    for tag_name in pdb_tag_tally[termini]:
-        if pdb_tag_tally[termini][tag_name] > max_count:
-            max_count = pdb_tag_tally[termini][tag_name]
-            max_type = tag_name
-    if max_type:
-        all_tags.append(max_type)
+    max_tag_type = None
+    max_tag_count = 0
+    for tag_name, tag_count in pdb_tag_tally[termini].items():
+        if tag_count > max_tag_count:
+            max_tag_count = tag_count
+            max_tag_type = tag_name
 
-    # Check if there are equally represented tags
-    for tag_name in pdb_tag_tally[termini]:
-        if pdb_tag_tally[termini][tag_name] == max_count and tag_name != max_type:
-            all_tags.append(tag_name)
+    # Ensure at least one tag was found
+    if max_tag_type is None:
+        return final_tag
+    else:
+        all_tags = [max_tag_type]
+        # Check if there are equally represented tags
+        for tag_name, tag_count in pdb_tag_tally[termini].items():
+            if tag_name != max_tag_type and tag_count == max_tag_count:
+                all_tags.append(tag_name)
 
     # Finally report results to the user and solve ambiguous tags
-    final_tags = {'termini': termini, 'name': all_tags}
-    if not final_tags['name']:  # ensure list has at least one element
-        return final_tag_sequence
-
-    formatted_tags = [(termini, tag, counts) for termini, tags_counts in pdb_tag_tally.items()
-                      for tag, counts in tags_counts.items()]
+    tag_type = all_tags[0]
     custom = False
-    final_choice = {}
-    while True:
-        tag_type = final_tags['name'][0]
-        recommended_termini = final_tags['termini']
-        if preferred:
-            if preferred == tag_type:
-                default = 'y'
-            else:
-                return final_tag_sequence
-                # default = 'y'
-                # logger.info(
-                #     f"The preferred tag '{preferred}' wasn't found from observations in the PDB. Using it anyway")
-                # # default = input(f'If you would like to proceed with it anyway, enter "y"'
-                # #                 f'.{query.utils.input_string}').lower()
-                # tag_type = preferred
-                # print(f'For {sequence_id}, the tag options are:\n\t%s'
-                #       % '\n\t'.join(utils.pretty_format_table([tag.values() for tag in matching_pdb_tags],
-                #                                               header=matching_pdb_tags[0].keys())))
-                # # Solve for the termini
-                # print(f'For {sequence_id}, the termini tag options are:\n\t%s'
-                #       % '\n\t'.join(utils.pretty_format_table(formatted_tags, header=('Termini', 'Tag', 'Count'))))
-                # while True:
-                #     termini_input = input(f'What termini would you like to use [n/c]?{query.utils.input_string}') \
-                #         .lower()
-                #     if termini_input in ['n', 'c']:
-                #         recommended_termini = termini_input
-                #         break
-                #     elif termini_input == 'none':
-                #         return final_tag_sequence
-                #     else:
-                #         print(f"Input '{termini_input}' doesn't match available options. Please try again")
+    if preferred:
+        if preferred == tag_type:
+            default = 'y'
         else:
-            logger.info(f'For {sequence_id}, the RECOMMENDED tag options are:\n'
-                        f'\tTermini-{recommended_termini} Type-{tag_type}\n'
-                        'If the Termini or Type is undesired, you can see the underlying options by specifying '
-                        "'options'. Otherwise, '{tag_type}' will be chosen")
-            default = input(f'If you would like to proceed with the \033[38;5;208mrecommended\033[0;0m: options, '
-                            f'enter "y".{query.utils.input_string}').lower()
-        if default == 'y':
-            final_choice['name'] = tag_type
-            final_choice['termini'] = recommended_termini
-            break
-        elif default == 'options':
-            print(f'\nFor {sequence_id}, all tag options are:\n\tTermini Tag:\tCount\n%s\nAll tags:\n%s\n'
-                  % ('\n'.join('\t%s:\t%s' % item for item in pdb_tag_tally.items()), matching_pdb_tags))
-            # Todo pretty_table_format on the .values() from each item in above list() ('name', 'termini', 'sequence')
-            while True:
-                termini_input = input('What termini would you like to use [n/c]? If no tag option is appealing, '
-                                      'enter "none" or specify the termini and select "custom" at the next step '
-                                      f'{query.utils.input_string}').lower()
-                if termini_input in ['n', 'c']:
-                    final_choice['termini'] = termini_input
-                    break
-                elif termini_input == 'none':
-                    return final_tag_sequence
-                else:
-                    print(f"Input '{termini_input}' doesn't match available options. Please try again")
-            while True:
-                tag_input = input('What tag would you like to use? Enter the number of the below options.\n\t%s%s\n%s'
-                                  % ('\n\t'.join(['%d - %s' % (i, tag)
-                                                  for i, tag in enumerate(pdb_tag_tally[termini_input], 1)]),
-                                     '\n\t%d - %s' % (len(pdb_tag_tally[termini_input]) + 1, 'CUSTOM'), query.utils.input_string))
-                if tag_input.isdigit():
-                    tag_input = int(tag_input)
-                    if tag_input <= len(pdb_tag_tally[termini_input]):
-                        final_choice['name'] = list(pdb_tag_tally[termini_input].keys())[tag_input - 1]
-                        break
-                    elif tag_input == len(pdb_tag_tally[termini_input]) + 1:
-                        custom = True
-                        while True:
-                            tag_input = input('What tag would you like to use? Enter the number of the below options.'
-                                              '\n\t%s\n%s'
-                                              % ('\n\t'.join(['%d - %s' % (i, tag)
-                                                              for i, tag in enumerate(expression_tags, 1)]),
-                                                 query.utils.input_string))
-                            if tag_input.isdigit():
-                                tag_input = int(tag_input)
-                            if tag_input <= len(expression_tags):
-                                final_choice['name'] = list(expression_tags.keys())[tag_input - 1]
-                                break
-                            print(f"Input '{tag_input}' doesn't match available options. Please try again")
-                        break
-                print(f"Input '{tag_input}' doesn't match available options. Please try again")
-            break
-        print(f"Input '{default}' doesn't match. Please try again")
-
-    final_tag_sequence['name'] = final_choice['name']
-    final_tag_sequence['termini'] = final_choice['termini']
-    all_matching_tags = []
-    tag: dict[str, str]
-    """{'name': tag_name, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}"""
-    for tag in matching_pdb_tags:
-        # for tag in pdb_match:
-        if final_choice['name'] == tag['name'] and final_choice['termini'] == tag['termini']:
-            all_matching_tags.append(tag['sequence'])
-
-    # Todo align multiple and choose the consensus
-    # all_alignments = []
-    # max_tag_idx, max_len = None, []  # 0
-    # for idx, (tag1, tag2) in enumerate(combinations(all_matching_tags, 2)):
-    #     alignment = SequenceProfile.generate_alignment(tag1, tag2)
-    #     all_alignments.append(alignment)
-    #     # if max_len < alignment[4]:  # the length of alignment
-    #     max_len.append(alignment[4])
-    #     # have to find the alignment with the max length, then find which one of the sequences has the max length for
-    #     # multiple alignments, then need to select all alignments to this sequence to generate the MSA
-    #
-    # total_alignment = SequenceProfile.create_bio_msa({idx: tag for idx, tag in enumerate(all_matching_tags)})
-    # tag_msa = SequenceProfile.generate_msa_dictionary(total_alignment)
-    if custom:
-        final_tag_sequence['sequence'] = expression_tags[final_choice['name']]
+            return final_tag
+            # default = 'y'
+            # logger.info(
+            #     f"The preferred tag '{preferred}' wasn't found from observations in the PDB. Using it anyway")
+            # # default = input(f'If you would like to proceed with it anyway, enter "y"'
+            # #                 f'.{query.utils.input_string}').lower()
+            # tag_type = preferred
+            # print(f'For {sequence_id}, the tag options are:\n\t%s'
+            #       % '\n\t'.join(utils.pretty_format_table([tag.values() for tag in matching_pdb_tags],
+            #                                               header=matching_pdb_tags[0].keys())))
+            # # Solve for the termini
+            # print(f'For {sequence_id}, the termini tag options are:\n\t%s'
+            #       % '\n\t'.join(utils.pretty_format_table(formatted_tags, header=('Termini', 'Tag', 'Count'))))
+            # while True:
+            #     termini_input = input(f'What termini would you like to use [n/c]?{query.utils.input_string}') \
+            #         .lower()
+            #     if termini_input in ['n', 'c']:
+            #         recommended_termini = termini_input
+            #         break
+            #     elif termini_input == 'none':
+            #         return final_tag
+            #     else:
+            #         print(f"Input '{termini_input}' doesn't match available options. Please try again")
     else:
-        logger.debug(f'Grabbing the first matching tag out of {len(all_matching_tags)} possible')
-        final_tag_sequence['sequence'] = all_matching_tags[0]  # For now grab the first
+        logger.info(f'For {sequence_id}, the RECOMMENDED tag options are:\n'
+                    f'\tTermini-{termini} Type-{tag_type}\n'
+                    'If the Termini or Type is undesired, you can see the underlying options by specifying '
+                    f"'options'. Otherwise, '{tag_type}' will be chosen")
+        default = utils.validate_input('If you would like to proceed with the \033[38;5;208mrecommended\033[0;0m: '
+                                       "options, enter 'y', otherwise, specify 'options' to see all possibilities",
+                                       ['y', 'options'])
+    if default == 'y':
+        final_tag_name = tag_type
+        final_tag_termini = termini
+    else:  # if default == 'options':
+        print(f'For sequence target {sequence_id}, all tag options are as follows:\n%s\n' %
+              '\n\t'.join(utils.pretty_format_table(formatted_tags, header=termini_header)))
+        print(f'All tags:\n{matching_pdb_tags}\n')
+        termini = utils.validate_input("Which termini would you prefer [n/c]? To skip, input 'skip'",
+                                       ['n', 'c', 'skip'])
+        if termini == 'skip':
+            return final_tag
+        final_tag_termini = termini
 
-    return final_tag_sequence
+        print('\n\t%s' % '\n\t'.join([f'{i} - {tag}' for i, tag in enumerate(pdb_tag_tally[termini], 1)]))
+        number_termini_tags = len(pdb_tag_tally[termini])
+        # print(f'\n\t{number_termini_tags + 1} - CUSTOM')
+        tag_input = utils.validate_input('What tag would you like to use? Enter the number of the above options',
+                                         list(map(str, range(1, 1 + number_termini_tags))))  # 2 + number_termini_tags
+        tag_input = int(tag_input)
+        if tag_input <= number_termini_tags:
+            final_tag_name = list(pdb_tag_tally[termini].keys())[tag_input - 1]
+            # Solve for the desired tag
+            all_matching_tag_sequences = [tag['sequence'] for tag in matching_pdb_tags
+                                          if final_tag_name == tag['name'] and final_tag_termini == tag['termini']]
+            # Todo align multiple and choose the consensus
+            # all_alignments = []
+            # max_tag_idx, max_len = None, []  # 0
+            # for idx, (tag1, tag2) in enumerate(combinations(all_matching_tags, 2)):
+            #     alignment = SequenceProfile.generate_alignment(tag1, tag2)
+            #     all_alignments.append(alignment)
+            #     # if max_len < alignment[4]:  # the length of alignment
+            #     max_len.append(alignment[4])
+            #     # have to find the alignment with the max length, then find which one of the sequences has the max length for
+            #     # multiple alignments, then need to select all alignments to this sequence to generate the MSA
+            #
+            # total_alignment = SequenceProfile.create_bio_msa({idx: tag for idx, tag in enumerate(all_matching_tags)})
+            # tag_msa = SequenceProfile.generate_msa_dictionary(total_alignment)
+            if all_matching_tag_sequences:  # For now, grab the first available tag
+                logger.debug(f'Grabbing the first matching tag out of {len(all_matching_tag_sequences)} possible')
+                final_tag_sequence = all_matching_tag_sequences[0]
+            else:
+                logger.critical(f"{select_tags_for_sequence.__name__}: This logic shouldn't have been possible")
+                return final_tag
+        else:  # if tag_input == number_termini_tags + 1:
+            # Todo this isn't currently available
+            print('All available tags are:\n\t%s' %
+                  '\n\t'.join([f'{i} - {tag}' for i, tag in enumerate(expression_tags, 1)]))
+            number_expression_tags = len(expression_tags)
+            tag_input = utils.validate_input('What tag would you like to use? Enter the number of the above options',
+                                             list(map(str, range(1, 1 + number_expression_tags))))
+            tag_input = int(tag_input)
+            final_tag_name = list(expression_tags.keys())[tag_input - 1]
+
+            final_tag_sequence = expression_tags[final_tag_name]
+
+    return dict(name=final_tag_name, termini=final_tag_termini, sequence=final_tag_sequence)
 
 
 def add_expression_tag(tag: str, sequence: str) -> str:
@@ -576,7 +544,8 @@ def find_expression_tags(sequence: str, alignment_length: int = 12) -> list | li
         sequence: The sequence of interest i.e. 'MSGHHHHHHGKLKPNDLRI...'
         alignment_length: length to perform the clipping of the native sequence in addition to found tag
     Returns:
-        [{'name': 'tag_name', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...], [] if none are found
+        A list of the available tags with a featured dictionary for each tag. Formatted as -
+            {'name': str, 'termini': 'n'/'c', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}. Returns [] if no tags are found
     """
     half_sequence_length = len(sequence) / 2
     matching_tags = []
