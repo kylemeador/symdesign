@@ -2072,8 +2072,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
 
                 # Figure out tagging specification
                 if number_of_tags_requested == 0:  # Don't solve tags
-                    entity_sequence_and_tags.append({'sequence': formatted_design_sequence,
-                                                     'tag': {}})
+                    entity_sequence_and_tags.append({'sequence': formatted_design_sequence, 'tag': {}})
                 else:
                     if not selected_tag:
                         # Find compatible tags from matching PDB observations
@@ -2248,13 +2247,14 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                     if tag_linker and tag_linker not in chimeric_tag_sequence:
                         # Add the linker between the tag and designed sequence
                         tag_sequence = expression.tags[tag['name']]
+                        tag_insert_index = chimeric_tag_sequence.find(tag_sequence)
                         if tag['termini'] == 'n':
-                            # Get the index from the c-term side
-                            tag_insert_index = chimeric_tag_sequence.rfind(tag_sequence)
-                        else:  # .find() from n-term side
-                            tag_insert_index = chimeric_tag_sequence.find(tag_sequence)
+                            # Insert the index from the c-term side
+                            tag_insert_index += len(tag_sequence)
+                        # else:  # .find() from n-term side
+                        #     tag_insert_index = chimeric_tag_sequence.find(tag_sequence)
                         chimeric_tag_sequence = chimeric_tag_sequence[:tag_insert_index] + tag_linker \
-                                                + chimeric_tag_sequence[tag_insert_index:]
+                            + chimeric_tag_sequence[tag_insert_index:]
                         logger.debug(f'Formatted the chimeric tag sequence with the specified linker:'
                                      f' {chimeric_tag_sequence}')
 
