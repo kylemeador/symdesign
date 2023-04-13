@@ -2243,16 +2243,22 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                     #     else:  # termini == 'c'
                     #         tagged_sequence = tagged_sequence + tag_linker + tag_sequence
                     # else:
-                    logger.debug(f'Applying chimeric tag sequence: {chimeric_tag_sequence}')
-                    if tag_linker and tag_linker not in chimeric_tag_sequence:
+                    logger.debug(f'Cleaning chimeric tag sequence: {chimeric_tag_sequence}')
+                    tag_termini = tag['termini']
+                    chimeric_tag_sequence = expression.remove_terminal_tags(chimeric_tag_sequence, termini=tag_termini)
+                    tag_sequence = expression.tags[tag['name']]
+                    if tag_termini == 'n':
+                        chimeric_tag_sequence = tag_sequence + chimeric_tag_sequence
+                    else:
+                        chimeric_tag_sequence += tag_sequence
+
+                    logger.debug(f'Applying cleaned chimeric tag sequence: {chimeric_tag_sequence}')
+                    if tag_linker:  # and tag_linker not in chimeric_tag_sequence:
                         # Add the linker between the tag and designed sequence
-                        tag_sequence = expression.tags[tag['name']]
                         tag_insert_index = chimeric_tag_sequence.find(tag_sequence)
-                        if tag['termini'] == 'n':
+                        if tag_termini == 'n':
                             # Insert the index from the c-term side
                             tag_insert_index += len(tag_sequence)
-                        # else:  # .find() from n-term side
-                        #     tag_insert_index = chimeric_tag_sequence.find(tag_sequence)
                         chimeric_tag_sequence = chimeric_tag_sequence[:tag_insert_index] + tag_linker \
                             + chimeric_tag_sequence[tag_insert_index:]
                         logger.debug(f'Formatted the chimeric tag sequence with the specified linker:'

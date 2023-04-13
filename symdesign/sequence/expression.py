@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from itertools import count
-from typing import Sequence
+from typing import Literal, Sequence
 
 import numpy as np
 
@@ -582,7 +582,7 @@ def find_expression_tags(sequence: str, alignment_length: int = 12) -> list | li
 
 
 # This variant only removes the tag, not the entire termini
-def remove_internal_tags(sequence: str, tag_names: list[str]) -> str:
+def remove_internal_tags(sequence: str, tag_names: list[str] = None) -> str:
     """Remove matching tag sequences only, from the specified sequence
 
     Defaults to known tags in constants.expression_tags
@@ -598,20 +598,21 @@ def remove_internal_tags(sequence: str, tag_names: list[str]) -> str:
     else:
         _expression_tags = expression_tags
 
-    half_sequence_length = len(sequence) / 2
     for name, tag_sequence in _expression_tags.items():
         tag_index = sequence.find(tag_sequence)
         if tag_index == -1:  # No match was found
             continue
 
-        # Remove the tag from the source sequence
-        tag_length = len(tag_sequence)
-        sequence = sequence[:tag_index] + sequence[tag_index + tag_length:]
+        # Excise the tag from the source sequence
+        sequence = sequence[:tag_index] + sequence[tag_index + len(tag_sequence):]
 
     return sequence
 
 
-def remove_terminal_tags(sequence: str, tag_names: list[str] = None) -> str:
+termini_literal = Literal['n', 'c']
+
+
+def remove_terminal_tags(sequence: str, tag_names: list[str] = None, termini: termini_literal = None) -> str:
     """Remove matching tag sequences and any remaining termini from the specified sequence
 
     Defaults to known tags in constants.expression_tags
@@ -619,6 +620,7 @@ def remove_terminal_tags(sequence: str, tag_names: list[str] = None) -> str:
     Args:
         sequence: The sequence of interest i.e. 'MSGHHHHHHGKLKPNDLRI...'
         tag_names: If only certain tags should be removed, a list with the names of known tags
+        termini: Pass 'n' or 'c' if particular termini should be cleaned of tags
     Returns:
         'GGKLKPNDLRI...' The modified sequence without the tagged termini
     """
@@ -627,18 +629,28 @@ def remove_terminal_tags(sequence: str, tag_names: list[str] = None) -> str:
     else:
         _expression_tags = expression_tags
 
-    half_sequence_length = len(sequence) / 2
+    if termini is None:  # Use the half_sequence_length, and hard code n_term
+        half_sequence_length = len(sequence) / 2
+        n_term = True  # c_term = True
+    else:  # Hard code the half_sequence_length as always true
+        half_sequence_length = len(sequence)
+        if termini == 'n':
+            n_term = True
+            # c_term = False
+        elif termini == 'c':
+            n_term = False
+            # c_term = True
+        else:
+            raise ValueError(f"Must pass either 'n' or 'c' for the argument 'termini'")
+
     for name, tag_sequence in _expression_tags.items():
         tag_index = sequence.find(tag_sequence)
         if tag_index == -1:  # No match was found
             continue
 
-        # Remove the tag from the source sequence
-        tag_length = len(tag_sequence)
-
         # Remove from one end based on termini proximity
-        if tag_index < half_sequence_length:  # termini = 'n'
-            sequence = sequence[tag_index + tag_length:]
+        if n_term and tag_index < half_sequence_length:  # termini = 'n'
+            sequence = sequence[tag_index + len(tag_sequence):]
         else:  # termini = 'c'
             sequence = sequence[:tag_index]
 
