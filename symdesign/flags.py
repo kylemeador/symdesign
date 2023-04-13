@@ -1372,6 +1372,8 @@ multicistronic_arguments = {
     **multicistronic_args,
     number_args: dict(type=int, help='The number of protein sequences to concatenate into a '
                                      'multicistronic expression output'),
+    output_directory_args: dict(type=os.path.abspath, default=None, required=True,
+                                help=f'Where should the output be written?'),
 }
 parser_update_db = {update_db: dict()}
 update_db_arguments = {}
