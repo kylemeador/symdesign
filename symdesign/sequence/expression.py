@@ -333,8 +333,7 @@ def find_matching_expression_tags(uniprot_id: str = None, entity_id: str = None,
     # return pdb_tag_tally
 
 
-def report_termini_availability(matching_pdb_tags: list[dict[str, str]], n: bool = True, c: bool = True) \
-        -> dict[str, str | None]:
+def report_termini_availability(matching_pdb_tags: list[dict[str, str]], n: bool = True, c: bool = True) -> str:
     """From a list of possible tags, solve for the tag with the most observations in the PDB. If there are
     discrepancies, query the user for a solution
 
@@ -343,7 +342,7 @@ def report_termini_availability(matching_pdb_tags: list[dict[str, str]], n: bool
         n: Whether the n-termini can be tagged
         c: Whether the c-termini can be tagged
     Returns:
-        The termini which should be tagger, either 'n', 'c' or 'skip' if the entity shouldn't be used
+        The termini which should be tagger, either 'n', 'c' or 'skip' if the sequence shouldn't be used
     """
     final_tag = {'name': None, 'termini': None, 'sequence': None}
     # Next, align all the tags to the reference sequence and tally the tag location and type
@@ -362,9 +361,6 @@ def report_termini_availability(matching_pdb_tags: list[dict[str, str]], n: bool
     n_term = sum([pdb_tag_tally['n'][tag_name] for tag_name in pdb_tag_tally.get('n', {})])
     c_term = sum([pdb_tag_tally['c'][tag_name] for tag_name in pdb_tag_tally.get('c', {})])
 
-    termini_header = 'Termini', 'Tag name', 'Count'
-    formatted_tags = [(termini, name, counts) for termini, name_counts in pdb_tag_tally.items()
-                      for name, counts in name_counts.items()]
     if n_term == 0 and c_term == 0:  # No tags found
         evidence_string = 'Based on termini availability'
     else:
@@ -384,9 +380,16 @@ def report_termini_availability(matching_pdb_tags: list[dict[str, str]], n: bool
         else:
             termini_string = '\033[38;5;208mboth\033[0;0m: termini can be tagged.'
 
-    print(f'{evidence_string}, {termini_string} Observed tag options are as follows:\n\t%s\n' %
-          '\n\t'.join(utils.pretty_format_table(formatted_tags, header=termini_header)))
+    termini_header = 'Termini', 'Tag name', 'Count'
+    formatted_tags = [(termini, name, counts) for termini, name_counts in pdb_tag_tally.items()
+                      for name, counts in name_counts.items()]
+    if formatted_tags:
+        observation_string = ' Observed tag options are as follows:\n\t%s\n' % \
+                             '\n\t'.join(utils.pretty_format_table(formatted_tags, header=termini_header))
+    else:
+        observation_string = ''
 
+    print(f'{evidence_string}, {termini_string}{observation_string}')
     return utils.validate_input(f"Which termini would you prefer [n/c]? To skip, input 'skip'",
                                 ['n', 'c', 'skip'])
 
