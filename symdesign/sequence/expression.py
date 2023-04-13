@@ -362,9 +362,9 @@ def select_tags_for_sequence(sequence_id: str, matching_pdb_tags: list[dict[str,
     elif n_term < c_term and c or (n_term > c_term and c and not n):
         termini = 'c'
     elif not c and not n:
-        print(f'For sequence target {sequence_id}, NEITHER termini are available for tagging.\n'
-              'You can set up tags anyway and modify this sequence later, or skip tagging.\n'
-              'The tag options, are as follows:\n%s\n' %
+        print(f'For sequence target {sequence_id}, NEITHER termini is available for tagging.\n'
+              'You can configure tags now regardless and modify the choice later, or skip tagging.\n'
+              'The tag options are as follows:\n\t%s\n' %
               '\n\t'.join(utils.pretty_format_table(formatted_tags, header=termini_header)))
         termini = utils.validate_input(f"Which termini would you prefer [n/c]? To skip, input 'skip'",
                                        ['n', 'c', 'skip'])
@@ -377,7 +377,7 @@ def select_tags_for_sequence(sequence_id: str, matching_pdb_tags: list[dict[str,
             termini = 'n'
         else:
             print(f'For sequence target {sequence_id}, BOTH termini are available and have the same number of matched '
-                  f'tags.\nThe tag options, are as follows:\n%s\n' %
+                  'tags.\nThe tag options are as follows:\n\t%s\n' %
                   '\n\t'.join(utils.pretty_format_table(formatted_tags, header=termini_header)))
             termini = utils.validate_input(f"Which termini would you prefer [n/c]? To skip, input 'skip'",
                                            ['n', 'c', 'skip'])
