@@ -2013,7 +2013,6 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 # Generate the design TO source mutations before any disorder handling
                 # This will place design sequence identities in the 'from' position of mutations dictionary
                 entity_name = data.name
-                design_entity_id = f'{design.name}-{entity_name}'
                 entity_names.append(entity_name)
                 mutations = generate_mutations(''.join(design_sequence), source_sequence, zero_index=True)
                 logger.debug(f'Found mutations: {mutations}')
@@ -2073,51 +2072,54 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 # Figure out tagging specification
                 if number_of_tags_requested == 0:  # Don't solve tags
                     selected_tag = {}
-                else:
-                    if not selected_tag:
-                        # Find compatible tags from matching PDB observations
-                        possible_matching_tags = []
-                        for uniprot_id in data.uniprot_ids:
-                            id_matching_tags = tag_sequences.get(uniprot_id)
-                            if id_matching_tags is None:
-                                tag_sequences[uniprot_id] = id_matching_tags = \
-                                    expression.find_matching_expression_tags(uniprot_id=uniprot_id,
-                                                                             alignment_length=alignment_length)
-                                if not id_matching_tags:
-                                    id_matching_tags = tag_sequences.get(entity_name)
-                                    if id_matching_tags is None:
-                                        tag_sequences[entity_name] = id_matching_tags = \
-                                            expression.find_matching_expression_tags(entity_id=entity_name,
-                                                                                     alignment_length=alignment_length)
-                            possible_matching_tags.extend(id_matching_tags)
-
-                        if possible_matching_tags:
-                            tag_names, tag_termini, _ = \
-                                zip(*[(tag['name'], tag['termini'], tag['sequence'])
-                                      for tag in possible_matching_tags])
-                        else:
-                            tag_names, tag_termini, _ = [], [], []
-
-                        while True:
-                            # Using the while loop to enable break and avoid expression.select_tags_for_sequence()
-                            try:
-                                preferred_tag_index_2 = tag_names.index(job.preferred_tag)
-                            except ValueError:  # job.preferred_tag not indexed
-                                pass
-                            else:
-                                if tag_termini[preferred_tag_index_2] in entity_true_termini[entity_idx]:
-                                    selected_tag = possible_matching_tags[preferred_tag_index_2]
-                                    break
-                            selected_tag = \
-                                expression.select_tags_for_sequence(design_entity_id,
-                                                                    possible_matching_tags,
-                                                                    preferred=job.preferred_tag,
-                                                                    **entity_termini_availability[entity_idx])
-                            break
-
-                    if selected_tag.get('name'):
-                        entity_missing_tags[entity_idx] = False
-                        logger.debug(f'The pre-existing, identified tag is:\n{selected_tag}')
+                # elif job.preferred_tag:
+                # else:
+                #     if not selected_tag:
+                #         # Find compatible tags from matching PDB observations
+                #         possible_matching_tags = []
+                #         id_matching_tags = tag_sequences.get(entity_name)
+                #         if id_matching_tags is None:
+                #             tag_sequences[entity_name] = id_matching_tags = \
+                #                 expression.find_matching_expression_tags(entity_id=entity_name,
+                #                                                          alignment_length=alignment_length)
+                #         possible_matching_tags.extend(id_matching_tags)
+                #
+                #         for uniprot_id in data.uniprot_ids:
+                #             id_matching_tags = tag_sequences.get(uniprot_id)
+                #             if id_matching_tags is None:
+                #                 tag_sequences[uniprot_id] = id_matching_tags = \
+                #                     expression.find_matching_expression_tags(uniprot_id=uniprot_id,
+                #                                                              alignment_length=alignment_length)
+                #             possible_matching_tags.extend(id_matching_tags)
+                #
+                #         if possible_matching_tags:
+                #             tag_names, tag_termini, _ = \
+                #                 zip(*[(tag['name'], tag['termini'], tag['sequence'])
+                #                       for tag in possible_matching_tags])
+                #         else:
+                #             tag_names, tag_termini, _ = [], [], []
+                #
+                #         while True:
+                #             # Using the while loop to enable break and avoid expression.select_tags_for_sequence()
+                #             try:
+                #                 preferred_tag_index_2 = tag_names.index(job.preferred_tag)
+                #             except ValueError:  # job.preferred_tag not indexed
+                #                 pass
+                #             else:
+                #                 if tag_termini[preferred_tag_index_2] in entity_true_termini[entity_idx]:
+                #                     selected_tag = possible_matching_tags[preferred_tag_index_2]
+                #                     break
+                #             design_entity_id = f'{design.name}-{entity_name}'
+                #             selected_tag = \
+                #                 expression.select_tags_for_sequence(design_entity_id,
+                #                                                     possible_matching_tags,
+                #                                                     preferred=job.preferred_tag,
+                #                                                     **entity_termini_availability[entity_idx])
+                #             break
+                #
+                #     if selected_tag.get('name'):
+                #         entity_missing_tags[entity_idx] = False
+                #         logger.debug(f'The pre-existing, identified tag is:\n{selected_tag}')
                 entity_sequence_and_tags.append({'sequence': formatted_design_sequence, 'tag': selected_tag})
 
             # After selecting individual Entity tags, consider tagging the whole Design
@@ -2165,8 +2167,9 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                                 iteration = count()
                                 continue
                         for entity_idx, entity_missing_tag in enumerate(entity_missing_tags[iteration_idx:]):
+                            entity_name = entity_names[entity_idx]
                             if entity_missing_tag and entity_taggable_indices[entity_idx]:  # Isn't tagged but could be
-                                print(f'Entity {pose_job}_{entity_names[entity_idx]} is missing a tag. '
+                                print(f'Entity {pose_job}_{entity_name} is missing a tag. '
                                       f'Would you like to tag this entity?')
                                 if not boolean_choice():
                                     continue
@@ -2184,8 +2187,29 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                                 # Adjust for python indexing
                                 tag_index = int(tag_input) - 1
                                 tag = list(expression.tags.keys())[tag_index]
-                            termini = validate_input(f"Which termini should the selected tag '{tag}', be added to?",
-                                                     ['n', 'c'])
+                            # termini = validate_input(f"Which termini should the selected tag '{tag}', be added to?",
+                            #                          ['n', 'c'])
+                            # Find compatible tags from matching PDB observations
+                            possible_matching_tags = []
+                            id_matching_tags = tag_sequences.get(entity_name)
+                            if id_matching_tags is None:
+                                tag_sequences[entity_name] = id_matching_tags = \
+                                    expression.find_matching_expression_tags(entity_id=entity_name,
+                                                                             alignment_length=alignment_length)
+                            possible_matching_tags.extend(id_matching_tags)
+
+                            for uniprot_id in pose_job.entity_data[entity_idx].uniprot_ids:
+                                id_matching_tags = tag_sequences.get(uniprot_id)
+                                if id_matching_tags is None:
+                                    tag_sequences[uniprot_id] = id_matching_tags = \
+                                        expression.find_matching_expression_tags(uniprot_id=uniprot_id,
+                                                                                 alignment_length=alignment_length)
+                                possible_matching_tags.extend(id_matching_tags)
+                            termini = expression.report_termini_availability(possible_matching_tags,
+                                                                             **entity_termini_availability[entity_idx])
+                            if termini == 'skip':
+                                continue
+
                             selected_sequence_and_tag = entity_sequence_and_tags[entity_idx]
                             if termini == 'n':
                                 new_tag_sequence = expression.tags[tag] \
