@@ -2280,10 +2280,25 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                     if tag_linker:  # and tag_linker not in chimeric_tag_sequence:
                         # Add the linker between the tag and designed sequence
                         tag_insert_index = chimeric_tag_sequence.find(tag_sequence)
+                        slice_count = count(1)
+                        slice_idx = next(slice_count)
                         if tag_termini == 'n':
                             # Insert the index from the c-term side
                             tag_insert_index += len(tag_sequence)
-                        chimeric_tag_sequence = chimeric_tag_sequence[:tag_insert_index] + tag_linker \
+                            # for i in range(1, len(tag_linker)):
+                            #     if chimeric_tag_sequence[tag_insert_index:].startswith(tag_linker[-i:]):
+                            while chimeric_tag_sequence[tag_insert_index:].startswith(tag_linker[-slice_idx:]):
+                                slice_idx = next(slice_count)
+                            else:  # Subtract 1 from the index and slice the tag_linker
+                                slice_idx = (slice_idx-1) * -1 if slice_idx > 1 else None
+                                this_tag_linker = tag_linker[:slice_idx]
+                        else:
+                            while chimeric_tag_sequence[:tag_insert_index].endswith(tag_linker[:slice_idx]):
+                                slice_idx = next(slice_count)
+                            else:  # Subtract 1 from the index and slice the tag_linker
+                                this_tag_linker = tag_linker[slice_idx - 1:]
+
+                        chimeric_tag_sequence = chimeric_tag_sequence[:tag_insert_index] + this_tag_linker \
                             + chimeric_tag_sequence[tag_insert_index:]
                         logger.debug(f'Formatted the chimeric tag sequence with the specified linker:'
                                      f' {chimeric_tag_sequence}')
