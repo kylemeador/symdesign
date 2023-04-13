@@ -46,7 +46,6 @@ from symdesign.resources import distribute, sql, wrapapi
 from symdesign.structure.fragment.db import fragment_factory, euler_factory
 from symdesign.structure.model import Entity, Model, Pose
 # from symdesign.structure import utils as stutils
-from symdesign.sequence import create_mulitcistronic_sequences
 
 
 resubmit_command_message = f'After completion of sbatch script(s), re-submit your {putils.program_name} ' \
@@ -767,7 +766,7 @@ def main():
     #     flags.input, flags.output, flags.options, flags.residue_selector]
     if job.module in symdesign_tools:
         if job.module == flags.multicistronic:
-            create_mulitcistronic_sequences(args)
+            protocols.create_mulitcistronic_sequences(args)
         elif job.module == flags.update_db:
             with job.db.session() as session:
                 design_stmt = select(sql.DesignData).where(sql.DesignProtocol.file.is_not(None)) \

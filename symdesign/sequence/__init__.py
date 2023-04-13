@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import logging
 import os
 import subprocess
@@ -632,50 +631,6 @@ def optimize_protein_sequence(sequence: str, species: str = 'e_coli') -> str:
     # final_record = problem.to_record(with_sequence_edits=True)
 
     return final_sequence
-
-
-def create_mulitcistronic_sequences(args):
-    # if not args.multicistronic_intergenic_sequence:
-    #     args.multicistronic_intergenic_sequence = expression.ncoI_multicistronic_sequence
-    raise NotImplementedError('Please refactor to a protocols/tools module so that JobResources can be used.')
-    job = job_resources_factory()
-    file = args.file[0]  # since args.file is collected with nargs='*', select the first
-    if file.endswith('.csv'):
-        with open(file) as f:
-            protein_sequences = [SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
-                                 for name, sequence in csv.reader(f)]
-    elif file.endswith('.fasta'):
-        protein_sequences = list(read_fasta_file(file))
-    else:
-        raise NotImplementedError(f'Sequence file with extension {os.path.splitext(file)[-1]} is not supported!')
-
-    # Convert the SeqRecord to a plain sequence
-    # design_sequences = [str(seq_record.seq) for seq_record in design_sequences]
-    nucleotide_sequences = {}
-    for idx, group_start_idx in enumerate(list(range(len(protein_sequences)))[::args.number_of_genes], 1):
-        # Call attribute .seq to get the sequence
-        cistronic_sequence = optimize_protein_sequence(protein_sequences[group_start_idx].seq,
-                                                       species=args.optimize_species)
-        for protein_sequence in protein_sequences[group_start_idx + 1: group_start_idx + args.number_of_genes]:
-            cistronic_sequence += args.multicistronic_intergenic_sequence
-            cistronic_sequence += optimize_protein_sequence(protein_sequence.seq,
-                                                            species=args.optimize_species)
-        new_name = f'{protein_sequences[group_start_idx].id}_cistronic'
-        nucleotide_sequences[new_name] = cistronic_sequence
-        logger.info(f'Finished sequence {idx} - {new_name}')
-
-    location = file
-    if not args.prefix:
-        args.prefix = f'{os.path.basename(os.path.splitext(location)[0])}_'
-    else:
-        args.prefix = f'{args.prefix}_'
-
-    # Format sequences for output
-    putils.make_path(job.output_directory)
-    nucleotide_sequence_file = write_sequences(nucleotide_sequences, csv=args.csv,
-                                               file_name=os.path.join(job.output_directory,
-                                                                      'MulticistronicNucleotideSequences'))
-    logger.info(f'Multicistronic nucleotide sequences written to: {nucleotide_sequence_file}')
 
 
 def make_mutations(sequence: Sequence, mutations: dict[int, dict[str, str]], find_orf: bool = True) -> str:

@@ -1364,8 +1364,8 @@ select_designs_arguments = {
 # ---------------------------------------------------
 file_args = ('-f', '--file')
 multicistronic_help = 'Generate nucleotide sequences for selected designs by codon optimizing protein\n' \
-                      'sequences, then concatenating nucleotide sequences. REQUIRES an input .fasta file\n' \
-                      f'specified with the {format_args(file_args)} argument'
+                      'sequences, then concatenating nucleotide sequences. Provide a .csv/.fasta file\n' \
+                      f'with the {format_args(file_args)} argument'
 parser_multicistronic = {multicistronic: dict(description=multicistronic_help, help=multicistronic_help)}
 number_args = ('-n', f'--{number}')
 multicistronic_arguments = {

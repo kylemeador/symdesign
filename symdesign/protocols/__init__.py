@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import functools
 import logging
 import os
@@ -11,19 +12,22 @@ from typing import Iterable, AnyStr, Callable, Type, Any
 import numpy as np
 import pandas as pd
 import sklearn as skl
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 from scipy.spatial.distance import pdist
 
 from . import cluster, config, fragdock, pose, select
 from symdesign import flags, metrics
-from symdesign.resources.distribute import write_script
 from symdesign.resources.config import default_pca_variance
-from symdesign.sequence import protein_letters_1to3, protein_letters_3to1
+from symdesign.resources.distribute import write_script
+from symdesign.resources.job import job_resources_factory
+from symdesign.sequence import optimize_protein_sequence, protein_letters_1to3, protein_letters_3to1, \
+    read_fasta_file, write_sequences
 from symdesign.structure.model import Models, MultiModel, Model, Pose
 from symdesign.structure.sequence import write_pssm_file, sequence_difference
 from symdesign.structure.utils import DesignError, SymmetryError
 from symdesign.utils import condensed_to_square, get_directory_file_paths, InputError, path as putils, \
     ReportException, rosetta, starttime, sym
-
 
 logger = logging.getLogger(__name__)
 warn_missing_symmetry = \
@@ -1008,3 +1012,47 @@ def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = No
     designs = designs[:number]
     job.log.info(f'Final ranking of trajectories:\n{", ".join(_design for _design in designs)}')
     return designs
+
+
+def create_mulitcistronic_sequences(args):
+    # if not args.multicistronic_intergenic_sequence:
+    #     args.multicistronic_intergenic_sequence = expression.ncoI_multicistronic_sequence
+    # raise NotImplementedError('Please refactor to a protocols/tools module so that JobResources can be used.')
+    job = job_resources_factory()
+    file = args.file[0]  # Since args.file is collected with nargs='*', select the first
+    if file.endswith('.csv'):
+        with open(file) as f:
+            protein_sequences = [SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
+                                 for name, sequence in csv.reader(f)]
+    elif file.endswith('.fasta'):
+        protein_sequences = list(read_fasta_file(file))
+    else:
+        raise NotImplementedError(f'Sequence file with extension {os.path.splitext(file)[-1]} is not supported!')
+
+    # Convert the SeqRecord to a plain sequence
+    # design_sequences = [str(seq_record.seq) for seq_record in design_sequences]
+    nucleotide_sequences = {}
+    for idx, group_start_idx in enumerate(list(range(len(protein_sequences)))[::args.number_of_genes], 1):
+        # Call attribute .seq to get the sequence
+        cistronic_sequence = optimize_protein_sequence(protein_sequences[group_start_idx].seq,
+                                                       species=args.optimize_species)
+        for protein_sequence in protein_sequences[group_start_idx + 1: group_start_idx + args.number_of_genes]:
+            cistronic_sequence += args.multicistronic_intergenic_sequence
+            cistronic_sequence += optimize_protein_sequence(protein_sequence.seq,
+                                                            species=args.optimize_species)
+        new_name = f'{protein_sequences[group_start_idx].id}_cistronic'
+        nucleotide_sequences[new_name] = cistronic_sequence
+        logger.info(f'Finished sequence {idx} - {new_name}')
+
+    location = file
+    if not args.prefix:
+        args.prefix = f'{os.path.basename(os.path.splitext(location)[0])}_'
+    else:
+        args.prefix = f'{args.prefix}_'
+
+    # Format sequences for output
+    putils.make_path(job.output_directory)
+    nucleotide_sequence_file = write_sequences(nucleotide_sequences, csv=args.csv,
+                                               file_name=os.path.join(job.output_directory,
+                                                                      'MulticistronicNucleotideSequences'))
+    logger.info(f'Multicistronic nucleotide sequences written to: {nucleotide_sequence_file}')
