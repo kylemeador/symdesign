@@ -2146,8 +2146,8 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                             header=header))
                     print(f'Existing Entity tagging options:\n\t{current_tag_options}')
                     satisfied = utils.validate_input(
-                        "If this tagging scheme is acceptable, enter 'p' (proceed), otherwise enter 'c' (configure) "
-                        'to configure tags', ['p', 'c'])
+                        "Enter 'p' (proceed) to accept this tagging scheme, or 'c' (configure) to configure tags",
+                        ['p', 'c'])
                     if satisfied == 'p':
                         number_of_found_tags = number_of_tags_requested
 
