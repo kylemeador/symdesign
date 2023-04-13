@@ -1022,8 +1022,8 @@ def create_mulitcistronic_sequences(args):
     file = args.file[0]  # Since args.file is collected with nargs='*', select the first
     if file.endswith('.csv'):
         with open(file) as f:
-            protein_sequences = [SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
-                                 for name, sequence in csv.reader(f)]
+            protein_sequences = [SeqRecord(Seq(name_sequence[1]), annotations={'molecule_type': 'Protein'},
+                                           id=name_sequence[0]) for name_sequence in csv.reader(f)]
     elif file.endswith('.fasta'):
         protein_sequences = list(read_fasta_file(file))
     else:
