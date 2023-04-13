@@ -1946,7 +1946,9 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
         else:
             tag_linker = constants.default_tag_linker
         logger.info(f"Using the sequence '{tag_linker}' to link each protein sequence and the specified tag")
+
     # Format sequences for expression
+    alignment_length = 20
     metrics_sequences = {}
     tag_sequences = {}
     final_sequences = {}
@@ -2079,7 +2081,12 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                             uniprot_id_matching_tags = tag_sequences.get(uniprot_id, None)
                             if uniprot_id_matching_tags is None:
                                 uniprot_id_matching_tags = \
-                                    expression.find_matching_expression_tags(uniprot_id=uniprot_id)
+                                    expression.find_matching_expression_tags(uniprot_id=uniprot_id,
+                                                                             alignment_length=alignment_length)
+                                if not uniprot_id_matching_tags:
+                                    uniprot_id_matching_tags = \
+                                        expression.find_matching_expression_tags(entity_id=uniprot_id,  # entity_name)
+                                                                                 alignment_length=alignment_length)
                                 tag_sequences[uniprot_id] = uniprot_id_matching_tags
                             possible_matching_tags.extend(uniprot_id_matching_tags)
 
@@ -2179,7 +2186,6 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                             termini = validate_input(f"Which termini should the selected tag '{tag}', be added to?",
                                                      ['n', 'c'])
                             selected_sequence_and_tag = entity_sequence_and_tags[entity_idx]
-                            alignment_length = 20
                             if termini == 'n':
                                 new_tag_sequence = expression.tags[tag] \
                                     + tag_linker + selected_sequence_and_tag['sequence'][:alignment_length]

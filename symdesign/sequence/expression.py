@@ -255,30 +255,42 @@ def pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=None):
     return None
 
 
-def find_matching_expression_tags(uniprot_id: str = None, pdb_code: str = None, chain: str = None) \
-        -> list | list[dict[str, str]]:
+def find_matching_expression_tags(uniprot_id: str = None, entity_id: str = None,
+                                  pdb_code: str = None, chain: str = None, **kwargs) -> list | list[dict[str, str]]:
     """Find matching expression tags by PDB ID reference
 
     Args:
         uniprot_id: The uniprot_id to query tags from
+        entity_id:
         pdb_code: The pdb to query tags from. Requires chain argument as well
         chain: The chain to query tags from. Requires pdb argument as well
+    Keyword Args:
+        alignment_length: int = 12 - The length to slice the sequence plus any identified tags
     Returns:
         [{'name': 'his_tag', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...], or [] if none found
     """
     #         (dict): {'n': {His Tag: 2}, 'c': {Spy Catcher: 1},
     #                  'matching_tags': [{'name': 'his_tag', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...]}
     matching_pdb_tags = []
-    if uniprot_id is None:
-        if pdb_code is None or chain is None:
-            # raise AttributeError('One of uniprot_id or pdb_code AND chain is required')
-            logger.error('One of "uniprot_id" OR "pdb_code" AND "chain" is required')
-            return matching_pdb_tags
-        uniprot_id = pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=chain)
+    if entity_id is None:
+        entity_ids = []
+        if pdb_code and chain:
+            uniprot_id = pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=chain)
+            if uniprot_id is None:
+                logger.error(f"The pdb_code and chain combination '{pdb_code}_{chain}' found no valid identifiers")
+                return matching_pdb_tags
+    else:
+        entity_ids = [entity_id]
 
+    if uniprot_id:
+        entity_ids = query.pdb.pdb_id_matching_uniprot_id(uniprot_id=uniprot_id)
+    elif entity_ids:
+        pass
+    else:
+        logger.error("One of 'uniprot_id' OR 'entity_id' OR 'pdb_code' AND 'chain' is required")
+        return matching_pdb_tags
     # From PDB API
-    partner_sequences = [query.pdb.get_entity_reference_sequence(entity_id=entity_id)
-                         for entity_id in query.pdb.pdb_id_matching_uniprot_id(uniprot_id=uniprot_id)]
+    partner_sequences = [query.pdb.get_entity_reference_sequence(entity_id=entity_id) for entity_id in entity_ids]
     # # from internal data storage
     # if uniprot_id not in uniprot_pdb_d:
     #     return {'name': None, 'seq': None}
@@ -305,7 +317,7 @@ def find_matching_expression_tags(uniprot_id: str = None, pdb_code: str = None, 
     # matching_pdb_tags = list(iter_chain.from_iterable(find_expression_tags(sequence) for sequence in partner_sequences))
     # reduce the iter of iterables for missing values. ^ can return empty lists
     for sequence in partner_sequences:
-        matching_pdb_tags.extend(find_expression_tags(sequence))
+        matching_pdb_tags.extend(find_expression_tags(sequence, **kwargs))
 
     return matching_pdb_tags
     # # Next, align all the tags to the reference sequence and tally the tag location and type
@@ -543,7 +555,7 @@ def find_expression_tags(sequence: str, alignment_length: int = 12) -> list | li
 
     Args:
         sequence: The sequence of interest i.e. 'MSGHHHHHHGKLKPNDLRI...'
-        alignment_length: length to perform the clipping of the native sequence in addition to found tag
+        alignment_length: The length to slice the sequence plus any identified tags
     Returns:
         A list of the available tags with a featured dictionary for each tag. Formatted as -
             {'name': str, 'termini': 'n'/'c', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}. Returns [] if no tags are found
