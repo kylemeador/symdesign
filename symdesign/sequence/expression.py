@@ -363,6 +363,8 @@ def report_termini_availability(matching_pdb_tags: list[dict[str, str]], n: bool
 
     if n_term == 0 and c_term == 0:  # No tags found
         evidence_string = 'Based on termini availability'
+    elif not c and not n:
+        evidence_string = 'Based on termini availability'
     else:
         evidence_string = 'Based on prior observations and available termini'
 
@@ -371,14 +373,14 @@ def report_termini_availability(matching_pdb_tags: list[dict[str, str]], n: bool
     elif n_term < c_term and c or (n_term > c_term and c and not n):
         termini_string = 'the \033[38;5;208mC\033[0;0m termini is recommended to be tagged.'
     elif not c and not n:
-        termini_string = '\033[38;5;208mneither\033[0;0m: termini can be tagged.'
+        termini_string = '\033[38;5;208mneither\033[0;0m termini can be tagged.'
     else:  # termini = 'Both'
         if c and not n:
             termini_string = 'the \033[38;5;208mc\033[0;0m termini can be tagged.'
         elif not c and n:
             termini_string = 'the \033[38;5;208mn\033[0;0m termini can be tagged.'
         else:
-            termini_string = '\033[38;5;208mboth\033[0;0m: termini can be tagged.'
+            termini_string = '\033[38;5;208mboth\033[0;0m termini can be tagged.'
 
     termini_header = 'Termini', 'Tag name', 'Count'
     formatted_tags = [(termini, name, counts) for termini, name_counts in pdb_tag_tally.items()
@@ -389,8 +391,8 @@ def report_termini_availability(matching_pdb_tags: list[dict[str, str]], n: bool
     else:
         observation_string = ''
 
-    print(f'{evidence_string}, {termini_string}{observation_string}')
-    return utils.validate_input(f"Which termini would you prefer [n/c]? To skip, input 'skip'",
+    print(f'{observation_string}{evidence_string}, {termini_string}')
+    return utils.validate_input(f"Which termini would you prefer? 'skip' discards this sequence",
                                 ['n', 'c', 'skip'])
 
 
@@ -435,7 +437,7 @@ def select_tags_for_sequence(sequence_id: str, matching_pdb_tags: list[dict[str,
     elif n_term < c_term and c or (n_term > c_term and c and not n):
         termini = 'c'
     elif not c and not n:
-        print(f'For sequence target {sequence_id}, \033[38;5;208mneither\033[0;0m: termini is available for tagging.\n'
+        print(f'For sequence target {sequence_id}, \033[38;5;208mneither\033[0;0m termini is available for tagging.\n'
               'You can configure tags now regardless and modify the choice later, or skip tagging.\n'
               'The tag options are as follows:\n\t%s\n' %
               '\n\t'.join(utils.pretty_format_table(formatted_tags, header=termini_header)))
@@ -449,7 +451,7 @@ def select_tags_for_sequence(sequence_id: str, matching_pdb_tags: list[dict[str,
         elif not c and n:
             termini = 'n'
         else:
-            print(f'For sequence target {sequence_id}, \033[38;5;208mboth\033[0;0m: termini are available and have the '
+            print(f'For sequence target {sequence_id}, \033[38;5;208mboth\033[0;0m termini are available and have the '
                   f'same number of matched tags.\nThe tag options are as follows:\n\t%s\n' %
                   '\n\t'.join(utils.pretty_format_table(formatted_tags, header=termini_header)))
             termini = utils.validate_input(f"Which termini would you prefer [n/c]? To skip, input 'skip'",
@@ -506,11 +508,11 @@ def select_tags_for_sequence(sequence_id: str, matching_pdb_tags: list[dict[str,
             #     else:
             #         print(f"Input '{termini_input}' doesn't match available options. Please try again")
     else:
-        logger.info(f'For {sequence_id}, the \033[38;5;208mrecommended\033[0;0m: tag options are:\n'
+        logger.info(f'For {sequence_id}, the \033[38;5;208mrecommended\033[0;0m tag options are:\n'
                     f'\tTermini-{termini} Type-{tag_type}\n'
                     'If the Termini or Type is undesired, you can see the underlying options by specifying '
                     f"'options'. Otherwise, '{tag_type}' will be chosen")
-        default = utils.validate_input('If you would like to proceed with the \033[38;5;208mrecommended\033[0;0m: '
+        default = utils.validate_input('If you would like to proceed with the \033[38;5;208mrecommended\033[0;0m '
                                        "options, enter 'y', otherwise, specify 'options' to see all possibilities",
                                        ['y', 'options'])
     if default == 'y':
