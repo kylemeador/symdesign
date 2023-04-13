@@ -1965,17 +1965,14 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
         number_of_tags_requested, entity_taggable_indices = solve_tags(number_of_entities, job.tag_entities)
 
         # Find termini data
-        # entity_termini_availability, entity_helical_termini = {}, {}
+        logger.info('Searching for solvent accessible termini')
         entity_termini_availability = []
         entity_helical_termini = []
         entity_true_termini = []
         for entity in pose_job.pose.entities:
-            # entity.retrieve_info_from_api()
-            # entity.reference_sequence
             pose_entity_id = f'{pose_job}_{entity.name}'
             termini_availability = pose_job.pose.get_termini_accessibility(entity)
-            logger.debug(f'Designed Entity {pose_entity_id} has the termini accessible: '
-                         f'{termini_availability}')
+            logger.debug(f'Designed Entity {pose_entity_id} has the accessible termini: {termini_availability}')
             if job.avoid_tagging_helices:
                 termini_helix_availability = \
                     pose_job.pose.get_termini_accessibility(entity, report_if_helix=True)
@@ -1986,8 +1983,8 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 entity_helical_termini.append(termini_helix_availability)
 
             # Report and finalize for this Entity
-            logger.info(f'Designed Entity {pose_entity_id} has the termini available for tagging: '
-                        f'{termini_availability}')
+            logger.debug(f'Designed Entity {pose_entity_id} has the termini available for tagging: '
+                         f'{termini_availability}')
             entity_termini_availability.append(termini_availability)
             entity_true_termini.append([term for term, is_true in termini_availability.items() if is_true])
 
@@ -2037,6 +2034,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
 
                 # Check for expression tag addition to the designed sequences after disorder addition
                 inserted_design_sequence = ''.join(inserted_design_sequence)
+                logger.debug(f'The inserted design sequence is:\n{inserted_design_sequence}')
                 selected_tag = {}
                 available_tags = expression.find_expression_tags(inserted_design_sequence)
                 if available_tags:
@@ -2052,10 +2050,10 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                             selected_tag = available_tags[preferred_tag_index]
                     # Remove existing tags from sequence
                     pretag_sequence = expression.remove_terminal_tags(inserted_design_sequence, tag_names)
+                    logger.debug(f'The sequence cleaned of tags is:\n{pretag_sequence}')
                 else:
                     pretag_sequence = inserted_design_sequence
-                logger.debug(f'The inserted sequence sequence is:\n{inserted_design_sequence}')
-                logger.debug(f'The pretag sequence is:\n{pretag_sequence}')
+                    logger.debug(f'The pre-tagged sequence is the same as the inserted design sequence')
 
                 # Find the open reading frame offset using the structure sequence after insertion
                 offset = find_orf_offset(pretag_sequence, mutations)
@@ -2072,7 +2070,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
 
                 # Figure out tagging specification
                 if number_of_tags_requested == 0:  # Don't solve tags
-                    entity_sequence_and_tags.append({'sequence': formatted_design_sequence, 'tag': {}})
+                    selected_tag = {}
                 else:
                     if not selected_tag:
                         # Find compatible tags from matching PDB observations
@@ -2112,8 +2110,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                     if selected_tag.get('name'):
                         entity_missing_tags[entity_idx] = False
                         logger.debug(f'The pre-existing, identified tag is:\n{selected_tag}')
-                    entity_sequence_and_tags.append({'sequence': formatted_design_sequence,
-                                                     'tag': selected_tag})
+                entity_sequence_and_tags.append({'sequence': formatted_design_sequence, 'tag': selected_tag})
 
             # After selecting individual Entity tags, consider tagging the whole Design
             if number_of_tags_requested > 0:
@@ -2138,9 +2135,10 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                              for idx, seq_tag_options in enumerate(entity_sequence_and_tags)],
                             header=header))
                     print(f'Existing Entity tagging options:\n\t{current_tag_options}')
-                    satisfied = input('If this tagging scheme is acceptable, enter "C" (continue), otherwise, '
-                                      f'you can modify the tagging options with any other input.{input_string}')
-                    if satisfied == 'C':
+                    satisfied = utils.validate_input(
+                        "If this tagging scheme is acceptable, enter 'p' (proceed), otherwise enter 'c' (configure) "
+                        'to configure tags', ['p', 'c'])
+                    if satisfied == 'p':
                         number_of_found_tags = number_of_tags_requested
 
                     iteration = count()
@@ -2149,17 +2147,17 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                         if iteration_idx == number_of_entities:
                             print("You've seen all options, but the number of tags requested, "
                                   f'{number_of_tags_requested} != {number_of_found_tags}, the number of tags found')
-                            satisfied = input('If you are satisfied with this, enter "C" (continue), otherwise enter '
-                                              'anything and you can view all remaining options starting from the '
-                                              f'first entity{input_string}')
-                            if satisfied == 'C':
+                            satisfied = utils.validate_input(
+                                "If you are satisfied with this scheme, enter 'p' (proceed), otherwise enter 'c' "
+                                '(configure), and you can view all options again starting with the first entity',
+                                ['p', 'c'])
+                            if satisfied == 'p':
                                 break
                             else:  # Start over
                                 iteration = count()
                                 continue
                         for entity_idx, entity_missing_tag in enumerate(entity_missing_tags[iteration_idx:]):
                             if entity_missing_tag and entity_taggable_indices[entity_idx]:  # Isn't tagged but could be
-                                # pose_entity_id = f'{pose_job}_{entity_names[entity_idx]}'
                                 print(f'Entity {pose_job}_{entity_names[entity_idx]} is missing a tag. '
                                       f'Would you like to tag this entity?')
                                 if not boolean_choice():
@@ -2169,58 +2167,53 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                             # Solve by preferred_tag or user input
                             if job.preferred_tag:
                                 tag = job.preferred_tag
-                                termini = validate_input(f"Your preferred tag '{tag}' will be added to one of the "
-                                                         'termini. Which termini would you prefer?', ['n', 'c'])
                             else:
                                 print('Tag options include:\n\t%s' %
                                       '\n\t'.join([f'{idx} - {tag}' for idx, tag in enumerate(expression.tags, 1)]))
-                                tag_input = \
-                                    validate_input('Which of the above tags would you like to use? Enter the '
-                                                   'number of your preferred option',
-                                                   list(map(str, range(1, 1 + len(expression.tags)))))
-                                # if tag_input.isdigit():
+                                tag_input = validate_input('Which of the above tags would you like to use? Enter the '
+                                                           'number of your preferred option',
+                                                           list(map(str, range(1, 1 + len(expression.tags)))))
                                 # Adjust for python indexing
                                 tag_index = int(tag_input) - 1
                                 tag = list(expression.tags.keys())[tag_index]
-                                termini = validate_input(f"Your tag '{tag}' will be added to one of the termini. "
-                                                         'Which termini would you prefer?', ['n', 'c'])
+                            termini = validate_input(f"Which termini should the selected tag '{tag}', be added to?",
+                                                     ['n', 'c'])
                             selected_sequence_and_tag = entity_sequence_and_tags[entity_idx]
+                            alignment_length = 20
                             if termini == 'n':
                                 new_tag_sequence = expression.tags[tag] \
-                                    + tag_linker + selected_sequence_and_tag['sequence'][:12]
+                                    + tag_linker + selected_sequence_and_tag['sequence'][:alignment_length]
                             else:  # termini == 'c'
-                                new_tag_sequence = selected_sequence_and_tag['sequence'][-12:] \
+                                new_tag_sequence = selected_sequence_and_tag['sequence'][-alignment_length:] \
                                     + tag_linker + expression.tags[tag]
-                            selected_sequence_and_tag['tag'] = {'name': tag, 'sequence': new_tag_sequence}
+                            selected_sequence_and_tag['tag'] = \
+                                {'name': tag, 'termini': termini, 'sequence': new_tag_sequence}
                             entity_missing_tags[entity_idx] = False
                             break
 
                         number_of_found_tags = number_of_entities - sum(entity_missing_tags)
                 # When more than the requested number of tags were identified
                 elif number_of_tags_requested < number_of_found_tags:
-                    print(f'There were only {number_of_tags_requested} requested tags for design {pose_job} and '
+                    print(f'There were only {number_of_tags_requested} requested tags for design {pose_job}, however, '
                           f'{number_of_found_tags} were found')
+                    print('Configured tags:')
+                    print('\t%s' % '\n\t'.join([f'{idx + 1} - {entity_names[idx]}\n\t\t{tag_options["tag"]}'
+                                                for idx, tag_options in enumerate(entity_sequence_and_tags)]))
                     while number_of_tags_requested != number_of_found_tags:
-                        tag_input = input(f'Which tag would you like to remove? Enter the number of the currently '
-                                          'configured tag option that you would like to remove. If you would like '
-                                          f'to keep all, specify "keep"\n\t%s\n{input_string}'
-                                          % '\n\t'.join([f'{idx + 1} - {entity_names[idx]}\n\t\t{tag_options["tag"]}'
-                                                         for idx, tag_options in enumerate(entity_sequence_and_tags)]))
+                        tag_input = utils.validate_input(
+                            'Which tag would you like to remove? Enter a number from the above tag options or, if you '
+                            "would like to keep all, specify 'keep'",
+                            list(map(str, range(1, 1 + number_of_found_tags))) + ['keep'])
                         if tag_input == 'keep':
                             break
-                        elif tag_input.isdigit():
-                            tag_input = int(tag_input)
-                            if tag_input <= len(entity_sequence_and_tags):
-                                # Set that this entity is now missing a tag
-                                entity_missing_tags[tag_input - 1] = True
-                                selected_sequence_and_tag = entity_sequence_and_tags[tag_input - 1]
-                                selected_sequence_and_tag['tag'] = {'name': None, 'termini': None, 'sequence': None}
-                                # tag = list(expression.tags.keys())[tag_input - 1]
-                                break
-                            else:
-                                print("Input doesn't match an integer from the available options. Please try again")
-                        else:
-                            print(f'"{tag_input}" is an invalid input. Try again')
+                        else:  # if tag_input.isdigit():
+                            tag_index = int(tag_input) - 1
+                            # if tag_input <= len(entity_sequence_and_tags):
+                            # Set that this entity is now missing a tag
+                            entity_missing_tags[tag_index] = True
+                            entity_sequence_and_tags[tag_index]['tag'] = \
+                                {'name': None, 'termini': None, 'sequence': None}
+
                         number_of_found_tags = number_of_entities - sum(entity_missing_tags)
 
             # Apply all tags to the sequences
