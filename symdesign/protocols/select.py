@@ -2078,17 +2078,18 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                         # Find compatible tags from matching PDB observations
                         possible_matching_tags = []
                         for uniprot_id in data.uniprot_ids:
-                            uniprot_id_matching_tags = tag_sequences.get(uniprot_id, None)
-                            if uniprot_id_matching_tags is None:
-                                uniprot_id_matching_tags = \
+                            id_matching_tags = tag_sequences.get(uniprot_id)
+                            if id_matching_tags is None:
+                                tag_sequences[uniprot_id] = id_matching_tags = \
                                     expression.find_matching_expression_tags(uniprot_id=uniprot_id,
                                                                              alignment_length=alignment_length)
-                                if not uniprot_id_matching_tags:
-                                    uniprot_id_matching_tags = \
-                                        expression.find_matching_expression_tags(entity_id=uniprot_id,  # entity_name)
-                                                                                 alignment_length=alignment_length)
-                                tag_sequences[uniprot_id] = uniprot_id_matching_tags
-                            possible_matching_tags.extend(uniprot_id_matching_tags)
+                                if not id_matching_tags:
+                                    id_matching_tags = tag_sequences.get(entity_name)
+                                    if id_matching_tags is None:
+                                        tag_sequences[entity_name] = id_matching_tags = \
+                                            expression.find_matching_expression_tags(entity_id=entity_name,
+                                                                                     alignment_length=alignment_length)
+                            possible_matching_tags.extend(id_matching_tags)
 
                         if possible_matching_tags:
                             tag_names, tag_termini, _ = \
