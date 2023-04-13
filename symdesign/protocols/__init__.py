@@ -1032,11 +1032,11 @@ def create_mulitcistronic_sequences(args):
     # Convert the SeqRecord to a plain sequence
     # design_sequences = [str(seq_record.seq) for seq_record in design_sequences]
     nucleotide_sequences = {}
-    for idx, group_start_idx in enumerate(list(range(len(protein_sequences)))[::args.number_of_genes], 1):
+    for idx, group_start_idx in enumerate(list(range(len(protein_sequences)))[::args.number], 1):
         # Call attribute .seq to get the sequence
         cistronic_sequence = optimize_protein_sequence(protein_sequences[group_start_idx].seq,
                                                        species=args.optimize_species)
-        for protein_sequence in protein_sequences[group_start_idx + 1: group_start_idx + args.number_of_genes]:
+        for protein_sequence in protein_sequences[group_start_idx + 1: group_start_idx + args.number]:
             cistronic_sequence += args.multicistronic_intergenic_sequence
             cistronic_sequence += optimize_protein_sequence(protein_sequence.seq,
                                                             species=args.optimize_species)
