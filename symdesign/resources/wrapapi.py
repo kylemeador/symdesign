@@ -434,9 +434,12 @@ class UniProtDataStore(DataStore):
         return 0.0  # False
 
 
+uniprot_accession_length = 10
+
+
 class UniProtEntity(sql.Base):
     __tablename__ = 'uniprot_entity'
-    id = Column(String(10), primary_key=True, autoincrement=False)
+    id = Column(String(uniprot_accession_length), primary_key=True, autoincrement=False)
     """The UniProtID"""
     uniprot_id = synonym('id')
     # _uniprot_id = Column('uniprot_id', String)

@@ -436,9 +436,9 @@ remove_digit_table = digit_remover()
 # '\x04\x05\x06\x07\x08\tabcdefghij'
 
 
-def clean_comma_separated_string(string: str) -> list[str]:
+def clean_comma_separated_string(s: str) -> list[str]:
     """Return a list from a comma separated string"""
-    return list(map(str.strip, string.strip().split(',')))
+    return list(map(str.strip, s.strip().split(',')))
 
 
 def format_index_string(index_string: str) -> list[int]:
@@ -451,11 +451,18 @@ def format_index_string(index_string: str) -> list[int]:
     """
     final_index = []
     for index in clean_comma_separated_string(index_string):
-        if '-' in index:  # we have a range, extract ranges
-            for _idx in range(*tuple(map(int, index.split('-')))):
-                final_index.append(_idx)
-            final_index.append(_idx + 1)  # inclusive of the last integer in range
-        else:  # single index
+        if '-' in index:  # This is a range, extract ranges
+            try:
+                low, high = index.split('-')
+            except ValueError:  # Too many values to unpack
+                raise InputError(
+                    f"Couldn't coerce the range '{index}' to a compatible range. Use the format 1-4 to specify the "
+                    f"index consisting of 1,2,3,4")
+            try:
+                final_index.extend([idx for idx in range(int(low), int(high) + 1)])  # Include the last integer in range
+            except ValueError:
+                raise InputError(f"Couldn't coerce the input '{index}' to a compatible range({low}, {high})")
+        else:  # Single integer
             final_index.append(int(index))
 
     return final_index
@@ -1182,21 +1189,21 @@ class PoseSpecification:
         #           for residue in format_index_string(residues_s)) for design_directives in all_design_directives]
         for design_directives in all_design_directives:
             # print('Design Directives', design_directives)
-            residue_directives = []
-            # print('splitting residues', design_directives.split())
-            # print('splitting directives', list(map(str.split, design_directives.split(), repeat(self.directive_delimiter))))
+            parsed_directives = []
             # for residues_s, directive in map(str.split, design_directives.split(), repeat(self.directive_delimiter)):
             for design_directive in design_directives.split():
                 try:
-                    residues_s, directive = design_directive.split(self.directive_delimiter)
+                    design_specification, directive = design_directive.split(self.directive_delimiter)
                 except ValueError:  # Not enough values to unpack
                     break
                 else:
-                    # residues_s, directive = _directive.split(self.directive_delimiter)
-                    residue_directives.extend([(residue, directive) for residue in format_index_string(residues_s)])
-            # print('Residue Directives', residue_directives)
-            self.directives.append(dict(residue_directives))
-        # print('Total Design Directives', self.directives)
+                    if design_specification.replace(',', '').replace('-', '') == design_specification:
+                        parsed_directives.append((design_specification, directive))
+                    else:
+                        parsed_directives.extend([(spec, directive) for spec in format_index_string(design_specification)])
+            self.directives.append(dict(parsed_directives))
+
+        # logger.debug(f'Total Design Directives: {self.directives}')
 
     def get_directives(self) -> Iterator[tuple[str, list[str] | None, list[dict[int, str]] | None]]:
         """Retrieve the parsed PoseID, Design Name, and Mutation Directive information from a Specification file
@@ -1216,35 +1223,41 @@ class PoseSpecification:
 
         # Ensure correctly sized inputs. Create blank data otherwise
         number_pose_identifiers = len(self.pose_identifiers)
-        if self.directives:
-            if number_pose_identifiers != len(self.directives):
-                raise ValueError('The inputs to the PoseSpecification have different lengths')
-        else:
-            directives = list(repeat(None, number_pose_identifiers))
-
         if self.design_names:  # design_file
             if number_pose_identifiers != len(self.design_names):
-                raise ValueError('The inputs to the PoseSpecification have different lengths')
+                raise ValueError(
+                    f"The 'design identifiers' provided to {self.__class__.__name__} are a different length "
+                    f"({len(self.design_names)}) than the 'pose identifiers' ({number_pose_identifiers})")
+            if self.directives:
+                if number_pose_identifiers != len(self.directives):
+                    raise ValueError(
+                        f"The 'directives' provided to {self.__class__.__name__} are a different length "
+                        f"({len(self.directives)}) than the 'pose identifiers' ({number_pose_identifiers})")
+            else:
+                directives = list(repeat(None, number_pose_identifiers))
         else:
             design_names = list(repeat(None, number_pose_identifiers))
+            directives = design_names.copy()
 
         # Group the pose_identifiers with the design_names and directives
         if len(found_poses) == number_pose_identifiers:  # There is one design per pose
-            if self.directives:
-                directives = [[directive] for directive in self.directives]
             if self.design_names:
                 design_names = [[design_name] for design_name in self.design_names]
+                if self.directives:
+                    directives = [[directive] for directive in self.directives]
         else:  # More than one
-            if self.directives:
-                directives = []
-                for indices in found_poses.values():
-                    directives.append([self.directives[index] for index in indices])
             if self.design_names:
-                design_names = []
-                for indices in found_poses.values():
-                    design_names.append([self.design_names[index] for index in indices])
+                design_names = [[self.design_names[index] for index in indices] for indices in found_poses.values()]
+                for pose_identifier, names in zip(found_poses, design_names):
+                    if len(names) != len(set(names)):
+                        overlapping_designs = {design: names.count(design) for design in names}
+                        raise InputError(f"Can't use a specification file with more than one entry for the same design"
+                                         f".\nThe design{'' if len(overlapping_designs) == 1 else 's'} "
+                                         f"{', '.join(overlapping_designs)} for pose '{pose_identifier}'")
+                if self.directives:
+                    directives = [[self.directives[index] for index in indices] for indices in found_poses.values()]
 
-        # With above logic, it isn't possible to have UnboundLocalError of design_names, directives
+        # With above logic, it's impossible to have UnboundLocalError of design_names, directives
         return zip(found_poses, design_names, directives)
 
 
