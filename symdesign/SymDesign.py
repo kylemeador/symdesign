@@ -8,6 +8,7 @@ from __future__ import annotations
 # import logging
 import logging.config
 import os
+import random
 import shutil
 import sys
 from argparse import Namespace
@@ -232,7 +233,7 @@ def initialize_metadata(session: Session,
     else:
         existing_protein_metadata = list(existing_protein_metadata)
 
-    existing_entity_ids = {data.entity_id for data in existing_protein_metadata}
+    existing_entity_ids = {protein_data.entity_id for protein_data in existing_protein_metadata}
     # Remove the certainly existing from possibly new and query the new
     existing_protein_metadata_stmt = \
         select(sql.ProteinMetadata) \
@@ -240,7 +241,7 @@ def initialize_metadata(session: Session,
     # Add all requested to those known about
     existing_protein_metadata += session.scalars(existing_protein_metadata_stmt).all()
 
-    # Get the existing ProteinMetadata.entity_ids
+    # Get all the existing ProteinMetadata.entity_ids to handle the certainly new ones
     existing_entity_ids = {protein_data.entity_id for protein_data in existing_protein_metadata}
     # The remaining entity_ids are new and must be added
     new_entity_ids = possibly_new_entity_ids.difference(existing_entity_ids)
@@ -1256,6 +1257,7 @@ def main():
             # existing_protein_properties_ids = set()
             existing_uniprot_entities = set()
             existing_protein_metadata = set()
+            existing_random_ids = []
             remove_pose_jobs = []
             pose_jobs_to_commit = []
             for idx, pose_job in enumerate(pose_jobs):
@@ -1274,10 +1276,29 @@ def main():
                     for entity, symmetry in zip(pose_job.initial_model.entities, symmetry_map):
                         try:
                             ''.join(entity.uniprot_ids)
-                        except TypeError:  # Uniprot_ids is (None,)
-                            entity.uniprot_ids = (entity.name,)
-                        except AttributeError:  # Unable to retrieve .uniprot_ids
-                            entity.uniprot_ids = (entity.name,)
+                        except (TypeError, AttributeError):  # Uniprot_ids is (None,), Unable to retrieve .uniprot_ids
+                            if entity.name < wrapapi.uniprot_accession_length:
+                                entity.uniprot_ids = (entity.name,)
+                            else:  # Make up an accession
+                                # Todo, one of the following when used for de novo designed sequences with no homologous
+                                #  sequences
+                                #  - BLAST sequence and get genbank id. This is possible, but interface with NCBI not
+                                #  ideal for large data retrieval due to limitations, clustering, etc...
+                                #  >See https://blast.ncbi.nlm.nih.gov/doc/blast-help/developerinfo.html
+                                #  - Using a custom database of hhblits results from prior (and possibly new)
+                                #  sequence inputs as a way to search for sequence alignment. Probably just a search of
+                                #  the new sequence against the most similar hhm in thed database, however, this may
+                                #  take as much time as just searching existing hhblits database
+                                #  >See https://github.com/soedinglab/hh-suite/wiki#building-customized-databases
+                                random_accession = f'Rid{random.randint(0,99999):5d}'
+                                # Todo, make part of a session
+                                #  select_random_ids_stmt = select(wrapapi.UniProtEntity.id)
+                                #  existing_random_ids = session.execute(select_random_ids_stmt).all()
+                                while random_accession in existing_random_ids:
+                                    random_accession = f'Rid{random.randint(0,99999):5d}'
+                                else:
+                                    existing_random_ids.append(random_accession)
+                                entity.uniprot_ids = (random_accession,)
                         # else:  # .uniprot_ids work. Use as parsed
                         uniprot_ids = entity.uniprot_ids
 
@@ -1295,7 +1316,7 @@ def main():
                             # Try to get the already parsed secondary structure information
                             parsed_secondary_structure = retrieve_stride_info(name=entity.name)
                             if parsed_secondary_structure:
-                                # We already have this SS information
+                                # Already have this SS information
                                 entity.secondary_structure = parsed_secondary_structure
                             else:
                                 # entity = Entity.from_file(data.model_source, name=data.entity_id, metadata=data)
