@@ -144,11 +144,11 @@ def find_matching_entities_by_sequence(sequence: str = None, return_id: return_t
         The EntityID's matching the sequence
     """
     if return_id not in return_type_args:
-        raise KeyError(f"The specified return type '{return_id}' isn't supported. Viable types include "
-                       f"{', '.join(return_type_args)}")
+        raise KeyError(
+            f"The specified return_id '{return_id}' isn't supported. Allowed values: {', '.join(return_type_args)}")
     logger.debug(f'Using the default sequence similarity parameters: '
                  f'{", ".join(f"{k}: {v}" for k, v in default_sequence_values.items())}')
-    sequence_query = generate_terminal_group(service='sequence', sequence=sequence)
+    sequence_query = format_terminal_group(service='sequence', sequence=sequence)
     sequence_query_results = query_pdb(
         generate_query(sequence_query, return_id=return_id, cluster_uniprot=True, **kwargs))
     if sequence_query_results:
@@ -261,16 +261,19 @@ def query_pdb(query_: dict[Any] | str, json_formatted: bool = False) -> dict[str
     return None
 
 
-default_sequence_values = {'evalue_cutoff': 0.0001, 'identity_cutoff': 0.5}
+# identity_cutoff was scaled to 50% due to scoring function and E-value usage
+default_sequence_values = {'evalue_cutoff': 0.0001, 'identity_cutoff': 0.3}
 
 
-# Todo set up by kwargs
-def generate_parameters(attribute=None, operator=None, negation=None, value=None, sequence=None, **kwargs):
-    if sequence:  # scaled identity_cutoff to 50% due to scoring function and E-value usage
-        return {**default_sequence_values, 'sequence_type': 'protein', 'value': sequence}
-        # 'target': 'pdb_protein_sequence',
-    else:
-        return {'attribute': attribute, 'operator': operator, 'negation': negation, 'value': value}
+def format_parameters(*args, attribute=None, operator=None, negation=None, value=None, **kwargs) \
+        -> dict[str, Any]:
+    if args:
+        logger.warning(f"The arguments with values ({', '.join(map(repr, args))}) weren't utilized in "
+                       f"{format_parameters.__name__}")
+    if kwargs:
+        logger.warning(f"The arguments with values {', '.join(f'{k}: {v}' for k, v in default_sequence_values.items())}"
+                       f" weren't utilized in {format_parameters.__name__}")
+    return dict(attribute=attribute, operator=operator, negation=negation, value=value)
 
 
 def pdb_id_matching_uniprot_id(uniprot_id, return_id: return_types_literal = 'polymer_entity') -> list[str]:
@@ -283,15 +286,16 @@ def pdb_id_matching_uniprot_id(uniprot_id, return_id: return_types_literal = 'po
         The list of matching IDs
     """
     if return_id not in return_type_args:
-        raise KeyError('The specified return type "%s" is not supported. Viable types include %s'
-                       % (return_id, ', '.join(return_type_args)))
+        raise KeyError(
+            f"The specified return_id '{return_id}' isn't supported. Allowed values: {', '.join(return_type_args)}")
     database = {'attribute': 'rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.database_name',
                 'negation': False, 'operator': 'exact_match', 'value': 'UniProt'}
     accession = \
         {'attribute': 'rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.database_accession',
          'negation': False, 'operator': 'in', 'value': [uniprot_id]}
 
-    uniprot_query = [generate_terminal_group('text', **database), generate_terminal_group('text', **accession)]
+    uniprot_query = [format_terminal_group(service='text', **database),
+                     format_terminal_group(service='text', **accession)]
     final_query = generate_group('and', uniprot_query)
     search_query = generate_query(final_query, return_id=return_id)
     response_d = query_pdb(search_query)
@@ -301,12 +305,30 @@ def pdb_id_matching_uniprot_id(uniprot_id, return_id: return_types_literal = 'po
         return []
 
 
-def generate_group(operation, child_groups):
+def generate_group(operation, child_groups: Iterable[dict[str, Any]]) -> dict[str, Any]:
     return {'type': 'group', 'logical_operator': operation, 'nodes': list(child_groups)}
 
 
-def generate_terminal_group(service, *parameter_args, **kwargs):
-    return {'type': 'terminal', 'service': service, 'parameters': generate_parameters(**kwargs)}
+service_types_literal = Literal['sequence', 'text']
+
+
+def format_terminal_group(*group_args, service: service_types_literal = 'text', **group_kwargs) -> dict[str, Any]:
+    terminal_group = dict(type='terminal', service=service)
+    if service == 'text':
+        terminal_group['parameters'] = format_parameters(*group_args, **group_kwargs)
+    elif service == 'sequence':
+        sequence_values = default_sequence_values.copy()
+        if 'evalue_cutoff' in kwargs:
+            sequence_values['evalue_cutoff'] = kwargs['evalue_cutoff']
+        if 'identity_cutoff' in kwargs:
+            sequence_values['identity_cutoff'] = kwargs['identity_cutoff']
+
+        terminal_group.update(dict(sequence_type='protein', value=sequence, **sequence_values))
+        # 'target': 'pdb_protein_sequence',
+    else:
+        raise ValueError(f"The service '{service}' isn't implemented. Only 'text' and 'sequence' are valid")
+
+    return terminal_group
 
 
 # Return types and modifiers
@@ -727,12 +749,13 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
         # recursive_query_tree = (queries, grouping1, grouping2, etc.)
         for i, node in enumerate(recursive_query_tree):
             if i == 0:
-                recursive_query_tree[i] = {j: generate_terminal_group(**leaf) for j, leaf in enumerate(node, 1)}
-                # recursive_query_tree[i] = {j: generate_terminal_group(*node[leaf]) for j, leaf in enumerate(node, 1)}
+                recursive_query_tree[i] = {j: format_terminal_group(**leaf) for j, leaf in enumerate(node, 1)}
+                # recursive_query_tree[i] = {j: format_terminal_group(*node[leaf]) for j, leaf in enumerate(node, 1)}
 
-                # terminal_group_queries = {j: generate_terminal_group(*leaf) for j, leaf in enumerate(node)}
-                # generate_terminal_group(service, parameter_args)
-                # terminal_group_queries[increment] = generate_terminal_group(service, attribute, operator, value)
+                # terminal_group_queries = {j: format_terminal_group(*leaf) for j, leaf in enumerate(node)}
+                # format_terminal_group(parameter_args, service=service)
+                # terminal_group_queries[increment] = \
+                #     format_terminal_group(attribute, operator, value, service=service)
             else:
                 # if i == 1:
                 #     child_groups = terminal_group_queries
