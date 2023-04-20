@@ -227,7 +227,7 @@ class PDBDataStore(DataStore):
         return thermophilicity_from_entity_json(data)
 
     def retrieve_entity_data(self, name: str = None, **kwargs) -> dict | None:
-        """Return data requested by PDB EntityID. If in the Database, loads, otherwise, queries the PDB API and stores
+        """Return data requested by PDB EntityID. If in the Database, load, otherwise, query the PDB API and store
 
         Args:
             name: The name of the data to be retrieved. Will be found with location and extension attributes
@@ -241,13 +241,12 @@ class PDBDataStore(DataStore):
                 logger.warning(f'PDB API found no matching results for {name}')
             else:
                 data = request.json()
-                # setattr(self, name, data)
                 self.store_data(data, name=name)
 
         return data
 
     def retrieve_assembly_data(self, name: str = None, **kwargs) -> dict | None:
-        """Return data requested by PDB AssemblyID. If in the Database, loads, otherwise, queries the PDB API and stores
+        """Return data requested by PDB AssemblyID. If in the Database, load, otherwise, query the PDB API and store
 
         Args:
             name: The name of the data to be retrieved. Will be found with location and extension attributes
@@ -261,7 +260,6 @@ class PDBDataStore(DataStore):
                 logger.warning(f'PDB API found no matching results for {name}')
             else:
                 data = request.json()
-                # setattr(self, name, data)
                 self.store_data(data, name=name)
 
         return data
@@ -350,25 +348,28 @@ class PDBDataStore(DataStore):
                         return data
             else:
                 logger.debug(f"EntryID '{entry}' isn't the required format and will not be found with the PDB API")
-
         elif assembly_id is not None:
-            entry, assembly_integer, *extra = assembly_id.split('-')
-            if not extra and len(entry) == 4:
-                # logger.debug(f'Querying PDB API with {entry}-{assembly_integer}')
-                # data = self.assembly_api.retrieve_data(name=f'{entry}-{assembly_integer}')
-                return parse_assembly_json(self.retrieve_assembly_data(name=f'{entry}-{assembly_integer}'))
+            try:
+                entry, assembly_integer, *extra = assembly_id.split('-')
+            except ValueError:  # Not enough values to unpack
+                pass
+            else:
+                if not extra and len(entry) == 4:
+                    # logger.debug(f'Querying PDB API with {entry}-{assembly_integer}')
+                    return parse_assembly_json(self.retrieve_assembly_data(name=f'{entry}-{assembly_integer}'))
 
             logger.debug(f"AssemblyID '{assembly_id}' isn't the required format and will not be found with the PDB API")
-
         elif entity_id is not None:
-            entry, entity_integer, *extra = entity_id.split('_')
-            if not extra and len(entry) == 4:
-                # logger.debug(f'Querying PDB API with {entry}_{entity_integer}')
-                # data = self.entity_api.retrieve_data(name=f'{entry}_{entity_integer}')
-                return parse_entities_json([self.retrieve_entity_data(name=f'{entry}_{entity_integer}')])
+            try:
+                entry, entity_integer, *extra = entity_id.split('_')
+            except ValueError:  # Not enough values to unpack
+                pass
+            else:
+                if not extra and len(entry) == 4:
+                    # logger.debug(f'Querying PDB API with {entry}_{entity_integer}')
+                    return parse_entities_json([self.retrieve_entity_data(name=f'{entry}_{entity_integer}')])
 
             logger.debug(f"EntityID '{entity_id}' isn't the required format and will not be found with the PDB API")
-
         else:  # This could've been passed as name=. This case would need to be solved with some parsing of the splitter
             raise RuntimeError(f'No valid arguments passed to {self.retrieve_data.__name__}. Valid arguments include: '
                                f'entry, assembly_id, assembly_integer, entity_id, entity_integer, chain')
