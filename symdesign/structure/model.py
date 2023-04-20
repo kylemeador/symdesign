@@ -1202,7 +1202,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as mechanism could change
             # self._coords.replace(self._atom_indices, coords)
 
-    def _retrieve_info_from_api(self):
+    def retrieve_info_from_api(self):
         """Try to set attributes about the Entity from PDB API query information
 
         Sets:
@@ -1266,7 +1266,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         except AttributeError:
             # Set None but attempt to get from the API
             self._uniprot_ids = (None,)
-            self._retrieve_info_from_api()
+            self.retrieve_info_from_api()
         return self._uniprot_ids
 
     @uniprot_ids.setter
@@ -1289,7 +1289,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         try:
             return self._reference_sequence
         except AttributeError:
-            self._retrieve_info_from_api()
+            self.retrieve_info_from_api()
             if not self._reference_sequence:
                 self._reference_sequence = self._retrieve_sequence_from_api()
                 if self._reference_sequence is None:

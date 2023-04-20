@@ -1272,6 +1272,21 @@ def main():
                         logger.error(error)
                         remove_pose_jobs.append(idx)
                         continue
+                    if job.specify_entities:
+                        for entity in pose_job.initial_model.entities:
+                            old_name = entity.name
+                            proceed = True
+                            while proceed:
+                                new_name = input(
+                                    f"Which name should be used for {entity.__class__.__name__} with name '{old_name}'")
+                                if new_name == old_name:
+                                    break
+                                # If different, ensure that it is desired
+                                proceed = resources.query.confirm_input_action(
+                                    f"The name '{new_name}' will be used instead of '{old_name}'")
+                            if new_name != old_name:
+                                entity.name = specified_name
+                                entity.retrieve_info_from_api()
 
                     for entity, symmetry in zip(pose_job.initial_model.entities, symmetry_map):
                         try:

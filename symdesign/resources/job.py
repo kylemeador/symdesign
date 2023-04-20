@@ -375,6 +375,7 @@ class JobResources:
 
         # PoseJob initialization flags
         self.init = Init.from_flags(**kwargs)
+        self.specify_entities = kwargs.get('specify_entities')
         # self.init.pre_refined
         # self.init.pre_loop_modeled
         # self.init.refine_input

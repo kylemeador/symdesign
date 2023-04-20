@@ -117,6 +117,7 @@ update_db = 'update_db'
 measure_pose = 'measure_pose'
 cluster_selection = 'cluster_selection'
 number_of_commands = 'number_of_commands'
+specify_entities = 'specify_entities'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -302,6 +303,7 @@ update_db = format_for_cmdline(update_db)
 measure_pose = format_for_cmdline(measure_pose)
 cluster_selection = format_for_cmdline(cluster_selection)
 number_of_commands = format_for_cmdline(number_of_commands)
+specify_entities = format_for_cmdline(specify_entities)
 
 select_modules = (
     select_poses,
@@ -1484,7 +1486,9 @@ input_arguments = {
                   # 'poseID, [designID], [1:directive 2-9:directive ...]\n'
                   '"pose_identifier, [design_name], [1:directive 2-9:directive ...]"\n'
                   'where [] indicate optional arguments. Both individual residue\n'
-                  'numbers and ranges (specified with "-") are possible indicators')
+                  'numbers and ranges (specified with "-") are possible indicators'),
+    (f'--{specify_entities}',): dict(action='store_true', help='Whether to initialize input Poses with user specified\n'
+                                                               'identities of each constituent Entity')
 }
 # parser_input_mutual = parser_input.add_mutually_exclusive_group()
 directory_args = ('-d', f'--{directory}')
