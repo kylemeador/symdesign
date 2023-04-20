@@ -29,15 +29,9 @@ except ImportError as profile_error:
     profile = None
 
 import symdesign.utils.path as putils
-# logging.config.fileConfig(putils.logging_cfg_file)
-# print(putils.logging_cfg['loggers'])
 logging.config.dictConfig(putils.logging_cfg)
-logger = logging.getLogger(putils.program_name.lower())  # __name__)
-# print(__name__)
-# print(logger.__dict__)
-# logger.info('Starting logger')
-# logger.warning('Starting logger')
-# input('WHY LOGGING')
+logger = logging.getLogger(putils.program_name.lower())
+
 from symdesign import flags, protocols, utils
 from symdesign.protocols.pose import PoseJob
 from symdesign.resources.job import JobResources, job_resources_factory
@@ -45,10 +39,9 @@ from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from symdesign.resources import distribute, query as user_query, sql, wrapapi
 from symdesign.structure.fragment.db import fragment_factory, euler_factory
 from symdesign.structure.model import Entity, Model, Pose
-# from symdesign.structure import utils as stutils
 
 
-resubmit_command_message = f'After completion of sbatch script(s), re-submit your {putils.program_name} ' \
+resubmit_command_message = f'After completion of script(s), re-submit your {putils.program_name} ' \
                            f'command:\n\tpython {" ".join(sys.argv)}'
 
 
@@ -1276,15 +1269,15 @@ def main():
                             old_name = entity.name
                             proceed = False
                             while not proceed:
-                                new_name = user_query.format_input(
+                                specified_name = user_query.format_input(
                                     f"Which name should be used for {entity.__class__.__name__} with name '{old_name}'"
                                     f" and chainID '{entity.chain_id}'")
-                                if new_name == old_name:
+                                if specified_name == old_name:
                                     break
                                 # If different, ensure that it is desired
                                 proceed = user_query.confirm_input_action(
-                                    f"The name '{new_name}' will be used instead of '{old_name}'")
-                            if new_name != old_name:
+                                    f"The name '{specified_name}' will be used instead of '{old_name}'")
+                            if specified_name != old_name:
                                 entity.name = specified_name
                                 entity.retrieve_info_from_api()
 
