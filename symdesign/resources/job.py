@@ -14,11 +14,9 @@ from typing import Annotated, AnyStr, Any, Iterable, Sequence
 
 import jax
 import psutil
-import sqlalchemy.exc
 import tensorflow as tf
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.engine import Engine
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, Session
 
 from . import config, distribute, sql, structure_db, wrapapi
@@ -677,6 +675,11 @@ class JobResources:
         # else:
         # self.construct_pose = True
 
+        # Helix Bending flags
+        self.direction = kwargs.get('direction')
+        self.joint_residue = kwargs.get('joint_residue')
+        self.joint_chain = kwargs.get('joint_chain')
+        self.sample_number = kwargs.get('sample_number')
         # Prediction flags
         self.predict = Predict.from_flags(**kwargs)
         # self.num_predictions_per_model = kwargs.get('num_predictions_per_model')

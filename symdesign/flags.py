@@ -118,6 +118,11 @@ measure_pose = 'measure_pose'
 cluster_selection = 'cluster_selection'
 number_of_commands = 'number_of_commands'
 specify_entities = 'specify_entities'
+helix_bending = 'helix_bending'
+direction = 'direction'
+joint_chain = 'joint_chain'
+joint_residue = 'joint_residue'
+sample_number = 'sample_number'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -304,7 +309,11 @@ measure_pose = format_for_cmdline(measure_pose)
 cluster_selection = format_for_cmdline(cluster_selection)
 number_of_commands = format_for_cmdline(number_of_commands)
 specify_entities = format_for_cmdline(specify_entities)
-
+helix_bending = format_for_cmdline(helix_bending)
+direction = format_for_cmdline(direction)
+joint_chain = format_for_cmdline(joint_chain)
+joint_residue = format_for_cmdline(joint_residue)
+sample_number = format_for_cmdline(sample_number)
 select_modules = (
     select_poses,
     select_designs,
@@ -728,6 +737,9 @@ help_args = ('-h', '-help', '--help')
 help_kwargs = dict(action='store_true', help=f'Display {program_name}/module argument help\nEx:'
                                              f' "{program_command} --help"')
 output_directory_args = ('-Od', f'--{output_directory}', '--outdir')
+output_directory_kwargs = dict(type=os.path.abspath, default=None,
+                               help='If provided, the name of the directory to output all created files.\n'
+                                    'Otherwise, one will be generated based on the time, input, and module')
 output_file_args = ('-Of', f'--{output_file}')
 quick_args = (f'--{quick}',)
 setup_args = ('--setup',)
@@ -907,6 +919,20 @@ predict_structure_arguments = {
 # ---------------------------------------------------
 orient_help = 'Orient a symmetric assembly in a canonical orientation at the origin'
 parser_orient = {orient: dict(description=orient_help, help=orient_help)}
+orient_arguments = {}
+# ---------------------------------------------------
+helix_bending_help = ''
+parser_helix_bending = {helix_bending: dict(description=helix_bending_help, help=helix_bending_help)}
+joint_residue_args = (f'--{joint_residue}',)
+helix_bending_arguments = {
+    (f'--{direction}',): dict(type=str.upper, required=True, choices=('F', 'R'), default='F',
+                              help='Which direction should the bending be applied?\n'
+                                   'Choices=%(choices)s where F implies bending is applied to c-terminal residues'),
+    joint_residue_args: dict(type=int, required=True, help='The chain where the bending is desired at'),
+    (f'--{joint_chain}',): dict(required=True, help='The residue number to perform the bending at'),
+    (f'--{sample_number}',): dict(type=int, default=10, help='How many times should the distribution be sampled from\n'
+                                                             'Default=%(default)s')
+}
 # ---------------------------------------------------
 measure_pose_args = (f'--{measure_pose}',)
 measure_pose_kwargs = dict(action='store_true', help=f'Whether the pose should be included in measurements')
@@ -1523,10 +1549,7 @@ output_arguments = {
     ('-Oa', f'--{output_assembly}'):
         dict(action=argparse.BooleanOptionalAction, default=False,
              help='Whether the assembly should be output? Infinite materials are output in a unit cell'),
-    output_directory_args:
-        dict(type=os.path.abspath, default=None,
-             help='If provided, the name of the directory to output all created files.\nOtherwise, one will be '
-                  'generated based on the time, input, and module'),
+    output_directory_args: output_directory_kwargs,
     output_file_args: dict(type=str, help='If provided, the name of the output pose file.\nOtherwise, one will be '
                                           'generated based on the time, input, and module'),
     ('-OF', f'--{output_fragments}'):
@@ -1557,6 +1580,7 @@ output_arguments = {
 # string that own the group. i.e nanohedra"_mutual*" indicates nanohedra owns, or interface_design"_mutual*", etc
 module_parsers = {
     orient: parser_orient,
+    helix_bending: parser_helix_bending,
     refine: parser_refine,
     nanohedra: parser_nanohedra,
     'nanohedra_mutual1': parser_nanohedra_mutual1_group,  # _mutual1,
@@ -1606,6 +1630,8 @@ all_flags_arguments = {}
 #    # **residue_selector_arguments,
 # }
 parser_arguments = {
+    orient: orient_arguments,
+    helix_bending: helix_bending_arguments,
     refine: refine_arguments,
     nanohedra: nanohedra_arguments,
     'nanohedra_mutual1': nanohedra_mutual1_arguments,  # mutually_exclusive_group
