@@ -472,12 +472,15 @@ class PoseDirectory:
 # This MRO requires __init__ in PoseMetadata to pass PoseDirectory kwargs
 # class PoseData(sql.PoseMetadata, PoseDirectory):
 class PoseData(PoseDirectory, sql.PoseMetadata):
-    # _design_indices: list[int]
-    # _fragment_observations: list[fragment.db.fragment_info_type]
+    _current_designs: list | list[sql.DesignData]
+    """Hold DesignData that were specified/generated in the scope of this job"""
     _design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict
+    _directives: list[dict[int, str]]
     _sym_entry: SymEntry
     # _entity_names: list[str]
     # _pose_transformation: list[transformation_mapping]
+    _job_kwargs: dict[str, Any]
+    _source: AnyStr
     # entity_data: list[EntityData]  # DB
     # name: str  # DB
     # project: str  # DB
@@ -485,11 +488,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     # """The identifier which is created by a concatenation of the project, os.sep, and name"""
     # id: int  # DB
     # """The database row id for the 'pose_data' table"""
-    _source: AnyStr
-    _directives: list[dict[int, str]]
-    _current_designs: list | list[sql.DesignData]
-    # current_designs: list | list[sql.DesignData]
-    """Hold DesignData that has been generated in the scope of this job"""
     initial_model: Model | None
     """Used if the pose structure has never been initialized previously"""
     measure_evolution: bool | None
@@ -502,7 +500,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     # specific_designs_file_paths: list[AnyStr] = []
     # """Contains the various file paths for each design of interest according to self.specific_designs"""
 
-    # START classmethods where PoseData hasn't been initialized from sqlalchemy
+    # START classmethod where PoseData hasn't been initialized from sqlalchemy
     @classmethod
     def from_path(cls, path: str, project: str = None, **kwargs):
         # path = os.path.abspath(path)
@@ -891,18 +889,26 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         return self.sym_entry is not None
 
     @property
+    def job_kwargs(self) -> dict[str, Any]:
+        """Returns the keyword args that initialize the Pose given program input and PoseJob state"""
+        try:
+            return self._job_kwargs
+        except AttributeError:
+            self._job_kwargs = dict(sym_entry=self.sym_entry, log=self.log, design_selector=self.design_selector,
+                                    ignore_clashes=self.job.design.ignore_pose_clashes,
+                                    fragment_db=self.job.fragment_db, pose_format=self.job.pose_format)
+            return self._job_kwargs
+
+    @property
     def pose_kwargs(self) -> dict[str, Any]:
-        """Returns the kwargs necessary to initialize the Pose"""
+        """Returns the keyword args that initialize the Pose given program input and PoseJob state"""
         entity_info = {}
         for data in self.entity_data:
             entity_info.update(data.entity_info)
 
-        return dict(sym_entry=self.sym_entry, log=self.log, design_selector=self.design_selector,
-                    # entity_metadata=self.entity_data,
-                    entity_info=entity_info,
-                    transformations=[data.transformation for data in self.entity_data],  # self.pose_transformation,
-                    ignore_clashes=self.job.design.ignore_pose_clashes, fragment_db=self.job.fragment_db,
-                    pose_format=self.job.pose_format)
+        transformations = [data.transformation for data in self.entity_data]
+        # entity_metadata=self.entity_data,
+        return dict(entity_info=entity_info, transformations=transformations, **self.job_kwargs)
 
     # @property
     # def pose_transformation(self) -> list[transformation_mapping]:
@@ -1941,7 +1947,7 @@ class PoseProtocol(PoseData):
         #     no_msa = False
         no_msa = True
         # Ensure clashes aren't checked as these stop operation
-        pose_kwargs = self.pose_kwargs
+        pose_kwargs = self.pose_kwargs.copy()
         pose_kwargs.update({'ignore_clashes': True})
 
         # Get features for the Pose and predict
@@ -3092,7 +3098,8 @@ class PoseProtocol(PoseData):
             protocol_s = {provided_name: 'metrics' for provided_name in rosetta_provided_new_design_names}
 
         # Process all desired files to Pose
-        design_poses = [Pose.from_file(file, **self.pose_kwargs) for file in design_paths_to_process]
+        pose_kwargs = self.pose_kwargs
+        design_poses = [Pose.from_file(file, **pose_kwargs) for file in design_paths_to_process]
         design_sequences = {pose.name: pose.sequence for pose in design_poses}
         # sequences_df = self.analyze_sequence_metrics_per_design(sequences=design_sequences)
 
@@ -3644,13 +3651,14 @@ class PoseProtocol(PoseData):
         #     designs = []
 
         # Compute structural measurements for all designs
+        pose_kwargs = self.pose_kwargs
         interface_local_density = {}
         # number_residues_interface = {}
         for pose in designs:
             try:
                 pose_name = pose.name
             except AttributeError:  # This is likely a filepath
-                pose = Pose.from_file(pose, **self.pose_kwargs)
+                pose = Pose.from_file(pose, **pose_kwargs)
                 pose_name = pose.name
             # Must find interface residues before measure local_density
             pose.find_and_split_interface()
@@ -3827,8 +3835,9 @@ class PoseProtocol(PoseData):
 
         # Process all desired files to Pose
         design_paths_to_process = [design.structure_path for design in designs]
+        pose_kwargs = self.pose_kwargs
         designs_poses = \
-            [Pose.from_file(file, **self.pose_kwargs) for file in design_paths_to_process if file is not None]
+            [Pose.from_file(file, **pose_kwargs) for file in design_paths_to_process if file is not None]
 
         if designs_poses:
             residues_df = self.analyze_residue_metrics_per_design(designs=designs_poses)
@@ -4004,11 +4013,12 @@ class PoseProtocol(PoseData):
         # Compute structural measurements for all designs
         per_residue_data: dict[str, dict[str, Any]] = {}
         interface_residues = []
+        pose_kwargs = self.pose_kwargs
         for pose in designs:
             try:
                 name = pose.name
             except AttributeError:  # This is likely a filepath
-                pose = Pose.from_file(pose, **self.pose_kwargs)
+                pose = Pose.from_file(pose, **pose_kwargs)
                 name = pose.name
             # Get interface residues
             pose.find_and_split_interface()
@@ -4298,7 +4308,8 @@ class PoseProtocol(PoseData):
         # Find all designs files
         # Todo fold these into Model(s) and attack metrics from Pose objects?
         if designs is None:
-            designs = [Pose.from_file(file, **self.pose_kwargs) for file in self.get_design_files()]  # Todo PoseJob(.path)
+            pose_kwargs = self.pose_kwargs
+            designs = [Pose.from_file(file, **pose_kwargs) for file in self.get_design_files()]  # Todo PoseJob(.path)
 
         pose_sequences = {pose.name: pose.sequence for pose in designs}
         sequences_df = self.analyze_sequence_metrics_per_design(pose_sequences)
