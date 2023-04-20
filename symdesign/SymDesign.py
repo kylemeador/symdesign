@@ -304,7 +304,7 @@ def initialize_structures(job: JobResources, symmetry: str = None, paths: Iterab
         # Make all names lowercase
         structure_names = list(map(str.lower, pdb_codes))
     elif query_codes:
-        save_query = validate_input_return_response_value(
+        save_query = user_query.validate_input_return_response_value(
             'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
         print(f'\nStarting PDB query\n')
         structure_names = retrieve_pdb_entries_by_advanced_query(save=save_query, entity=True)
@@ -1276,8 +1276,8 @@ def main():
                     if job.specify_entities:
                         for entity in pose_job.initial_model.entities:
                             old_name = entity.name
-                            proceed = True
-                            while proceed:
+                            proceed = False
+                            while not proceed:
                                 new_name = user_query.format_input(
                                     f"Which name should be used for {entity.__class__.__name__} with name '{old_name}'"
                                     f" and chainID '{entity.chain_id}'")

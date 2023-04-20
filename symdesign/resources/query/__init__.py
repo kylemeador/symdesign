@@ -26,6 +26,22 @@ def confirm_input_action(input_message: str) -> bool:
     """
     confirm = input(f'{input_message}\n{confirmation_string}').lower()
     while confirm not in bool_d:
-        confirm = input(f"{confirm} isn't a valid choice, please try again")
+        confirm = input(f"{confirm} isn't a valid choice, please try again{input_string}")
 
     return bool_d[confirm]
+
+
+def validate_input_return_response_value(prompt: str, response: dict[str, Any]) -> Any:
+    """Following a provided prompt, validate that the user input is a valid response then return the response outcome
+
+    Args:
+        prompt: The desired prompt
+        response: The response values to accept as keys and the resulting data to return as values
+    Returns:
+        The data matching the chosen response key
+    """
+    choice = input(f'{prompt}\nChoose from [{", ".join(response)}]{input_string}')
+    while choice not in response:
+        choice = input(f"{choice} isn't a valid choice, please try again{input_string}")
+
+    return response[_input]

@@ -41,22 +41,6 @@ def validate_input(prompt: str, response: Iterable[str]) -> str:
     return _input
 
 
-def validate_input_return_response_value(prompt: str, response: dict[str, Any]) -> Any:
-    """Following a provided prompt, validate that the user input is a valid response then return the response outcome
-
-    Args:
-        prompt: The desired prompt
-        response: The response values to accept as keys and the resulting data to return as values
-    Returns:
-        The data matching the chosen response key
-    """
-    _input = input(f'{prompt}\nChoose from [{", ".join(response)}]{input_string}')
-    while _input not in response:
-        _input = input(f'Invalid input... "{_input}" not a valid response. Try again{input_string}')
-
-    return response[_input]
-
-
 def validate_type(value: Any, dtype: Callable = str) -> bool:
     """Provide a user prompt to ensure the user input is what is desired
 
