@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any, Callable, Iterable
+
 from . import pdb, uniprot, utils
 
 input_string = '\nInput: '
