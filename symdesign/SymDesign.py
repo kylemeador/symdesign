@@ -1277,8 +1277,7 @@ def main():
                                     break
                                 # If different, ensure that it is desired
                                 if len(specified_name) != 6:  # 6 is the typical length for pdb entities, i.e. 1abc_1
-                                    logger.warning(f"The specified name '{specified_name}' isn't the expected number of"
-                                                   f" characters (6)")
+                                    logger.warning(f"'{specified_name}' isn't the expected number of characters (6)")
                                 proceed = user_query.confirm_input_action(
                                     f"The name '{specified_name}' will be used instead of '{old_name}'")
                             if specified_name != old_name:
@@ -1292,7 +1291,7 @@ def main():
                         try:
                             ''.join(entity.uniprot_ids)
                         except (TypeError, AttributeError):  # Uniprot_ids is (None,), Unable to retrieve .uniprot_ids
-                            if entity.name < wrapapi.uniprot_accession_length:
+                            if len(entity.name) < wrapapi.uniprot_accession_length:
                                 entity.uniprot_ids = (entity.name,)
                             else:  # Make up an accession
                                 # Todo, one of the following when used for de novo designed sequences with no homologous
