@@ -41,10 +41,8 @@ logger = logging.getLogger(putils.program_name.lower())  # __name__)
 from symdesign import flags, protocols, utils
 from symdesign.protocols.pose import PoseJob
 from symdesign.resources.job import JobResources, job_resources_factory
-from symdesign.resources import query as user_query
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
-from symdesign.resources.query.utils import validate_input_return_response_value
-from symdesign.resources import distribute, sql, wrapapi
+from symdesign.resources import distribute, query as user_query, sql, wrapapi
 from symdesign.structure.fragment.db import fragment_factory, euler_factory
 from symdesign.structure.model import Entity, Model, Pose
 # from symdesign.structure import utils as stutils
