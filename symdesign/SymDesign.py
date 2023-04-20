@@ -41,6 +41,7 @@ logger = logging.getLogger(putils.program_name.lower())  # __name__)
 from symdesign import flags, protocols, utils
 from symdesign.protocols.pose import PoseJob
 from symdesign.resources.job import JobResources, job_resources_factory
+from symdesign.resources import query as user_query
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from symdesign.resources.query.utils import validate_input_return_response_value
 from symdesign.resources import distribute, sql, wrapapi
@@ -1277,12 +1278,12 @@ def main():
                             old_name = entity.name
                             proceed = True
                             while proceed:
-                                new_name = input(
+                                new_name = user_query.format_input(
                                     f"Which name should be used for {entity.__class__.__name__} with name '{old_name}'")
                                 if new_name == old_name:
                                     break
                                 # If different, ensure that it is desired
-                                proceed = resources.query.confirm_input_action(
+                                proceed = user_query.confirm_input_action(
                                     f"The name '{new_name}' will be used instead of '{old_name}'")
                             if new_name != old_name:
                                 entity.name = specified_name
