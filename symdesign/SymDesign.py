@@ -1266,6 +1266,7 @@ def main():
                         continue
                     if job.specify_entities:
                         # Give the input new EntityID's
+                        logger.info(f"Modifying identifiers for the input '{pose_job.name}'?")
                         for entity in pose_job.initial_model.entities:
                             old_name = entity.name
                             proceed = False
