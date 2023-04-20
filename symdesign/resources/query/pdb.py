@@ -322,7 +322,10 @@ def format_terminal_group(*group_args, service: service_types_literal = 'text', 
             sequence_values['evalue_cutoff'] = kwargs['evalue_cutoff']
         if 'identity_cutoff' in group_kwargs:
             sequence_values['identity_cutoff'] = kwargs['identity_cutoff']
-
+        try:
+            sequence = group_kwargs['sequence']
+        except KeyError:
+            raise ValueError(f"Can't use the service='sequence' without providing keyword argument sequence='MSVQW...'")
         terminal_group.update(dict(sequence_type='protein', value=sequence, **sequence_values))
         # 'target': 'pdb_protein_sequence',
     else:
