@@ -326,7 +326,7 @@ def format_terminal_group(*group_args, service: service_types_literal = 'text', 
             sequence = group_kwargs['sequence']
         except KeyError:
             raise ValueError(f"Can't use the service='sequence' without providing keyword argument sequence='MSVQW...'")
-        terminal_group.update(dict(sequence_type='protein', value=sequence, **sequence_values))
+        terminal_group['parameters'] = dict(sequence_type='protein', value=sequence, **sequence_values)
         # 'target': 'pdb_protein_sequence',
     else:
         raise ValueError(f"The service '{service}' isn't implemented. Only 'text' and 'sequence' are valid")

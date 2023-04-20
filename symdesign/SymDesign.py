@@ -1355,15 +1355,14 @@ def main():
                                 # There could be no sym_entry, so fall back on the entity.symmetry
                                 symmetry_group=symmetry if symmetry else entity.symmetry
                             )
-                            logger.error(f"Found duplicate UniProtID identifier, {uniprot_ids}, for {protein_metadata}. "
-                                         f"This error wasn't expected to occur.{putils.report_issue}")
+                            logger.debug(f"Found duplicate UniProtID identifier, {uniprot_ids}, for {found_metadata}")
                             attrs_of_interest = \
                                 ['entity_id', 'reference_sequence', 'thermophilicity', 'symmetry_group', 'model_source']
-                            exist = '\n\t.'.join(
-                                [f'{attr}={getattr(protein_metadata, attr)}' for attr in attrs_of_interest])
-
-                            found = '\n\t.'.join([f'{attr}={getattr(found_metadata, attr)}' for attr in attrs_of_interest])
-                            logger.critical(f'Existing ProteinMetadata:\n{exist}\nNew ProteinMetadata:{found}\n')
+                            exist = '\n\t.'.join([f'{attr}={getattr(protein_metadata, attr)}'
+                                                  for attr in attrs_of_interest])
+                            found = '\n\t.'.join([f'{attr}={getattr(found_metadata, attr)}'
+                                                  for attr in attrs_of_interest])
+                            logger.debug(f'Existing ProteinMetadata:\n{exist}\nNew ProteinMetadata:{found}\n')
 
                         # # Create EntityData
                         # # entity_data.append(sql.EntityData(pose=pose_job,
