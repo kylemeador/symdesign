@@ -25,17 +25,6 @@ numbered_format_string = format_string.format('%d - %s', '%s')
 MAX_RESOURCE_ATTEMPTS = 0
 
 
-def format_input(prompt: str) -> str:
-    """Format the builtin input() using program specific formatting
-
-    Args:
-        prompt: The desired prompt
-    Returns:
-        The input
-    """
-    return input(f'{prompt}{input_string}')
-
-
 def validate_input(prompt: str, response: Iterable[str]) -> str:
     """Following a provided prompt, validate that the user input is a valid response then return the response outcome
 

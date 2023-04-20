@@ -1279,7 +1279,8 @@ def main():
                             proceed = True
                             while proceed:
                                 new_name = user_query.format_input(
-                                    f"Which name should be used for {entity.__class__.__name__} with name '{old_name}'")
+                                    f"Which name should be used for {entity.__class__.__name__} with name '{old_name}'"
+                                    f" and chainID '{entity.chain_id}'")
                                 if new_name == old_name:
                                     break
                                 # If different, ensure that it is desired
