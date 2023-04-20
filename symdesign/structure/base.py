@@ -877,11 +877,13 @@ class Atom(StructureBase):
             # return self._coords.coords[self.index]
             # ^ this method is what is needed, but not in line with API. v call flatten() to return correct shape
             return self._coords.coords[self._atom_indices].flatten()
-        except AttributeError:  # possibly the Atom was set with keyword argument coords instead of Structure Coords
-            # this shouldn't be used often as it will be quite slow... give warning?
-            # Todo try this
-            #  self.parent._collect_coords()  # this should grab all Atom coords and make them _coords (Coords)
-            return self.__coords
+        except (AttributeError, IndexError):
+            # Possibly the Atom was set with keyword argument coords instead of Structure Coords
+            # This shouldn't be used often as it will be quite slow... give warning?
+            return np.array([self.__coords])
+            # Todo try something like
+            #  return self.parent._collect_coords()
+            #  This would grab all Atom coords and make them _coords (Coords)
 
     @property
     def center_of_mass(self) -> np.ndarray:
