@@ -3527,8 +3527,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             if start is not None and end is not None:
                 residue_numbers = list(range(start, end + 1))
             else:
-                raise ValueError(f'{self.get_coords_subset.__name__}:'
-                                 f' Must provide either residue_numbers or start and end')
+                raise ValueError(
+                    f"{self.get_coords_subset.__name__}: Must provide either 'residue_numbers' or 'start' and 'end'")
 
         out_coords = []
         for residue in self.get_residues(residue_numbers):
@@ -3915,29 +3915,32 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """
         self.log.debug(f'Adding ideal helix to {termini}-terminus of {self.name}')
 
-        if length > 10:
-            raise ValueError(f'{self.add_ideal_helix.__name__}: length can not be greater than 10')
+        max_length = 10
+        if length > max_length:
+            raise ValueError(
+                f"{self.add_ideal_helix.__name__}: length can't be greater than {max_length}")
 
-        alpha_helix_15_struct = Structure(atoms=alpha_helix_15)
+        alpha_helix_15_struct = Structure.from_atoms(alpha_helix_15_atoms)
 
         align_length = 4  # 4 as the get_coords_subset is inclusive
         if termini == 'n':
             first_residue = self.n_terminal_residue
             first_residue_number = first_residue.number
-            last_residue_number = first_residue_number+align_length
+            last_residue_number = first_residue_number + align_length
             fixed_coords = self.get_coords_subset(start=first_residue_number, end=last_residue_number,
                                                   dtype='backbone')
             helix_align_start = 11
             helix_align_end = 15
             helix_start = helix_align_start - length
             # helix_end = helix_align_start-1
-            moving_coords = alpha_helix_15_struct.get_coords_subset(start=helix_align_start, end=helix_align_end, dtype='backbone')
+            moving_coords = \
+                alpha_helix_15_struct.get_coords_subset(start=helix_align_start, end=helix_align_end, dtype='backbone')
             rmsd, rot, tx = superposition3d(fixed_coords, moving_coords)
             alpha_helix_15_struct.transform(rotation=rot, translation=tx)
 
-            # Add residues then renumber
-            self._residues.insert(0, alpha_helix_15_struct.get_residues(
-                list(range(helix_start, helix_align_start))))  # helix_end+1
+            # Add residues, then renumber
+            self._residues.insert(first_residue.index, alpha_helix_15_struct.get_residues(
+                list(range(helix_start, helix_align_start))))  # helix_end + 1
             self._residues.reindex()  # .set_index()
             # Rename new residues to self.chain_id
             self.set_residues_attributes(chain_id=first_residue.chain_id)
@@ -3958,13 +3961,19 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             alpha_helix_15_struct.transform(rotation=rot, translation=tx)
 
             # Add residues then renumber
-            self._residues.append(
-                alpha_helix_15_struct.get_residues(list(range(helix_align_end, helix_end+1))))  # helix_start
+            add_residues = alpha_helix_15_struct.get_residues(list(range(helix_align_end, helix_end + 1)))  # helix_start
+            if last_residue.index + 1 == len(self._residues):
+                # This is the last residue of the Structure
+                self._residues.append(add_residues)
+            else:  # This is the last residue of this chain
+                self._residues.insert(last_residue.index, add_residues)
+
             self._residues.reindex()  # .set_index()
             # Rename new residues to self.chain_id
             self.set_residues_attributes(chain_id=last_residue.chain_id)
         else:
-            raise ValueError('termini must be wither "n" or "c"')
+            raise ValueError(
+                f'termini must be wither "n" or "c", not {termini}')
 
     @property
     def radius(self) -> float:

@@ -2,7 +2,7 @@ import argparse
 import math
 import os
 
-from symdesign import utils, structure
+from symdesign import flags, utils, structure
 
 
 class ListFile:
@@ -563,9 +563,10 @@ class HelixFusion:
         print('Done')
 
 
-def align(model1, residue_start1, residue_end1, model2, residue_start2, residue_end2,
-          chain1: str = 'A', chain2: str = 'A', extend_helix: bool = False) -> \
-        tuple(structure.model.Model, structure.model.Model):
+def align(model1: structure.model.Model, residue_start1: int, residue_end1: int,
+          model2: structure.model.Model, residue_start2: int, residue_end2: int,
+          chain_id1: str = 'A', chain_id2: str = 'A', extend_helix: bool = False) -> \
+        tuple[structure.model.Model, structure.model.Model]:
     """Take two Structure Models and align the second one to the first along a helical termini
 
     Args:
@@ -575,51 +576,47 @@ def align(model1, residue_start1, residue_end1, model2, residue_start2, residue_
         model2: The second model. This model will be moved during the procedure
         residue_start2: The first residue to use for alignment from model2
         residue_end2: The last residue to use for alignment from model2
-        chain1: The chainID to perform the alignment on in model1
-        chain2: The chainID to perform the alignment on in model2
+        chain_id1: The chainID to perform the alignment on in model1
+        chain_id2: The chainID to perform the alignment on in model2
         extend_helix: Whether an ideal helix should be used to extend the model1 alignment window
     Returns:
         The aligned Models
     """
-    # Get Building Blocks in pose format to remove need for fragments to use chain info
-    if not isinstance(model1, structure.base.Structure):
-        model1 = structure.model.Model.from_file(model1)
-    if not isinstance(model2, structure.base.Structure):
-        model2 = structure.model.Model.from_file(model2)
+    if residue_end1 - residue_start1 != residue_end2 - residue_start2:
+        raise ValueError(
+            f'The aligned lengths are not equal. model1 length, {residue_end1-residue_start1} != '
+            f'{residue_end2-residue_start2}, model2 length')
 
-    if residue_end1-residue_start1 != residue_end2-residue_start2:
-        raise ValueError(f'The aligned lengths are not equal! '
-                         f'model1 length ({residue_end1-residue_start1}) '
-                         f'!= model2 length ({residue_end2-residue_start2})')
+    chain1 = model1.chain(chain_id1)
+    if not chain1:
+        raise ValueError(
+            f"The provided chain_id1 '{chain_id1}' wasn't found in model1")
+    else:  # Set this variable in cases where an ideal helix is added
+        chain1_ = chain1
 
-    _chain1 = model1.chain(chain1)
-    if not _chain1:
-        raise ValueError(f'The provided chain1 {_chain1} was not found in model1')
-    else:  # Set the new variable to prepare for the case that an ideal helix is added
-        _chain1_ = _chain1
-
-    _chain2 = model2.chain(chain2)
-    if not _chain2:
-        raise ValueError(f'The provided chain1 {_chain1} was not found in model1')
+    chain2 = model2.chain(chain_id2)
+    if not chain2:
+        raise ValueError(
+            f"The provided chain_id2 '{chain_id2}' wasn't found in model2")
 
     while extend_helix:
-        n_terminal_number = _chain1.n_terminal_residue.number
-        c_terminal_number = _chain1.c_terminal_residue.number
+        n_terminal_number = chain1.n_terminal_residue.number
+        c_terminal_number = chain1.c_terminal_residue.number
 
-        model_residue_range = range(residue_start1, residue_end1 + 1)
+        model_residue_range = list(range(residue_start1, residue_end1 + 1))
         if n_terminal_number in model_residue_range or n_terminal_number < residue_start1:
-            termini = 'N'
-        elif c_terminal_number in model_residue_range or c_terminal_number > residue_start1:
-            termini = 'C'
-        else:  # we can't extend...
+            termini = 'n'
+        elif c_terminal_number in model_residue_range or c_terminal_number > residue_end1:
+            termini = 'c'
+        else:  # Can't extend...
             break
 
-        _chain1_ = _chain1.copy()
-        _chain1_.add_ideal_helix(termini=termini, length=residue_end2-residue_start2)
+        chain1_ = chain1.copy()
+        chain1_.add_ideal_helix(termini=termini, length=residue_end2 - residue_start2)
         break
 
-    coords1 = _chain1_.get_coords_subset(residue_start1, residue_end1)
-    coords2 = _chain2.get_coords_subset(residue_start2, residue_end2)
+    coords1 = chain1_.get_coords_subset(residue_start1, residue_end1)
+    coords2 = chain2.get_coords_subset(residue_start2, residue_end2)
 
     rmsd, rot, tx = structure.coords.superposition3d(coords1, coords2)
 
@@ -650,20 +647,10 @@ if __name__ == '__main__':
                              'Ex. --extend_helical_termini --ref_start_res 1 --ref_end_res 9 '
                              'will insert a 10 residue alpha helix to the reference range and perform alignment from '
                              'residue 1-9 of the extended alpha helix. Default=False')
-    parser.add_argument('-Od', '--outdir', '--output_directory',
-                        type=os.path.abspath, dest='output_directory', default=None,
-                        help='If provided, the name of the directory to output all created files.\nOtherwise, one will'
-                             ' be generated based on the time, input, and module'),
-    parser.add_argument('-o', '--out_path', type=str,
-                        help='The disk location of the output directory containing the alignment result')
-    parser.add_argument('-e', '--entry', f'--{utils.path.sym_entry}', type=int, default=None, dest=utils.path.sym_entry,
-                        help=f'The entry number of {utils.path.nanohedra.title()} docking combinations to use for '
-                             f'symmetry'),
-    parser.add_argument('-S', '--symmetry', type=str, default=None,
-                        help='The specific symmetry of the poses of interest.\nPreferably in a composition '
-                             'formula such as T:{C3}{C3}...\nCan also provide the keyword "cryst" to use crystal'
-                             ' symmetry'),
-    args = parser.parse_args()
+    parser.add_argument(*flags.output_directory_args, **flags.output_directory_kwargs),
+    parser.add_argument(*flags.sym_entry_args, **flags.sym_entry_kwargs),
+    parser.add_argument(*flags.symmetry_args, **flags.symmetry_kwargs),
+    args, additional_args = parser.parse_known_args()
 
     if args.symmetry or args.sym_entry:
         sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(sym_entry=args.sym_entry, sym_map=args.symmetry)
@@ -681,10 +668,8 @@ if __name__ == '__main__':
     else:
         c_term1 = False
 
-    if args.ref_start_res:
-        residue_number_start1 = args.ref_start_res
-    if args.ref_end_res:
-        residue_number_end1 = args.ref_end_res
+    residue_number_start1 = args.ref_start_res
+    residue_number_end1 = args.ref_end_res
 
     model2 = structure.model.Model.from_file(args.aligned_pdb)
     if model2.is_termini_helical():
@@ -696,23 +681,21 @@ if __name__ == '__main__':
     else:
         c_term2 = False
 
-    if args.ref_start_res:
-        residue_number_start2 = args.align_start_res
-    if args.align_end_res:
-        residue_number_end2 = args.align_end_res
+    residue_number_start2 = args.align_start_res
+    residue_number_end2 = args.align_end_res
 
     if args.extend_helical_termini:
         # Use a maximum 15 residue window if an ideal helix is added
-        alignment_window = 15-residue_number_end1-residue_number_start1
+        alignment_window = 15 - residue_number_end1 - residue_number_start1
     else:
-        alignment_window = residue_number_end1-residue_number_start1
+        alignment_window = residue_number_end1 - residue_number_start1
 
     for i in range(alignment_window):
         residue_number_start1 += i
         residue_number_end1 += i
         template_model, aligned_model = align(model1, residue_number_start1, residue_number_end1,
                                               model2, residue_number_start2, residue_number_end2,
-                                              chain1=args.ref_chain, chain2=args.aligned_chain,
+                                              chain_id1=args.ref_chain, chain_id2=args.aligned_chain,
                                               extend_helix=args.extend_helical_termini)
 
         full_model = structure.model.Pose.from_models([template_model, aligned_model], sym_entry=sym_entry)
