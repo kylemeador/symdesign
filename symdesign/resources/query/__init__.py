@@ -1,5 +1,7 @@
 from . import pdb, uniprot, utils
 
+input_string = '\nInput: '
+
 
 def format_input(prompt: str) -> str:
     """Format the builtin input() using program specific formatting

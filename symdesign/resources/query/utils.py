@@ -15,11 +15,11 @@ NOR = 'Norine'
 UKB = 'UniProt'
 """The module level identifer for a UniProtID"""
 input_string = '\nInput: '
-confirmation_string = 'If this is correct, indicate "y", if not "n", and you can re-input%s' % input_string
+confirmation_string = f'If this is correct, indicate "y", if not "n", and you can re-input{input_string}'
 bool_d = {'y': True, 'n': False, 'yes': True, 'no': False, '': True}
-boolean_input_string = '\nPlease specify [y/n]%s' % input_string
+boolean_input_string = f'\nPlease specify [y/n]{input_string}'
 invalid_string = 'Invalid choice, please try again.'
-header_string = '%s %s %s\n' % ('-' * 20, '%s', '-' * 20)
+header_string = f'{"-" * 20} %s {"-" * 20}\n'
 format_string = '\t{}\t\t{}'
 numbered_format_string = format_string.format('%d - %s', '%s')
 MAX_RESOURCE_ATTEMPTS = 0
