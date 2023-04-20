@@ -318,9 +318,9 @@ def format_terminal_group(*group_args, service: service_types_literal = 'text', 
         terminal_group['parameters'] = format_parameters(*group_args, **group_kwargs)
     elif service == 'sequence':
         sequence_values = default_sequence_values.copy()
-        if 'evalue_cutoff' in kwargs:
+        if 'evalue_cutoff' in group_kwargs:
             sequence_values['evalue_cutoff'] = kwargs['evalue_cutoff']
-        if 'identity_cutoff' in kwargs:
+        if 'identity_cutoff' in group_kwargs:
             sequence_values['identity_cutoff'] = kwargs['identity_cutoff']
 
         terminal_group.update(dict(sequence_type='protein', value=sequence, **sequence_values))
