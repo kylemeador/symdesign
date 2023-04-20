@@ -57,21 +57,6 @@ def validate_input_return_response_value(prompt: str, response: dict[str, Any]) 
     return response[_input]
 
 
-def confirm_input_action(input_message: str) -> bool:
-    """Given a prompt, query the user to verify their input is desired
-
-    Args:
-        input_message: A message specifying the program will take a course of action upon user consent
-    Returns:
-        True if the user wants to proceed with the described input_message otherwise False
-    """
-    confirm = input(f'{input_message}\n{confirmation_string}').lower()
-    while confirm not in bool_d:
-        confirm = input(f'{invalid_string} {confirm} is not a valid choice!')
-
-    return bool_d[confirm]
-
-
 def validate_type(value: Any, dtype: Callable = str) -> bool:
     """Provide a user prompt to ensure the user input is what is desired
 
