@@ -1247,12 +1247,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         elif self.initial_model:  # This is a fresh Model, and we already loaded so reuse
             self.structure_source = self.source_path
             # Remove the entity_info from pose_kwargs as it isn't available yet. Use that already parsed
-            pose_kwargs = self.pose_kwargs.copy()
-            pose_kwargs.pop('entity_info')
-            # pose_kwargs.pop('log')
             # Careful, if processing has occurred to the initial_model, then this may be wrong!
             self.pose = Pose.from_model(self.initial_model, entity_info=self.initial_model.entity_info,
-                                        name=self.name, **pose_kwargs)
+                                        name=self.name, **self.job_kwargs)
             # Todo should use the ProteinMetadata version if the constituent Entity coordinates aren't modified by
             #  some small amount as this will ensure that we are refined, and that loops are included...
             # We have to collect the EntityTransform for these if they are symmetric. Actually, we need the transform
