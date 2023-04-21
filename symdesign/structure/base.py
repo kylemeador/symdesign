@@ -4991,7 +4991,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         #         # residue_idx += 1
         # self.secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
 
-    def is_termini_helical(self, termini: termini_literal = 'n', window: int = 5) -> int:
+    def is_termini_helical(self, termini: termini_literal = 'n', window: int = 5) -> bool:
         """Using assigned secondary structure, probe for helical termini using a segment of 'window' residues. Will
         remove any disordered residues from the specified termini before checking, with the assumption that the
         disordered terminal residues are not integral to the structure
@@ -5015,9 +5015,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 f"The termini value {termini} isn't allowed. Must indicate one of {get_args(termini_literal)}")
 
         if 'H' * window in term_window:
-            return 1  # True
+            return True  # 1
         else:
-            return 0  # False
+            return False  # 0
 
     @property
     def secondary_structure(self) -> str:
