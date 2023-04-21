@@ -3756,24 +3756,36 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         for idx, residue in enumerate(residues, at):
             residue.number = idx
 
-    def get_residues(self, numbers: Container[int] = None, pdb: bool = False, **kwargs) -> list[Residue]:
-        """Retrieve Residue objects in Structure. Returns all by default. If a list of numbers is provided, the selected
-        Residues numbers are returned
+    def get_residues(self, numbers: Container[int] = None, indices: Iterable[int] = None, pdb: bool = False, **kwargs) \
+            -> list[Residue]:
+        """Retrieve Residue instances from the Structure. Returns all by default
 
         Args:
-            numbers: The Residue numbers of interest
+            numbers: Residue numbers of interest
+            indices: Residue indices of interest
             pdb: Whether to search for numbers as they were parsed
         Returns:
             The requested Residue instances, sorted in the order they appear in the Structure
         """
+        residues = self.residues
         if numbers is not None:
             if isinstance(numbers, Container):
                 number_source = 'number_pdb' if pdb else 'number'
-                return [residue for residue in self.residues if getattr(residue, number_source) in numbers]
+                residues = [residue for residue in residues if getattr(residue, number_source) in numbers]
             else:
                 self.log.warning(f'The passed numbers type "{type(numbers).__name__}" must be a Container. Returning '
                                  f'all Residue instances instead')
-        return self.residues
+        elif indices is not None:
+            try:
+                residues = [residues[idx] for idx in indices]
+            except IndexError:
+                number_of_residues = self.number_of_residues
+                for idx in indices:
+                    if idx < 0 or idx >= number_of_residues:
+                        raise IndexError(
+                            f'The residue index {idx} is out of bounds for the {self.__class__.__name__} {self.name} '
+                            f'with size of {number_of_residues} residues')
+        return residues
 
     def _create_residues(self):
         """For the Structure, create Residue instances/Residues object. Doesn't allow for alternative atom locations
@@ -4035,8 +4047,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             index: A Residue index to select the Residue instance of interest
             number: A Residue number to select the Residue instance of interest
             to: The type of amino acid to mutate to
-        Keyword Args:
-            pdb: bool = False - Whether to pull the Residue by PDB number
         Returns:
             The indices of the Atoms being removed from the Structure
         """
@@ -4044,10 +4054,11 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             try:
                 residue = self.residues[index]
             except IndexError:
-                raise IndexError(f'The residue index {index} is out of bounds for the {self.__class__.__name__} '
-                                 f'{self.name} with size of {self.number_of_residues} residues')
+                raise IndexError(
+                    f'The residue index {index} is out of bounds for the {self.__class__.__name__} '
+                    f'{self.name} with size of {self.number_of_residues} residues')
         elif number is not None:
-            residue = self.residue(number, **kwargs)
+            residue = self.residue(number)
 
         if residue is None:
             raise ValueError(f"Can't {self.mutate_residue.__name__} without Residue instance, index, or number")
@@ -4112,28 +4123,18 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """Delete Residue instances from the Structure
 
         Args:
-            residues: Residue instances to mutate
+            residues: Residue instances to delete
             indices: Residue indices to select the Residue instances of interest
             numbers: Residue numbers to select the Residue instances of interest
-        Keyword Args:
-            pdb: bool = False - Whether to pull the Residue by PDB number
         Returns:
             For each Residue deleted, the indices of the Residue Atoms. i.e. [[0,1,2,....],[25,26,27,...] or
                 an empty list
         """
         if indices is not None:
-            residues = self.residues
-            try:
-                residues = [residues[idx] for idx in indices]
-            except IndexError:
-                number_of_residues = self.number_of_residues
-                for idx in indices:
-                    if idx < 0 or idx >= number_of_residues:
-                        raise IndexError(f'The residue index {idx} is out of bounds for the {self.__class__.__name__} '
-                                         f'{self.name} with size of {number_of_residues} residues')
+            residues = self.get_residues(indices=indices)
         elif numbers is not None:
             # residue = self.residue(number, **kwargs)
-            residues = self.get_residues(numbers, **kwargs)
+            residues = self.get_residues(numbers=numbers)
 
         if residues is None:
             raise ValueError(f"Can't {self.delete_residues.__name__} without Residue instances, indices, or numbers")
@@ -4216,9 +4217,11 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         reference_index = \
             protein_letters_alph1.find(protein_letters_3to1_extended.get(residue_type, residue_type.upper()))
         if reference_index == -1:
-            raise IndexError(f"{self.insert_residue_type.__name__} of residue_type '{residue_type}' isn't allowed")
+            raise IndexError(
+                f"{self.insert_residue_type.__name__} of residue_type '{residue_type}' isn't allowed")
         if index < 0:
-            raise IndexError(f"{self.insert_residue_type.__name__} at index {index} < 0 isn't allowed")
+            raise IndexError(
+                f"{self.insert_residue_type.__name__} at index {index} < 0 isn't allowed")
 
         # Grab the reference atom coordinates and push into the atom list
         new_residue: Residue = stutils.reference_residues[reference_index].copy()
@@ -4369,7 +4372,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # Get the number of c-termini removed
         remove_x_cterm_residues = number_of_residues - len(working_secondary_structure) - remove_x_nterm_residues
         c_term_index = number_of_residues - remove_x_cterm_residues
-        final_secondary_structure = reversed(working_secondary_structure)
+        # final_secondary_structure = reversed(working_secondary_structure)
 
         self.log.debug(f'Found n-term secondary_structure {secondary_structure[:remove_x_nterm_residues + 5]}')
         self.log.debug(f'Found c-term secondary_structure {secondary_structure[-(remove_x_cterm_residues + 5):]}')
@@ -5008,8 +5011,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         elif termini in 'Cc':
             term_window = self.secondary_structure.rstrip(SS_DISORDER_IDENTIFIERS)[-search_window:]
         else:
-            raise ValueError(f"The termini value {termini} isn't allowed. Must indicate one"
-                             f" of {get_args(termini_literal)}")
+            raise ValueError(
+                f"The termini value {termini} isn't allowed. Must indicate one of {get_args(termini_literal)}")
 
         if 'H' * window in term_window:
             return 1  # True

@@ -3180,7 +3180,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             index: int = None - A Residue index to select the Residue instance of interest
             number: int = None - A Residue number to select the Residue instance of interest
             to: str = 'ALA' - The type of amino acid to mutate to
-            pdb: bool = False - Whether to pull the Residue by PDB number
         """
         delete_indices = super().mutate_residue(**kwargs)  # residue=residue, index=index, number=number, to=to,
         if not delete_indices:  # Probably an empty list, there are no indices to delete
@@ -3231,10 +3230,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         """Delete Residue instances from the Structure
 
         Keyword Args:
-            residues: Residue instances to mutate
+            residues: Residue instances to delete
             indices: Residue indices to select the Residue instances of interest
             numbers: Residue numbers to select the Residue instances of interest
-            pdb: bool = False - Whether to pull the Residue by PDB number
         Returns:
             Each Residue deleted
         """
@@ -4207,8 +4205,9 @@ class Models(Model):
         else:
             for model in models:
                 if not isinstance(model, Model):
-                    raise TypeError(f"Can't initialize {self.__class__.__name__} with a {type(model).__name__}. "
-                                    f'Must be an iterable of {Model.__name__}')
+                    raise TypeError(
+                        f"Can't initialize {self.__class__.__name__} with a {type(model).__name__}. Must be an Iterable"
+                        f' of {Model.__name__}')
             raise NotImplementedError("This method hasn't been solved logically... Current thinking is to take the "
                                       "input models and combine into a single model. If one wanted to maintain model "
                                       "independence, {MultiModel.__name__} is drafted better to suit that feature")
