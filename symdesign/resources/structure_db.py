@@ -336,8 +336,15 @@ class StructureDatabase(Database):
                                             f'{entity.name}.pdb{assembly_integer}')
                     entity.file_path = entity.write(out_path=asu_path)
 
-        def orient_existing_file(files: Iterable[str], symmetry: str) -> list[str]:
-            """Return the structure identifier for a file that is loaded and oriented"""
+        def orient_existing_file(files: Iterable[str], symmetry: str) -> list[structure.model.Model]:
+            """Return the structure identifier for a file that is loaded and oriented
+
+            Args:
+                files: The files to perform the orient protocol on
+                symmetry: The symmetry to use during orient protocol
+            Returns:
+                Each of the oriented Model instances
+            """
             # non_viable_structures = []
             all_structure = []
             for file in files:
@@ -356,7 +363,7 @@ class StructureDatabase(Database):
                 orient_logger.info(f'Oriented: {orient_file}')  # <- This isn't ASU
                 write_entities_and_asu(model, assembly_integer)
 
-                model.symmetry = symmetry
+                # model.symmetry = symmetry
                 # structure_identifiers_.append(model.name)
                 all_structure.append(model)
 
@@ -365,14 +372,16 @@ class StructureDatabase(Database):
 
         if not symmetry or symmetry == 'C1':
             # Only possible if symmetry passed as None/False, in which case we should treat as asymmetric - i.e. C1
-            symmetry = 'C1'
             logger.info(f'The requested {"files" if by_file else "IDs"} are being set up into the DataBase: '
                         f'{", ".join(structure_identifiers)}')
+            sym_entry = None
+            sym_entry_resulting_symmetry = 'C1'
         else:
             logger.info(f'The requested {"files" if by_file else "IDs"} are being checked for proper orientation '
                         f'with symmetry {symmetry}: {", ".join(structure_identifiers)}')
 
-        sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=symmetry)
+            sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=symmetry)
+            sym_entry_resulting_symmetry = sym_entry.resulting_symmetry
         if by_file:
             # oriented_filepaths = orient_structure_files(structure_identifiers, log=orient_logger,
             #                                             symmetry=symmetry, out_dir=orient_dir)
@@ -380,7 +389,7 @@ class StructureDatabase(Database):
             # structure_identifiers = \
             #     list(map(os.path.basename, [os.path.splitext(file)[0]
             #                                 for file in filter(None, oriented_filepaths)]))
-            all_structures = orient_existing_file(structure_identifiers, symmetry)
+            all_structures = orient_existing_file(structure_identifiers, sym_entry_resulting_symmetry)
             report_non_viable_structures()
             return all_structures
 
@@ -448,7 +457,7 @@ class StructureDatabase(Database):
                     continue
 
                 try:  # Orient the Structure
-                    model.orient(symmetry=symmetry)
+                    model.orient(symmetry=sym_entry_resulting_symmetry)
                 except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
                     orient_logger.error(str(error))
                     non_viable_structures.append(structure_identifier)
@@ -479,208 +488,208 @@ class StructureDatabase(Database):
 
                 orient_logger.info(f'Oriented: {orient_file}')
 
-            # For every variation, set .symmetry to ensure preprocess_structures_for_design has attribute available
-            model.symmetry = symmetry
+            # # For every variation, set .symmetry to ensure preprocess_structures_for_design has attribute available
+            # model.symmetry = sym_entry_resulting_symmetry
             all_structures.append(model)
 
         report_non_viable_structures()
 
         return all_structures
 
-    def preprocess_structures_for_design(self, structures: list[structure.base.Structure],
-                                         script_out_path: AnyStr = os.getcwd(), batch_commands: bool = True) -> \
-            tuple[list, bool, bool]:
-        """Assess whether Structure objects require any processing prior to design calculations.
-        Processing includes relaxation "refine" into the energy function and/or modelling missing segments "loop model"
-
-        Args:
-            structures: An iterable of Structure objects of interest with the following attributes:
-                file_path, symmetry, name, make_loop_file(), make_blueprint_file()
-            script_out_path: Where should Entity processing commands be written?
-            batch_commands: Whether commands should be made for batch submission
-        Returns:
-            Any instructions if processing is needed, then booleans for whether refinement and loop modeling has already
-            occurred (True) or if files are not reported as having this modeling yet
-        """
-        # and loop_modelled (True)
-        # Todo
-        #  Need to move make_loop_file to Pose/Structure (with SequenceProfile superclass)
-        self.refined.make_path()
-        refine_names = self.refined.retrieve_names()
-        refine_dir = self.refined.location
-        self.full_models.make_path()
-        full_model_names = self.full_models.retrieve_names()
-        full_model_dir = self.full_models.location
-        # Identify the entities to refine and to model loops before proceeding
-        structures_to_refine, structures_to_loop_model, sym_def_files = [], [], {}
-        for _structure in structures:  # If _structure is here, the file should've been oriented...
-            sym_def_files[_structure.symmetry] = utils.SymEntry.sdf_lookup(_structure.symmetry)
-            if _structure.name not in refine_names:  # Assumes oriented_asu structure name is the same
-                structures_to_refine.append(_structure)
-            if _structure.name not in full_model_names:  # Assumes oriented_asu structure name is the same
-                structures_to_loop_model.append(_structure)
-
-        # For now remove this portion of the protocol
-        # Todo remove if need to model. Maybe using Alphafold
-        structures_to_loop_model = []
-
-        # Query user and set up commands to perform refinement on missing entities
-        if distribute.is_sbatch_available():
-            shell = distribute.sbatch
-        else:
-            shell = distribute.default_shell
-
-        info_messages = []
-        # Assume pre_refine is True until we find it isn't
-        pre_refine = True
-        if structures_to_refine:  # if files found unrefined, we should proceed
-            pre_refine = False
-            logger.critical('The following structures are not yet refined and are being set up for refinement'
-                            ' into the Rosetta ScoreFunction for optimized sequence design:\n'
-                            f'{", ".join(sorted(set(_structure.name for _structure in structures_to_refine)))}')
-            print(f'If you plan on performing {flags.design} using Rosetta, it is strongly encouraged that you perform '
-                  f'initial refinement. You can also refine them later using the {flags.refine} module')
-            print('Would you like to refine them now?')
-            if boolean_choice():
-                refine_input = True
-            else:
-                print('To confirm, asymmetric units are going to be generated with input coordinates. Confirm '
-                      'with "y" to ensure this is what you want')
-                if boolean_choice():
-                    refine_input = False
-                else:
-                    refine_input = True
-
-            if refine_input:
-                # Generate sbatch refine command
-                flags_file = os.path.join(refine_dir, 'refine_flags')
-                # if not os.path.exists(flags_file):
-                _flags = rosetta.rosetta_flags.copy() + rosetta.relax_flags
-                _flags.extend([f'-out:path:pdb {refine_dir}', '-no_scorefile true'])
-                _flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
-                variables = rosetta.rosetta_variables.copy()
-                variables.append(('dist', 0))  # Todo modify if not point groups used
-                _flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
-
-                with open(flags_file, 'w') as f:
-                    f.write('%s\n' % '\n'.join(_flags))
-
-                refine_cmd = [f'@{flags_file}', '-parser:protocol',
-                              os.path.join(putils.rosetta_scripts_dir, f'{putils.refine}.xml')]
-                refine_cmds = [rosetta.script_cmd + refine_cmd
-                               + ['-in:file:s', _structure.file_path, '-parser:script_vars']
-                               + [f'sdf={sym_def_files[_structure.symmetry]}',
-                                  f'symmetry={"asymmetric" if _structure.symmetry == "C1" else "make_point_group"}']
-                               for _structure in structures_to_refine]
-                if batch_commands:
-                    commands_file = \
-                        resources.distribute.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
-                                                            name=f'{utils.starttime}-refine_entities')
-                    refine_script = \
-                        distribute.distribute(commands_file, flags.refine, out_path=script_out_path,
-                                              log_file=os.path.join(refine_dir, f'{putils.refine}.log'),
-                                              max_jobs=int(len(refine_cmds)/2 + .5),
-                                              number_of_commands=len(refine_cmds))
-                    refine_script_message = f'Once you are satisfied, run the following to distribute refine jobs:' \
-                                            f'\n\t{shell} {refine_script}'
-                    info_messages.append(refine_script_message)
-                else:
-                    raise NotImplementedError("Currently, refinement can't be run in the shell. "
-                                              'Implement this if you would like this feature')
-
-        # Query user and set up commands to perform loop modelling on missing entities
-        # Assume pre_loop_model is True until we find it isn't
-        pre_loop_model = True
-        if structures_to_loop_model:
-            pre_loop_model = False
-            logger.info("The following structures haven't been modelled for disorder: "
-                        f'{", ".join(sorted(set(_structure.name for _structure in structures_to_loop_model)))}')
-            print(f'If you plan on performing {flags.design}/{flags.predict_structure} with them, it is strongly '
-                  f'encouraged that you build missing loops to avoid disordered region clashing/misalignment')
-            print('Would you like to model loops for these structures now?')
-            if boolean_choice():
-                loop_model_input = True
-            else:
-                print('To confirm, asymmetric units are going to be generated without modeling disordered loops. '
-                      'Confirm with "y" to ensure this is what you want')
-                if boolean_choice():
-                    loop_model_input = False
-                else:
-                    loop_model_input = True
-
-            if loop_model_input:
-                # Generate sbatch refine command
-                flags_file = os.path.join(full_model_dir, 'loop_model_flags')
-                # if not os.path.exists(flags_file):
-                loop_model_flags = ['-remodel::save_top 0', '-run:chain A', '-remodel:num_trajectory 1']
-                #                   '-remodel:run_confirmation true', '-remodel:quick_and_dirty',
-                _flags = rosetta.rosetta_flags.copy() + loop_model_flags
-                # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
-                _flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
-                # Generate 100 trial loops, 500 is typically sufficient
-                variables = [('script_nstruct', '100')]
-                _flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
-                with open(flags_file, 'w') as f:
-                    f.write('%s\n' % '\n'.join(_flags))
-                loop_model_cmd = [f'@{flags_file}', '-parser:protocol',
-                                  os.path.join(putils.rosetta_scripts_dir, 'loop_model_ensemble.xml'),
-                                  '-parser:script_vars']
-                # Make all output paths and files for each loop ensemble
-                # logger.info('Preparing blueprint and loop files for structure:')
-                loop_model_cmds = []
-                for idx, _structure in enumerate(structures_to_loop_model):
-                    # Make a new directory for each structure
-                    structure_out_path = os.path.join(full_model_dir, _structure.name)
-                    putils.make_path(structure_out_path)
-                    # Todo is renumbering required?
-                    _structure.renumber_residues()
-                    structure_loop_file = _structure.make_loop_file(out_path=full_model_dir)
-                    if not structure_loop_file:  # No loops found, copy input file to the full model
-                        copy_cmd = ['scp', self.refined.path_to(_structure.name),
-                                    self.full_models.path_to(_structure.name)]
-                        loop_model_cmds.append(
-                            resources.distribute.write_script(subprocess.list2cmdline(copy_cmd), name=_structure.name,
-                                                              out_path=full_model_dir))
-                        # Can't do this v as refined path doesn't exist yet
-                        # shutil.copy(self.refined.path_to(_structure.name), self.full_models.path_to(_structure.name))
-                        continue
-                    structure_blueprint = _structure.make_blueprint_file(out_path=full_model_dir)
-                    structure_cmd = rosetta.script_cmd + loop_model_cmd \
-                        + [f'blueprint={structure_blueprint}', f'loop_file={structure_loop_file}',
-                           '-in:file:s', self.refined.path_to(_structure.name), '-out:path:pdb', structure_out_path] \
-                        + [f'sdf={sym_def_files[_structure.symmetry]}',
-                           f'symmetry={"asymmetric" if _structure.symmetry == "C1" else "make_point_group"}']
-                    #     + (['-symmetry:symmetry_definition', sym_def_files[_structure.symmetry]]
-                    #        if _structure.symmetry != 'C1' else [])
-                    # Create a multimodel from all output loop models
-                    multimodel_cmd = ['python', putils.models_to_multimodel_exe, '-d', structure_loop_file,
-                                      '-o', os.path.join(full_model_dir, f'{_structure.name}_ensemble.pdb')]
-                    # Copy the first model from output loop models to be the full model
-                    copy_cmd = ['scp', os.path.join(structure_out_path, f'{_structure.name}_0001.pdb'),
-                                self.full_models.path_to(_structure.name)]
-                    loop_model_cmds.append(
-                        resources.distribute.write_script(
-                            subprocess.list2cmdline(structure_cmd), name=_structure.name, out_path=full_model_dir,
-                            additional=[subprocess.list2cmdline(multimodel_cmd), subprocess.list2cmdline(copy_cmd)]))
-                if batch_commands:
-                    loop_cmds_file = \
-                        resources.distribute.write_commands(loop_model_cmds, out_path=full_model_dir,
-                                                            name=f'{utils.starttime}-loop_model_entities')
-                    loop_model_script = \
-                        distribute.distribute(loop_cmds_file, flags.refine, out_path=script_out_path,
-                                              log_file=os.path.join(full_model_dir, 'loop_model.log'),
-                                              max_jobs=int(len(loop_model_cmds)/2 + .5),
-                                              number_of_commands=len(loop_model_cmds))
-                    multi_script_warning = "\n***Run this script AFTER completion of the refinement script***\n" \
-                        if info_messages else ""
-                    loop_model_sbatch_message = 'Once you are satisfied, run the following to distribute loop_modeling'\
-                                                f' jobs:{multi_script_warning}\n\t{shell} {loop_model_script}'
-                    info_messages.append(loop_model_sbatch_message)
-                else:
-                    raise NotImplementedError("Currently, loop modeling can't be run in the shell. "
-                                              'Implement this if you would like this feature')
-
-        return info_messages, pre_refine, pre_loop_model
+    # def preprocess_structures_for_design(self, structures: list[structure.base.Structure],
+    #                                      script_out_path: AnyStr = os.getcwd(), batch_commands: bool = True) -> \
+    #         tuple[list, bool, bool]:
+    #     """Assess whether Structure objects require any processing prior to design calculations.
+    #     Processing includes relaxation "refine" into the energy function and/or modelling missing segments "loop model"
+    #
+    #     Args:
+    #         structures: An iterable of Structure objects of interest with the following attributes:
+    #             file_path, symmetry, name, make_loop_file(), make_blueprint_file()
+    #         script_out_path: Where should Entity processing commands be written?
+    #         batch_commands: Whether commands should be made for batch submission
+    #     Returns:
+    #         Any instructions if processing is needed, then booleans for whether refinement and loop modeling has already
+    #         occurred (True) or if files are not reported as having this modeling yet
+    #     """
+    #     # and loop_modelled (True)
+    #     # Todo
+    #     #  Need to move make_loop_file to Pose/Structure (with SequenceProfile superclass)
+    #     self.refined.make_path()
+    #     refine_names = self.refined.retrieve_names()
+    #     refine_dir = self.refined.location
+    #     self.full_models.make_path()
+    #     full_model_names = self.full_models.retrieve_names()
+    #     full_model_dir = self.full_models.location
+    #     # Identify the entities to refine and to model loops before proceeding
+    #     structures_to_refine, structures_to_loop_model, sym_def_files = [], [], {}
+    #     for _structure in structures:  # If _structure is here, the file should've been oriented...
+    #         sym_def_files[_structure.symmetry] = utils.SymEntry.sdf_lookup(_structure.symmetry)
+    #         if _structure.name not in refine_names:  # Assumes oriented_asu structure name is the same
+    #             structures_to_refine.append(_structure)
+    #         if _structure.name not in full_model_names:  # Assumes oriented_asu structure name is the same
+    #             structures_to_loop_model.append(_structure)
+    #
+    #     # For now remove this portion of the protocol
+    #     # Todo remove if need to model. Maybe using Alphafold
+    #     structures_to_loop_model = []
+    #
+    #     # Query user and set up commands to perform refinement on missing entities
+    #     if distribute.is_sbatch_available():
+    #         shell = distribute.sbatch
+    #     else:
+    #         shell = distribute.default_shell
+    #
+    #     info_messages = []
+    #     # Assume pre_refine is True until we find it isn't
+    #     pre_refine = True
+    #     if structures_to_refine:  # if files found unrefined, we should proceed
+    #         pre_refine = False
+    #         logger.critical('The following structures are not yet refined and are being set up for refinement'
+    #                         ' into the Rosetta ScoreFunction for optimized sequence design:\n'
+    #                         f'{", ".join(sorted(set(_structure.name for _structure in structures_to_refine)))}')
+    #         print(f'If you plan on performing {flags.design} using Rosetta, it is strongly encouraged that you perform '
+    #               f'initial refinement. You can also refine them later using the {flags.refine} module')
+    #         print('Would you like to refine them now?')
+    #         if boolean_choice():
+    #             refine_input = True
+    #         else:
+    #             print('To confirm, asymmetric units are going to be generated with input coordinates. Confirm '
+    #                   'with "y" to ensure this is what you want')
+    #             if boolean_choice():
+    #                 refine_input = False
+    #             else:
+    #                 refine_input = True
+    #
+    #         if refine_input:
+    #             # Generate sbatch refine command
+    #             flags_file = os.path.join(refine_dir, 'refine_flags')
+    #             # if not os.path.exists(flags_file):
+    #             _flags = rosetta.rosetta_flags.copy() + rosetta.relax_flags
+    #             _flags.extend([f'-out:path:pdb {refine_dir}', '-no_scorefile true'])
+    #             _flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
+    #             variables = rosetta.rosetta_variables.copy()
+    #             variables.append(('dist', 0))  # Todo modify if not point groups used
+    #             _flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
+    #
+    #             with open(flags_file, 'w') as f:
+    #                 f.write('%s\n' % '\n'.join(_flags))
+    #
+    #             refine_cmd = [f'@{flags_file}', '-parser:protocol',
+    #                           os.path.join(putils.rosetta_scripts_dir, f'{putils.refine}.xml')]
+    #             refine_cmds = [rosetta.script_cmd + refine_cmd
+    #                            + ['-in:file:s', _structure.file_path, '-parser:script_vars']
+    #                            + [f'sdf={sym_def_files[_structure.symmetry]}',
+    #                               f'symmetry={"asymmetric" if _structure.symmetry == "C1" else "make_point_group"}']
+    #                            for _structure in structures_to_refine]
+    #             if batch_commands:
+    #                 commands_file = \
+    #                     resources.distribute.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
+    #                                                         name=f'{utils.starttime}-refine_entities')
+    #                 refine_script = \
+    #                     distribute.distribute(commands_file, flags.refine, out_path=script_out_path,
+    #                                           log_file=os.path.join(refine_dir, f'{putils.refine}.log'),
+    #                                           max_jobs=int(len(refine_cmds)/2 + .5),
+    #                                           number_of_commands=len(refine_cmds))
+    #                 refine_script_message = f'Once you are satisfied, run the following to distribute refine jobs:' \
+    #                                         f'\n\t{shell} {refine_script}'
+    #                 info_messages.append(refine_script_message)
+    #             else:
+    #                 raise NotImplementedError("Currently, refinement can't be run in the shell. "
+    #                                           'Implement this if you would like this feature')
+    #
+    #     # Query user and set up commands to perform loop modelling on missing entities
+    #     # Assume pre_loop_model is True until we find it isn't
+    #     pre_loop_model = True
+    #     if structures_to_loop_model:
+    #         pre_loop_model = False
+    #         logger.info("The following structures haven't been modelled for disorder: "
+    #                     f'{", ".join(sorted(set(_structure.name for _structure in structures_to_loop_model)))}')
+    #         print(f'If you plan on performing {flags.design}/{flags.predict_structure} with them, it is strongly '
+    #               f'encouraged that you build missing loops to avoid disordered region clashing/misalignment')
+    #         print('Would you like to model loops for these structures now?')
+    #         if boolean_choice():
+    #             loop_model_input = True
+    #         else:
+    #             print('To confirm, asymmetric units are going to be generated without modeling disordered loops. '
+    #                   'Confirm with "y" to ensure this is what you want')
+    #             if boolean_choice():
+    #                 loop_model_input = False
+    #             else:
+    #                 loop_model_input = True
+    #
+    #         if loop_model_input:
+    #             # Generate sbatch refine command
+    #             flags_file = os.path.join(full_model_dir, 'loop_model_flags')
+    #             # if not os.path.exists(flags_file):
+    #             loop_model_flags = ['-remodel::save_top 0', '-run:chain A', '-remodel:num_trajectory 1']
+    #             #                   '-remodel:run_confirmation true', '-remodel:quick_and_dirty',
+    #             _flags = rosetta.rosetta_flags.copy() + loop_model_flags
+    #             # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
+    #             _flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
+    #             # Generate 100 trial loops, 500 is typically sufficient
+    #             variables = [('script_nstruct', '100')]
+    #             _flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
+    #             with open(flags_file, 'w') as f:
+    #                 f.write('%s\n' % '\n'.join(_flags))
+    #             loop_model_cmd = [f'@{flags_file}', '-parser:protocol',
+    #                               os.path.join(putils.rosetta_scripts_dir, 'loop_model_ensemble.xml'),
+    #                               '-parser:script_vars']
+    #             # Make all output paths and files for each loop ensemble
+    #             # logger.info('Preparing blueprint and loop files for structure:')
+    #             loop_model_cmds = []
+    #             for idx, _structure in enumerate(structures_to_loop_model):
+    #                 # Make a new directory for each structure
+    #                 structure_out_path = os.path.join(full_model_dir, _structure.name)
+    #                 putils.make_path(structure_out_path)
+    #                 # Todo is renumbering required?
+    #                 _structure.renumber_residues()
+    #                 structure_loop_file = _structure.make_loop_file(out_path=full_model_dir)
+    #                 if not structure_loop_file:  # No loops found, copy input file to the full model
+    #                     copy_cmd = ['scp', self.refined.path_to(_structure.name),
+    #                                 self.full_models.path_to(_structure.name)]
+    #                     loop_model_cmds.append(
+    #                         resources.distribute.write_script(subprocess.list2cmdline(copy_cmd), name=_structure.name,
+    #                                                           out_path=full_model_dir))
+    #                     # Can't do this v as refined path doesn't exist yet
+    #                     # shutil.copy(self.refined.path_to(_structure.name), self.full_models.path_to(_structure.name))
+    #                     continue
+    #                 structure_blueprint = _structure.make_blueprint_file(out_path=full_model_dir)
+    #                 structure_cmd = rosetta.script_cmd + loop_model_cmd \
+    #                     + [f'blueprint={structure_blueprint}', f'loop_file={structure_loop_file}',
+    #                        '-in:file:s', self.refined.path_to(_structure.name), '-out:path:pdb', structure_out_path] \
+    #                     + [f'sdf={sym_def_files[_structure.symmetry]}',
+    #                        f'symmetry={"asymmetric" if _structure.symmetry == "C1" else "make_point_group"}']
+    #                 #     + (['-symmetry:symmetry_definition', sym_def_files[_structure.symmetry]]
+    #                 #        if _structure.symmetry != 'C1' else [])
+    #                 # Create a multimodel from all output loop models
+    #                 multimodel_cmd = ['python', putils.models_to_multimodel_exe, '-d', structure_loop_file,
+    #                                   '-o', os.path.join(full_model_dir, f'{_structure.name}_ensemble.pdb')]
+    #                 # Copy the first model from output loop models to be the full model
+    #                 copy_cmd = ['scp', os.path.join(structure_out_path, f'{_structure.name}_0001.pdb'),
+    #                             self.full_models.path_to(_structure.name)]
+    #                 loop_model_cmds.append(
+    #                     resources.distribute.write_script(
+    #                         subprocess.list2cmdline(structure_cmd), name=_structure.name, out_path=full_model_dir,
+    #                         additional=[subprocess.list2cmdline(multimodel_cmd), subprocess.list2cmdline(copy_cmd)]))
+    #             if batch_commands:
+    #                 loop_cmds_file = \
+    #                     resources.distribute.write_commands(loop_model_cmds, out_path=full_model_dir,
+    #                                                         name=f'{utils.starttime}-loop_model_entities')
+    #                 loop_model_script = \
+    #                     distribute.distribute(loop_cmds_file, flags.refine, out_path=script_out_path,
+    #                                           log_file=os.path.join(full_model_dir, 'loop_model.log'),
+    #                                           max_jobs=int(len(loop_model_cmds)/2 + .5),
+    #                                           number_of_commands=len(loop_model_cmds))
+    #                 multi_script_warning = "\n***Run this script AFTER completion of the refinement script***\n" \
+    #                     if info_messages else ""
+    #                 loop_model_sbatch_message = 'Once you are satisfied, run the following to distribute loop_modeling'\
+    #                                             f' jobs:{multi_script_warning}\n\t{shell} {loop_model_script}'
+    #                 info_messages.append(loop_model_sbatch_message)
+    #             else:
+    #                 raise NotImplementedError("Currently, loop modeling can't be run in the shell. "
+    #                                           'Implement this if you would like this feature')
+    #
+    #     return info_messages, pre_refine, pre_loop_model
 
     def preprocess_metadata_for_design(self, metadata: list[sql.ProteinMetadata], script_out_path: AnyStr = os.getcwd(),
                                        batch_commands: bool = False) -> list[str] | list:
@@ -902,41 +911,42 @@ class StructureDatabase(Database):
                     # Make all output paths and files for each loop ensemble
                     # logger.info('Preparing blueprint and loop files for structure:')
                     loop_model_cmds = []
-                    for idx, _structure in enumerate(protein_data_to_loop_model):
+                    for idx, protein_data in enumerate(protein_data_to_loop_model):
                         # Make a new directory for each structure
-                        structure_out_path = os.path.join(full_model_dir, _structure.name)
+                        structure_out_path = os.path.join(full_model_dir, protein_data.name)
                         putils.make_path(structure_out_path)
                         # Todo is renumbering required?
-                        _structure.renumber_residues()
-                        structure_loop_file = _structure.make_loop_file(out_path=full_model_dir)
+                        structure_ = Model.from_file(protein_data.model_source)
+                        structure_.renumber_residues()
+                        structure_loop_file = structure_.make_loop_file(out_path=full_model_dir)
                         if not structure_loop_file:  # No loops found, copy input file to the full model
-                            copy_cmd = ['scp', self.refined.path_to(_structure.name),
-                                        self.full_models.path_to(_structure.name)]
+                            copy_cmd = ['scp', self.refined.path_to(protein_data.name),
+                                        self.full_models.path_to(protein_data.name)]
                             loop_model_cmds.append(
                                 resources.distribute.write_script(subprocess.list2cmdline(copy_cmd),
-                                                                  name=_structure.name, out_path=full_model_dir))
+                                                                  name=protein_data.name, out_path=full_model_dir))
                             # Can't do this v as refined path doesn't exist yet
-                            # shutil.copy(self.refined.path_to(_structure.name),
-                            #             self.full_models.path_to(_structure.name))
+                            # shutil.copy(self.refined.path_to(protein_data.name),
+                            #             self.full_models.path_to(protein_data.name))
                             continue
-                        structure_blueprint = _structure.make_blueprint_file(out_path=full_model_dir)
+                        structure_blueprint = structure_.make_blueprint_file(out_path=full_model_dir)
                         structure_cmd = rosetta.script_cmd + loop_model_cmd \
                             + [f'blueprint={structure_blueprint}', f'loop_file={structure_loop_file}',
-                               '-in:file:s', self.refined.path_to(_structure.name),
+                               '-in:file:s', self.refined.path_to(protein_data.name),
                                '-out:path:pdb', structure_out_path] \
-                            + [f'sdf={sym_def_files[_structure.symmetry]}',
-                               f'symmetry={"asymmetric" if _structure.symmetry == "C1" else "make_point_group"}']
-                        #     + (['-symmetry:symmetry_definition', sym_def_files[_structure.symmetry]]
-                        #        if _structure.symmetry != 'C1' else [])
+                            + [f'sdf={sym_def_files[protein_data.symmetry_group]}',
+                               f'symmetry={"asymmetric" if protein_data.symmetry_group == "C1" else "make_point_group"}']
+                        #     + (['-symmetry:symmetry_definition', sym_def_files[protein_data.symmetry]]
+                        #        if protein_data.symmetry != 'C1' else [])
                         # Create a multimodel from all output loop models
                         multimodel_cmd = ['python', putils.models_to_multimodel_exe, '-d', structure_loop_file,
-                                          '-o', os.path.join(full_model_dir, f'{_structure.name}_ensemble.pdb')]
+                                          '-o', os.path.join(full_model_dir, f'{protein_data.name}_ensemble.pdb')]
                         # Copy the first model from output loop models to be the full model
-                        copy_cmd = ['scp', os.path.join(structure_out_path, f'{_structure.name}_0001.pdb'),
-                                    self.full_models.path_to(_structure.name)]
+                        copy_cmd = ['scp', os.path.join(structure_out_path, f'{protein_data.name}_0001.pdb'),
+                                    self.full_models.path_to(protein_data.name)]
                         loop_model_cmds.append(
                             resources.distribute.write_script(
-                                subprocess.list2cmdline(structure_cmd), name=_structure.name, out_path=full_model_dir,
+                                subprocess.list2cmdline(structure_cmd), name=protein_data.name, out_path=full_model_dir,
                                 additional=[subprocess.list2cmdline(multimodel_cmd),
                                             subprocess.list2cmdline(copy_cmd)]))
                     if batch_commands:

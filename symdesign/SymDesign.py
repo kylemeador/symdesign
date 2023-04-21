@@ -269,7 +269,7 @@ def initialize_structures(job: JobResources, symmetry: str = None, paths: Iterab
 
     Args:
         job: The active JobResources singleton
-        symmetry: The symmetry to orient the structure identifiers
+        symmetry: The symmetry used to perform the orient protocol on the specified structure identifiers
         paths: The locations on disk to search for Structure instances
         pdb_codes: The PDB API EntryID, EntityID, or AssemblyID codes to fetch Structure instances
         query_codes: Whether a PDB API query should be initiated
@@ -992,7 +992,8 @@ def main():
             # for symmetry, structures_ids in grouped_structures_ids:
             # for group_idx, (symmetry, structures_uniprot_ids) in enumerate(
             #         zip(job.sym_entry.groups, grouped_structures_uniprot_ids)):
-            for orient_structures, structures_uniprot_ids in zip(grouped_orient_structures, grouped_structures_uniprot_ids):
+            for orient_structures, structures_uniprot_ids in \
+                    zip(grouped_orient_structures, grouped_structures_uniprot_ids):
                 structures = []
                 for orient_structure, structure_uniprot_ids in zip(orient_structures, structures_uniprot_ids):
                     entities = []
@@ -1015,7 +1016,7 @@ def main():
         # Make all possible structure pairs given input entities by finding entities from entity_names
         # Using combinations of directories with .pdb files
         if single_component_design:
-            logger.info('Treating as single component docking, no additional entities requested')
+            logger.info(f'Treating as single component {job.module}, no additional entities requested')
             # structures1 = [entity for entity in all_entities if entity.name in structures1]
             # ^ doesn't work as entity_id is set in orient_structures, but structure name is entry_id
             all_structures = []
@@ -1538,7 +1539,7 @@ def main():
             job.load_job_protocol()
 
             # Fetch the specified protocol with python acceptable naming
-            protocol = getattr(protocols, protocol_name.replace('-', '_'))
+            protocol = getattr(protocols, flags.format_from_cmdline(job.module))
             # Figure out how the job should be set up
             if job.module in protocols.config.run_on_pose_job:  # Single poses
                 if job.multi_processing:
@@ -1767,9 +1768,9 @@ def main():
                         # Run the profile decorator from memory_profiler
                         # Todo insert into the bottom most decorator slot
                         profile(protocol)(pose_jobs[0])
+                        print('Done profiling')
                     else:
                         logger.critical(f"The module 'memory_profiler' isn't installed {profile_error}")
-                    print('Done profiling')
                     sys.exit()
 
             if args.multi_processing:

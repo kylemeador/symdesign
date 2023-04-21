@@ -598,7 +598,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     entity_count = count(1)
     for idx, (input_model, symmetry) in enumerate(zip(input_models, sym_entry.groups)):
         for entity in input_model.entities:
-            if entity.is_symmetric():  # oligomeric():
+            if entity.is_symmetric():
                 pass
             else:
                 # Remove any unstructured termini from the Entity to allow best secondary structure docking

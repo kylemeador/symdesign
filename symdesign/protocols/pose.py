@@ -31,7 +31,7 @@ from symdesign import flags, metrics, resources
 from symdesign.resources import distribute, sql
 from symdesign.sequence import MultipleSequenceAlignment, read_fasta_file, write_sequences
 from symdesign.structure import fragment
-from symdesign.structure.base import Residue, Structure
+from symdesign.structure.base import Structure
 from symdesign.structure.coords import superposition3d
 from symdesign.structure.model import Pose, Models, Model, Entity
 from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
@@ -869,8 +869,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             return self._sym_entry
         except AttributeError:
             try:
-                self._sym_entry = symmetry_factory.get(self.sym_entry_number,
-                                                       parse_symmetry_specification(self.sym_entry_specification))
+                self._sym_entry = symmetry_factory.get(
+                    self.sym_entry_number, parse_symmetry_specification(self.sym_entry_specification))
             except AttributeError:  # self.sym_entry_specification is None?
                 return None  # No symmetry specified
             return self._sym_entry

@@ -757,7 +757,7 @@ class StructureBase(SymmetryMixin, ABC):
         """
         for attr in self.state_attributes:
             try:
-                delattr(self, attr)
+                self.__delattr__(attr)
             except AttributeError:
                 continue
 
@@ -1701,10 +1701,10 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     # coords: Coords
     number: int
     number_pdb: int
-    state_attributes: set[str] = ContainsAtomsMixin.state_attributes | \
-        {'_contact_order', '_local_density',
-         '_next_residue', '_prev_residue',
-         '_sasa', '_sasa_apolar', '_sasa_polar', '_secondary_structure'}
+    state_attributes: set[str] = ContainsAtomsMixin.state_attributes \
+        | {'_contact_order', '_local_density',
+           '_next_residue', '_prev_residue',
+           '_sasa', '_sasa_apolar', '_sasa_polar', '_secondary_structure'}
     type: str
 
     def __init__(self, atoms: list[Atoms] | Atoms = None, atom_indices: list[int] = None, **kwargs):
@@ -4133,7 +4133,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             residues = self.get_residues(numbers=numbers)
 
         if residues is None:
-            raise ValueError(f"Can't {self.delete_residues.__name__} without Residue instances, indices, or numbers")
+            raise ValueError(
+                f"Can't {self.delete_residues.__name__} without Residue instances. Provide with indices, numbers, or "
+                "residues")
         elif not residues:
             self.log.warning(f'{self.delete_residues.__name__}: No residues found')
             return []
@@ -4856,7 +4858,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             iteration += 1
 
         if iteration == 5:
-            error = p.stderr.strip().split("\n")
+            error = p.stderr.strip().split('\n')
             self.log.debug(f"{self.errat.__name__} couldn't generate the correct output length. "
                            f'({len(all_residue_scores) - 1}) != number_of_residues ({number_of_residues}). Got stderr:'
                            f'\n{error}')

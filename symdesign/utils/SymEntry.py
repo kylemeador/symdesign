@@ -9,7 +9,7 @@ from typing import AnyStr, Iterable
 
 import numpy as np
 
-from symdesign import utils
+from symdesign import flags, utils
 from symdesign.utils import path as putils
 from symdesign.utils.symmetry import valid_subunit_number, space_group_symmetry_operators, \
     point_group_symmetry_operators, all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, \
@@ -302,9 +302,10 @@ class SymEntry:
             #   ...},
             #  [point_group_symmetry, resulting_symmetry, dimension, unit_cell, tot_dof, cycle_size]
         except KeyError:
-            raise ValueError(f'Invalid symmetry entry "{entry}". Supported values are Nanohedra entries: '
-                             f'{1}-{len(nanohedra_symmetry_combinations)} and custom entries: '
-                             f'{", ".join(map(str, custom_entries))}')
+            raise ValueError(
+                f"Invalid symmetry entry '{entry}'. Supported values are Nanohedra entries: "
+                f'{1}-{len(nanohedra_symmetry_combinations)} and custom entries: '
+                f'{", ".join(map(str, custom_entries))}')
 
         try:  # To unpack the result_info. This will fail if a CRYST1 record placeholder
             self.point_group_symmetry, self.resulting_symmetry, self.dimension, self.unit_cell, self.total_dof, \
@@ -340,9 +341,9 @@ class SymEntry:
                     if not symmetry_groups_are_allowed_in_entry(groups, *entry_groups, result=self.resulting_symmetry):
                                                                 # group1=group1, group2=group2):
                         viable_groups = [group for group in entry_groups if group is not None]
-                        raise utils.SymmetryInputError(f"The symmetry group {group} isn't an allowed sub-symmetry of "
-                                                       f'the result {self.resulting_symmetry}, or the group(s) '
-                                                       f'{", ".join(viable_groups)}.')
+                        raise utils.SymmetryInputError(
+                            f"The symmetry group '{group}' isn't an allowed sub-symmetry of the result "
+                            f'{self.resulting_symmetry}, or the group(s) {", ".join(viable_groups)}')
                 self.groups.append(group)
 
         self._int_dof_groups, self._setting_matrices, self._setting_matrices_numbers, self._ref_frame_tx_dof, \
@@ -358,12 +359,12 @@ class SymEntry:
                     ref_frame_tx_dof = list(map(str.strip, ext_dof.strip('<>').split(',')))
                     self._ref_frame_tx_dof.append(ref_frame_tx_dof)
                     if group_idx <= 2:
-                        # this wouldn't be possible with more than 2 groups unless we tether group to an existing group
+                        # This wouldn't be possible with more than 2 groups unless the groups is tethered to existing
                         self.__external_dof.append(construct_uc_matrix(ref_frame_tx_dof))
                     else:
                         if getattr(self, f'is_ref_frame_tx_dof{group_idx}'):
-                            raise utils.SymmetryInputError('Cannot yet create a SymEntry with external degrees of '
-                                                           'freedom and > 2 groups!')
+                            raise utils.SymmetryInputError(
+                                f"Can't create a {SymEntry.__name__} with external degrees of freedom and > 2 groups")
         # Reformat reference_frame entries
         # self.is_ref_frame_tx_dof1 = False if self.ref_frame_tx_dof1 == '<0,0,0>' else True
         # self.is_ref_frame_tx_dof2 = False if self.ref_frame_tx_dof2 == '<0,0,0>' else True
@@ -394,16 +395,19 @@ class SymEntry:
             if self.number == 0:
                 pass
             else:
-                raise utils.SymmetryInputError(f'Invalid point group symmetry {self.point_group_symmetry}')
+                raise utils.SymmetryInputError(
+                    f'Invalid point group symmetry {self.point_group_symmetry}')
         try:
             if self.dimension == 0:
                 self.expand_matrices = point_group_symmetry_operators[self.resulting_symmetry]
             elif self.dimension in [2, 3]:
                 self.expand_matrices = space_group_symmetry_operators[self.resulting_symmetry]
             else:
-                raise utils.SymmetryInputError('Invalid symmetry entry. Supported design dimensions are 0, 2, and 3')
+                raise utils.SymmetryInputError(
+                    'Invalid symmetry entry. Supported dimensions are 0, 2, and 3')
         except KeyError:
-            raise utils.SymmetryInputError(f'The symmetry result "{self.resulting_symmetry}" is not allowed')
+            raise utils.SymmetryInputError(
+                f"The symmetry result '{self.resulting_symmetry}' isn't allowed")
         self.unit_cell = None if self.unit_cell == 'N/A' else \
             tuple(dim.strip('()').replace(' ', '').split(',') for dim in self.unit_cell.split('), '))
 
@@ -423,12 +427,12 @@ class SymEntry:
 
     @property
     def specification(self) -> str:
-        """Return the specification string for the instance 'RESULT:{SUBSYMMETRY1}{SUBSYMMETRY2}...'"""
+        """Return the specification for the instance. Ex: RESULT:{SUBSYMMETRY1}{SUBSYMMETRY2}... -> (T:{C3}{C3})"""
         return '%s:{%s}' % (self.resulting_symmetry, '}{'.join(self.groups))
 
     @property
     def simple_specification(self) -> str:
-        """Return the simple specification string for the instance 'RESULTSUBSYMMETRY1SUBSYMMETRY2...'"""
+        """Return the simple specification for the instance. Ex: 'RESULTSUBSYMMETRY1SUBSYMMETRY2... -> (T33)"""
         return f'{self.resulting_symmetry}{"".join(self.groups)}'
 
     @property
@@ -1012,7 +1016,7 @@ def get_rot_matrices(step_deg: int | float, axis: str = 'z', rot_range_deg: int 
             rad = math.radians(step * step_deg)
             rot_matrices.append([[math.cos(rad), -math.sin(rad), 0.], [math.sin(rad), math.cos(rad), 0.], [0., 0., 1.]])
     else:
-        raise ValueError(f'Axis "{axis}" is not supported')
+        raise ValueError(f"Axis '{axis}' isn't supported")
 
     return np.array(rot_matrices)
 
@@ -1031,23 +1035,21 @@ def make_rotations_degenerate(rotations: np.ndarray | list[np.ndarray] | list[li
             Product has length = (rotations x degeneracies, 3, 3) where the first 3x3 array on axis 0 is the identity
     """
     if rotations is None:
-        rotations = identity_matrix[None, :, :]  # expand to shape (1, 3, 3)
+        rotations = identity_matrix[None, :, :]  # Expand to shape (1, 3, 3)
     elif np.all(identity_matrix == rotations[0]):
         pass  # This is correct
     else:
         logger.warning(f'{make_rotations_degenerate.__name__}: The argument "rotations" is missing an identity '
                        'matrix which is recommended to produce the correct matrices. Adding now')
-        #                'Ensure you add this matrix to your degeneracies before calling')
         rotations = [identity_matrix] + list(rotations)
 
     if degeneracies is None:
-        degeneracies = identity_matrix[None, :, :]  # expand to shape (1, 3, 3)
+        degeneracies = identity_matrix[None, :, :]  # Expand to shape (1, 3, 3)
     elif np.all(identity_matrix == degeneracies[0]):
         pass  # This is correct
     else:
         logger.warning(f'{make_rotations_degenerate.__name__}: The argument "degeneracies" is missing an identity '
                        'matrix which is recommended to produce the correct matrices. Adding now')
-        #                'Ensure you add this matrix to your degeneracies before calling')
         degeneracies = [identity_matrix] + list(degeneracies)
 
     return np.concatenate([np.matmul(rotations, degen_mat) for degen_mat in degeneracies])
@@ -1127,14 +1129,14 @@ def parse_symmetry_specification(specification: str) -> list[str]:
 
 def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym_map: list[str] = None) -> \
         SymEntry | None:
-    """Take a symmetry specified in a number of ways and return the symmetry parameters in a SymEntry
+    """Take a symmetry specified in a number of ways and return the symmetry parameters in a SymEntry instance
 
     Args:
         sym_entry: The integer corresponding to the desired SymEntry
         symmetry: The symmetry specified by a string
         sym_map: A symmetry map where each successive entry is the corresponding symmetry group number for the structure
     Returns:
-        An instance of the SymEntry
+        The SymEntry instance or None if parsing failed
     """
     if sym_map is None:  # Find sym_map from symmetry
         if symmetry is not None:
@@ -1143,14 +1145,14 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
                 # We only have the resulting symmetry, set it and then solve by lookup_sym_entry_by_symmetry_combination
                 sym_map = [symmetry]
             elif len(symmetry) > 3:
-                if ':{' in symmetry:  # We have a symmetry specification of typical type result:{subsymmetry}{}...
+                if ':{' in symmetry:  # Symmetry specification of typical type result:{subsymmetry}{}...
                     sym_map = parse_symmetry_specification(symmetry)
                 elif 'cryst' in symmetry.lower():  # this is crystal specification
-                    return  # we will have to set this up after parsing cryst records
+                    return None  # Have to set this up after parsing cryst records
                 else:  # this is some Rosetta based symmetry?
                     sym_str1, sym_str2, sym_str3, *_ = symmetry
                     sym_map = f'{sym_str1} C{sym_str2} C{sym_str3}'.split()
-                    logger.error(f'Symmetry specification "{symmetry}" is not understood, trying to solve anyway\n\n')
+                    logger.error(f"Symmetry specification '{symmetry}' isn't understood, trying to solve anyway\n\n")
             elif symmetry in valid_symmetries:
                 logger.debug(f'{parse_symmetry_to_sym_entry.__name__}: The functionality of passing symmetry as '
                              f"{symmetry} hasn't been tested thoroughly yet!")
@@ -1158,12 +1160,13 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
             elif len(symmetry) == 3 and symmetry[1].isdigit() and symmetry[2].isdigit():  # like I32, O43 format
                 sym_map = [*symmetry]
             else:  # C35
-                raise ValueError(f'{symmetry} is not a supported symmetry! {highest_point_group_msg}')
+                raise ValueError(
+                    f"{symmetry} isn't a supported symmetry... {highest_point_group_msg}")
         elif sym_entry is not None:
             return symmetry_factory.get(sym_entry)
         else:
-            raise utils.SymmetryInputError(f"{parse_symmetry_to_sym_entry.__name__}: "
-                                           f"Can't initialize without symmetry or sym_map!")
+            raise utils.SymmetryInputError(
+                f"{parse_symmetry_to_sym_entry.__name__}: Can't initialize without 'symmetry' or 'sym_map'")
 
     if sym_entry is None:
         try:  # To lookup in the all_sym_entry_dict
@@ -1195,19 +1198,20 @@ def sdf_lookup(symmetry: str = None) -> AnyStr:
         if symmetry == file:
             return os.path.join(putils.symmetry_def_files, file + ext)
 
-    raise FileNotFoundError(f"Couldn't locate correct symmetry definition file at "
-                            f"'{putils.symmetry_def_files}' for symmetry: {symmetry}")
+    raise FileNotFoundError(
+        f"For symmetry: {symmetry}, couldn't locate correct symmetry definition file at '{putils.symmetry_def_files}'")
 
 
-repeat_with_sym_entry = f'Cannot distinguish between the desired entry. Please repeat your command, however, ' \
-                        f'additionally specify the preferred Entry Number (ex: --{putils.sym_entry} 1) to proceed'
+repeat_with_sym_entry = "Can't distinguish between the desired entries. Please repeat your command, however, " \
+                        'additionally specify the preferred Entry Number ' \
+                        f'(ex: {flags.format_args(flags.sym_entry_args)} 1) to proceed'
 header_format_string = '{:5s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}'
 query_output_format_string = '{:>5s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}'
 
 
 def print_query_header():
-    print(header_format_string.format("ENTRY", "GROUP1", "IntDofRot1", "IntDofTx1", "ReferenceFrameDof1", "GROUP2",
-                                      "IntDofRot2", "IntDofTx2", "ReferenceFrameDof2", "RESULT"))
+    print(header_format_string.format('ENTRY', 'GROUP1', 'IntDofRot1', 'IntDofTx1', 'ReferenceFrameDof1', 'GROUP2',
+                                      'IntDofRot2', 'IntDofTx2', 'ReferenceFrameDof2', 'RESULT'))
 
 
 def symmetry_groups_are_allowed_in_entry(symmetry_operators: Iterable[str], *groups: Iterable[str], result: str = None,
@@ -1232,22 +1236,18 @@ def symmetry_groups_are_allowed_in_entry(symmetry_operators: Iterable[str], *gro
     elif entry_number is not None:
         entry = symmetry_combinations.get(entry_number)
         if entry is None:
-            raise utils.SymmetryInputError(f"The entry number {entry_number} is not an available SymEntry")
+            raise utils.SymmetryInputError(
+                f"The entry number {entry_number} isn't an available SymEntry")
 
         group1, _, _, _, group2, _, _, _, _, result, *_ = entry
         groups = (group1, group2)  # Todo modify for more than 2
     else:
-        raise ValueError(f'Must provide entry_number, or the result, group1, and group2 arguments. None were provided')
+        raise ValueError(
+            'Must provide entry_number, or the result, *groups arguments. None were provided')
 
     # Find all sub_symmetries that are viable in the component group members
     for group in groups:
         group_members = sub_symmetries.get(group, [None])
-        # group1_members = sub_symmetries.get(group1, [None])
-        # # group1_members.extend('C2') if 'D' in group1 else None
-        # # group1_dihedral = True if 'D' in group1 else False
-        # group2_members = sub_symmetries.get(group2, [None])
-        # # group2_members.extend('C2') if 'D' in group2 else None
-        # # group2_dihedral = True if 'D' in group2 else False
         for sym_operator in symmetry_operators:
             if sym_operator in [result, *groups]:
                 continue
@@ -1291,7 +1291,8 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
                                                     _ref_frame_tx_dof_group1, _group2, str(int_rot2),
                                                     str(int_tx2), _ref_frame_tx_dof_group2, result))
     result = str(result)
-    result_entries, matching_entries = [], []
+    result_entries = []
+    matching_entries = []
     for entry_number, entry in symmetry_combinations.items():
         group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
             ref_frame_tx_dof_group2, _, resulting_symmetry, dimension, _, _, _ = entry

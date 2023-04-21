@@ -188,7 +188,7 @@ def format_from_cmdline(flag: str) -> str:
     Args:
         flag: The string for a program flag
     Returns:
-        The flag formatted by replacing any dash (-) with an underscore (_)
+        The flag formatted by replacing any dash '-' with an underscore '_'
     """
     return flag.replace('-', '_')
 
@@ -1005,7 +1005,7 @@ helix_bending_arguments = {
                                    'Choices=%(choices)s where F implies bending is applied to c-terminal residues'),
     joint_residue_args: dict(type=int, required=True, help='The chain where the bending is desired at'),
     (f'--{joint_chain}',): dict(required=True, help='The residue number to perform the bending at'),
-    (f'--{sample_number}',): dict(type=int, default=10, help='How many times should the distribution be sampled from\n'
+    (f'--{sample_number}',): dict(type=int, default=10, help='How many times should the distribution be sampled from?\n'
                                                              'Default=%(default)s')
 }
 # ---------------------------------------------------
