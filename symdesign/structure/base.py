@@ -3925,7 +3925,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         
         Args:
             termini: The termini to add the ideal helix to
-            length: The length of the addition
+            length: The length of the addition, where viable values are [1-10] residues additions
         """
         self.log.debug(f'Adding ideal helix to {termini}-terminus of {self.name}')
 
@@ -3936,58 +3936,54 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         alpha_helix_15_struct = Structure.from_atoms(alpha_helix_15_atoms)
 
-        align_length = 4  # 4 as the get_coords_subset is inclusive
+        align_length = 4  # 4 as self.get_coords_subset(end=) argument is inclusive
         if termini == 'n':
-            first_residue = self.n_terminal_residue
-            first_residue_number = first_residue.number
-            last_residue_number = first_residue_number + align_length
-            fixed_coords = self.get_coords_subset(start=first_residue_number, end=last_residue_number,
-                                                  dtype='backbone')
-            helix_align_start = 11
-            helix_align_end = 15
-            helix_start = helix_align_start - length
-            # helix_end = helix_align_start-1
-            moving_coords = \
-                alpha_helix_15_struct.get_coords_subset(start=helix_align_start, end=helix_align_end, dtype='backbone')
+            first_residue = residue = self.n_terminal_residue
+            residue_start_number = first_residue.number
+            residue_end_number = residue_start_number + align_length
+            fixed_coords = self.get_coords_subset(
+                start=residue_start_number, end=residue_end_number, dtype='backbone')
+            helix_start_number = 11
+            helix_end_number = helix_start_number + align_length
+            moving_coords = alpha_helix_15_struct.get_coords_subset(
+                start=helix_start_number, end=helix_end_number, dtype='backbone')
             rmsd, rot, tx = superposition3d(fixed_coords, moving_coords)
             alpha_helix_15_struct.transform(rotation=rot, translation=tx)
 
             # Add residues, then renumber
-            self._residues.insert(first_residue.index, alpha_helix_15_struct.get_residues(
-                list(range(helix_start, helix_align_start))))  # helix_end + 1
-            self._residues.reindex()  # .set_index()
-            # Rename new residues to self.chain_id
-            self.set_residues_attributes(chain_id=first_residue.chain_id)
-
+            helix_add_start = helix_start_number - length
+            # Exclude helix_start_number from residue selection
+            add_residues = alpha_helix_15_struct.get_residues(list(range(helix_add_start, helix_start_number)))
+            self._residues.insert(first_residue.index, add_residues)
         elif termini == 'c':
-            last_residue = self.c_terminal_residue
-            last_residue_number = last_residue.number
-            first_residue_number = last_residue_number-align_length
-            fixed_coords = self.get_coords_subset(start=first_residue_number, end=last_residue_number,
-                                                  dtype='backbone')
-            helix_align_start = 1
-            helix_align_end = 5
-            # helix_start = helix_align_end+1
-            helix_end = helix_align_end + length
-            moving_coords = alpha_helix_15_struct.get_coords_subset(start=helix_align_start, end=helix_align_end,
-                                                                    dtype='backbone')
+            last_residue = residue = self.c_terminal_residue
+            residue_end_number = last_residue.number
+            residue_start_number = residue_end_number - align_length
+            fixed_coords = self.get_coords_subset(
+                start=residue_start_number, end=residue_end_number, dtype='backbone')
+            helix_start_number = 1
+            helix_end_number = helix_start_number + align_length
+            moving_coords = alpha_helix_15_struct.get_coords_subset(
+                start=helix_start_number, end=helix_end_number, dtype='backbone')
             rmsd, rot, tx = superposition3d(fixed_coords, moving_coords)
             alpha_helix_15_struct.transform(rotation=rot, translation=tx)
 
             # Add residues then renumber
-            add_residues = alpha_helix_15_struct.get_residues(list(range(helix_align_end, helix_end + 1)))  # helix_start
+            helix_add_end = helix_end_number + length
+            # Leave out the residue with helix_end_number, and include the helix_add_end number
+            add_residues = alpha_helix_15_struct.get_residues(list(range(helix_end_number + 1, helix_add_end + 1)))
             if last_residue.index + 1 == len(self._residues):
                 # This is the last residue of the Structure
                 self._residues.append(add_residues)
             else:  # This is the last residue of this chain
                 self._residues.insert(last_residue.index, add_residues)
-
-            self._residues.reindex()  # .set_index()
-            # Rename new residues to self.chain_id
-            self.set_residues_attributes(chain_id=last_residue.chain_id)
         else:
             raise ValueError(
                 f'termini must be wither "n" or "c", not {termini}')
+
+        self._residues.reindex()
+        # Rename new residues to self.chain_id
+        self.set_residues_attributes(chain_id=residue.chain_id)
 
     @property
     def radius(self) -> float:
