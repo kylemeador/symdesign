@@ -1779,7 +1779,7 @@ def main():
                     results.append(protocol(pose_job))
 
             # Handle the particulars of multiple PoseJob returns
-            if job.module == flags.nanohedra:
+            if job.module in [flags.align_helices, flags.nanohedra]:
                 results_ = []
                 for result in results:
                     results_.extend(result)

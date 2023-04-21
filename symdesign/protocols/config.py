@@ -3,6 +3,7 @@ from symdesign import flags
 
 run_on_pose_job = (
     flags.orient,
+    flags.helix_bending,
     flags.expand_asu,
     flags.rename_chains,
     flags.check_clashes,
@@ -18,6 +19,7 @@ run_on_pose_job = (
     flags.nanohedra
 )
 returns_pose_jobs = (
+    flags.align_helices,
     flags.cluster_poses,
     flags.nanohedra,
     flags.select_poses,

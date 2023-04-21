@@ -15,6 +15,7 @@ from symdesign.sequence import constants
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
+from symdesign.structure.base import termini_literal
 from symdesign.utils import handle_errors, InputError, log_level, remove_digit_table, path as putils, \
     pretty_format_table, to_iterable, logging_levels
 from symdesign.utils.path import biological_interfaces, default_logging_level, ex_path, fragment_dbs
@@ -123,6 +124,15 @@ direction = 'direction'
 joint_chain = 'joint_chain'
 joint_residue = 'joint_residue'
 sample_number = 'sample_number'
+align_helices = 'align_helices'
+target_start = 'target_start'
+target_end = 'target_end'
+target_chain = 'target_chain'
+target_termini = 'target_termini'
+aligned_start = 'aligned_start'
+aligned_end = 'aligned_end'
+aligned_chain = 'aligned_chain'
+extend_past_termini = 'extend_past_termini'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -314,6 +324,15 @@ direction = format_for_cmdline(direction)
 joint_chain = format_for_cmdline(joint_chain)
 joint_residue = format_for_cmdline(joint_residue)
 sample_number = format_for_cmdline(sample_number)
+align_helices = format_for_cmdline(align_helices)
+target_start = format_for_cmdline(target_start)
+target_end = format_for_cmdline(target_end)
+target_chain = format_for_cmdline(target_chain)
+target_termini = format_for_cmdline(target_termini)
+aligned_start = format_for_cmdline(aligned_start)
+aligned_end = format_for_cmdline(aligned_end)
+aligned_chain = format_for_cmdline(aligned_chain)
+extend_past_termini = format_for_cmdline(extend_past_termini)
 select_modules = (
     select_poses,
     select_designs,
@@ -921,6 +940,62 @@ orient_help = 'Orient a symmetric assembly in a canonical orientation at the ori
 parser_orient = {orient: dict(description=orient_help, help=orient_help)}
 orient_arguments = {}
 # ---------------------------------------------------
+align_helices_help = 'Align helices of one protein with another'
+parser_align_helices = {align_helices: dict(description=align_helices_help, help=align_helices_help)}
+target_start_args = (f'--{target_start}',)
+target_start_kwargs = dict(type=int, help='First residue of the targe molecule to align on')
+target_end_args = (f'--{target_end}',)
+target_end_kwargs = dict(type=int, help='Last residue of the targe molecule to align on')
+target_chain_args = (f'--{target_chain}',)
+target_chain_kwargs = dict(help='A desired chainID of the target molecule')
+target_termini_args = (f'--{target_termini}',)
+target_termini_kwargs = dict(nargs=2, type=str.lower, choices=get_args(termini_literal),
+                             help="If particular termini are desired, specify with 'n' and/or 'c'")
+aligned_start_args = (f'--{aligned_start}',)
+aligned_start_kwargs = dict(type=int, help='First residue of the aligned molecule to align on')
+aligned_end_args = (f'--{aligned_end}',)
+aligned_end_kwargs = dict(type=int, help='Last residue of the aligned molecule to align on')
+aligned_chain_args = (f'--{aligned_chain}',)
+aligned_chain_kwargs = dict(help='A desired chainID of the aligned molecule')
+extend_past_termini_args = (f'--{extend_past_termini}',)
+extend_past_termini_kwargs = dict(action='store_true',
+                                  help='Whether to extend alignment termini with a ten residue ideal\n'
+                                       'alpha helix. All specified residues are modified accordingly\n')
+align_helices_arguments = {
+    aligned_chain_args: aligned_chain_kwargs,
+    aligned_end_args: aligned_end_kwargs,
+    aligned_start_args: aligned_start_kwargs,
+    extend_past_termini_args: extend_past_termini_kwargs,
+    target_chain_args: target_chain_kwargs,
+    target_end_args: target_end_kwargs,
+    target_start_args: target_start_kwargs,
+    target_termini_args: target_termini_kwargs,
+}
+# ---------------------------------------------------
+query_codes_kwargs = dict(action='store_true', help='Query the PDB API for corresponding codes')
+# parser_component_mutual1 = parser_dock.add_mutually_exclusive_group(required=True)
+parser_component_mutual1_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
+component_mutual1_arguments = {
+    ('-c1', f'--{pdb_codes1}'): dict(nargs='*', default=None,
+                                     help='Input code(s), and/or file(s) with codes where each code\n'
+                                          'is a PDB EntryID/EntityID code for component 1'),
+    ('-o1', f'--{nano_entity_flag1}', f'-{nano_entity_flag1}'):
+        dict(type=os.path.abspath, default=None,
+             help=f'Disk location where component 1 file(s) are located'),
+    ('-Q1', f'--{query_codes1}'): query_codes_kwargs
+}
+# parser_component_mutual2 = parser_dock.add_mutually_exclusive_group()
+parser_component_mutual2_group = dict()  # required=False
+component_mutual2_arguments = {
+    ('-c2', f'--{pdb_codes2}'): dict(nargs='*', default=None,
+                                     help='Input code(s), and/or file(s) with codes where each code\n'
+                                          'is a PDB EntryID/EntityID code for component 2'),
+    ('-o2', f'--{nano_entity_flag2}', f'-{nano_entity_flag2}'):
+        dict(type=os.path.abspath, default=None,
+             help=f'Disk location where component 2 file(s) are located'),
+    ('-Q2', f'--{query_codes2}'): query_codes_kwargs
+}
+# ---------------------------------------------------
 helix_bending_help = ''
 parser_helix_bending = {helix_bending: dict(description=helix_bending_help, help=helix_bending_help)}
 joint_residue_args = (f'--{joint_residue}',)
@@ -1022,33 +1097,10 @@ nanohedra_arguments = {
                                          help='The size of degree increments to search during initial rotational\n'
                                               'degrees of freedom search\nDefault=%(default)s'),
 }
-query_codes_kwargs = dict(action='store_true', help='Query the PDB API for corresponding codes')
 parser_nanohedra_run_type_mutual_group = dict()  # required=True <- adding below to different parsers depending on need
 nanohedra_run_type_mutual_arguments = {
     sym_entry_args: sym_entry_kwargs,
     ('-query', '--query',): dict(action='store_true', help='Run in query mode'),
-}
-# parser_dock_mutual1 = parser_dock.add_mutually_exclusive_group(required=True)
-parser_nanohedra_mutual1_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
-nanohedra_mutual1_arguments = {
-    ('-c1', f'--{pdb_codes1}'): dict(nargs='*', default=None,  # type=os.path.abspath,
-                                     help=f'Input code(s), and/or file(s) with codes where each code\n'
-                                          f'is a PDB EntryID/EntityID code for component 1'),
-    ('-o1', f'--{nano_entity_flag1}', f'-{nano_entity_flag1}'):
-        dict(type=os.path.abspath, default=None,
-             help=f'Disk location where {nanohedra} component 1 file(s) are located'),
-    ('-Q1', f'--{query_codes1}'): query_codes_kwargs
-}
-# parser_dock_mutual2 = parser_dock.add_mutually_exclusive_group()
-parser_nanohedra_mutual2_group = dict()  # required=False
-nanohedra_mutual2_arguments = {
-    ('-c2', f'--{pdb_codes2}'): dict(nargs='*', default=None,  # type=os.path.abspath,
-                                     help=f'Input code(s), and/or file(s) with codes where each code\n'
-                                          f'is a PDB EntryID/EntityID code for component 2'),
-    ('-o2', f'--{nano_entity_flag2}', f'-{nano_entity_flag2}'):
-        dict(type=os.path.abspath, default=None,
-             help=f'Disk location where {nanohedra} component 2 file(s) are located'),
-    ('-Q2', f'--{query_codes2}'): query_codes_kwargs
 }
 # ---------------------------------------------------
 initialize_building_blocks_help = 'Initialize building blocks for downstream Pose creation'
@@ -1056,7 +1108,7 @@ parser_initialize_building_blocks = {initialize_building_blocks:
                                      dict(description=initialize_building_blocks_help,
                                           help=initialize_building_blocks_help)}
 initialize_building_blocks_arguments = {
-    **nanohedra_mutual1_arguments,
+    **component_mutual1_arguments,
     (f'--{update_metadata}',): dict(nargs='*', action=StoreDictKeyPair,
                                     help='Whether ProteinMetadata should be update with some\n'
                                          'particular value in the database'),
@@ -1580,12 +1632,15 @@ output_arguments = {
 # string that own the group. i.e nanohedra"_mutual*" indicates nanohedra owns, or interface_design"_mutual*", etc
 module_parsers = {
     orient: parser_orient,
+    align_helices: parser_align_helices,
+    f'{align_helices}_mutual1': parser_component_mutual1_group,
+    f'{align_helices}_mutual2': parser_component_mutual2_group,
     helix_bending: parser_helix_bending,
     refine: parser_refine,
     nanohedra: parser_nanohedra,
-    'nanohedra_mutual1': parser_nanohedra_mutual1_group,  # _mutual1,
-    'nanohedra_mutual2': parser_nanohedra_mutual2_group,  # _mutual2,
-    'nanohedra_mutual_run_type': parser_nanohedra_run_type_mutual_group,  # _mutual,
+    f'{nanohedra}_mutual1': parser_component_mutual1_group,
+    f'{nanohedra}_mutual2': parser_component_mutual2_group,
+    f'{nanohedra}_mutual_run_type': parser_nanohedra_run_type_mutual_group,
     cluster_poses: parser_cluster,
     design: parser_design,
     interface_design: parser_interface_design,
@@ -1631,12 +1686,15 @@ all_flags_arguments = {}
 # }
 parser_arguments = {
     orient: orient_arguments,
+    align_helices: align_helices_arguments,
+    f'{align_helices}_mutual1': component_mutual1_arguments,
+    f'{align_helices}_mutual2': component_mutual2_arguments,
     helix_bending: helix_bending_arguments,
     refine: refine_arguments,
     nanohedra: nanohedra_arguments,
-    'nanohedra_mutual1': nanohedra_mutual1_arguments,  # mutually_exclusive_group
-    'nanohedra_mutual2': nanohedra_mutual2_arguments,  # mutually_exclusive_group
-    'nanohedra_mutual_run_type': nanohedra_run_type_mutual_arguments,  # mutually_exclusive
+    f'{nanohedra}_mutual1': component_mutual1_arguments,  # mutually_exclusive_group
+    f'{nanohedra}_mutual2': component_mutual2_arguments,  # mutually_exclusive_group
+    f'{nanohedra}_mutual_run_type': nanohedra_run_type_mutual_arguments,  # mutually_exclusive
     cluster_poses: cluster_poses_arguments,
     design: design_arguments,
     interface_design: interface_design_arguments,
