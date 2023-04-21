@@ -7,7 +7,7 @@ import math
 import os
 import sys
 import traceback
-from itertools import repeat, combinations
+from itertools import count, repeat, combinations
 from subprocess import list2cmdline, Popen
 from typing import Iterable, AnyStr, Callable, Type, Any
 
@@ -1111,8 +1111,7 @@ def helix_bending(job: pose.PoseJob):
     elif job.job.direction == 'R':
         modes3x4 = modes3x4_R
     else:
-        print('Error: need to designate F or R for direction')
-        sys.exit()
+        raise InputError('Need to designate F or R for direction')
 
     # model_fixed = model.Model.from_file(pdbin_file)
     job.load_pose()
@@ -1148,7 +1147,7 @@ def helix_bending(job: pose.PoseJob):
     # Fixed parameters
     bend_dim = 4
     bend_scale = 1.
-    # ntaper=5
+    # ntaper = 5
     # Get the model coords before
     joint_residue = model_to_select.residue(nres_joint)
     before_coords_start = model_to_select.coords[:joint_residue.start_index]
@@ -1159,7 +1158,9 @@ def helix_bending(job: pose.PoseJob):
         out_dir = job.job.output_directory
     else:
         out_dir = job.pose_directory
+
     # Apply bending mode to fixed coords
+    output_number = count(1)
     for trial in range(1, 1 + job.job.sample_number):
 
         bend_coeffs = np.random.normal(size=bend_dim) * bend_scale
@@ -1181,8 +1182,14 @@ def helix_bending(job: pose.PoseJob):
             after_coords = after_coords_start
 
         model_to_select.coords = np.concatenate([before_coords, after_coords])
+        # Check for clashes
+        if job.pose.is_clash(warn=False, silence_exceptions=True):
+            continue
+        if job.pose.symmetric_assembly_is_clash(warn=False):
+            continue
 
-        trial_path = os.path.join(out_dir, f'{job.name}_bent{trial}.pdb')
+        # Todo only write if specified, otherwise, return as new PoseJob
+        trial_path = os.path.join(out_dir, f'{job.name}_bent{next(output_number)}.pdb')
         job.pose.write(out_path=trial_path)
 
 
