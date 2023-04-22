@@ -1227,7 +1227,6 @@ class Atoms:
     def __copy__(self) -> Atoms:  # -> Self: Todo python3.11
         cls = self.__class__
         other = cls.__new__(cls)
-        # other.__dict__.update(self.__dict__)
         other.atoms = self.atoms.copy()
         # Copy all Atom instances
         atom: Atom
@@ -2842,7 +2841,6 @@ class Residues:
     def __copy__(self) -> Residues:  # -> Self Todo python3.11
         cls = self.__class__
         other = cls.__new__(cls)
-        # other.__dict__.update(self.__dict__)
         other.residues = self.residues.copy()
         for idx, residue in enumerate(other.residues):
             # Set an attribute to indicate the atom shouldn't be "detached"
@@ -5713,7 +5711,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             dtype: The attribute of interest
         """
         if isinstance(dtype, str):
-            self.set_residues_attributes(b_factor=dtype)
+            # self.set_residues_attributes(b_factor=dtype)
+            for residue in self.residues:
+                residue.b_factor = getattr(residue, dtype)
         else:
             raise TypeError(
                 f"The type '{dtype.__class__.__name__}' isn't a string. To {self.set_b_factor_by_attribute.__name__}, "
@@ -5749,7 +5749,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def __copy__(self) -> Structure:  # -> Self Todo python3.11
         cls = self.__class__
         other = cls.__new__(cls)
-        # other.__dict__.update(self.__dict__)
+
         # Copy each of the key value pairs to the new, other dictionary
         for attr, obj in self.__dict__.items():
             if attr in parent_attributes:

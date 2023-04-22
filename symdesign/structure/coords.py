@@ -96,7 +96,6 @@ class Coords:
     def __copy__(self) -> Coords:  # -> Self Todo python3.11
         cls = self.__class__
         other = cls.__new__(cls)
-        # other.__dict__.update(self.__dict__)
         other.coords = self.coords.copy()
         return other
 

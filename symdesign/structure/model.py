@@ -2615,11 +2615,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         if self._is_captain:  # If the copier is a captain
             other._captain = None  # Initialize the copy as a captain -> None
             if self.is_dependent() and other.is_dependent():
-                # A parent is making the copy. Update all structure_containers with new instance accordingly
                 # self.log.debug('is parent copy_structure_containers')
+                # A parent is making the copy. Update all structure_containers with new instance accordingly
                 # Update the structure_containers as this wasn't performed by Structure.copy()
                 other._copy_structure_containers()
-            # other._update_structure_container_attributes(_parent=other)
         else:
             # If the .entity_spawn attribute is set, the copy was initiated by the captain,
             # ._captain will be set after this __copy__ return in _copy_structure_containers()
@@ -3260,8 +3259,11 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                         structure.reset_state()
                     # try:  # Remove atom_delete_indices, residue_indices from Structure
                     elif residue_index not in structure._residue_indices:
+                        # self.log.critical(f"The residue index {residue_index} wasn't handled. "
+                        #                   f"There are {len(structure._residue_indices)} residues_indices for "
+                        #                   f"{structure.name}")
                         pass  # This structure is not the one of interest
-                        # TODO
+                        # Todo
                         #  The atom_delete_indices need to be present in this Structure.
                         #  As of now, there is no check that they are present in this Structure as indexing and thus
                         #  IndexError no longer are used
@@ -4855,17 +4857,6 @@ class SymmetricModel(Models):
         try:
             return self._assembly
         except AttributeError:
-            # if self.dimension > 0:
-            #     self._assembly = self._generate_assembly(full=False)
-            # else:
-            #     # if not self.models:
-            #     self.generate_assembly_symmetry_models()
-            #     chains = []
-            #     for model in self.models:
-            #         chains.extend(model.chains)
-            #     self._assembly = Model.from_chains(chains, name=f'{self.name}-assembly', log=self.log,
-            #                                        biomt_header=self.format_biomt(), cryst_record=self.cryst_record,
-            #                                        entity_info=self.entity_info)  # entities=False,
             # If the dimension is 0, then generate the full assembly, otherwise, generate partial
             self._assembly = self._generate_assembly(minimal=self.dimension)
             return self._assembly
@@ -4948,7 +4939,8 @@ class SymmetricModel(Models):
             The fractional coordinates of a unit cell
         """
         if self.uc_dimensions is None:
-            raise ValueError("Can't manipulate unit cell, no unit cell dimensions were passed")
+            raise ValueError(
+                "Can't manipulate the unit cell. No unit cell dimensions were passed")
 
         return np.matmul(cart_coords, np.transpose(self.deorthogonalization_matrix))
 
@@ -4962,7 +4954,8 @@ class SymmetricModel(Models):
             The cartesian coordinates of a unit cell
         """
         if self.uc_dimensions is None:
-            raise ValueError("Can't manipulate unit cell, no unit cell dimensions were passed")
+            raise ValueError(
+                "Can't manipulate the unit cell. No unit cell dimensions were passed")
 
         return np.matmul(frac_coords, np.transpose(self.orthogonalization_matrix))
 
@@ -6074,7 +6067,7 @@ class SymmetricModel(Models):
                                       .format(v_idx, m_idx, *vec, 0.)  # Use 0. as placeholder for translation
                                       for m_idx, mat in enumerate(self.expand_matrices.swapaxes(-2, -1).tolist(), 1)
                                       for v_idx, vec in enumerate(mat, 1))
-        else:  # TODO write so that the oligomeric units are populated?
+        else:  # Todo write so that the oligomeric units are populated?
             return ''
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
