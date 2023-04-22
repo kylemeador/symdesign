@@ -1569,19 +1569,21 @@ input_arguments = {
                                                                'identities of each constituent Entity')
 }
 # parser_input_mutual = parser_input.add_mutually_exclusive_group()
-directory_args = ('-d', f'--{directory}')
 project_args = ('-p', '--project')
 single_args = ('-s', '--single')
+directory_args = ('-d', f'--{directory}')
+directory_kwargs = dict(type=os.path.abspath, metavar=ex_path('your_pdb_files'),
+                        help='Master directory where files to be designed are located. This may be\n'
+                             'a random directory with poses requiring design, or the output from\n'
+                             f'{program_name}. If the directory of interest resides in a {program_output}\n'
+                             f'directory, it is recommended to use {format_args(file_args)}, '
+                             f'{format_args(project_args)}, or {format_args(single_args)}')
+file_kwargs = dict(type=os.path.abspath, default=None, nargs='*', metavar=ex_path('file_with_pose.paths'),
+                   help='File(s) to be input or containing list of files to be input to the program')
 parser_input_mutual_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
 input_mutual_arguments = {
-    directory_args: dict(type=os.path.abspath, metavar=ex_path('your_pdb_files'),
-                         help='Master directory where poses to be designed are located. This may be\n'
-                              f'the output directory from {nanohedra}.py, a random directory with\n'
-                              f'poses requiring design, or the output from {program_name}. If the\n'
-                              f'directory of interest resides in a {program_output} directory, it is\n'
-                              'recommended to use --file, --project, or --single for finer control'),
-    file_args: dict(type=os.path.abspath, default=None, nargs='*', metavar=ex_path('file_with_pose.paths'),
-                    help='File(s) with structure files to be input listed'),
+    directory_args: directory_kwargs,
+    file_args: file_kwargs,
     project_args: dict(type=os.path.abspath, nargs='*', metavar=ex_path(program_output, projects, 'yourProject'),
                        help='Operate on designs specified within a project(s)'),
     single_args: dict(type=os.path.abspath, nargs='*',

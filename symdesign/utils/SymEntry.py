@@ -387,9 +387,7 @@ class SymEntry:
                                     "groups")
         # Check construction is valid
         if self.point_group_symmetry not in valid_symmetries:
-            if self.number == 0:
-                pass
-            else:
+            if self.number != 0:  # Anything besides CRYST entry
                 raise utils.SymmetryInputError(
                     f'Invalid point group symmetry {self.point_group_symmetry}')
         try:
@@ -402,7 +400,8 @@ class SymEntry:
                     'Invalid symmetry entry. Supported dimensions are 0, 2, and 3')
         except KeyError:
             raise utils.SymmetryInputError(
-                f"The symmetry result '{self.resulting_symmetry}' isn't allowed")
+                f"The symmetry result '{self.resulting_symmetry}' isn't allowed as there aren't group operators "
+                "available for it")
 
         if self.cell_lengths:
             self.unit_cell = (self.cell_lengths, self.cell_angles)
@@ -824,6 +823,9 @@ class SymEntry:
         else:
             logger.info(f'{len(self.degeneracy_matrices2)} Degeneracies Found for Oligomer 2\n')
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.specification})'
+
 
 # Set up the baseline crystaline entry which will allow for flexible adaptation of non-Nanohedra SymEntry instances
 CRYST = SymEntry.from_cryst(symmetry='P1')
@@ -1187,8 +1189,8 @@ def sdf_lookup(symmetry: str = None) -> AnyStr:
 repeat_with_sym_entry = "Can't distinguish between the desired entries. Please repeat your command, however, " \
                         'additionally specify the preferred Entry Number ' \
                         f'(ex: {flags.format_args(flags.sym_entry_args)} 1) to proceed'
-header_format_string = '{:5s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}'
-query_output_format_string = '{:>5s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}'
+header_format_string = '{:5s} {:6s} {:10s} {:9s} {:^20s} {:6s} {:10s} {:9s} {:^20s} {:6s}'
+query_output_format_string = '{:>5s} {:>6s} {:>10s} {:>9s} {:^20s} {:>6s} {:>10s} {:>9s} {:^20s} {:>6s}'
 
 
 def print_query_header():
@@ -1197,7 +1199,6 @@ def print_query_header():
 
 
 def symmetry_groups_are_allowed_in_entry(symmetry_operators: Iterable[str], *groups: Iterable[str], result: str = None,
-                                         # group1: str = None, group2: str = None,
                                          entry_number: int = None) -> bool:
     """Check if the provided symmetry operators are allowed in a SymEntry
 
@@ -1205,8 +1206,6 @@ def symmetry_groups_are_allowed_in_entry(symmetry_operators: Iterable[str], *gro
         symmetry_operators: The symmetry operators of interest
         groups: The groups provided in the symmetry
         result: The resulting symmetry
-        # group1: The first group allowed in the symmetry
-        # group2: The second group allowed in the symmetry
         entry_number: The SymEntry number of interest
     Returns:
         True if the symmetry operators are valid, False otherwise
@@ -1214,7 +1213,8 @@ def symmetry_groups_are_allowed_in_entry(symmetry_operators: Iterable[str], *gro
     if result is not None:
         # if group1 is None and group2 is None:
         if not groups:
-            raise ValueError(f'When using the argument result, must provide at least group1, and optionally group2')
+            raise ValueError(
+                f"When using the argument 'result', must provide at least 1 *groups")
     elif entry_number is not None:
         entry = symmetry_combinations.get(entry_number)
         if entry is None:
@@ -1257,8 +1257,8 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
         print_query_header()
         for _entry in entries:
             _group1, _int_dof_group1, _, _ref_frame_tx_dof_group1, _group2, _int_dof_group2, _, \
-                _ref_frame_tx_dof_group2, _, _, _, _, _, _ = symmetry_combinations[_entry]
-            int_rot1, int_tx1, int_rot2, int_tx2 = 0, 0, 0, 0
+                _ref_frame_tx_dof_group2, *_ = symmetry_combinations[_entry]
+            int_rot1 = int_tx1 = int_rot2 = int_tx2 = 0
             for int_dof in _int_dof_group1:
                 if int_dof.startswith('r'):
                     int_rot1 = 1
@@ -1276,8 +1276,7 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
     result_entries = []
     matching_entries = []
     for entry_number, entry in symmetry_combinations.items():
-        group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-            ref_frame_tx_dof_group2, _, resulting_symmetry, dimension, _, _, _ = entry
+        group1, _, _, _, group2, _, _, _, _, resulting_symmetry, *_ = entry
         if resulting_symmetry == result:
             result_entries.append(entry_number)
 
@@ -1300,18 +1299,19 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
                          'during your specification'
                          % (', '.join(symmetry_operators), result,
                             ', '.join(all_sym_entry_dict.get(result, {}).keys()), example_symmetry_specification))
-    else:  # no symmetry_operators
+    else:  # No symmetry_operators
         if result_entries:
             print(f'\033[1mFound specified symmetries matching including {", ".join(map(str, result_entries))}\033[0m')
             print_matching_entries(result_entries)
             print(repeat_with_sym_entry)
             sys.exit()
         else:  # no matches
-            raise ValueError(f"The resulting symmetry {result} didn't match any possible symmetry_combinations. You "
-                             f'are likely requesting a symmetry that is outside of the parameterized SymEntry entries.'
-                             f'If this is a chiral plane/space group, modify the function '
-                             f'{lookup_sym_entry_by_symmetry_combination.__name__} to use the non Nanohedra compatible '
-                             f'chiral space_group_symmetry_operators. {highest_point_group_msg}')
+            raise ValueError(
+                f"The resulting symmetry {result} didn't match any possible symmetry_combinations. You are likely "
+                'requesting a symmetry that is outside of the parameterized SymEntry entries. If this is a '
+                '\033[1mchiral\033[0m plane/space group, modify the function '
+                f'{lookup_sym_entry_by_symmetry_combination.__name__} to use '
+                f'non-Nanohedra compatible chiral space_group_symmetry_operators. {highest_point_group_msg}')
 
     return matching_entries[0]
 
@@ -1321,7 +1321,7 @@ def query_combination(combination_list):
         matching_entries = []
         for entry_number, entry in nanohedra_symmetry_combinations.items():
             group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-                ref_frame_tx_dof_group2, _, result, dimension, _, _, _ = entry
+                ref_frame_tx_dof_group2, _, result, dimension, *_ = entry
             # group2 = entry[6]
             # int_dof_group1 = entry[3]
             # int_dof_group2 = entry[8]
@@ -1365,7 +1365,7 @@ def query_result(desired_result):
         matching_entries = []
         for entry_number, entry in nanohedra_symmetry_combinations.items():
             group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-                ref_frame_tx_dof_group2, _, result, dimension, _, _, _ = entry
+                ref_frame_tx_dof_group2, _, result, dimension, *_ = entry
             # group2 = entry[6]
             # int_dof_group1 = entry[3]
             # int_dof_group2 = entry[8]
@@ -1408,7 +1408,7 @@ def query_counterpart(query_group):
         matching_entries = []
         for entry_number, entry in nanohedra_symmetry_combinations.items():
             group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-                ref_frame_tx_dof_group2, _, result, dimension, _, _, _ = entry
+                ref_frame_tx_dof_group2, _, result, dimension, *_ = entry
             # group2 = entry[6]
             # int_dof_group1 = entry[3]
             # int_dof_group2 = entry[8]
@@ -1450,7 +1450,7 @@ def all_entries():
     all_entries_list = []
     for entry_number, entry in nanohedra_symmetry_combinations.items():
         group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-            ref_frame_tx_dof_group2, _, result, dimension, _, _, _ = entry
+            ref_frame_tx_dof_group2, _, result, dimension, *_ = entry
         # group2 = entry[6]
         # int_dof_group1 = entry[3]
         # int_dof_group2 = entry[8]
@@ -1486,7 +1486,7 @@ def dimension(dim):
         matching_entries_list = []
         for entry_number, entry in nanohedra_symmetry_combinations.items():
             group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-                ref_frame_tx_dof_group2, _, result, dimension, _, _, _ = entry
+                ref_frame_tx_dof_group2, _, result, dimension, *_ = entry
             # group1 = entry[1]
             # group2 = entry[6]
             # int_dof_group1 = entry[3]

@@ -1305,7 +1305,8 @@ class SequenceProfile(ABC):
                 observations
         """
         if alignment_type not in alignment_types:
-            raise ValueError(f'Argument alignment_type must be either "mapped" or "paired" not {alignment_type}')
+            raise ValueError(
+                f"Argument 'alignment_type' must be either 'mapped' or 'paired' not {alignment_type}")
 
         # Create empty self.fragment_map to store information about each fragment observation in the profile
         if self.fragment_map is None:

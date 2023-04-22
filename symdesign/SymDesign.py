@@ -593,8 +593,8 @@ def main():
     # ---------------------------------------------------
     # elif args.residue_selector:  # Todo
     #     def generate_sequence_template(pdb_file):
-    #         pdb = Model.from_file(pdb_file, entities=False)
-    #         sequence = SeqRecord(Seq(''.join(chain.sequence for chain in pdb.chains), 'Protein'), id=pdb.file_path)
+    #         model = Model.from_file(pdb_file, entities=False)
+    #         sequence = SeqRecord(Seq(''.join(entity.sequence for entity in model.entities), 'Protein'), id=model.name)
     #         sequence_mask = copy.copy(sequence)
     #         sequence_mask.id = 'residue_selector'
     #         sequences = [sequence, sequence_mask]

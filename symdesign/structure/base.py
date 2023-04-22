@@ -1197,9 +1197,8 @@ class Atoms:
             at: The index to perform the insert at
             new_atoms: The Atom instances to include into Atoms
         """
-        self.atoms = np.concatenate((self.atoms[:at],
-                                     new_atoms if isinstance(new_atoms, Iterable) else [new_atoms],
-                                     self.atoms[at:]))
+        self.atoms = np.concatenate(
+            (self.atoms[:at], new_atoms if isinstance(new_atoms, Iterable) else [new_atoms], self.atoms[at:]))
 
     def append(self, new_atoms: list[Atom] | np.ndarray):
         """Append additional Atom instances into the Atoms container
@@ -2802,9 +2801,9 @@ class Residues:
             at: The index to perform the insert at
             new_residues: The Residue instances to include into Residues
         """
-        self.residues = np.concatenate((self.residues[:at],
-                                        new_residues if isinstance(new_residues, Iterable) else [new_residues],
-                                        self.residues[at:]))
+        self.residues = np.concatenate(
+            (self.residues[:at], new_residues if isinstance(new_residues, Iterable) else [new_residues],
+             self.residues[at:]))
 
     def append(self, new_residues: list[Residue] | np.ndarray):
         """Append additional Residue instances into the Residues container
@@ -2868,6 +2867,11 @@ class Residues:
         yield from self.residues.tolist()
 
 
+chain_assignment_error = "Can't solve for the Residue chainID association automatically. If the new " \
+                         'Residue is at a Structure termini in a multi-Structure, Structure container, ' \
+                         "you must specify which Structure it belongs to by passing chain_id='ID'"
+
+
 class Structure(ContainsAtomsMixin):  # Todo Polymer?
     """Structure object handles Atom/Residue/Coords manipulation of all Structure containers.
     Must pass parent and residue_indices, atoms and coords, or residues to initialize
@@ -2894,7 +2898,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     _side_chain_indices: list[int]
     _contact_order: np.ndarry  # Todo ContainsResiduesMixin
     _coords_indexed_residues: np.ndarray  # list[Residue]  # Todo ContainsResiduesMixin
-    _coords_indexed_residue_atoms: np.ndarray  # list[int]  # Todo ContainsResiduesMixin
+    # _coords_indexed_residue_atoms: np.ndarray  # list[int]  # Todo ContainsResiduesMixin
     _residues: Residues | None  # Todo ContainsResiduesMixin
     _residue_indices: list[int] | None  # Todo ContainsResiduesMixin
     _sap: float  # Todo ContainsResiduesMixin
@@ -2961,8 +2965,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             except TypeError:
                 if isinstance(self, Structures):  # Structures handles this itself
                     return
-                raise stutils.ConstructionError('Argument residue_indices must be provided when constructing dependent '
-                                                f'{self.__class__.__name__} instance. Found state:\n{self.residues}')
+                raise stutils.ConstructionError(
+                    f"Argument 'residue_indices' must be provided when constructing dependent {self.__class__.__name__}"
+                    f' instance. Found state:\n{self.residues}')
             # Must set this before setting _atom_indices
             self._residue_indices = residue_indices
             # Get the atom_indices from the provided residues
@@ -3025,7 +3030,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # return cls(file_path=file, **read_mmcif_file(file, **kwargs))
 
     @classmethod
-    def from_residues(cls, residues: list[Residue] | Residues = None, **kwargs):
+    def from_residues(cls, residues: list[Residue] | Residues, **kwargs):
         return cls(residues=residues, **kwargs)
 
     @StructureBase._parent.setter
@@ -3150,8 +3155,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         try:  # To get the indices through the public property
             indices = self.__getattribute__(f'{dtype}_indices')
         except AttributeError:
-            raise AttributeError(f"The 'dtype' {dtype} wasn't found from the {self.__class__.__name__}.dtype_indices. "
-                                 f"Possible values of dtype are 'atom' or 'residue'")
+            raise AttributeError(
+                f"The 'dtype' {dtype} wasn't found from the {self.__class__.__name__}.dtype_indices. Possible values "
+                "of dtype are 'atom' or 'residue'")
         offset = at - indices[0]
         # Set the indices through the private attribute
         self.__setattr__(f'_{dtype}_indices', [prior_idx + offset for prior_idx in indices])
@@ -3170,8 +3176,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         try:
             indices = self.__getattribute__(f'{dtype}_indices')
         except AttributeError:
-            raise AttributeError(f"The 'dtype' {dtype} wasn't found from the {self.__class__.__name__}.dtype_indices. "
-                                 f"Possible values of dtype are 'atom' or 'residue'")
+            raise AttributeError(
+                f"The 'dtype' {dtype} wasn't found from the {self.__class__.__name__}.dtype_indices. Possible values "
+                "of dtype are 'atom' or 'residue'")
         number_new = len(new_indices)
         self.__setattr__(f'_{dtype}_indices', indices[:at] + new_indices + [idx + number_new for idx in indices[at:]])
 
@@ -3187,8 +3194,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         try:
             indices = self.__getattribute__(f'{dtype}_indices')
         except AttributeError:
-            raise AttributeError(f"The 'dtype' {dtype} wasn't found from the {self.__class__.__name__}.dtype_indices. "
-                                 f"Possible values of dtype are 'atom' or 'residue'")
+            raise AttributeError(
+                f"The 'dtype' {dtype} wasn't found from the {self.__class__.__name__}.dtype_indices. Possible values "
+                f"of dtype are 'atom' or 'residue'")
         if start_at is not None:
             try:
                 self.__setattr__(f'_{dtype}_indices',
@@ -3196,15 +3204,17 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 # self._atom_indices = \
                 #     self._atom_indices[:start_at] + [idx + offset for idx in self._atom_indices[start_at:]]
             except TypeError:  # None is not valid
-                raise ValueError(f"offset value {offset} isn't valid. Must provide an integer when offsetting {dtype} "
-                                 f'indices using the argument "start_at"')
+                raise ValueError(
+                    f"offset value {offset} isn't valid. Must provide an integer when offsetting {dtype} indices using "
+                    "the argument 'start_at'")
         elif self.is_parent():  # Just reset all the indices without regard for gaps
             self.__setattr__(f'_{dtype}_indices', list(range(self.__getattribute__(f'number_of_{dtype}'))))
             # self._atom_indices = list(range(self.number_of_atoms))
         # This shouldn't be used for a Structure object who is dependent on another Structure
         else:
-            raise ValueError(f'{self._offset_indices.__name__}: Must include "start_at" when offsetting {dtype} indices'
-                             ' from a dependent structure')
+            raise ValueError(
+                f'{self._offset_indices.__name__}: Must include "start_at" when offsetting {dtype} indices from a '
+                'dependent structure')
 
     # Todo StructureIndex
     def _delete_indices(self, delete_indices: Iterable[int], dtype: atom_or_residue_literal = 'atom'):
@@ -3220,8 +3230,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         try:
             indices = self.__getattribute__(f'{dtype}_indices')
         except AttributeError:
-            raise AttributeError(f"The 'dtype' {dtype} wasn't found from the {self.__class__.__name__}.dtype_indices. "
-                                 f"Possible values of dtype are 'atom' or 'residue'")
+            raise AttributeError(
+                f"The 'dtype' {dtype} wasn't found from the {self.__class__.__name__}.dtype_indices. Possible values "
+                "of dtype are 'atom' or 'residue'")
         try:
             for _ in delete_indices:  # reversed(delete_indices):
                 indices.pop()  # idx)
@@ -3231,7 +3242,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             return
             # raise IndexError(f"The index, {idx}, wasn't found in the {self.name}.{dtype}_indices")
         except AttributeError:
-            raise AttributeError(f"The {self.__class__.__name__} doesn't have any {dtype}_indices")
+            raise AttributeError(
+                f"The {self.__class__.__name__} doesn't have any {dtype}_indices")
 
     @property  # Todo return StructureIndex
     def residue_indices(self) -> list[int] | None:
@@ -3379,8 +3391,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     def _set_coords_indexed(self):  # Todo ContainsResiduesMixin
         """Index the coordinates to the Residue they belong to and their associated atom_index"""
-        residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
-        self._coords_indexed_residues, self._coords_indexed_residue_atoms = map(np.array, zip(*residues_atom_idx))
+        residues_atom_idx = [residue for residue in self.residues for res_atom_idx in residue.range]
+        self._coords_indexed_residues = np.array(residues_atom_idx)
+        # residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
+        # self._coords_indexed_residues, self._coords_indexed_residue_atoms = map(np.array, zip(*residues_atom_idx))
         if len(self._coords_indexed_residues) != len(self._atom_indices):
             raise ValueError(
                 f'The length of _coords_indexed_residues {len(self._coords_indexed_residues)} '
@@ -3484,22 +3498,22 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         else:
             return self.parent._coords_indexed_residues[self.side_chain_indices].tolist()
 
-    @property
-    def coords_indexed_residue_atoms(self) -> list[int]:  # Todo ContainsResiduesMixin
-        """Returns a map of the Residue atom_indices for each Coord in the Structure
-
-        Returns:
-            Index of the Atom position in the Residue for the index of the .coords attribute
-        """
-        # try:
-        if self.is_parent():
-            return self._coords_indexed_residue_atoms[self._atom_indices].tolist()
-        else:
-            return self.parent._coords_indexed_residue_atoms[self._atom_indices].tolist()
-        # except (AttributeError, TypeError):
-        #     raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
-        #                          f'{self.coords_indexed_residue_atoms.__name__} can only be accessed by the Structure '
-        #                          f'object that owns these coordinates and therefore owns this Structure')
+    # @property
+    # def coords_indexed_residue_atoms(self) -> list[int]:  # Todo ContainsResiduesMixin
+    #     """Returns a map of the Residue atom_indices for each Coord in the Structure
+    #
+    #     Returns:
+    #         Index of the Atom position in the Residue for the index of the .coords attribute
+    #     """
+    #     # try:
+    #     if self.is_parent():
+    #         return self._coords_indexed_residue_atoms[self._atom_indices].tolist()
+    #     else:
+    #         return self.parent._coords_indexed_residue_atoms[self._atom_indices].tolist()
+    #     # except (AttributeError, TypeError):
+    #     #     raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
+    #     #                          f'{self.coords_indexed_residue_atoms.__name__} can only be accessed by the Structure '
+    #     #                          f'object that owns these coordinates and therefore owns this Structure')
 
     # @coords_indexed_residue_atoms.setter
     # def coords_indexed_residue_atoms(self, indices: list[int]):
@@ -3554,7 +3568,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """
         for residue in self.get_residues(**kwargs):
             for kwarg, value in kwargs.items():
-                residue.__setattr__(kwarg, value)
+                setattr(residue, kwarg, value)
 
     # def set_residues_attributes_from_array(self, **kwargs):
     #     """Set attributes specified by key, value pairs for all Residues in the Structure"""
@@ -3979,7 +3993,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 self._residues.insert(last_residue.index, add_residues)
         else:
             raise ValueError(
-                f'termini must be wither "n" or "c", not {termini}')
+                f"'termini' must be either 'n' or 'c', not {termini}")
 
         self._residues.reindex()
         # Rename new residues to self.chain_id
@@ -4263,9 +4277,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self._insert_indices(atom_start_index, new_residue.atom_indices, dtype='atom')
 
         # Set the new chain_id. Must occur after self._residue_indices update if chain isn't provided
-        chain_assignment_error = "Can't solve for the new Residue polymer association automatically! If the new " \
-                                 'Residue is at a Structure termini in a multi-Structure Structure container, you must' \
-                                 ' specify which Structure it belongs to by passing chain_id='
         if chain_id is None:  # Try to solve without it...
             if prev_residue and next_residue:
                 if prev_residue.chain_id == next_residue.chain_id:
@@ -4300,9 +4311,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         elif prev_residue:
             new_residue.number = new_residue.number_pdb = prev_residue.number + 1
         else:  # next_residue
-            # Subtracting one may not be enough if this insert_residue_type is part of a set of inserts and all
-            # n-terminal insertions are being conducted before this next_residue. Clean this in the first check of
-            # this logic block
+            # This cautionary note may not apply anymore
+            #  Subtracting one may not be enough if this insert_residue_type() is part of a set of inserts and all
+            #  n-terminal insertions are being conducted before this next_residue. Clean this in the first check of
+            #  this logic block
             new_residue.number = new_residue.number_pdb = next_residue.number - 1
 
         try:
@@ -5023,7 +5035,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         try:
             return self._secondary_structure
         except AttributeError:
-            # if self.residues[0].secondary_structure:
             try:
                 self._secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
             except AttributeError:  # When residue.secondary_structure not set
@@ -5058,12 +5069,13 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             1 if the termini is further from the reference, -1 if the termini is closer to the reference
         """
         # Todo, this is pretty coarse logic. Calculate from N number of residues up or downstream? That has issues
-        if termini.lower() == 'n':
+        if termini == 'n':
             residue_coords = self.residues[0].n_coords
-        elif termini.lower() == 'c':
+        elif termini == 'c':
             residue_coords = self.residues[-1].c_coords
         else:
-            raise ValueError(f'Termini must be either "n" or "c", not "{termini}"')
+            raise ValueError(
+                f"'termini' must be either 'n' or 'c', not {termini}")
 
         if reference is None:
             reference = utils.symmetry.origin
@@ -5072,9 +5084,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         min_distance = self.distance_from_reference(reference=reference, measure='min')
         coord_distance = np.linalg.norm(residue_coords - reference)
         if abs(coord_distance - max_distance) < abs(coord_distance - min_distance):
-            return 1  # termini further from the reference
+            return 1  # Termini further from the reference
         else:
-            return -1  # termini closer to the reference
+            return -1  # Termini closer to the reference
 
     def distance_from_reference(self, reference: np.ndarray = utils.symmetry.origin, measure: str = 'mean', **kwargs) \
             -> float:
@@ -5582,27 +5594,28 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         if isinstance(dtype, str):
             self.set_residues_attributes(b_factor=dtype)
         else:
-            raise TypeError(f"The type '{dtype.__class__.__name__}' isn't a string. To "
-                            f'{self.set_b_factor_by_attribute.__name__}, you must provide the '
-                            'dtype as a string specifying a Residue attribute')
+            raise TypeError(
+                f"The type '{dtype.__class__.__name__}' isn't a string. To {self.set_b_factor_by_attribute.__name__}, "
+                'you must provide dtype as a string specifying a Residue attribute')
 
-    def set_b_factor_data(self, values: Iterable[int]):  # Todo ContainsResiduesMixin
-        """Set the b-factor entry for every Residue to a Residue attribute
+    def set_b_factor_data(self, values: Iterable[float]):  # Todo ContainsResiduesMixin
+        """Set the b-factor entry for every Residue to a value from an array-like
 
         Args:
-            values: The array like to set each Residue instance to
+            values: Array-like of integer types to set each Residue instance 'b_factor' attribute to
         """
         if isinstance(values, Iterable):
             values = list(values)
             if len(values) != self.number_of_residues:
-                raise ValueError(f"Can't provide a array-like of values with length {len(values)} != "
-                                 f"{self.number_of_residues}, the number of residues")
+                raise ValueError(
+                    f"Can't provide a array-like of values with length {len(values)} != {self.number_of_residues}, the "
+                    "number of residues")
             for residue, value in zip(self.residues, values):
                 residue.b_factor = value
         else:
-            raise TypeError(f"The type '{values.__class__.__name__}' isn't an Iterable. To "
-                            f"{self.set_b_factor_data.__name__}, you must provide the values as an Iterable integer "
-                            'with length = number_of_residues')
+            raise TypeError(
+                f"The type '{values.__class__.__name__}' isn't an Iterable. To {self.set_b_factor_data.__name__}, you "
+                'must provide the values as an Iterable of integer type with length = number_of_residues')
 
     def _copy_structure_containers(self):  # Todo what about Structures() use. change mechanism
         """Copy all member Structures that reside in Structure containers"""

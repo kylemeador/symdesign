@@ -790,7 +790,7 @@ class ContainsChainsMixin:
         self.original_chain_ids = self.chain_ids = []
         super().__init__(**kwargs)
 
-    def _create_chains(self, **kwargs):  # as_mate: bool = False
+    def _create_chains(self, **kwargs):
         """For all the Residues in the Structure, create Chain objects which contain their member Residues
 
         Keyword Args:
@@ -804,32 +804,32 @@ class ContainsChainsMixin:
         residues = self.residues
         residue_idx_start, idx = 0, 1
         try:  # If there are no residues, we have an empty Model
-            prior_residue = residues[0]
-        except TypeError:   # self.residues is None
+            prior_residue, *other_residues = residues
+        except TypeError:   # self.residues is None, cannot unpack non-iterable NoneType object
             return
-        chain_residues = []
-        for idx, residue in enumerate(residues[1:], 1):  # Start at the second index to avoid off by one
+        chain_residue_indices = []
+        for idx, residue in enumerate(other_residues, idx):  # Start at the second index to avoid off by one
             if residue.number <= prior_residue.number or residue.chain_id != prior_residue.chain_id:
                 # Less than or equal number should only happen with new chain. this SHOULD satisfy a malformed PDB
-                chain_residues.append(list(range(residue_idx_start, idx)))
+                chain_residue_indices.append(list(range(residue_idx_start, idx)))
                 residue_idx_start = idx
             prior_residue = residue
 
-        # Perform after iteration which is the final chain
-        chain_residues.append(list(range(residue_idx_start, idx + 1)))  # have to increment as if next residue
+        # Perform after iteration to get the final chain
+        chain_residue_indices.append(list(range(residue_idx_start, idx + 1)))  # Increment as if next residue
 
         self.chain_ids = utils.remove_duplicates([residue.chain_id for residue in residues])
         # if self.multimodel:
-        self.original_chain_ids = [residues[residue_indices[0]].chain_id for residue_indices in chain_residues]
+        self.original_chain_ids = [residues[residue_indices[0]].chain_id for residue_indices in chain_residue_indices]
         #     self.log.debug(f'Multimodel file found. Original Chains: {",".join(self.original_chain_ids)}')
         # else:
         #     self.original_chain_ids = self.chain_ids
 
         number_of_chain_ids = len(self.chain_ids)
-        if len(chain_residues) != number_of_chain_ids:  # Would be different if a multimodel or some weird naming
+        if len(chain_residue_indices) != number_of_chain_ids:  # Would be different if a multimodel or some weird naming
             available_chain_ids = chain_id_generator()
             new_chain_ids = []
-            for chain_idx in range(len(chain_residues)):
+            for chain_idx in range(len(chain_residue_indices)):
                 if chain_idx < number_of_chain_ids:  # Use the chain_ids version
                     chain_id = self.chain_ids[chain_idx]
                 else:
@@ -841,7 +841,7 @@ class ContainsChainsMixin:
 
             self.chain_ids = new_chain_ids
 
-        for residue_indices, chain_id in zip(chain_residues, self.chain_ids):
+        for residue_indices, chain_id in zip(chain_residue_indices, self.chain_ids):
             self.chains.append(Chain(residue_indices=residue_indices, chain_id=chain_id, parent=self, **kwargs))
 
     @property
@@ -890,8 +890,9 @@ class ContainsChainsMixin:
                 try:
                     return self.chains[idx]
                 except IndexError:
-                    raise IndexError(f'The number of chains ({self.number_of_chains}) in the {self.__class__.__name__} '
-                                     f'!= number of chain_ids ({len(self.chain_ids)})')
+                    raise IndexError(
+                        f'The number of chains in the {self.__class__.__name__}, '
+                        f'{self.number_of_chains} != {len(self.chain_ids)}, the number of chain_ids')
         return None
 
     def set_reference_sequence_from_seqres(self, reference_sequence: dict[str, str]):
@@ -1290,12 +1291,14 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             return self._reference_sequence
         except AttributeError:
             self.retrieve_info_from_api()
-            if not self._reference_sequence:
+            try:
+                return self._reference_sequence
+            except AttributeError:
                 self._reference_sequence = self._retrieve_sequence_from_api()
                 if self._reference_sequence is None:
                     self.log.info("The reference sequence couldn't be found. Using the Structure sequence instead")
                     self._reference_sequence = self.sequence
-            return self._reference_sequence
+                return self._reference_sequence
 
     # @reference_sequence.setter
     # def reference_sequence(self, sequence):
@@ -1316,7 +1319,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                              f"Entity name '{self.name}' isn't the correct format (1abc_1), the query will fail. "
                              f'Retrieving closest entity_id by PDB API structure sequence using the default '
                              f'sequence similarity parameters: '
-                             f'{", ".join(f"{k}: {v}" for k, v in query.pdb.default_sequence_values)}')
+                             f'{", ".join(f"{k}: {v}" for k, v in query.pdb.default_sequence_values.items())}')
             return query.pdb.retrieve_entity_id_by_sequence(self.sequence)
 
         try:
@@ -1520,9 +1523,6 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         try:
             return self._oligomer
         except AttributeError:
-            # if not self.is_symmetric():
-            #     self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
-            #                      'instead' % self.name)
             self._oligomer = Model.from_chains(self.chains, entities=False, log=self.log)
             # self._oligomer = Structures(self.chains, parent=self)  # NEW WAY Todo
             return self._oligomer
@@ -2793,14 +2793,16 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         Args:
             pose_format: Whether to initialize Structure with residue numbering from 1 until the end
-            chains:
+            chains: Whether to create Chain instances from passed Structure container instances, or existing Chain
+                instances to create the Model with
             rename_chains: Whether to name each chain an incrementally new Alphabetical character
-            entities:
+            entities: Whether to create Entity instances from passed Structure container instances, or existing Entity
+                instances to create the Model with
         Keyword Args:
-            entity_names: Sequence = None - Names explicitly passed for the Entity instances. Length must equal number of entities.
-                Names will take precedence over query_by_sequence if passed
-            query_by_sequence: bool = True - Whether the PDB API should be queried for an Entity name by matching sequence. Only used
-                if entity_names not provided
+            entity_names: Sequence = None - Names explicitly passed for the Entity instances. Length must equal number
+                of entities. Names will take precedence over query_by_sequence if passed
+            query_by_sequence: bool = True - Whether the PDB API should be queried for an Entity name by matching
+                sequence. Only used if entity_names not provided
         """
         # self.log.debug(f'{self._process_model.__name__} start')
 
@@ -2808,7 +2810,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # # Calling clear as we should only set those containers that are used
         # self.structure_containers.clear()
 
-        # Add lists together. Only one should be populated from class construction, Todo ensure this constraint is True
+        # Todo ensure this constraint is True
+        #   Only one should be populated from class construction
+        # Add lists together
         structures = (chains if isinstance(chains, (list, Structures)) else []) + \
                      (entities if isinstance(entities, (list, Structures)) else [])
         if structures:  # Create from existing
@@ -2826,7 +2830,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             struct0._start_indices(at=0, dtype='residue')
             for prior_struct, struct in zip(structs, other_structs):
                 struct.reset_state()
-                struct._start_indices(at=prior_struct.atom_indices[-1] + 1, dtype='atom')
+                struct._start_indices(at=prior_struct.end_index + 1, dtype='atom')
                 struct._start_indices(at=prior_struct.residue_indices[-1] + 1, dtype='residue')
 
         if chains:  # Create the instance from existing chains
@@ -2836,10 +2840,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self._copy_structure_containers()  # Copy each Chain in chains
                 # Reindex all residue and atom indices
                 reset_passed_structures(self.chains)
-
                 # Set the parent attribute for all containers
                 self._update_structure_container_attributes(_parent=self)
-                # By using extend, we set self.original_chain_ids too
+                # By using extend, self.original_chain_ids are set as well
                 self.chain_ids.extend([chain.chain_id for chain in self.chains])
             else:  # Create Chain instances from Residues
                 self._create_chains()
@@ -2856,7 +2859,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self._copy_structure_containers()  # Copy each Entity in entities
                 # Reindex all residue and atom indices
                 reset_passed_structures(self.entities)
-
                 # Set the parent attribute for all containers
                 self._update_structure_container_attributes(_parent=self)
                 if rename_chains:  # Set each successive Entity to have an incrementally higher chain id
@@ -2959,10 +2961,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         if self._fragment_db:
             for structure_type in self.structure_containers:
                 for structure in self.__getattribute__(structure_type):
-                # for entity in self.entities:
                     structure.fragment_db = self._fragment_db
-                # for chain in self.chains:
-                #     chain.fragment_db = self._fragment_db
 
     @property
     def chain_breaks(self) -> list[int]:
@@ -3054,10 +3053,10 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             The PDB formatted SEQRES record
         """
         formatted_reference_sequence = \
-            {chain.chain_id: ' '.join(protein_letters_1to3_extended.get(aa, 'XXX')
-                                      for aa in chain.reference_sequence)
-             for chain in self.chains}
-        chain_lengths = {chain.chain_id: len(chain.reference_sequence) for chain in self.chains}
+            {struct.chain_id: ' '.join(protein_letters_1to3_extended.get(aa, 'XXX')
+                                      for aa in struct.reference_sequence)
+             for struct in structure_container}
+        chain_lengths = {struct.chain_id: len(struct.reference_sequence) for struct in structure_container}
         return '%s\n' \
             % '\n'.join(f'SEQRES{line_number:4d} {chain_id:1s}{chain_lengths[chain_id]:5d}  '
                         f'{formatted_sequence[seq_res_len * (line_number-1):seq_res_len * line_number]}         '
@@ -3307,7 +3306,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                                               new_residue.atom_indices, dtype='atom')
                     break  # Move to the next container to update the indices by a set increment
                 except (ValueError, IndexError):
-                    # This should happen if the Atom is not in the Structure of interest
+                    # This should happen if the index isn't in the Structure.*_indices of interest
                     # Edge case where the index is being appended to the c-terminus
                     if index - 1 == structure.residue_indices[-1] and new_residue.chain_id == structure.chain_id:
                         structure._insert_indices(structure.number_of_residues, [index], dtype='residue')
@@ -4611,7 +4610,7 @@ class SymmetricModel(Models):
         b_cos = math.cos(beta * degree_to_radians)
         g_cos = math.cos(gamma)
         g_sin = float(math.sin(gamma))
-        self.uc_volume = float(a * b * c * math.sqrt(1 - a_cos ** 2 - b_cos ** 2 - g_cos ** 2 + 2 * a_cos * b_cos * g_cos))
+        self.uc_volume = float(a * b * c * math.sqrt(1 - a_cos**2 - b_cos**2 - g_cos**2 + 2*a_cos*b_cos*g_cos))
 
         # deorthogonalization matrix m
         # m0 = [1./a, -g_cos / (a*g_sin),
@@ -6003,7 +6002,7 @@ class SymmetricModel(Models):
 
         clashes = self.assembly_tree.two_point_correlation(self.coords[self.backbone_and_cb_indices], [distance])
         if clashes[0] > 0:
-            self.log.warning(f'{self.name}: Found {clashes[0]} clashing sites! Pose is not a viable symmetric assembly')
+            self.log.warning(f"{self.name}: Found {clashes[0]} clashing sites. Pose isn't a viable symmetric assembly")
             return True  # clash
         else:
             return False  # no clash
@@ -6157,6 +6156,7 @@ class Pose(SymmetricModel, Metrics):
                  design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
         # unused args
         #           euler_lookup: EulerLookup = None,
+        warn = kwargs.pop('warn_clashes', not ignore_clashes)
         # Model init will handle Structure set up if a structure file is present
         # SymmetricModel init will generate_symmetric_coords() if symmetry specification present
         super().__init__(**kwargs)
@@ -6167,7 +6167,7 @@ class Pose(SymmetricModel, Metrics):
         self.fragment_metrics = {}
         self.fragment_pairs = []
         self.fragment_queries = {}
-        self.ignore_clashes = ignore_clashes
+        # self.ignore_clashes = ignore_clashes
         # self.interface_design_residue_numbers = set()
         # self.interface_residue_numbers = set()
         self.interface_residues_by_entity_pair = {}
@@ -6180,9 +6180,9 @@ class Pose(SymmetricModel, Metrics):
         self.ss_type_sequence = []
 
         try:
-            self.is_clash(warn=not self.ignore_clashes)
+            self.is_clash(warn=warn)
         except ClashError as error:
-            if self.ignore_clashes:
+            if ignore_clashes:
                 pass
             else:
                 raise error
