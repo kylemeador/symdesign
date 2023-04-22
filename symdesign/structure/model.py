@@ -4346,24 +4346,18 @@ class SymmetricModel(Models):
     _symmetric_coords_split_by_entity: list[list[np.ndarray]]
     _transformation: list[transformation_mapping] | list[dict]
     _uc_dimensions: tuple[float, float, float, float, float, float] | None
-    # Todo can I set the orthogonalization_matrix here?
-    deorthogonalization_matrix: np.ndarray = utils.symmetry.identity_matrix
+    deorthogonalization_matrix: np.ndarray
     expand_matrices: np.ndarray | list[list[float]] | None
     expand_translations: np.ndarray | list[float] | None
-    orthogonalization_matrix: np.ndarray = utils.symmetry.identity_matrix
-    state_attributes: set[str] = Models.state_attributes | \
-        {'_assembly', '_assembly_minimally_contacting', '_assembly_tree', '_asu_indices', '_asu_model_idx',
-         '_center_of_mass_symmetric_entities', '_center_of_mass_symmetric_models',
-         '_oligomeric_model_indices', '_symmetric_coords_by_entity', '_symmetric_coords_split',
-         '_symmetric_coords_split_by_entity'}
-    symmetry_state_attrs = ['_symmetry',
-                            '_point_group_symmetry',
-                            '_dimension',
-                            '_cryst_record',
-                            '_number_of_symmetry_mates',
-                            'uc_volume',
-                            'orthogonalization_matrix',
-                            'deorthogonalization_matrix']
+    orthogonalization_matrix: np.ndarray
+    state_attributes: set[str] = Models.state_attributes \
+        | {'_assembly', '_assembly_minimally_contacting', '_assembly_tree', '_asu_indices', '_asu_model_idx',
+           '_center_of_mass_symmetric_entities', '_center_of_mass_symmetric_models',
+           '_oligomeric_model_indices', '_symmetric_coords_by_entity', '_symmetric_coords_split',
+           '_symmetric_coords_split_by_entity'}
+    symmetry_state_attrs = [
+        '_symmetry', '_point_group_symmetry', '_dimension', '_cryst_record', '_number_of_symmetry_mates', 'uc_volume',
+        'orthogonalization_matrix', 'deorthogonalization_matrix']
     uc_volume: float
 
     @classmethod
@@ -4643,19 +4637,19 @@ class SymmetricModel(Models):
         #       ((b*g_cos*c*(a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/self.uc_volume)]
         # m1 = [0., 1./b*g_sin, -(a*c*(a_cos - b_cos*g_cos) / (self.uc_volume*g_sin))]
         # m2 = [0., 0., a*b*g_sin/self.uc_volume]
-        self.deorthogonalization_matrix = \
-            np.array([[1./a, -g_cos / (a*g_sin),
-                       ((b*g_cos*c*(a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/self.uc_volume)],
-                      [0., 1./b*g_sin, -(a*c*(a_cos - b_cos*g_cos) / (self.uc_volume*g_sin))],
-                      [0., 0., a*b*g_sin/self.uc_volume]])
+        self.deorthogonalization_matrix = np.array(
+            [[1. / a, -g_cos / (a*g_sin),
+              ((b * g_cos * c * (a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/self.uc_volume)],
+             [0., 1. / (b*g_sin), -(a * c * (a_cos-b_cos*g_cos) / (self.uc_volume*g_sin))],
+             [0., 0., a * b * g_sin / self.uc_volume]])
 
         # orthogonalization matrix m_inv
         # m_inv_0 = [a, b*g_cos, c*b_cos]
         # m_inv_1 = [0., b*g_sin, (c*(a_cos - b_cos*g_cos))/g_sin]
         # m_inv_2 = [0., 0., self.uc_volume/(a*b*g_sin)]
-        self.orthogonalization_matrix = np.array([[a, b*g_cos, c*b_cos],
-                                                 [0., b*g_sin, (c*(a_cos - b_cos*g_cos))/g_sin],
-                                                 [0., 0., self.uc_volume/(a*b*g_sin)]])
+        self.orthogonalization_matrix = np.array([[a, b * g_cos, c * b_cos],
+                                                 [0., b * g_sin, (c * (a_cos - b_cos*g_cos)) / g_sin],
+                                                 [0., 0., self.uc_volume / (a*b*g_sin)]])
 
     @property
     def cryst_record(self) -> str | None:
