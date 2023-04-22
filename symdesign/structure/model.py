@@ -8251,6 +8251,7 @@ class Pose(SymmetricModel, Metrics):
         for number, residues in self.interface_residues_by_interface_unique.items():
             self.split_interface_ss_elements[number] = [ss_sequence_indices[residue.index] for residue in residues]
         self.log.debug(f'Found interface secondary structure: {self.split_interface_ss_elements}')
+        self.secondary_structure = pose_secondary_structure
 
     def calculate_fragment_profile(self, **kwargs):  # Todo move to Model
         """Take the fragment_profile from each member Entity and combine

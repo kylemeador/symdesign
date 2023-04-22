@@ -2912,7 +2912,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     secondary_structure: str | None  # Todo ContainsResiduesMixin
     sasa: float | None  # Todo ContainsResiduesMixin
     structure_containers: list | list[str]
-    state_attributes: set[str] = ContainsAtomsMixin.state_attributes | {'_sequence', '_helix_cb_indices'}
+    state_attributes: set[str] = ContainsAtomsMixin.state_attributes \
+        | {'_sequence', '_helix_cb_indices', '_secondary_structure'}
 
     def __init__(self, atoms: list[Atom] | Atoms = None,
                  residues: list[Residue] | Residues = None, residue_indices: list[int] = None,
@@ -5047,7 +5048,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self.__getattribute__(DEFAULT_SS_PROGRAM)()  # self.stride()
 
     @secondary_structure.setter
-    def secondary_structure(self, secondary_structure: Sequence[str] = None):
+    def secondary_structure(self, secondary_structure: Sequence[str]):
         if secondary_structure:
             if len(secondary_structure) == self.number_of_residues:
                 self._secondary_structure = ''.join(secondary_structure)
