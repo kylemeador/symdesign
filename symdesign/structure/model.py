@@ -3280,7 +3280,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         return residues
 
-    def insert_residue_type(self, residue_type: str, index: int = None, chain_id: str = None):  # Todo Entity,Structures
+    def insert_residue_type(self, residue_type: str, index: int = None, chain_id: str = None) -> Residue:  # Todo Entity,Structures
         """Insert a standard Residue type into the Structure based on Pose numbering (1 to N) at the origin.
         No structural alignment is performed!
 
@@ -3318,44 +3318,68 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 structure._start_indices(at=structures[prior_idx].atom_indices[-1] + 1, dtype='atom')
                 structure._start_indices(at=structures[prior_idx].residue_indices[-1] + 1, dtype='residue')
 
-    # def delete_residue(self, chain_id: str, residue_number: int):  # Todo Move to Structure
-    #     """"""
-    #     raise NotImplementedError(f'{self.delete_residue.__name__} This function requires testing')  # TODO TEST
-    #     # start = len(self.atoms)
-    #     # self.log.debug(start)
-    #     # residue = self.get_residue(chain, residue_number)
-    #     # residue.delete_atoms()  # deletes Atoms from Residue. unneccessary?
-    #
-    #     residue = self.chain(chain_id).residue(residue_number)
-    #     if residue is None:
-    #         raise ValueError(f'The residue number {residue_number} was not found')
-    #     delete_indices = residue.atom_indices
-    #     # Atoms() handles all Atom instances for the object
-    #     self._atoms.delete(delete_indices)
-    #     # self.delete_atoms(residue.atoms)  # deletes Atoms from PDB
-    #     # chain._residues.remove(residue)  # deletes Residue from Chain
-    #     # self._residues.remove(residue)  # deletes Residue from PDB
-    #     self.renumber()
-    #     self._residues.delete([residue.index])
-    #     self._residues.reindex(start_at=residue.index)  # .set_index()
-    #     # remove these indices from all Structure atom_indices including structure_containers
-    #     # Todo, turn this loop into Structure routine and implement for self, and structure_containers
-    #     atom_delete_index = self._atom_indices.index(delete_indices[0])
-    #     for iteration in range(len(delete_indices)):
-    #         self._atom_indices.pop(atom_delete_index)
-    #     # for structures in [self.chains, self.entities]:
-    #     for structure_type in self.structure_containers:
-    #         for structure in self.__getattribute__(structure_type):  # iterate over Structures in each structure_container
-    #             try:
-    #                 atom_delete_index = structure.atom_indices.index(delete_indices[0])
-    #                 for iteration in range(len(delete_indices)):
-    #                     structure.atom_indices.pop(atom_delete_index)
-    #             except ValueError:
-    #                 continue
+        # self.log.debug('Deleted: %d atoms' % (start - len(self.atoms)))
+        self.reset_state()
+        # self._reset_sequence()  # Performed in self.reset_state()
+
+        return new_residue
+
+    def insert_residues(self, index: int, new_residues: Iterable[Residue], chain_id: str = None) -> list[Residue]:
+        """Insert Residue instances into the Structure at the origin. No structural alignment is performed!
+
+        Args:
+            index: The index to perform the insertion at
+            new_residues: The Residue instances to insert
+            chain_id: The chain identifier to associate the new Residue instances with
+        Returns:
+            The newly inserted Residue instances
+        """
+        new_residues = super().insert_residues(index, new_residues, chain_id=chain_id)
+
+        number_new_residues = len(new_residues)
+        first_new_residue = new_residues[0]
+        new_residues_chain_id = first_new_residue.chain_id
+        atom_start_index = first_new_residue.start_index
+        new_residue_atom_indices = list(range(atom_start_index, new_residues[-1].end_index))
+        new_residue_indices = list(range(index, index + number_new_residues))
+
+        # Must update other Structures indices
+        for structure_type in self.structure_containers:
+            structures = self.__getattribute__(structure_type)
+            idx = 0
+            # Iterate over Structures in each structure_container
+            for idx, structure in enumerate(structures, idx):
+                structure.reset_state()
+                # structure._reset_sequence()  # Performed in self.reset_state()
+                try:  # Update each Structures _residue_ and _atom_indices with additional indices
+                    structure._insert_indices(structure.residue_indices.index(index),
+                                              [index], dtype='residue')
+                    structure._insert_indices(structure.atom_indices.index(atom_start_index),
+                                              new_residue_atom_indices, dtype='atom')
+                    break  # Move to the next container to update the indices by a set increment
+                except (ValueError, IndexError):
+                    # This should happen if the index isn't in the Structure.*_indices of interest
+                    # Edge case where the index is being appended to the c-terminus
+                    if index - 1 == structure.residue_indices[-1] and new_residues_chain_id == structure.chain_id:
+                        structure._insert_indices(structure.number_of_residues, new_residue_indices, dtype='residue')
+                        structure._insert_indices(structure.number_of_atoms, new_residue_atom_indices, dtype='atom')
+                        break  # Must move to the next container to update the indices by a set increment
+            else:  # The target structure wasn't found
+                raise DesignError(
+                    f"{self.insert_residues.__name__}: Couldn't locate the Structure to be modified by the inserted "
+                    f"residues")
+            # For each subsequent structure in the structure container, update the indices with the last indices from
+            # the prior structure
+            for next_structure in enumerate(structures[idx + 1:]):
+                next_structure._start_indices(at=structure.atom_indices[-1] + 1, dtype='atom')
+                next_structure._start_indices(at=structure.residue_indices[-1] + 1, dtype='residue')
+                structure = next_structure
 
         # self.log.debug('Deleted: %d atoms' % (start - len(self.atoms)))
         self.reset_state()
         # self._reset_sequence()  # Performed in self.reset_state()
+
+        return new_residues
 
     def retrieve_pdb_info_from_api(self):
         """Query the PDB API for information on the PDB code found at the Model.name attribute
