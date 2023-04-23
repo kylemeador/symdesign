@@ -874,7 +874,7 @@ class Atom(StructureBase):
     # End state properties
     @property
     def coords(self) -> np.ndarray:
-        """The coordinates for the Atoms in the StructureBase object"""
+        """The coordinates for the Atom. Array is 1 dimensional in contrast to other .coords properties"""
         # returns self.Coords.coords(a np.array)[sliced by the instance's atom_indices]
         try:
             # return self._coords.coords[self.index]
@@ -883,7 +883,7 @@ class Atom(StructureBase):
         except (AttributeError, IndexError):
             # Possibly the Atom was set with keyword argument coords instead of Structure Coords
             # This shouldn't be used often as it will be quite slow... give warning?
-            return np.array([self.__coords])
+            return np.array(self.__coords)
             # Todo try something like
             #  return self.parent._collect_coords()
             #  This would grab all Atom coords and make them _coords (Coords)
@@ -1184,7 +1184,7 @@ class Atoms:
         else:  # When start_at is 0 or less
             if start_at < 0:
                 raise NotImplementedError(
-                    f"Can't use {self.reindex_atoms.__name__} with negative integers")
+                    f"Can't use {self.reindex.__name__} with negative integers")
             for idx, struct in enumerate(self, start_at):
                 struct.index = idx
 
@@ -1493,8 +1493,12 @@ class ContainsAtomsMixin(StructureBase, ABC):
             self.coords = np.concatenate(coords)
         if len(self._coords.coords) == 0:  # Check if Coords (_coords) hasn't been populated
             # If it hasn't, then coords weren't passed. Try to set from self.from_source. catch missing from_source
+            if from_source == 'atoms':
+                coords = np.concatenate([s.coords for s in getattr(self, from_source)]).reshape(-1, 3)
+            else:
+                coords = np.concatenate([s.coords for s in getattr(self, from_source)])
             try:
-                self._coords.set(np.concatenate([s.coords for s in getattr(self, from_source)]))
+                self._coords.set(coords)
             except AttributeError:
                 try:  # Probably missing from_source. .coords is available in all structure_container_types...
                     getattr(self, from_source)
