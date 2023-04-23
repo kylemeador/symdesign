@@ -534,7 +534,7 @@ class Log:
         other.__dict__.update(self.__dict__)
         return other
 
-    copy = __copy__
+    copy = __copy__  # Overwrites to use this instance __copy__
 
 
 null_struct_log = Log()
@@ -667,12 +667,12 @@ class StructureBase(SymmetryMixin, ABC):
     # Placeholder getter for _parent setter so that derived classes automatically set _log and _coords from _parent set
     @property
     def _parent(self) -> StructureBase | None:
-        """Return the instance's "parent" StructureBase"""
+        """Set the 'parent' StructureBase of this instance"""
         return self.parent
 
     @_parent.setter
     def _parent(self, parent: StructureBase):
-        """Return the instance's "parent" StructureBase"""
+        """Set the 'parent' StructureBase of this instance"""
         # print('setting __parent')
         self.__parent = parent
         # print('type(self)', type(self))
@@ -768,7 +768,7 @@ class StructureBase(SymmetryMixin, ABC):
         other.__dict__.update(self.__dict__)
         return other
 
-    copy = __copy__
+    copy = __copy__  # Overwrites to use this instance __copy__
 
 
 class Atom(StructureBase):
@@ -848,7 +848,9 @@ class Atom(StructureBase):
         self.reset_state()
 
     @property
-    def type(self) -> str:  # This can't be set since the self._type_str needs to be changed then
+    def type(self) -> str:
+        """This can't currently be set"""
+        # If setting is desired, the self._type_str needs to be changed upon new type
         return self._type
 
     @property
@@ -932,11 +934,11 @@ class Atom(StructureBase):
 
     def is_backbone_and_cb(self) -> bool:
         """Is the Atom is a backbone or CB Atom? Includes N, CA, C, O, and CB"""
-        return self.type in protein_backbone_and_cb_atom_types
+        return self._type in protein_backbone_and_cb_atom_types
 
     def is_backbone(self) -> bool:
         """Is the Atom is a backbone Atom? These include N, CA, C, and O"""
-        return self.type in protein_backbone_atom_types
+        return self._type in protein_backbone_atom_types
 
     def is_cb(self, gly_ca: bool = True) -> bool:
         """Is the Atom a CB atom? Default returns True if Glycine and Atom is CA
@@ -945,18 +947,18 @@ class Atom(StructureBase):
             gly_ca: Whether to include Glycine CA in the boolean evaluation
         """
         if gly_ca:
-            return self.type == 'CB' or (self.residue_type == 'GLY' and self.type == 'CA')
+            return self._type == 'CB' or (self.residue_type == 'GLY' and self._type == 'CA')
         else:
-            #                                    When Rosetta assigns, it is this  v  but PDB assigns as this  v
-            return self.type == 'CB' or (self.residue_type == 'GLY' and (self.type == '2HA' or self.type == 'HA3'))
+            #                                         When Rosetta assigns, it is this   v, but PDB assigns this v
+            return self._type == 'CB' or (self.residue_type == 'GLY' and (self._type == '2HA' or self._type == 'HA3'))
 
     def is_ca(self) -> bool:
         """Is the Atom a CA atom?"""
-        return self.type == 'CA'
+        return self._type == 'CA'
 
     def is_heavy(self) -> bool:
         """Is the Atom a heavy atom?"""
-        return 'H' not in self.type
+        return 'H' not in self._type
 
     # @property
     # def next_atom(self) -> Atom | None:
@@ -988,7 +990,7 @@ class Atom(StructureBase):
 
     @property
     def _key(self) -> tuple[int, str, str, float]:
-        return self.index, self.type, self.residue_type, self.b_factor
+        return self.index, self._type, self.residue_type, self.b_factor
 
     def get_atom_record(self) -> str:
         """Provide the Atom as an Atom record string
@@ -1056,7 +1058,7 @@ class Atom(StructureBase):
 
         return other
 
-    copy = __copy__
+    copy = __copy__  # Overwrites to use this instance __copy__
 
 
 alpha_helix_15_atoms = [
@@ -1144,8 +1146,9 @@ class Atoms:
         if atoms is None:
             self.atoms = np.array([])
         elif not isinstance(atoms, (np.ndarray, list)):
-            raise TypeError(f"Can't initialize {self.__class__.__name__} with {type(atoms).__name__}. Type must be a "
-                            f'numpy.ndarray or list of {Atom.__name__} instances')
+            raise TypeError(
+                f"Can't initialize {self.__class__.__name__} with {type(atoms).__name__}. Type must be a "
+                f'numpy.ndarray or list[{Atom.__name__}]')
         else:
             self.atoms = np.array(atoms, dtype=np.object_)
     #     self.find_prev_and_next()
@@ -1166,7 +1169,7 @@ class Atoms:
         """Set each Atom instance index according to incremental Atoms/Coords index
 
         Args:
-            start_at: The integer to start renumbering at
+            start_at: The index to start reindexing at. Must be [0, 'inf']
         """
         if start_at > 0:
             # if start_at < self.atoms.shape[0]:  # if in the Atoms index range
@@ -1175,13 +1178,15 @@ class Atoms:
                 for idx, atom in enumerate(self.atoms[start_at:].tolist(), prior_atom.index + 1):
                     atom.index = idx
             except IndexError:
-                raise IndexError(f'{self.reindex.__name__}: Starting index is outside of the '
-                                 f'allowable indices in the {self.__class__.__name__} object!')
+                raise IndexError(
+                    f'{self.reindex.__name__}: Starting index is outside of the allowable indices in the '
+                    f'{self.__class__.__name__} object')
         else:  # When start_at is 0 or less
             if start_at < 0:
-                raise NotImplementedError(f'Need to adjust {self.reindex_atoms.__name__} for negative integers')
-            for idx, atom in enumerate(self, start_at):
-                atom.index = idx
+                raise NotImplementedError(
+                    f"Can't use {self.reindex_atoms.__name__} with negative integers")
+            for idx, struct in enumerate(self, start_at):
+                struct.index = idx
 
     def delete(self, indices: Sequence[int]):
         """Delete Atom instances from the Atoms container
@@ -1228,19 +1233,22 @@ class Atoms:
     def __copy__(self) -> Atoms:  # -> Self: Todo python3.11
         cls = self.__class__
         other = cls.__new__(cls)
-        other.atoms = self.atoms.copy()
+
         # Copy all Atom instances
         atom: Atom
-        for idx, atom in enumerate(other.atoms):
-            # Set an attribute to indicate the atom shouldn't be "detached"
-            # since a Structure owns this Atoms instance
-            atom._copier = True
-            new_atom = other.atoms[idx] = atom.copy()
-            new_atom._copier = atom._copier = False
+        other_structs = [None for _ in range(len(self))]
+        for idx, struct in enumerate(self):
+            # Set an attribute to indicate the struct shouldn't be "detached"
+            # since a Structure owns this Structures instance
+            struct._copier = True
+            other_structs[idx] = new_struct = struct.copy()
+            new_struct._copier = struct._copier = False
+
+        other.atoms = np.array(other_structs, dtype=np.object_)
 
         return other
 
-    copy = __copy__
+    copy = __copy__  # Overwrites to use this instance __copy__  # Todo Refactor StructureContainer ready
 
     def __len__(self) -> int:
         return len(self.atoms)
@@ -1264,41 +1272,6 @@ atom_type_num = len(atom_order)
 # END DRY violation
 
 
-class ContainsResiduesMixin(StructureBase, ABC):
-    ss_sequence_indices: list[int]
-    """Index which indicates the Residue membership to the secondary structure type element sequence"""
-    ss_type_sequence: list[str]
-    """The ordered secondary structure type sequence which contains one character/secondary structure element"""
-
-    def __init__(self, kwargs):
-        raise NotImplementedError(f'{self.__class__.__name__} needs more work')
-        super().__init__(**kwargs)
-        self.ss_sequence_indices = []
-        self.ss_type_sequence = []
-
-    def calculate_secondary_structure(self):
-        """"""
-        self.stride()
-        secondary_structure = self.secondary_structure
-
-        ss_sequence_indices, ss_type_sequence = [], []
-        # Increment a secondary structure index which changes with every secondary structure transition
-        # Simultaneously, map the secondary structure type to an array of pose length
-        ss_increment_index = 0
-        ss_sequence_indices.append(ss_increment_index)
-        ss_type_sequence.append(secondary_structure[0])
-        for prior_ss_type, ss_type in zip(secondary_structure[:-1], secondary_structure[1:]):
-            if prior_ss_type != ss_type:
-                ss_increment_index += 1
-                ss_type_sequence.append(ss_type)
-            ss_sequence_indices.append(ss_increment_index)
-
-        # Clear any information if it exists
-        self.ss_sequence_indices.clear(), self.ss_type_sequence.clear()
-        self.ss_sequence_indices.extend(ss_sequence_indices)
-        self.ss_type_sequence.extend(ss_type_sequence)
-
-
 class ContainsAtomsMixin(StructureBase, ABC):
     # _atom_indices: list[int]
     _atoms: Atoms
@@ -1317,14 +1290,14 @@ class ContainsAtomsMixin(StructureBase, ABC):
     # These state_attributes are used by all subclasses
     state_attributes: set[str] = StructureBase.state_attributes | _indices_attributes
 
+    @classmethod
+    def from_atoms(cls, atoms: list[Atom] | Atoms = None, **kwargs):
+        return cls(atoms=atoms, **kwargs)
+
     def __init__(self, atoms: list[Atom] | Atoms = None, **kwargs):
         super().__init__(**kwargs)
         if atoms is not None:
             self._assign_atoms(atoms)
-
-    @classmethod
-    def from_atoms(cls, atoms: list[Atom] | Atoms = None, **kwargs):
-        return cls(atoms=atoms, **kwargs)
 
     @property
     def atoms(self) -> list[Atom] | None:
@@ -1750,7 +1723,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
 
     @StructureBase._parent.setter
     def _parent(self, parent: StructureBase):
-        """Set the Coords object while propagating changes to symmetry "mate" chains"""
+        """Set the 'parent' StructureBase of this instance"""
         # all of the below comments get at the issue of calling self.__parent here
         # I think I have to call _StructureBase__parent to access this variable for some reason having to do with class
         # inheritance
@@ -1940,6 +1913,11 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
         #     # Todo this residue should be built out, but as of 6/28/22 it can only be deleted
         #     self.ca_index = idx  # use the last found index as a rough guess
         #     self.secondary_structure = 'C'  # just a placeholder since stride shouldn't work
+
+    @property
+    def type1(self) -> str:
+        """Access the one character representation of the amino acid type"""
+        return protein_letters_3to1_extended[self.type]
 
     @property
     def backbone_indices(self) -> list[int]:
@@ -2707,7 +2685,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
 
         return other
 
-    copy = __copy__
+    copy = __copy__  # Overwrites to use this instance __copy__
 
 
 class Residues:
@@ -2717,12 +2695,13 @@ class Residues:
         if residues is None:
             self.residues = np.array([])
         elif not isinstance(residues, (np.ndarray, list)):
-            raise TypeError(f"Can't initialize {self.__class__.__name__} with {type(residues).__name__}. Type must be a"
-                            f' numpy.ndarray or list of {Residue.__name__} instances')
+            raise TypeError(
+                f"Can't initialize {self.__class__.__name__} with {type(residues).__name__}. Type must be a "
+                f'numpy.ndarray or list of {Residue.__name__} instances')
         else:
             self.residues = np.array(residues, dtype=np.object_)
 
-        # can't set these here since we don't always make Residue copies
+        # Can't set these here since doesn't always make Residue copies
         # self.set_index()
         # self.find_prev_and_next()
 
@@ -2743,7 +2722,7 @@ class Residues:
         """Index the Residue instances and their corresponding Atom/Coords indices according to their position
 
         Args:
-            start_at: The Residue index to start reindexing at
+            start_at: The index to start reindexing at. Must be [0, 'inf']
         """
         self.set_index(start_at=start_at)
         self.reindex_atoms(start_at=start_at)
@@ -2762,7 +2741,7 @@ class Residues:
         for updating member Atom.index attributes as well
 
         Args:
-            start_at: The Residue index to start reindexing at
+            start_at: The index to start reindexing at. Must be [0, 'inf']
         """
         residue: Residue
         if start_at > 0:
@@ -2775,11 +2754,13 @@ class Residues:
                     prior_residue = residue
             except IndexError:
                 # self.residues[-1].start_index = self.residues[-2].atom_indices[-1]+1
-                raise IndexError(f'{self.reindex.__name__}: Starting index is outside of the '
-                                 f'allowable indices in the {self.__class__.__name__} object!')
+                raise IndexError(
+                    f'{self.reindex.__name__}: Starting index is outside of the allowable indices in the '
+                    f'{self.__class__.__name__} instance')
         else:  # When start_at is 0 or less
             if start_at < 0:
-                raise NotImplementedError(f'Need to adjust {self.reindex_atoms.__name__} for negative integers')
+                raise NotImplementedError(
+                    f"Can't use {self.reindex_atoms.__name__} with negative integers")
             prior_residue, *other_residues = self.residues
             prior_residue.start_index = start_at
             for residue in other_residues:
@@ -2829,27 +2810,38 @@ class Residues:
             for key, value in kwargs.items():
                 setattr(struct, key, value)
 
-    def set_attribute_from_array(self, **kwargs):  # UNUSED
-        """For each Residue, set the attribute passed by keyword to the attribute corresponding to the Residue index in
-        a provided array
-
-        Ex: residues.attribute_from_array(mutation_rate=residue_mutation_rate_array)
-        """
-        for idx, residue in enumerate(self):
-            for key, value in kwargs.items():
-                setattr(residue, key, value[idx])
+    # def set_attribute_from_array(self, **kwargs):  # UNUSED
+    #     """For each Residue, set the attribute passed by keyword to the attribute corresponding to the Residue index in
+    #     a provided array
+    #
+    #     Ex: residues.attribute_from_array(mutation_rate=residue_mutation_rate_array)
+    #     """
+    #     for idx, residue in enumerate(self):
+    #         for key, value in kwargs.items():
+    #             setattr(residue, key, value[idx])
 
     def __copy__(self) -> Residues:  # -> Self Todo python3.11
         cls = self.__class__
         other = cls.__new__(cls)
-        other.residues = self.residues.copy()
-        for idx, residue in enumerate(other.residues):
-            # Set an attribute to indicate the atom shouldn't be "detached"
-            # since a Structure owns this Atoms instance
-            residue._copier = True
-            other.residues[idx] = new_residue = residue.copy()
-            new_residue._copier = residue._copier = False
-            # other.residues[idx] = new_residue
+        residue: Residue
+        # other.residues = self.residues.copy()
+        # for idx, residue in enumerate(other.residues):
+        #     # Set an attribute to indicate the residue shouldn't be "detached"
+        #     # since a Structure owns this Residues instance
+        #     residue._copier = True
+        #     other.residues[idx] = new_residue = residue.copy()
+        #     new_residue._copier = residue._copier = False
+        #     # other.residues[idx] = new_residue
+
+        other_structs = [None for _ in range(len(self))]
+        for idx, struct in enumerate(self):
+            # Set an attribute to indicate the struct shouldn't be "detached"
+            # since a Structure owns this Structures instance
+            struct._copier = True
+            other_structs[idx] = new_struct = struct.copy()
+            new_struct._copier = struct._copier = False
+
+        other.residues = np.array(other_structs, dtype=np.object_)
 
         # Todo, these were removed as current caller of Residues.__copy__ typically calls both of them
         # other.find_prev_and_next()
@@ -2857,13 +2849,48 @@ class Residues:
 
         return other
 
-    copy = __copy__
+    copy = __copy__  # Overwrites to use this instance __copy__  # Todo Refactor StructureContainer ready
 
-    def __len__(self) -> int:
+    def __len__(self) -> int:  # Todo Refactor
         return len(self.residues)
 
-    def __iter__(self) -> Residue:
+    def __iter__(self) -> Residue:  # Todo Refactor
         yield from self.residues.tolist()
+
+
+class ContainsResiduesMixin(StructureBase, ABC):
+    ss_sequence_indices: list[int]
+    """Index which indicates the Residue membership to the secondary structure type element sequence"""
+    ss_type_sequence: list[str]
+    """The ordered secondary structure type sequence which contains one character/secondary structure element"""
+
+    def __init__(self, kwargs):
+        raise NotImplementedError(f'{self.__class__.__name__} needs more work')
+        super().__init__(**kwargs)
+        self.ss_sequence_indices = []
+        self.ss_type_sequence = []
+
+    def calculate_secondary_structure(self):
+        """"""
+        self.stride()
+        secondary_structure = self.secondary_structure
+
+        ss_sequence_indices, ss_type_sequence = [], []
+        # Increment a secondary structure index which changes with every secondary structure transition
+        # Simultaneously, map the secondary structure type to an array of pose length
+        ss_increment_index = 0
+        ss_sequence_indices.append(ss_increment_index)
+        ss_type_sequence.append(secondary_structure[0])
+        for prior_ss_type, ss_type in zip(secondary_structure[:-1], secondary_structure[1:]):
+            if prior_ss_type != ss_type:
+                ss_increment_index += 1
+                ss_type_sequence.append(ss_type)
+            ss_sequence_indices.append(ss_increment_index)
+
+        # Clear any information if it exists
+        self.ss_sequence_indices.clear(), self.ss_type_sequence.clear()
+        self.ss_sequence_indices.extend(ss_sequence_indices)
+        self.ss_type_sequence.extend(ss_type_sequence)
 
 
 chain_assignment_error = "Can't solve for the Residue chainID association automatically. If the new " \
@@ -3035,7 +3062,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     @StructureBase._parent.setter
     def _parent(self, parent: StructureBase):
-        """Set the Coords object while propagating changes to symmetry "mate" chains"""
+        """Set the 'parent' StructureBase of this instance"""
         super(Structure, Structure)._parent.fset(self, parent)
         self._atoms = parent._atoms
         self._residues = parent._residues
@@ -3187,7 +3214,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """Reindex Structure 'dtype'_indices by an integer offset, starting with the 'start_at' index
 
         Args:
-            start_at: The integer to start reindexing atom_indices at
+            start_at: The index to start reindexing at. Must be [0, 'inf']
             offset: The integer to offset the index by. For negative offset, pass a negative value
             dtype: The type of indices to modify. Can be either 'atom' or 'residue'
         """
@@ -3330,10 +3357,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             residues = residues.copy()
             residues.reset_state()  # Clear runtime attributes
         else:
-            raise RuntimeError(f'{self.__class__.__name__} {self.name} '
-                               'received Residue instances that are not dependents of a parent.'
-                               'This check was put in place to inspect program runtime. '
-                               'How did this situation occur that residues are not dependents?')
+            raise RuntimeError(
+                f'{self.__class__.__name__} {self.name} received Residue instances that are not dependents of a parent.'
+                'This check was put in place to inspect program runtime. How did this situation occur that residues '
+                'are not dependents?')
         self._residues = residues
 
         self._populate_coords(from_source='residues', **kwargs)  # coords may be passed in kwargs
@@ -5842,7 +5869,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         return other
 
-    copy = __copy__
+    copy = __copy__  # Overwrites to use this instance __copy__
 
     # Todo this isn't long term sustainable. Perhaps a better case would be the ._sequence
     @property
@@ -5913,7 +5940,7 @@ class Structures(Structure, UserList):
     # this setter would work in a world where Structures has it's own .coords, .atoms, and .residues
     # @StructureBase._parent.setter
     # def _parent(self, parent: StructureBase):
-    #     """Set the Coords object while propagating changes to symmetry "mate" chains"""
+    #     """Set the 'parent' StructureBase of this instance"""
     #     # peel parent off to protect StructureBase from .coords, .atoms, and .residues as these don't index parent
     #     self._log = parent._log
     #     self._coords = Coords(np.concatenate([structure.coords for structure in self.data]))
@@ -6217,8 +6244,8 @@ class Structures(Structure, UserList):
     #
     #     return out_path
 
-    def __repr__(self) -> str:
-        return f'<Structure.Structures object at {id(self)}>'
+    # def __repr__(self) -> str:
+    #     return f'{self.__class__.__name__}({self.name})'
 
     # def __str__(self):
     #     return self.name

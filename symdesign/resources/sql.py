@@ -499,18 +499,19 @@ class EntityTransform(Base):
         )
 
     @transformation.setter
-    def transformation(self, transform):  # Todo transformation_mapping):
+    def transformation(self, transform):  # Todo : transformation_mapping):
         if any((self.rotation_x, self.rotation_y, self.rotation_z,
                 self.internal_translation_x, self.internal_translation_y, self.internal_translation_z,
                 self.setting_matrix,
                 self.external_translation_x, self.external_translation_y, self.external_translation_z)):
-            raise RuntimeError("Can't set the transformation as this would disrupt the persistence of the table"
-                               f"{EntityTransform.__tablename__}")
+            raise RuntimeError(
+                "Can't set the transformation as this would disrupt the persistence of the table "
+                f"{EntityTransform.__tablename__}")
 
         if not isinstance(transform, dict):
-            raise ValueError(f'The attribute transformation must be a Sequence of '
-                             f'transformation_mapping, not {type(transform[0]).__name__}')
-                             # f'{transformation_mapping.__name__}, not {type(transform[0]).__name__}')
+            raise ValueError(
+                "The attribute 'transformation' must be a Sequence of transformation_mapping, not "
+                f'{type(transform[0]).__name__}')
 
         for operation_type, operation in transform.items():
             if operation is None:

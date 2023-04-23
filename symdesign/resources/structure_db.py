@@ -251,7 +251,7 @@ class StructureDatabase(Database):
                                           'attribute of PoseJob to pull the pdb file source.')
             # Remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
             file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
-            model = structure.model.Model.from_pdb(file_path, name=file_name)
+            model = structure.model.Model.from_file(file_path, name=file_name)
             # entity_out_path = os.path.join(out_dir, f'{structure_identifier}.pdb')
             if entity is not None:  # Replace Structure from fetched file with the Entity Structure
                 # structure_identifier will be formatted the exact same as the desired EntityID
@@ -892,7 +892,7 @@ class StructureDatabase(Database):
                                 refined_path = self.refined.path_to(name=entity_name)
                                 shutil.copy(full_model_file, refined_path)
                 else:  # rosetta_loop_model
-                    raise NotImplementedError(f'This has not been updated to use ProteinMetadata')
+                    raise NotImplementedError(f"Rosetta loop model hasn't been updated to use ProteinMetadata")
                     flags_file = os.path.join(full_model_dir, 'loop_model_flags')
                     # if not os.path.exists(flags_file):
                     loop_model_flags = ['-remodel::save_top 0', '-run:chain A', '-remodel:num_trajectory 1']

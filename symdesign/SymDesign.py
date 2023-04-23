@@ -349,14 +349,13 @@ def create_protein_metadata(structures: list[Model | Entity], symmetry: str = No
 
             if uniprot_ids in uniprot_ids_to_prot_metadata:
                 # This Entity already found for processing, and we shouldn't have duplicates
-                logger.error(f"Found duplicate UniProtID identifier, {uniprot_ids}, for {protein_metadata}. "
-                             f"This error wasn't expected to occur.{putils.report_issue}")
+                logger.debug(f"Found duplicate UniProtID identifier, {uniprot_ids}, for {protein_metadata}")
                 attrs_of_interest = \
                     ['entity_id', 'reference_sequence', 'thermophilicity', 'symmetry_group', 'model_source']
                 exist = '\n\t.'.join([f'{attr}={getattr(protein_metadata, attr)}' for attr in attrs_of_interest])
                 found_metadata = uniprot_ids_to_prot_metadata[uniprot_ids]
                 found = '\n\t.'.join([f'{attr}={getattr(found_metadata, attr)}' for attr in attrs_of_interest])
-                logger.critical(f'Existing ProteinMetadata:\n{exist}\nNew ProteinMetadata:{found}\n')
+                logger.debug(f'Existing ProteinMetadata:\n{exist}\nNew ProteinMetadata:{found}\n')
             else:  # Process for persistent state
                 uniprot_ids_to_prot_metadata[uniprot_ids] = protein_metadata
             structure_uniprot_ids.append(uniprot_ids)  # protein_metadata)
@@ -421,8 +420,8 @@ def main():
             exceptions_file = os.path.join(job_paths, putils.default_execption_file.format(*job.default_output_tuple))
             with open(exceptions_file, 'w') as f_out:
                 f_out.write('%s\n' % '\n'.join(str(pose_job) for pose_job, error_ in exceptions))
-            logger.critical(f'The file "{exceptions_file}" contains the pose identifier of every pose that failed '
-                            f'checks/filters for this job')
+            logger.critical(f"The file '{exceptions_file}' contains the pose identifier of every pose that failed "
+                            'checks/filters for this job')
 
         if output and successful_pose_jobs:
             poses_file = None

@@ -2650,7 +2650,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         return other
 
-    copy = __copy__
+    copy = __copy__  # Overwrites to use this instance __copy__
 
     # @property
     # def _key(self) -> tuple[str, int, ...]:
@@ -6016,8 +6016,8 @@ class SymmetricModel(Models):
             transformations: The entity_transformations operations that reproduce the individual oligomers
         """
         if transformations is None or not all(transformations):
-            # If this fails then the symmetry is failed... We shouldn't get an empty list back as
-            # _assign_pose_transformation() will raise a SymmetryError
+            # If this fails then the symmetry is failed... It should never return an empty list as
+            # .entity_transformations -> ._assign_pose_transformation() will raise SymmetryError
             transformations = self.entity_transformations
 
         for entity, subunit_number, symmetry, transformation in zip(self.entities, self.sym_entry.group_subunit_numbers,
@@ -7146,8 +7146,8 @@ class Pose(SymmetricModel, Metrics):
                         entity_reference = entity_transformation.get('translation2', None)
                         break
                 else:
-                    raise ValueError(f"Can't measure {entity.name} reference as it wasn't found in the "
-                                     f"{self.__class__.__name__}")
+                    raise ValueError(
+                        f"Can't measure {entity.name} reference as it wasn't found in the {self.__class__.__name__}")
 
         if entity.termini_proximity_from_reference(reference=entity_reference) == 1:  # if outward
             if entity_chain.n_terminal_residue.relative_sasa > sasa_burial_threshold:

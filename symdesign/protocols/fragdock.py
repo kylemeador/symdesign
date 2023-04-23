@@ -3491,14 +3491,9 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
 
     def terminate(pose: Pose, poses_df_: pd.DataFrame, residues_df_: pd.DataFrame):
         """Finalize any remaining work and return to the caller"""
-
-        # Extract transformation parameters for output
         nonlocal number_of_transforms, pose_names
-        # Create PoseJob pose_names using the transformations
-        # pose_names = create_transformation_hash()
-        # pose_names = [f'{pose_name:d}' for pose_name in passing_transform_ids]
 
-        # Add the PoseJobs to the database
+        # Add PoseJobs to the database
         while True:
             pose_jobs = [PoseJob.from_name(pose_name, project=project, protocol=protocol_name)
                          for pose_name in pose_names]
@@ -3547,10 +3542,11 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
 
         # Format output data, fix missing
         if job.db:
-            pose_ids = [pose.id for pose in pose_jobs]
+            pose_ids = [pose_job.id for pose_job in pose_jobs]
         else:
             pose_ids = pose_names
 
+        # Extract transformation parameters for output
         def populate_pose_metadata():
             """Add all required PoseJob information to output the created Pose instances for persistent storage"""
             nonlocal poses_df_, residues_df_
@@ -3624,7 +3620,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
 
                 # Update sql.EntityData, sql.EntityMetrics, sql.EntityTransform
                 # pose_id = pose_job.id
-                entity_data = []
+                # entity_data = []
                 entity_transforms = []
                 # Todo the number of entities and the number of transformations could be different
                 for entity, transform in zip(pose.entities, entity_transformations):
@@ -3645,7 +3641,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                 # It would print 4 objects, (2 of each EntityData) when this was written as:
                 # pose_job.entity_data.append(sql.EntityData(pose=pose_job,
 
-                session.add_all(entity_transforms + entity_data)
+                session.add_all(entity_transforms)  # + entity_data)
                 # Need to generate the EntityData.id
                 session.flush()
                 # if job.output:

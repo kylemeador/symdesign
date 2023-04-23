@@ -1132,11 +1132,12 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     file = sorted(glob(search_path))
                     if file:
                         if len(file) > 1:
-                            self.log.warning(f'The specified entity has multiple files at "{search_path}". '
+                            self.log.warning(f"Multiple files were found for the specified entity at '{search_path}'. "
                                              f'Using the first')
                         model = Model.from_file(file[0], log=self.log)
                     else:
-                        raise FileNotFoundError(f"Couldn't locate the specified entity at '{search_path}'")
+                        raise FileNotFoundError(
+                            f"Couldn't locate the specified entity at '{search_path}'")
                 else:
                     model = source_datastore.retrieve_data(name=name)
                     # Todo I ran into an error where the EntityID loaded from 2gtr_1.pdb was 2gtr_1_1
@@ -1161,7 +1162,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         # self.log.debug(f'{len(entities)} matching entities found')
         if len(entities) != len(self.entity_data):
-            raise RuntimeError(f'Expected {len(entities)} entities, but found {len(self.entity_data)}')
+            raise RuntimeError(
+                f'Expected {len(entities)} entities, but found {len(self.entity_data)}')
 
         return entities
         # else:  # Todo not reachable. Consolidate this with above as far as iterative mechanism

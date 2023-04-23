@@ -99,7 +99,7 @@ class Coords:
         other.coords = self.coords.copy()
         return other
 
-    copy = __copy__
+    copy = __copy__  # Overwrites to use this instance __copy__
 
 
 @jit(nopython=True)  # , cache=True)
