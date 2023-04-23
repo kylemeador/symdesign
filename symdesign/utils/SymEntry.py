@@ -5,6 +5,7 @@ import math
 import os
 import sys
 import warnings
+from collections import defaultdict
 from typing import AnyStr, Iterable
 
 import numpy as np
@@ -231,7 +232,7 @@ custom_entries = list(symmetry_combinations.keys())
 symmetry_combinations.update(nanohedra_symmetry_combinations)
 # Reformat the symmetry_combinations to account for groups and results separately
 parsed_symmetry_combinations: dict[int, tuple[list[tuple[str, list | int | str]], list[str | int]]] = \
-    {entry_number: ([(entry[0], entry[1:4]), (entry[4], entry[5:8])], entry[-6:])
+    {entry_number: ([(entry[0], entry[1:4]), (entry[4], entry[5:8])], entry[-7:])
      for entry_number, entry in symmetry_combinations.items()}
 # Set the special CRYST1 Record symmetry combination
 parsed_symmetry_combinations[0] = ([], [])
@@ -261,7 +262,7 @@ point_group_setting_matrix_members = {
     # 'I': {'C2': {1}, 'C3': {7}, 'C5': {9}},
 }
 for entry_number, ent in symmetry_combinations.items():
-    group_1, _, setting_1, _, group_2, _, setting_2, _, point_group, _, _, _, _, _ = ent
+    group_1, _, setting_1, _, group_2, _, setting_2, _, point_group, *_ = ent
     result_entry = point_group_setting_matrix_members.get(point_group, None)
     if result_entry:
         if group_1 in result_entry:
@@ -342,9 +343,9 @@ class SymEntry:
             self.groups = entry_groups
             self.sym_map = [self.resulting_symmetry] + self.groups
         else:  # Requires full specification of all symmetry groups
-            self.groups = []
             self.sym_map = sym_map
             result, *groups = sym_map  # Remove the result and pass the groups
+            self.groups = []
             for idx, group in enumerate(groups, 1):
                 if group not in valid_symmetries:
                     if group is None:
@@ -1269,9 +1270,17 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
                     int_rot2 = 1
                 if int_dof.startswith('t'):
                     int_tx2 = 1
-            print(query_output_format_string.format(str(_entry), _group1, str(int_rot1), str(int_tx1),
-                                                    _ref_frame_tx_dof_group1, _group2, str(int_rot2),
-                                                    str(int_tx2), _ref_frame_tx_dof_group2, result))
+            print(query_output_format_string.format(
+                str(_entry), _group1, str(int_rot1), str(int_tx1), str(_ref_frame_tx_dof_group1), _group2,
+                str(int_rot2), str(int_tx2), str(_ref_frame_tx_dof_group2), result))
+
+    def report_multiple_solutions(entries: list[int]):
+        entries = sorted(entries)
+        print(f'\033[1mFound multiple specified symmetries matching including {", ".join(map(str, entries))}\033[0m')
+        print_matching_entries(entries)
+        print(repeat_with_sym_entry)
+        sys.exit(1)
+
     result = str(result)
     result_entries = []
     matching_entries = []
@@ -1286,19 +1295,54 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
 
     if matching_entries:
         if len(matching_entries) != 1:
-            print(f'\033[1mFound multiple specified symmetries matching including '
-                  f'{", ".join(map(str, matching_entries))}\033[0m')
-            print_matching_entries(matching_entries)
-            print(repeat_with_sym_entry)
-            sys.exit()
+            # Try to solve
+            good_matches: dict[int, list[str]] = defaultdict(list)
+            for sym_op in symmetry_operators:
+                for entry_number in matching_entries:
+                    group1, _, _, _, group2, _, _, _, _, resulting_symmetry, *_ = symmetry_combinations[entry_number]
+                    if sym_op in [group1, group2]:
+                        good_matches[entry_number].append(sym_op)
+
+            max_ops = 0
+            exact_matches = []
+            for entry_number, ops in good_matches.items():
+                if len(ops) == len(symmetry_operators):
+                    exact_matches.append(entry_number)
+                elif len(ops) > max_ops:
+                    max_ops = len(ops)
+
+            if exact_matches:
+                if len(exact_matches) == 1:
+                    matching_entries = exact_matches
+                else:  # Still equal, report bad
+                    report_multiple_solutions(exact_matches)
+                    # -------- TERMINATE --------
+            else:
+                # The symmetry_operations are likely 3 or greater. Get the highest symmetry
+                max_symmetry_number = 0
+                symmetry_number_to_entries = defaultdict(list)
+                for entry_number, matching_ops in good_matches.items():
+                    if len(matching_ops) == max_ops:
+                        total_symmetry_number = sum([valid_subunit_number[op] for op in matching_ops])
+                        symmetry_number_to_entries[total_symmetry_number].append(entry_number)
+                        if total_symmetry_number > max_symmetry_number:
+                            max_symmetry_number = total_symmetry_number
+
+                exact_matches = symmetry_number_to_entries[max_symmetry_number]
+                if len(exact_matches) == 1:
+                    matching_entries = exact_matches
+                else:  # Still equal, report bad
+                    report_multiple_solutions(exact_matches)
+                    # -------- TERMINATE --------
+
         logger.debug(f'Found matching SymEntry number {matching_entries[0]}')
     elif symmetry_operators:
-        raise ValueError('The specified symmetries "%s" could not be coerced to make the resulting symmetry "%s". '
-                         'Try to reformat your symmetry specification if this is the result of a typo to include only '
-                         'symmetries that are group members of the resulting symmetry such as %s\nUse the format %s '
-                         'during your specification'
-                         % (', '.join(symmetry_operators), result,
-                            ', '.join(all_sym_entry_dict.get(result, {}).keys()), example_symmetry_specification))
+        raise ValueError(
+            f"The specified symmetries '{', '.join(symmetry_operators)}' could not be coerced to make the resulting "
+            f"symmetry '{result}'. Try to reformat your symmetry specification if this is the result of a typo to "
+            'include only symmetries that are group members of the resulting symmetry such as '
+            f'{", ".join(all_sym_entry_dict.get(result, {}).keys())}\nUse the format {example_symmetry_specification} '
+            'during your specification')
     else:  # No symmetry_operators
         if result_entries:
             print(f'\033[1mFound specified symmetries matching including {", ".join(map(str, result_entries))}\033[0m')
