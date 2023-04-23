@@ -286,6 +286,7 @@ class JobResources:
         else:
             self.cores: int = 1
         self.threads = self.cores * 2
+        self.gpu_available = False
         # self.reduce_memory = False
 
         # Input parameters
@@ -968,7 +969,7 @@ class JobResources:
             available_devices = jax.local_devices()
             for idx, device in enumerate(available_devices):
                 if device.platform == 'gpu':
-                    # self.gpu_available = True  # Todo could be useful
+                    self.gpu_available = True
                     return device.device_kind
                     # device_id = idx
                     # return True
