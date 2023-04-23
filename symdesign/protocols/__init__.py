@@ -18,7 +18,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from scipy.spatial.distance import pdist
 
-from . import cluster, config, fragdock, pose, select
+from . import align, cluster, config, fragdock, pose, select
 from symdesign import flags, metrics
 from symdesign.resources.config import default_pca_variance
 from symdesign.resources.distribute import write_script
@@ -141,6 +141,7 @@ def protocol_decorator(errors: tuple[Type[Exception], ...] = (DesignError,)) -> 
 
 
 # Protocols
+align_helices = handle_job_errors()(align.align_helices)
 nanohedra = handle_job_errors()(fragdock.fragment_dock)
 cluster_poses = handle_job_errors()(cluster.cluster_poses)
 select_poses = handle_job_errors()(select.sql_poses)  # select.poses

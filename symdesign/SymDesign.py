@@ -627,6 +627,10 @@ def main():
         else:  # Add a dummy input for argparse to happily continue with required args
             additional_args.extend(['--file', 'dummy'])
             remove_dummy = True
+    elif args.module == flags.align_helices:
+        # Add a dummy input for argparse to happily continue with required args
+        additional_args.extend(['--file', 'dummy'])
+        remove_dummy = True
     elif args.module == flags.initialize_building_blocks:
         # Add a dummy input for argparse to happily continue with required args
         additional_args.extend(['--file', 'dummy'])
@@ -907,24 +911,30 @@ def main():
                 session.commit()
 
         terminate(output=False)
-    elif job.module == flags.nanohedra:
-        # logger.info(f'Setting up inputs for {job.module.title()} docking')
-        job.sym_entry.log_parameters()
-        # # Make master output directory. sym_entry is required, so this won't fail v
-        # if args.output_directory is None:
-        #     # job.output_directory = os.path.join(job.projects, f'NanohedraEntry{sym_entry.number}_BUILDING-BLOCKS_Poses')
-        #     job.output_directory = job.projects
-        #     putils.make_path(job.output_directory)
+    elif job.module in [flags.align_helices, flags.nanohedra]:
+        if job.module == flags.nanohedra:
+            job.sym_entry.log_parameters()
+            symmetry1 = job.sym_entry.group1
+        elif job.module == flags.align_helices:
+            symmetry1 = job.sym_entry.resulting_symmetry
+        else:
+            raise NotImplementedError()
         # Transform input entities to canonical orientation and return their ASU
         grouped_orient_structures: list[list[Model | Entity]] = []
-        logger.critical(f'Ensuring provided building blocks are oriented for docking')
-        structures1 = initialize_structures(job, symmetry=job.sym_entry.group1, paths=args.oligomer1,
+        logger.critical(f'Ensuring provided building blocks are oriented for {job.module}')
+        structures1 = initialize_structures(job, symmetry=symmetry1, paths=args.oligomer1,
                                             pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
         grouped_orient_structures.append(structures1)
+        if job.module == flags.nanohedra:
+            symmetry2 = job.sym_entry.group2
+        elif job.module == flags.align_helices:
+            symmetry2 = None
+        else:
+            raise NotImplementedError()
         structures2 = []
         # See if they are the same input
         if args.oligomer1 != args.oligomer2 or job.pdb_codes1 != job.pdb_codes2 or args.query_codes2:
-            structures2 = initialize_structures(job, symmetry=job.sym_entry.group2, paths=args.oligomer2,
+            structures2 = initialize_structures(job, symmetry=symmetry2, paths=args.oligomer2,
                                                 pdb_codes=job.pdb_codes2, query_codes=args.query_codes2)
             if structures2:
                 single_component_design = False
@@ -953,8 +963,13 @@ def main():
         #
         grouped_structures_uniprot_ids: list[list[list[tuple[str, ...]]]] = []
         possibly_new_uniprot_to_prot_metadata = {}
-        # symmetry_map = job.sym_entry.groups if job.sym_entry else repeat(None)
-        for orient_structures, symmetry in zip(grouped_orient_structures, job.sym_entry.groups):
+        if job.module == flags.nanohedra:
+            symmetry_map = job.sym_entry.groups
+        elif job.module == flags.align_helices:
+            symmetry_map = [job.sym_entry.resulting_symmetry, None]
+        else:
+            raise NotImplementedError()
+        for orient_structures, symmetry in zip(grouped_orient_structures, symmetry_map):
             if not orient_structures:  # Useful in a case where symmetry groups are the same or group is None
                 continue
             structures_uniprot_ids, possibly_new_uni_to_prot_metadata = \
@@ -1031,52 +1046,57 @@ def main():
             for structures1, structures2 in combinations(grouped_docking_structures, 2):
                 pose_jobs.extend(product(structures1, structures2))
 
-        job.location = f'NanohedraEntry{job.sym_entry.number}'  # Used for terminate()
-        if not pose_jobs:  # No pairs were located
-            print('No docking pairs were located from your input. Please ensure that your flags are as intended.'
-                  f'{putils.issue_submit_warning}')
-            sys.exit(1)
-        # Todo
-        #  This could be moved above Entity/Pose load as it's not necessary in that situation
-        elif job.distribute_work:
-            # Write all commands to a file and distribute a batched job
-            # The theory of the new command is to keep everything that was submitted however modify the input
-            # arguments so that a single command contains a pair of input models
+        if job.module == flags.nanohedra:
+            job.location = f'NanohedraEntry{job.sym_entry.number}'  # Used for terminate()
+            if not pose_jobs:  # No pairs were located
+                print('No docking pairs were located from your input. Please ensure that your flags are as intended.'
+                      f'{putils.issue_submit_warning}')
+                sys.exit(1)
+            # Todo
+            #  This could be moved above Entity/Pose load as it's not necessary in that situation
+            elif job.distribute_work:
+                # Write all commands to a file and distribute a batched job
+                # The theory of the new command is to keep everything that was submitted however modify the input
+                # arguments so that a single command contains a pair of input models
 
-            possible_input_args = [arg for args in flags.nanohedra_mutual1_arguments.keys() for arg in args] \
-                + [arg for args in flags.nanohedra_mutual2_arguments.keys() for arg in args]
-            #     + list(flags.distribute_args)
-            submitted_args = sys.argv[1:]
-            for input_arg in possible_input_args:
-                try:
-                    pop_index = submitted_args.index(input_arg)
-                except ValueError:  # Not in list
-                    continue
-                else:
-                    submitted_args.pop(pop_index)
+                possible_input_args = [arg for args in flags.component_mutual1_arguments.keys() for arg in args] \
+                                      + [arg for args in flags.component_mutual2_arguments.keys() for arg in args]
+                #     + list(flags.distribute_args)
+                submitted_args = sys.argv[1:]
+                for input_arg in possible_input_args:
+                    try:
+                        pop_index = submitted_args.index(input_arg)
+                    except ValueError:  # Not in list
+                        continue
+                    else:
+                        submitted_args.pop(pop_index)
 
-                if input_arg in ('-Q1', f'--{flags.query_codes1}', '-Q2', f'--{flags.query_codes2}'):
-                    continue
-                else:  # Pop the index twice if the argument requires an input
-                    submitted_args.pop(pop_index)
+                    if input_arg in ('-Q1', f'--{flags.query_codes1}', '-Q2', f'--{flags.query_codes2}'):
+                        continue
+                    else:  # Pop the index twice if the argument requires an input
+                        submitted_args.pop(pop_index)
 
-            for arg in flags.distribute_args:
-                try:
-                    pop_index = submitted_args.index(arg)
-                except ValueError:  # Not in list
-                    continue
-                else:
-                    submitted_args.pop(pop_index)
+                for arg in flags.distribute_args:
+                    try:
+                        pop_index = submitted_args.index(arg)
+                    except ValueError:  # Not in list
+                        continue
+                    else:
+                        submitted_args.pop(pop_index)
 
-            # Format all commands given model pair
-            cmd = ['python', putils.program_exe] + submitted_args
-            commands = [cmd.copy() + [f'--{flags.pdb_codes1}', model1.name,
-                                      f'--{flags.pdb_codes2}', model2.name]
-                        for idx, (model1, model2) in enumerate(pose_jobs)]
-            # Write commands
-            distribute.commands([list2cmdline(cmd) for cmd in commands], name='_'.join(job.default_output_tuple),
-                                protocol=job.module, out_path=job.sbatch_scripts, commands_out_path=job.job_paths)
-            terminate(output=False)
+                # Format all commands given model pair
+                cmd = ['python', putils.program_exe] + submitted_args
+                commands = [cmd.copy() + [f'--{flags.pdb_codes1}', model1.name,
+                                          f'--{flags.pdb_codes2}', model2.name]
+                            for idx, (model1, model2) in enumerate(pose_jobs)]
+                # Write commands
+                distribute.commands([list2cmdline(cmd) for cmd in commands], name='_'.join(job.default_output_tuple),
+                                    protocol=job.module, out_path=job.sbatch_scripts, commands_out_path=job.job_paths)
+                terminate(output=False)
+        elif job.module == flags.align_helices:
+            job.location = f'AlignHelices'  # Used for terminate()
+        else:
+            raise NotImplementedError()
     else:  # Load from existing files, usually Structural files in a directory or in the program already
         # if args.nanohedra_output:  # Nanohedra directory
         #     file_paths, job.location = utils.collect_nanohedra_designs(files=args.file, directory=args.directory)

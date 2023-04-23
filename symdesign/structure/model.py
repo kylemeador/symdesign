@@ -4394,7 +4394,15 @@ class SymmetricModel(Models):
                           expand_matrices=expand_matrices)
         super().__init__(**kwargs)
 
-        # Ensure that the symmetric system is set up properly
+        self._set_up_symmetry(transformations=transformations, surrounding_uc=surrounding_uc)
+
+    def _set_up_symmetry(self, transformations: list[transformation_mapping] = None, surrounding_uc: bool = True):
+        """Ensure that the symmetric system is set up properly
+
+        Args:
+            transformations: The entity_transformations operations that reproduce the individual oligomers
+            surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
+        """
         if self.is_symmetric():  # True if symmetry keyword args were passed
             # Ensure the number of Entity instances matches the SymEntry groups
             number_of_entities = self.number_of_entities
@@ -4419,7 +4427,7 @@ class SymmetricModel(Models):
                 self.log.debug(f'Entity {entity.name} is already the correct oligomer, skipping make_oligomer()')
 
     def set_symmetry(self, sym_entry: utils.SymEntry.SymEntry | int = None, symmetry: str = None,
-                     uc_dimensions: list[float] = None, expand_matrices: np.ndarray | list = None):
+                     uc_dimensions: list[float] = None, expand_matrices: np.ndarray | list = None, **kwargs):
         """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann–Mauguin symmetry
         notation (in CRYST1 format, ex P 4 3 2) for the Model assembly. If the assembly is a point group,
         only the symmetry is required
@@ -4429,6 +4437,10 @@ class SymmetricModel(Models):
             symmetry: The name of a symmetry to be searched against the existing compatible symmetries
             uc_dimensions: Whether the symmetric coords should be generated from the ASU coords
             expand_matrices: A set of custom expansion matrices
+        Keyword Args:
+            transformations: list[transformation_mapping] = None - The entity_transformations operations that reproduce
+                the individual oligomers
+            surrounding_uc: bool = True - Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
         # Try to solve for symmetry as we want uc_dimensions if available for cryst ops
         if self.cryst_record:  # Was populated from file parsing
@@ -4503,6 +4515,12 @@ class SymmetricModel(Models):
         #  remove any existing symmetry attr from the Model
         #  if not self.sym_entry:
         #      del self._symmetry
+        try:
+            self.entities
+        except AttributeError:
+            pass  # This is still in __init__
+        else:  # After __init__() construction, user set_symmetry()
+            self._set_up_symmetry(**kwargs)
 
     # @property
     # def chains(self) -> list[Entity]:
