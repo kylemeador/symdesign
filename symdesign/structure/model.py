@@ -790,9 +790,11 @@ class ContainsChainsMixin:
         self.original_chain_ids = self.chain_ids = []
         super().__init__(**kwargs)
 
-    def _create_chains(self, **kwargs):
+    def _create_chains(self, chain_ids: Iterable[str] = None, **kwargs):
         """For all the Residues in the Structure, create Chain objects which contain their member Residues
 
+        Args:
+            chain_ids: The desired chain_ids, used in order, for the new chains. Padded if shorter than Chain instances
         Keyword Args:
             as_mate: bool = False - Whether Chain instances should be controlled by a captain (True), or be dependents
                 of their parent
@@ -818,28 +820,36 @@ class ContainsChainsMixin:
         # Perform after iteration to get the final chain
         chain_residue_indices.append(list(range(residue_idx_start, idx + 1)))  # Increment as if next residue
 
-        self.chain_ids = utils.remove_duplicates([residue.chain_id for residue in residues])
-        # if self.multimodel:
-        self.original_chain_ids = [residues[residue_indices[0]].chain_id for residue_indices in chain_residue_indices]
-        #     self.log.debug(f'Multimodel file found. Original Chains: {",".join(self.original_chain_ids)}')
-        # else:
-        #     self.original_chain_ids = self.chain_ids
+        # To check for multimodel structures, use original_chain_ids.extend() as chain_ids is the same object
+        # self.chain_ids = utils.remove_duplicates([residue.chain_id for residue in residues])
+        self.original_chain_ids = original_chain_ids = \
+            [residues[residue_indices[0]].chain_id for residue_indices in chain_residue_indices]
+        unique_chain_ids = utils.remove_duplicates(original_chain_ids)
+        if unique_chain_ids != original_chain_ids:
+            self.log.debug(f'Multimodel file found. Original Chains: {",".join(original_chain_ids)}')
 
-        number_of_chain_ids = len(self.chain_ids)
-        if len(chain_residue_indices) != number_of_chain_ids:  # Would be different if a multimodel or some weird naming
+        if chain_ids is None:
+            chain_ids = unique_chain_ids
+
+        number_of_chain_ids = len(chain_ids)
+        number_residue_groups = len(chain_residue_indices)
+        if number_of_chain_ids != number_residue_groups:
+            # Would be different if a multimodel or user provided differing length chain_ids
             available_chain_ids = chain_id_generator()
             new_chain_ids = []
-            for chain_idx in range(len(chain_residue_indices)):
+            for chain_idx in range(number_residue_groups):
                 if chain_idx < number_of_chain_ids:  # Use the chain_ids version
-                    chain_id = self.chain_ids[chain_idx]
+                    chain_id = chain_ids[chain_idx]
                 else:
                     # Chose next available chain unless already taken, then try another
                     chain_id = next(available_chain_ids)
-                    while chain_id in self.chain_ids:
+                    while chain_id in chain_ids:
                         chain_id = next(available_chain_ids)
                 new_chain_ids.append(chain_id)
 
             self.chain_ids = new_chain_ids
+        else:
+            self.chain_ids = chain_ids
 
         for residue_indices, chain_id in zip(chain_residue_indices, self.chain_ids):
             self.chains.append(Chain(residue_indices=residue_indices, chain_id=chain_id, parent=self, **kwargs))
@@ -1045,7 +1055,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     # def from_file(cls):
     #     return cls()
 
-    def __init__(self, chains: list[Chain] | Structures = None,
+    def __init__(self, chains: list[Chain] | Structures = None, chain_ids: Iterable[str] = None,
                  metadata: sql.ProteinMetadata = None,
                  uniprot_ids: tuple[str, ...] = None,
                  # uniprot_id: str = None,
@@ -1077,7 +1087,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # This is used when Entity.from_file() is called
             # We must create all chains after parsing so that we can set up correctly
             self._chains = []
-            self._create_chains(as_mate=True)
+            self._create_chains(as_mate=True, chain_ids=chain_ids)
             # Set chains now that we parsed chains so we can use self.chains for mate chain functionality
             chains = self.chains
             # Todo choose most symmetrically average chain
