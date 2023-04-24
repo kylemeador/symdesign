@@ -1340,9 +1340,9 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     possibly_new_uniprot_to_prot_metadata = defaultdict(list)
                     # pose_name_to_prot_metadata = defaultdict(list)
                     for pose_job in pose_jobs:
-                        for data in pose_job.entity_data:
+                        for entity_data in pose_job.entity_data:
+                            possibly_new_uniprot_to_prot_metadata[entity_data.meta.uniprot_ids].append(entity_data.meta)
                             # possibly_new_uniprot_to_prot_metadata[data.meta.uniprot_ids] = data.meta
-                            possibly_new_uniprot_to_prot_metadata[data.meta.uniprot_ids].append(data.meta)
                             # pose_name_to_prot_metadata[pose_job.name].append(data.meta)
 
                     all_uniprot_id_to_prot_data = sql.initialize_metadata(
