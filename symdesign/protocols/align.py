@@ -1037,6 +1037,8 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
             additional_entities2 = [entity for entity in model2.entities if entity != entity2]
             selected_models2 = [entity2]
 
+        input([ent.metadata for ent in additional_entities2])
+
         for entity2 in selected_models2:
             if job.trim_termini:
                 # Remove any unstructured termini from the Entity to enable most successful fusion
