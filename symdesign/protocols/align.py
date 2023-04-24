@@ -1158,6 +1158,13 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     # # Rename the models to enable fusion
                     # truncated_entity2.chain_id = chain_id
 
+                    # Calculate the entity2 indices to delete after alignment position is found
+                    if align_termini == 'c':
+                        delete_indices2 = list(range(aligned_start_index + alignment_length,
+                                                     entity2.c_terminal_residue.index + 1))
+                    else:
+                        delete_indices2 = list(range(entity2.n_terminal_residue.index, aligned_start_index))
+
                     # Scan along the target helix length
                     # helix_start_index = 0
                     max_target_helix_length = length_of_target_helix - alignment_length
@@ -1182,18 +1189,11 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             continue
                         else:
                             logger.info(f'Helical alignment has RMSD of {rmsd:.4f}')
-                            # Use transformed_entity2 mode
-                            transformed_entity2 = entity2.get_transformed_copy(rotation=rot, translation=tx)
-                            if align_termini == 'c':
-                                delete_indices2 = list(range(aligned_start_index + alignment_length,
-                                                             transformed_entity2.c_terminal_residue.index + 1))
-                            else:
-                                delete_indices2 = list(range(transformed_entity2.n_terminal_residue.index,
-                                                             aligned_start_index))
-
-                            transformed_entity2.delete_residues(indices=delete_indices2)
-                            # Rename the models to enable fusion
-                            transformed_entity2.chain_id = chain_id
+                        # Copy to delete the desired residues and transform
+                        transformed_entity2 = entity2.get_transformed_copy(rotation=rot, translation=tx)
+                        transformed_entity2.delete_residues(indices=delete_indices2)
+                        # Rename the models to enable fusion
+                        transformed_entity2.chain_id = chain_id
 
                         # Order the models, slice the helix for overlapped segments
                         if termini == 'n':
