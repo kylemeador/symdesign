@@ -129,6 +129,7 @@ target_start = 'target_start'
 target_end = 'target_end'
 target_chain = 'target_chain'
 target_termini = 'target_termini'
+trim_termini = 'trim_termini'
 aligned_start = 'aligned_start'
 aligned_end = 'aligned_end'
 aligned_chain = 'aligned_chain'
@@ -329,6 +330,7 @@ target_start = format_for_cmdline(target_start)
 target_end = format_for_cmdline(target_end)
 target_chain = format_for_cmdline(target_chain)
 target_termini = format_for_cmdline(target_termini)
+trim_termini = format_for_cmdline(trim_termini)
 aligned_start = format_for_cmdline(aligned_start)
 aligned_end = format_for_cmdline(aligned_end)
 aligned_chain = format_for_cmdline(aligned_chain)
@@ -967,6 +969,10 @@ target_chain_kwargs = dict(help='A desired chainID of the target molecule')
 target_termini_args = (f'--{target_termini}',)
 target_termini_kwargs = dict(nargs='*', type=str.lower, choices=get_args(termini_literal),
                              help="If particular termini are desired, specify with 'n' and/or 'c'")
+trim_termini_args = (f'--{trim_termini}',)
+trim_termini_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
+                           help='Whether the termini should be trimmed back to the nearest helix\n'
+                                f'{boolean_positional_prevent_msg(trim_termini)}')
 aligned_start_args = (f'--{aligned_start}',)
 aligned_start_kwargs = dict(type=int, metavar='INT', help='First residue of the aligned molecule to align on')
 aligned_end_args = (f'--{aligned_end}',)
@@ -989,6 +995,7 @@ align_helices_arguments = {
     target_end_args: target_end_kwargs,
     target_start_args: target_start_kwargs,
     target_termini_args: target_termini_kwargs,
+    trim_termini_args: trim_termini_kwargs,
 }
 # ---------------------------------------------------
 query_codes_kwargs = dict(action='store_true', help='Query the PDB API for corresponding codes')

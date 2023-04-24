@@ -1032,8 +1032,10 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 pass
             else:
                 # Remove any unstructured termini from the Entity to enable most successful fusion
-                # entity.delete_unstructured_termini()
-                entity.delete_termini_to_helices()
+                if job.trim_termini:
+                    # Todo either of these should be performed at point of entity selection and only on entity in question
+                    # entity.delete_unstructured_termini()
+                    entity.delete_termini_to_helices()
                 # Only respect the symmetry of the first input_model
                 if idx == 0:
                     entity.make_oligomer(symmetry=symmetry)
