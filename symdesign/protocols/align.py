@@ -4,6 +4,7 @@ import logging
 import math
 import os
 import time
+from collections import defaultdict
 from itertools import count
 from typing import Iterable
 

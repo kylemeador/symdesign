@@ -3489,7 +3489,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     poses_df.index = residues_df.index = passing_index
     pose_names = poses_df.index.tolist()
 
-    def terminate(pose: Pose, poses_df_: pd.DataFrame, residues_df_: pd.DataFrame):
+    def terminate(pose: Pose, poses_df_: pd.DataFrame, residues_df_: pd.DataFrame) -> list[PoseJob]:
         """Finalize any remaining work and return to the caller"""
         nonlocal number_of_transforms, pose_names
 
