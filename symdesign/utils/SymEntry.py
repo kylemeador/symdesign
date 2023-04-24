@@ -349,10 +349,16 @@ class SymEntry:
             for idx, group in enumerate(groups, 1):
                 if group not in valid_symmetries:
                     if group is None:
-                        continue  # Todo ignore for now. Need to refactor symmetry_combinations for any number of elements
-                    else:
-                        raise ValueError(f'The symmetry group "{group}" specified at index "{idx}" is not a valid '
-                                         f'sub-symmetry')
+                        # Todo
+                        #  Need to refactor symmetry_combinations for any number of elements
+                        continue
+                    else:  # Recurse to see if it is yet another symmetry specification
+                        # raise ValueError(
+                        logger.warning(
+                            f"The symmetry group '{group}' specified at index '{idx}' isn't a valid sub-symmetry. "
+                            f"Trying to correct by applying another SymEntry()")
+                        raise NotImplementedError()
+
                 if group not in entry_groups:
                     # This is probably a sub-symmetry of one of the groups. Is it allowed?
                     if not symmetry_groups_are_allowed_in_entry(groups, *entry_groups, result=self.resulting_symmetry):
