@@ -1535,16 +1535,48 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
         # , poses_df_: pd.DataFrame, residues_df_: pd.DataFrame) -> list[PoseJob]:
         """Finalize any remaining work and return to the caller"""
         # Add PoseJobs to the database
-        pose_names = [pose_job.name for pose_job in pose_jobs]
+        error_count = count()
         while True:
+            pose_name_pose_jobs = {pose_job.name: pose_job for pose_job in pose_jobs}
             session.add_all(pose_jobs)
             try:  # Flush PoseJobs to the current session to generate ids
                 session.flush()
-            # except SQLAlchemyError:  # We already inserted this PoseJob.project/.name
-            except IntegrityError:  # We already inserted this PoseJob.project/.name
+            except IntegrityError:  # PoseJob.project/.name already inserted
                 session.rollback()
+                number_flush_attempts = next(error_count)
+                if number_flush_attempts == 1:
+                    # Try to attach existing protein_metadata.entity_id
+                    # possibly_new_uniprot_to_prot_metadata = {}
+                    possibly_new_uniprot_to_prot_metadata = defaultdict(list)
+                    # pose_name_to_prot_metadata = defaultdict(list)
+                    for pose_job in pose_jobs:
+                        for data in pose_job.entity_data:
+                            # possibly_new_uniprot_to_prot_metadata[data.meta.uniprot_ids] = data.meta
+                            possibly_new_uniprot_to_prot_metadata[data.meta.uniprot_ids].append(data.meta)
+                            # pose_name_to_prot_metadata[pose_job.name].append(data.meta)
+
+                    all_uniprot_id_to_prot_data = sql.initialize_metadata(
+                        session, possibly_new_uniprot_to_prot_metadata)
+
+                    # logger.debug([[data.meta.entity_id for data in pose_job.entity_data] for pose_job in pose_jobs])
+                    # Get all uniprot_entities, and fix ProteinMetadata that is already loaded
+                    for pose_name, pose_job in pose_name_pose_jobs.items():
+                        for entity_data in pose_job.entity_data:
+                            # Search the updated ProteinMetadata
+                            for protein_metadata in all_uniprot_id_to_prot_data.values():
+                                for data in protein_metadata:
+                                    if data.entity_id == entity_data.meta.entity_id:
+                                        entity_data.meta = data
+                                        break
+                            else:
+                                logger.critical(f'Missing the ProteinMetadata instance for {entity_data}')
+                elif number_flush_attempts == 2:
+                    # This is another error
+                    raise
+
                 # Find the actual pose_jobs_to_commit and place in session
-                # pose_identifiers = [pose_job.new_pose_identifier for pose_job in pose_jobs]
+                pose_names = list(pose_name_pose_jobs.keys())
+                logger.debug(f'rollback(). pose_names: {pose_names}')
                 fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.is_(project)) \
                     .where(PoseJob.name.in_(pose_names))
                 existing_pose_jobs = session.scalars(fetch_jobs_stmt).all()
@@ -1552,6 +1584,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 # ex, design 11 is processed before design 2
                 existing_pose_names = {pose_job_.name for pose_job_ in existing_pose_jobs}
                 new_pose_names = set(pose_names).difference(existing_pose_names)
+                logger.debug(f'new_pose_names {new_pose_names}')
                 if not new_pose_names:  # No new PoseJobs
                     return existing_pose_jobs
                 else:
