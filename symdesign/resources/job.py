@@ -686,6 +686,7 @@ class JobResources:
         self.target_end = kwargs.get('target_end')
         self.target_chain = kwargs.get('target_chain')
         self.target_termini = kwargs.get('target_termini')
+        self.trim_termini = kwargs.get('trim_termini')
 
         # Helix Bending flags
         self.direction = kwargs.get('direction')
