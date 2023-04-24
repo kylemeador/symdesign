@@ -1126,8 +1126,12 @@ def initialize_metadata(session: Session,
         for protein_metadata in metadatas:
             # Create the ordered_list of UniProtIDs (UniProtEntity) on ProteinMetadata entry
             try:
-                protein_metadata.uniprot_entities.extend(
-                    uniprot_id_to_unp_entity[uniprot_id] for uniprot_id in uniprot_ids)
+                # protein_metadata.uniprot_entities.extend(
+                #     uniprot_id_to_unp_entity[uniprot_id] for uniprot_id in uniprot_ids)
+                # Todo DEBUG
+                #  Trying to set incase there are already instances attached... This should reset
+                protein_metadata.uniprot_entities = \
+                    [uniprot_id_to_unp_entity[uniprot_id] for uniprot_id in uniprot_ids]
             except KeyError:  # uniprot_id_to_unp_entity is missing a key, but I can't see a way it would be here...
                 raise SymDesignException(putils.report_issue)
 
