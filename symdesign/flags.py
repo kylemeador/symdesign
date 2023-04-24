@@ -941,6 +941,21 @@ orient_help = 'Orient a symmetric assembly in a canonical orientation at the ori
 parser_orient = {orient: dict(description=orient_help, help=orient_help)}
 orient_arguments = {}
 # ---------------------------------------------------
+helix_bending_help = 'Bend helices along known modes of helical flexibility'
+parser_helix_bending = {helix_bending: dict(description=helix_bending_help, help=helix_bending_help)}
+joint_residue_args = (f'--{joint_residue}',)
+sample_number_args = (f'--{sample_number}',)
+sample_number_kwargs = dict(type=int, default=10,
+                            help='How many times should the bending be performed?\nDefault=%(default)s')
+helix_bending_arguments = {
+    (f'--{direction}',): dict(type=str.upper, required=True, choices=('F', 'R'), default='F',
+                              help='Which direction should the bending be applied?\n'
+                                   'Choices=%(choices)s where F implies bending is applied to c-terminal residues'),
+    joint_residue_args: dict(type=int, required=True, help='The chain where the bending is desired at'),
+    (f'--{joint_chain}',): dict(required=True, help='The residue number to perform the bending at'),
+    sample_number_args: sample_number_kwargs
+}
+# ---------------------------------------------------
 align_helices_help = 'Align helices of one protein with another'
 parser_align_helices = {align_helices: dict(description=align_helices_help, help=align_helices_help)}
 target_start_args = (f'--{target_start}',)
@@ -950,7 +965,7 @@ target_end_kwargs = dict(type=int, help='Last residue of the targe molecule to a
 target_chain_args = (f'--{target_chain}',)
 target_chain_kwargs = dict(help='A desired chainID of the target molecule')
 target_termini_args = (f'--{target_termini}',)
-target_termini_kwargs = dict(nargs=2, type=str.lower, choices=get_args(termini_literal),
+target_termini_kwargs = dict(nargs='*', type=str.lower, choices=get_args(termini_literal),
                              help="If particular termini are desired, specify with 'n' and/or 'c'")
 aligned_start_args = (f'--{aligned_start}',)
 aligned_start_kwargs = dict(type=int, help='First residue of the aligned molecule to align on')
@@ -962,11 +977,14 @@ extend_past_termini_args = (f'--{extend_past_termini}',)
 extend_past_termini_kwargs = dict(action='store_true',
                                   help='Whether to extend alignment termini with a ten residue ideal\n'
                                        'alpha helix. All specified residues are modified accordingly\n')
+bend = 'bend'
 align_helices_arguments = {
     aligned_chain_args: aligned_chain_kwargs,
     aligned_end_args: aligned_end_kwargs,
     aligned_start_args: aligned_start_kwargs,
+    (f'--{bend}',): dict(action='store_true', help=helix_bending_help),
     extend_past_termini_args: extend_past_termini_kwargs,
+    sample_number_args: sample_number_kwargs,
     target_chain_args: target_chain_kwargs,
     target_end_args: target_end_kwargs,
     target_start_args: target_start_kwargs,
@@ -995,19 +1013,6 @@ component_mutual2_arguments = {
         dict(type=os.path.abspath, default=None,
              help=f'Disk location where component 2 file(s) are located'),
     ('-Q2', f'--{query_codes2}'): query_codes_kwargs
-}
-# ---------------------------------------------------
-helix_bending_help = ''
-parser_helix_bending = {helix_bending: dict(description=helix_bending_help, help=helix_bending_help)}
-joint_residue_args = (f'--{joint_residue}',)
-helix_bending_arguments = {
-    (f'--{direction}',): dict(type=str.upper, required=True, choices=('F', 'R'), default='F',
-                              help='Which direction should the bending be applied?\n'
-                                   'Choices=%(choices)s where F implies bending is applied to c-terminal residues'),
-    joint_residue_args: dict(type=int, required=True, help='The chain where the bending is desired at'),
-    (f'--{joint_chain}',): dict(required=True, help='The residue number to perform the bending at'),
-    (f'--{sample_number}',): dict(type=int, default=10, help='How many times should the distribution be sampled from?\n'
-                                                             'Default=%(default)s')
 }
 # ---------------------------------------------------
 measure_pose_args = (f'--{measure_pose}',)

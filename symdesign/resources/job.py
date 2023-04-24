@@ -677,14 +677,15 @@ class JobResources:
         # self.construct_pose = True
 
         # Align helix flags
+        self.aligned_start = kwargs.get('aligned_start')
+        self.aligned_end = kwargs.get('aligned_end')
+        self.aligned_chain = kwargs.get('aligned_chain')
+        self.bend = kwargs.get('bend')
+        self.extend_past_termini = kwargs.get('extend_past_termini')
         self.target_start = kwargs.get('target_start')
         self.target_end = kwargs.get('target_end')
         self.target_chain = kwargs.get('target_chain')
         self.target_termini = kwargs.get('target_termini')
-        self.aligned_start = kwargs.get('aligned_start')
-        self.aligned_end = kwargs.get('aligned_end')
-        self.aligned_chain = kwargs.get('aligned_chain')
-        self.extend_past_termini = kwargs.get('extend_past_termini')
 
         # Helix Bending flags
         self.direction = kwargs.get('direction')

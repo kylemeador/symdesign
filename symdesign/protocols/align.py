@@ -1381,10 +1381,13 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             helix_model_range = range(helix_start_index + alignment_length)  # = helix_end_index
 
                         # Reformat residues for new chain
-                        helix_model.renumber_residues(at=ordered_entity1.c_terminal_residue.number + 1)
+                        helix_n_terminal_residue_number = ordered_entity1.c_terminal_residue.number + 1
+                        helix_model.renumber_residues(index=helix_model_start_index, at=helix_n_terminal_residue_number)
                         helix_residues = helix_model.get_residues(indices=list(helix_model_range))
-                        ordered_entity2.renumber_residues(
-                            at=ordered_entity1.c_terminal_residue.number + len(helix_residues) + 1)
+                        ordered_entity2.renumber_residues(at=helix_n_terminal_residue_number + len(helix_residues))
+
+                        if job.bend:  # Get the joint_residue for later investigation
+                            joint_residue = transformed_entity2.residues[aligned_start_index + 2]
 
                         # Create fused Entity and rename select attributes
                         # name = f'{ordered_entity1.name}_fused_to_{ordered_entity2.name}'
@@ -1438,13 +1441,37 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             transformed_additional_entities2[0].write(out_path='DEBUG-Additional2.pdb')
                             all_entities += transformed_additional_entities2
 
-                        # input('Loaded entities')
-                        # print(f'Loading pose')
-                        try:
-                            pose = Pose.from_entities(all_entities, sym_entry=sym_entry_chimera, warn_clashes=False)
-                        except ClashError:  # The residues that were fused clash
-                            logger.info(
-                                f'Alignment index {AlignmentIndex} fusion clashes')
+                        # logger.debug(f'Loading pose')
+                        pose = Pose.from_entities(all_entities, sym_entry=sym_entry_chimera)
+
+                        if pose.is_clash(warn=False, silence_exceptions=True):
+                            logger.info(f'Alignment index {AlignmentIndex} fusion clashes')
+                            asu_clashes = True
+                        else:
+                            asu_clashes = False
+
+                        if job.bend:
+                            # pose.write(out_path='DEBUG_POSE.pdb', increment_chains=True)
+                            # Get the index in the pose corresponding to the helix_start_index + 2
+                            central_aligned_residue = pose.chain(chain_id).residue(joint_residue.number)
+                            # print(central_aligned_residue)
+                            bent_coords = bend(pose, central_aligned_residue.index, job.sample_number, termini)
+                            for bend_idx, coords in enumerate(bent_coords, 1):
+                                pose.coords = coords
+                                if pose.is_clash(warn=False, silence_exceptions=True):
+                                    logger.info(f'Alignment index {AlignmentIndex} fusion, bend {bend_idx} clashes')
+                                    continue
+                                if pose.is_symmetric() and not job.design.ignore_symmetric_clashes and \
+                                        pose.symmetric_assembly_is_clash(warn=False):
+                                    logger.info(f'Alignment index {AlignmentIndex} fusion, bend {bend_idx} has '
+                                                f'symmetric clashes')
+                                    continue
+
+                                # Output
+                                name = f'{termini}-term{helix_start_index + 1}-bend{bend_idx}'
+                                output_pose(name)
+                        # else:
+                        if asu_clashes:
                             continue
 
                         # pose.entities[0].write(oligomer=True, out_path='DEBUG_oligomer.pdb')
@@ -1453,11 +1480,10 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                         # pose.write(out_path='DEBUG_After_ASSEMBLY.pdb', increment_chains=True)
 
                         if pose.is_symmetric() and not job.design.ignore_symmetric_clashes and \
-                                pose.symmetric_assembly_is_clash():
-                            logger.info(
-                                f'Alignment index {AlignmentIndex} fusion has symmetric clashes')
+                                pose.symmetric_assembly_is_clash(warn=False):
+                            logger.info(f'Alignment index {AlignmentIndex} fusion has symmetric clashes')
                             continue
-                        # input('done with symmetry')
+
                         name = f'{termini}-term{helix_start_index + 1}'
                         pose_job = PoseJob.from_name(name, project=project, protocol=protocol_name)
 
