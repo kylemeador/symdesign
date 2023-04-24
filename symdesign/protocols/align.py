@@ -800,11 +800,6 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
             if entity.is_symmetric():
                 pass
             else:
-                # Remove any unstructured termini from the Entity to enable most successful fusion
-                if job.trim_termini:
-                    # Todo either of these should be performed at point of entity selection and only on entity in question
-                    # entity.delete_unstructured_termini()
-                    entity.delete_termini_to_helices()
                 # Only respect the symmetry of the first input_model
                 if idx == 0:
                     entity.make_oligomer(symmetry=symmetry)
@@ -946,6 +941,12 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
     # Start the alignment search
     for selected_idx1, entity1 in enumerate(selected_models1):
+        if job.trim_termini:
+            # Remove any unstructured termini from the Entity to enable most successful fusion
+            entity1 = entity1.copy()
+            entity1.delete_termini_to_helices()
+            # entity.delete_unstructured_termini()
+
         if all(remaining_entities1):
             additional_entities1 = remaining_entities1.copy()
             additional_entities1[selected_idx1] = None
@@ -1036,6 +1037,12 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
             selected_models2 = [entity2]
 
         for entity2 in selected_models2:
+            if job.trim_termini:
+                # Remove any unstructured termini from the Entity to enable most successful fusion
+                entity2 = entity2.copy()
+                entity2.delete_termini_to_helices()
+                # entity.delete_unstructured_termini()
+
             half_entity2_length = entity2.number_of_residues
             if job.aligned_start:
                 aligned_start_residue = entity2.residue(job.aligned_start)
