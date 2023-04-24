@@ -854,20 +854,20 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
         raise NotImplementedError('Make iterative saving more reliable. See output_pose()')
         trajectory_models = Models()
 
+    model2_entities_after_fusion = model2.number_of_entities - 1
     # Create the corresponding SymEntry from the original SymEntry and the fusion
     if sym_entry:
         model1.set_symmetry(sym_entry=sym_entry)
-        # sym_entry_chimera = sym_entry  # Todo debug
-        symmetry = sym_entry.specification + '{C1}' * (model2.number_of_entities - 1)
+        # Todo currently only C1 can be fused. Remove hard coding when changed
+        symmetry = sym_entry.specification + '{C1}' * model2_entities_after_fusion
         sym_entry_chimera = parse_symmetry_to_sym_entry(symmetry=symmetry)
-        # input(sym_entry_chimera)
     else:
         sym_entry_chimera = None
 
     # Create the entity_transformations for model1
-    entity_transformations = []
+    model1_entity_transformations = []
     for transformation, set_mat_number in zip(model1.entity_transformations,
-                                              sym_entry_chimera.setting_matrices_numbers):
+                                              sym_entry.setting_matrices_numbers):
         if transformation:
             entity_transform = dict(
                 # rotation_x=rotation_degrees_x,
@@ -880,7 +880,8 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 external_translation_z=transformation['translation2'][2])
         else:
             entity_transform = {}
-        entity_transformations.append(entity_transform)
+        model1_entity_transformations.append(entity_transform)
+    model2_entity_transformations = [{} for _ in range(model2_entities_after_fusion)]
 
     def output_pose(name: str):
         """Handle output of the identified pose
@@ -915,7 +916,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
         # Todo the number of entities and the number of transformations could be different
         # entity_transforms = []
-        for entity, transform in zip(pose.entities, entity_transformations):
+        for entity, transform in zip(pose.entities, model1_entity_transformations + model2_entity_transformations):
             transformation = sql.EntityTransform(**transform)
             # entity_transforms.append(transformation)
             pose_job.entity_data.append(sql.EntityData(
