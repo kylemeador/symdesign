@@ -1040,6 +1040,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     _uniprot_ids: tuple[str | None, ...]
     state_attributes = Chain.state_attributes | {'_oligomer'}  # '_chains' handled specifically
     # | ContainsChainsMixin.state_attributes
+    class_structure_containers = {'_chains'}
+    """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
 
     @classmethod
     def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
@@ -1733,20 +1735,24 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         return super().format_header(**kwargs) + self.format_seqres(**kwargs)
         # return super().format_header(**kwargs) + self.format_biomt(**kwargs) + self.format_seqres(**kwargs)
 
-    def format_seqres(self, asu: bool = True, **kwargs) -> str:  # Todo similar function in Model
+    def format_seqres(self, asu: bool = True, **kwargs) -> str:  # Todo same function in Model, different default
         """Format the reference sequence present in the SEQRES remark for writing to the output header
 
         Args:
-            asu: Whether to output the Entity ASU or the full oligomer
+            asu: Whether to output the unique Entity instances (ASU) or the full symmetric assembly
         Returns:
             The PDB formatted SEQRES record
         """
-        asu_slice = 1 if asu else None  # This is the only difference from Model
+        if asu:
+            structure_container = self.entities
+        else:
+            structure_container = self.chains
+
         formatted_reference_sequence = \
-            {chain.chain_id: ' '.join(protein_letters_1to3_extended.get(aa, 'XXX')
-                                      for aa in chain.reference_sequence)
-             for chain in self.chains[:asu_slice]}
-        chain_lengths = {chain.chain_id: len(chain.reference_sequence) for chain in self.chains[:asu_slice]}
+            {struct.chain_id: ' '.join(protein_letters_1to3_extended.get(aa, 'XXX')
+                                       for aa in struct.reference_sequence)
+             for struct in structure_container}
+        chain_lengths = {struct.chain_id: len(struct.reference_sequence) for struct in structure_container}
         return '%s\n' \
             % '\n'.join(f'SEQRES{line_number:4d} {chain_id:1s}{chain_lengths[chain_id]:5d}  '
                         f'{formatted_sequence[seq_res_len * (line_number-1):seq_res_len * line_number]}         '
@@ -2607,13 +2613,29 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         """Copy all member Structures that reside in Structure containers. Entity specific handling of chains index 0"""
         # self.log.debug('In Entity copy_structure_containers()')
         for structure_type in self.structure_containers:
-            structures = self.__getattribute__(structure_type)
-            for idx, structure in enumerate(structures[1:], 1):  # Only operate on [1:] slice since index 0 is different
+            # Get and copy the structure container
+            new_structures = self.__getattribute__(structure_type).copy()
+            for idx, structure in enumerate(new_structures[1:], 1):  # Only operate on [1:] since index 0 is different
                 # structures[idx] = copy(structure)
                 structure.entity_spawn = True
                 new_structure = structure.copy()
                 new_structure._captain = self
-                structures[idx] = new_structure
+                new_structures[idx] = new_structure
+            # Set the copied and updated structure container
+            self.__setattr__(structure_type, new_structures)
+        # For any structure_containers that are specified by the class but not present in the instance, set the instance
+        # container to the missing class_structure_container
+        missing_containers = self.__class__.class_structure_containers.difference(self.structure_containers)
+        if missing_containers:
+            self.log.critical(f"Entity: This hasn't been debugged. missing_containers={missing_containers}")
+            if len(self.structure_containers) == 1:
+                existing_structure_type = self.structure_containers[0]
+                for structure_type in missing_containers:
+                    self.__setattr__(structure_type, existing_structure_type)
+            else:
+                raise NotImplementedError(
+                    "Can't set up structure_containers when there are more than 1 initialized and there are missing "
+                    f"structure_type. Initialized={self.structure_containers}, Missing={missing_containers}")
 
     def __copy__(self) -> Entity:  # -> Self Todo python3.11
         # self.log.debug('In Entity copy')
@@ -2709,6 +2731,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     # _reference_sequence: dict[str, str]
     # space_group: str | None
     # uc_dimensions: list[float] | None
+    class_structure_containers = {'chains', 'entities'}
+    """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
 
     @classmethod
     def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
@@ -3061,9 +3085,14 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         Returns:
             The PDB formatted SEQRES record
         """
+        if asu:
+            structure_container = self.entities
+        else:
+            structure_container = self.chains
+
         formatted_reference_sequence = \
             {struct.chain_id: ' '.join(protein_letters_1to3_extended.get(aa, 'XXX')
-                                      for aa in struct.reference_sequence)
+                                       for aa in struct.reference_sequence)
              for struct in structure_container}
         chain_lengths = {struct.chain_id: len(struct.reference_sequence) for struct in structure_container}
         return '%s\n' \
@@ -4299,22 +4328,22 @@ class Models(Model):
             # self.models is populated
             if increment_chains:
                 available_chain_ids = chain_id_generator()
-                for structure in self.models:
-                    for chain in structure.chains:
+                for model in self.models:
+                    for entity in model.entities:
                         chain_id = next(available_chain_ids)
-                        chain.write(file_handle=handle, chain_id=chain_id, **kwargs)
-                        c_term_residue = chain.c_terminal_residue
+                        entity.write(file_handle=handle, chain_id=chain_id, **kwargs)
+                        c_term_residue = entity.c_terminal_residue
                         # Todo when used with oligomer=True, the c_term_residue is the first monomer residue...
-                        handle.write(f'TER   {c_term_residue.atoms[-1].index + 1:>5d}      {c_term_residue.type:3s} '
+                        handle.write(f'TER   {c_term_residue.end_index + 1:>5d}      {c_term_residue.type:3s} '
                                      f'{chain_id:1s}{c_term_residue.number:>4d}\n')
             else:
-                for model_number, structure in enumerate(self.models, 1):
+                for model_number, model in enumerate(self.models, 1):
                     handle.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
-                    for chain in structure.chains:
-                        chain.write(file_handle=handle, **kwargs)
-                        c_term_residue = chain.c_terminal_residue
-                        handle.write(f'TER   {c_term_residue.atoms[-1].index + 1:>5d}      {c_term_residue.type:3s} '
-                                     f'{chain.chain_id:1s}{c_term_residue.number:>4d}\n')
+                    for entity in model.entities:
+                        entity.write(file_handle=handle, **kwargs)
+                        c_term_residue = entity.c_terminal_residue
+                        handle.write(f'TER   {c_term_residue.end_index + 1:>5d}      {c_term_residue.type:3s} '
+                                     f'{entity.chain_id:1s}{c_term_residue.number:>4d}\n')
 
                     handle.write('ENDMDL\n')
 
@@ -6191,6 +6220,8 @@ class Pose(SymmetricModel, Metrics):
     #      'fragment_metrics', 'fragment_pairs', 'fragment_queries',
     #      'interface_design_residue_numbers', 'interface_residue_numbers', 'interface_residues_by_entity_pair',
     #      'interface_residues_by_interface', 'interface_residues_by_interface_unique', 'split_interface_ss_elements'
+    class_structure_containers = {'entities'}
+    """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
     #      }
 
     def __init__(self, design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
@@ -6671,15 +6702,16 @@ class Pose(SymmetricModel, Metrics):
             chain_encoding = np.zeros_like(residue_mask)  # (number_of_residues,)
             # Set up an array where each residue index is incremented, however each chain break has an increment of 100
             residue_idx = np.arange(number_of_sym_residues, dtype=np.int32)  # (number_of_residues,)
-            number_of_chains = self.number_of_chains
+            number_of_entities = self.number_of_entities
             for model_idx in range(number_of_symmetry_mates):
                 model_offset = model_idx * number_of_residues
-                model_chain_number = model_idx * number_of_chains
-                for idx, chain in enumerate(self.chains, 1):
-                    chain_number_of_residues = chain.number_of_residues
-                    chain_start = chain.offset_index + model_offset
-                    chain_encoding[chain_start:chain_start + chain_number_of_residues] = model_chain_number + idx
-                    residue_idx[chain_start:chain_start + chain_number_of_residues] += 100 * (model_chain_number + idx)
+                model_entity_number = model_idx * number_of_entities
+                for idx, entity in enumerate(self.entities, 1):
+                    entity_number_of_residues = entity.number_of_residues
+                    entity_start = entity.offset_index + model_offset
+                    chain_encoding[entity_start:entity_start + entity_number_of_residues] = model_entity_number + idx
+                    residue_idx[entity_start:entity_start + entity_number_of_residues] += \
+                        (model_entity_number+idx) * 100
 
             # self.log.debug(f'Tiled chain_encoding chain_break: '
             #                f'{chain_encoding[number_of_residues-5: number_of_residues+5]}')
@@ -6707,9 +6739,11 @@ class Pose(SymmetricModel, Metrics):
             chain_encoding = np.zeros_like(residue_mask)  # (number_of_residues,)
             # Set up an array where each residue index is incremented, however each chain break has an increment of 100
             residue_idx = np.arange(self.number_of_residues, dtype=np.int32)  # (number_of_residues,)
-            for idx, chain in enumerate(self.chains, 1):
-                chain_encoding[chain.offset_index: chain.offset_index + chain.number_of_residues] = idx
-                residue_idx[chain.offset_index: chain.offset_index + chain.number_of_residues] += 100 * (idx - 1)
+            for idx, entity in enumerate(self.entities):
+                entity_number_of_residues = entity.number_of_residues
+                entity_start = entity.offset_index
+                chain_encoding[entity_start: entity_start + entity_number_of_residues] = idx + 1
+                residue_idx[entity_start: entity_start + entity_number_of_residues] += idx * 100
             tied_beta = None  # np.ones_like(residue_mask)  # (number_of_sym_residues,)
             tied_pos = None  # [[]]
 

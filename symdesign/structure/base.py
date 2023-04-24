@@ -2945,7 +2945,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     nucleotides_present: bool
     secondary_structure: str | None  # Todo ContainsResiduesMixin
     sasa: float | None  # Todo ContainsResiduesMixin
-    structure_containers: list | list[str]
+    class_structure_containers = set()
+    """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
     state_attributes: set[str] = ContainsAtomsMixin.state_attributes \
         | {'_sequence', '_helix_cb_indices', '_secondary_structure'}
 
@@ -2984,7 +2985,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self.nucleotides_present = False
         self.secondary_structure = None
         self.sasa = None
-        self.structure_containers = []
+        self.structure_containers: list | list[str] = []
 
         # if log is False:  # when explicitly passed as False, use the module logger
         #     self._log = Log(logger)
@@ -3087,7 +3088,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self.reset_state()
 
     # Todo a separate call for each of ContainsAtomsMixin and ContainsResiduesMixin
-    def get_structure_containers(self) -> dict[str, Any]:
+    def get_base_containers(self) -> dict[str, Any]:
         """Return the instance structural containers as a dictionary with attribute as key and container as value"""
         # Todo ContainsResiduesMixin
         return dict(coords=self._coords, atoms=self._atoms, residues=self._residues)
@@ -5831,9 +5832,30 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """Copy all member Structures that reside in Structure containers"""
         # self.log.debug('In Structure copy_structure_containers()')
         for structure_type in self.structure_containers:
-            structures = self.__getattribute__(structure_type)
-            for idx, structure in enumerate(structures):
-                structures[idx] = structure.copy()
+            # Get and copy the structure container
+            new_structures = self.__getattribute__(structure_type).copy()
+            for idx, structure in enumerate(new_structures):
+                new_structures[idx] = structure.copy()
+            # Set the copied and updated structure container
+            self.__setattr__(structure_type, new_structures)
+
+        # For any structure_containers that are specified by the class but not present in the instance, set the instance
+        # container to the missing class_structure_container
+        missing_containers = self.__class__.class_structure_containers.difference(self.structure_containers)
+        if missing_containers:
+            self.log.critical(f"Structure.copy(): This hasn't been debugged. "
+                              f"{self} is missing_containers={missing_containers}")
+            if len(self.structure_containers) == 1:
+                existing_structure_type = self.structure_containers[0]
+                if existing_structure_type == 'entities':
+                    for structure_type in missing_containers:
+                        self.__setattr__(structure_type, existing_structure_type)
+                else:
+                    self.log.critical(f'Leaving the container {missing_containers} empty for now')
+            else:
+                raise NotImplementedError(
+                    "Can't set up structure_containers when there are more than 1 initialized and there are missing "
+                    f"structure_type. Initialized={self.structure_containers}, Missing={missing_containers}")
 
     def __copy__(self) -> Structure:  # -> Self Todo python3.11
         cls = self.__class__
@@ -5843,6 +5865,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         for attr, obj in self.__dict__.items():
             if attr in parent_attributes:
                 # Perform shallow copy on these attributes. They will be handled correctly below
+                other.__dict__[attr] = obj
+            elif attr in cls.class_structure_containers:
+                # Handled in _copy_structure_containers()
                 other.__dict__[attr] = obj
             else:  # Perform a deeper copy
                 other.__dict__[attr] = copy(obj)  # obj.copy() <- This won't work for str or bool
