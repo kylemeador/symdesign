@@ -363,29 +363,51 @@ class SymEntry:
                             f'{self.resulting_symmetry}, or the group(s) {", ".join(viable_groups)}')
                 self.groups.append(group)
 
+        # Solve the group information for each passed symmetry
+        def add_group():
+            # Todo
+            #  Can the accuracy of this creation method be guaranteed with the usage of the same symmetry
+            #  operator and different orientations? Think T33
+            self._int_dof_groups.append(int_dof)
+            self._setting_matrices.append(setting_matrices[set_mat_number])
+            self._setting_matrices_numbers.append(set_mat_number)
+            if ext_dof is None:
+                self._ref_frame_tx_dof.append(ext_dof)
+            else:
+                ref_frame_tx_dof = ext_dof.split(',')
+                self._ref_frame_tx_dof.append(ref_frame_tx_dof)
+                if group_idx <= 2:
+                    # This isn't possible with more than 2 groups unless the groups is tethered to existing
+                    self.__external_dof.append(construct_uc_matrix(ref_frame_tx_dof))
+                else:
+                    if ref_frame_tx_dof:
+                        raise utils.SymmetryInputError(
+                            f"Can't create {SymEntry.__name__} with external degrees of freedom and > 2 groups")
+
         self._int_dof_groups, self._setting_matrices, self._setting_matrices_numbers, self._ref_frame_tx_dof, \
             self.__external_dof = [], [], [], [], []
         for group_idx, group_symmetry in enumerate(self.groups, 1):
+            if isinstance(group_symmetry, SymEntry):
+                group_symmetry = group_symmetry.resulting_symmetry
             for entry_group_symmetry, (int_dof, set_mat_number, ext_dof) in group_info:
                 if group_symmetry == entry_group_symmetry:
-                    # Todo Can we guarantee the accuracy of this creation method with the usage of the same symmetry operator
-                    #  and different orientations? Think T33
-                    self._int_dof_groups.append(int_dof)
-                    self._setting_matrices.append(setting_matrices[set_mat_number])
-                    self._setting_matrices_numbers.append(set_mat_number)
-                    if ext_dof is None:
-                        self._ref_frame_tx_dof.append(ext_dof)
-                    else:
-                        ref_frame_tx_dof = ext_dof.split(',')
-                        self._ref_frame_tx_dof.append(ref_frame_tx_dof)
-                        if group_idx <= 2:
-                            # This isn't possible with more than 2 groups unless the groups is tethered to existing
-                            self.__external_dof.append(construct_uc_matrix(ref_frame_tx_dof))
-                        else:
-                            if ref_frame_tx_dof:
-                                raise utils.SymmetryInputError(
-                                    f"Can't create a {SymEntry.__name__} with external degrees of freedom and > 2 "
-                                    "groups")
+                    add_group()
+                    break
+            else:  # None was found for this group_symmetry
+                # raise utils.SymmetryInputError(
+                logger.critical(
+                    f"Trying to assign the group '{group_symmetry}' at index {group_idx} to "
+                    f"{SymEntry.__name__}.number={self.number}")
+                # See if the group is a sub-symmetry of a known group
+                for entry_group_symmetry, (int_dof, set_mat_number, ext_dof) in group_info:
+                    entry_sub_groups = sub_symmetries.get(entry_group_symmetry, [None])
+                    if group_symmetry in entry_sub_groups:
+                        add_group()
+                        break
+                else:
+                    raise utils.SymmetryInputError(
+                        f"Assignment of the group '{group_symmetry}' failed")
+
         # Check construction is valid
         if self.point_group_symmetry not in valid_symmetries:
             if self.number != 0:  # Anything besides CRYST entry
