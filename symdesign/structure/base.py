@@ -578,8 +578,8 @@ class SymmetryMixin:
             # set() COULD BE USED WHEN MULTIPLE self._symmetric_dependents.add(symmetric_dependents.lower())
             self._symmetric_dependents = symmetric_dependents.lower()
         except AttributeError:
-            raise ValueError(f"Can't set '.symmetric_dependents' with {type(symmetric_dependents).__name__}. "
-                             f"Must be a string")
+            raise ValueError(
+                f"Can't set '.symmetric_dependents' with {type(symmetric_dependents).__name__}. Must be a string")
 
 
 # parent Structure controls these attributes

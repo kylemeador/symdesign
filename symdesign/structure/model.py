@@ -867,12 +867,12 @@ class ContainsChainsMixin:
         Sets:
             self.chain_ids (list[str])
         """
-        available_chain_ids = chain_id_generator()
         if exclude_chains is None:
             exclude_chains = []
 
         # Update chain_ids, then each chain
         self.chain_ids = []
+        available_chain_ids = chain_id_generator()
         for idx in range(self.number_of_chains):
             chain_id = next(available_chain_ids)
             while chain_id in exclude_chains:
@@ -881,6 +881,15 @@ class ContainsChainsMixin:
 
         for chain, new_id in zip(self.chains, self.chain_ids):
             chain.chain_id = new_id
+
+        # # Todo matches Model.__init__()
+        # for chain in range(self.chains):
+        #     chain_id = next(available_chain_ids)
+        #     while chain_id in exclude_chains:
+        #         chain_id = next(available_chain_ids)
+        #     chain.chain_id = chain_id
+        #
+        # self.chain_ids = [chain.chain_id for chain in self.chains]
 
     def renumber_residues_by_chain(self):
         """For each Chain instance, renumber Residue objects sequentially starting with 1"""
@@ -1441,7 +1450,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     def symmetry(self, symmetry: str | None):
         self._symmetry = symmetry
         if symmetry and self.is_dependent():
-            # Set the parent Structure.symmetric_dependents to the entities attribute
+            # Set the parent Structure.symmetric_dependents to the 'entities' container
             self.parent.symmetric_dependents = 'entities'
 
     @property
@@ -2894,7 +2903,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self._update_structure_container_attributes(_parent=self)
                 if rename_chains:  # Set each successive Entity to have an incrementally higher chain id
                     available_chain_ids = chain_id_generator()
-                    for idx, entity in enumerate(self.entities):
+                    for entity in self.entities:
                         entity.chain_id = next(available_chain_ids)
                         # If the full structure wanted contiguous chain_ids, this should be used
                         # for _ in range(entity.number_of_symmetry_mates):
@@ -2918,6 +2927,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             if not self.chain_ids:
                 # Set chain_ids according to self.entities as it wasn't set by self.chains (probably False)
                 self.chain_ids.extend([entity.chain_id for entity in self.entities])
+                # Todo DRY upon removing from above if isinstance(chains (list, Structures)):
+                #  self.chain_ids.extend([chain.chain_id for chain in self.chains])
 
         if pose_format:
             self.pose_numbering()
