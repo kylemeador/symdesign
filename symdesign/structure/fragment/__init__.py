@@ -651,11 +651,11 @@ def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: F
         cluster_id = 'i{}_j{}_k{}'.format(*ghost_frag.ijk)
         out_info_file.write(f'MATCH {match_number}\n')
         out_info_file.write(f'z-val: {overlap_error}\n')
-        out_info_file.write('CENTRAL RESIDUES\noligomer1 ch, resnum: {}, {}\noligomer2 ch, resnum: {}, {}\n'.format(
+        out_info_file.write('CENTRAL RESIDUES\ncomponent1 ch, resnum: {}, {}\ncomponent2 ch, resnum: {}, {}\n'.format(
             *ghost_frag.aligned_chain_and_residue, *matched_frag.aligned_chain_and_residue))
         # Todo
-        #  out_info_file.write('oligomer1 ch, resnum: %s, %d\n' % (ghost_residue.chain_id, ghost_residue.residue))
-        #  out_info_file.write('oligomer2 ch, resnum: %s, %d\n' % (matched_residue.chain_id, matched_residue.residue))
+        #  out_info_file.write('component1 ch, resnum: %s, %d\n' % (ghost_residue.chain_id, ghost_residue.residue))
+        #  out_info_file.write('component2 ch, resnum: %s, %d\n' % (matched_residue.chain_id, matched_residue.residue))
         out_info_file.write('FRAGMENT CLUSTER\n')
         out_info_file.write(f'id: {cluster_id}\n')
         out_info_file.write(f'mean rmsd: {ghost_frag.rmsd}\n')

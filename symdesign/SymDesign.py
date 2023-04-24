@@ -746,7 +746,7 @@ def main():
     if job.module == flags.initialize_building_blocks:
         logger.critical(f'Ensuring provided building blocks are oriented')
         symmetry = job.sym_entry.group1
-        orient_structures = initialize_structures(job, symmetry=symmetry, paths=args.oligomer1,
+        orient_structures = initialize_structures(job, symmetry=symmetry, paths=args.component1,
                                                   pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
         _, possibly_new_uniprot_to_prot_metadata = \
             create_protein_metadata(orient_structures, symmetry=symmetry)
@@ -801,7 +801,7 @@ def main():
         # Transform input entities to canonical orientation and return their ASU
         grouped_orient_structures: list[list[Model | Entity]] = []
         logger.critical(f'Ensuring provided building blocks are oriented for {job.module}')
-        structures1 = initialize_structures(job, symmetry=symmetry1, paths=args.oligomer1,
+        structures1 = initialize_structures(job, symmetry=symmetry1, paths=args.component1,
                                             pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
         grouped_orient_structures.append(structures1)
         if job.module == flags.nanohedra:
@@ -812,8 +812,8 @@ def main():
             raise NotImplementedError()
         structures2 = []
         # See if they are the same input
-        if args.oligomer1 != args.oligomer2 or job.pdb_codes1 != job.pdb_codes2 or args.query_codes2:
-            structures2 = initialize_structures(job, symmetry=symmetry2, paths=args.oligomer2,
+        if args.component1 != args.component2 or job.pdb_codes1 != job.pdb_codes2 or args.query_codes2:
+            structures2 = initialize_structures(job, symmetry=symmetry2, paths=args.component2,
                                                 pdb_codes=job.pdb_codes2, query_codes=args.query_codes2)
             if structures2:
                 single_component_design = False
