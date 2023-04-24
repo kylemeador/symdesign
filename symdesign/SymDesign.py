@@ -782,7 +782,8 @@ def main():
                             f"Couldn't set the {sql.ProteinMetadata.__name__} attribute '.{attribute}' as it doesn't "
                             f"exist")
                     for uniprot_id, protein_metadata in all_uniprot_id_to_prot_data.items():
-                        setattr(protein_metadata, attribute, value)
+                        for data in protein_metadata:
+                            setattr(data, attribute, value)
                 session.commit()
             else:
                 # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
@@ -1369,11 +1370,20 @@ def main():
                 #         data.c_terminal_helix = entity.is_termini_helical('c')
 
                 if pose_jobs_to_commit:
-                    # Write new data to the database with correct unique entries
+                    # Write new data to the database with correct ProteinMetadata and UniProtEntity entries
                     for pose_job in pose_jobs_to_commit:
-                        pose_job.entity_data.extend(
-                            sql.EntityData(meta=all_uniprot_id_to_prot_data[entity.uniprot_ids])
-                            for entity in pose_job.initial_model.entities)
+                        entity_data = []
+                        for entity in pose_job.initial_model.entities:
+                            for protein_metadata in all_uniprot_id_to_prot_data[entity.uniprot_ids]:
+                                if protein_metadata.entity_id == entity.entity_id:
+                                    entity_data.append(sql.EntityData(meta=protein_metadata))
+                                    break
+                            else:
+                                raise utils.InputError(
+                                    f"Couldn't set up the {repr(pose_job)} {repr(entity)} with a corresponding "
+                                    f"{sql.ProteinMetadata.__name__} entry")
+                        pose_job.entity_data = entity_data
+
                         # Todo this could be useful if optimizing database access with concurrency
                         # # Ensure that the pose has entity_transform information saved to the db
                         # pose_job.load_pose()
