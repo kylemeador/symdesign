@@ -3082,9 +3082,11 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         """
         return ''.join(chain.reference_sequence for chain in self.chains)
 
-    def format_seqres(self, **kwargs) -> str:  # Todo similar function in Entity
+    def format_seqres(self, asu: bool = False, **kwargs) -> str:  # Todo same function in Entity, different default
         """Format the reference sequence present in the SEQRES remark for writing to the output header
 
+        Args:
+            asu: Whether to output the unique Entity instances (ASU) or the full symmetric assembly
         Returns:
             The PDB formatted SEQRES record
         """
@@ -4926,26 +4928,30 @@ class SymmetricModel(Models):
 
     def _generate_assembly(self, minimal: bool = False) -> Model:  # Todo reconcile mechanism with Entity.oligomer
         """"""
-        self.generate_assembly_symmetry_models(surrounding_uc=self.is_surrounding_uc())
-
-        if minimal:  # Only return contacting
-            name = f'{self.name}-minimal-assembly'
-            interacting_model_indices = self.get_asu_interaction_model_indices()
-            # interacting_model_indices = self.get_asu_interaction_model_indices(calculate_contacts=False)
-            # Add the ASU to the model first
-            model_indices = [0] + interacting_model_indices
+        if minimal is None:
+            # When the Pose is asymmetric
+            return self.copy()
         else:
-            name = f'{self.name}-assembly'
-            model_indices = range(self.number_of_models)
+            self.generate_assembly_symmetry_models(surrounding_uc=self.is_surrounding_uc())
 
-        self.log.debug(f'Found selected models {model_indices} for assembly')
+            if minimal:  # Only return contacting
+                name = f'{self.name}-minimal-assembly'
+                interacting_model_indices = self.get_asu_interaction_model_indices()
+                # interacting_model_indices = self.get_asu_interaction_model_indices(calculate_contacts=False)
+                # Add the ASU to the model first
+                model_indices = [0] + interacting_model_indices
+            else:
+                name = f'{self.name}-assembly'
+                model_indices = range(self.number_of_models)
 
-        models = self.models
-        chains = []
-        for idx in model_indices:
-            chains.extend(models[idx].chains)
+            self.log.debug(f'Found selected models {model_indices} for assembly')
 
-        return Model.from_chains(chains, name=name, log=self.log, biomt_header=self.format_biomt(),
+            models = self.models
+            chains = []
+            for idx in model_indices:
+                chains.extend(models[idx].entities)
+
+            return Model.from_chains(chains, name=name, log=self.log, biomt_header=self.format_biomt(),
                                      cryst_record=self.cryst_record, entity_info=self.entity_info)  # entities=False)
 
     # def report_symmetric_coords_issue(self, func_name: str):
@@ -5065,6 +5071,7 @@ class SymmetricModel(Models):
         if len(self.models) != number_of_symmetry_mates:
             # self.log.debug(f'Generating symmetry mates')
             # found__coords_ids = []
+            self.models.clear()
             for _ in range(number_of_symmetry_mates):
                 symmetry_mate = self.copy()
                 self.models.append(symmetry_mate)
