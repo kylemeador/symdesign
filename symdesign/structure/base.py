@@ -3560,32 +3560,33 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """Access the number of Residues in the Structure"""
         return len(self._residue_indices)
 
-    def get_coords_subset(self, residue_numbers: Container[int] = None, start: int = None, end: int = None,
-                          dtype: coords_type_literal = 'ca') -> np.ndarray:
+    def get_coords_subset(self, residue_numbers: Container[int] = None, indices: Iterable[int] = None,
+                          start: int = None, end: int = None, dtype: coords_type_literal = 'ca') -> np.ndarray:
         """Return a view of a subset of the Coords from the Structure specified by a range of Residue numbers
         
         Args:
             residue_numbers: The Residue numbers to return
+            indices: Residue indices of interest
             start: The Residue number to start at. Inclusive
             end: The Residue number to end at. Inclusive
             dtype: The type of coordinates to get
         Returns:
-            The specifiec coordinates 
+            The specific coordinates from the Residue instances with the specified dtype
         """
+        if indices is None:
+            if residue_numbers is None:
+                if start is not None and end is not None:
+                    residue_numbers = list(range(start, end + 1))
+                else:
+                    raise ValueError(
+                        f"{self.get_coords_subset.__name__}: Must provide either 'indices', 'residue_numbers' or "
+                        f"'start' and 'end'")
+            residues = self.get_residues(residue_numbers)
+        else:
+            residues = self.get_residues(indices=indices)
+
         coords_type = 'coords' if dtype == 'all' else f'{dtype}_coords'
-
-        if residue_numbers is None:
-            if start is not None and end is not None:
-                residue_numbers = list(range(start, end + 1))
-            else:
-                raise ValueError(
-                    f"{self.get_coords_subset.__name__}: Must provide either 'residue_numbers' or 'start' and 'end'")
-
-        out_coords = []
-        for residue in self.get_residues(residue_numbers):
-            out_coords.append(getattr(residue, coords_type))
-
-        return np.concatenate(out_coords)
+        return np.concatenate([getattr(residue, coords_type) for residue in residues])
 
     def _update_structure_container_attributes(self, **kwargs):
         """Update attributes specified by keyword args for all Structure container members"""
@@ -3985,43 +3986,41 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         alpha_helix_15_struct = Structure.from_atoms(alpha_helix_15_atoms)
 
-        align_length = 4  # 4 as self.get_coords_subset(end=) argument is inclusive
+        align_length = 5
         if termini == 'n':
-            first_residue = residue = self.n_terminal_residue
-            residue_start_number = first_residue.number
-            residue_end_number = residue_start_number + align_length
+            residue = self.n_terminal_residue
+            residue_index = residue.index
             fixed_coords = self.get_coords_subset(
-                start=residue_start_number, end=residue_end_number, dtype='backbone')
-            helix_start_number = 11
-            helix_end_number = helix_start_number + align_length
+                indices=list(range(residue_index, residue_index + align_length)), dtype='backbone')
+
+            ideal_end_index = alpha_helix_15_struct.c_terminal_residue.index + 1
+            ideal_start_index = ideal_end_index - align_length
             moving_coords = alpha_helix_15_struct.get_coords_subset(
-                start=helix_start_number, end=helix_end_number, dtype='backbone')
+                indices=list(range(ideal_start_index, ideal_end_index)), dtype='backbone')
             rmsd, rot, tx = superposition3d(fixed_coords, moving_coords)
             alpha_helix_15_struct.transform(rotation=rot, translation=tx)
 
-            # Add residues, then renumber
-            helix_add_start = helix_start_number - length
-            # Exclude helix_start_number from residue selection
-            add_residues = alpha_helix_15_struct.get_residues(list(range(helix_add_start, helix_start_number)))
-            residue_index = 0  # residue.index
+            # Add residues
+            helix_add_start = ideal_start_index - length
+            # Exclude ideal_start_index from residue selection
+            add_residues = alpha_helix_15_struct.get_residues(indices=list(range(helix_add_start, ideal_start_index)))
         elif termini == 'c':
-            last_residue = residue = self.c_terminal_residue
-            residue_end_number = last_residue.number
-            residue_start_number = residue_end_number - align_length
+            residue = self.c_terminal_residue
+            residue_index = residue.index + 1
             fixed_coords = self.get_coords_subset(
-                start=residue_start_number, end=residue_end_number, dtype='backbone')
-            helix_start_number = 1
-            helix_end_number = helix_start_number + align_length
+                indices=list(range(residue_index - align_length, residue_index)), dtype='backbone')
+
+            ideal_start_index = alpha_helix_15_struct.n_terminal_residue.index
+            ideal_end_index = ideal_start_index + align_length
             moving_coords = alpha_helix_15_struct.get_coords_subset(
-                start=helix_start_number, end=helix_end_number, dtype='backbone')
+                indices=list(range(ideal_start_index, ideal_end_index)), dtype='backbone')
             rmsd, rot, tx = superposition3d(fixed_coords, moving_coords)
             alpha_helix_15_struct.transform(rotation=rot, translation=tx)
 
-            # Add residues then renumber
-            helix_add_end = helix_end_number + length
-            # Leave out the residue with helix_end_number, and include the helix_add_end number
-            add_residues = alpha_helix_15_struct.get_residues(list(range(helix_end_number + 1, helix_add_end + 1)))
-            residue_index = residue.index + 1
+            # Add residues
+            helix_add_end = ideal_end_index + length
+            # Leave out the residue with ideal_end_index, and include the helix_add_end number
+            add_residues = alpha_helix_15_struct.get_residues(indices=list(range(ideal_end_index, helix_add_end)))
         else:
             raise ValueError(
                 f"'termini' must be either 'n' or 'c', not {termini}")
