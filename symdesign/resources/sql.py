@@ -53,6 +53,9 @@ class _Base:
     def __hash__(self) -> int:
         return hash(self._key)
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({self.id})'
+
 
 Base = declarative_base(cls=_Base)
 

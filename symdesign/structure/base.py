@@ -1082,8 +1082,8 @@ class Atoms:
 
     def are_dependents(self) -> bool:
         """Check if any of the Atom instance are dependents on another Structure"""
-        for atom in self:
-            if atom.is_dependent():
+        for struct in self:
+            if struct.is_dependent():
                 return True
         return False
 
@@ -2724,8 +2724,8 @@ class Residues:
 
     def are_dependents(self) -> bool:
         """Check if any of the Residue instance are dependents on another Structure"""
-        for residue in self:
-            if residue.is_dependent():
+        for struct in self:
+            if struct.is_dependent():
                 return True
         return False
 

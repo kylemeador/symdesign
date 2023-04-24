@@ -91,8 +91,8 @@ def nanohedra_command_concise(path1: Union[str, bytes], path2: Union[str, bytes]
     os.makedirs(nano_out_dir, exist_ok=True)
     os.makedirs(script_out_dir, exist_ok=True)
 
-    cmd = ['python', putils.nanohedra_exe, '-dock', '-entry', entry, putils.nano_entity_flag1, path1,
-           putils.nano_entity_flag2, path2, '-outdir', nano_out_dir]
+    cmd = ['python', putils.nanohedra_exe, '-dock', '-entry', entry, putils.component1, path1,
+           putils.component2, path2, '-outdir', nano_out_dir]
     #        ['rot_step1', rotation1, '-rot_step2', rotation2, '-min_matched']
     cmd.extend(chain.from_iterable([['-%s' % key, str(value)] for key, value in kwargs]))
     if initial:

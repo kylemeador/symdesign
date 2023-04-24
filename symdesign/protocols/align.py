@@ -816,7 +816,8 @@ def bend(model: Model, joint_index: int, samples: int, direction: termini_litera
     elif direction == 'n':  # 'R'
         modes3x4 = modes3x4_R
     else:
-        raise ValueError("Must designate 'n' or 'c' for direction")
+        raise ValueError(
+            f"'direction' must be either 'n' or 'c', not {direction}")
 
     # model_residues = model.get_residues(indices=list(range(joint_index - 2, joint_index + 3)))
     # model_coords = model.get_coords_subset(residue_numbers=[r.number for r in model_residues], dtype='backbone')
@@ -929,7 +930,7 @@ def prepare_alignment_motif(model: Structure, model_start: int, alignment_length
 
 
 def align_model_to_helix(model: Structure, model_start: int, helix_model: Structure, helix_start: int,
-                         alignment_length: int) -> Structure:  # , termini: termini_literal
+                         alignment_length: int) -> tuple[float, np.ndarray, np.ndarray]:  # Structure:  # , termini: termini_literal
     """Take two Structure Models and align the second one to the first along a helical termini
 
     Args:
@@ -938,38 +939,27 @@ def align_model_to_helix(model: Structure, model_start: int, helix_model: Struct
         helix_model: The first model. This model will be fixed during the procedure
         helix_start: The first residue to use for alignment from helix_model
         alignment_length: The length of the helical alignment
-        termini: The termini to utilize
     Returns:
         The rmsd, rotation, and translation to align the model to the helix_model
         The aligned Model with the overlapping residues removed
     """
-    residues1 = helix_model.get_residues(indices=list(range(helix_start, helix_start + alignment_length)))
-    residues2 = model.get_residues(indices=list(range(model_start, model_start + alignment_length)))
-    if len(residues1) != len(residues2):
-        raise ValueError(
-            f"The aligned lengths aren't equal. helix_model length, {len(residues1)} != {len(residues2)},"
-            ' the aligned model length')
-    residue_numbers1 = [residue.number for residue in residues1]
-    coords1 = helix_model.get_coords_subset(residue_numbers=residue_numbers1, dtype='backbone')
-    residue_numbers2 = [residue.number for residue in residues2]
-    coords2 = model.get_coords_subset(residue_numbers=residue_numbers2, dtype='backbone')
+    # termini: The termini to utilize
+    # residues1 = helix_model.get_residues(indices=list(range(helix_start, helix_start + alignment_length)))
+    # residues2 = model.get_residues(indices=list(range(model_start, model_start + alignment_length)))
+    # if len(residues1) != len(residues2):
+    #     raise ValueError(
+    #         f"The aligned lengths aren't equal. helix_model length, {len(residues1)} != {len(residues2)},"
+    #         ' the aligned model length')
+    # residue_numbers1 = [residue.number for residue in residues1]
+    # coords1 = helix_model.get_coords_subset(residue_numbers=residue_numbers1, dtype='backbone')
+    coords1 = helix_model.get_coords_subset(
+        indices=list(range(helix_start, helix_start + alignment_length)), dtype='backbone')
+    # residue_numbers2 = [residue.number for residue in residues2]
+    coords2 = model.get_coords_subset(
+        indices=list(range(model_start, model_start + alignment_length)), dtype='backbone')
+    # coords2 = model.get_coords_subset(residue_numbers=residue_numbers2, dtype='backbone')
 
-    # print('residue_numbers1', residue_numbers1, 'residue_numbers2', residue_numbers2)
-    # print('Coords1', len(coords1), 'Coords2', len(coords2))
-    rmsd, rot, tx = structure.coords.superposition3d(coords1, coords2)
-    return rmsd, rot, tx
-    # # Transform to the found alignment
-    # return model.transform(rotation=rot, translation=tx)
-
-    # Transform to the found alignment and delete the overlapping residues
-    # transformed_model = model.get_transformed_copy(rotation=rot, translation=tx)
-    # if termini == 'n':
-    #     remove_indices = list(range(model.n_terminal_residue.index, residues2[-1].index + 1))
-    # else:
-    #     remove_indices = list(range(residues2[0].index, model.c_terminal_residue.index + 1))
-    # transformed_model.delete_residues(indices=remove_indices)
-    #
-    # return transformed_model
+    return superposition3d(coords1, coords2)
 
 
 # def solve_termini_start_index(secondary_structure: str, termini: termini_literal) -> int:  # tuple[int, int]:
@@ -1013,7 +1003,6 @@ def solve_termini_start_index_and_length(secondary_structure: str, termini: term
     alignment_length = end_index - start_index
 
     return start_index, alignment_length
-    # return start_index
 
 
 def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
@@ -1286,17 +1275,10 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     logger.info(f"{align_helices.__name__} isn't possible for target {termini} to aligned "
                                 f'{align_termini} since {model2.name} is missing a helical {align_termini}-termini')
 
-            # if not termini_to_align:
-            #     logger.info(f'No termini were found to align. Ending job')
-            #     return []
-            #     # ------- TERMINATE --------
-
             for termini in termini_to_align:
                 align_termini = opposite_termini[termini]
-                # print('align_termini', align_termini)  # Todo debug
                 # Get the length_of_target_helix and the target_start_index
                 if desired_target_start_index is None and desired_target_alignment_length is None:
-                    # target_start_index = solve_termini_start_index(
                     target_start_index, length_of_target_helix = solve_termini_start_index_and_length(
                         entity1.secondary_structure, termini)
                 else:
@@ -1313,7 +1295,6 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
                 # Get the default_alignment_length and the aligned_start_index
                 if desired_aligned_start_index is None and desired_aligned_alignment_length is None:
-                    # aligned_start_index = solve_termini_start_index(
                     aligned_start_index, length_of_aligned_helix = solve_termini_start_index_and_length(
                         entity2.secondary_structure, align_termini)
                 else:
@@ -1321,11 +1302,10 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     length_of_aligned_helix = desired_aligned_alignment_length
 
                 # Scan along the aligned helix length
-                # print('length_of_aligned_helix', length_of_aligned_helix)  # Todo debug
-                # print('alignment_length', alignment_length)  # Todo debug
+                logger.debug(f'length_of_aligned_helix: {length_of_aligned_helix}')
+                logger.debug(f'alignment_length: {alignment_length}')
                 aligned_length = length_of_aligned_helix - alignment_length
                 aligned_end_index = aligned_start_index + aligned_length
-                # aligned_end_index = aligned_start_index + length_of_aligned_helix - alignment_length
                 aligned_count = count()
                 for aligned_start_index in range(aligned_start_index, aligned_end_index):
                     aligned_idx = next(aligned_count)
@@ -1340,7 +1320,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     # helix_start_index = 0
                     max_target_helix_length = length_of_target_helix - alignment_length
                     for helix_start_index in range(max_target_helix_length):
-                        # print('helix_start_index', helix_start_index)  # Todo debug
+                        logger.debug(f'helix_start_index: {helix_start_index}')
                         # helix_end_index = helix_start_index + alignment_length
 
                         # if helix_end_index > maximum_helix_alignment_length:
@@ -1368,20 +1348,17 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                         transformed_entity2.chain_id = chain_id
                         # Order the models
                         if termini == 'n':
-                            # chain_id = truncated_entity1.n_terminal_residue.chain_id
-                            # ordered_entity_model = [transformed_entity2, helix_model, truncated_entity1]
                             ordered_entity1 = transformed_entity2
                             ordered_entity2 = truncated_entity1
                             helix_model_range = range(aligned_idx, length_of_target_helix)  # = helix_end_index
                         else:  # termini == 'c'
-                            # chain_id = truncated_entity1.c_terminal_residue.chain_id
-                            # ordered_entity_model = [truncated_entity1, helix_model, transformed_entity2]
                             ordered_entity1 = truncated_entity1
                             ordered_entity2 = transformed_entity2
                             helix_model_range = range(helix_start_index + alignment_length)  # = helix_end_index
 
                         # Reformat residues for new chain
-                        helix_n_terminal_residue_number = ordered_entity1.c_terminal_residue.number + 1
+                        ordered_entity1_c_terminal_residue_number = ordered_entity1.c_terminal_residue.number
+                        helix_n_terminal_residue_number = ordered_entity1_c_terminal_residue_number + 1
                         helix_model.renumber_residues(index=helix_model_start_index, at=helix_n_terminal_residue_number)
                         helix_residues = helix_model.get_residues(indices=list(helix_model_range))
                         ordered_entity2.renumber_residues(at=helix_n_terminal_residue_number + len(helix_residues))
@@ -1390,24 +1367,26 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             joint_residue = transformed_entity2.residues[aligned_start_index + 2]
 
                         # Create fused Entity and rename select attributes
-                        # name = f'{ordered_entity1.name}_fused_to_{ordered_entity2.name}'
-                        # uniprot_ids = tuple(uniprot_id for entity in [ordered_entity1, ordered_entity2]
-                        #                     for uniprot_id in entity.uniprot_ids)
+                        # ordered_entity1_n_terminal_residue_number = ordered_entity1.n_terminal_residue.number
+                        # ordered_entity2_n_terminal_residue_number = ordered_entity2.n_terminal_residue.number
+                        # ordered_entity2_c_terminal_residue_number = ordered_entity2.c_terminal_residue.number
                         fused_entity = Entity.from_residues(
                             ordered_entity1.residues + helix_residues + ordered_entity2.residues,
                             chain_ids=[chain_id],
                             reference_sequence=ordered_entity1.sequence
                             + ''.join(r.type1 for r in helix_residues) + ordered_entity2.sequence,
-                            name=f'{ordered_entity1.name}_fused_to_{ordered_entity2.name}',
+                            name=f'{ordered_entity1.name}_{ordered_entity1.n_terminal_residue.number}-'
+                                 f'{ordered_entity1_c_terminal_residue_number}_fused-to'
+                                 f'_{ordered_entity2.name}_{ordered_entity2.n_terminal_residue.number}-'
+                                 f'{ordered_entity2.c_terminal_residue.number}',
                             uniprot_ids=tuple(uniprot_id for entity in [ordered_entity1, ordered_entity2]
                                               for uniprot_id in entity.uniprot_ids)
                         )
-                        # fused_entity.chain_id = chain_id
 
-                        # truncated_entity1.write(out_path='DEBUG-1.pdb')
-                        # helix_model.write(out_path='DEBUG-H.pdb')
-                        # transformed_entity2.write(out_path='DEBUG-2.pdb')
-                        fused_entity.write(out_path='DEBUG-FUSED.pdb')
+                        # ordered_entity1.write(out_path='DEBUG_1.pdb')
+                        # helix_model.write(out_path='DEBUG_H.pdb')
+                        # ordered_entity2.write(out_path='DEBUG_2.pdb')
+                        # fused_entity.write(out_path='DEBUG_FUSED.pdb')
 
                         # Correct the .metadata attribute for each entity in the full assembly
                         # This is crucial for sql usage
@@ -1438,11 +1417,16 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             transformed_additional_entities2 = [
                                 entity.get_transformed_copy(rotation=rot, translation=tx)
                                 for entity in additional_entities2]
-                            transformed_additional_entities2[0].write(out_path='DEBUG-Additional2.pdb')
+                            # transformed_additional_entities2[0].write(out_path='DEBUG_Additional2.pdb')
+                            # input('DEBUG_Additional2.pdb')
                             all_entities += transformed_additional_entities2
 
                         # logger.debug(f'Loading pose')
                         pose = Pose.from_entities(all_entities, sym_entry=sym_entry_chimera)
+
+                        # pose.entities[0].write(oligomer=True, out_path='DEBUG_oligomer.pdb')
+                        # pose.write(out_path='DEBUG_POSE.pdb', increment_chains=True)
+                        # pose.write(assembly=True, out_path='DEBUG_ASSEMBLY.pdb')  # , increment_chains=True)
 
                         if pose.is_clash(warn=False, silence_exceptions=True):
                             logger.info(f'Alignment index {AlignmentIndex} fusion clashes')
@@ -1450,9 +1434,9 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                         else:
                             asu_clashes = False
 
+                        name = f'{termini}-term_{aligned_idx + 1}-{helix_start_index + 1}'
+
                         if job.bend:
-                            # pose.write(out_path='DEBUG_POSE.pdb', increment_chains=True)
-                            # Get the index in the pose corresponding to the helix_start_index + 2
                             central_aligned_residue = pose.chain(chain_id).residue(joint_residue.number)
                             # print(central_aligned_residue)
                             bent_coords = bend(pose, central_aligned_residue.index, job.sample_number, termini)
@@ -1468,16 +1452,10 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                                     continue
 
                                 # Output
-                                name = f'{termini}-term{helix_start_index + 1}-bend{bend_idx}'
-                                output_pose(name)
+                                output_pose(name + f'-bend{bend_idx}')
                         # else:
                         if asu_clashes:
                             continue
-
-                        # pose.entities[0].write(oligomer=True, out_path='DEBUG_oligomer.pdb')
-                        # pose.write(out_path='DEBUG_BEFORE_ASSEMBLY.pdb', increment_chains=True)
-                        # pose.write(assembly=True, out_path='DEBUG_ASSEMBLY.pdb')  # , increment_chains=True)
-                        # pose.write(out_path='DEBUG_After_ASSEMBLY.pdb', increment_chains=True)
 
                         if pose.is_symmetric() and not job.design.ignore_symmetric_clashes and \
                                 pose.symmetric_assembly_is_clash(warn=False):
@@ -1686,6 +1664,11 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                                     oligomer=True)
         return pose_jobs
 
+    logger.info(f'Total {project} trajectory took {time.time() - align_time_start:.2f}s')
+    if not pose_jobs:
+        logger.info(f'Found no viable outputs')
+        return []
+
     with job.db.session(expire_on_commit=False) as session:
         pose_jobs = terminate(pose_jobs)  # , poses_df, residues_df)
         session.commit()
@@ -1696,6 +1679,5 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
         # # Load all the committed metrics to the PoseJob instances
         # for pose_job in pose_jobs:
         #     pose_job.metrics
-    logger.info(f'Total {project} trajectory took {time.time() - align_time_start:.2f}s')
 
     return pose_jobs

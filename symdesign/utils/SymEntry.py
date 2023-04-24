@@ -287,7 +287,7 @@ class SymEntry:
     _number_dof_external: int
     _number_dof_rotation: int
     _number_dof_translation: int
-    _ref_frame_tx_dof: list[list[str]]
+    _ref_frame_tx_dof: list[list[str] | None]
     _rotation_range: list[int]
     _setting_matrices: list[np.ndarray]
     _setting_matrices_numbers: list[int]
@@ -1313,7 +1313,7 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
 
             if symmetry_operators and \
                     symmetry_groups_are_allowed_in_entry(symmetry_operators, entry_number=entry_number):
-                matching_entries.append(entry_number)  # TODO include the groups?
+                matching_entries.append(entry_number)  # Todo include the groups?
 
     if matching_entries:
         if len(matching_entries) != 1:

@@ -3494,17 +3494,19 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         nonlocal number_of_transforms, pose_names
 
         # Add PoseJobs to the database
+        error_count = count()
         while True:
             pose_jobs = [PoseJob.from_name(pose_name, project=project, protocol=protocol_name)
                          for pose_name in pose_names]
             session.add_all(pose_jobs)
             try:  # Flush PoseJobs to the current session to generate ids
                 session.flush()
-            # except SQLAlchemyError:  # We already inserted this PoseJob.project/.name
-            except IntegrityError:  # We already inserted this PoseJob.project/.name
+            except IntegrityError:  # PoseJob.project/.name already inserted
                 session.rollback()
+                if next(error_count) == 1:
+                    # This is another error
+                    raise
                 # Find the actual pose_jobs_to_commit and place in session
-                # pose_identifiers = [pose_job.new_pose_identifier for pose_job in pose_jobs]
                 fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.is_(project)) \
                     .where(PoseJob.name.in_(pose_names))
                 existing_pose_jobs = session.scalars(fetch_jobs_stmt).all()

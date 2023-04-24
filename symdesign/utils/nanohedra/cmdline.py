@@ -57,8 +57,8 @@ def query_mode(arg_list):
 
 
 def get_docking_parameters(arg_list):
-    entity_flag1 = '-' + utils.path.nano_entity_flag1
-    entity_flag2 = '-' + utils.path.nano_entity_flag2
+    entity_flag1 = '-' + utils.path.component1
+    entity_flag2 = '-' + utils.path.component2
     # _output_assembly = '-' + output_assembly
     valid_flags = ['-dock', '-entry', entity_flag1, entity_flag2, '-rot_step1', '-rot_step2', '-outdir',
                    '-output_uc', '-output_surrounding_uc', '-min_matched', '-output_exp_assembly', '-output_assembly',

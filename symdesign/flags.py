@@ -21,7 +21,7 @@ from symdesign.utils import handle_errors, InputError, log_level, remove_digit_t
 from symdesign.utils.path import biological_interfaces, default_logging_level, ex_path, fragment_dbs
 # These attributes ^ shouldn't be moved here. Below should be with proper handling of '-' vs. '_'
 from symdesign.utils.path import submodule_guide, submodule_help, force, sym_entry, program_output, projects, \
-    interface_metrics, nano_entity_flag1, nano_entity_flag2, data, multi_processing, residue_selector, options, \
+    interface_metrics, component1, component2, data, multi_processing, residue_selector, options, \
     cluster_poses, orient, default_clustered_pose_file, interface_design, evolution_constraint, hbnet, term_constraint,\
     design_number, refine, structure_background, scout, design_profile, evolutionary_profile, \
     fragment_profile, select_sequences, program_name, nanohedra, predict_structure, output_interface, \
@@ -282,8 +282,8 @@ output_interface = format_for_cmdline(output_interface)
 ignore_clashes = format_for_cmdline(ignore_clashes)
 ignore_pose_clashes = format_for_cmdline(ignore_pose_clashes)
 ignore_symmetric_clashes = format_for_cmdline(ignore_symmetric_clashes)
-nano_entity_flag1 = format_for_cmdline(nano_entity_flag1)
-nano_entity_flag2 = format_for_cmdline(nano_entity_flag2)
+component1 = format_for_cmdline(component1)
+component2 = format_for_cmdline(component2)
 skip_logging = format_for_cmdline(skip_logging)
 interface_to_alanine = format_for_cmdline(interface_to_alanine)
 increment_chains = format_for_cmdline(increment_chains)
@@ -769,7 +769,7 @@ symmetry_kwargs = dict(type=str, default=None, metavar='RESULT:{GROUP1}{GROUP2}.
                        help='The specific symmetry of the poses of interest. Preferably\n'
                             'in a composition formula such as T:{C3}{C3}... Can also\n'
                             'provide the keyword "cryst" to use crystal symmetry')
-sym_entry_args = ('-E', f'--{sym_entry}', '--entry', '-entry')
+sym_entry_args = ('-E', f'--{sym_entry}', '--entry')
 sym_entry_kwargs = dict(type=int, default=None, metavar='INT',
                         help=f'The entry number of {nanohedra.title()} docking combinations to use.\n'
                              f'See {nanohedra} --query for possible symmetries')
@@ -945,7 +945,7 @@ helix_bending_help = 'Bend helices along known modes of helical flexibility'
 parser_helix_bending = {helix_bending: dict(description=helix_bending_help, help=helix_bending_help)}
 joint_residue_args = (f'--{joint_residue}',)
 sample_number_args = (f'--{sample_number}',)
-sample_number_kwargs = dict(type=int, default=10,
+sample_number_kwargs = dict(type=int, default=10, metavar='INT',
                             help='How many times should the bending be performed?\nDefault=%(default)s')
 helix_bending_arguments = {
     (f'--{direction}',): dict(type=str.upper, required=True, choices=('F', 'R'), default='F',
@@ -959,18 +959,18 @@ helix_bending_arguments = {
 align_helices_help = 'Align helices of one protein with another'
 parser_align_helices = {align_helices: dict(description=align_helices_help, help=align_helices_help)}
 target_start_args = (f'--{target_start}',)
-target_start_kwargs = dict(type=int, help='First residue of the targe molecule to align on')
+target_start_kwargs = dict(type=int, metavar='INT', help='First residue of the targe molecule to align on')
 target_end_args = (f'--{target_end}',)
-target_end_kwargs = dict(type=int, help='Last residue of the targe molecule to align on')
+target_end_kwargs = dict(type=int, metavar='INT', help='Last residue of the targe molecule to align on')
 target_chain_args = (f'--{target_chain}',)
 target_chain_kwargs = dict(help='A desired chainID of the target molecule')
 target_termini_args = (f'--{target_termini}',)
 target_termini_kwargs = dict(nargs='*', type=str.lower, choices=get_args(termini_literal),
                              help="If particular termini are desired, specify with 'n' and/or 'c'")
 aligned_start_args = (f'--{aligned_start}',)
-aligned_start_kwargs = dict(type=int, help='First residue of the aligned molecule to align on')
+aligned_start_kwargs = dict(type=int, metavar='INT', help='First residue of the aligned molecule to align on')
 aligned_end_args = (f'--{aligned_end}',)
-aligned_end_kwargs = dict(type=int, help='Last residue of the aligned molecule to align on')
+aligned_end_kwargs = dict(type=int, metavar='INT', help='Last residue of the aligned molecule to align on')
 aligned_chain_args = (f'--{aligned_chain}',)
 aligned_chain_kwargs = dict(help='A desired chainID of the aligned molecule')
 extend_past_termini_args = (f'--{extend_past_termini}',)
@@ -998,7 +998,7 @@ component_mutual1_arguments = {
     ('-c1', f'--{pdb_codes1}'): dict(nargs='*', default=None,
                                      help='Input code(s), and/or file(s) with codes where each code\n'
                                           'is a PDB EntryID/EntityID code for component 1'),
-    ('-o1', f'--{nano_entity_flag1}', f'-{nano_entity_flag1}'):
+    ('-o1', f'--{component1}'):
         dict(type=os.path.abspath, default=None,
              help=f'Disk location where component 1 file(s) are located'),
     ('-Q1', f'--{query_codes1}'): query_codes_kwargs
@@ -1009,7 +1009,7 @@ component_mutual2_arguments = {
     ('-c2', f'--{pdb_codes2}'): dict(nargs='*', default=None,
                                      help='Input code(s), and/or file(s) with codes where each code\n'
                                           'is a PDB EntryID/EntityID code for component 2'),
-    ('-o2', f'--{nano_entity_flag2}', f'-{nano_entity_flag2}'):
+    ('-o2', f'--{component2}'):
         dict(type=os.path.abspath, default=None,
              help=f'Disk location where component 2 file(s) are located'),
     ('-Q2', f'--{query_codes2}'): query_codes_kwargs
