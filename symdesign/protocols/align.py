@@ -1116,6 +1116,63 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
             entity_transform = {}
         entity_transformations.append(entity_transform)
 
+    def output_pose(name: str):
+        """Handle output of the identified pose
+
+        Args:
+            name: The name to associate with this job
+        Returns:
+            None
+        """
+        # Output the pose as a PoseJob
+        # name = f'{termini}-term{helix_start_index + 1}'
+        pose_job = PoseJob.from_name(name, project=project, protocol=protocol_name)
+
+        # if job.output:
+        if job.output_fragments:
+            pose.find_and_split_interface()
+            # Query fragments
+            pose.generate_interface_fragments()
+        if job.output_trajectory:
+            # Todo copy the update from fragdock
+            pass
+        # # Set the ASU, then write to a file
+        # pose.set_contacting_asu()
+        try:  # Remove existing cryst_record
+            del pose._cryst_record
+        except AttributeError:
+            pass
+        try:
+            pose.uc_dimensions = model1.uc_dimensions
+        except AttributeError:  # model1 isn't a crystalline symmetry
+            pass
+
+        # Todo the number of entities and the number of transformations could be different
+        # entity_transforms = []
+        for entity, transform in zip(pose.entities, entity_transformations):
+            transformation = sql.EntityTransform(**transform)
+            # entity_transforms.append(transformation)
+            pose_job.entity_data.append(sql.EntityData(
+                meta=entity.metadata,
+                metrics=entity.metrics,
+                transform=transformation)
+            )
+
+        # session.add_all(entity_transforms)  # + entity_data)
+        # # Need to generate the EntityData.id
+        # session.flush()
+
+        pose_job.pose = pose
+        # pose_job.calculate_pose_design_metrics(session)
+        putils.make_path(pose_job.pose_directory)
+        pose_job.output_pose(path=pose_job.pose_path)
+        pose_job.source_path = pose_job.pose_path
+        pose_job.pose = None
+        logger.info(f'Alignment index {AlignmentIndex} success')
+        logger.info(f'OUTPUT POSE: {pose_job.pose_directory}')
+
+        pose_jobs.append(pose_job)
+
     # Start the alignment search
     for selected_idx1, entity1 in enumerate(selected_models1):
         if all(remaining_entities1):
@@ -1413,8 +1470,8 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             # symmetry_group=sym_entry_chimera.groups[entity_idx],
                             n_terminal_helix=ordered_entity1.is_termini_helical(),
                             c_terminal_helix=ordered_entity2.is_termini_helical('c'),
-                            # Todo debug sql why not able to set association proxy
-                            # uniprot_ids=fused_entity.uniprot_ids
+                            uniprot_entities=tuple(uniprot_entity for entity in [ordered_entity1, ordered_entity2]
+                                                   for uniprot_entity in entity.metadata.uniprot_entities)
                             # model_source=None
                         )
                         if additional_entities1:
@@ -1478,52 +1535,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             logger.info(f'Alignment index {AlignmentIndex} fusion has symmetric clashes')
                             continue
 
-                        name = f'{termini}-term{helix_start_index + 1}'
-                        pose_job = PoseJob.from_name(name, project=project, protocol=protocol_name)
-
-                        # if job.output:
-                        if job.output_fragments:
-                            pose.find_and_split_interface()
-                            # Query fragments
-                            pose.generate_interface_fragments()
-                        if job.output_trajectory:
-                            # Todo copy the update from fragdock
-                            pass
-                        # # Set the ASU, then write to a file
-                        # pose.set_contacting_asu()
-                        try:  # Remove existing cryst_record
-                            del pose._cryst_record
-                        except AttributeError:
-                            pass
-                        try:
-                            pose.uc_dimensions = model1.uc_dimensions
-                        except AttributeError:  # model1 isn't a crystalline symmetry
-                            pass
-
-                        # Todo the number of entities and the number of transformations could be different
-                        # entity_transforms = []
-                        for entity, transform in zip(pose.entities, entity_transformations):
-                            transformation = sql.EntityTransform(**transform)
-                            # entity_transforms.append(transformation)
-                            pose_job.entity_data.append(sql.EntityData(
-                                meta=entity.metadata,
-                                metrics=entity.metrics,
-                                transform=transformation)
-                            )
-
-                        # session.add_all(entity_transforms)  # + entity_data)
-                        # # Need to generate the EntityData.id
-                        # session.flush()
-
-                        pose_job.pose = pose
-                        # pose_job.calculate_pose_design_metrics(session)
-                        putils.make_path(pose_job.pose_directory)
-                        pose_job.output_pose(path=pose_job.pose_path)
-                        pose_job.source_path = pose_job.pose_path
-                        pose_job.pose = None
-                        logger.info(f'OUTPUT POSE: {pose_job.pose_directory}')
-
-                        pose_jobs.append(pose_job)
+                        output_pose(name)
 
     def terminate(pose_jobs: list[PoseJob]) -> list[PoseJob]:
         # , poses_df_: pd.DataFrame, residues_df_: pd.DataFrame) -> list[PoseJob]:
@@ -1596,6 +1608,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     # logger.debug(f'Reset the pose solutions with attributes:\n'
                     #              f'\tpose names={pose_names}\n'
                     #              f'\texisting transform indices={existing_indices_}\n')
+                    pose_jobs = [pose_name_pose_jobs[pose_name] for pose_name in new_pose_names]
             else:
                 break
 
