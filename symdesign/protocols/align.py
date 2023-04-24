@@ -983,19 +983,18 @@ def solve_termini_start_index_and_length(secondary_structure: str, termini: term
                 # end_index = idx
                 break
         # else:  # The whole structure is helical
-        end_index = idx - 1
-    else:  # align_termini == 'c':
-        end_index = prior_last_index = last_index = secondary_structure.rfind(SS_HELIX_IDENTIFIERS)
+        end_index = idx  # - 1
+    else:  # termini == 'c':
+        end_index = secondary_structure.rfind(SS_HELIX_IDENTIFIERS) + 1
         # Search for the last_index in a contiguous block of helical residues at the c-termini
-        # while prior_last_index - last_index < 2:  # Can be 1 or 0
-        #     prior_last_index = last_index
-        #     last_index = secondary_structure[:prior_last_index].rfind(SS_HELIX_IDENTIFIERS)
-        #
-        # start_index = prior_last_index
 
-        for idx, sstruct in enumerate(secondary_structure[end_index::-1]):
+        # input(secondary_structure[end_index::-1])
+        # for idx, sstruct in enumerate(secondary_structure[end_index::-1]):
+        # Add 1 to the end index to include end_index secondary_structure in the reverse search
+        # for idx, sstruct in enumerate(reversed(secondary_structure[:end_index + 1])):
+        for idx, sstruct in enumerate(reversed(secondary_structure[:end_index])):
             if sstruct != 'H':
-                # start_index = end_index - idx
+                # idx -= 1
                 break
         # else:  # The whole structure is helical
         start_index = end_index - idx
@@ -1309,12 +1308,16 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 aligned_count = count()
                 for aligned_start_index in range(aligned_start_index, aligned_end_index):
                     aligned_idx = next(aligned_count)
-                    print('aligned_idx', aligned_idx)  # Todo debug
-                    print('aligned_start_index', aligned_start_index)  # Todo debug
-                    print('entity2.number_of_residues', entity2.number_of_residues)
-                    truncated_entity2, helix_model2 = prepare_alignment_motif(
-                        entity2, aligned_start_index, alignment_length, termini=align_termini)
-                    # Todo? , extend_helix=job.extend_past_termini)
+                    logger.debug(f'aligned_idx: {aligned_idx}')
+                    logger.debug(f'aligned_start_index: {aligned_start_index}')
+                    # logger.debug(f'number of residues: {entity2.number_of_residues}')
+
+                    # # Todo use full model_helix mode
+                    # truncated_entity2, helix_model2 = prepare_alignment_motif(
+                    #     entity2, aligned_start_index, alignment_length, termini=align_termini)
+                    # # Todo? , extend_helix=job.extend_past_termini)
+                    # # Rename the models to enable fusion
+                    # truncated_entity2.chain_id = chain_id
 
                     # Scan along the target helix length
                     # helix_start_index = 0
@@ -1328,33 +1331,46 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                         AlignmentIndex = f'{aligned_idx + 1}/{aligned_length}, ' \
                                          f'{helix_start_index + 1}/{max_target_helix_length}'
                         try:
-                            # Todo move the copy/truncation out of the inner loop
+                            # Use helix_model2 start index = 0 as helix_model2 is always truncated
+                            # Use transformed_entity2 mode
                             rmsd, rot, tx = align_model_to_helix(
-                                helix_model2, 0, helix_model, helix_start_index,
-                                alignment_length)
-                            # truncated_entity2 = align_model_to_helix_and_truncate(
-                            #     entity2, aligned_start_index, helix_model, helix_start_index, alignment_length,
-                            #     align_termini)
+                                entity2, aligned_start_index, helix_model, helix_start_index, alignment_length)
+                            # # Use full model_helix mode
+                            # rmsd, rot, tx = align_model_to_helix(
+                            #     helix_model2, 0, helix_model, helix_start_index, alignment_length)
                         except ValueError as error:  # The lengths of the alignment aren't equal, report and proceed
                             logger.warning(str(error))
                             continue
                         else:
                             logger.info(f'Helical alignment has RMSD of {rmsd:.4f}')
-                            transformed_entity2 = truncated_entity2.get_transformed_copy(rotation=rot, translation=tx)
+                            # Use transformed_entity2 mode
+                            transformed_entity2 = entity2.get_transformed_copy(rotation=rot, translation=tx)
+                            if align_termini == 'c':
+                                delete_indices2 = list(range(aligned_start_index + alignment_length,
+                                                             transformed_entity2.c_terminal_residue.index + 1))
+                            else:
+                                delete_indices2 = list(range(transformed_entity2.n_terminal_residue.index,
+                                                             aligned_start_index))
 
-                        # Rename the models to enable fusion
-                        chain_id = truncated_entity1.chain_id
-                        helix_model.chain_id = chain_id
-                        transformed_entity2.chain_id = chain_id
-                        # Order the models
+                            transformed_entity2.delete_residues(indices=delete_indices2)
+                            # Rename the models to enable fusion
+                            transformed_entity2.chain_id = chain_id
+
+                        # Order the models, slice the helix for overlapped segments
                         if termini == 'n':
                             ordered_entity1 = transformed_entity2
                             ordered_entity2 = truncated_entity1
-                            helix_model_range = range(aligned_idx, length_of_target_helix)  # = helix_end_index
+                            # Use transformed_entity2 mode
+                            helix_model_start_index = helix_start_index + alignment_length
+                            helix_model_range = range(helix_model_start_index, length_of_target_helix)
                         else:  # termini == 'c'
                             ordered_entity1 = truncated_entity1
                             ordered_entity2 = transformed_entity2
-                            helix_model_range = range(helix_start_index + alignment_length)  # = helix_end_index
+                            helix_model_start_index = 0
+                            # Use transformed_entity2 mode
+                            helix_model_range = range(helix_model_start_index, helix_start_index)
+                            # Use full model_helix mode
+                            # helix_model_range = range(helix_model_start_index, helix_start_index + alignment_length)
 
                         # Reformat residues for new chain
                         ordered_entity1_c_terminal_residue_number = ordered_entity1.c_terminal_residue.number
