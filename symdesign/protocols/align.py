@@ -1355,11 +1355,16 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             # Search the updated ProteinMetadata
                             for protein_metadata in all_uniprot_id_to_prot_data.values():
                                 for data in protein_metadata:
-                                    if data.entity_id == entity_data.meta.entity_id:
+                                    if entity_data.meta.entity_id == data.entity_id:
+                                        # Set with the valid ProteinMetadata
                                         entity_data.meta = data
                                         break
+                                else:  # No break occurred, continue with outer loop
+                                    continue
+                                break  # outer loop too
                             else:
-                                logger.critical(f'Missing the ProteinMetadata instance for {entity_data}')
+                                logger.critical(
+                                    f'Missing the {sql.ProteinMetadata.__name__} instance for {entity_data}')
                 elif number_flush_attempts == 3:
                     # This is another error
                     raise
