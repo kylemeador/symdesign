@@ -902,7 +902,7 @@ class ContainsChainsMixin:
                 except IndexError:
                     raise IndexError(
                         f'The number of chains in the {self.__class__.__name__}, '
-                        f'{self.number_of_chains} != {len(self.chain_ids)}, the number of chain_ids')
+                        f'{self.number_of_chains} != {len(self.chain_ids)}, the number of .chain_ids')
         return None
 
     def set_reference_sequence_from_seqres(self, reference_sequence: dict[str, str]):
@@ -1100,15 +1100,15 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             self._coords.set(representative.coords)
             self._assign_residues(representative.residues, atoms=representative.atoms)
         else:
-            # By using extend, we set self.original_chain_ids too
+            # By using extend, set self.original_chain_ids too
             self.chain_ids.extend([chain.chain_id for chain in chains])
 
         # Indicate that the first self.chain should be this instance
         self._chains = [self]
         self.structure_containers.append('_chains')  # Use '_chains' as 'chains' is okay to equal []
-        # _copy_structure_containers and _update_structure_container_attributes are Entity specific
         if len(chains) > 1:
-            # Todo handle chains with imperfect symmetry by using the actual chain and forgoing the transform
+            # Todo
+            #  Handle chains with imperfect symmetry by using the actual chain and forgoing the transform
             #  Need to make a copy of the chain and make it an "Entity mate"
             number_of_residues = self.number_of_residues
             self_seq = self.sequence
@@ -1116,8 +1116,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             for idx, chain in enumerate(chains[1:]):  # Todo match this mechanism with the symmetric chain index
                 chain_seq = chain.sequence
                 if chain.number_of_residues == number_of_residues and chain_seq == self_seq:
-                    # do an apples to apples comparison
-                    # length alone is inaccurate if chain is missing first residue and self is missing it's last...
+                    # Do an apples to apples comparison
+                    # Todo
+                    #  length alone is inaccurate if chain is missing first residue and self is missing it's last...
                     _, rot, tx = superposition3d(chain.ca_coords, ca_coords)
                 else:  # Do an alignment, get selective indices, then follow with superposition
                     self.log.info(f'Chain {chain.name} and Entity {self.name} require alignment to symmetrize')
@@ -1125,7 +1126,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                     _, rot, tx = superposition3d(chain.ca_coords[fixed_indices], ca_coords[moving_indices])
                 self._chain_transforms.append(dict(rotation=rot, translation=tx))
                 # Todo when capable of asymmetric symmetrization
-                # self.chains.append(chain)
+                #  self.chains.append(chain)
             # Inherent to Entity type is a single sequence. Therefore, must be symmetric
             self.number_of_symmetry_mates = len(chains)
             self.symmetry = f'D{self.number_of_symmetry_mates / 2}' if self.is_dihedral() \
@@ -1378,8 +1379,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         """From the Entity.chain_id set all mate Chains with an incrementally higher id
 
         Sets:
-            self.chain_ids:
-                list(str)
+            self.chain_ids: list(str)
         """
         first_chain_id = self.chain_id
         self.chain_ids = [first_chain_id]  # Use the existing chain_id
@@ -1401,6 +1401,12 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         # Must set chain_ids first, then chains
         for chain, new_id in zip(self.chains[1:], self.chain_ids[1:]):
             chain.chain_id = new_id
+
+        # # Alternative to above "Must set chain_ids first, then chains"
+        # for chain in self.chains[1:]:
+        #     chain.chain_id = next(chain_gen)
+        #
+        # self.chain_ids = [chain.chain_id for chain in self.chains]  # Use the existing chain_id
 
     # @property
     # def chain_ids(self) -> list:  # Also used in Model
@@ -1513,15 +1519,13 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         if len(self._chains) == 1 and self._chain_transforms and self._is_captain:
             # populate ._chains with Entity mates
             # These mates will be their own "parent", and will be under the control of this instance, ie. the captain
-            self.log.debug('Generating mate Entity instances in "chains" attribute')
-            new_chains = [self.get_transformed_mate(**transform) for transform in self._chain_transforms]
-            chain_ids = self.chain_ids
-            # self.log.debug(f'Entity chains property has {len(self._chains)} chains because the underlying '
-            #                f'chain_transforms has {len(self._chain_transforms)}. chain_ids has {len(chain_ids)}')
-            for idx, chain in enumerate(new_chains, 1):
-                # set entity.chain_id which sets all residues
-                chain.chain_id = chain_ids[idx]
-            self._chains.extend(new_chains)
+            self.log.debug('Generating Entity mate instances in "chains" attribute')
+            mate_entities = [self.get_transformed_mate(**transform) for transform in self._chain_transforms]
+
+            # Set entity.chain_id which sets all residues
+            for mate, chain_id in zip(mate_entities, self.chain_ids[1:]):
+                mate.chain_id = chain_id
+            self._chains.extend(mate_entities)
 
         return self._chains
 
@@ -2877,7 +2881,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                            f'Loaded chain_ids: {",".join(self.chain_ids)}')
 
         self.entities = []
-        if entities:  # Populate chains
+        if entities:  # Populate entities
             self.structure_containers.append('entities')
             if isinstance(entities, (list, Structures)):
                 # Create the instance from existing entities
@@ -2889,17 +2893,15 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 # Set the parent attribute for all containers
                 self._update_structure_container_attributes(_parent=self)
                 if rename_chains:  # Set each successive Entity to have an incrementally higher chain id
-                    self.chain_ids = []
                     available_chain_ids = chain_id_generator()
                     for idx, entity in enumerate(self.entities):
-                        chain_id = next(available_chain_ids)
-                        entity.chain_id = chain_id
-                        self.chain_ids.append(chain_id)
+                        entity.chain_id = next(available_chain_ids)
                         # If the full structure wanted contiguous chain_ids, this should be used
                         # for _ in range(entity.number_of_symmetry_mates):
                         #     # Discard ids
                         #     next(available_chain_ids)
-                        self.log.debug(f'Entity {entity.name} new chain identifier {entity.chain_id}')
+                        # self.log.debug(f'Entity {entity.name} new chain identifier {entity.chain_id}')
+                    # self.chain_ids.extend([entity.chain_id for entity in self.entities])
 
                 # If any of the entities are symmetric, ensure the new Model is aware they are
                 for entity in self.entities:
@@ -2914,7 +2916,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self._create_entities(**kwargs)
 
             if not self.chain_ids:
-                # Set chain_ids according to self.entities as this wasn't used by self.chains (probably False)
+                # Set chain_ids according to self.entities as it wasn't set by self.chains (probably False)
                 self.chain_ids.extend([entity.chain_id for entity in self.entities])
 
         if pose_format:
@@ -3613,8 +3615,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         # Check to see that the parsed entity_info is compatible with the chains already parsed
         if found_api_entry:  # found_api_entry is set only if self.retrieve_pdb_info_from_api was called above
-            # found_entity_chains = [chain for data in self.entity_info.values() for chain in data.get('chains', [])]
-            # if len(self.chain_ids) != len(found_entity_chains):
             if self.nucleotides_present:
                 # raise NotImplementedError(f"The parsing and integration of nucleotides hasn't been worked out")
                 self.log.warning(f"Integration of nucleotides hasn't been worked out yet, API information not useful")
