@@ -895,7 +895,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             return self._job_kwargs
         except AttributeError:
             self._job_kwargs = dict(sym_entry=self.sym_entry, log=self.log, design_selector=self.design_selector,
-                                    ignore_clashes=self.job.design.ignore_pose_clashes,
                                     fragment_db=self.job.fragment_db, pose_format=self.job.pose_format)
             return self._job_kwargs
 
@@ -1260,8 +1259,21 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             self.structure_source = file if file else self.source_path
             self.pose = Pose.from_file(self.structure_source, name=self.name, **self.pose_kwargs)
 
+        try:
+            self.pose.is_clash()
+        except ClashError:  # as error:
+            if self.job.design.ignore_pose_clashes:
+                self.log.critical(f"The Pose from '{self.structure_source}' contains clashes")
+            else:
+                raise
         if self.pose.is_symmetric():
-            self._symmetric_assembly_is_clash()
+            if self.pose.symmetric_assembly_is_clash():
+                if self.job.design.ignore_symmetric_clashes:
+                    self.log.critical(f"The Pose symmetric assembly from '{self.structure_source}' contains clashes")
+                else:
+                    raise ClashError("The Pose symmetric assembly contains clashes and won't be considered. If you "
+                                     'would like to generate the Assembly anyway, re-submit the command with '
+                                     f'{flags.format_args(flags.ignore_symmetric_clashes_args)}')
 
             # If we have an empty list for the pose_transformation, save the identified transformations from the Pose
             if not any(self.transformations):
@@ -1368,19 +1380,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 path = self.output_pose_path
                 self.pose.write(out_path=path)
                 self.log.info(f'Wrote Pose file to: "{path}"')
-
-    def _symmetric_assembly_is_clash(self):
-        """Wrapper around the Pose symmetric_assembly_is_clash() to check at the Pose level for clashes and raise
-        ClashError if any are found, otherwise, continue with protocol
-        """
-        if self.pose.symmetric_assembly_is_clash():
-            if self.job.design.ignore_symmetric_clashes:
-                self.log.critical('The Symmetric Assembly contains clashes. The Pose from '
-                                  f"'{self.structure_source}' isn't viable")
-            else:
-                raise ClashError("The Symmetric Assembly contains clashes! Design won't be considered. If you "
-                                 'would like to generate the Assembly anyway, re-submit the command with '
-                                 f'--{flags.ignore_symmetric_clashes}')
 
     def set_up_evolutionary_profile(self, **kwargs):
         """Add evolutionary profile information for each Entity to the Pose
@@ -1947,7 +1946,6 @@ class PoseProtocol(PoseData):
         no_msa = True
         # Ensure clashes aren't checked as these stop operation
         pose_kwargs = self.pose_kwargs.copy()
-        pose_kwargs.update({'ignore_clashes': True})
 
         # Get features for the Pose and predict
         if self.job.predict.designs:

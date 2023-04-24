@@ -397,7 +397,7 @@ class StructureDatabase(Database):
         orient_names = self.oriented.retrieve_names()
         orient_asu_names = self.oriented_asu.retrieve_names()
         all_structures = []
-        pose_kwargs = dict(sym_entry=sym_entry, ignore_clashes=True)
+        pose_kwargs = dict(sym_entry=sym_entry)  # , ignore_clashes=True)
         for structure_identifier in structure_identifiers:
             # First, check if the structure_identifier ASU has been processed
             # # NOT SURE WHY I WROTE THIS -> This happens when files are passed WITHOUT symmetry, i.e. C1

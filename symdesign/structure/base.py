@@ -2756,15 +2756,12 @@ class Residues:
         """
         residue: Residue
         if start_at > 0:
-            # if start_at < self.residues.shape[0]:  # if in the Residues index range
             try:
-                prior_residue, *other_residues = self.residues[start_at - 1:]
-                # prior_residue.start_index = start_at
-                for residue in other_residues:
-                    residue.start_index = prior_residue.end_index + 1
-                    prior_residue = residue
+                prior_struct, *other_structs = self.residues[start_at - 1:]
+                for struct in other_structs:
+                    struct.start_index = prior_struct.end_index + 1
+                    prior_struct = struct
             except IndexError:
-                # self.residues[-1].start_index = self.residues[-2].atom_indices[-1]+1
                 raise IndexError(
                     f'{self.reindex.__name__}: Starting index is outside of the allowable indices in the '
                     f'{self.__class__.__name__} instance')
@@ -2772,11 +2769,11 @@ class Residues:
             if start_at < 0:
                 raise NotImplementedError(
                     f"Can't use {self.reindex_atoms.__name__} with negative integers")
-            prior_residue, *other_residues = self.residues
-            prior_residue.start_index = start_at
-            for residue in other_residues:
-                residue.start_index = prior_residue.end_index + 1
-                prior_residue = residue
+            prior_struct, *other_structs = self.residues
+            prior_struct.start_index = start_at
+            for struct in other_structs:
+                struct.start_index = prior_struct.end_index + 1
+                prior_struct = struct
 
     def delete(self, indices: Sequence[int]):
         """Delete Residue instances from the Residues container
@@ -4183,11 +4180,11 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 f"Can't {self.delete_residues.__name__} without Residue instances. Provide with indices, numbers, or "
                 "residues")
         elif not residues:
-            self.log.warning(f'{self.delete_residues.__name__}: No residues found')
+            self.log.debug(f'{self.delete_residues.__name__}: No residues found')
             return []
         elif self.is_dependent():
-            self.log.warning(f"{self.delete_residues.__name__} can't be performed on a dependent Structure. "
-                             f"Calling on the {self.__class__.__name__}.parent {self.parent.__class__.__name__}")
+            self.log.debug(f"{self.delete_residues.__name__} can't be performed on a dependent Structure. "
+                           f"Calling on the {self.__class__.__name__}.parent {self.parent.__class__.__name__}")
             # Ensure the deletion is done by the Structure parent to account for everything correctly
             return self.parent.delete_residues(residues=residues)
 
@@ -4789,7 +4786,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # Set up the query indices. BallTree is faster upon timeit with 131 msec/loop
         # Todo make self.atom_tree a property?
         atom_tree = BallTree(self.coords)
-        residues = self.residues
         atoms = self.atoms
         measured_clashes, other_clashes = [], []
         clashes = False
@@ -4799,7 +4795,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         any_clashes: Callable[[Iterable[int]], bool]
         """Local helper to separate clash reporting from clash generation"""
 
-        clash_msg = f'{self.name} contains Residue {measure} atom clashes at a {distance}A distance'
+        clash_msg = f'{self.name} contains Residue {measure} atom clashes at a {distance} A distance'
         if warn:
             def any_clashes(_clash_indices: Iterable[int]) -> bool:
                 new_clashes = any(_clash_indices)
@@ -4824,49 +4820,47 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 return clashes
 
         try:
-            # check first and last residue with different considerations given covalent bonds
-            residue = residues[0]
-            # query the first residue with chosen coords type against the atom_tree
+            # Check first and last residue with different considerations given covalent bonding
+            residue, *other_residues = self.residues
+            # Query each residue with requested coords_type against the atom_tree
             residue_atom_contacts = atom_tree.query_radius(getattr(residue, coords_type), distance)
-            # reduce the dimensions and format as a single array
+            # residue_atom_contacts returns as ragged nested array, (array of different sized array)
+            # Reduce the dimensions to all contacts
             all_contacts = {atom_contact for residue_contacts in residue_atom_contacts.tolist()
                             for atom_contact in residue_contacts.tolist()}
-            # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
+            # Subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
             clashes = any_clashes(
-                all_contacts.difference(residue.atom_indices
-                                        + [residue.next_residue.n_atom_index]))
+                all_contacts.difference(residue.atom_indices + [residue.next_residue.n_atom_index]))
 
-            # perform routine for all middle residues
-            for residue in residues[1:-1]:  # avoid first and last since no prev_ or next_residue
-                residue_atom_contacts = atom_tree.query_radius(getattr(residue, coords_type), distance)
-                all_contacts = {atom_contact for residue_contacts in residue_atom_contacts.tolist()
-                                for atom_contact in residue_contacts.tolist()}
-                prior_residue = residue.prev_residue
+            # Perform routine for all middle residues
+            try:
+                for residue in other_residues:
+                    residue_atom_contacts = atom_tree.query_radius(getattr(residue, coords_type), distance)
+                    all_contacts = {atom_contact for residue_contacts in residue_atom_contacts.tolist()
+                                    for atom_contact in residue_contacts.tolist()}
+                    prior_residue = residue.prev_residue
+                    clashes = any_clashes(
+                        all_contacts.difference([prior_residue.o_atom_index,
+                                                 prior_residue.c_atom_index,
+                                                 residue.next_residue.n_atom_index]
+                                                + residue.atom_indices)
+                    )
+            except AttributeError:  # Last residue will raise since no next_residue
+                # self.log.debug(f'c-term residue. {residue.index} = {self.c_terminal_residue.index}')
                 clashes = any_clashes(
-                    all_contacts.difference([prior_residue.o_atom_index,
-                                             prior_residue.c_atom_index,
-                                             residue.next_residue.n_atom_index]
+                    all_contacts.difference([prior_residue.o_atom_index, prior_residue.c_atom_index]
                                             + residue.atom_indices)
                 )
 
-            residue = residues[-1]
-            residue_atom_contacts = atom_tree.query_radius(getattr(residue, coords_type), distance)
-            all_contacts = {atom_contact for residue_contacts in residue_atom_contacts.tolist()
-                            for atom_contact in residue_contacts.tolist()}
-            prior_residue = residue.prev_residue
-            clashes = any_clashes(
-                all_contacts.difference([prior_residue.o_atom_index, prior_residue.c_atom_index]
-                                        + residue.atom_indices))
-
             if clashes:
                 if measured_clashes:
-                    bb_info = '\n\t'.join(f'Residue {residue.number:5d}: {atom.get_atom_record()}'
+                    bb_info = '\n\t'.join(f'Chain {residue.chain_id} {residue.number:5d}: {atom.get_atom_record()}'
                                           for residue, atom in measured_clashes)
                     self.log.error(f'{self.name} contains {len(measured_clashes)} {measure} clashes from the following '
                                    f'Residues to the corresponding Atom:\n\t{bb_info}')
                     raise stutils.ClashError(clash_msg)
                 if other_clashes:
-                    sc_info = '\n\t'.join(f'Residue {residue.number:5d}: {atom.get_atom_record()}'
+                    sc_info = '\n\t'.join(f'Chain {residue.chain_id} {residue.number:5d}: {atom.get_atom_record()}'
                                           for residue, atom in other_clashes)
                     self.log.warning(f'{self.name} contains {len(other_clashes)} {other} clashes between the '
                                      f'following Residues:\n\t{sc_info}')

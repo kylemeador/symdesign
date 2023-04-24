@@ -755,6 +755,7 @@ guide_kwargs = dict(action='store_true', help=f'Display the {program_name}/modul
 help_args = ('-h', '-help', '--help')
 help_kwargs = dict(action='store_true', help=f'Display {program_name}/module argument help\nEx:'
                                              f' "{program_command} --help"')
+ignore_symmetric_clashes_args = ('-isc', f'--{ignore_symmetric_clashes}')
 output_directory_args = ('-Od', f'--{output_directory}', '--outdir')
 output_directory_kwargs = dict(type=os.path.abspath, default=None,
                                help='If provided, the name of the directory to output all created files.\n'
@@ -816,7 +817,7 @@ options_arguments = {
              help='Whether ANY backbone/Cb clashes should be ignored during checking'),
     ('-ipc', f'--{ignore_pose_clashes}'):
         dict(action='store_true', help='Whether asu/pose clashes should be ignored during checking'),
-    ('-isc', f'--{ignore_symmetric_clashes}'):
+    ignore_symmetric_clashes_args:
         dict(action='store_true', help='Whether symmetric clashes should be ignored during checking'),
     ('--log-level',): dict(type=log_level.get, default=default_logging_level, choices=logging_levels,
                            help='What level of log messages should be displayed to stdout?'

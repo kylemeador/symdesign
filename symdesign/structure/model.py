@@ -6041,7 +6041,9 @@ class SymmetricModel(Models):
 
         clashes = self.assembly_tree.two_point_correlation(self.coords[self.backbone_and_cb_indices], [distance])
         if clashes[0] > 0:
-            self.log.warning(f"{self.name}: Found {clashes[0]} clashing sites. Pose isn't a viable symmetric assembly")
+            if warn:
+                self.log.warning(
+                    f"{self.name}: Found {clashes[0]} clashing sites. Pose isn't a viable symmetric assembly")
             return True  # clash
         else:
             return False  # no clash
@@ -6191,11 +6193,10 @@ class Pose(SymmetricModel, Metrics):
     #      'interface_residues_by_interface', 'interface_residues_by_interface_unique', 'split_interface_ss_elements'
     #      }
 
-    def __init__(self, ignore_clashes: bool = False,
-                 design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
+    def __init__(self, design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
         # unused args
         #           euler_lookup: EulerLookup = None,
-        warn = kwargs.pop('warn_clashes', not ignore_clashes)
+
         # Model init will handle Structure set up if a structure file is present
         # SymmetricModel init will generate_symmetric_coords() if symmetry specification present
         super().__init__(**kwargs)
@@ -6217,14 +6218,6 @@ class Pose(SymmetricModel, Metrics):
         self.split_interface_ss_elements = {}
         self.ss_sequence_indices = []
         self.ss_type_sequence = []
-
-        try:
-            self.is_clash(warn=warn)
-        except ClashError as error:
-            if ignore_clashes:
-                pass
-            else:
-                raise error
 
         self.create_design_selector()  # **self.design_selector)
         self.log.debug(f'Entities: {", ".join(entity.name for entity in self.entities)}')
