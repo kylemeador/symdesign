@@ -1132,7 +1132,10 @@ def initialize_metadata(session: Session,
                 raise SymDesignException(putils.report_issue)
 
     # Insert the remaining ProteinMetadata
-    session.add_all(uniprot_ids_to_new_metadata.values())
+    all_protein_metadata = []
+    for metadatas in uniprot_ids_to_new_metadata.values():
+        all_protein_metadata.extend(metadatas)
+    session.add_all(all_protein_metadata)
     # Finalize additions to the database
     session.commit()
 
