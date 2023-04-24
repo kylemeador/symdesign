@@ -1037,8 +1037,6 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
             additional_entities2 = [entity for entity in model2.entities if entity != entity2]
             selected_models2 = [entity2]
 
-        input([ent.metadata for ent in additional_entities2])
-
         for entity2 in selected_models2:
             if job.trim_termini:
                 # Remove any unstructured termini from the Entity to enable most successful fusion
@@ -1325,7 +1323,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
         # , poses_df_: pd.DataFrame, residues_df_: pd.DataFrame) -> list[PoseJob]:
         """Finalize any remaining work and return to the caller"""
         # Add PoseJobs to the database
-        error_count = count()
+        error_count = count(1)
         while True:
             pose_name_pose_jobs = {pose_job.name: pose_job for pose_job in pose_jobs}
             session.add_all(pose_jobs)
@@ -1334,7 +1332,9 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
             except IntegrityError:  # PoseJob.project/.name already inserted
                 session.rollback()
                 number_flush_attempts = next(error_count)
-                if number_flush_attempts == 1:
+                pose_names = list(pose_name_pose_jobs.keys())
+                logger.info(f'rollback() #{number_flush_attempts}. pose_names: {pose_names}')
+                if number_flush_attempts == 2:
                     # Try to attach existing protein_metadata.entity_id
                     # possibly_new_uniprot_to_prot_metadata = {}
                     possibly_new_uniprot_to_prot_metadata = defaultdict(list)
@@ -1360,13 +1360,11 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                                         break
                             else:
                                 logger.critical(f'Missing the ProteinMetadata instance for {entity_data}')
-                elif number_flush_attempts == 2:
+                elif number_flush_attempts == 3:
                     # This is another error
                     raise
 
                 # Find the actual pose_jobs_to_commit and place in session
-                pose_names = list(pose_name_pose_jobs.keys())
-                logger.debug(f'rollback(). pose_names: {pose_names}')
                 fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.is_(project)) \
                     .where(PoseJob.name.in_(pose_names))
                 existing_pose_jobs = session.scalars(fetch_jobs_stmt).all()
@@ -1374,7 +1372,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 # ex, design 11 is processed before design 2
                 existing_pose_names = {pose_job_.name for pose_job_ in existing_pose_jobs}
                 new_pose_names = set(pose_names).difference(existing_pose_names)
-                logger.debug(f'new_pose_names {new_pose_names}')
+                logger.info(f'new_pose_names {new_pose_names}')
                 if not new_pose_names:  # No new PoseJobs
                     return existing_pose_jobs
                 else:
