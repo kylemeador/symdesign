@@ -1352,10 +1352,11 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     # Get all uniprot_entities, and fix ProteinMetadata that is already loaded
                     for pose_name, pose_job in pose_name_pose_jobs.items():
                         for entity_data in pose_job.entity_data:
+                            entity_id = entity_data.meta.entity_id
                             # Search the updated ProteinMetadata
                             for protein_metadata in all_uniprot_id_to_prot_data.values():
                                 for data in protein_metadata:
-                                    if entity_data.meta.entity_id == data.entity_id:
+                                    if entity_id == data.entity_id:
                                         # Set with the valid ProteinMetadata
                                         entity_data.meta = data
                                         break
@@ -1364,8 +1365,19 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                                 break  # outer loop too
                             else:
                                 logger.critical(
-                                    f'Missing the {sql.ProteinMetadata.__name__} instance for {entity_data}')
+                                    f'Missing the {sql.ProteinMetadata.__name__} instance for {entity_data} with '
+                                    f'entity_id {entity_id}')
                 elif number_flush_attempts == 3:
+                    attrs_of_interest = \
+                        ['entity_id', 'reference_sequence', 'thermophilicity', 'symmetry_group', 'model_source']
+                    properties = []
+                    for pose_job in pose_jobs:
+                        for entity_data in pose_job.entity_data:
+                            properties.append('\t'.join([f'{attr}={getattr(entity_data.meta, attr)}'
+                                                         for attr in attrs_of_interest]))
+                    pose_job_properties = '\n\t'.join(properties)
+                    logger.critical(f"The remaining PoseJob instances have the following "
+                                    f"{sql.ProteinMetadata.__name__} properties:\n\t{pose_job_properties}")
                     # This is another error
                     raise
 
