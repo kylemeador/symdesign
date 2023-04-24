@@ -826,7 +826,7 @@ class ContainsChainsMixin:
             [residues[residue_indices[0]].chain_id for residue_indices in chain_residue_indices]
         unique_chain_ids = utils.remove_duplicates(original_chain_ids)
         if unique_chain_ids != original_chain_ids:
-            self.log.debug(f'Multimodel file found. Original Chains: {",".join(original_chain_ids)}')
+            self.log.debug(f'Multimodel file detected')
 
         if chain_ids is None:
             chain_ids = unique_chain_ids
@@ -3068,7 +3068,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
     def is_multimodel(self) -> bool:
         """Return whether the parsed file contains multiple models, aka a 'multimodel'"""
-        return self.chain_ids == self.original_chain_ids
+        return self.chain_ids != self.original_chain_ids
 
     @property
     def sequence(self) -> str:
