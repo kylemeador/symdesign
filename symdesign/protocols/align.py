@@ -1184,7 +1184,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
             additional_entities1 = remaining_entities1
         # Check for helical termini on the target building block
         if job.target_termini:
-            desired_termini = [job.target_termini]
+            desired_termini = job.target_termini
         else:  # Solve for target/aligned residue features
             half_entity1_length = entity1.number_of_residues
             secondary_structure1 = entity1.secondary_structure
@@ -1346,6 +1346,9 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 truncated_entity1, helix_model = prepare_alignment_motif(
                     entity1, target_start_index, length_of_target_helix,
                     termini=termini, extend_helix=job.extend_past_termini)
+                # Rename the models to enable fusion
+                chain_id = truncated_entity1.chain_id
+                helix_model.chain_id = chain_id
 
                 if job.extend_past_termini:
                     # Add the extension length to the residue window if an ideal helix was added
