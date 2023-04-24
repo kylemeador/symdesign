@@ -2740,88 +2740,22 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         return cls(chains=chains, rename_chains=True, **kwargs)
 
     @classmethod
-    def from_entities(cls, entities: list[Entity] | Structures, **kwargs):
-        """Create a new Model from a container of Entity objects"""
-        return cls(entities=entities, chains=False, **kwargs)
-
-    @classmethod
     def from_model(cls, model, **kwargs):
         """Initialize from an existing Model"""
         return cls(model=model, **kwargs)
 
-    def __init__(self, model: Structure = None,
-                 chains: list[Chain] | Structures | bool = None, entities: list[Entity] | Structures | bool = None,
-                 cryst_record: str = None, design: bool = False,
-                 # dbref: dict[str, dict[str, str]] = None,
-                 entity_info: dict[str, dict[dict | list | str]] = None,
+    def __init__(self,
+                 chains: bool | list[Chain] | Structures = True,
+                 entities: bool | list[Entity] | Structures = True,
+                 # chains: list[Chain] | Structures | bool = None, entities: list[Entity] | Structures | bool = None,
+                 cryst_record: str = None, entity_info: dict[str, dict[dict | list | str]] = None,
                  fragment_db: FragmentDatabase = None,
-                 # multimodel: bool = False,
-                 resolution: float = None,
+                 model: Structure = None,
+                 pose_format: bool = False, rename_chains: bool = False, resolution: float = None,
                  # api_db: resources.wrapapi.APIDatabase = None,
-                 # reference_sequence: list[str] = None,
                  reference_sequence: dict[str, str] = None,
                  # metadata: Model = None,
                  **kwargs):
-        # kwargs passed to Structure
-        #          atoms: list[Atom] | Atoms = None, residues: list[Residue] | Residues = None, name: str = None,
-        #          residue_indices: list[int] = None,
-        # kwargs passed to StructureBase
-        #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
-        # Unused args now
-        #        cryst: dict[str, str | tuple[float]] = None, space_group: str = None, uc_dimensions: list[float] = None
-        if model:
-            if isinstance(model, Structure):
-                super().__init__(**model.get_structure_containers(), **kwargs)
-            else:
-                raise NotImplementedError(
-                    f"Setting {self.__class__.__name__} with a {type(model).__name__} isn't supported")
-        else:
-            super().__init__(**kwargs)
-
-        self.api_entry = None
-        # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
-        #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-        # self.chain_ids = []  # unique chain IDs
-        self.chains = []
-        self.cryst_record = cryst_record
-        # self.dbref = dbref if dbref else {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
-        self.design = design  # assumes not a design unless explicitly found to be a design
-        self.entities = []
-        self.entity_info = {} if entity_info is None else entity_info
-        # [{'chains': [Chain objs], 'seq': 'GHIPLF...', 'name': 'A'}, ...]
-        # ^ ZERO-indexed for recap project!!!
-        # self.file_path = file_path
-        self.header = []
-        # self.multimodel = multimodel
-        # self.original_chain_ids = []  # [original_chain_id1, id2, ...]
-        self.resolution = resolution
-        # self._reference_sequence = reference_sequence if reference_sequence else {}
-        # ^ SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
-        # self.space_group = space_group
-        # Todo standardize path with some state variable?
-        # self.api_db = api_db if api_db else resources.wrapapi.api_database_factory()
-
-        # Only pass arguments if they are not None
-        if entities is not None:  # if no entities are requested a False argument could be provided
-            kwargs['entities'] = entities
-        if chains is not None:  # if no chains are requested a False argument could be provided
-            kwargs['chains'] = chains
-
-        # self.structure_containers.extend(['chains', 'entities'])
-        # Process structure_containers for the Model
-        self._process_model(**kwargs)
-
-        # self.chains, self.entities (could) be viable at this point
-        if reference_sequence is not None:  # reference_sequence was parsed from file
-            self.set_reference_sequence_from_seqres(reference_sequence)
-        # After structure containers are created, initialize fragment_db so the db is available to container
-        self.fragment_db = fragment_db
-
-        # if metadata and isinstance(metadata, PDB):
-        #     self.copy_metadata(metadata)
-
-    def _process_model(self, pose_format: bool = False, chains: bool | list[Chain] | Structures = True,
-                       rename_chains: bool = False, entities: bool | list[Entity] | Structures = True, **kwargs):
         """Process various types of Structure containers to update the Model with the corresponding information
 
         Args:
@@ -2837,18 +2771,72 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             query_by_sequence: bool = True - Whether the PDB API should be queried for an Entity name by matching
                 sequence. Only used if entity_names not provided
         """
+        # kwargs passed to Structure
+        #          atoms: list[Atom] | Atoms = None, residues: list[Residue] | Residues = None, name: str = None,
+        #          residue_indices: list[int] = None,
+        # kwargs passed to StructureBase
+        #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
+
+        using_structures = False
+        """Ensure only one of the allowed arguments is used during class construction"""
+        if model:
+            if isinstance(model, Structure):
+                using_structures = True
+                super().__init__(**model.get_base_containers(), **kwargs)
+            else:
+                raise NotImplementedError(
+                    f"Setting {self.__class__.__name__} with a {type(model).__name__} isn't supported")
+        else:
+            super().__init__(**kwargs)
+
+        self.api_entry = None
+        # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
+        #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
+        # self.chain_ids = []  # unique chain IDs
+        self.cryst_record = cryst_record
+        self.entity_info = {} if entity_info is None else entity_info
+        # [{'chains': [Chain objs], 'seq': 'GHIPLF...', 'name': 'A'}, ...]
+        # ^ ZERO-indexed for recap project!!!
+        # self.file_path = file_path
+        self.header = []
+        # self.original_chain_ids = []  # [original_chain_id1, id2, ...]
+        self.resolution = resolution
+        # Todo standardize path with some state variable?
+        # self.api_db = api_db if api_db else resources.wrapapi.api_database_factory()
+
+    # def _process_model(self, pose_format: bool = False, chains: bool | list[Chain] | Structures = True,
+    #                    rename_chains: bool = False, entities: bool | list[Entity] | Structures = True, **kwargs):
+    #     """Process various types of Structure containers to update the Model with the corresponding information
+    #
+    #     Args:
+    #         pose_format: Whether to initialize Structure with residue numbering from 1 until the end
+    #         chains: Whether to create Chain instances from passed Structure container instances, or existing Chain
+    #             instances to create the Model with
+    #         rename_chains: Whether to name each chain an incrementally new Alphabetical character
+    #         entities: Whether to create Entity instances from passed Structure container instances, or existing Entity
+    #             instances to create the Model with
+    #     Keyword Args:
+    #         entity_names: Sequence = None - Names explicitly passed for the Entity instances. Length must equal number
+    #             of entities. Names will take precedence over query_by_sequence if passed
+    #         query_by_sequence: bool = True - Whether the PDB API should be queried for an Entity name by matching
+    #             sequence. Only used if entity_names not provided
+    #     """
         # self.log.debug(f'{self._process_model.__name__} start')
 
         # If this function is extended, it is important to call clear on structure_containers before setting any more
         # # Calling clear as we should only set those containers that are used
         # self.structure_containers.clear()
 
-        # Todo ensure this constraint is True
-        #   Only one should be populated from class construction
-        # Add lists together
-        structures = (chains if isinstance(chains, (list, Structures)) else []) + \
-                     (entities if isinstance(entities, (list, Structures)) else [])
-        if structures:  # Create from existing
+        def assign_residues_from_structures(structures: Iterable[Structure]):
+            """Create instance from existing attributes"""
+            nonlocal using_structures
+            if using_structures:
+                raise DesignError(
+                    f"Can't construct {self.__class__.__name__} with multiple arguments from 'chains', 'entities', "
+                    "and 'model'")
+            else:
+                using_structures = True
+
             atoms, residues, coords = [], [], []
             for structure in structures:
                 atoms.extend(structure.atoms)
@@ -2866,10 +2854,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 struct._start_indices(at=prior_struct.end_index + 1, dtype='atom')
                 struct._start_indices(at=prior_struct.residue_indices[-1] + 1, dtype='residue')
 
-        if chains:  # Create the instance from existing chains
+        self.chains = []
+        if chains:  # Populate chains
             self.structure_containers.append('chains')
             if isinstance(chains, (list, Structures)):
-                self.chains = chains.copy()  # Copy the passed chains
+                # Create the instance from existing chains
+                assign_residues_from_structures(chains)
+                self.chains = chains  # .copy()  # Copy the passed chains
                 self._copy_structure_containers()  # Copy each Chain in chains
                 # Reindex all residue and atom indices
                 reset_passed_structures(self.chains)
@@ -2885,10 +2876,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             self.log.debug(f'Original chain_ids: {",".join(self.original_chain_ids)} | '
                            f'Loaded chain_ids: {",".join(self.chain_ids)}')
 
-        if entities:  # Create the instance from existing entities
+        self.entities = []
+        if entities:  # Populate chains
             self.structure_containers.append('entities')
             if isinstance(entities, (list, Structures)):
-                self.entities = entities.copy()  # Copy the passed entities
+                # Create the instance from existing entities
+                assign_residues_from_structures(entities)
+                self.entities = entities  # .copy()  # Copy the passed entities
                 self._copy_structure_containers()  # Copy each Entity in entities
                 # Reindex all residue and atom indices
                 reset_passed_structures(self.entities)
@@ -2925,6 +2919,15 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         if pose_format:
             self.pose_numbering()
+
+        # self.chains, self.entities (could) be viable at this point
+        if reference_sequence is not None:  # reference_sequence was parsed from file
+            self.set_reference_sequence_from_seqres(reference_sequence)
+        # After structure containers are created, initialize fragment_db so the db is available to container
+        self.fragment_db = fragment_db
+
+        # if metadata and isinstance(metadata, PDB):
+        #     self.copy_metadata(metadata)
 
     # Todo, rework for all Structure
     #  copy full attribute dict without selected elements
@@ -6220,9 +6223,14 @@ class Pose(SymmetricModel, Metrics):
     #      'fragment_metrics', 'fragment_pairs', 'fragment_queries',
     #      'interface_design_residue_numbers', 'interface_residue_numbers', 'interface_residues_by_entity_pair',
     #      'interface_residues_by_interface', 'interface_residues_by_interface_unique', 'split_interface_ss_elements'
+    #      }
     class_structure_containers = {'entities'}
     """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
-    #      }
+
+    @classmethod
+    def from_entities(cls, entities: list[Entity] | Structures, **kwargs):
+        """Create a new Model from a container of Entity objects"""
+        return cls(entities=entities, chains=False, **kwargs)
 
     def __init__(self, design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
         # unused args
