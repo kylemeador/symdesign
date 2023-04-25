@@ -138,19 +138,21 @@ def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.Un
                 f"Couldn't find {data}.model_source")
 
 
-def initialize_structures(job: JobResources, symmetry: str = None, paths: Iterable[AnyStr] = False,
+def initialize_structures(job: JobResources, sym_entry: SymEntry = None, paths: Iterable[AnyStr] = False,
                           pdb_codes: AnyStr | list = False, query_codes: bool = False) -> list[Model | Entity]:
     """From provided codes, files, or query directive, load structures into the runtime and orient them in the database
 
     Args:
         job: The active JobResources singleton
-        symmetry: The symmetry used to perform the orient protocol on the specified structure identifiers
+        sym_entry: The SymEntry used to perform the orient protocol on the specified structure identifiers
         paths: The locations on disk to search for Structure instances
         pdb_codes: The PDB API EntryID, EntityID, or AssemblyID codes to fetch Structure instances
         query_codes: Whether a PDB API query should be initiated
     Returns:
         The oriented Structure instances
     """
+    # symmetry: str = None,
+    #  symmetry: The symmetry used to perform the orient protocol on the specified structure identifiers
     # Set up variables for the correct parsing of provided file paths
     by_file = False
     if paths:
@@ -184,7 +186,7 @@ def initialize_structures(job: JobResources, symmetry: str = None, paths: Iterab
     #     entity.make_oligomer(symmetry=entity.symmetry)
 
     # Select entities, orient them, then load each Structure for further database processing
-    return job.structure_db.orient_structures(structure_names, symmetry=symmetry, by_file=by_file)
+    return job.structure_db.orient_structures(structure_names, sym_entry=sym_entry, by_file=by_file)
 
 
 def create_protein_metadata(structures: list[Model | Entity], symmetry: str = None) \
@@ -745,11 +747,12 @@ def main():
     logger.info(f'Setting up input for {job.module}')
     if job.module == flags.initialize_building_blocks:
         logger.critical(f'Ensuring provided building blocks are oriented')
-        symmetry = job.sym_entry.group1
-        orient_structures = initialize_structures(job, symmetry=symmetry, paths=args.component1,
+        # symmetry = job.sym_entry.group1
+        sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=job.sym_entry.group1)
+        orient_structures = initialize_structures(job, sym_entry=sym_entry, paths=args.component1,
                                                   pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
         _, possibly_new_uniprot_to_prot_metadata = \
-            create_protein_metadata(orient_structures, symmetry=symmetry)
+            create_protein_metadata(orient_structures, symmetry=sym_entry.resulting_symmetry)
 
         # Make a copy of the new ProteinMetadata if they were already loaded without a .model_source attribute
         possibly_new_uniprot_to_prot_metadata_copy = possibly_new_uniprot_to_prot_metadata.copy()
@@ -794,27 +797,31 @@ def main():
     elif job.module in [flags.align_helices, flags.nanohedra]:
         if job.module == flags.nanohedra:
             job.sym_entry.log_parameters()
-            symmetry1 = job.sym_entry.group1
+            # symmetry1 = job.sym_entry.group1
+            sym_entry1 = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=job.sym_entry.group1)
         elif job.module == flags.align_helices:
-            symmetry1 = job.sym_entry.resulting_symmetry
+            # symmetry1 = job.sym_entry.resulting_symmetry
+            sym_entry1 = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=job.sym_entry.resulting_symmetry)
         else:
             raise NotImplementedError()
         # Transform input entities to canonical orientation and return their ASU
         grouped_orient_structures: list[list[Model | Entity]] = []
         logger.critical(f'Ensuring provided building blocks are oriented for {job.module}')
-        structures1 = initialize_structures(job, symmetry=symmetry1, paths=args.component1,
+        structures1 = initialize_structures(job, sym_entry=sym_entry1, paths=args.component1,  # symmetry=symmetry1
                                             pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
         grouped_orient_structures.append(structures1)
         if job.module == flags.nanohedra:
-            symmetry2 = job.sym_entry.group2
+            # symmetry2 = job.sym_entry.group2
+            sym_entry2 = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=job.sym_entry.group2)
         elif job.module == flags.align_helices:
-            symmetry2 = None
+            # symmetry2 = None
+            sym_entry2 = None
         else:
             raise NotImplementedError()
         structures2 = []
         # See if they are the same input
         if args.component1 != args.component2 or job.pdb_codes1 != job.pdb_codes2 or args.query_codes2:
-            structures2 = initialize_structures(job, symmetry=symmetry2, paths=args.component2,
+            structures2 = initialize_structures(job, sym_entry=sym_entry2, paths=args.component2,  # symmetry=symmetry2
                                                 pdb_codes=job.pdb_codes2, query_codes=args.query_codes2)
             if structures2:
                 single_component_design = False
@@ -1387,6 +1394,10 @@ def main():
                         # Todo this could be useful if optimizing database access with concurrency
                         # # Ensure that the pose has entity_transform information saved to the db
                         # pose_job.load_pose()
+                        for data, transformation in zip(self.entity_data, self.pose.entity_transformations):
+                            # Make an empty EntityTransform and add transformation data
+                            data.transform = sql.EntityTransform()
+                            data.transform.transformation = transformation
                     session.add_all(pose_jobs_to_commit)
 
                     # When pose_jobs_to_commit already exist, deal with it by getting those already

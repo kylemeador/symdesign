@@ -277,18 +277,20 @@ class StructureDatabase(Database):
 
         return all_models
 
-    def orient_structures(self, structure_identifiers: Iterable[str], symmetry: str = 'C1', by_file: bool = False) -> \
+    def orient_structures(self, structure_identifiers: Iterable[str], sym_entry: SymEntry = None,
+                          symmetry: str = 'C1', by_file: bool = False) -> \
             list[structure.model.Model | structure.model.Entity] | list:
         """Given EntryIDs/EntityIDs, and their corresponding symmetry, retrieve .pdb files, orient and save files to
         the Database, then return the symmetric Model for each
 
         Args:
             structure_identifiers: The names of all entity_ids requiring orientation
-            symmetry: The symmetry to treat each passed Entity. Default assumes no symmetry
+            sym_entry: The SymEntry used to treat each passed Entity as symmetric. Default assumes no symmetry
             by_file: Whether to parse the structure_identifiers as file paths. Default treats as PDB EntryID or EntityID
         Returns:
             The Model instances, oriented in a canonical orientation, and symmetrized
         """
+        # symmetry: The symmetry to treat each passed Entity. Default assumes no symmetry
         if not structure_identifiers:
             return []
         # Using Pose enables simple ASU writing
@@ -370,18 +372,21 @@ class StructureDatabase(Database):
             # return structure_identifiers_
             return all_structure
 
-        if not symmetry or symmetry == 'C1':
-            # Only possible if symmetry passed as None/False, in which case we should treat as asymmetric - i.e. C1
-            logger.info(f'The requested {"files" if by_file else "IDs"} are being set up into the DataBase: '
-                        f'{", ".join(structure_identifiers)}')
-            sym_entry = None
-            sym_entry_resulting_symmetry = 'C1'
-        else:
+        if isinstance(sym_entry, utils.SymEntry.SymEntry):
             logger.info(f'The requested {"files" if by_file else "IDs"} are being checked for proper orientation '
                         f'with symmetry {symmetry}: {", ".join(structure_identifiers)}')
 
-            sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=symmetry)
-            sym_entry_resulting_symmetry = sym_entry.resulting_symmetry
+            # sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=symmetry)
+            resulting_symmetry = sym_entry.resulting_symmetry
+        else:  # Treat as asymmetric - i.e. C1
+            if sym_entry:
+                logger.warning(f"The passed 'sym_entry' isn't of the required type {utils.SymEntry.SymEntry.__name__}. "
+                               "Treating as asymmetric")
+            logger.info(f'The requested {"files" if by_file else "IDs"} are being set up into the DataBase: '
+                        f'{", ".join(structure_identifiers)}')
+            # sym_entry = None
+            resulting_symmetry = 'C1'
+
         if by_file:
             # oriented_filepaths = orient_structure_files(structure_identifiers, log=orient_logger,
             #                                             symmetry=symmetry, out_dir=orient_dir)
@@ -389,7 +394,7 @@ class StructureDatabase(Database):
             # structure_identifiers = \
             #     list(map(os.path.basename, [os.path.splitext(file)[0]
             #                                 for file in filter(None, oriented_filepaths)]))
-            all_structures = orient_existing_file(structure_identifiers, sym_entry_resulting_symmetry)
+            all_structures = orient_existing_file(structure_identifiers, resulting_symmetry)
             report_non_viable_structures()
             return all_structures
 
@@ -457,7 +462,7 @@ class StructureDatabase(Database):
                     continue
 
                 try:  # Orient the Structure
-                    model.orient(symmetry=sym_entry_resulting_symmetry)
+                    model.orient(symmetry=resulting_symmetry)
                 except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
                     orient_logger.error(str(error))
                     non_viable_structures.append(structure_identifier)

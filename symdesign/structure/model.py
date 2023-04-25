@@ -4464,7 +4464,8 @@ class SymmetricModel(Models):
             if number_of_entities != self.sym_entry.number_of_groups:
                 raise SymmetryError(
                     f'The {self.__class__.__name__} has {self.number_of_entities} symmetric entities. '
-                    f'{self.sym_entry.number_of_groups} were expected')
+                    f'{self.sym_entry.number_of_groups} were expected based on the specified symmetry '
+                    f'{repr(self.sym_entry)}')
 
             # Ensure the Model is an asu
             if number_of_entities != self.number_of_chains:
