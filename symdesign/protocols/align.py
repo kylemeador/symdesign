@@ -1030,8 +1030,8 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
             selected_chain2 = model2.chain(job.aligned_chain)
             if not selected_chain2:
                 raise ValueError(
-                    f"The provided {flags.format_args(flags.aligned_chain_args)} '{job.aligned_chain}' wasn't found in the "
-                    f"aligned model. Available chains = {', '.join(model2.chain_ids)}")
+                    f"The provided {flags.format_args(flags.aligned_chain_args)} '{job.aligned_chain}' wasn't found in "
+                    f"the aligned model. Available chains = {', '.join(model2.chain_ids)}")
             # Todo make selection based off Entity
             entity2 = model2.match_entity_by_seq(selected_chain2.sequence)
             additional_entities2 = [entity for entity in model2.entities if entity != entity2]
