@@ -869,15 +869,24 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
     for transformation, set_mat_number in zip(model1.entity_transformations,
                                               sym_entry.setting_matrices_numbers):
         if transformation:
+            if transformation['translation'] is None:
+                internal_tx_x = internal_tx_y = internal_tx_z = None
+            else:
+                internal_tx_x, internal_tx_y, internal_tx_z = transformation['translation']
+            if transformation['translation2'] is None:
+                external_tx_x = external_tx_y = external_tx_z = None
+            else:
+                external_tx_x, external_tx_y, external_tx_z = transformation['translation2']
+
             entity_transform = dict(
                 # rotation_x=rotation_degrees_x,
                 # rotation_y=rotation_degrees_y,
                 # rotation_z=rotation_degrees_z,
-                internal_translation_z=transformation['translation'][2],
+                internal_translation_z=internal_tx_z,
                 setting_matrix=set_mat_number,
-                external_translation_x=transformation['translation2'][0],
-                external_translation_y=transformation['translation2'][1],
-                external_translation_z=transformation['translation2'][2])
+                external_translation_x=external_tx_x,
+                external_translation_y=external_tx_y,
+                external_translation_z=external_tx_z)
         else:
             entity_transform = {}
         model1_entity_transformations.append(entity_transform)
