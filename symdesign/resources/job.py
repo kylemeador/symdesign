@@ -636,6 +636,8 @@ class JobResources:
                           f'{flags.format_args(flags.output_directory_args)}, '
                           '--prefix or --suffix, or append --overwrite to your command')
                     sys.exit(1)
+            else:
+                putils.make_path(output_directory)
             self.output_directory = output_directory
 
         self.output_file = kwargs.get(putils.output_file)
