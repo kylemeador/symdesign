@@ -211,6 +211,109 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Initialize local functions
     # -----------------------------------------------------------------------------------------------------------------
+    def fetch_pose_jobs_from_database(args: Namespace) -> list[PoseJob]:
+        # Use sqlalchemy database selection to find the requested work
+        pose_identifiers = []
+        designs = []
+        directives = []
+        if args.poses or args.specification_file:
+            # Todo no --file and --specification-file at the same time
+            # These poses are already included in the "program state"
+            if not args.directory:  # Todo react .directory to program operation inside or in dir with SymDesignOutput
+                raise utils.InputError(
+                    f'A {flags.format_args(flags.directory_args)} must be provided when using '
+                    f'{flags.format_args(flags.specification_file_args)}')
+            # Todo, combine this with collect_designs
+            #  this works for file locations as well! should I have a separate mechanism for each?
+            if args.poses:
+                # Extend pose_identifiers with each parsed pose_identifiers set
+                job.location = args.poses
+                for pose_file in args.poses:
+                    pose_identifiers.extend(utils.PoseSpecification(pose_file).pose_identifiers)
+            else:
+                job.location = args.specification_file
+                for specification_file in args.specification_file:
+                    # Returns list of _designs and _directives in addition to pose_identifiers
+                    _pose_identifiers, _designs, _directives = \
+                        zip(*utils.PoseSpecification(specification_file).get_directives())
+                    pose_identifiers.extend(_pose_identifiers)
+                    designs.extend(_designs)
+                    directives.extend(_directives)
+
+        else:  # args.project or args.single:
+            paths, job.location = utils.collect_designs(projects=args.project, singles=args.single)
+            #                                             directory = symdesign_directory,
+            if paths:  # There are files present
+                for path in paths:
+                    name, project, *_ = reversed(path.split(os.sep))
+                    pose_identifiers.append(f'{project}{os.sep}{name}')
+            # elif args.project:
+            #     job.location = args.project
+            #     projects = [os.path.basename(project) for project in args.project]
+            #     fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.in_(projects))
+            # else:  # args.single:
+            #     job.location = args.project
+            #     singles = [os.path.basename(single) for single in args.project]
+            #     for single in singles:
+            #         name, project, *_ = reversed(single.split(os.sep))
+            #         pose_identifiers.append(f'{project}{os.sep}{name}')
+        if not pose_identifiers:
+            raise utils.InputError(
+                f"No pose identifiers found from input location '{job.location}'")
+        else:
+            pose_identifiers = job.get_range_slice(pose_identifiers)
+            if not pose_identifiers:
+                raise utils.InputError(
+                    f"No pose identifiers found with {flags.format_args(flags.range_args)}={job.range}'")
+
+        # Fetch identified. No writes
+        with job.db.session(expire_on_commit=False) as session:
+            if job.module in flags.select_modules:
+                pose_job_stmt = select(PoseJob).options(
+                    lazyload(PoseJob.entity_data),
+                    lazyload(PoseJob.metrics))
+            else:  # Load all attributes
+                pose_job_stmt = select(PoseJob)
+            try:  # To convert the identifier to an integer
+                int(pose_identifiers[0])
+            except ValueError:  # Can't convert to integer, identifiers_are_database_id = False
+                fetch_jobs_stmt = pose_job_stmt.where(PoseJob.pose_identifier.in_(pose_identifiers))
+            else:
+                fetch_jobs_stmt = pose_job_stmt.where(PoseJob.id.in_(pose_identifiers))
+
+            pose_jobs = session.scalars(fetch_jobs_stmt).all()
+
+            # Check all jobs that were checked out against those that were requested
+            pose_identifier_to_pose_job_map = {pose_job.pose_identifier: pose_job for pose_job in pose_jobs}
+            missing_pose_identifiers = set(pose_identifier_to_pose_job_map.keys()).difference(pose_identifiers)
+            if missing_pose_identifiers:
+                logger.warning(
+                    "Couldn't find the following identifiers:\n\t%s\nRemoving them from the Job"
+                    % '\n'.join(missing_pose_identifiers))
+                remove_missing_identifiers = [pose_identifiers.index(identifier)
+                                              for identifier in missing_pose_identifiers]
+                for index in sorted(remove_missing_identifiers, reverse=True):
+                    pose_identifiers.pop(index)
+            # else:
+            #     remove_missing_identifiers = []
+
+            if args.specification_file:
+                # designs and directives should always be the same length
+                # if remove_missing_identifiers:
+                #     raise utils.InputError(
+                #         f"Can't set up job from {flags.format_args(flags.specification_file_args)} with missing "
+                #         f"pose identifier(s)")
+                # if designs:
+                designs = job.get_range_slice(designs)
+                # if directives:
+                directives = job.get_range_slice(directives)
+                # Set up PoseJob with the specific designs and any directives
+                for pose_identifier, _designs, _directives in zip(pose_identifiers, designs, directives):
+                    # Since the PoseJob were loaded from the database, the order of inputs needs to be used
+                    pose_identifier_to_pose_job_map[pose_identifier].use_specific_designs(_designs, _directives)
+
+        return pose_jobs
+
     def terminate(results: list[Any] | dict = None, output: bool = True, **kwargs):
         """Format designs passing output parameters and report program exceptions
 
@@ -982,106 +1085,7 @@ def main():
             if paths:  # There are files present
                 pose_jobs = [PoseJob.from_directory(path) for path in job.get_range_slice(paths)]
         elif args.poses or args.specification_file or args.project or args.single:
-            # Use sqlalchemy database selection to find the requested work
-            pose_identifiers = []
-            designs = []
-            directives = []
-            if args.poses or args.specification_file:
-                # Todo no --file and --specification-file at the same time
-                # These poses are already included in the "program state"
-                if not args.directory:  # Todo react .directory to program operation inside or in dir with SymDesignOutput
-                    raise utils.InputError(
-                        f'A {flags.format_args(flags.directory_args)} must be provided when using '
-                        f'{flags.format_args(flags.specification_file_args)}')
-                # Todo, combine this with collect_designs
-                #  this works for file locations as well! should I have a separate mechanism for each?
-                if args.poses:
-                    # Extend pose_identifiers with each parsed pose_identifiers set
-                    job.location = args.poses
-                    for pose_file in args.poses:
-                        pose_identifiers.extend(utils.PoseSpecification(pose_file).pose_identifiers)
-                else:
-                    job.location = args.specification_file
-                    for specification_file in args.specification_file:
-                        # Returns list of _designs and _directives in addition to pose_identifiers
-                        _pose_identifiers, _designs, _directives = \
-                            zip(*utils.PoseSpecification(specification_file).get_directives())
-                        pose_identifiers.extend(_pose_identifiers)
-                        designs.extend(_designs)
-                        directives.extend(_directives)
-
-            else:  # args.project or args.single:
-                paths, job.location = utils.collect_designs(projects=args.project, singles=args.single)
-                #                                             directory = symdesign_directory,
-                if paths:  # There are files present
-                    for path in paths:
-                        name, project, *_ = reversed(path.split(os.sep))
-                        pose_identifiers.append(f'{project}{os.sep}{name}')
-                # elif args.project:
-                #     job.location = args.project
-                #     projects = [os.path.basename(project) for project in args.project]
-                #     fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.in_(projects))
-                # else:  # args.single:
-                #     job.location = args.project
-                #     singles = [os.path.basename(single) for single in args.project]
-                #     for single in singles:
-                #         name, project, *_ = reversed(single.split(os.sep))
-                #         pose_identifiers.append(f'{project}{os.sep}{name}')
-            if not pose_identifiers:
-                raise utils.InputError(
-                    f"No pose identifiers found from input location '{job.location}'")
-            else:
-                pose_identifiers = job.get_range_slice(pose_identifiers)
-                if not pose_identifiers:
-                    raise utils.InputError(
-                        f"No pose identifiers found with {flags.format_args(flags.range_args)}={job.range}'")
-
-            # Fetch identified. No writes
-            with job.db.session(expire_on_commit=False) as session:
-                if job.module in flags.select_modules:
-                    pose_job_stmt = select(PoseJob).options(
-                        lazyload(PoseJob.entity_data),
-                        lazyload(PoseJob.metrics))
-                else:  # Load all attributes
-                    pose_job_stmt = select(PoseJob)
-                try:  # To convert the identifier to an integer
-                    int(pose_identifiers[0])
-                except ValueError:  # Can't convert to integer, identifiers_are_database_id = False
-                    fetch_jobs_stmt = pose_job_stmt.where(PoseJob.pose_identifier.in_(pose_identifiers))
-                else:
-                    fetch_jobs_stmt = pose_job_stmt.where(PoseJob.id.in_(pose_identifiers))
-
-                pose_jobs = session.scalars(fetch_jobs_stmt).all()
-
-                # Check all jobs that were checked out against those that were requested
-                pose_identifier_to_pose_job_map = {pose_job.pose_identifier: pose_job for pose_job in pose_jobs}
-                missing_pose_identifiers = set(pose_identifier_to_pose_job_map.keys()).difference(pose_identifiers)
-                if missing_pose_identifiers:
-                    logger.warning(
-                        "Couldn't find the following identifiers:\n\t%s\nRemoving them from the Job"
-                        % '\n'.join(missing_pose_identifiers))
-                    remove_missing_identifiers = [pose_identifiers.index(identifier)
-                                                  for identifier in missing_pose_identifiers]
-                    for index in sorted(remove_missing_identifiers, reverse=True):
-                        pose_identifiers.pop(index)
-                # else:
-                #     remove_missing_identifiers = []
-
-                if args.specification_file:
-                    # designs and directives should always be the same length
-                    # if remove_missing_identifiers:
-                    #     raise utils.InputError(
-                    #         f"Can't set up job from {flags.format_args(flags.specification_file_args)} with missing "
-                    #         f"pose identifier(s)")
-                    # if designs:
-                    designs = job.get_range_slice(designs)
-                    # if directives:
-                    directives = job.get_range_slice(directives)
-                    # Set up PoseJob with the specific designs and any directives
-                    for pose_identifier, _designs, _directives in zip(pose_identifiers, designs, directives):
-                        # Since the PoseJob were loaded from the database, the order of inputs needs to be used
-                        pose_identifier_to_pose_job_map[pose_identifier].use_specific_designs(_designs, _directives)
-
+            pose_jobs = fetch_pose_jobs_from_database(args)
         elif select_from_directory:
             # Can make an empty pose_jobs when the program_root is args.directory
             job.location = args.directory
