@@ -10,7 +10,7 @@ from typing import AnyStr, Iterable
 
 import numpy as np
 
-from symdesign import flags, utils
+from symdesign import utils
 from symdesign.utils import path as putils
 from symdesign.utils.symmetry import valid_subunit_number, space_group_symmetry_operators, \
     point_group_symmetry_operators, all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, \
@@ -1215,9 +1215,9 @@ def sdf_lookup(symmetry: str = None) -> AnyStr:
         f"For symmetry: {symmetry}, couldn't locate correct symmetry definition file at '{putils.symmetry_def_files}'")
 
 
-repeat_with_sym_entry = "Can't distinguish between the desired entries. Please repeat your command, however, " \
-                        'additionally specify the preferred Entry Number ' \
-                        f'(ex: {flags.format_args(flags.sym_entry_args)} 1) to proceed'
+repeat_with_sym_entry = "Can't distinguish between the desired entries. " \
+                        'Repeat your command and specify the preferred ENTRY to proceed.\nEx:\n    --sym-entry 1'
+# {flags.format_args(flags.sym_entry_args)}
 header_format_string = '{:5s} {:6s} {:10s} {:9s} {:^20s} {:6s} {:10s} {:9s} {:^20s} {:6s}'
 query_output_format_string = '{:>5s} {:>6s} {:>10s} {:>9s} {:^20s} {:>6s} {:>10s} {:>9s} {:^20s} {:>6s}'
 
@@ -1304,10 +1304,9 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
 
     def report_multiple_solutions(entries: list[int]):
         entries = sorted(entries)
-        print(f'\033[1mFound multiple specified symmetries matching including {", ".join(map(str, entries))}\033[0m')
+        print(f'\033[1mFound specified symmetries matching including {", ".join(map(str, entries))}\033[0m')
         print_matching_entries(entries)
         print(repeat_with_sym_entry)
-        sys.exit(1)
 
     result = str(result)
     result_entries = []
@@ -1324,43 +1323,64 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
     if matching_entries:
         if len(matching_entries) != 1:
             # Try to solve
-            good_matches: dict[int, list[str]] = defaultdict(list)
-            for sym_op in symmetry_operators:
-                for entry_number in matching_entries:
-                    group1, _, _, _, group2, _, _, _, _, resulting_symmetry, *_ = symmetry_combinations[entry_number]
-                    if sym_op in [group1, group2]:
-                        good_matches[entry_number].append(sym_op)
+            # good_matches: dict[int, list[str]] = defaultdict(list)
+            good_matches: dict[int, list[str]] = {entry_number: [None, None] for entry_number in matching_entries}
+            for entry_number in matching_entries:
+                group1, _, _, _, group2, _, _, _, _, resulting_symmetry, *_ = symmetry_combinations[entry_number]
+                match_tuple = good_matches[entry_number]
+                for sym_op in symmetry_operators:
+                    if sym_op == group1 and match_tuple[0] is None:
+                        match_tuple[0] = sym_op
+                    elif sym_op == group2 and match_tuple[1] is None:
+                        match_tuple[1] = sym_op
+            # logger.debug(f'good matches: {good_matches}')
 
-            max_ops = 0
+            # max_ops = 0
             exact_matches = []
             for entry_number, ops in good_matches.items():
-                if len(ops) == len(symmetry_operators):
+                number_ops = sum(False if op is None else True for op in ops)
+                if number_ops == len(symmetry_operators):
                     exact_matches.append(entry_number)
-                elif len(ops) > max_ops:
-                    max_ops = len(ops)
+                # elif number_ops > max_ops:
+                #     max_ops = number_ops
 
             if exact_matches:
                 if len(exact_matches) == 1:
                     matching_entries = exact_matches
                 else:  # Still equal, report bad
                     report_multiple_solutions(exact_matches)
+                    sys.exit(1)
                     # -------- TERMINATE --------
-            else:
-                # The symmetry_operations are likely 3 or greater. Get the highest symmetry
-                max_symmetry_number = 0
-                symmetry_number_to_entries = defaultdict(list)
+            else:  # symmetry_operations are 3 or greater. Get the highest symmetry
+                all_matches = []
                 for entry_number, matching_ops in good_matches.items():
-                    if len(matching_ops) == max_ops:
-                        total_symmetry_number = sum([valid_subunit_number[op] for op in matching_ops])
-                        symmetry_number_to_entries[total_symmetry_number].append(entry_number)
-                        if total_symmetry_number > max_symmetry_number:
-                            max_symmetry_number = total_symmetry_number
+                    if all(matching_ops):
+                        all_matches.append(entry_number)
 
-                exact_matches = symmetry_number_to_entries[max_symmetry_number]
-                if len(exact_matches) == 1:
-                    matching_entries = exact_matches
-                else:  # Still equal, report bad
+                if all_matches:
+                    if len(all_matches) == 1:
+                        matching_entries = all_matches
+                    else:  # Still equal, report bad
+                        report_multiple_solutions(exact_matches)
+                        sys.exit(1)
+                        # -------- TERMINATE --------
+                else:  # None match all, this must be 2 or more sub-symmetries
+                    # max_symmetry_number = 0
+                    # symmetry_number_to_entries = defaultdict(list)
+                    # for entry_number, matching_ops in good_matches.items():
+                    #     if len(matching_ops) == max_ops:
+                    #         total_symmetry_number = sum([valid_subunit_number[op] for op in matching_ops])
+                    #         symmetry_number_to_entries[total_symmetry_number].append(entry_number)
+                    #         if total_symmetry_number > max_symmetry_number:
+                    #             max_symmetry_number = total_symmetry_number
+                    #
+                    # exact_matches = symmetry_number_to_entries[max_symmetry_number]
+                    # if len(exact_matches) == 1:
+                    #     matching_entries = exact_matches
+                    # else:  # Still equal, report bad
+                    # print('non-exact matches')
                     report_multiple_solutions(exact_matches)
+                    sys.exit(1)
                     # -------- TERMINATE --------
 
         logger.debug(f'Found matching SymEntry number {matching_entries[0]}')
@@ -1373,9 +1393,7 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
             'during your specification')
     else:  # No symmetry_operators
         if result_entries:
-            print(f'\033[1mFound specified symmetries matching including {", ".join(map(str, result_entries))}\033[0m')
-            print_matching_entries(result_entries)
-            print(repeat_with_sym_entry)
+            report_multiple_solutions(result_entries)
             sys.exit()
         else:  # no matches
             raise ValueError(
