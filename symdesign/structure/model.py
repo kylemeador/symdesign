@@ -3443,7 +3443,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         return new_residues
 
-    def retrieve_pdb_info_from_api(self):
+    def retrieve_metadata_from_pdb(self):
         """Query the PDB API for information on the PDB code found at the Model.name attribute
 
         For each new instance, makes one call to the PDB API, plus an additional call for each Entity, and one more
@@ -3463,7 +3463,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                             'ang_a_b_c': (ang_a, ang_b, ang_c)}
                 }
         """
-        if self.api_entry is not None:  # We already tried solving this and failed
+        if self.api_entry is not None:  # Already tried to solve this
             return
         # if self.api_db:
         try:
@@ -3487,7 +3487,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 return
             else:
                 next(idx)
-        # Set the index to th index that was stopped at
+        # Set the index to the index that was stopped at
         idx = next(idx)
 
         # len(parsed_name) == 4 at some point
@@ -3498,7 +3498,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             self.api_entry['assembly'] = retrieve_api_info(entry=parsed_name, assembly_integer=self.biological_assembly)
             # ^ returns [['A', 'A', 'A', ...], ...]
         elif extra:  # Extra not None or []
-            # Todo, use of elif means we can't have 1ABC_1.pdb2
+            # Todo, use of elif means 1ABC_1.pdb2 wouldn't work
             # Try to parse any found extra to an integer denoting entity or assembly ID
             integer, *non_sense = extra
             if integer.isdigit() and not non_sense:
@@ -3512,7 +3512,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     #               'thermophilicity': 1.0},
                     #  ...}
                     parsed_name = f'{parsed_name}_{integer}'
-                else:  # Get entry alone. This is an assembly or unknown conjugation. Either way we need entry info
+                else:  # Get entry alone. This is an assembly or unknown conjugation. Either way entry info is needed
                     self.api_entry = retrieve_api_info(entry=parsed_name) or {}
 
                     if idx == 1:  # This is an assembly integer, such as 1ABC-1.pdb
@@ -3522,11 +3522,12 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 # Tod0, try to collect anyway?
                 self.log.debug(f"The name '{self.name}' contains extra info that can't be coerced to PDB API format")
                 self.api_entry = {}
-        elif extra is None:  # We didn't get extra as it was correct length to begin with, just query entry
+        elif extra is None:  # Nothing extra as it was correct length to begin with, just query entry
             self.api_entry = retrieve_api_info(entry=parsed_name)
         else:
-            raise RuntimeError("This logic was not expected and shouldn't be allowed to persist:"
-                               f'self.name={self.name}, parse_name={parsed_name}, extra={extra}, idx={idx}')
+            raise RuntimeError(
+                f"This logic wasn't expected and shouldn't be allowed to persist: "
+                f'self.name={self.name}, parse_name={parsed_name}, extra={extra}, idx={idx}')
         if self.api_entry:
             self.log.debug(f'Found PDB API information: '
                            f'{", ".join(f"{k}={v}" for k, v in self.api_entry.items())}')
@@ -3564,7 +3565,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             # assembly. If it is a PDB assembly, the only way to know is that the file would have a final numeric suffix
             # after the .pdb extension (.pdb1). If not, it may be an assembly file from another source, in which case we
             # have to solve by using the atomic info
-            self.retrieve_pdb_info_from_api()  # First, try to set self.api_entry
+            self.retrieve_metadata_from_pdb()  # First, try to set self.api_entry
             if self.api_entry:  # Not an empty dict
                 found_api_entry = True
                 if self.biological_assembly:
@@ -3628,7 +3629,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self.log.debug(f'Entity {entity_name} now named "{new_entity_name}", as supplied by entity_names')
 
         # Check to see that the parsed entity_info is compatible with the chains already parsed
-        if found_api_entry:  # found_api_entry is set only if self.retrieve_pdb_info_from_api was called above
+        if found_api_entry:  # found_api_entry is set only if self.retrieve_metadata_from_pdb was called above
             if self.nucleotides_present:
                 # raise NotImplementedError(f"The parsing and integration of nucleotides hasn't been worked out")
                 self.log.warning(f"Integration of nucleotides hasn't been worked out yet, API information not useful")
@@ -6129,8 +6130,9 @@ class SymmetricModel(Models):
         if self.is_symmetric():
             raise NotImplementedError(
                 f"{self.orient.__name__} isn't available for symmetric {self.__class__.__name__} instances")
-            # Todo is this method at all useful? Could there be a situation where the symmetry is right,
-            #  but the axes aren't in their canonical locations?
+            # Todo
+            #  Could there be a situation where the symmetry is right, but the axes aren't in their canonical locations?
+            #  **Calling should be grounds for re-orientation, at which point the symmetry operators are correct anyway
         else:
             super().orient(symmetry=symmetry)
 

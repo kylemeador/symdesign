@@ -116,10 +116,14 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = putils.pd
         logger.warning(f'No matching file found for PDB: {pdb_code}')
         return None
     else:  # Should only find one file, therefore, return the first
+        # if len(pdb_file) != 1:
+        #     logger.info(f'Found multiple file for EntryID {pdb_code}. Choosing the first: '
+        #                 f'{", ".join(pdb_file)}')
         return pdb_file[0]
 
 
-def download_structures(structure_identifiers: Iterable[str], out_dir: str = os.getcwd()) -> list[Model | Entity]:
+def download_structures(structure_identifiers: Iterable[str], out_dir: str = os.getcwd(), asu: bool = False) \
+        -> list[Pose | Entity]:
     """Given EntryIDs/EntityIDs, retrieve/save .pdb files, then return a Structure for each identifier
 
     Defaults to fetching the biological assembly file, prioritizing the assemblies as predicted very high/high from
@@ -128,92 +132,111 @@ def download_structures(structure_identifiers: Iterable[str], out_dir: str = os.
     Args:
         structure_identifiers: The names of all entity_ids requiring orientation
         out_dir: The directory to write downloaded files to
+        asu: Whether to get the asymmetric unit from the PDB instead of the biological assembly
     Returns:
         The requested Model/Entity instances
     """
     all_models = []
     for structure_identifier in structure_identifiers:
         # Retrieve the proper files using PDB ID's
-        entry = structure_identifier.split('_')
-        assembly = entity = None
-        if len(entry) == 2:
-            entry, entity = entry
-            logger.debug(f'Fetching entry {entry}, entity {entity} from PDB')
-        else:
-            entry = structure_identifier.split('-')
-            if len(entry) == 2:
-                entry, assembly = entry
-                logger.debug(f'Fetching entry {entry}, assembly {assembly} from PDB')
+        structure_identifier_ = structure_identifier
+        assembly_integer = entity_integer = None
+        splitter_iter = iter(('_', '-'))  # (entity, assembly))
+        idx = count(-1)
+        extra = None
+        while len(structure_identifier_) != 4:
+            try:  # To parse the name using standard PDB API entry ID's
+                structure_identifier_, *extra = structure_identifier_.split(next(splitter_iter))
+            except StopIteration:
+                # We didn't find an EntryID in structure_identifier_ from splitting typical PDB formatted strings
+                logger.debug(f"The name '{structure_identifier}' can't be coerced to PDB API format")
+                continue
             else:
-                entry = structure_identifier
-                logger.debug(f'Fetching entry {entry} from PDB')
+                next(idx)
+        # Set the index to the index that was stopped at
+        idx = next(idx)
 
-        asu = False
-        # if symmetry == 'C1':
-        #     # Todo modify if monomers are removed from qs_bio
-        #     assembly = query_qs_bio(entry)
-        #     # assembly = None  # 1 is the default
-        #     # asu = True <- NOT NECESSARILY A MONOMERIC FILE!
-        # else:
-        #     asu = False
-        # Todo What about grabbing the asu? This always grabs the assembly as asu is False...
-        if assembly is None:
-            assembly = query_qs_bio(entry)
+        if extra:  # Extra not None or []
+            # Todo, use of elif means can't have 1ABC_1.pdb2
+            # Try to parse any found extra to an integer denoting entity or assembly ID
+            integer, *non_sense = extra
+            if integer.isdigit() and not non_sense:
+                integer = int(integer)
+                entry = structure_identifier_
+                if idx == 0:  # Entity integer, such as 1ABC_1.pdb
+                    entity_integer = integer
+                    # structure_identifier_ = f'{structure_identifier_}_{integer}'
+                    logger.debug(f'Fetching EntityID {entry}_{entity_integer} from PDB')
+                else:  # This is an assembly or unknown conjugation
+                    if idx == 1:  # This is an assembly integer, such as 1ABC-1.pdb
+                        entry = structure_identifier_
+                        assembly_integer = integer
+                        logger.debug(f'Fetching AssemblyID {entry}-{assembly_integer} from PDB')
+                    else:
+                        logger.critical("This logic happened and wasn't expected")
+            else:  # This isn't an integer or there are extra characters
+                logger.info(f"The name '{structure_identifier}' can't be coerced to PDB format")
+                continue
+        elif extra is None:  # Nothing extra as it was correct length to begin with, just query entry
+            entry = structure_identifier_
+        else:
+            raise RuntimeError(
+                f"This logic wasn't expected and shouldn't be allowed to persist: "
+                f'structure_identifier={structure_identifier}, structure_identifier_={structure_identifier_}, '
+                f'extra={extra}, idx={idx}')
+
+        if assembly_integer is None:
+            assembly_integer = query_qs_bio(entry)
         # Get the specified file_path for the assembly state of interest
-        file_path = fetch_pdb_file(entry, assembly=assembly, asu=asu, out_dir=out_dir)
+        file_path = fetch_pdb_file(entry, assembly=assembly_integer, asu=asu, out_dir=out_dir)
 
-        if not file_path:
-            logger.error(f"Couldn't locate the file '{file_path}', there may have been an issue "
-                         'downloading it from the PDB')
+        if file_path is None:
+            logger.error(f"Couldn't locate the identifier '{structure_identifier}'. There may have been an issue "
+                         'retrieving it from the PDB')
             continue
-            # raise NotImplementedError(
-            #     "This functionality hasn't been written yet. Use the canonical_pdb1/2 "
-            #     'attribute of PoseJob to pull the pdb file source.')
+
         # Remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
         file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
-        model = Model.from_file(file_path, name=file_name)
-        # entity_out_path = os.path.join(out_dir, f'{structure_identifier}.pdb')
-        if entity is not None:  # Replace Structure from fetched file with the Entity Structure
-            # structure_identifier will be formatted the exact same as the desired EntityID
-            # if it was provided correctly
+        model = Pose.from_file(file_path, name=file_name)
+        if entity_integer is not None:
+            # Replace Structure from fetched file with the Entity Structure
+            # structure_identifier is formatted the exact same as the desired EntityID
             entity = model.entity(structure_identifier)
             if entity:
+                # Set the file_path attribute on the Entity
                 file_path = model.file_path
                 model = entity
                 model.file_path = file_path
             else:  # We couldn't find the specified EntityID
-                logger.warning(f"For {structure_identifier}, couldn't locate the specified Entity '{entity}'. The"
-                               f' available Entities are {", ".join(entity.name for entity in model.entities)}')
+                logger.warning(f"For {structure_identifier}, couldn't locate the specified Entity "
+                               f"'{structure_identifier}'. The available Entity instances are "
+                               f'{", ".join(entity.name for entity in model.entities)}')
                 continue
-        #     # Write out the entity as parsed. since this is assembly we should get the correct state
-        #     entity_file_path = model.write_oligomer(out_path=entity_out_path)
-        # elif assembly is not None:
-        #     # Separate the Entity instances?
-        # else:
-        #     # Write out file for the orient database
-        #     orient_file = model.write(out_path=entity_out_path)
 
         all_models.append(model)
 
     return all_models
 
 
-def query_qs_bio(pdb_code: str) -> int:
+def query_qs_bio(entry_id: str) -> int:
     """Retrieve the first matching Very High/High confidence QSBio assembly from a PDB EntryID
 
     Args:
-        pdb_code: The 4 letter PDB code to query
+        entry_id: The 4 character PDB EntryID (code) to query
     Returns:
-        The integer of the corresponding PDB Assembly ID according to the QSBio assembly
+        The integer of the corresponding PDB Assembly ID according to QSBio
     """
-    biological_assemblies = resources.query.pdb.qsbio_confirmed.get(pdb_code.lower())
+    entry_id = entry_id.lower()
+    biological_assemblies = resources.query.pdb.qsbio_confirmed.get(entry_id)
     if biological_assemblies:
         # Get the first assembly in matching oligomers
+        if len(biological_assemblies) != 1:
+            logger.info(f'Found multiple biological assemblies for EntryID {entry_id}. Choosing the first: '
+                        f'{", ".join(biological_assemblies)}')
         assembly = biological_assemblies[0]
     else:
         assembly = 1
-        logger.warning(f'No confirmed biological assembly for entry {pdb_code.lower()}, '
-                       f'using PDB default assembly {assembly}')
+        logger.warning(f'No QSBio confirmed biological assembly for EntryID {entry_id}. Using the default assembly 1')
     return assembly
 
 
@@ -282,7 +305,7 @@ class StructureDatabase(Database):
                     entity_id=entity.name,
                     reference_sequence=entity.reference_sequence,
                     thermophilicity=entity.thermophilicity,
-                    symmetry_group=symmetry,
+                    symmetry_group=entity.symmetry,
                     model_source=entity.file_path
                 )
 
@@ -332,25 +355,26 @@ class StructureDatabase(Database):
 
         # Todo include Entity specific parsing from download_structures() in orient_existing_file(), then
         #  consolidate their overlap
-        def orient_existing_file(files: Iterable[str], symmetry: str) -> list[Model]:
+        def orient_existing_file(files: Iterable[str], sym_entry: SymEntry) -> list[Model]:
             """Return the structure identifier for a file that is loaded and oriented
 
             Args:
                 files: The files to perform the orient protocol on
-                symmetry: The symmetry to use during orient protocol
+                sym_entry: The symmetry to use during orient protocol
             Returns:
                 Each of the oriented Model instances
             """
             # all_structure = []
             for file in files:
                 # Load entities to solve multi-component orient problem
-                model = Model.from_file(file)
+                model = Pose.from_file(file)
                 try:
-                    model.orient(symmetry=symmetry)
+                    model.orient(symmetry=sym_entry.resulting_symmetry)
                 except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
                     orient_logger.error(str(error))
                     non_viable_structures.append(structure_identifier)
                     continue
+                model.set_symmetry(sym_entry=sym_entry)
                 assembly_integer = '' if model.biological_assembly is None else model.biological_assembly
                 orient_file = os.path.join(self.oriented.location,
                                            f'{model.name}.pdb{assembly_integer}')
@@ -361,7 +385,8 @@ class StructureDatabase(Database):
                 # model.symmetry = symmetry
                 # structure_identifiers_.append(model.name)
                 # all_structure.append(model)
-                create_protein_metadata(model, symmetry=symmetry)
+                # create_protein_metadata(model, sym_entry=sym_entry)
+                create_protein_metadata(model)
 
         # if not symmetry or symmetry == 'C1':
         if not sym_entry:
@@ -373,12 +398,13 @@ class StructureDatabase(Database):
             if sym_entry:
                 logger.warning(f"The passed 'sym_entry' isn't of the required type {utils.SymEntry.SymEntry.__name__}. "
                                "Treating as asymmetric")
+            sym_entry = None  # Ensure not something else
             resulting_symmetry = 'C1'
             logger.info(f'The requested {"files" if by_file else "IDs"} are being set up into the DataBase: '
                         f'{", ".join(structure_identifiers)}')
 
         if by_file:
-            orient_existing_file(structure_identifiers, resulting_symmetry)
+            orient_existing_file(structure_identifiers, sym_entry)
         else:  # Orienting the selected files and save
             # Todo transfer the writing process to a SQL database
             #  as the use of files and database constitutes bad unit of work
@@ -409,9 +435,9 @@ class StructureDatabase(Database):
                     write_entities_and_asu(pose, assembly_integer)
                 # Use entry_entity only if not processed before
                 else:  # They are missing, retrieve the proper files using PDB ID's
-                    models = download_structures([structure_identifier], out_dir=models_dir)
-                    if models:  # Not empty list. Get the first model and throw away the rest
-                        pose, *_ = models
+                    pose_models = download_structures([structure_identifier], out_dir=models_dir)
+                    if pose_models:  # Not empty list. Get the first model and throw away the rest
+                        pose, *_ = pose_models
                     else:  # Empty list
                         non_viable_structures.append(structure_identifier)
                         continue
@@ -423,8 +449,8 @@ class StructureDatabase(Database):
                         non_viable_structures.append(structure_identifier)
                         continue
                     else:  # Delete the source file(s) now that oriented correctly and saving elsewhere
-                        for model in models:
-                            model_file = Path(model.file_path)
+                        for pose_model in pose_models:
+                            model_file = Path(pose_model.file_path)
                             model_file.unlink(missing_ok=True)
 
                     assembly_integer = '' if pose.biological_assembly is None else pose.biological_assembly
@@ -432,20 +458,23 @@ class StructureDatabase(Database):
                     orient_file = os.path.join(self.oriented.location,
                                                f'{structure_identifier}.pdb{assembly_integer}')
                     if isinstance(pose, Entity):
+                        # The symmetry attribute should be set from parsing, so oligomer=True will work
+                        # and create_protein_metadata has access to .symmetry
+                        # Todo?
+                        #  pose.set_symmetry(sym_entry=sym_entry)
                         pose.write(oligomer=True, out_path=orient_file)
                         # Write out ASU file
                         asu_path = os.path.join(self.oriented_asu.location,
                                                 f'{structure_identifier}.pdb{assembly_integer}')
                         pose.write(out_path=asu_path)
                     else:
-                        orient_file = os.path.join(self.oriented.location,
-                                                   f'{structure_identifier}.pdb{assembly_integer}')
+                        pose.set_symmetry(sym_entry=sym_entry)
                         pose.write(out_path=orient_file)
                         write_entities_and_asu(pose, assembly_integer)
 
                     orient_logger.info(f'Oriented: {orient_file}')
 
-                create_protein_metadata(pose, symmetry=resulting_symmetry)
+                create_protein_metadata(pose)  # , sym_entry=sym_entry)
 
         report_non_viable_structures()
         return structure_identifier_tuples, uniprot_id_to_protein_metadata
