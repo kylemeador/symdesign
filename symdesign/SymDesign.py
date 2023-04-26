@@ -185,62 +185,8 @@ def initialize_structures(job: JobResources, sym_entry: SymEntry = None, paths: 
     # for entity in [entity for structure in all_structures for entity in structure.entities]:
     #     entity.make_oligomer(symmetry=entity.symmetry)
 
-    # Select entities, orient them, then load each Structure for further database processing
+    # Select entities, orient them, then load ProteinMetadata for further processing
     return job.structure_db.orient_structures(structure_names, sym_entry=sym_entry, by_file=by_file)
-
-
-def create_protein_metadata(structures: list[Model | Entity], symmetry: str = None) \
-        -> tuple[list[list[str]], dict[tuple[str, ...], list[sql.ProteinMetadata]]]:
-    """From a Structure instance, extract the unique metadata to identify the entities involved
-
-    Args:
-        structures: The Structure instances to initialize to ProteinMetadata
-        symmetry: The symmetry to use in initialization of ProteinMetadata
-    Returns:
-        A tuple comprising the pair(
-            A mapping of the Structure name to the UniProtIDs of each Structure Entity,
-            A mapping of the UniProtIDs to the ProteinMetadata for each unique Entity instance
-        )
-    """
-    # structures_uniprot_ids: list[list[tuple[str, ...]]] = []
-    structures_entity_ids: list[list[str]] = []
-    uniprot_ids_to_prot_metadata: dict[tuple[str, ...], list[sql.ProteinMetadata]] = defaultdict(list)
-    for structure in structures:
-        structure_entity_ids = []
-        for entity in structure.entities:
-            protein_metadata = sql.ProteinMetadata(
-                entity_id=entity.name,
-                reference_sequence=entity.reference_sequence,
-                thermophilicity=entity.thermophilicity,
-                symmetry_group=symmetry,
-                model_source=entity.file_path
-            )
-
-            try:
-                ''.join(entity.uniprot_ids)
-            except TypeError:  # Uniprot_ids is (None,)
-                entity.uniprot_ids = (entity.name,)
-            except AttributeError:  # Unable to retrieve .uniprot_ids
-                entity.uniprot_ids = (entity.name,)
-            # else:  # .uniprot_ids work. Use as parsed
-            uniprot_ids = entity.uniprot_ids
-
-            # if uniprot_ids in uniprot_ids_to_prot_metadata:
-            #     # This Entity already found for processing, and we shouldn't have duplicates
-            #     logger.debug(f"Found duplicate UniProtID identifier, {uniprot_ids}, for {protein_metadata}")
-            #     attrs_of_interest = \
-            #         ['entity_id', 'reference_sequence', 'thermophilicity', 'symmetry_group', 'model_source']
-            #     exist = '\n\t.'.join([f'{attr}={getattr(protein_metadata, attr)}' for attr in attrs_of_interest])
-            #     found_metadata = uniprot_ids_to_prot_metadata[uniprot_ids]
-            #     found = '\n\t.'.join([f'{attr}={getattr(found_metadata, attr)}' for attr in attrs_of_interest])
-            #     logger.debug(f'Existing ProteinMetadata:\n{exist}\nNew ProteinMetadata:{found}\n')
-            # else:  # Process for persistent state
-            uniprot_ids_to_prot_metadata[uniprot_ids].append(protein_metadata)
-            # structure_uniprot_ids.append(uniprot_ids)
-            structure_entity_ids.append(entity.name)
-        structures_entity_ids.append(structure_entity_ids)
-
-    return structures_entity_ids, uniprot_ids_to_prot_metadata
 
 
 def parse_results_for_exceptions(pose_jobs: list[PoseJob], results: Iterable[Any], **kwargs) \
@@ -749,10 +695,9 @@ def main():
         logger.critical(f'Ensuring provided building blocks are oriented')
         # symmetry = job.sym_entry.group1
         sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=job.sym_entry.group1)
-        orient_structures = initialize_structures(job, sym_entry=sym_entry, paths=args.component1,
-                                                  pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
         _, possibly_new_uniprot_to_prot_metadata = \
-            create_protein_metadata(orient_structures, symmetry=sym_entry.resulting_symmetry)
+            initialize_structures(job, sym_entry=sym_entry, paths=args.component1,
+                                  pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
 
         # Make a copy of the new ProteinMetadata if they were already loaded without a .model_source attribute
         possibly_new_uniprot_to_prot_metadata_copy = possibly_new_uniprot_to_prot_metadata.copy()
@@ -795,50 +740,12 @@ def main():
 
         terminate(output=False)
     elif job.module in [flags.align_helices, flags.nanohedra]:
-        if job.module == flags.nanohedra:
-            job.sym_entry.log_parameters()
-            # symmetry1 = job.sym_entry.group1
-            sym_entry1 = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=job.sym_entry.group1)
-        elif job.module == flags.align_helices:
-            # symmetry1 = job.sym_entry.resulting_symmetry
-            sym_entry1 = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=job.sym_entry.resulting_symmetry)
-        else:
-            raise NotImplementedError()
-        # Transform input entities to canonical orientation and return their ASU
-        grouped_orient_structures: list[list[Model | Entity]] = []
-        logger.critical(f'Ensuring provided building blocks are oriented for {job.module}')
-        structures1 = initialize_structures(job, sym_entry=sym_entry1, paths=args.component1,  # symmetry=symmetry1
-                                            pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
-        grouped_orient_structures.append(structures1)
-        if job.module == flags.nanohedra:
-            # symmetry2 = job.sym_entry.group2
-            sym_entry2 = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=job.sym_entry.group2)
-        elif job.module == flags.align_helices:
-            # symmetry2 = None
-            sym_entry2 = None
-        else:
-            raise NotImplementedError()
-        structures2 = []
-        # See if they are the same input
-        if args.component1 != args.component2 or job.pdb_codes1 != job.pdb_codes2 or args.query_codes2:
-            structures2 = initialize_structures(job, sym_entry=sym_entry2, paths=args.component2,  # symmetry=symmetry2
-                                                pdb_codes=job.pdb_codes2, query_codes=args.query_codes2)
-            if structures2:
-                single_component_design = False
-            else:
-                single_component_design = True
-        else:  # The entities are the same symmetry, or there is a single component and bad input
-            single_component_design = True
-        grouped_orient_structures.append(structures2)
-
-        # Initialize the local database
-        # Populate all_entities to set up sequence dependent resources
-        # grouped_structures_ids = defaultdict(list)
-        # Todo 2 expand the definition of SymEntry/Entity to include
-        #  specification of T:{T:{C3}{C3}}{C1}
-        #  where an Entity is composed of multiple Entity (Chain) instances
+        # Todo
+        #  Expand the definition of SymEntry/Entity to include specifications like:
+        #   T:{T:{C3}{C3}}{C1}
+        #  Where an Entity is composed of multiple Entity (Chain) instances
         #  This helps with the grouping by input model... not entities such as in Nanohedra pose.output_pose()
-        #  # Write Model1, Model2
+        # Todo
         #  if job.output_oligomers:
         #      for entity in pose.entities:
         #          entity.write(oligomer=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))
@@ -847,24 +754,67 @@ def main():
         #          model.write(assembly=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))
         #  Essentially this would make oligomer/assembly keywords the same
         #  and allow a multi-entity Model/Pose as an Entity in a Pose... Recursion baby
-        #
-        # grouped_structures_uniprot_ids: list[list[list[tuple[str, ...]]]] = []
-        grouped_structures_entity_ids: list[list[list[str]]] = []
-        possibly_new_uniprot_to_prot_metadata = {}
+
+        # Transform input entities to canonical orientation, i.e. "orient" and return their metadata
         if job.module == flags.nanohedra:
-            symmetry_map = job.sym_entry.groups
+            job.sym_entry.log_parameters()
+            # symmetry1 = job.sym_entry.group1
+            sym_entry1 = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=job.sym_entry.group1)
         elif job.module == flags.align_helices:
-            symmetry_map = [job.sym_entry.resulting_symmetry, None]
+            # symmetry1 = job.sym_entry.resulting_symmetry
+            # sym_entry1 = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=job.sym_entry.resulting_symmetry)
+            sym_entry1 = job.sym_entry
         else:
-            raise NotImplementedError()
-        for orient_structures, symmetry in zip(grouped_orient_structures, symmetry_map):
-            if not orient_structures:  # Useful in a case where symmetry groups are the same or group is None
-                continue
-            structures_entity_ids, possibly_new_uni_to_prot_metadata = \
-                create_protein_metadata(orient_structures, symmetry=symmetry)
-            # grouped_structures_uniprot_ids.append(structures_uniprot_ids)
-            grouped_structures_entity_ids.append(structures_entity_ids)
+            raise NotImplementedError(
+                f"Can't set up component building blocks for {job.module}")
+
+        grouped_structures_entity_ids: list[list[Pose] | dict[str, tuple[str, ...]]] = []
+        possibly_new_uniprot_to_prot_metadata: dict[tuple[str, ...], list[sql.ProteinMetadata]] = defaultdict(list)
+        if args.poses or args.specification_file or args.project or args.single:
+            pose_jobs = fetch_pose_jobs_from_database(args)
+            poses = []
+            for pose_job in pose_jobs:
+                pose_job.load_pose()
+                poses.append(pose_job.pose)
+            grouped_structures_entity_ids.append(poses)
+        else:
+            logger.critical(f'Ensuring provided building blocks are oriented for {job.module}')
+            # structures1 = initialize_structures(job, paths=args.component1, pdb_codes=job.pdb_codes1,
+            structure_id_to_entity_ids, possibly_new_uni_to_prot_metadata = \
+                initialize_structures(job, paths=args.component1, pdb_codes=job.pdb_codes1,
+                                      query_codes=args.query_codes1, sym_entry=sym_entry1)
             possibly_new_uniprot_to_prot_metadata.update(possibly_new_uni_to_prot_metadata)
+            grouped_structures_entity_ids.append(structure_id_to_entity_ids)
+
+        if job.module == flags.nanohedra:
+            # symmetry2 = job.sym_entry.group2
+            sym_entry2 = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=job.sym_entry.group2)
+        elif job.module == flags.align_helices:
+            # symmetry2 = None
+            sym_entry2 = None
+        else:
+            raise NotImplementedError(
+                f"Can't set up component building blocks for {job.module}")
+
+        # See if they are the same input
+        if args.component1 != args.component2 or job.pdb_codes1 != job.pdb_codes2 or args.query_codes2:
+            # structures2 = initialize_structures(job, sym_entry=sym_entry2, paths=args.component2,
+            structure_id_to_entity_ids, possibly_new_uni_to_prot_metadata = \
+                initialize_structures(job, paths=args.component2, pdb_codes=job.pdb_codes2,
+                                      query_codes=args.query_codes2, sym_entry=sym_entry2)
+            # Update the dictionary without overwriting prior entries
+            for uniprot_ids, protein_metadatas in possibly_new_uni_to_prot_metadata.items():
+                possibly_new_uniprot_to_prot_metadata[uniprot_ids].extend(protein_metadatas)
+
+            if structure_id_to_entity_ids:
+                single_component_design = False
+            else:
+                single_component_design = True
+        else:  # The entities are the same symmetry, or there is a single component and bad input
+            single_component_design = True
+            structure_id_to_entity_ids = {}
+
+        grouped_structures_entity_ids.append(structure_id_to_entity_ids)
 
         # Make a copy of the new ProteinMetadata if they were already loaded without a .model_source attribute
         possibly_new_uniprot_to_prot_metadata_copy = possibly_new_uniprot_to_prot_metadata.copy()
@@ -895,37 +845,39 @@ def main():
             #  then usage for docking pairs below...
 
             # Correct existing ProteinMetadata, now that Entity instances are processed
-            grouped_docking_structures = []
-            # for orient_structures, structures_uniprot_ids in \
-            #         zip(grouped_orient_structures, grouped_structures_uniprot_ids):
-            for orient_structures, structures_entity_ids in \
-                    zip(grouped_orient_structures, grouped_structures_entity_ids):
+            structures_grouped_by_component = []
+            for structure_id_entity_ids in grouped_structures_entity_ids:
                 structures = []
-                # for orient_structure, structure_uniprot_ids in zip(orient_structures, structures_uniprot_ids):
-                for orient_structure, structure_entity_ids in zip(orient_structures, structures_entity_ids):
-                    entities = []
-                    # for uniprot_ids in structure_uniprot_ids:
-                    for entity_id in structure_entity_ids:
-                        # This data may not be the one that is initialized, grab the correct one
-                        # data = all_uniprot_id_to_prot_data[uniprot_ids]
-                        for data in all_protein_metadata:
-                            if data.entity_id == entity_id:
-                                break
-                        else:
-                            raise utils.SymDesignException(f"Indexing the correct entity_id has failed")
-                            # break
-                            # continue
-                        entity = Entity.from_file(data.model_source, name=data.entity_id, metadata=data)
-                        entity.stride(to_file=job.api_db.stride.path_to(name=data.entity_id))
-                        data.n_terminal_helix = entity.is_termini_helical()
-                        data.c_terminal_helix = entity.is_termini_helical('c')
-                        # Set this attribute to carry through Nanohedra
-                        entity.metadata = data
-                        # entity.properties_id = data.id
-                        entities.append(entity)
-                    # Don't include symmetry as this will be initialized by fragdock.fragment_dock()
-                    structures.append(Pose.from_entities(entities, name=orient_structure.name))  # symmetry=symmetry))
-                grouped_docking_structures.append(structures)
+                if not structure_id_entity_ids:
+                    pass
+                elif isinstance(structure_id_entity_ids, dict):
+                    structures = []
+                    # for orient_structure, structure_uniprot_ids in zip(orient_structures, structures_uniprot_ids):
+                    for structure_id, entity_ids in structure_id_entity_ids.items():
+                        entities = []
+                        # for uniprot_ids in structure_uniprot_ids:
+                        for entity_id in entity_ids:
+                            # This data may not be the one that is initialized, grab the correct one
+                            # data = all_uniprot_id_to_prot_data[uniprot_ids]
+                            for data in all_protein_metadata:
+                                if data.entity_id == entity_id:
+                                    break
+                            else:
+                                raise utils.SymDesignException(f"Indexing the correct entity_id has failed")
+                                # break
+                                # continue
+                            entity = Entity.from_file(data.model_source, name=data.entity_id, metadata=data)
+                            entity.stride(to_file=job.api_db.stride.path_to(name=data.entity_id))
+                            data.n_terminal_helix = entity.is_termini_helical()
+                            data.c_terminal_helix = entity.is_termini_helical('c')
+                            # Set .metadata attribute to carry through protocol
+                            entity.metadata = data
+                            entities.append(entity)
+                        # Don't include symmetry as this will be initialized by fragdock.fragment_dock()
+                        structures.append(Pose.from_entities(entities, name=structure_id))  # symmetry=symmetry))
+                else:  # These are already processed Structures
+                    structures = structure_id_entity_ids
+                structures_grouped_by_component.append(structures)
             session.commit()
 
         # Make all possible structure pairs given input entities by finding entities from entity_names
@@ -935,7 +887,7 @@ def main():
             # structures1 = [entity for entity in all_entities if entity.name in structures1]
             # ^ doesn't work as entity_id is set in orient_structures, but structure name is entry_id
             all_structures = []
-            for structures in grouped_docking_structures:
+            for structures in structures_grouped_by_component:
                 all_structures.extend(structures)
             pose_jobs.extend(combinations(all_structures, 2))
         else:
@@ -943,7 +895,7 @@ def main():
             # # structures1 = [entity for entity in all_entities if entity.name in structures1]
             # # structures2 = [entity for entity in all_entities if entity.name in structures2]
             pose_jobs = []
-            for structures1, structures2 in combinations(grouped_docking_structures, 2):
+            for structures1, structures2 in combinations(structures_grouped_by_component, 2):
                 pose_jobs.extend(product(structures1, structures2))
 
         if job.module == flags.nanohedra:
