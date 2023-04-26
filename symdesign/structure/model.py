@@ -1049,7 +1049,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     _uniprot_ids: tuple[str | None, ...]
     state_attributes = Chain.state_attributes | {'_oligomer'}  # '_chains' handled specifically
     # | ContainsChainsMixin.state_attributes
-    class_structure_containers = {'_chains'}
+    class_structure_containers = set()  # '_chains' <- Removed due to issue with .reset_state() and ._chains copying
     """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
 
     @classmethod
@@ -2601,7 +2601,11 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             f.write('%s\n' % '\n'.join(blueprint_lines))
         return blueprint_file
 
-    def reset_state(self):  # Todo this is also useful when there are symmetric_dependents such as Pose.models... extend
+    # Todo
+    #  - This is also useful when there are symmetric_dependents such as Pose.models... extend
+    #  - This may need to be removed if Entity.class_structure_attributes is changed as it resets the parent
+    #    Entity._chains during: get_transformed_mate() -> Entity.copy() -> .detach_from_parent() -> reset_state()
+    def reset_state(self):
         """Remove StructureBase attributes that are invalid for the current state for each member Structure instance
 
         This is useful for transfer of ownership, or changes in the Model state that should be overwritten
@@ -2635,19 +2639,19 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 new_structures[idx] = new_structure
             # Set the copied and updated structure container
             self.__setattr__(structure_type, new_structures)
-        # For any structure_containers that are specified by the class but not present in the instance, set the instance
-        # container to the missing class_structure_container
-        missing_containers = self.__class__.class_structure_containers.difference(self.structure_containers)
-        if missing_containers:
-            self.log.critical(f"Entity: This hasn't been debugged. missing_containers={missing_containers}")
-            if len(self.structure_containers) == 1:
-                existing_structure_type = self.structure_containers[0]
-                for structure_type in missing_containers:
-                    self.__setattr__(structure_type, existing_structure_type)
-            else:
-                raise NotImplementedError(
-                    "Can't set up structure_containers when there are more than 1 initialized and there are missing "
-                    f"structure_type. Initialized={self.structure_containers}, Missing={missing_containers}")
+        # # For any structure_containers that are specified by the class but not present in the instance, set the instance
+        # # container to the missing class_structure_container
+        # missing_containers = self.__class__.class_structure_containers.difference(self.structure_containers)
+        # if missing_containers:
+        #     self.log.critical(f"Entity: This hasn't been debugged. missing_containers={missing_containers}")
+        #     if len(self.structure_containers) == 1:
+        #         existing_structure_type = self.structure_containers[0]
+        #         for structure_type in missing_containers:
+        #             self.__setattr__(structure_type, existing_structure_type)
+        #     else:
+        #         raise NotImplementedError(
+        #             "Can't set up structure_containers when there are more than 1 initialized and there are missing "
+        #             f"structure_type. Initialized={self.structure_containers}, Missing={missing_containers}")
 
     def __copy__(self) -> Entity:  # -> Self Todo python3.11
         # self.log.debug('In Entity copy')
