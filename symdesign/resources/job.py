@@ -629,24 +629,23 @@ class JobResources:
             output_directory = kwargs.get(putils.output_directory)
 
         if output_directory:
-            if os.path.exists(output_directory):
-                if not self.overwrite:
-                    print(f'The specified output directory "{output_directory}" already exists, this will overwrite '
-                          'your old data! Please specify a new name with with '
-                          f'{flags.format_args(flags.output_directory_args)}, '
-                          '--prefix or --suffix, or append --overwrite to your command')
-                    sys.exit(1)
-            else:
-                putils.make_path(output_directory)
             self.output_directory = output_directory
+            if os.path.exists(self.output_directory) and not self.overwrite:
+                print(f"The specified output directory '{self.output_directory}' already exists. Proceeding may "
+                      'overwrite your old data. Either specify a new one or use the flags '
+                      '--prefix or --suffix to modify the name. To proceed, append --overwrite to your command')
+                sys.exit(1)
+            putils.make_path(self.output_directory)
 
-        self.output_file = kwargs.get(putils.output_file)
-        if self.output_file and os.path.exists(self.output_file) and self.module not in flags.analysis \
-                and not self.overwrite:
-            print(f'The specified output file "{self.output_file}" already exists, this will overwrite your old '
-                  f'data! Please specify a new name with with {flags.format_args(flags.output_file_args)}, '
-                  'or append --overwrite to your command')  # Todo --prefix/--suffix?
-            sys.exit(1)
+        output_file = kwargs.get(putils.output_file)
+        if output_file:
+            self.output_file = output_file
+            if os.path.exists(self.output_file) and not self.overwrite:
+                # if self.module in flags.analysis:  # Todo this was allowed, but it's outdated...
+                print(f"The specified output file '{self.output_file}' already exists. Proceeding may "
+                      'overwrite your old data. Either specify a new one or use the flags '
+                      '--prefix or --suffix to modify the name. To proceed, append --overwrite to your command')
+                sys.exit(1)
 
         # When we are performing expand-asu, make sure we set output_assembly to True
         if self.module == flags.expand_asu:
@@ -855,6 +854,23 @@ class JobResources:
         # can be formatted with prefix/suffix
         dirname, output_directory = os.path.split(output_directory.rstrip(os.sep))
         self._output_directory = os.path.join(dirname, f'{self.prefix}{output_directory}{self.suffix}')
+
+    @property
+    def output_file(self) -> AnyStr | None:
+        """Where to output info related to successful Job operation"""
+        try:
+            return self._output_file
+        except AttributeError:
+            self._output_file = None
+            return self._output_file
+
+    @output_file.setter
+    def output_file(self, output_file: str):
+        """Where to output info related to successful Job operation"""
+        # Format the output_file so that the basename, i.e. the part that is desired
+        # can be formatted with prefix/suffix
+        dirname, basename = os.path.split(output_file.rstrip(os.sep))
+        self._output_file = os.path.join(dirname, f'{self.prefix}{basename}{self.suffix}')
 
     @property
     def location(self) -> str | None:
