@@ -139,7 +139,7 @@ cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
 }
 design_namespace = {
-    consensus, ca_only, design_method, design_number, evolution_constraint, hbnet, ignore_clashes,
+    consensus, ca_only, design_method, design_number, evolution_constraint, hbnet, ignore_clashes, ignore_clashes,
     ignore_pose_clashes, ignore_symmetric_clashes, interface, neighbors, proteinmpnn_model_name, scout,
     sequences, structure_background, structures, term_constraint, temperatures
 }
@@ -757,6 +757,8 @@ guide_kwargs = dict(action='store_true', help=f'Display the {program_name}/modul
 help_args = ('-h', '-help', '--help')
 help_kwargs = dict(action='store_true', help=f'Display {program_name}/module argument help\nEx:'
                                              f' "{program_command} --help"')
+ignore_clashes_args = ('-ic', f'--{ignore_clashes}')
+ignore_pose_clashes_args = ('-ipc', f'--{ignore_pose_clashes}')
 ignore_symmetric_clashes_args = ('-isc', f'--{ignore_symmetric_clashes}')
 output_directory_args = ('-Od', f'--{output_directory}', '--outdir')
 output_directory_kwargs = dict(type=os.path.abspath, default=None,
@@ -813,14 +815,12 @@ options_arguments = {
                                            metavar='STR',
                                            help='Database to match fragments for interface specific scoring matrices'
                                                 '\nChoices=%(choices)s\nDefault=%(default)s'),
-    # ('-ic', f'--{ignore_clashes}'): dict(action=argparse.BooleanOptionalAction, default=False,
-    ('-ic', f'--{ignore_clashes}'):
-        dict(action='store_true',
-             help='Whether ANY backbone/Cb clashes should be ignored during checking'),
-    ('-ipc', f'--{ignore_pose_clashes}'):
-        dict(action='store_true', help='Whether asu/pose clashes should be ignored during checking'),
+    ignore_clashes_args:
+        dict(action='store_true', help='Ignore ANY backbone/Cb clashes found during clash checks'),
+    ignore_pose_clashes_args:
+        dict(action='store_true', help='Ignore asu/pose clashes found during clash checks'),
     ignore_symmetric_clashes_args:
-        dict(action='store_true', help='Whether symmetric clashes should be ignored during checking'),
+        dict(action='store_true', help='Ignore symmetric clashes found during clash checks'),
     ('--log-level',): dict(type=log_level.get, default=default_logging_level, choices=logging_levels,
                            help='What level of log messages should be displayed to stdout?'
                                 '\n1-debug, 2-info, 3-warning, 4-error, 5-critical\nDefault=%(default)s'),

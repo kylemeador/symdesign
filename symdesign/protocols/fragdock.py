@@ -1608,6 +1608,10 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         sufficiently_dense_indices = np.arange(starting_transforms)
         number_of_dense_transforms = starting_transforms
 
+    # if job.design.ignore_pose_clashes:
+    #     logger.warning(f'Not checking for pose clashes per requested flag '
+    #                    f'{flags.format_args(flags.ignore_pose_clashes_args)}')
+    # else:
     # Transform coords to query for clashes
     # Set up chunks of coordinate transforms for clash testing
     check_clash_coords_start = time.time()
@@ -2059,7 +2063,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     passing_transforms_indices = sufficiently_dense_indices[asu_is_viable_indices[interface_is_viable]]
 
     if job.design.ignore_symmetric_clashes:
-        logger.warning(f'Not checking for symmetric clashes per requested flag --{flags.ignore_symmetric_clashes}')
+        logger.warning(f'Not checking for symmetric clashes per requested flag '
+                       f'{flags.format_args(flags.ignore_symmetric_clashes_args)}')
         passing_symmetric_clash_indices_perturb = slice(None)
     else:
         logger.info('Checking solutions for symmetric clashes')

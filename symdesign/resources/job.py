@@ -495,9 +495,9 @@ class JobResources:
         self.interface = kwargs.get('interface')
         self.interface_only = kwargs.get('interface_only')
         self.oligomeric_interfaces = kwargs.get('oligomeric_interfaces')
+
         # Design flags
         self.design = Design.from_flags(**kwargs)
-        # self.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
         if self.design.ignore_clashes:
             self.design.ignore_pose_clashes = self.design.ignore_symmetric_clashes = True
         # Handle protocol specific flags
