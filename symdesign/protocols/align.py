@@ -951,6 +951,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
         pose_jobs.append(pose_job)
 
+    observed_protein_data = {}
     # Start the alignment search
     for selected_idx1, entity1 in enumerate(selected_models1):
         logger.info(f'Target component {entity1.name}')
@@ -1319,17 +1320,20 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
                         # Correct the .metadata attribute for each entity in the full assembly
                         # This is crucial for sql usage
-                        fused_entity.metadata = sql.ProteinMetadata(
-                            entity_id=fused_entity.name,
-                            reference_sequence=fused_entity.sequence,
-                            thermophilicity=sum((entity1.thermophilicity, entity2.thermophilicity)),
-                            # symmetry_group=sym_entry_chimera.groups[entity_idx],
-                            n_terminal_helix=ordered_entity1.is_termini_helical(),
-                            c_terminal_helix=ordered_entity2.is_termini_helical('c'),
-                            uniprot_entities=tuple(uniprot_entity for entity in [ordered_entity1, ordered_entity2]
-                                                   for uniprot_entity in entity.metadata.uniprot_entities)
-                            # model_source=None
-                        )
+                        protein_metadata = observed_protein_data.get(fusion_name)
+                        if not protein_metadata:
+                            protein_metadata = sql.ProteinMetadata(
+                                entity_id=fused_entity.name,  # model_source=None
+                                reference_sequence=fused_entity.sequence,
+                                thermophilicity=sum((entity1.thermophilicity, entity2.thermophilicity)),
+                                # symmetry_group=sym_entry_chimera.groups[entity_idx],
+                                n_terminal_helix=ordered_entity1.is_termini_helical(),
+                                c_terminal_helix=ordered_entity2.is_termini_helical('c'),
+                                uniprot_entities=tuple(uniprot_entity for entity in [ordered_entity1, ordered_entity2]
+                                                       for uniprot_entity in entity.metadata.uniprot_entities))
+                            observed_protein_data[fusion_name] = protein_metadata
+
+                        fused_entity.metadata = protein_metadata
                         if additional_entities1:
                             all_entities = []
                             for entity_idx, entity in enumerate(additional_entities1):
