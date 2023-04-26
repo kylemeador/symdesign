@@ -133,7 +133,7 @@ trim_termini = 'trim_termini'
 aligned_start = 'aligned_start'
 aligned_end = 'aligned_end'
 aligned_chain = 'aligned_chain'
-extend_past_termini = 'extend_past_termini'
+extend = 'extend'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -334,7 +334,7 @@ trim_termini = format_for_cmdline(trim_termini)
 aligned_start = format_for_cmdline(aligned_start)
 aligned_end = format_for_cmdline(aligned_end)
 aligned_chain = format_for_cmdline(aligned_chain)
-extend_past_termini = format_for_cmdline(extend_past_termini)
+extend = format_for_cmdline(extend)
 select_modules = (
     select_poses,
     select_designs,
@@ -979,17 +979,23 @@ aligned_end_args = (f'--{aligned_end}',)
 aligned_end_kwargs = dict(type=int, metavar='INT', help='Last residue of the aligned molecule to align on')
 aligned_chain_args = (f'--{aligned_chain}',)
 aligned_chain_kwargs = dict(help='A desired chainID of the aligned molecule')
-extend_past_termini_args = (f'--{extend_past_termini}',)
-extend_past_termini_kwargs = dict(action='store_true',
-                                  help='Whether to extend alignment termini with a ten residue ideal\n'
-                                       'alpha helix. All specified residues are modified accordingly\n')
+# extend_args = (f'--{extend}',)
+# extend_kwargs = dict(action='store_true',
+#                      help='Whether to extend alignment termini with a ten residue ideal\n'
+#                           'alpha helix. All specified residues are modified accordingly\n')
+extend_args = (f'--{extend}',)
+extend_kwargs = dict(type=int, default=None,  # action='store_true',
+                     help='Whether to extend target termini with an ideal alpha helix\n'
+                          'Argument should specify how many residues to extend')
 bend = 'bend'
 align_helices_arguments = {
     aligned_chain_args: aligned_chain_kwargs,
     aligned_end_args: aligned_end_kwargs,
     aligned_start_args: aligned_start_kwargs,
-    (f'--{bend}',): dict(action='store_true', help=helix_bending_help),
-    extend_past_termini_args: extend_past_termini_kwargs,
+    (f'--{bend}',): dict(type=int, default=None,  # action='store_true',
+                         help=helix_bending_help
+                         + '\nArgument should specify how many bent positions should be sampled'),
+    extend_args: extend_kwargs,
     sample_number_args: sample_number_kwargs,
     target_chain_args: target_chain_kwargs,
     target_end_args: target_end_kwargs,

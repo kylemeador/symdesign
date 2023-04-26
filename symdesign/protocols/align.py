@@ -659,7 +659,7 @@ def bend(model: Model, joint_index: int, samples: int, direction: termini_litera
 
 
 def prepare_alignment_motif(model: Structure, model_start: int, alignment_length: int,
-                            termini: termini_literal, extend_helix: bool = False) -> tuple[Structure, Chain]:
+                            termini: termini_literal, extension_length: int = 0) -> tuple[Structure, Chain]:
     """From a Structure, select helices of interest from a termini of the model and separate the model into the
     original model and the selected helix
 
@@ -668,7 +668,7 @@ def prepare_alignment_motif(model: Structure, model_start: int, alignment_length
         model_start: The residue index to start motif selection at
         alignment_length: The length of the helical motif
         termini: The termini to utilize
-        extend_helix: Whether the helix should be extended
+        extension_length: How many residues should the helix be extended
     Returns:
         The original model without the selected helix and the selected helix
     """
@@ -676,7 +676,7 @@ def prepare_alignment_motif(model: Structure, model_start: int, alignment_length
     helix_residues = model.get_residues(indices=model_residue_indices)
     helix_model = Chain.from_residues(helix_residues)
 
-    if extend_helix:
+    if extension_length:
         # if termini is None:
         #     n_terminal_number = helix_model.n_terminal_residue.number
         #     c_terminal_number = helix_model.c_terminal_residue.number
@@ -686,7 +686,7 @@ def prepare_alignment_motif(model: Structure, model_start: int, alignment_length
         #         termini = 'c'
         #     else:  # Can't extend...
         #         raise ValueError(f"Couldn't automatically determine the desired termini to extend")
-        helix_model.add_ideal_helix(termini=termini, length=10)
+        helix_model.add_ideal_helix(termini=termini, length=extension_length)
 
     if termini == 'n':
         remove_indices = list(range(model.n_terminal_residue.index, helix_residues[-1].index + 1))
@@ -1136,18 +1136,24 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     length_of_target_helix = desired_target_alignment_length
                     """The length of the target helix"""
 
-                truncated_entity1, helix_model = prepare_alignment_motif(
-                    entity1, target_start_index, length_of_target_helix,
-                    termini=termini, extend_helix=job.extend_past_termini)
-                # Rename the models to enable fusion
-                chain_id = truncated_entity1.chain_id
-                helix_model.chain_id = chain_id
-
-                if job.extend_past_termini:
+                if job.extension_length:
+                    if job.extension_length > maximum_extension_length:
+                        logger.warning(f'The current maximum length for {flags.format_args(flags.extend_args)}'
+                                       f'is {maximum_extension_length}. Setting to {maximum_extension_length} instead '
+                                       f'of {job.extension_length}')
+                    extension_length = min(job.extension_length, maximum_extension_length)
                     # Add the extension length to the residue window if an ideal helix was added
                     # length_of_helix_model = length_of_target_helix + extension_length
                 else:
                     extension_length = 0
+
+                truncated_entity1, helix_model = prepare_alignment_motif(
+                    entity1, target_start_index, length_of_target_helix,
+                    termini=termini, extension_length=extension_length)
+                # Rename the models to enable fusion
+                chain_id = truncated_entity1.chain_id
+                helix_model.chain_id = chain_id
+
                 length_of_helix_model = helix_model.number_of_residues
 
                 # Get the default_alignment_length and the aligned_start_index
@@ -1173,7 +1179,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     # # Todo use full model_helix mode
                     # truncated_entity2, helix_model2 = prepare_alignment_motif(
                     #     entity2, aligned_start_index, alignment_length, termini=align_termini)
-                    # # Todo? , extend_helix=job.extend_past_termini)
+                    # # Todo? , extend_helix=extension_length)
                     # # Rename the models to enable fusion
                     # truncated_entity2.chain_id = chain_id
 

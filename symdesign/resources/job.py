@@ -683,7 +683,7 @@ class JobResources:
         self.aligned_end = kwargs.get('aligned_end')
         self.aligned_chain = kwargs.get('aligned_chain')
         self.bend = kwargs.get('bend')
-        self.extend_past_termini = kwargs.get('extend_past_termini')
+        self.extension_length = kwargs.get('extend')
         self.target_start = kwargs.get('target_start')
         self.target_end = kwargs.get('target_end')
         self.target_chain = kwargs.get('target_chain')
