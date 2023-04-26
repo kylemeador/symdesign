@@ -965,6 +965,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
             additional_entities1[selected_idx1] = None
         else:
             additional_entities1 = remaining_entities1
+
         # Check for helical termini on the target building block
         if job.target_termini:
             desired_termini = job.target_termini
@@ -1036,8 +1037,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
         if job.aligned_chain is None:  # Use the whole model
             selected_models2 = model2.entities
-            raise NotImplementedError()
-            additional_entities2 = [entity for entity in model2.entities]
+            remaining_entities2 = [entity for entity in model2.entities]
         else:
             selected_chain2 = model2.chain(job.aligned_chain)
             if not selected_chain2:
@@ -1046,16 +1046,32 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     f"the aligned model. Available chains = {', '.join(model2.chain_ids)}")
             # Todo make selection based off Entity
             entity2 = model2.match_entity_by_seq(selected_chain2.sequence)
-            additional_entities2 = [entity for entity in model2.entities if entity != entity2]
+            remaining_entities2 = [entity for entity in model2.entities if entity != entity2]
             selected_models2 = [entity2]
 
-        for entity2 in selected_models2:
+        for selected_idx2, entity2 in enumerate(selected_models2):
             logger.info(f'Aligned component {entity2.name}')
             if job.trim_termini:
                 # Remove any unstructured termini from the Entity to enable most successful fusion
                 entity2 = entity2.copy()
                 entity2.delete_termini_to_helices()
                 # entity.delete_unstructured_termini()
+
+            if len(remaining_entities2) == model2.number_of_entities:
+                additional_entities2 = remaining_entities2.copy()
+                additional_entities2.pop(selected_idx2)
+            else:
+                additional_entities2 = remaining_entities2
+
+            # Throw away chain ids that are in use by model1 to increment additional model2 entities to correct chain_id
+            available_chain_ids = chain_id_generator()
+            chain_id = next(available_chain_ids)
+            while chain_id in model1.chain_ids:
+                chain_id = next(available_chain_ids)
+
+            for add_ent2 in additional_entities2:
+                add_ent2.chain_id = chain_id
+                chain_id = next(available_chain_ids)
 
             half_entity2_length = entity2.number_of_residues
             if job.aligned_start:
@@ -1335,7 +1351,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             all_entities += transformed_additional_entities2
 
                         # logger.debug(f'Loading pose')
-                        pose = Pose.from_entities(all_entities, sym_entry=sym_entry_chimera, rename_chains=True)
+                        pose = Pose.from_entities(all_entities, sym_entry=sym_entry_chimera)
 
                         # pose.entities[0].write(oligomer=True, out_path='DEBUG_oligomer.pdb')
                         # pose.write(out_path='DEBUG_POSE.pdb', increment_chains=True)
@@ -1347,7 +1363,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                         if job.bend:
                             central_aligned_residue = pose.chain(chain_id).residue(joint_residue.number)
                             # print(central_aligned_residue)
-                            bent_coords = bend(pose, central_aligned_residue.index, job.sample_number, termini)
+                            bent_coords = bend(pose, central_aligned_residue.index, job.bend, termini)
                             for bend_idx, coords in enumerate(bent_coords, 1):
                                 pose.coords = coords
                                 if pose.is_clash(warn=False, silence_exceptions=True):
