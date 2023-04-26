@@ -20,7 +20,7 @@ from symdesign.resources import job as symjob, sql
 from symdesign.structure.base import SS_HELIX_IDENTIFIERS, Structure, termini_literal
 from symdesign.structure.coords import superposition3d
 from symdesign.structure.model import Chain, Entity, Model, Pose
-from symdesign.structure.utils import ClashError, DesignError
+from symdesign.structure.utils import chain_id_generator, DesignError
 from symdesign.utils.SymEntry import SymEntry, parse_symmetry_to_sym_entry
 putils = utils.path
 logger = logging.getLogger(__name__)

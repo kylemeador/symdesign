@@ -29,7 +29,7 @@ from .coords import Coords, superposition3d, superposition3d_quat, transform_coo
 from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type
 from .sequence import SequenceProfile, Profile, pssm_as_array, default_fragment_contribution, sequence_to_numeric, \
     sequence_to_one_hot, sequences_to_numeric
-from .utils import DesignError, SymmetryError, ClashError, chain_id_generator
+from .utils import DesignError, SymmetryError, chain_id_generator
 from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, query, sql
 from symdesign.sequence import default_substitution_matrix_array, default_substitution_matrix_translation_table, \
