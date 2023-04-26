@@ -681,15 +681,32 @@ def main():
     # ---------------------------------------------------
     #  Check for tool request
     # ---------------------------------------------------
-    registered_tools = [flags.multicistronic, flags.update_db]
+    registered_tools = [flags.multicistronic, flags.update_db, flags.distribute]
     # Todo register these tools!
     #  ['align', 'concatenate-files', 'list-overlap', 'retrieve-oligomers', 'retrieve-pdb-codes']
-    decoy_modules = ['input', 'output', 'options', 'residue_selector']
+    decoy_modules = ['input', 'output', 'options', 'residue-selector']
     symdesign_tools = registered_tools + decoy_modules
     #     flags.input, flags.output, flags.options, flags.residue_selector]
     if job.module in symdesign_tools:
         if job.module == flags.multicistronic:
             protocols.create_mulitcistronic_sequences(args)
+        # elif job.module == flags.distribute:
+        #     # formatted_command = job.command.replace('`', '-')
+        #     formatted_command = sys.argv[1:]
+        #     print(formatted_command)
+        #     n_cmds_index = formatted_command.index(f'--{flags.number_of_commands}')
+        #     formatted_command.pop(n_cmds_index)
+        #     formatted_command.pop(n_cmds_index + 1)
+        #     of_index = formatted_command.index(f'--{flags.output_file}')
+        #     formatted_command.pop(of_index)
+        #     formatted_command.pop(of_index + 1)
+        #     print(formatted_command)
+        #     with open(job.output_file, 'w') as f:
+        #         for i in range(job.number_of_commands):
+        #             f.write(f'{formatted_command} --range {100*i / job.number_of_commands:.4f}'
+        #                     f'-{100 * (1+i) / job.number_of_commands:.4f}\n')
+        #
+        #     logger.info(f"Distribution file written to '{job.output_file}'")
         elif job.module == flags.update_db:
             with job.db.session() as session:
                 design_stmt = select(sql.DesignData).where(sql.DesignProtocol.file.is_not(None)) \
