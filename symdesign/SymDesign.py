@@ -1344,10 +1344,10 @@ def main():
                         # Todo this could be useful if optimizing database access with concurrency
                         # # Ensure that the pose has entity_transform information saved to the db
                         # pose_job.load_pose()
-                        for data, transformation in zip(self.entity_data, self.pose.entity_transformations):
-                            # Make an empty EntityTransform and add transformation data
-                            data.transform = sql.EntityTransform()
-                            data.transform.transformation = transformation
+                        # for data, transformation in zip(self.entity_data, self.pose.entity_transformations):
+                        #     # Make an empty EntityTransform and add transformation data
+                        #     data.transform = sql.EntityTransform()
+                        #     data.transform.transformation = transformation
                     session.add_all(pose_jobs_to_commit)
 
                     # When pose_jobs_to_commit already exist, deal with it by getting those already
