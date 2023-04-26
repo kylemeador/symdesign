@@ -39,11 +39,7 @@ from symdesign.resources.job import JobResources, job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from symdesign.resources import distribute, query as user_query, sql, wrapapi
 from symdesign.structure.fragment.db import fragment_factory, euler_factory
-from symdesign.structure.model import Entity, Model, Pose
-
-
-resubmit_command_message = f'After completion of script(s), re-submit your {putils.program_name} ' \
-                           f'command:\n\tpython {" ".join(sys.argv)}'
+from symdesign.structure.model import Entity, Pose
 
 
 def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.UniProtEntity],
@@ -71,7 +67,8 @@ def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.Un
             for message in messages:
                 logger.info(message)
             print('\n')
-            logger.info(resubmit_command_message)
+            logger.info(f'After completion of script(s), re-submit your {putils.program_name} command:\n'
+                        f'\tpython {" ".join(sys.argv)}')
             sys.exit(1)
 
     # Set up common Structure/Entity resources
@@ -138,8 +135,10 @@ def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.Un
                 f"Couldn't find {data}.model_source")
 
 
-def initialize_structures(job: JobResources, sym_entry: SymEntry = None, paths: Iterable[AnyStr] = False,
-                          pdb_codes: AnyStr | list = False, query_codes: bool = False) -> list[Model | Entity]:
+def initialize_structures(job: JobResources, sym_entry: utils.SymEntry.SymEntry = None, paths: Iterable[AnyStr] = False,
+                          pdb_codes: list[str] = False, query_codes: bool = False) \
+        -> tuple[dict[str, tuple[str, ...]], dict[tuple[str, ...], list[sql.ProteinMetadata]]]:
+    #    -> list[Model | Entity]:
     """From provided codes, files, or query directive, load structures into the runtime and orient them in the database
 
     Args:
@@ -926,7 +925,7 @@ def main():
         with job.db.session(expire_on_commit=False) as session:
             all_uniprot_id_to_prot_data = sql.initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
 
-            # Get all uniprot_entities, and fix ProteinMetadata that is already loaded
+            # Get all uniprot_entities to set up sequence dependent resources and fix already loaded ProteinMetadata
             uniprot_entities = []
             all_protein_metadata = []
             for protein_metadata in all_uniprot_id_to_prot_data.values():
@@ -987,16 +986,11 @@ def main():
         # Using combinations of directories with .pdb files
         if single_component_design:
             logger.info(f'Treating as single component {job.module}, no additional entities requested')
-            # structures1 = [entity for entity in all_entities if entity.name in structures1]
-            # ^ doesn't work as entity_id is set in orient_structures, but structure name is entry_id
             all_structures = []
             for structures in structures_grouped_by_component:
                 all_structures.extend(structures)
             pose_jobs.extend(combinations(all_structures, 2))
         else:
-            # # v doesn't work as entity_id is set in orient_structures, but structure name is entry_id
-            # # structures1 = [entity for entity in all_entities if entity.name in structures1]
-            # # structures2 = [entity for entity in all_entities if entity.name in structures2]
             pose_jobs = []
             for structures1, structures2 in combinations(structures_grouped_by_component, 2):
                 pose_jobs.extend(product(structures1, structures2))
@@ -1004,8 +998,8 @@ def main():
         if job.module == flags.nanohedra:
             job.location = f'NanohedraEntry{job.sym_entry.number}'  # Used for terminate()
             if not pose_jobs:  # No pairs were located
-                print('No docking pairs were located from your input. Please ensure that your flags are as intended.'
-                      f'{putils.issue_submit_warning}')
+                print('\nNo docking pairs were located from your input. Please ensure that your flags are as intended.'
+                      f'{putils.issue_submit_warning}\n')
                 sys.exit(1)
             # Todo
             #  This could be moved above Entity/Pose load as it's not necessary in that situation

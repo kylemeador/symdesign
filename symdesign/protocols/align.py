@@ -698,37 +698,37 @@ def prepare_alignment_motif(model: Structure, model_start: int, alignment_length
     return deleted_model, helix_model
 
 
-def align_model_to_helix(model: Structure, model_start: int, helix_model: Structure, helix_start: int,
-                         alignment_length: int) -> tuple[float, np.ndarray, np.ndarray]:  # Structure:  # , termini: termini_literal
-    """Take two Structure Models and align the second one to the first along a helical termini
-
-    Args:
-        model: The second model. This model will be moved during the procedure
-        model_start: The first residue to use for alignment from model
-        helix_model: The first model. This model will be fixed during the procedure
-        helix_start: The first residue to use for alignment from helix_model
-        alignment_length: The length of the helical alignment
-    Returns:
-        The rmsd, rotation, and translation to align the model to the helix_model
-        The aligned Model with the overlapping residues removed
-    """
-    # termini: The termini to utilize
-    # residues1 = helix_model.get_residues(indices=list(range(helix_start, helix_start + alignment_length)))
-    # residues2 = model.get_residues(indices=list(range(model_start, model_start + alignment_length)))
-    # if len(residues1) != len(residues2):
-    #     raise ValueError(
-    #         f"The aligned lengths aren't equal. helix_model length, {len(residues1)} != {len(residues2)},"
-    #         ' the aligned model length')
-    # residue_numbers1 = [residue.number for residue in residues1]
-    # coords1 = helix_model.get_coords_subset(residue_numbers=residue_numbers1, dtype='backbone')
-    coords1 = helix_model.get_coords_subset(
-        indices=list(range(helix_start, helix_start + alignment_length)), dtype='backbone')
-    # residue_numbers2 = [residue.number for residue in residues2]
-    coords2 = model.get_coords_subset(
-        indices=list(range(model_start, model_start + alignment_length)), dtype='backbone')
-    # coords2 = model.get_coords_subset(residue_numbers=residue_numbers2, dtype='backbone')
-
-    return superposition3d(coords1, coords2)
+# def align_model_to_helix(model: Structure, model_start: int, helix_model: Structure, helix_start: int,
+#                          alignment_length: int) -> tuple[float, np.ndarray, np.ndarray]:  # Structure:  # , termini: termini_literal
+#     """Take two Structure Models and align the second one to the first along a helical termini
+#
+#     Args:
+#         model: The second model. This model will be moved during the procedure
+#         model_start: The first residue to use for alignment from model
+#         helix_model: The first model. This model will be fixed during the procedure
+#         helix_start: The first residue to use for alignment from helix_model
+#         alignment_length: The length of the helical alignment
+#     Returns:
+#         The rmsd, rotation, and translation to align the model to the helix_model
+#         The aligned Model with the overlapping residues removed
+#     """
+#     # termini: The termini to utilize
+#     # residues1 = helix_model.get_residues(indices=list(range(helix_start, helix_start + alignment_length)))
+#     # residues2 = model.get_residues(indices=list(range(model_start, model_start + alignment_length)))
+#     # if len(residues1) != len(residues2):
+#     #     raise ValueError(
+#     #         f"The aligned lengths aren't equal. helix_model length, {len(residues1)} != {len(residues2)},"
+#     #         ' the aligned model length')
+#     # residue_numbers1 = [residue.number for residue in residues1]
+#     # coords1 = helix_model.get_coords_subset(residue_numbers=residue_numbers1, dtype='backbone')
+#     coords1 = helix_model.get_coords_subset(
+#         indices=list(range(helix_start, helix_start + alignment_length)), dtype='backbone')
+#     # residue_numbers2 = [residue.number for residue in residues2]
+#     coords2 = model.get_coords_subset(
+#         indices=list(range(model_start, model_start + alignment_length)), dtype='backbone')
+#     # coords2 = model.get_coords_subset(residue_numbers=residue_numbers2, dtype='backbone')
+#
+#     return superposition3d(coords1, coords2)
 
 
 # def solve_termini_start_index(secondary_structure: str, termini: termini_literal) -> int:  # tuple[int, int]:
@@ -1177,10 +1177,10 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     # # Rename the models to enable fusion
                     # truncated_entity2.chain_id = chain_id
 
+                    aligned_end_index = aligned_start_index + alignment_length
                     # Calculate the entity2 indices to delete after alignment position is found
                     if align_termini == 'c':
-                        delete_indices2 = list(range(aligned_start_index + alignment_length,
-                                                     entity2.c_terminal_residue.index + 1))
+                        delete_indices2 = list(range(aligned_end_index, entity2.c_terminal_residue.index + 1))
                     else:
                         delete_indices2 = list(range(entity2.n_terminal_residue.index, aligned_start_index))
 
@@ -1193,13 +1193,21 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
                         # if helix_end_index > maximum_helix_alignment_length:
                         #     break  # This isn't allowed
-                        AlignmentIndex = f'{aligned_idx + 1}/{aligned_length}, ' \
-                                         f'{helix_start_index + 1}/{max_target_helix_length}'
+                        sampling_index = \
+                            f'{aligned_idx + 1}/{aligned_length}, {helix_start_index + 1}/{max_target_helix_length}'
+
+                        coords1 = helix_model.get_coords_subset(
+                            indices=list(range(helix_start_index, helix_end_index)),
+                            dtype='backbone')
+                        coords2 = entity2.get_coords_subset(
+                            indices=list(range(aligned_start_index, aligned_end_index)),
+                            dtype='backbone')
                         try:
-                            # Use helix_model2 start index = 0 as helix_model2 is always truncated
-                            # Use transformed_entity2 mode
-                            rmsd, rot, tx = align_model_to_helix(
-                                entity2, aligned_start_index, helix_model, helix_start_index, alignment_length)
+                            # # Use helix_model2 start index = 0 as helix_model2 is always truncated
+                            # # Use transformed_entity2 mode
+                            # rmsd, rot, tx = align_model_to_helix(
+                            #     entity2, aligned_start_index, helix_model, helix_start_index, alignment_length)
+                            rmsd, rot, tx = superposition3d(coords1, coords2)
                             # # Use full model_helix mode
                             # rmsd, rot, tx = align_model_to_helix(
                             #     helix_model2, 0, helix_model, helix_start_index, alignment_length)

@@ -1000,25 +1000,26 @@ align_helices_arguments = {
 # ---------------------------------------------------
 query_codes_kwargs = dict(action='store_true', help='Query the PDB API for corresponding codes')
 # parser_component_mutual1 = parser_dock.add_mutually_exclusive_group(required=True)
+component1_args = ('-c1', f'--{component1}')
+component2_args = ('-c2', f'--{component2}')
+component_kwargs = dict(type=os.path.abspath, default=None, metavar=ex_path('[file.ext,directory]'),
+                        help=f'Path to component file(s), either directories or single file')
+pdb_codes1_args = ('-C1', f'--{pdb_codes1}')
+pdb_codes2_args = ('-C2', f'--{pdb_codes2}')
+pdb_codes_kwargs = dict(nargs='*', default=None,
+                        help='Input code(s), and/or file(s) with codes where each code\n'
+                             'is a PDB EntryID/EntityID/AssemblyID')
 parser_component_mutual1_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
 component_mutual1_arguments = {
-    ('-c1', f'--{pdb_codes1}'): dict(nargs='*', default=None,
-                                     help='Input code(s), and/or file(s) with codes where each code\n'
-                                          'is a PDB EntryID/EntityID code for component 1'),
-    ('-o1', f'--{component1}'):
-        dict(type=os.path.abspath, default=None,
-             help=f'Disk location where component 1 file(s) are located'),
+    component1_args: component_kwargs,
+    pdb_codes1_args: pdb_codes_kwargs,
     ('-Q1', f'--{query_codes1}'): query_codes_kwargs
 }
 # parser_component_mutual2 = parser_dock.add_mutually_exclusive_group()
 parser_component_mutual2_group = dict()  # required=False
 component_mutual2_arguments = {
-    ('-c2', f'--{pdb_codes2}'): dict(nargs='*', default=None,
-                                     help='Input code(s), and/or file(s) with codes where each code\n'
-                                          'is a PDB EntryID/EntityID code for component 2'),
-    ('-o2', f'--{component2}'):
-        dict(type=os.path.abspath, default=None,
-             help=f'Disk location where component 2 file(s) are located'),
+    component2_args: component_kwargs,
+    pdb_codes2_args: pdb_codes_kwargs,
     ('-Q2', f'--{query_codes2}'): query_codes_kwargs
 }
 # ---------------------------------------------------
@@ -1609,37 +1610,34 @@ parser_output_group = dict(title=f'{"_" * len(output_title)}\n{output_title}',
                            description='\nSpecify where output should be written')
 output_arguments = {
     (f'--{increment_chains}',): dict(action='store_true',
-                                     help='Whether resulting assembly files should output with chain IDs incremented\n'
-                                          'or in "Multimodel" format. Multimodel format is useful for PyMol\n'
-                                          'visualization with the command "set all_states, on". Chimera can\n'
+                                     help='Whether assembly files should output with chain IDs incremented\n'
+                                          "or in 'Multimodel' format. Multimodel format is useful for PyMol\n"
+                                          "visualization with the command 'set all_states, on'. Chimera can\n"
                                           'utilize either format as the BIOMT record is respected'),
     ('-Oa', f'--{output_assembly}'):
-        dict(action=argparse.BooleanOptionalAction, default=False,
-             help='Whether the assembly should be output? Infinite materials are output in a unit cell'),
+        dict(action='store_true',
+             help='Whether the symmetric assembly should be output.\nInfinite assemblies are output as a unit cell'),
     output_directory_args: output_directory_kwargs,
-    output_file_args: dict(type=str, help='If provided, the name of the output pose file.\nOtherwise, one will be '
-                                          'generated based on the time, input, and module'),
+    output_file_args: dict(type=str, help='If provided, the name of the output pose file. Otherwise, one\n'
+                                          'will be generated based on the time, input, and module'),
     ('-OF', f'--{output_fragments}'):
-        dict(action=argparse.BooleanOptionalAction, default=False, help='Write any fragments generated for each Pose'),
+        dict(action='store_true', help='Write any fragments generated for each Pose'),
     ('-Oi', f'--{output_interface}'):
-        dict(action=argparse.BooleanOptionalAction, default=False,
-             help='Write the residues that comprise the interface for each Pose'),
+        dict(action='store_true', help='Write the residues that comprise the interface for each Pose'),
     ('-Oo', f'--{output_oligomers}'):
         dict(action=argparse.BooleanOptionalAction, default=False, help='Write any oligomers generated for each Pose'),
     # output_structures_args:
     #     dict(action=argparse.BooleanOptionalAction, default=True,
     #          help=f'For any structures generated, write them.\n{boolean_positional_prevent_msg(output_structures)}'),
     ('-Ou', f'--{output_surrounding_uc}'):
-        dict(action=argparse.BooleanOptionalAction, default=False,
-             help='Whether the surrounding unit cells should be output?\nOnly for infinite materials'),
+        dict(action='store_true', help='For infinite materials, whether surrounding unit cells are output'),
     ('-Ot', f'--{output_trajectory}'):
-        dict(action=argparse.BooleanOptionalAction, default=False,
-             help=f'For all structures generated, write them as a single multimodel file'),
+        dict(action='store_true', help=f'For all structures generated, write them as a single multimodel file'),
     ('--overwrite',): dict(action='store_true', help='Whether to overwrite existing structural info'),
     ('-Pf', f'--{pose_format}'): dict(action='store_true',
-                                      help='Whether outputs should be converted to pose formatting,\n'
-                                           'where instead of using the original numbering each\n'
-                                           'additional residue is incremented'),
+                                      help='Whether outputs should be converted to pose number formatting,\n'
+                                           'where residue numbers start at one and increase sequentially\n'
+                                           'instead of using the original numbering'),
     ('--prefix',): dict(type=str, metavar='string', help='String to prepend to output name'),
     ('--suffix',): dict(type=str, metavar='string', help='String to append to output name'),
 }
@@ -1702,8 +1700,8 @@ all_flags_arguments = {}
 parser_arguments = {
     orient: orient_arguments,
     align_helices: align_helices_arguments,
-    f'{align_helices}_mutual1': component_mutual1_arguments,
-    f'{align_helices}_mutual2': component_mutual2_arguments,
+    f'{align_helices}_mutual1': component_mutual1_arguments,  # mutually_exclusive_group
+    f'{align_helices}_mutual2': component_mutual2_arguments,  # mutually_exclusive_group
     helix_bending: helix_bending_arguments,
     refine: refine_arguments,
     nanohedra: nanohedra_arguments,
@@ -1746,19 +1744,20 @@ parser_output = 'parser_output'
 parser_module = 'parser_module'
 parser_guide = 'parser_guide'
 parser_entire = 'parser_entire'
-options_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter)  # Todo? , usage=usage_str)
-residue_selector_argparser = \
+# Todo? , usage=usage_str)
+options_argparser_kwargs = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter)
+residue_selector_argparser_kwargs = \
     dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_str)
-input_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_str)
-module_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_str)
-guide_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_str)
-output_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_str)
-argparsers_kwargs = dict(parser_options=options_argparser,
-                         parser_residue_selector=residue_selector_argparser,
-                         parser_input=input_argparser,
-                         parser_module=module_argparser,
-                         parser_guide=guide_argparser,
-                         parser_output=output_argparser,
+input_argparser_kwargs = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_str)
+module_argparser_kwargs = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_str)
+guide_argparser_kwargs = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_str)
+output_argparser_kwargs = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_str)
+argparsers_kwargs = dict(parser_options=options_argparser_kwargs,
+                         parser_residue_selector=residue_selector_argparser_kwargs,
+                         parser_input=input_argparser_kwargs,
+                         parser_module=module_argparser_kwargs,
+                         parser_guide=guide_argparser_kwargs,
+                         parser_output=output_argparser_kwargs,
                          )
 # Initialize various independent ArgumentParsers
 argparsers: dict[str, argparse.ArgumentParser] = {}
@@ -1776,21 +1775,22 @@ module_subargparser = dict(title=f'{"_" * len(module_title)}\n{module_title}', d
                                        'example commands or algorithmic specifics of each Module enter:'
                                        f'\n{submodule_guide}\n\nTo get help with Module arguments enter:'
                                        f'\n{submodule_help}')
-module_required = ['nanohedra_mutual1']
-# For all parsing of module arguments
-subparsers = argparsers[parser_module].add_subparsers(**module_subargparser)  # required=True,
 # For parsing of guide info
-argparsers[parser_guide].add_argument(*guide_args, **guide_kwargs)
-argparsers[parser_guide].add_argument(*help_args, **help_kwargs)
-argparsers[parser_guide].add_argument(*setup_args, **setup_kwargs)
+guide_parser = argparsers[parser_guide]
+guide_parser.add_argument(*guide_args, **guide_kwargs)
+guide_parser.add_argument(*help_args, **help_kwargs)
+guide_parser.add_argument(*setup_args, **setup_kwargs)
 # Add all modules to the guide_subparsers
 guide_subparsers = argparsers[parser_guide].add_subparsers(**module_subargparser)
+# For all parsing of module arguments
+subparsers = argparsers[parser_module].add_subparsers(**module_subargparser)  # required=True,
+module_required = ['nanohedra_mutual1']
 module_suparsers: dict[str, argparse.ArgumentParser] = {}
 for parser_name, parser_kwargs in module_parsers.items():
     arguments = parser_arguments.get(parser_name, {})
-    # Has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
+    """arguments has args (flag names) as key and keyword args (flag params) as values"""
     if 'mutual' in parser_name:  # We must create a mutually_exclusive_group from already formed subparser
-        # Remove indication to "mutual" of the argparse group by removing any string after "_mutual"
+        # Remove indication to "mutual" of the argparse group by removing any characters after "_mutual"
         exclusive_parser = module_suparsers[parser_name[:parser_name.find('_mutual')]].\
             add_mutually_exclusive_group(**parser_kwargs, **(dict(required=True) if parser_name in module_required
                                                              else {}))
@@ -1799,8 +1799,6 @@ for parser_name, parser_kwargs in module_parsers.items():
             exclusive_parser.add_argument(*args, **kwargs)
     else:  # Save the subparser in a dictionary to access with mutual groups
         module_suparsers[parser_name] = subparsers.add_parser(prog=module_usage_str % parser_name,
-                                                              # prog=f'python SymDesign.py %(name) '
-                                                              #      f'[input_arguments] [optional_arguments]',
                                                               formatter_class=Formatter, allow_abbrev=False,
                                                               name=parser_name, **parser_kwargs[parser_name])
         for args, kwargs in arguments.items():
@@ -1809,72 +1807,52 @@ for parser_name, parser_kwargs in module_parsers.items():
         guide_subparser = guide_subparsers.add_parser(name=parser_name, add_help=False)  #, **parser_kwargs[parser_name])
         guide_subparser.add_argument(*guide_args, **guide_kwargs)
 
-# print(module_suparsers['nanohedra'])
-# print('after_adding_Args')
-# for group in argparsers[parser_module]._action_groups:
-#     for arg in group._group_actions:
-#         print(arg)
+
+def set_up_parser_with_groups(parser: argparse.ArgumentParser, parser_groups: dict[str, dict], required: bool = False):
+    """Add the input arguments to the passed ArgumentParser
+
+    Args:
+        parser: The ArgumentParser to add_argument_group() to
+        parser_groups: The groups to add to the ArgumentParser
+        required: Whether the mutually exclusive group input is required
+    """
+    group = None  # Must get added before mutual groups can be added
+    for parser_name, parser_kwargs in parser_groups.items():
+        flags_kwargs = parser_arguments.get(parser_name, {})
+        """flags_kwargs has args (flag names) as key and keyword args (flag params) as values"""
+        if 'mutual' in parser_name:  # Only has a dictionary as parser_arguments
+            exclusive_parser = group.add_mutually_exclusive_group(required=required, **parser_kwargs)
+            for args, kwargs in flags_kwargs.items():
+                exclusive_parser.add_argument(*args, **kwargs)
+        else:
+            group = parser.add_argument_group(**parser_kwargs)
+            for args, kwargs in flags_kwargs.items():
+                group.add_argument(*args, **kwargs)
+
 
 # Set up option ArgumentParser with options arguments
-parser = argparsers[parser_options]
-option_group = None  # Must get added before mutual groups can be added
-for parser_name, parser_kwargs in option_parsers.items():
-    arguments = parser_arguments.get(parser_name, {})
-    if arguments:
-        # Has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
-        # There are no 'mutual' right now
-        if 'mutual' in parser_name:  # Only has a dictionary as parser_arguments
-            exclusive_parser = option_group.add_mutually_exclusive_group(**parser_kwargs)
-            for args, kwargs in arguments.items():
-                exclusive_parser.add_argument(*args, **kwargs)
-        option_group = parser.add_argument_group(**parser_kwargs)
-        for args, kwargs in arguments.items():
-            option_group.add_argument(*args, **kwargs)
+set_up_parser_with_groups(argparsers[parser_options], option_parsers)
+# parser = argparsers[parser_options]
+# option_group = None  # Must get added before mutual groups can be added
+# for parser_name, parser_kwargs in option_parsers.items():
+#     arguments = parser_arguments.get(parser_name, {})
+#     """arguments has args (flag names) as key and keyword args (flag params) as values"""
+#     if arguments:
+#         # There are no 'mutual' right now
+#         if 'mutual' in parser_name:  # Only has a dictionary as parser_arguments
+#             exclusive_parser = option_group.add_mutually_exclusive_group(**parser_kwargs)
+#             for args, kwargs in arguments.items():
+#                 exclusive_parser.add_argument(*args, **kwargs)
+#         option_group = parser.add_argument_group(**parser_kwargs)
+#         for args, kwargs in arguments.items():
+#             option_group.add_argument(*args, **kwargs)
 
 # Set up residue selector ArgumentParser with residue selector arguments
-parser = argparsers[parser_residue_selector]
-residue_selector_group = None  # Must get added before mutual groups can be added
-for parser_name, parser_kwargs in residue_selector_parsers.items():
-    arguments = parser_arguments.get(parser_name, {})
-    if arguments:
-        # Has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
-        # There are no 'mutual' right now
-        if 'mutual' in parser_name:  # Only has a dictionary as parser_arguments
-            exclusive_parser = residue_selector_group.add_mutually_exclusive_group(**parser_kwargs)
-            for args, kwargs in arguments.items():
-                exclusive_parser.add_argument(*args, **kwargs)
-        residue_selector_group = parser.add_argument_group(**parser_kwargs)
-        for args, kwargs in arguments.items():
-            residue_selector_group.add_argument(*args, **kwargs)
-
+set_up_parser_with_groups(argparsers[parser_residue_selector], residue_selector_parsers)
 # Set up input ArgumentParser with input arguments
-parser = argparsers[parser_input]
-input_group = None  # Must get added before mutual groups can be added
-for parser_name, parser_kwargs in input_parsers.items():
-    arguments = parser_arguments.get(parser_name, {})
-    if 'mutual' in parser_name:  # Only has a dictionary as parser_arguments
-        exclusive_parser = input_group.add_mutually_exclusive_group(required=True, **parser_kwargs)
-        for args, kwargs in arguments.items():
-            exclusive_parser.add_argument(*args, **kwargs)
-    else:  # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
-        input_group = parser.add_argument_group(**parser_kwargs)
-        for args, kwargs in arguments.items():
-            input_group.add_argument(*args, **kwargs)
-
+set_up_parser_with_groups(argparsers[parser_input], input_parsers, required=True)
 # Set up output ArgumentParser with output arguments
-parser = argparsers[parser_output]
-output_group = None  # Must get added before mutual groups can be added
-for parser_name, parser_kwargs in output_parsers.items():
-    arguments = parser_arguments.get(parser_name, {})
-    if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
-        exclusive_parser = output_group.add_mutually_exclusive_group(**parser_kwargs)
-        for args, kwargs in arguments.items():
-            exclusive_parser.add_argument(*args, **kwargs)
-    else:  # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
-        output_group = parser.add_argument_group(**parser_kwargs)
-        for args, kwargs in arguments.items():
-            output_group.add_argument(*args, **kwargs)
-
+set_up_parser_with_groups(argparsers[parser_output], output_parsers)
 # Set up entire ArgumentParser with all ArgumentParsers
 entire_argparser = dict(fromfile_prefix_chars='@', allow_abbrev=False,  # exit_on_error=False, # prog=program_name,
                         description=f'{"_" * len(program_name)}\n{program_name}\n\n'
@@ -1894,22 +1872,9 @@ entire_argparser = dict(fromfile_prefix_chars='@', allow_abbrev=False,  # exit_o
                                  for parser in [parser_module, parser_options, parser_residue_selector, parser_output]])
 
 argparsers[parser_entire] = argparse.ArgumentParser(**entire_argparser)
-parser = argparsers[parser_entire]
 # Can't set up parser_input via a parent due to mutually_exclusive groups formatting messed up in help.
-# Therefore, we repeat the above set-up here...
-
-# Set up entire ArgumentParser with input arguments
-input_group = None  # Must get added before mutual groups can be added
-for parser_name, parser_kwargs in input_parsers.items():
-    arguments = parser_arguments.get(parser_name, {})
-    if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
-        exclusive_parser = input_group.add_mutually_exclusive_group(**parser_kwargs)
-        for args, kwargs in arguments.items():
-            exclusive_parser.add_argument(*args, **kwargs)
-    else:  # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
-        input_group = parser.add_argument_group(**parser_kwargs)
-        for args, kwargs in arguments.items():
-            input_group.add_argument(*args, **kwargs)
+# Therefore, repeat the input_parsers set up here with entire ArgumentParser
+set_up_parser_with_groups(argparsers[parser_entire], input_parsers)
 
 # # can't set up parser_module via a parent due to mutually_exclusive groups formatting messed up in help, repeat above
 # # Set up entire ArgumentParser with module arguments
@@ -1917,14 +1882,14 @@ for parser_name, parser_kwargs in input_parsers.items():
 # entire_module_suparsers: dict[str, argparse.ArgumentParser] = {}
 # for parser_name, parser_kwargs in module_parsers.items():
 #     arguments = parser_arguments.get(parser_name, {})
-#     # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
-#     if 'mutual' in parser_name:  # we must create a mutually_exclusive_group from already formed subparser
+#     """arguments has args (flag names) as key and keyword args (flag params) as values"""
+#     if 'mutual' in parser_name:  # Create a mutually_exclusive_group from already formed subparser
 #         # remove any indication to "mutual" of the argparse group v
 #         exclusive_parser = \
 #             entire_module_suparsers['_'.join(parser_name.split('_')[:-1])].add_mutually_exclusive_group(**parser_kwargs)
 #         for args, kwargs in arguments.items():
 #             exclusive_parser.add_argument(*args, **kwargs)
-#     else:  # save the subparser in a dictionary to access with mutual groups
+#     else:  # Save the subparser in a dictionary to access with mutual groups
 #         entire_module_suparsers[parser_name] = subparsers.add_parser(prog=module_usage_str % parser_name,
 #                                                                      # prog=f'python SymDesign.py %(name) '
 #                                                                      #      f'[input_arguments] [optional_arguments]',
@@ -1950,7 +1915,7 @@ def parse_flags_to_namespaces(parser_: argparse.ArgumentParser):
     for group in parser_._action_groups:
         for arg in group._group_actions:
             if isinstance(arg, argparse._SubParsersAction):
-                # We have a sup parser, recurse
+                # This is a SubParser, recurse
                 for name, sub_parser in arg.choices.items():
                     parse_flags_to_namespaces(sub_parser)
             elif arg.dest in cluster_namespace:
@@ -1965,7 +1930,7 @@ def parse_flags_to_namespaces(parser_: argparse.ArgumentParser):
                 predict_defaults[arg.dest] = arg.default
 
 
-parse_flags_to_namespaces(parser)
+parse_flags_to_namespaces(argparsers[parser_entire])
 # Add orphaned 'interface', i.e. interface-design module alias for design with interface=True to design_defaults
 design_defaults[interface] = False
 defaults = dict(

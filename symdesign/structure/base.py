@@ -792,7 +792,7 @@ class Atom(StructureBase):
     b_factor: float | None
     element: str | None
     charge: str | None
-    state_attributes: set[str] = StructureBase.state_attributes | {'_sasa'}
+    state_attributes = StructureBase.state_attributes | {'_sasa'}
 
     def __init__(self, index: int = None, number: int = None, atom_type: str = None, alt_location: str = ' ',
                  residue_type: str = None, chain_id: str = None, residue_number: int = None,
@@ -839,10 +839,9 @@ class Atom(StructureBase):
 
     def detach_from_parent(self):
         """Remove the current instance from the parent that created it"""
-        self.__setattr__(parent_variable, None)  # Set parent explicitly as None
-        # # Extract the coordinates
-        # coords = self.coords
-        # create a new, empty Coords instance
+        # Set parent explicitly as None
+        self.__setattr__(parent_variable, None)
+        # Create a new, empty Coords instance
         self._coords = Coords(self.coords)
         self.index = 0
         self.reset_state()
@@ -1295,7 +1294,7 @@ class ContainsAtomsMixin(StructureBase, ABC):
     number_of_atoms: int
     side_chain_indices: list[int]
     # These state_attributes are used by all subclasses
-    state_attributes: set[str] = StructureBase.state_attributes | _indices_attributes
+    state_attributes = StructureBase.state_attributes | _indices_attributes
 
     @classmethod
     def from_atoms(cls, atoms: list[Atom] | Atoms = None, **kwargs):
@@ -1684,7 +1683,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     # coords: Coords
     number: int
     number_pdb: int
-    state_attributes: set[str] = ContainsAtomsMixin.state_attributes \
+    state_attributes = ContainsAtomsMixin.state_attributes \
         | {'_contact_order', '_local_density',
            '_next_residue', '_prev_residue',
            '_sasa', '_sasa_apolar', '_sasa_polar', '_secondary_structure'}
@@ -1760,13 +1759,12 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
 
     def detach_from_parent(self):
         """Remove the current instance from the parent that created it"""
-        self.__setattr__(parent_variable, None)  # Set parent explicitly as None
-        # # Extract the coordinates
-        # coords = self.coords
-        # create a new, empty Coords instance
+        # Set parent explicitly as None
+        self.__setattr__(parent_variable, None)
+        # Create a new, empty Coords instance
         self._coords = Coords(self.coords)
-        # populate the Structure with its existing instances removed of any indexing
-        self._assign_atoms(self.atoms)  # , coords=coords)
+        # Populate the Structure with its existing instances removed of any indexing
+        self._assign_atoms(self.atoms)
         self.reset_state()
 
     # @StructureBase.coords.setter
@@ -2947,7 +2945,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     sasa: float | None  # Todo ContainsResiduesMixin
     class_structure_containers = set()
     """Specifies which containers of Structure instances are utilized by this class to aid state changes like copy()"""
-    state_attributes: set[str] = ContainsAtomsMixin.state_attributes \
+    state_attributes = ContainsAtomsMixin.state_attributes \
         | {'_sequence', '_helix_cb_indices', '_secondary_structure'}
 
     def __init__(self, atoms: list[Atom] | Atoms = None,
@@ -3078,13 +3076,12 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     def detach_from_parent(self):
         """Remove the current instance from the parent that created it"""
-        self.__setattr__(parent_variable, None)  # Set parent explicitly as None
-        # # Extract the coordinates
-        # coords = self.coords
-        # create a new, empty Coords instance
+        # Set parent explicitly as None
+        self.__setattr__(parent_variable, None)
+        # Create a new, empty Coords instance
         self._coords = Coords(self.coords)
-        # populate the Structure with its existing instances removed of any indexing
-        self._assign_residues(self.residues, atoms=self.atoms)  # , coords=coords)
+        # Populate the Structure with its existing instances removed of any indexing
+        self._assign_residues(self.residues, atoms=self.atoms)
         self.reset_state()
 
     # Todo a separate call for each of ContainsAtomsMixin and ContainsResiduesMixin

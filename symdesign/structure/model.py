@@ -1088,10 +1088,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         if chains:  # Instance was initialized with .from_chains()
             # Todo choose most symmetrically average
             #  Move chain symmetry ops below to here?
-            representative = chains[0]  # Todo? next(iter(chains))
+            representative, *additional_chains = chains
             residue_indices = representative.residue_indices
         else:  # Initialized with Structure constructor methods, handle using .is_parent() below
-            residue_indices = None
+            additional_chains = residue_indices = None
 
         super().__init__(residue_indices=residue_indices, **kwargs)
         if self.is_parent():  # Todo this logic isn't correct. Could be .from_chains() without parent passed!
@@ -1100,9 +1100,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             self._chains = []
             self._create_chains(as_mate=True, chain_ids=chain_ids)
             # Set chains now that we parsed chains so we can use self.chains for mate chain functionality
-            chains = self.chains
             # Todo choose most symmetrically average chain
-            representative = chains[0]
+            representative, *additional_chains = self.chains
             # residue_indices = representative.residue_indices
             # # Perform init again with newly parsed chains to set the representative attr as this instances attr
             # super().__init__(residue_indices=residue_indices, parent=representative, **kwargs)
@@ -1115,14 +1114,14 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         # Indicate that the first self.chain should be this instance
         self._chains = [self]
         self.structure_containers.append('_chains')  # Use '_chains' as 'chains' is okay to equal []
-        if len(chains) > 1:
+        if additional_chains:
             # Todo
             #  Handle chains with imperfect symmetry by using the actual chain and forgoing the transform
             #  Need to make a copy of the chain and make it an "Entity mate"
             number_of_residues = self.number_of_residues
             self_seq = self.sequence
             ca_coords = self.ca_coords
-            for idx, chain in enumerate(chains[1:]):  # Todo match this mechanism with the symmetric chain index
+            for chain in additional_chains:  # Todo match this mechanism with the symmetric chain index
                 chain_seq = chain.sequence
                 if chain.number_of_residues == number_of_residues and chain_seq == self_seq:
                     # Do an apples to apples comparison
@@ -1186,8 +1185,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             current_chain_transforms = self._chain_transforms
 
             # Set coords with new coords
-            super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as mechanism could change
-            # self._coords.replace(self._atom_indices, coords)
+            super(Structure, Structure).coords.fset(self, coords)
             try:
                 if self.parent.is_symmetric() and not self._parent_is_updating:
                     self.parent._dependent_is_updating = True
@@ -1222,8 +1220,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 chain.coords = np.matmul(coords, np.transpose(rot)) + tx
                 # self.log.debug(f'Setting coords on mate chain {chain.chain_id}')
         else:  # Accept the new coords
-            super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as mechanism could change
-            # self._coords.replace(self._atom_indices, coords)
+            super(Structure, Structure).coords.fset(self, coords)
 
     def retrieve_info_from_api(self):
         """Try to set attributes about the Entity from PDB API query information
@@ -1299,8 +1296,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         elif isinstance(uniprot_ids, str):
             self._uniprot_ids = (uniprot_ids,)
         else:
-            raise ValueError(f"Couldn't set {self.uniprot_ids.__name__}. Expected Iterable[str, ...] or str, not "
-                             f"{type(uniprot_ids).__name__}")
+            raise ValueError(
+                f"Couldn't set {self.uniprot_ids.__name__}. Expected Iterable[str, ...] or str, not "
+                f"{type(uniprot_ids).__name__}")
 
     @property
     def reference_sequence(self) -> str:
@@ -2160,6 +2158,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         # center_of_mass = self.center_of_mass
         # symmetric_center_of_mass = self.center_of_mass_symmetric
         # print('symmetric_center_of_mass', symmetric_center_of_mass)
+        self.log.debug(f'Reference chain is {self.chain_id}')
         ca_coords = self.ca_coords
         for chain in self.chains[1:]:
             # System must be transformed to the origin
@@ -2172,11 +2171,11 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             try:
                 symmetry_order = int(math.pi/omega + .5)  # Round to the nearest integer
             except ZeroDivisionError:  # w is 1, omega is 0
-                # We have no axis of symmetry here
+                # No axis of symmetry here
                 self.log.warning(f"Couldn't find any symmetry order for {self.name} mate Chain {chain.chain_id}. "
                                  f"Setting symmetry_order=1")
                 symmetry_order = 1
-            self.log.debug(f'{chain.chain_id}:{symmetry_order}-fold axis {quat[0]:8f} {quat[1]:8f} {quat[2]:8f}')
+            self.log.debug(f'{chain.chain_id}:{symmetry_order}-fold axis')
             self.rotation_d[chain.chain_id] = {'sym': symmetry_order, 'axis': quat[:3]}
 
         # if not struct_file:
@@ -2217,7 +2216,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         self.max_symmetry_chain = max_chain_id
 
     def is_dihedral(self) -> bool:
-        """Report whether a structure is dihedral or not
+        """Report whether the symmetry is dihedral
 
         Returns:
             True if the Structure is dihedral, False if not
@@ -2231,13 +2230,11 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         return self.number_of_symmetry_mates / self.max_symmetry == 2
 
-    def find_dihedral_chain(self) -> Entity | None:
+    def find_dihedral_chain(self) -> str | None:
         """From the symmetric system, find a dihedral chain and return the instance
 
-        Sets:
-            self.dihedral_chain (str): The name of the chain that is dihedral
         Returns:
-            The dihedral mate chain
+            The dihedral mate chain_id
         """
         if not self.is_dihedral():
             return None
@@ -2251,7 +2248,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                     if np.allclose(data['axis'], [1, 0, 0]):
                         self.log.debug(f'The relation between {self.max_symmetry_chain} and {chain} would result in a '
                                        f'malformed .sdf file')
-                        pass  # this will not work in the make_symmdef.pl script, we should choose orthogonal y-axis
+                        pass  # This won't work in the make_symmdef.pl script, should choose orthogonal y-axis
                     else:
                         return chain
 
@@ -2357,8 +2354,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         if self.is_dihedral():  # Remove dihedral connecting (trunk) virtuals: VRT, VRT0, VRT1
             virtuals = [virtual for virtual in virtuals if len(virtual) > 1]  # subunit_
         else:
-            if '' in virtuals:
+            try:
                 virtuals.remove('')
+            except ValueError:  # '' not present
+                pass
 
         jumps_com_to_add = set(virtuals).difference(jumps_com)
         count = 0
@@ -2652,7 +2651,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
     def __copy__(self) -> Entity:  # -> Self Todo python3.11
         # self.log.debug('In Entity copy')
-        # Temporarily remove the _captain attribute for the copy
+        # Save, then remove the _captain attribute before the copy
         captain = self._captain
         del self._captain
         other = super().__copy__()
@@ -4405,7 +4404,7 @@ class SymmetricModel(Models):
     expand_matrices: np.ndarray | list[list[float]] | None
     expand_translations: np.ndarray | list[float] | None
     orthogonalization_matrix: np.ndarray
-    state_attributes: set[str] = Models.state_attributes \
+    state_attributes = Models.state_attributes \
         | {'_assembly', '_assembly_minimally_contacting', '_assembly_tree', '_asu_indices', '_asu_model_idx',
            '_center_of_mass_symmetric_entities', '_center_of_mass_symmetric_models',
            '_oligomeric_model_indices', '_symmetric_coords_by_entity', '_symmetric_coords_split',
@@ -6237,7 +6236,7 @@ class Pose(SymmetricModel, Metrics):
     """Index which indicates the Residue membership to the secondary structure type element sequence"""
     ss_type_sequence: list[str]
     """The ordered secondary structure type sequence which contains one character/secondary structure element"""
-    # state_attributes: set[str] = SymmetricModel.state_attributes | \
+    # state_attributes = SymmetricModel.state_attributes | \
     #     {'ss_sequence_indices', 'ss_type_sequence',  # These should be .clear()
     #      'fragment_metrics', 'fragment_pairs', 'fragment_queries',
     #      'interface_design_residue_numbers', 'interface_residue_numbers', 'interface_residues_by_entity_pair',
