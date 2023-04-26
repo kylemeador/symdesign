@@ -10,7 +10,8 @@ from typing import Iterable
 
 import numpy as np
 import pandas as pd
-from sqlalchemy import select
+# from memory_profiler import profile
+from sqlalchemy import inspect, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
@@ -773,6 +774,7 @@ def solve_termini_start_index_and_length(secondary_structure: str, termini: term
     return start_index, alignment_length
 
 
+# @profile
 def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
     """
 
