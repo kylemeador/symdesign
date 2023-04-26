@@ -1407,54 +1407,8 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 session.rollback()
                 number_flush_attempts = next(error_count)
                 pose_names = list(pose_name_pose_jobs.keys())
-                logger.info(f'rollback() #{number_flush_attempts}. pose_names: {pose_names}')
-                if number_flush_attempts == 2:
-                    # Try to attach existing protein_metadata.entity_id
-                    # possibly_new_uniprot_to_prot_metadata = {}
-                    possibly_new_uniprot_to_prot_metadata = defaultdict(list)
-                    # pose_name_to_prot_metadata = defaultdict(list)
-                    for pose_job in pose_jobs:
-                        for entity_data in pose_job.entity_data:
-                            possibly_new_uniprot_to_prot_metadata[entity_data.meta.uniprot_ids].append(entity_data.meta)
-                            # possibly_new_uniprot_to_prot_metadata[data.meta.uniprot_ids] = data.meta
-                            # pose_name_to_prot_metadata[pose_job.name].append(data.meta)
-
-                    all_uniprot_id_to_prot_data = sql.initialize_metadata(
-                        session, possibly_new_uniprot_to_prot_metadata)
-
-                    # logger.debug([[data.meta.entity_id for data in pose_job.entity_data] for pose_job in pose_jobs])
-                    # Get all uniprot_entities, and fix ProteinMetadata that is already loaded
-                    for pose_name, pose_job in pose_name_pose_jobs.items():
-                        for entity_data in pose_job.entity_data:
-                            entity_id = entity_data.meta.entity_id
-                            # Search the updated ProteinMetadata
-                            for protein_metadata in all_uniprot_id_to_prot_data.values():
-                                for data in protein_metadata:
-                                    if entity_id == data.entity_id:
-                                        # Set with the valid ProteinMetadata
-                                        entity_data.meta = data
-                                        break
-                                else:  # No break occurred, continue with outer loop
-                                    continue
-                                break  # outer loop too
-                            else:
-                                logger.critical(
-                                    f'Missing the {sql.ProteinMetadata.__name__} instance for {entity_data} with '
-                                    f'entity_id {entity_id}')
-                elif number_flush_attempts == 3:
-                    attrs_of_interest = \
-                        ['entity_id', 'reference_sequence', 'thermophilicity', 'symmetry_group', 'model_source']
-                    properties = []
-                    for pose_job in pose_jobs:
-                        for entity_data in pose_job.entity_data:
-                            properties.append('\t'.join([f'{attr}={getattr(entity_data.meta, attr)}'
-                                                         for attr in attrs_of_interest]))
-                    pose_job_properties = '\n\t'.join(properties)
-                    logger.critical(f"The remaining PoseJob instances have the following "
-                                    f"{sql.ProteinMetadata.__name__} properties:\n\t{pose_job_properties}")
-                    # This is another error
-                    raise
-
+                logger.info(f'rollback() #{number_flush_attempts}')
+                logger.info(f'From {len(pose_names)} pose_names:\n{sorted(pose_names)}')
                 # Find the actual pose_jobs_to_commit and place in session
                 fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.is_(project)) \
                     .where(PoseJob.name.in_(pose_names))
@@ -1463,25 +1417,60 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 # ex, design 11 is processed before design 2
                 existing_pose_names = {pose_job_.name for pose_job_ in existing_pose_jobs}
                 new_pose_names = set(pose_names).difference(existing_pose_names)
-                logger.info(f'new_pose_names {new_pose_names}')
+                logger.info(f'Found {len(new_pose_names)} new_pose_names:\n{sorted(new_pose_names)}')
                 if not new_pose_names:  # No new PoseJobs
                     return existing_pose_jobs
                 else:
-                    pose_names_ = []
-                    for name in new_pose_names:
-                        pose_name_index = pose_names.index(name)
-                        if pose_name_index != -1:
-                            pose_names_.append((pose_name_index, name))
-                    # Finally, sort all the names to ensure that the indices from the first pass are accurate
-                    # with the new set
-                    existing_indices_, pose_names = zip(*sorted(pose_names_, key=lambda name: name[0]))
-                    # poses_df_ = poses_df_.loc[pose_names, :]
-                    # residues_df_ = residues_df_.loc[pose_names, :]
-                    # logger.info(f'Removing existing docked poses from output: {", ".join(existing_pose_names)}')
-                    # logger.debug(f'Reset the pose solutions with attributes:\n'
-                    #              f'\tpose names={pose_names}\n'
-                    #              f'\texisting transform indices={existing_indices_}\n')
                     pose_jobs = [pose_name_pose_jobs[pose_name] for pose_name in new_pose_names]
+                    if number_flush_attempts == 2:
+                        # Try to attach existing protein_metadata.entity_id
+                        # possibly_new_uniprot_to_prot_metadata = {}
+                        possibly_new_uniprot_to_prot_metadata = defaultdict(list)
+                        # pose_name_to_prot_metadata = defaultdict(list)
+                        for pose_job in pose_jobs:
+                            for entity_data in pose_job.entity_data:
+                                possibly_new_uniprot_to_prot_metadata[
+                                    entity_data.meta.uniprot_ids].append(entity_data.meta)
+
+                        all_uniprot_id_to_prot_data = sql.initialize_metadata(
+                            session, possibly_new_uniprot_to_prot_metadata)
+
+                        # logger.debug([[data.meta.entity_id for data in pose_job.entity_data] for pose_job in pose_jobs])
+                        # Get all uniprot_entities, and fix ProteinMetadata that is already loaded
+                        for pose_name, pose_job in pose_name_pose_jobs.items():
+                            for entity_data in pose_job.entity_data:
+                                entity_id = entity_data.meta.entity_id
+                                # Search the updated ProteinMetadata
+                                for protein_metadata in all_uniprot_id_to_prot_data.values():
+                                    for data in protein_metadata:
+                                        if entity_id == data.entity_id:
+                                            # Set with the valid ProteinMetadata
+                                            entity_data.meta = data
+                                            break
+                                    else:  # No break occurred, continue with outer loop
+                                        continue
+                                    break  # outer loop too
+                                else:
+                                    insp = inspect(entity_data)
+                                    logger.critical(
+                                        f'Missing the {sql.ProteinMetadata.__name__} instance for {entity_data} with '
+                                        f'entity_id {entity_id}')
+                                    logger.info(f'\tThis instance is transient? {insp.transient}, pending?'
+                                                f' {insp.pending}, persistent? {insp.persistent}')
+                        logger.info(f'Found the newly added Session instances:\n{session.new}')
+                    elif number_flush_attempts == 3:
+                        attrs_of_interest = \
+                            ['id', 'entity_id', 'reference_sequence', 'thermophilicity', 'symmetry_group', 'model_source']
+                        properties = []
+                        for pose_job in pose_jobs:
+                            for entity_data in pose_job.entity_data:
+                                properties.append('\t'.join([f'{attr}={getattr(entity_data.meta, attr)}'
+                                                             for attr in attrs_of_interest]))
+                        pose_job_properties = '\n\t'.join(properties)
+                        logger.critical(f"The remaining PoseJob instances have the following "
+                                        f"{sql.ProteinMetadata.__name__} properties:\n\t{pose_job_properties}")
+                        # This is another error
+                        raise
             else:
                 break
 

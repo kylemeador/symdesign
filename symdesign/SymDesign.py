@@ -824,6 +824,8 @@ def main():
         # Write new data to the database
         with job.db.session(expire_on_commit=False) as session:
             all_uniprot_id_to_prot_data = sql.initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
+            # Finalize additions to the database
+            session.commit()
 
             # Get all uniprot_entities, and fix ProteinMetadata that is already loaded
             uniprot_entities = []
@@ -941,6 +943,8 @@ def main():
         # Write new data to the database
         with job.db.session(expire_on_commit=False) as session:
             all_uniprot_id_to_prot_data = sql.initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
+            # Finalize additions to the database
+            session.commit()
 
             # Get all uniprot_entities to set up sequence dependent resources and fix already loaded ProteinMetadata
             uniprot_entities = []
@@ -1283,6 +1287,9 @@ def main():
                     sql.initialize_metadata(session, possibly_new_uniprot_to_prot_metadata,
                                             existing_uniprot_entities=existing_uniprot_entities,
                                             existing_protein_metadata=existing_protein_metadata)
+                # Finalize additions to the database
+                session.commit()
+
                 # # Deal with new data compared to existing entries
                 # # Todo
                 # all_uniprot_id_to_prot_data = \

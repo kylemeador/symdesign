@@ -296,6 +296,9 @@ class UniProtProteinAssociation(Base):
                            lazy='selectin')
     position = Column(Integer)
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({self.uniprot_id},{self.entity_id},{self.position})'
+
 
 # Has 10 columns
 class ProteinMetadata(Base):
@@ -1016,6 +1019,8 @@ def initialize_metadata(session: Session,
         dict[tuple[str, ...], list[ProteinMetadata]] | dict:
     """Compare newly described work to the existing database and set up metadata for all described entities
 
+    Doesn't commit new instances to the database in case they are attached to existing objects
+
     Args:
         session: A currently open transaction within sqlalchemy
         possibly_new_uniprot_to_prot_data: A mapping of the possibly required UniProtID entries and their associated
@@ -1140,8 +1145,8 @@ def initialize_metadata(session: Session,
     for metadatas in uniprot_ids_to_new_metadata.values():
         all_protein_metadata.extend(metadatas)
     session.add_all(all_protein_metadata)
-    # Finalize additions to the database
-    session.commit()
+    # # Finalize additions to the database
+    # session.commit()
 
     # Now that new are found, map all UniProtIDs to all ProteinMetadata
     # uniprot_id_to_metadata = {protein_data.uniprot_ids: protein_data
