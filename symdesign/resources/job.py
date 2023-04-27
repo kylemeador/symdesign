@@ -564,7 +564,7 @@ class JobResources:
         if _filter == list():
             # --filter was provided, but as a boolean-esq. Query the user once there is a df
             self.filter = True
-        elif _filter is not None or _filter_file is not None:
+        elif _filter or _filter_file is not None:
             self.filter = flags.parse_filters(_filter, file=_filter_file)
         else:
             self.filter = None
@@ -573,7 +573,7 @@ class JobResources:
         if _weight == list():
             # --weight was provided, but as a boolean-esq. Query the user once there is a df
             self.weight = True
-        elif _weight is not None or _weight_file is not None:
+        elif _weight or _weight_file is not None:
             self.weight = flags.parse_weights(_weight, file=_weight_file)
         else:
             self.weight = None
