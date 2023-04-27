@@ -659,21 +659,22 @@ def bend(model: Model, joint_index: int, samples: int, direction: termini_litera
     return bent_coords
 
 
-def prepare_alignment_motif(model: Structure, model_start: int, alignment_length: int,
-                            termini: termini_literal, extension_length: int = 0) -> tuple[Structure, Chain]:
+def prepare_alignment_motif(model: Structure, model_start: int, motif_length: int,
+                            termini: termini_literal, extension_length: int = 0, alignment_length: int = 5) -> tuple[Structure, Chain]:
     """From a Structure, select helices of interest from a termini of the model and separate the model into the
     original model and the selected helix
 
     Args:
         model: The model to acquire helices from
         model_start: The residue index to start motif selection at
-        alignment_length: The length of the helical motif
+        motif_length: The length of the helical motif
         termini: The termini to utilize
         extension_length: How many residues should the helix be extended
+        alignment_length: The number of residues used to calculation overlap of the target to the ideal helix
     Returns:
         The original model without the selected helix and the selected helix
     """
-    model_residue_indices = list(range(model_start, model_start + alignment_length))
+    model_residue_indices = list(range(model_start, model_start + motif_length))
     helix_residues = model.get_residues(indices=model_residue_indices)
     helix_model = Chain.from_residues(helix_residues)
 
