@@ -1036,7 +1036,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
         # Remove those that are not available
         for termini in reversed(desired_termini):
-            if not entity1.is_termini_helical(termini):
+            if not entity1.is_termini_helical(termini, window=alignment_length):
                 logger.error(f"The specified termini '{termini}' isn't helical")
                 desired_termini.pop(desired_termini.index(termini))
 
@@ -1130,7 +1130,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
             for termini in desired_termini:
                 # Check if the desired termini in the aligned structure is available
                 align_termini = opposite_termini[termini]
-                if entity2.is_termini_helical(align_termini):
+                if entity2.is_termini_helical(align_termini, window=alignment_length):
                     if desired_aligned_termini and align_termini == desired_aligned_termini:
                         # This is the correct termini, find the necessary indices
                         termini_to_align.append(termini)

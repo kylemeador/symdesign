@@ -5248,6 +5248,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             raise ValueError(
                 f"The termini value {termini} isn't allowed. Must indicate one of {get_args(termini_literal)}")
 
+        print(term_window)
         if 'H' * window in term_window:
             return True  # 1
         else:
