@@ -912,7 +912,7 @@ def helix_bending(job: pose.PoseJob):
         out_dir = job.pose_directory
 
     joint_residue = model_to_select.residue(job.job.joint_residue)
-    bent_coords = align.bend(job.pose, joint_residue.index, job.job.sample_number, job.job.direction)
+    bent_coords = align.bend(job.pose, joint_residue, job.job.direction, samples=job.job.sample_number)
 
     output_number = count(1)
     for bent_idx, coords in enumerate(bent_coords, 1):
