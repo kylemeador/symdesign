@@ -4518,24 +4518,25 @@ class SymmetricModel(Models):
                     self.sym_entry = sym_entry  # Attach as this is set up properly
             else:  # Try to solve using integer and any info in symmetry. Fails upon non Nanohedra chiral space-group...
                 self.sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(sym_entry=sym_entry, symmetry=symmetry)
-        elif symmetry:  # Either provided or solved from cryst_record
-            # Existing sym_entry takes precedence since the user specified it
-            try:  # Try to set from Nanohedra... Fails with non-Nanohedra chiral space-groups
-                if not self.sym_entry:
-                    self.sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=symmetry)
-            except ValueError as error:  # Let's print the error and move on since this is likely just parsed
-                logger.warning(str(error))
-                self.symmetry = symmetry
-                # Not sure if cryst record can differentiate between 2D and 3D. 3D will be wrong if actually 2D
-                self.dimension = 2 if symmetry in utils.symmetry.layer_group_cryst1_fmt_dict else 3
-                try:
-                    self.number_of_symmetry_mates = getattr(self.sym_entry, 'number_of_operations')
-                except AttributeError:  # This is a lazy/incomplete implementation
-                    raise SymmetryError(f'The method taken in {self.set_symmetry.__name__} is naive, especially being '
-                                        "depending on SymEntry and can't be completed with the specified options:\n"
-                                        f'symmetry={symmetry}, uc_dimensions={uc_dimensions}, and '
-                                        f'dimension={self.dimension}\n'
-                                        f'See the warning {error} for more diagnosis...')
+        # Todo this may be needed if wanting crystal symmetries
+        # elif symmetry:  # Either provided or solved from cryst_record
+        #     # Existing sym_entry takes precedence since the user specified it
+        #     try:  # Try to set from Nanohedra... Fails with non-Nanohedra chiral space-groups
+        #         if not self.sym_entry:
+        #             self.sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=symmetry)
+        #     except ValueError as error:  # Let's print the error and move on since this is likely just parsed
+        #         logger.warning(str(error))
+        #         self.symmetry = symmetry
+        #         # Not sure if cryst record can differentiate between 2D and 3D. 3D will be wrong if actually 2D
+        #         self.dimension = 2 if symmetry in utils.symmetry.layer_group_cryst1_fmt_dict else 3
+        #         try:
+        #             self.number_of_symmetry_mates = getattr(self.sym_entry, 'number_of_operations')
+        #         except AttributeError:  # This is a lazy/incomplete implementation
+        #             raise SymmetryError(f'The method taken in {self.set_symmetry.__name__} is naive, especially being '
+        #                                 "depending on SymEntry and can't be completed with the specified options:\n"
+        #                                 f'symmetry={symmetry}, uc_dimensions={uc_dimensions}, and '
+        #                                 f'dimension={self.dimension}\n'
+        #                                 f'See the warning {error} for more diagnosis...')
         else:  # No symmetry was provided
             # Since this is now subclassed by Pose, lets ignore this error since self.symmetry is explicitly False
             # raise utils.SymmetryError('A SymmetricModel was initiated without any symmetry! Ensure you specify the
