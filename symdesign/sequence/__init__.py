@@ -107,6 +107,10 @@ alphabet_type_to_alphabet = dict(zip(alphabet_types, alphabets))
 alignment_programs_literal = Literal['hhblits', 'psiblast']
 alignment_programs: tuple[str, ...] = get_args(alignment_programs_literal)
 profile_types = Literal['evolutionary', 'fragment', '']
+optimization_species_literal = Literal[
+    'b_subtilis', 'c_elegans', 'd_melanogaster', 'e_coli', 'g_gallus', 'h_sapiens', 'm_musculus',
+    'm_musculus_domesticus', 's_cerevisiae']
+# optimization_species = get_args(optimization_species_literal)
 
 
 class LodDict(TypedDict):
@@ -576,7 +580,7 @@ def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[s
     return None
 
 
-def optimize_protein_sequence(sequence: str, species: str = 'e_coli') -> str:
+def optimize_protein_sequence(sequence: str, species: optimization_species_literal = 'e_coli') -> str:
     """Optimize a sequence for expression in a desired organism
 
     Args:
@@ -589,18 +593,21 @@ def optimize_protein_sequence(sequence: str, species: str = 'e_coli') -> str:
     species = species.lower()
     try:
         from symdesign.third_party.DnaChisel.dnachisel import reverse_translate, DnaOptimizationProblem, \
-            CodonOptimize,EnforceGCContent, AvoidHairpins, AvoidPattern, UniquifyAllKmers, AvoidRareCodons, \
+            CodonOptimize, EnforceGCContent, AvoidHairpins, AvoidPattern, UniquifyAllKmers, AvoidRareCodons, \
             EnforceTranslation
     except ModuleNotFoundError:
-        raise RuntimeError(f"Can't {optimize_protein_sequence.__name__} as the dependency DnaChisel is not available")
+        raise RuntimeError(
+            f"Can't {optimize_protein_sequence.__name__} as the dependency DnaChisel is not available")
 
     try:
         dna_sequence = reverse_translate(sequence)
     except KeyError as error:
-        raise KeyError(f'Warning an invalid character was found in your protein sequence: {error}')
+        raise KeyError(
+            f'Warning an invalid character was found in the protein sequence: {error}')
 
-    problem = DnaOptimizationProblem(sequence=dna_sequence,  # max_random_iters=20000,
-                                     objectives=[CodonOptimize(species=species)], logger=None,
+    problem = DnaOptimizationProblem(sequence=dna_sequence, logger=None,  # max_random_iters=20000,
+                                     objectives=[CodonOptimize(species=species)],
+                                     # method='harmonize_rca')] <- useful for folding speed when original organism known
                                      constraints=[EnforceGCContent(mini=0.25, maxi=0.65),  # twist required
                                                   EnforceGCContent(mini=0.35, maxi=0.65, window=50),  # twist required
                                                   AvoidHairpins(stem_size=20, hairpin_window=48),  # efficient translate
@@ -613,7 +620,7 @@ def optimize_protein_sequence(sequence: str, species: str = 'e_coli') -> str:
                                                   UniquifyAllKmers(20),  # twist required
                                                   AvoidRareCodons(0.08, species=species),
                                                   EnforceTranslation(),
-    #                                             EnforceMeltingTemperature(mini=10, maxi=62, location=(1, seq_length)),
+                                                  # EnforceMeltingTemperature(mini=10,maxi=62,location=(1, seq_length)),
                                                   ])
 
     # Solve constraints and solve in regard to the objective

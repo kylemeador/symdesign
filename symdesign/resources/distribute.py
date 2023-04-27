@@ -54,6 +54,7 @@ def is_sbatch_available() -> bool:
 # Those jobs having a scale of 2 utilize two threads. Therefore, two commands are selected from a supplied commands list
 # and are launched inside a python environment once the SLURM controller starts a SBATCH array job
 protocols_literal = Literal[
+    'align-helices',
     'refine',
     'interface-design',
     'design',
@@ -73,7 +74,7 @@ protocols_literal = Literal[
 ]
 protocols: tuple[str, ...] = get_args(protocols_literal)
 # Cluster Dependencies and Multiprocessing
-processes = (2, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 2, 1)
+processes = (1, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 2, 1)
 process_scale = dict(zip(protocols, processes))
 
 # process_scale = {
@@ -93,6 +94,7 @@ process_scale = dict(zip(protocols, processes))
 #     'bmdca': 2}
 
 sbatch_templates_tuple = (
+    os.path.join(sbatch_template_dir, flags.refine),
     os.path.join(sbatch_template_dir, flags.refine),
     os.path.join(sbatch_template_dir, flags.interface_design),
     os.path.join(sbatch_template_dir, flags.design),

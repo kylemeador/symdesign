@@ -681,13 +681,7 @@ def main():
     # ---------------------------------------------------
     #  Check for tool request
     # ---------------------------------------------------
-    registered_tools = [flags.multicistronic, flags.update_db]  # , flags.distribute]
-    # Todo register these tools!
-    #  ['concatenate-files', 'list-overlap', 'retrieve-oligomers', 'retrieve-pdb-codes']
-    decoy_modules = ['input', 'output', 'options', 'residue-selector']
-    symdesign_tools = registered_tools + decoy_modules
-    #     flags.input, flags.output, flags.options, flags.residue_selector]
-    if job.module in symdesign_tools:
+    if job.module in flags.available_tools:
         if job.module == flags.multicistronic:
             protocols.create_mulitcistronic_sequences(args)
         # elif job.module == flags.distribute:
@@ -1697,12 +1691,20 @@ def main():
     terminate(results=results)
 
 
-def app():
+def app(*args):
     try:
         main()
     except KeyboardInterrupt:
-        print('\nRun Ended By KeyboardInterrupt\n')
+        print('\nJob Ended By KeyboardInterrupt\n')
         sys.exit(1)
+#
+#
+# def notebook(*args):
+#     try:
+#         main()
+#     except KeyboardInterrupt:
+#         print('\nJob Ended By KeyboardInterrupt\n')
+#         sys.exit(1)
 
 
 if __name__ == '__main__':
