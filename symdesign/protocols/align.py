@@ -993,9 +993,9 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
         pose_job.source_path = pose_job.pose_path
         pose_job.pose = None
         if job.output_to_directory:
-            logger.info(f'Alignment {alignment_numbers} output -> {pose_job.output_pose_path}')
+            logger.info(f'Alignment output -> {pose_job.output_pose_path}')
         else:
-            logger.info(f'Alignment {alignment_numbers} output -> {pose_job.pose_path}')
+            logger.info(f'Alignment output -> {pose_job.pose_path}')
 
         pose_jobs.append(pose_job)
 
@@ -1331,7 +1331,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             end_residue2 = transformed_entity2.c_terminal_residue
 
                         # Get the new fusion name
-                        alignment_numbers = f'{start_residue1.number}-{end_residue1.number}/' \
+                        alignment_numbers = f'{start_residue1.number}-{end_residue1.number}+{extension_str}/' \
                                             f'{start_residue2.number}-{end_residue2.number}'
                         fusion_name = f'{ordered_entity1.name}_{start_residue1.number}-' \
                             f'{end_residue1.number}_fused{extension_str}-to' \
@@ -1419,11 +1419,11 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             for bend_idx, coords in enumerate(bent_coords, 1):
                                 pose.coords = coords
                                 if pose.is_clash(warn=False, silence_exceptions=True):
-                                    logger.info(f'Alignment {alignment_numbers} fusion, bend {bend_idx} clashes')
+                                    logger.info(f'Alignment {fusion_name}, bend {bend_idx} clashes')
                                     continue
                                 if pose.is_symmetric() and not job.design.ignore_symmetric_clashes and \
                                         pose.symmetric_assembly_is_clash(warn=False):
-                                    logger.info(f'Alignment {alignment_numbers} fusion, bend {bend_idx} has '
+                                    logger.info(f'Alignment {fusion_name}, bend {bend_idx} has '
                                                 f'symmetric clashes')
                                     continue
 
@@ -1431,12 +1431,12 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                         else:
                             if not job.design.ignore_pose_clashes and \
                                     pose.is_clash(warn=False, silence_exceptions=True):
-                                logger.info(f'Alignment {alignment_numbers} fusion clashes')
+                                logger.info(f'Alignment {fusion_name} clashes')
                                 continue
 
                             if pose.is_symmetric() and not job.design.ignore_symmetric_clashes and \
                                     pose.symmetric_assembly_is_clash(warn=False):
-                                logger.info(f'Alignment {alignment_numbers} fusion has symmetric clashes')
+                                logger.info(f'Alignment {fusion_name} has symmetric clashes')
                                 continue
 
                             output_pose(name)
