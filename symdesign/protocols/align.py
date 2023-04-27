@@ -21,6 +21,7 @@ from symdesign.structure.base import Residue, SS_HELIX_IDENTIFIERS, Structure, t
 from symdesign.structure.coords import superposition3d
 from symdesign.structure.model import Chain, Entity, Model, Pose
 from symdesign.structure.utils import chain_id_generator, DesignError
+from symdesign.utils import types
 from symdesign.utils.SymEntry import SymEntry, parse_symmetry_to_sym_entry
 putils = utils.path
 logger = logging.getLogger(__name__)

@@ -17,7 +17,7 @@ from sqlalchemy.orm import column_property, declarative_base, relationship, Sess
 
 from . import config
 from .query.utils import UKB
-from symdesign.utils import path as putils, SymDesignException, symmetry
+from symdesign.utils import path as putils, SymDesignException, symmetry, types
 
 
 # class Base(DeclarativeBase):  # Todo sqlalchemy 2.0
@@ -426,7 +426,7 @@ class EntityData(Base):
         return self.meta.entity_info
 
     @property
-    def transformation(self) -> dict:  # transformation_mapping
+    def transformation(self) -> types.TransformationMapping | dict:
         try:
             return self.transform.transformation
         except AttributeError:  # self.transform is probably None
@@ -482,7 +482,7 @@ class EntityTransform(Base):
     external_translation_z = Column(Float, default=0.)
 
     @property
-    def transformation(self) -> dict:  # Todo -> transformation_mapping:
+    def transformation(self) -> types.TransformationMapping | dict:
         """Provide the names of all Entity instances mapped to the Pose"""
         # Todo hook in self.rotation_x, self.rotation_y
         if self.setting_matrix is None:
@@ -505,7 +505,7 @@ class EntityTransform(Base):
         )
 
     @transformation.setter
-    def transformation(self, transform):  # Todo : transformation_mapping):
+    def transformation(self, transform: types.TransformationMapping):
         if any((self.rotation_x, self.rotation_y, self.rotation_z,
                 self.internal_translation_x, self.internal_translation_y, self.internal_translation_z,
                 self.setting_matrix,
@@ -516,8 +516,8 @@ class EntityTransform(Base):
 
         if not isinstance(transform, dict):
             raise ValueError(
-                "The attribute 'transformation' must be a Sequence of transformation_mapping, not "
-                f'{type(transform[0]).__name__}')
+                f"The attribute 'transformation' must be a {types.TransformationMapping.__name__}, not "
+                f'{type(transform).__name__}')
 
         for operation_type, operation in transform.items():
             if operation is None:

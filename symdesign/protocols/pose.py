@@ -44,7 +44,6 @@ from symdesign.utils import all_vs_all, condensed_to_square, InputError, large_c
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
 
 # Globals
-transformation_mapping: dict[str, list[float] | list[list[float]] | np.ndarray]
 protocol_logger = logging.getLogger(__name__)
 pose_logger = start_log(name='pose', handler_level=3, propagate=True)
 zero_offset = 1
@@ -478,7 +477,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     _directives: list[dict[int, str]]
     _sym_entry: SymEntry
     # _entity_names: list[str]
-    # _pose_transformation: list[transformation_mapping]
+    # _pose_transformation: list[types.TransformationMapping]
     _job_kwargs: dict[str, Any]
     _source: AnyStr
     # entity_data: list[EntityData]  # DB
@@ -695,7 +694,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
     def __init__(self, name: str = None, project: str = None, source_path: AnyStr = None, protocol: str = None,
                  pose_source: sql.DesignData = None,
-                 # pose_transformation: Sequence[transformation_mapping] = None,
+                 # pose_transformation: Sequence[types.TransformationMapping] = None,
                  # entity_metadata: list[sql.EntityData] = None,
                  # entity_names: Sequence[str] = None,
                  # specific_designs: Sequence[str] = None, directives: list[dict[int, str]] = None,
@@ -910,7 +909,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         return dict(entity_info=entity_info, transformations=transformations, **self.job_kwargs)
 
     # @property
-    # def pose_transformation(self) -> list[transformation_mapping]:
+    # def pose_transformation(self) -> list[types.TransformationMapping]:
     #     """Provide the transformation parameters for each Entity in the PoseData Pose
     #
     #     Returns:
@@ -925,16 +924,16 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     #         return self._pose_transformation
     #
     # @pose_transformation.setter
-    # def pose_transformation(self, transform: Sequence[transformation_mapping]):
+    # def pose_transformation(self, transform: Sequence[types.TransformationMapping]):
     #     if all(isinstance(operation_set, dict) for operation_set in transform):
     #         self._pose_transformation = self.info['pose_transformation'] = list(transform)
     #     else:
     #         try:
-    #             raise ValueError(f'The attribute pose_transformation must be a Sequence of '
-    #                              f'{transformation_mapping.__name__}, not {type(transform[0]).__name__}')
+    #             raise ValueError(f'The attribute pose_transformation must be a Sequence'
+    #                              f'[types.TransformationMapping], not {type(transform[0]).__name__}')
     #         except TypeError:  # Not a Sequence
     #             raise TypeError(f'The attribute pose_transformation must be a Sequence of '
-    #                             f'{transformation_mapping.__name__}, not {type(transform).__name__}')
+    #                             f'[{types.TransformationMapping.__name__}], not {type(transform).__name__}')
 
     @property
     def design_selector(self) -> dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict:

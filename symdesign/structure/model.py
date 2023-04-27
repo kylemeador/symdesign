@@ -43,6 +43,7 @@ import symdesign.third_party.alphafold.alphafold.data.msa_pairing as af_msa_pair
 import symdesign.third_party.alphafold.alphafold.data.pipeline as af_pipeline
 import symdesign.third_party.alphafold.alphafold.data.pipeline_multimer as af_pipeline_multimer
 from symdesign.third_party.alphafold.alphafold.notebooks.notebook_utils import empty_placeholder_template_features
+from symdesign.utils import types
 
 putils = utils.path
 
@@ -50,7 +51,6 @@ putils = utils.path
 logger = logging.getLogger(__name__)
 zero_offset = 1
 seq_res_len = 52
-transformation_mapping: dict[str, list[float] | list[list[float]] | np.ndarray]
 
 
 def softmax(x: np.ndarray) -> np.ndarray:
@@ -1026,7 +1026,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         name: str = None - The EntityID. Typically, EntryID_EntityInteger is used to match PDB API identifier format
     """
     _captain: Entity | None
-    _chain_transforms: list[transformation_mapping] | list
+    _chain_transforms: list[types.TransformationMapping] | list
     """The specific transformation operators to generate all mate chains of the Oligomer"""
     _chains: list | list[Entity]
     _oligomer: Model  # Todo list[Entity] | Structures:
@@ -1623,7 +1623,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             rotation2: The second rotation to apply, expected array shape (3, 3)
             translation2: The second translation to apply, expected array shape (3,)
         Sets:
-            self._chain_transforms (list[transformation_mapping])
+            self._chain_transforms (list[types.TransformationMapping])
             self.number_of_symmetry_mates (int)
             self.symmetry (str)
         """
@@ -4403,7 +4403,7 @@ class SymmetricModel(Models):
     _symmetric_coords_by_entity: list[np.ndarray]
     _symmetric_coords_split: list[np.ndarray]
     _symmetric_coords_split_by_entity: list[list[np.ndarray]]
-    _transformation: list[transformation_mapping] | list[dict]
+    _transformation: list[types.TransformationMapping] | list[dict]
     _uc_dimensions: tuple[float, float, float, float, float, float] | None
     deorthogonalization_matrix: np.ndarray
     expand_matrices: np.ndarray | list[list[float]] | None
@@ -4430,7 +4430,7 @@ class SymmetricModel(Models):
         return cls(models=assembly, sym_entry=sym_entry, symmetry=symmetry, **kwargs)
 
     def __init__(self, sym_entry: utils.SymEntry.SymEntry | int = None, symmetry: str = None,
-                 transformations: list[transformation_mapping] = None, uc_dimensions: list[float] = None,
+                 transformations: list[types.TransformationMapping] = None, uc_dimensions: list[float] = None,
                  expand_matrices: np.ndarray | list = None, surrounding_uc: bool = True, **kwargs):
         """
 
@@ -4455,7 +4455,7 @@ class SymmetricModel(Models):
 
         self._set_up_symmetry(transformations=transformations, surrounding_uc=surrounding_uc)
 
-    def _set_up_symmetry(self, transformations: list[transformation_mapping] = None, surrounding_uc: bool = True):
+    def _set_up_symmetry(self, transformations: list[types.TransformationMapping] = None, surrounding_uc: bool = True):
         """Ensure that the symmetric system is set up properly
 
         Args:
@@ -4498,7 +4498,7 @@ class SymmetricModel(Models):
             uc_dimensions: Whether the symmetric coords should be generated from the ASU coords
             expand_matrices: A set of custom expansion matrices
         Keyword Args:
-            transformations: list[transformation_mapping] = None - The entity_transformations operations that reproduce
+            transformations: list[types.TransformationMapping] = None - The entity_transformations operations that reproduce
                 the individual oligomers
             surrounding_uc: bool = True - Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
@@ -5644,9 +5644,9 @@ class SymmetricModel(Models):
                 #     #     dummy = True
 
     @property
-    def entity_transformations(self) -> list[transformation_mapping] | list:
+    def entity_transformations(self) -> list[types.TransformationMapping] | list:
         """The transformation parameters for each Entity in the SymmetricModel. Each entry has the
-        transformation_mapping type
+        TransformationMapping type
         """
         try:
             return self._transformation
@@ -5655,10 +5655,10 @@ class SymmetricModel(Models):
             return self._transformation
     #
     # @entity_transformations.setter
-    # def entity_transformations(self, transformations: list[transformation_mapping]):
+    # def entity_transformations(self, transformations: list[types.TransformationMapping]):
     #     self._transformation = transformations
 
-    def _assign_pose_transformation(self) -> list[transformation_mapping] | list[dict]:
+    def _assign_pose_transformation(self) -> list[types.TransformationMapping] | list[dict]:
         """Using the symmetry entry and symmetric material, find the specific transformations necessary to establish the
         individual symmetric components in the global symmetry
 
@@ -6064,7 +6064,7 @@ class SymmetricModel(Models):
             # If imperfect symmetry, adapting below may provide some benefit
             # self._process_model(entities=entities, chains=False, **kwargs)
 
-    def make_oligomers(self, transformations: list[transformation_mapping] = None):
+    def make_oligomers(self, transformations: list[types.TransformationMapping] = None):
         """Generate oligomers for each Entity in the SymmetricModel
 
         Args:
