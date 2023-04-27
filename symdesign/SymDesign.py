@@ -830,10 +830,11 @@ def main():
                     if data.model_source is None:
                         logger.info(f'{data}.model_source is None')
                         for uniprot_ids, load_protein_metadata in possibly_new_uniprot_to_prot_metadata_copy.items():
-                            if data.entity_id == load_protein_metadata.entity_id:
-                                data.model_source = load_protein_metadata.model_source
-                                logger.info(
-                                    f'Set existing {data}.model_source to new {load_protein_metadata}.model_source')
+                            for load_data in load_protein_metadata:
+                                if data.entity_id == load_data.entity_id:
+                                    data.model_source = load_data.model_source
+                                    logger.info(
+                                        f'Set existing {data}.model_source to new {load_data}.model_source')
                     uniprot_entities.extend(data.uniprot_entities)
 
             if job.update_metadata:
@@ -949,10 +950,11 @@ def main():
                     if data.model_source is None:
                         logger.info(f'{data}.model_source is None')
                         for uniprot_ids, load_protein_metadata in possibly_new_uniprot_to_prot_metadata_copy.items():
-                            if data.entity_id == load_protein_metadata.entity_id:
-                                data.model_source = load_protein_metadata.model_source
-                                logger.info(
-                                    f'Set existing {data}.model_source to new {load_protein_metadata}.model_source')
+                            for load_data in load_protein_metadata:
+                                if data.entity_id == load_data.entity_id:
+                                    data.model_source = load_data.model_source
+                                    logger.info(
+                                        f'Set existing {data}.model_source to new {load_data}.model_source')
                     uniprot_entities.extend(data.uniprot_entities)
 
             # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
