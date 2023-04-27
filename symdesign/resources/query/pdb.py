@@ -1895,7 +1895,10 @@ def thermophilicity_from_entity_json(entity_json: dict[str, Any]) -> float:
         else:
             thermophilic_source.append(0)
 
-    return sum(thermophilic_source) / len(thermophilic_source)
+    if thermophilic_source:
+        return sum(thermophilic_source) / len(thermophilic_source)
+    else:
+        return 0.
 
 
 def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dict]:
