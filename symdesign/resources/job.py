@@ -334,43 +334,43 @@ class JobResources:
         self.api_db.job = self
         self.structure_db.job = self
         self.fragment_db: structure.fragment.db.FragmentDatabase | None = None
-        if kwargs.get('database'):
-            default_db = f'sqlite:///{os.path.join(self.data, f"{putils.program_name}.db")}'
-            self.db_config = os.path.join(self.data, 'db.cfg')
-            database_url = kwargs.get('database_url')
-            if initial:
-                if database_url is None:
-                    database_url = default_db
-                db_cfg = {'url': database_url}
-                with open(self.db_config, 'w') as f:
-                    json.dump(db_cfg, f)
-            else:
-                if os.path.exists(self.db_config):
-                    with open(self.db_config, 'r') as f:
-                        db_cfg = json.load(f)
-                    if database_url is not None:
-                        raise InputError(
-                            f"The --database-url '{database_url}' can't be used as this {putils.program_output} "
-                            f"was already initialized with the url='{db_cfg['url']}")
-                    else:
-                        database_url = db_cfg.get('url')  # , default_db)
-                else:  # This should always exist
-                    database_url = default_db
+        # if kwargs.get('database'):
+        default_db = f'sqlite:///{os.path.join(self.data, f"{putils.program_name}.db")}'
+        self.db_config = os.path.join(self.data, 'db.cfg')
+        database_url = kwargs.get('database_url')
+        if initial:
+            if database_url is None:
+                database_url = default_db
+            db_cfg = {'url': database_url}
+            with open(self.db_config, 'w') as f:
+                json.dump(db_cfg, f)
+        else:
+            if os.path.exists(self.db_config):
+                with open(self.db_config, 'r') as f:
+                    db_cfg = json.load(f)
+                if database_url is not None:
+                    raise InputError(
+                        f"The --database-url '{database_url}' can't be used as this {putils.program_output} "
+                        f"was already initialized with the url='{db_cfg['url']}")
+                else:
+                    database_url = db_cfg.get('url')  # , default_db)
+            else:  # This should always exist
+                database_url = default_db
 
-            self.debug_db = kwargs.get('debug_db')
-            self.db: DBInfo = DBInfo(database_url, echo=self.debug_db)
-            if initial:  # if not os.path.exists(self.internal_db):
-                # Emit CREATE TABLE DDL
-                sql.Base.metadata.create_all(self.db.engine)
-            self.load_to_db = kwargs.get('load_to_db')
-            self.reset_db = kwargs.get('reset_db')
-            if self.reset_db:
-                # All tables are deleted
-                sql.Base.metadata.drop_all(self.db.engine)
-                # Emit CREATE TABLE DDL
-                sql.Base.metadata.create_all(self.db.engine)
-        else:  # When --no-database is provided as a flag
-            self.db = None
+        self.debug_db = kwargs.get('debug_db')
+        self.db: DBInfo = DBInfo(database_url, echo=self.debug_db)
+        if initial:  # if not os.path.exists(self.internal_db):
+            # Emit CREATE TABLE DDL
+            sql.Base.metadata.create_all(self.db.engine)
+        self.load_to_db = kwargs.get('load_to_db')
+        self.reset_db = kwargs.get('reset_db')
+        if self.reset_db:
+            # All tables are deleted
+            sql.Base.metadata.drop_all(self.db.engine)
+            # Emit CREATE TABLE DDL
+            sql.Base.metadata.create_all(self.db.engine)
+        # else:  # When --no-database is provided as a flag
+        #     self.db = None
 
         # PoseJob initialization flags
         self.init = Init.from_flags(**kwargs)
