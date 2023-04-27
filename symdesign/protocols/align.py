@@ -1170,7 +1170,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
                 truncated_entity1, helix_model = prepare_alignment_motif(
                     entity1, target_start_index, length_of_target_helix,
-                    termini=termini, extension_length=extension_length, alignment_length=alignment_length)
+                    termini=termini, extension_length=extension_length)
                 # Rename the models to enable fusion
                 chain_id = truncated_entity1.chain_id
                 helix_model.chain_id = chain_id

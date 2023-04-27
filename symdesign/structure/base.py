@@ -4553,10 +4553,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                       f"residues. New terminal "
                       f"secondary structure:\n"
                       f"\told n='{'-' * remove_x_nterm_residues}"
-                      f"{secondary_structure[remove_x_nterm_residues:remove_x_nterm_residues + 10]}', "
-                      f"\tnew n='{secondary_structure[:remove_x_nterm_residues + 10]}', "
-                      f"\told c='{secondary_structure[c_term_index - 10:c_term_index]}{'-' * remove_x_cterm_residues}'"
-                      f"\tnew c='{secondary_structure[c_term_index - 10:]}'"
+                      f"{secondary_structure[remove_x_nterm_residues:remove_x_nterm_residues + 10]}'\n"
+                      f"\tnew n='{secondary_structure[:remove_x_nterm_residues + 10]}'\n"
+                      f"\told c='{secondary_structure[c_term_index - 10:c_term_index]}{'-' * remove_x_cterm_residues}'\n"
+                      f"\tnew c='{secondary_structure[c_term_index - 10:]}'\n"
                       )
         residues = self.residues
         self.delete_residues(residues[:remove_x_nterm_residues])
@@ -4611,10 +4611,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                       f"residues. New terminal "
                       f"secondary structure:\n"
                       f"\told n='{'-' * remove_x_nterm_residues}"
-                      f"{secondary_structure[remove_x_nterm_residues:remove_x_nterm_residues + 10]}', "
-                      f"\tnew n='{secondary_structure[:remove_x_nterm_residues + 10]}', "
-                      f"\told c='{secondary_structure[c_term_index - 10:c_term_index]}{'-' * remove_x_cterm_residues}'"
-                      f"\tnew c='{secondary_structure[c_term_index - 10:]}'"
+                      f"{secondary_structure[remove_x_nterm_residues:remove_x_nterm_residues + 10]}'\n"
+                      f"\tnew n='{secondary_structure[:remove_x_nterm_residues + 10]}'\n"
+                      f"\told c='{secondary_structure[c_term_index - 10:c_term_index]}{'-' * remove_x_cterm_residues}'\n"
+                      f"\tnew c='{secondary_structure[c_term_index - 10:]}'\n"
                       )
         residues = self.residues
         self.delete_residues(residues[:remove_x_nterm_residues])
@@ -5248,7 +5248,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             raise ValueError(
                 f"The termini value {termini} isn't allowed. Must indicate one of {get_args(termini_literal)}")
 
-        print(term_window)
         if 'H' * window in term_window:
             return True  # 1
         else:
