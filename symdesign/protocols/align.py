@@ -869,8 +869,8 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
     desired_target_start_index = desired_target_alignment_length = None
     desired_aligned_start_index = desired_aligned_alignment_length = None
 
-    maximum_helix_alignment_length = 15
-    maximum_extension_length = 10
+    # maximum_helix_alignment_length = 15
+    # maximum_extension_length = 10
     default_alignment_length = 5
     # Todo make a job.alignment_length parameter?
     alignment_length = default_alignment_length
@@ -1204,11 +1204,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     """The length of the target helix"""
 
                 if job.extension_length:
-                    if job.extension_length > maximum_extension_length:
-                        logger.warning(f'The current maximum length for {flags.format_args(flags.extend_args)}'
-                                       f'is {maximum_extension_length}. Setting to {maximum_extension_length} instead '
-                                       f'of {job.extension_length}')
-                    extension_length = min(job.extension_length, maximum_extension_length)
+                    extension_length = job.extension_length
                     # Add the extension length to the residue window if an ideal helix was added
                     # length_of_helix_model = length_of_target_helix + extension_length
                 else:

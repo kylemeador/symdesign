@@ -3977,10 +3977,16 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """
         self.log.debug(f'Adding ideal helix to {termini}-terminus of {self.name}')
 
-        max_length = 10
-        if length > max_length:
-            raise ValueError(
-                f"{self.add_ideal_helix.__name__}: length can't be greater than {max_length}")
+        maximum_extension_length = 10
+        if length > maximum_extension_length:
+            number_of_iterations, length = divmod(length, maximum_extension_length)
+            addition_count = count()
+            while next(addition_count) != number_of_iterations:
+                self.add_ideal_helix(termini=termini, length=10)
+            # raise ValueError(
+            #     f"{self.add_ideal_helix.__name__}: length can't be greater than {maximum_extension_length}")
+        elif length < 1:
+            return
 
         alpha_helix_15_struct = Structure.from_atoms(alpha_helix_15_atoms)
 
