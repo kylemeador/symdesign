@@ -3968,12 +3968,13 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """Retrieve the Residue from the c-termini"""
         return self.residues[-1]
 
-    def add_ideal_helix(self, termini: termini_literal = 'n', length: int = 5):
+    def add_ideal_helix(self, termini: termini_literal = 'n', length: int = 5, alignment_length: int = 5):
         """Add an ideal helix to a termini given by a certain length
         
         Args:
             termini: The termini to add the ideal helix to
             length: The length of the addition, where viable values are [1-10] residues additions
+            alignment_length: The number of residues used to calculation overlap of the target to the ideal helix
         """
         self.log.debug(f'Adding ideal helix to {termini}-terminus of {self.name}')
 
@@ -3990,15 +3991,14 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         alpha_helix_15_struct = Structure.from_atoms(alpha_helix_15_atoms)
 
-        align_length = 5
         if termini == 'n':
             residue = self.n_terminal_residue
             residue_index = residue.index
             fixed_coords = self.get_coords_subset(
-                indices=list(range(residue_index, residue_index + align_length)), dtype='backbone')
+                indices=list(range(residue_index, residue_index + alignment_length)), dtype='backbone')
 
             ideal_end_index = alpha_helix_15_struct.c_terminal_residue.index + 1
-            ideal_start_index = ideal_end_index - align_length
+            ideal_start_index = ideal_end_index - alignment_length
             moving_coords = alpha_helix_15_struct.get_coords_subset(
                 indices=list(range(ideal_start_index, ideal_end_index)), dtype='backbone')
             rmsd, rot, tx = superposition3d(fixed_coords, moving_coords)
@@ -4012,10 +4012,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             residue = self.c_terminal_residue
             residue_index = residue.index + 1
             fixed_coords = self.get_coords_subset(
-                indices=list(range(residue_index - align_length, residue_index)), dtype='backbone')
+                indices=list(range(residue_index - alignment_length, residue_index)), dtype='backbone')
 
             ideal_start_index = alpha_helix_15_struct.n_terminal_residue.index
-            ideal_end_index = ideal_start_index + align_length
+            ideal_end_index = ideal_start_index + alignment_length
             moving_coords = alpha_helix_15_struct.get_coords_subset(
                 indices=list(range(ideal_start_index, ideal_end_index)), dtype='backbone')
             rmsd, rot, tx = superposition3d(fixed_coords, moving_coords)

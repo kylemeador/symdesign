@@ -6,9 +6,10 @@ import os
 import time
 from collections import defaultdict
 from itertools import count
-from typing import Generator, Iterable, Iterator
+from typing import Iterable
 
 import numpy as np
+import pandas as pd
 # from memory_profiler import profile
 from sqlalchemy import inspect, select
 from sqlalchemy.exc import IntegrityError
@@ -17,11 +18,10 @@ from sqlalchemy.orm import selectinload
 from symdesign import flags, utils, structure
 from symdesign.protocols.pose import PoseJob
 from symdesign.resources import job as symjob, sql
-from symdesign.structure.base import Residue, SS_HELIX_IDENTIFIERS, Structure, termini_literal
+from symdesign.structure.base import SS_HELIX_IDENTIFIERS, Structure, termini_literal
 from symdesign.structure.coords import superposition3d
 from symdesign.structure.model import Chain, Entity, Model, Pose
 from symdesign.structure.utils import chain_id_generator, DesignError
-from symdesign.utils import types
 from symdesign.utils.SymEntry import SymEntry, parse_symmetry_to_sym_entry
 putils = utils.path
 logger = logging.getLogger(__name__)
@@ -566,17 +566,17 @@ def combine_modes(modes3x4: np.ndarray, coeffs: np.ndarray) -> np.ndarray:
 # model_ideal_helix = Structure.from_atoms(alpha_helix_15_atoms)
 
 
-def generate_bend_transformations(joint_residue: Residue, direction: termini_literal = None) \
-        -> Generator[types.TransformationMapping, None, None]:
-    """Generate transformations compatible with bending a helix at a Residue in that helix in either the 'n' or 'c'
-    terminal direction
+def bend(model: Model, joint_index: int, samples: int, direction: termini_literal = None) -> list[np.ndarray]:
+    """Bend a model at a helix specified by the joint_index according to typical helix bending modes
 
     Args:
-        joint_residue: The Residue where the bending should be applied
-        direction: Specify which direction, compared to the Residue, should be bent.
+        model: The Model to which bending should be applied
+        joint_index: The index of the Residue in the model where the bending should be applied
+        samples: How many times to sample from the distribution
+        direction: Specify which direction, compared to the index, should be bent.
             'c' bends the c-terminal residues, 'n' the n-terminal residues
     Returns:
-        A generator which yields a transformation mapping for a single 'bending mode' upon each access
+        A list of the transformed coordinates at the bent site
     """
     # Todo KM changed F to c, R to n where the side that should bend is c-terminal of the specified index
     #  So c is Todd's F direction
@@ -617,7 +617,7 @@ def generate_bend_transformations(joint_residue: Residue, direction: termini_lit
     #     [ideal_center_residue.n.coords, ideal_center_residue.ca.coords, ideal_center_residue.c.coords]).T
     # joint_frame = get_frame_from_joint(ideal_joint_in_fixed_frame)
 
-    # joint_residue = model.residues[joint_index]
+    joint_residue = model.residues[joint_index]
     model_frame = np.array(
         [joint_residue.n.coords, joint_residue.ca.coords, joint_residue.c.coords]).T
     joint_frame = get_frame_from_joint(model_frame)
@@ -628,8 +628,14 @@ def generate_bend_transformations(joint_residue: Residue, direction: termini_lit
     bend_scale = 1.
     # ntaper = 5
 
-    # Generate various transformations
-    while True:
+    # Get the model coords before
+    before_coords_start = model.coords[:joint_residue.start_index]
+    after_coords_start = model.coords[joint_residue.start_index:]
+
+    # Apply bending mode to fixed coords
+    bent_coords = []
+    for trial in range(samples):
+
         bend_coeffs = np.random.normal(size=bend_dim) * bend_scale
         blend_mode = combine_modes(modes3x4, bend_coeffs)
 
@@ -641,68 +647,16 @@ def generate_bend_transformations(joint_residue: Residue, direction: termini_lit
         # Separate the operations to their components
         rotation = mode_in_frame[:, 0:3]
         translation = mode_in_frame[:, 3].flatten()
-        yield dict(rotation=rotation, translation=translation)
+        if direction == 'c':
+            before_coords = before_coords_start
+            after_coords = np.matmul(after_coords_start, rotation.T) + translation
+        else:  # direction == 'n'
+            before_coords = np.matmul(before_coords_start, rotation.T) + translation
+            after_coords = after_coords_start
 
+        bent_coords.append(np.concatenate([before_coords, after_coords]))
 
-def bend(pose: Pose, joint_residue: Residue, direction: termini_literal, samples: int = 1,
-         additional_entity_ids: Iterator[str] = None) -> list[np.ndarray]:
-    """Bend a Pose at a helix specified by a Residue on the helix according to typical helix bending modes
-
-    Args:
-        pose: The Pose of interest to generate bent coordinates for
-        joint_residue: The Residue where the bending should be applied
-        direction: Specify which termini of the joint_residue Entity, compared to the joint_residue, should be bent.
-            'c' bends the c-terminal coordinates, 'n' the n-terminal coordinates
-        samples: How many times should the coordinates be bent
-        additional_entity_ids: If there are additional Entity instances desired to be carried through bending,
-            pass their Entity.name attributes
-    Returns:
-        A list of the transformed pose coordinates at the bent site
-    """
-    residue_chain = pose.chain(joint_residue.chain_id)
-    # bending_entity = pose.match_entity_by_seq(residue_chain.sequence)
-    bending_entity = pose.entity(residue_chain.entity_id)
-
-    # Todo KM changed F to c, R to n where the side that should bend is c-terminal of the specified index
-    #  So c is Todd's F direction
-    if direction == 'n':
-        set_coords_slice = slice(bending_entity.n_terminal_residue.start_index, joint_residue.start_index)
-    elif direction == 'c':
-        set_coords_slice = slice(joint_residue.end_index + 1, bending_entity.c_terminal_residue.end_index)
-    else:
-        raise ValueError(
-            f"'direction' must be either 'n' or 'c', not {direction}")
-    additional_entities = []
-    if additional_entity_ids:
-        for name in additional_entity_ids:
-            entity = pose.entity(name)
-            if entity is None:
-                raise ValueError(
-                    f"The entity_id '{name}' wasn't found in the {repr(pose)}. "
-                    f"Available entity_ids={', '.join(entity.name for entity in pose.entities)}")
-            else:
-                additional_entities.append(entity)
-
-    # Get the model coords before
-    pose_coords = pose.coords
-    entity_coords_to_bend = pose.coords[set_coords_slice]
-    bent_coords_samples = []
-    for trial, transformation in enumerate(generate_bend_transformations(joint_residue, direction=direction), 1):
-
-        bent_coords = np.matmul(entity_coords_to_bend, transformation['rotation'].T) \
-                      + transformation['translation']
-        copied_pose_coords = pose_coords.copy()
-        copied_pose_coords[set_coords_slice] = bent_coords
-
-        for entity in additional_entities:
-            copied_pose_coords[entity.atom_indices] = np.matmul(entity.coords, transformation['rotation'].T) \
-                                                      + transformation['translation']
-
-        bent_coords_samples.append(copied_pose_coords)
-        if trial == samples:
-            break
-
-    return bent_coords_samples
+    return bent_coords
 
 
 def prepare_alignment_motif(model: Structure, model_start: int, alignment_length: int,
@@ -733,7 +687,7 @@ def prepare_alignment_motif(model: Structure, model_start: int, alignment_length
         #         termini = 'c'
         #     else:  # Can't extend...
         #         raise ValueError(f"Couldn't automatically determine the desired termini to extend")
-        helix_model.add_ideal_helix(termini=termini, length=extension_length)
+        helix_model.add_ideal_helix(termini=termini, length=extension_length, alignment_length=alignment_length)
 
     if termini == 'n':
         remove_indices = list(range(model.n_terminal_residue.index, helix_residues[-1].index + 1))
@@ -869,11 +823,13 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
     desired_target_start_index = desired_target_alignment_length = None
     desired_aligned_start_index = desired_aligned_alignment_length = None
 
-    # maximum_helix_alignment_length = 15
-    # maximum_extension_length = 10
-    default_alignment_length = 5
-    # Todo make a job.alignment_length parameter?
-    alignment_length = default_alignment_length
+    maximum_helix_alignment_length = 15
+    maximum_extension_length = 10
+    if job.alignment_length:
+        alignment_length = job.alignment_length
+    else:
+        alignment_length = default_alignment_length = 5
+
     project = f'Alignment_{model1.name}-{model2.name}'
     project_dir = os.path.join(job.projects, project)
     putils.make_path(project_dir)
@@ -993,9 +949,9 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
         pose_job.source_path = pose_job.pose_path
         pose_job.pose = None
         if job.output_to_directory:
-            logger.info(f'Alignment output -> {pose_job.output_pose_path}')
+            logger.info(f'Alignment {alignment_numbers} output -> {pose_job.output_pose_path}')
         else:
-            logger.info(f'Alignment output -> {pose_job.pose_path}')
+            logger.info(f'Alignment {alignment_numbers} output -> {pose_job.pose_path}')
 
         pose_jobs.append(pose_job)
 
@@ -1106,13 +1062,11 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 entity2.delete_termini_to_helices()
                 # entity.delete_unstructured_termini()
 
-            # Set variables for the additional entities
             if len(remaining_entities2) == model2.number_of_entities:
                 additional_entities2 = remaining_entities2.copy()
                 additional_entities2.pop(selected_idx2)
             else:
                 additional_entities2 = remaining_entities2
-            additional_entity_ids2 = [entity.name for entity in additional_entities2]
 
             # Throw away chain ids that are in use by model1 to increment additional model2 entities to correct chain_id
             available_chain_ids = chain_id_generator()
@@ -1204,7 +1158,11 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     """The length of the target helix"""
 
                 if job.extension_length:
-                    extension_length = job.extension_length
+                    if job.extension_length > maximum_extension_length:
+                        logger.warning(f'The current maximum length for {flags.format_args(flags.extend_args)}'
+                                       f'is {maximum_extension_length}. Setting to {maximum_extension_length} instead '
+                                       f'of {job.extension_length}')
+                    extension_length = min(job.extension_length, maximum_extension_length)
                     # Add the extension length to the residue window if an ideal helix was added
                     # length_of_helix_model = length_of_target_helix + extension_length
                 else:
@@ -1212,7 +1170,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
                 truncated_entity1, helix_model = prepare_alignment_motif(
                     entity1, target_start_index, length_of_target_helix,
-                    termini=termini, extension_length=extension_length)
+                    termini=termini, extension_length=extension_length, alignment_length=alignment_length)
                 # Rename the models to enable fusion
                 chain_id = truncated_entity1.chain_id
                 helix_model.chain_id = chain_id
@@ -1331,7 +1289,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             end_residue2 = transformed_entity2.c_terminal_residue
 
                         # Get the new fusion name
-                        alignment_numbers = f'{start_residue1.number}-{end_residue1.number}+{extension_str}/' \
+                        alignment_numbers = f'{start_residue1.number}-{end_residue1.number}/' \
                                             f'{start_residue2.number}-{end_residue2.number}'
                         fusion_name = f'{ordered_entity1.name}_{start_residue1.number}-' \
                             f'{end_residue1.number}_fused{extension_str}-to' \
@@ -1413,17 +1371,15 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                         if job.bend:
                             central_aligned_residue = pose.chain(chain_id).residue(joint_residue.number)
                             # print(central_aligned_residue)
-                            bent_coords = bend(pose, central_aligned_residue, termini, samples=job.bend,
-                                               additional_entity_ids=[entity.name for entity in pose.entities
-                                                                      if entity.name in additional_entity_ids2])
+                            bent_coords = bend(pose, central_aligned_residue.index, job.bend, termini)
                             for bend_idx, coords in enumerate(bent_coords, 1):
                                 pose.coords = coords
                                 if pose.is_clash(warn=False, silence_exceptions=True):
-                                    logger.info(f'Alignment {fusion_name}, bend {bend_idx} clashes')
+                                    logger.info(f'Alignment {alignment_numbers} fusion, bend {bend_idx} clashes')
                                     continue
                                 if pose.is_symmetric() and not job.design.ignore_symmetric_clashes and \
                                         pose.symmetric_assembly_is_clash(warn=False):
-                                    logger.info(f'Alignment {fusion_name}, bend {bend_idx} has '
+                                    logger.info(f'Alignment {alignment_numbers} fusion, bend {bend_idx} has '
                                                 f'symmetric clashes')
                                     continue
 
@@ -1431,12 +1387,12 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                         else:
                             if not job.design.ignore_pose_clashes and \
                                     pose.is_clash(warn=False, silence_exceptions=True):
-                                logger.info(f'Alignment {fusion_name} clashes')
+                                logger.info(f'Alignment {alignment_numbers} fusion clashes')
                                 continue
 
                             if pose.is_symmetric() and not job.design.ignore_symmetric_clashes and \
                                     pose.symmetric_assembly_is_clash(warn=False):
-                                logger.info(f'Alignment {fusion_name} has symmetric clashes')
+                                logger.info(f'Alignment {alignment_numbers} fusion has symmetric clashes')
                                 continue
 
                             output_pose(name)
