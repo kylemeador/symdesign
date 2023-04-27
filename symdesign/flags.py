@@ -987,7 +987,7 @@ aligned_end_args = (f'--{aligned_end}',)
 aligned_end_kwargs = dict(type=int, metavar='INT', help='Last residue of the aligned molecule to align on')
 aligned_chain_args = (f'--{aligned_chain}',)
 aligned_chain_kwargs = dict(help='A desired chainID of the aligned molecule')
-alignment_length_args = (f'--{length}', f'--{alignment_length}',)
+alignment_length_args = (f'--{alignment_length}',)  # f'--{length}',
 alignment_length_kwargs = dict(type=int, metavar='INT', help='The number of residues used to measure overlap')
 # extend_args = (f'--{extend}',)
 # extend_kwargs = dict(action='store_true',
