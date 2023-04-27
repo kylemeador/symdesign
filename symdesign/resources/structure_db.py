@@ -467,7 +467,7 @@ class StructureDatabase(Database):
                         # Write out ASU file
                         asu_path = os.path.join(self.oriented_asu.location,
                                                 f'{structure_identifier}.pdb{assembly_integer}')
-                        pose.write(out_path=asu_path)
+                        pose.file_path = pose.write(out_path=asu_path)
                     else:
                         pose.set_symmetry(sym_entry=sym_entry)
                         pose.write(out_path=orient_file)
