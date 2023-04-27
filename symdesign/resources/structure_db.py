@@ -352,6 +352,7 @@ class StructureDatabase(Database):
                     # And asu
                     asu_path = os.path.join(self.oriented_asu.location,
                                             f'{entity.name}.pdb{assembly_integer}')
+                    # Set the Entity.file_path for ProteinMetadata
                     entity.file_path = entity.write(out_path=asu_path)
 
         # Todo include Entity specific parsing from download_structures() in orient_existing_file(), then
@@ -423,10 +424,12 @@ class StructureDatabase(Database):
                     pose = Pose.from_file(orient_asu_file, name=structure_identifier, **pose_kwargs)
 
                     # Write each Entity as well
-                    for entity_p in pose.entities:
-                        entity_asu_file = self.oriented_asu.retrieve_file(name=entity_p.name)
+                    for entity in pose.entities:
+                        entity_asu_file = self.oriented_asu.retrieve_file(name=entity.name)
                         if entity_asu_file is None:
-                            entity_p.write(out_path=self.oriented_asu.path_to(name=entity_p.name))
+                            entity.write(out_path=self.oriented_asu.path_to(name=entity.name))
+                        # Set the Entity.file_path for ProteinMetadata
+                        entity.file_path = entity_asu_file
                 elif structure_identifier in orient_names:  # ASU files don't exist though. Load oriented and save asu
                     orient_file = self.oriented.retrieve_file(name=structure_identifier)
                     # These name=structure_identifier should be the default parsing method anyway...
@@ -467,6 +470,7 @@ class StructureDatabase(Database):
                         # Write out ASU file
                         asu_path = os.path.join(self.oriented_asu.location,
                                                 f'{structure_identifier}.pdb{assembly_integer}')
+                        # Set the Entity.file_path for ProteinMetadata
                         pose.file_path = pose.write(out_path=asu_path)
                     else:
                         pose.set_symmetry(sym_entry=sym_entry)
