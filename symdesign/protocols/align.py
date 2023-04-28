@@ -962,9 +962,9 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
     # Start the alignment search
     for selected_idx1, entity1 in enumerate(selected_models1):
         logger.info(f'Target component {entity1.name}')
+        entity1 = entity1.copy()
         if job.trim_termini:
             # Remove any unstructured termini from the Entity to enable most successful fusion
-            entity1 = entity1.copy()
             entity1.delete_termini_to_helices()
             # entity.delete_unstructured_termini()
 
@@ -1059,9 +1059,9 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
         for selected_idx2, entity2 in enumerate(selected_models2):
             logger.info(f'Aligned component {entity2.name}')
+            entity2 = entity2.copy()
             if job.trim_termini:
                 # Remove any unstructured termini from the Entity to enable most successful fusion
-                entity2 = entity2.copy()
                 entity2.delete_termini_to_helices()
                 # entity.delete_unstructured_termini()
 
