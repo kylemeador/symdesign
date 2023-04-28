@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 import subprocess
+import sys
 from glob import glob
 from typing import AnyStr, Sequence
 
@@ -370,6 +371,7 @@ logging_cfg = {
             'class': 'logging.StreamHandler',
             'level': 'DEBUG',
             'formatter': 'standard',
+            'stream': sys.stdout,
         },
         'main_file': {
             'class': 'logging.FileHandler',
