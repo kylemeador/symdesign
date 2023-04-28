@@ -1216,7 +1216,7 @@ def temp_gt0(temp: str) -> float:
 
 
 temperature_args = ('-K', f'--{temperatures}')
-temperature_kwargs = dict(type=temp_gt0, nargs='*', default=[0.1], metavar='FLOAT',
+temperature_kwargs = dict(type=temp_gt0, nargs='*', default=(0.1,), metavar='FLOAT',
                           help="'Temperature', i.e. the value(s) to use as the denominator in\n"
                                'the equation: exp(G/T), where G=energy and T=temperature, when\n'
                                'performing design. Higher temperatures result in more diversity\n'
