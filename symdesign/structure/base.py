@@ -4378,6 +4378,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         Returns:
             The newly inserted Residue instances
         """
+        if not new_residues:
+            return []
+
         if self.is_dependent():  # Call on the parent
             if chain_id is None:
                 chain_id = self.chain_id
