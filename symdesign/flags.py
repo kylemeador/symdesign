@@ -1058,14 +1058,12 @@ nanohedra_help = f'Run {nanohedra.title()}.py'
 parser_nanohedra = {nanohedra: dict(description=nanohedra_help, help=nanohedra_help)}
 default_perturbation_steps = 3
 dock_filter_args = (f'--{dock_filter}',)
-dock_filter_kwargs = dict(nargs='*', default=None,
-                          help='Whether to filter dock trajectory according to metrics')
+dock_filter_kwargs = dict(nargs='*', default=[], help='Whether to filter dock trajectory according to metrics')
 dock_filter_file_args = (f'--{dock_filter_file}',)
 dock_filter_file_kwargs = dict(type=os.path.abspath,
                                help='Whether to filter dock trajectory according to metrics provided in a file')
 dock_weight_args = (f'--{dock_weight}',)
-dock_weight_kwargs = dict(nargs='*', default=None,
-                          help='Whether to filter dock trajectory according to metrics')
+dock_weight_kwargs = dict(nargs='*', default=[], help='Whether to filter dock trajectory according to metrics')
 dock_weight_file_args = (f'--{dock_weight_file}',)
 dock_weight_file_kwargs = dict(type=os.path.abspath,
                                help='Whether to filter dock trajectory according to metrics provided in a file')
@@ -1332,7 +1330,7 @@ filter_file_args = ('--filter-file',)
 filter_file_kwargs = dict(type=os.path.abspath, help='Whether to filter selection using metrics provided in a file')
 filter_args = ('--filter',)
 all_filter_args = filter_args + filter_file_args
-filter_kwargs = dict(nargs='*', default=None, help='Whether to filter selection using metrics')
+filter_kwargs = dict(nargs='*', default=[], help='Whether to filter selection using metrics')  # default=None,
 # filter_kwargs = dict(action='store_true', help='Whether to filter selection using metrics')
 optimize_species_args = ('-opt', f'--{optimize_species}')
 optimize_species_kwargs = dict(default='e_coli', choices=get_args(optimization_species_literal), metavar='',
@@ -1340,7 +1338,7 @@ optimize_species_kwargs = dict(default='e_coli', choices=get_args(optimization_s
                                     'Choices=%(choices)s\nDefault=%(default)s')
 output_structures_args = ('-Os', f'--{output_structures}')
 protocol_args = (f'--{protocol}',)
-protocol_kwargs = dict(default=None, nargs='*', help='Use specific protocol(s) to filter designs?')
+protocol_kwargs = dict(nargs='*', default=[], help='Use specific protocol(s) to filter designs?')
 pose_select_number_kwargs = \
     dict(type=int, default=sys.maxsize, metavar='INT', help='Number to return\nDefault=No Limit')
 save_total_args = ('--save-total',)
@@ -1358,7 +1356,7 @@ weight_file_kwargs = dict(type=os.path.abspath,
                           help='Whether to weight selection results using metrics provided in a file')
 weight_args = ('--weight',)
 all_weight_args = weight_args + weight_file_args
-weight_kwargs = dict(nargs='*', default=None, help='Whether to weight selection results using metrics')
+weight_kwargs = dict(nargs='*', default=[], help='Whether to weight selection results using metrics')  # default=None,
 # weight_kwargs = dict(action='store_true', help='Whether to weight selection results using metrics')
 weight_function_args = ('-wf', '--weight-function')
 weight_function_kwargs = dict(type=str.lower, choices=config.metric_weight_functions, default='normalize', metavar='',

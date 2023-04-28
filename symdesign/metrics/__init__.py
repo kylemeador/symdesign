@@ -1374,8 +1374,9 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filters: dict | bool = 
         df = pd.read_csv(df, index_col=0, header=[0, 1, 2])
         df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
 
-    if protocols is not None:
-        raise NotImplementedError(f"Can't handle filtering by protocol yet. Fix upstream protocol inclusion in df")
+    if protocols:  # is not None:
+        raise NotImplementedError(
+            "Can't filter by protocol yet. Fix upstream protocol inclusion in df")
         if isinstance(protocols, str):
             # Add protocol to a list
             protocols = [protocols]
@@ -1383,23 +1384,25 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filters: dict | bool = 
         try:
             protocol_df = df.loc[:, idx_slice[protocols, protocol_column_types, :]]
         except KeyError:
-            logger.warning(f"Protocol(s) '{protocols}' weren't found in the set of designs...")
-            available_protocols = df.columns.get_level_values(0).unique()
-            while True:
-                protocols = input(f'What protocol would you like to choose?{describe_string}\n'
-                                  f'Available options are: {", ".join(available_protocols)}{input_string}')
-                if protocols in available_protocols:
-                    protocols = [protocols]  # todo make multiple protocols available for input ^
-                    break
-                elif protocols in describe:
-                    describe_data(df=df)
-                else:
-                    print(f'Invalid protocol {protocols}. Please choose one of {", ".join(available_protocols)}')
-            protocol_df = df.loc[:, idx_slice[protocols, protocol_column_types, :]]
-        protocol_df.dropna(how='all', inplace=True, axis=0)  # drop completely empty rows in case of groupby ops
-        # ensure 'dock'ing data is present in all protocols
-        simple_df = pd.merge(df.loc[:, idx_slice[['pose'], ['dock'], :]], protocol_df, left_index=True, right_index=True)
-        logger.info(f'Number of designs after protocol selection: {len(simple_df)}')
+            logger.warning(f"Protocol(s) '{protocols}' weren't found in the set of designs. "
+                           "Skipping prioritize by protocol... ")
+            # available_protocols = df.columns.get_level_values(0).unique()
+            # while True:
+            #     protocols = input(f'What protocol would you like to choose?{describe_string}\n'
+            #                       f'Available options are: {", ".join(available_protocols)}{input_string}')
+            #     if protocols in available_protocols:
+            #         protocols = [protocols]  # todo make multiple protocols available for input ^
+            #         break
+            #     elif protocols in describe:
+            #         describe_data(df=df)
+            #     else:
+            #         print(f'Invalid protocol {protocols}. Please choose one of {", ".join(available_protocols)}')
+            # protocol_df = df.loc[:, idx_slice[protocols, protocol_column_types, :]]
+        else:
+            protocol_df.dropna(how='all', inplace=True, axis=0)  # drop completely empty rows in case of groupby ops
+            # Ensure 'dock'ing data is present in all protocols
+            simple_df = pd.merge(df.loc[:, idx_slice[['pose'], ['dock'], :]], protocol_df, left_index=True, right_index=True)
+            logger.info(f'Number of designs after protocol selection: {len(simple_df)}')
     else:
         protocols = ['pose']  # Todo change to :?
         simple_df = df.loc[:, idx_slice[protocols, df.columns.get_level_values(1) != 'std', :]]
