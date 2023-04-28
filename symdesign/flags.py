@@ -909,7 +909,7 @@ residue_selector_arguments = {
 protocol_help = 'Perform a series of modules in a specified order'
 parser_protocol = {protocol: dict(description=protocol_help, help=protocol_help)}
 protocol_arguments = {
-    ('-m', f'--{modules}'): dict(nargs='*', required=True, help='The modules to run in order'),
+    ('-m', f'--{modules}'): dict(nargs='*', default=[], required=True, help='The modules to run in order'),
 }
 # ---------------------------------------------------
 predict_structure_help = 'Predict the 3D structure from specified sequence(s)'
@@ -1007,7 +1007,7 @@ align_helices_arguments = {
                          help=helix_bending_help
                          + '\nArgument should specify how many bent positions should be sampled'),
     extend_args: extend_kwargs,
-    sample_number_args: sample_number_kwargs,
+    # sample_number_args: sample_number_kwargs,
     target_chain_args: target_chain_kwargs,
     target_end_args: target_end_kwargs,
     target_start_args: target_start_kwargs,
@@ -1023,7 +1023,7 @@ component_kwargs = dict(type=os.path.abspath, metavar=ex_path('[file.ext,directo
                         help=f'Path to component file(s), either directories or single file')
 pdb_codes1_args = ('-C1', f'--{pdb_codes1}')
 pdb_codes2_args = ('-C2', f'--{pdb_codes2}')
-pdb_codes_kwargs = dict(nargs='*', default=None,
+pdb_codes_kwargs = dict(nargs='*',  default=[],  # default=None,
                         help='Input code(s), and/or file(s) with codes where each code\n'
                              'is a PDB EntryID/EntityID/AssemblyID')
 parser_component_mutual1_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
@@ -1216,11 +1216,11 @@ def temp_gt0(temp: str) -> float:
 
 
 temperature_args = ('-K', f'--{temperatures}')
-temperature_kwargs = dict(type=temp_gt0, nargs='*', default=(0.1,), metavar='FLOAT',
-                          help='"temperature(s)", i.e. values to use as the denominator in the\n'
-                               'equation: exp(G/T), where G=energy and T=temperature, when\n'
+temperature_kwargs = dict(type=temp_gt0, nargs='*', default=[0.1], metavar='FLOAT',
+                          help="'Temperature', i.e. the value(s) to use as the denominator in\n"
+                               'the equation: exp(G/T), where G=energy and T=temperature, when\n'
                                'performing design. Higher temperatures result in more diversity\n'
-                               'Values should be greater than 0\nDefault=%(default)s')
+                               'each temperature must be > 0\nDefault=%(default)s')
 design_help = 'Gather poses of interest and format for sequence design using Rosetta/ProteinMPNN.\n' \
               'Constrain using evolutionary profiles of homologous sequences\n' \
               'and/or fragment profiles extracted from the PDB, or neither'
