@@ -1139,9 +1139,11 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     if desired_aligned_termini and align_termini == desired_aligned_termini:
                         # This is the correct termini, find the necessary indices
                         termini_to_align.append(termini)
-                        # desired_aligned_start_index = solve_termini_start_index(
+                        logger.debug(f'Checking {align_termini}-termini for helices:\n\t{entity2.secondary_structure}')
                         desired_aligned_start_index, desired_aligned_alignment_length = \
                             solve_termini_start_index_and_length(entity2.secondary_structure, align_termini)
+                        logger.debug(f'Found {align_termini}-termini start index {desired_aligned_start_index} and '
+                                     f'length {desired_aligned_alignment_length}')
                         break  # As only one termini can be specified and this was it
                     else:
                         termini_to_align.append(termini)
@@ -1160,6 +1162,8 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     logger.debug(f'Checking {termini}-termini for helices:\n\t{entity1.secondary_structure}')
                     target_start_index, length_of_target_helix = solve_termini_start_index_and_length(
                         entity1.secondary_structure, termini)
+                    logger.debug(
+                        f'Found {termini}-termini start index {target_start_index} and length {length_of_target_helix}')
                 else:
                     target_start_index = desired_target_start_index
                     """The Residues index where the target helix starts"""
@@ -1191,6 +1195,8 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     logger.debug(f'Checking {align_termini}-termini for helices:\n\t{entity2.secondary_structure}')
                     aligned_start_index, length_of_aligned_helix = solve_termini_start_index_and_length(
                         entity2.secondary_structure, align_termini)
+                    logger.debug(f'Found {align_termini}-termini start index {aligned_start_index} and length '
+                                 f'{length_of_aligned_helix}')
                 else:
                     aligned_start_index = desired_aligned_start_index
                     length_of_aligned_helix = desired_aligned_alignment_length
