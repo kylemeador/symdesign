@@ -750,7 +750,7 @@ def solve_termini_start_index_and_length(secondary_structure: str, termini: term
     if termini == 'n':
         start_index = secondary_structure.find(SS_HELIX_IDENTIFIERS)
         # Search for the last_index in a contiguous block of helical residues at the n-termini
-        for idx, sstruct in enumerate(secondary_structure[start_index:]):
+        for idx, sstruct in enumerate(secondary_structure[start_index:], start_index):
             if sstruct != 'H':
                 # end_index = idx
                 break
