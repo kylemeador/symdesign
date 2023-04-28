@@ -17,6 +17,8 @@ def chain_id_generator() -> Generator[str, None, None]:
         The generator producing a maximum 2 character string where single characters are exhausted,
             first in uppercase, then in lowercase
     """
+    # Todo
+    #  Some PDB file use numeric chains... so chain 1 for instance couldn't be parsed correctly
     return (first + second for modification in ['upper', 'lower']
             for first in [''] + list(getattr(available_letters, modification)())
             for second in list(getattr(available_letters, 'upper')()) +

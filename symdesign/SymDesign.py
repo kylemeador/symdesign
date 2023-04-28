@@ -1105,6 +1105,7 @@ def main():
             # Can make an empty pose_jobs when the program_root is args.directory
             job.location = args.directory
         else:  # args.file or args.directory
+            # Todo file from single structures... and fasta
             file_paths, job.location = utils.collect_designs(files=args.file, directory=args.directory)
             if file_paths:
                 pose_jobs = [PoseJob.from_path(path, project=project_name)
