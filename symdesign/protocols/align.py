@@ -694,6 +694,8 @@ def prepare_alignment_motif(model: Structure, model_start: int, motif_length: in
         remove_indices = list(range(model.n_terminal_residue.index, helix_residues[-1].index + 1))
     else:
         remove_indices = list(range(helix_residues[0].index, model.c_terminal_residue.index + 1))
+
+    print('remove_indices', remove_indices)
     deleted_model = model.copy()
     deleted_model.delete_residues(indices=remove_indices)
 
@@ -1171,7 +1173,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
                 truncated_entity1, helix_model = prepare_alignment_motif(
                     entity1, target_start_index, length_of_target_helix,
-                    termini=termini, extension_length=extension_length)
+                    termini=termini, extension_length=extension_length, alignment_length=alignment_length)
                 # Rename the models to enable fusion
                 chain_id = truncated_entity1.chain_id
                 helix_model.chain_id = chain_id
