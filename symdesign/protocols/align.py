@@ -1189,6 +1189,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 helix_model.chain_id = chain_id
 
                 length_of_helix_model = helix_model.number_of_residues
+                logger.debug(f'length_of_helix_model: {length_of_helix_model}')
 
                 # Get the default_alignment_length and the aligned_start_index
                 if desired_aligned_start_index is None and desired_aligned_alignment_length is None:
@@ -1205,10 +1206,10 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 logger.debug(f'length_of_aligned_helix: {length_of_aligned_helix}')
                 logger.debug(f'alignment_length: {alignment_length}')
                 aligned_length = length_of_aligned_helix - alignment_length
-                if aligned_length < 1:
+                if aligned_length < 0:
                     logger.info(
                         f"Aligned component {entity2.name} {align_termini}-termini isn't long enough for alignment")
-                aligned_range_end = aligned_start_index + aligned_length
+                aligned_range_end = aligned_start_index + aligned_length + 1
                 aligned_count = count()
                 for aligned_start_index in range(aligned_start_index, aligned_range_end):
                     aligned_idx = next(aligned_count)
@@ -1233,6 +1234,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     # Scan along the target helix length
                     # helix_start_index = 0
                     max_target_helix_length = length_of_helix_model - alignment_length
+                    logger.debug(f'Number of helical positions on target: {max_target_helix_length}')
                     for helix_start_index in range(max_target_helix_length):
                         logger.debug(f'helix_start_index: {helix_start_index}')
                         helix_end_index = helix_start_index + alignment_length
