@@ -975,8 +975,8 @@ class StructureDatabase(Database):
 
         if protein_data_to_refine:
             # Files found unrefined, check to see if work should be done
-            logger.critical("The following structures haven't been refined: "
-                            f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_refine)))}')
+            logger.info("The following structures haven't been refined: "
+                        f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_refine)))}')
             if self.job.init.refine_input is not None:
                 refine_input = self.job.init.refine_input
             else:  # Query user and set up commands to perform refinement on missing entities

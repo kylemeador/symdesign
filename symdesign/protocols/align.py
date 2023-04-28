@@ -695,7 +695,6 @@ def prepare_alignment_motif(model: Structure, model_start: int, motif_length: in
     else:
         remove_indices = list(range(helix_residues[0].index, model.c_terminal_residue.index + 1))
 
-    print('remove_indices', remove_indices)
     deleted_model = model.copy()
     deleted_model.delete_residues(indices=remove_indices)
 
@@ -976,7 +975,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
         # Check for helical termini on the target building block
         if job.target_termini:
-            desired_termini = job.target_termini
+            desired_termini = job.target_termini.copy()
         else:  # Solve for target/aligned residue features
             half_entity1_length = entity1.number_of_residues
             secondary_structure1 = entity1.secondary_structure
@@ -1041,7 +1040,10 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
         for termini in reversed(desired_termini):
             if not entity1.is_termini_helical(termini, window=alignment_length):
                 logger.error(f"The specified termini '{termini}' isn't helical")
-                desired_termini.pop(desired_termini.index(termini))
+                desired_termini.remove(termini)
+
+        if not desired_termini:
+            logger.info(f'Target component {entity1.name} has no termini remaining')
 
         if job.aligned_chain is None:  # Use the whole model
             selected_models2 = model2.entities
@@ -1147,11 +1149,15 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     logger.info(f"{align_helices.__name__} isn't possible for target {termini} to aligned "
                                 f'{align_termini} since {model2.name} is missing a helical {align_termini}-termini')
 
+            if not termini_to_align:
+                logger.info(f'Target component {entity2.name} has no termini remaining')
+
             for termini in termini_to_align:
                 logger.info(f'Starting {entity1.name} {termini}-termini')
                 align_termini = opposite_termini[termini]
                 # Get the target_start_index the length_of_target_helix
                 if desired_target_start_index is None and desired_target_alignment_length is None:
+                    logger.debug(f'Checking {termini}-termini for helices:\n\t{entity1.secondary_structure}')
                     target_start_index, length_of_target_helix = solve_termini_start_index_and_length(
                         entity1.secondary_structure, termini)
                 else:
@@ -1182,6 +1188,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
                 # Get the default_alignment_length and the aligned_start_index
                 if desired_aligned_start_index is None and desired_aligned_alignment_length is None:
+                    logger.debug(f'Checking {align_termini}-termini for helices:\n\t{entity2.secondary_structure}')
                     aligned_start_index, length_of_aligned_helix = solve_termini_start_index_and_length(
                         entity2.secondary_structure, align_termini)
                 else:
@@ -1192,6 +1199,9 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 logger.debug(f'length_of_aligned_helix: {length_of_aligned_helix}')
                 logger.debug(f'alignment_length: {alignment_length}')
                 aligned_length = length_of_aligned_helix - alignment_length
+                if aligned_length < 1:
+                    logger.info(
+                        f"Aligned component {entity2.name} {align_termini}-termini isn't long enough for alignment")
                 aligned_range_end = aligned_start_index + aligned_length
                 aligned_count = count()
                 for aligned_start_index in range(aligned_start_index, aligned_range_end):
