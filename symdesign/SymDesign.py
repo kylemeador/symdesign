@@ -543,29 +543,33 @@ def main():
     # Parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
     module_parser = flags.argparsers[flags.parser_module]
     args, additional_args = module_parser.parse_known_args()
-    remove_dummy = False
+
+    if args.module == flags.nanohedra and args.query:
+        # Submit before checking for additional_args as query comes with additional args
+        utils.nanohedra.cmdline.query_mode([__file__, '-query'] + additional_args)
+        sys.exit()
+
+    def handle_atypical_inputs(modules: Iterable[str]) -> bool:
+        """Add a dummy input for argparse to happily continue with required args
+
+        Args:
+            modules: The iterable of moduls to search
+        Returns:
+            True if the module has a fake input
+        """
+        atypical_input_modules = [flags.align_helices, flags.initialize_building_blocks, flags.nanohedra]
+        for module in modules:
+            if module in atypical_input_modules:
+                additional_args.extend(['--file', 'dummy'])
+                return True
+        return False
+
+    remove_dummy = handle_atypical_inputs([args.module])
     if args.module == flags.all_flags:
         sys.argv = ['symdesign', '--help']
-    elif args.module == flags.nanohedra:
-        if args.query:  # Submit before we check for additional_args as query comes with additional args
-            utils.nanohedra.cmdline.query_mode([__file__, '-query'] + additional_args)
-            sys.exit()
-        else:  # Add a dummy input for argparse to happily continue with required args
-            additional_args.extend(['--file', 'dummy'])
-            remove_dummy = True
-    elif args.module == flags.align_helices:
-        # Add a dummy input for argparse to happily continue with required args
-        additional_args.extend(['--file', 'dummy'])
-        remove_dummy = True
-    elif args.module == flags.initialize_building_blocks:
-        # Add a dummy input for argparse to happily continue with required args
-        additional_args.extend(['--file', 'dummy'])
-        remove_dummy = True
     elif args.module == flags.protocol:
-        # Add a dummy input for argparse to happily continue with required args
-        if flags.nanohedra in args.modules:
-            additional_args.extend(['--file', 'dummy'])
-            remove_dummy = True
+        remove_dummy = handle_atypical_inputs(args.modules)
+
         # Parse all options for every module provided
         # input(f'{args}\n\n{additional_args}')
         all_args = [args]
