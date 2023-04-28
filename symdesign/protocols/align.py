@@ -1213,9 +1213,24 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     continue
 
                 aligned_range_end = aligned_start_index + aligned_length + 1
-                aligned_count = count()
+                align_start_indices_sequence = range(aligned_start_index, aligned_range_end)
+                sample_all_alignments = True  # First draft
+                if sample_all_alignments:
+                    align_iteration_direction = iter
+                    target_iteration_direction = iter
+                else:
+                    # Todo
+                    #  targeted method which searches only possible
+                    # Need to work out the align and sample function to wrap each index pair inside to clean for loops
+                    if termini == 'n':
+                        align_iteration_direction = iter
+                        target_iteration_direction = reversed
+                    else:  # termini == 'c'
+                        align_iteration_direction = reversed
+                        target_iteration_direction = iter
+
                 aligned_count = count(1)
-                for aligned_start_index in range(aligned_start_index, aligned_range_end):
+                for aligned_start_index in align_iteration_direction(align_start_indices_sequence):
                     aligned_idx = next(aligned_count)
                     # logger.debug(f'aligned_idx: {aligned_idx}')
                     logger.debug(f'aligned_start_index: {aligned_start_index}')
@@ -1245,7 +1260,8 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     # helix_start_index = 0
                     max_target_helix_length = length_of_helix_model - alignment_length
                     logger.debug(f'Number of helical positions on target: {max_target_helix_length}')
-                    for helix_start_index in range(max_target_helix_length):
+                    target_start_indices_sequence = range(max_target_helix_length)
+                    for helix_start_index in target_iteration_direction(target_start_indices_sequence):
                         logger.debug(f'helix_start_index: {helix_start_index}')
                         helix_end_index = helix_start_index + alignment_length
 
