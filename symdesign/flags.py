@@ -779,8 +779,8 @@ help_kwargs = dict(action='store_true', help=f'Display {program_name}/module arg
 ignore_clashes_args = ('-ic', f'--{ignore_clashes}')
 ignore_pose_clashes_args = ('-ipc', f'--{ignore_pose_clashes}')
 ignore_symmetric_clashes_args = ('-isc', f'--{ignore_symmetric_clashes}')
-output_directory_args = ('-Od', f'--{output_directory}', '--outdir')
-output_directory_kwargs = dict(type=os.path.abspath,
+output_directory_args = ('-Od', '--outdir', f'--{output_directory}')
+output_directory_kwargs = dict(type=os.path.abspath, dest='output_directory',
                                help='If provided, the name of the directory to output all created files.\n'
                                     'Otherwise, one will be generated based on the time, input, and module')
 output_file_args = ('-Of', f'--{output_file}')
