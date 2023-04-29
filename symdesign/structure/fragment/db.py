@@ -310,6 +310,10 @@ class FragmentDatabaseFactory:
     def __init__(self, **kwargs):
         self._databases = {}
 
+    def destruct(self, **kwargs):
+        pass
+        self._databases = {}
+
     def __call__(self, source: str = putils.biological_interfaces, token: int = None, **kwargs) \
             -> FragmentDatabase | None:
         """Return the specified FragmentDatabase object singleton
@@ -865,6 +869,10 @@ class EulerLookupFactory:
 
     def __init__(self, **kwargs):
         self._lookup_tables = {}
+
+    def destruct(self, **kwargs):
+        pass
+        # self._lookup_tables = {}
 
     def __call__(self, **kwargs) -> EulerLookup:
         """Return the specified EulerLookup object singleton

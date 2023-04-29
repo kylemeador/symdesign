@@ -37,7 +37,7 @@ from symdesign import flags, protocols, utils
 from symdesign.protocols.pose import PoseJob
 from symdesign.resources.job import JobResources, job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
-from symdesign.resources import distribute, query as user_query, sql, wrapapi
+from symdesign.resources import distribute, ml, query as user_query, sql, structure_db, wrapapi
 from symdesign.structure.fragment.db import fragment_factory, euler_factory
 from symdesign.structure.model import Entity, Pose
 
@@ -203,6 +203,16 @@ def parse_results_for_exceptions(pose_jobs: list[PoseJob], results: Iterable[Any
     else:
         exception_indices = [idx for idx, result_ in enumerate(results) if isinstance(result_, BaseException)]
         return [(pose_jobs.pop(idx), results.pop(idx)) for idx in reversed(exception_indices)]
+
+
+def destruct_factories():
+    """Remove data from existing singletons to destruct this session"""
+    # factories = [JobResourcesFactory, ProteinMPNNFactory, APIDatabaseFactory, SymEntryFactory,
+    #              FragmentDatabaseFactory, EulerLookupFactory, StructureDatabaseFactory]
+    factories = [job_resources_factory, ml.proteinmpnn_factory, wrapapi.api_database_factory, utils.SymEntry.symmetry_factory,
+                 fragment_factory, euler_factory, structure_db.structure_database_factory]
+    for factory in factories:
+        factory.destruct()
 
 
 def main():
@@ -1704,6 +1714,9 @@ def app(*args):
     except KeyboardInterrupt:
         print('\nJob Ended By KeyboardInterrupt\n')
         sys.exit(1)
+    finally:
+        destruct_factories()
+
 #
 #
 # def notebook(*args):

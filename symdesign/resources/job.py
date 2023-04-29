@@ -1335,6 +1335,10 @@ class JobResourcesFactory:
         self._resources = {}
         self._warn = True
 
+    def destruct(self, **kwargs):
+        self._resources = {}
+        self._warn = True
+
     def __call__(self, **kwargs) -> JobResources:
         """Return the specified JobResources object singleton
 

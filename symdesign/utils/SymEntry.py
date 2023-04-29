@@ -870,6 +870,9 @@ class SymEntryFactory:
     def __init__(self, **kwargs):
         self._entries = {}
 
+    def destruct(self, **kwargs):
+        self._entries = {}
+
     def __call__(self, entry: int, sym_map: list[str] = None, **kwargs) -> SymEntry:
         """Return the specified SymEntry object singleton
 

@@ -1052,7 +1052,9 @@ class StructureDatabaseFactory:
     """
 
     def __init__(self, **kwargs):
-        # self._databases = {}
+        self._database = None
+
+    def destruct(self, **kwargs):
         self._database = None
 
     def __call__(self, source: str = os.path.join(os.getcwd(),

@@ -360,7 +360,9 @@ class ProteinMPNNFactory:
     """
     def __init__(self, **kwargs):
         self._models = {}
-        # self._models = None
+
+    def destruct(self, **kwargs):
+        self._models = {}
 
     def __call__(self, model_name: str = 'v_48_020', backbone_noise: float = 0., ca_only: bool = False, **kwargs) \
             -> ProteinMPNN:
