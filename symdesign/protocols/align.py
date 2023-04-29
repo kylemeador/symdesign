@@ -1078,12 +1078,14 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
             desired_termini = job.target_termini.copy()
             if termini and termini not in desired_termini:
                 if desired_start_target_termini:
-                    flag = flags.target_start
+                    flag = flags.target_start_args
+                    arg = job.target_start
                 else:
-                    flag = flags.target_end
+                    flag = flags.target_end_args
+                    arg = job.target_end
                 raise DesignError(
-                    f"The {flags.format_args(flags.target_termini)} '{job.target_termini}' isn't compatible with your "
-                    f"flag {flags.format_args(flag)} '{flag}'")
+                    f"The {flags.format_args(flags.target_termini_args)} '{job.target_termini}' isn't compatible with "
+                    f"your flag {flags.format_args(flag)} '{arg}' which would specify the {termini}-termini")
         elif termini:
             desired_termini = [termini]
         else:  # None specified, try all
