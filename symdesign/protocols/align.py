@@ -1026,7 +1026,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
             additional_entities1 = remaining_entities1
 
         # Solve for target/aligned residue features
-        half_entity1_length = entity1.number_of_residues
+        half_entity1_length = entity1.number_of_residues / 2
 
         # Check target_end first as the secondary_structure1 slice is dependent on lengths
         if job.target_end:
@@ -1053,8 +1053,6 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
             target_start_index_ = target_start_residue.index
             # See if the specified aligned_start/aligned_end lie in this termini orientation
             if target_start_index_ < half_entity1_length:
-                print('target_start_index_', target_start_index_)
-                print('half_entity1_length', half_entity1_length)
                 desired_start_target_termini = 'n'
             else:  # Closer to c-termini
                 desired_start_target_termini = 'c'
@@ -1143,7 +1141,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 add_ent2.chain_id = chain_id
                 chain_id = next(available_chain_ids)
 
-            half_entity2_length = entity2.number_of_residues
+            half_entity2_length = entity2.number_of_residues / 2
             if job.aligned_start:
                 aligned_start_residue = entity2.residue(job.aligned_start)
                 if aligned_start_residue is None:
