@@ -1025,64 +1025,71 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
         else:
             additional_entities1 = remaining_entities1
 
-        # Check for helical termini on the target building block
+        # Solve for target/aligned residue features
+        half_entity1_length = entity1.number_of_residues
+
+        # Check target_end first as the secondary_structure1 slice is dependent on lengths
+        if job.target_end:
+            target_end_residue = entity1.residue(job.target_end)
+            if target_end_residue is None:
+                raise DesignError(
+                    f"Couldn't find the {flags.format_args(flags.target_end_args)} residue number {job.target_end} "
+                    f"in the {entity1.__class__.__name__}, {entity1.name}")
+            target_end_index_ = target_end_residue.index
+            # See if the specified aligned_start/aligned_end lie in this termini orientation
+            if target_end_index_ < half_entity1_length:
+                desired_end_target_termini = 'n'
+            else:  # Closer to c-termini
+                desired_end_target_termini = 'c'
+        else:
+            desired_end_target_termini = target_end_index_ = None
+
+        if job.target_start:
+            target_start_residue = entity1.residue(job.target_start)
+            if target_start_residue is None:
+                raise DesignError(
+                    f"Couldn't find the {flags.format_args(flags.target_start_args)} residue number "
+                    f"{job.target_start} in the {entity1.__class__.__name__}, {entity1.name}")
+            target_start_index_ = target_start_residue.index
+            # See if the specified aligned_start/aligned_end lie in this termini orientation
+            if target_start_index_ < half_entity1_length:
+                desired_start_target_termini = 'n'
+            else:  # Closer to c-termini
+                desired_start_target_termini = 'c'
+        else:
+            desired_start_target_termini = target_start_index_ = None
+
+        # Set up desired_aligned_termini
+        if desired_start_target_termini:
+            if desired_end_target_termini:
+                if desired_start_target_termini != desired_end_target_termini:
+                    raise DesignError(
+                        f"Found different termini specified for addition by your flags "
+                        f"{flags.format_args(flags.aligned_start_args)} ({desired_start_target_termini}-termini) "
+                        f"and{flags.format_args(flags.aligned_end_args)} ({desired_end_target_termini}-termini)")
+
+            termini = desired_start_target_termini
+        elif desired_end_target_termini:
+            termini = desired_end_target_termini
+        else:
+            termini = None
+
         if job.target_termini:
             desired_termini = job.target_termini.copy()
-        else:  # Solve for target/aligned residue features
-            half_entity1_length = entity1.number_of_residues
+            if termini and termini not in desired_termini:
+                if desired_start_target_termini:
+                    flag = flags.target_start
+                else:
+                    flag = flags.target_end
+                raise DesignError(
+                    f"The {flags.format_args(flags.target_termini)} '{job.target_termini}' isn't compatible with your "
+                    f"flag {flags.format_args(flag)} '{flag}'")
+        elif termini:
+            desired_termini = [termini]
+        else:  # None specified, try all
+            desired_termini = ['n', 'c']
 
-            # Check target_end first as the secondary_structure1 slice is dependent on lengths
-            if job.target_end:
-                target_end_residue = entity1.residue(job.target_end)
-                if target_end_residue is None:
-                    raise DesignError(
-                        f"Couldn't find the {flags.format_args(flags.target_end_args)} residue number {job.target_end} "
-                        f"in the {entity1.__class__.__name__}, {entity1.name}")
-                target_end_index_ = target_end_residue.index
-                # See if the specified aligned_start/aligned_end lie in this termini orientation
-                if target_end_index_ < half_entity1_length:
-                    desired_end_target_termini = 'n'
-                else:  # Closer to c-termini
-                    desired_end_target_termini = 'c'
-            else:
-                desired_end_target_termini = target_end_index_ = None
-
-            if job.target_start:
-                target_start_residue = entity1.residue(job.target_start)
-                if target_start_residue is None:
-                    raise DesignError(
-                        f"Couldn't find the {flags.format_args(flags.target_start_args)} residue number "
-                        f"{job.target_start} in the {entity1.__class__.__name__}, {entity1.name}")
-                target_start_index_ = target_start_residue.index
-                # See if the specified aligned_start/aligned_end lie in this termini orientation
-                if target_start_index_ < half_entity1_length:
-                    desired_start_target_termini = 'n'
-                else:  # Closer to c-termini
-                    desired_start_target_termini = 'c'
-            else:
-                desired_start_target_termini = target_start_index_ = None
-
-            # Set the desired_aligned_termini
-            if desired_start_target_termini:
-                if desired_end_target_termini:
-                    if desired_start_target_termini != desired_end_target_termini:
-                        raise DesignError(
-                            f"Found different termini specified for addition by your flags "
-                            f"{flags.format_args(flags.aligned_start_args)} ({desired_start_target_termini}-termini) "
-                            f"and{flags.format_args(flags.aligned_end_args)} ({desired_end_target_termini}-termini)")
-
-                termini = desired_start_target_termini
-            elif desired_end_target_termini:
-                termini = desired_end_target_termini
-            else:
-                termini = None
-
-            if termini:
-                desired_termini = [termini]
-            else:  # None specified, try all
-                desired_termini = ['n', 'c']
-
-        # Remove those that are not available
+        # Check for helical termini on the target building block and remove those that are not available
         for termini in reversed(desired_termini):
             if not entity1.is_termini_helical(termini, window=alignment_length):
                 logger.error(f"The specified termini '{termini}' isn't helical")
@@ -1392,9 +1399,9 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                         alignment_numbers = f'{start_residue1.number}-{end_residue1.number}+{extension_str}/' \
                                             f'{start_residue2.number}-{end_residue2.number}'
                         fusion_name = f'{ordered_entity1.name}_{start_residue1.number}-' \
-                            f'{end_residue1.number}_fused{extension_str}-to' \
-                            f'_{ordered_entity2.name}_{start_residue2.number}-' \
-                            f'{end_residue2.number}'
+                                      f'{end_residue1.number}_fused{extension_str}-to' \
+                                      f'_{ordered_entity2.name}_{start_residue2.number}-' \
+                                      f'{end_residue2.number}'
                         # Reformat residues for new chain
                         helix_n_terminal_residue_number = ordered_entity1.c_terminal_residue.number + 1
                         helix_model.renumber_residues(index=helix_model_start_index, at=helix_n_terminal_residue_number)
