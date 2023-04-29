@@ -1007,8 +1007,6 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
         pose_jobs.append(pose_job)
 
     # Set parameters as null
-    desired_target_start_index = desired_target_alignment_length = None
-    desired_aligned_start_index = desired_aligned_alignment_length = None
     observed_protein_data = {}
     # Start the alignment search
     for selected_idx1, entity1 in enumerate(selected_models1):
@@ -1195,15 +1193,8 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 align_termini = opposite_termini[termini]
                 if entity2.is_termini_helical(align_termini, window=alignment_length):
                     if desired_aligned_termini and align_termini == desired_aligned_termini:
-                        # This is the correct termini, find the necessary indices
+                        # This is the correct termini
                         termini_to_align.append(termini)
-                        # logger.debug(f'Checking {align_termini}-termini for helices:\n\t{entity2.secondary_structure}')
-                        # desired_aligned_start_index, desired_aligned_alignment_length = \
-                        #     get_terminal_helix_start_index_and_length(entity2.secondary_structure, align_termini,
-                        #                                               start_index=aligned_start_index_,
-                        #                                               end_index=aligned_end_index_)
-                        # logger.debug(f'Found {align_termini}-termini start index {desired_aligned_start_index} and '
-                        #              f'length {desired_aligned_alignment_length}')
                         break  # As only one termini can be specified and this was it
                     else:
                         termini_to_align.append(termini)
@@ -1217,22 +1208,13 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
             for termini in termini_to_align:
                 logger.info(f'Starting {entity1.name} {termini}-termini')
                 # Get the target_start_index the length_of_target_helix
-                # if desired_target_start_index is None and desired_target_alignment_length is None:
-                #     logger.debug(f'Checking {termini}-termini for helices:\n\t{entity1.secondary_structure}')
-                #     target_start_index, length_of_target_helix = get_terminal_helix_start_index_and_length(
-                #         entity1.secondary_structure, termini)
-                #     logger.debug(
-                #         f'Found {termini}-termini start index {target_start_index} and length {length_of_target_helix}')
-                # else:
-                #     target_start_index = desired_target_start_index
-                #     """The Residues index where the target helix starts"""
-                #     length_of_target_helix = desired_target_alignment_length
-                #     """The length of the target helix"""
-                target_start_index, target_alignment_length = \
+                logger.debug(f'Checking {termini}-termini for helices:\n\t{entity1.secondary_structure}')
+                target_start_index, length_of_target_helix = \
                     get_terminal_helix_start_index_and_length(entity1.secondary_structure, termini,
                                                               start_index=target_start_index_,
                                                               end_index=target_end_index_)
-
+                logger.debug(f'Found {termini}-termini start index {target_start_index} and '
+                             f'length {length_of_target_helix}')
                 if job.extension_length:
                     extension_length = job.extension_length
                     # Add the extension length to the residue window if an ideal helix was added
@@ -1252,23 +1234,14 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 logger.debug(f'length_of_helix_model: {length_of_helix_model}')
 
                 # Get the aligned_start_index and length_of_aligned_helix
-                # if desired_aligned_start_index is None and desired_aligned_alignment_length is None:
-                #     logger.debug(f'Checking {align_termini}-termini for helices:\n\t{entity2.secondary_structure}')
-                #     aligned_start_index, length_of_aligned_helix = get_terminal_helix_start_index_and_length(
-                #         entity2.secondary_structure, align_termini)
-                #     logger.debug(f'Found {align_termini}-termini start index {aligned_start_index} and length '
-                #                  f'{length_of_aligned_helix}')
-                # else:
-                #     aligned_start_index = desired_aligned_start_index
-                #     length_of_aligned_helix = desired_aligned_alignment_length
                 align_termini = opposite_termini[termini]
                 logger.debug(f'Checking {align_termini}-termini for helices:\n\t{entity2.secondary_structure}')
                 aligned_start_index, length_of_aligned_helix = \
                     get_terminal_helix_start_index_and_length(entity2.secondary_structure, align_termini,
                                                               start_index=aligned_start_index_,
                                                               end_index=aligned_end_index_)
-                logger.debug(f'Found {align_termini}-termini start index {desired_aligned_start_index} and '
-                             f'length {desired_aligned_alignment_length}')
+                logger.debug(f'Found {align_termini}-termini start index {aligned_start_index} and '
+                             f'length {length_of_aligned_helix}')
 
                 # Scan along the aligned helix length
                 logger.debug(f'length_of_aligned_helix: {length_of_aligned_helix}')
