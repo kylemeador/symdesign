@@ -6,11 +6,11 @@ import os
 import sys
 import warnings
 from collections import defaultdict
-from typing import AnyStr, Iterable
+from typing import AnyStr, Iterable, Literal, get_args
 
 import numpy as np
 
-from symdesign import utils
+from symdesign import resources, utils
 from symdesign.utils import path as putils
 from symdesign.utils.symmetry import valid_subunit_number, space_group_symmetry_operators, \
     point_group_symmetry_operators, all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, \
@@ -1221,13 +1221,18 @@ def sdf_lookup(symmetry: str = None) -> AnyStr:
 repeat_with_sym_entry = "Can't distinguish between the desired entries. " \
                         'Repeat your command and specify the preferred ENTRY to proceed.\nEx:\n    --sym-entry 1'
 # {flags.format_args(flags.sym_entry_args)}
-header_format_string = '{:5s} {:6s} {:10s} {:9s} {:^20s} {:6s} {:10s} {:9s} {:^20s} {:6s}'
-query_output_format_string = '{:>5s} {:>6s} {:>10s} {:>9s} {:^20s} {:>6s} {:>10s} {:>9s} {:^20s} {:>6s}'
+query_output_format_string = \
+    '{:>5d} {:>6s} {:>9d} {:>6s} {:>10d} {:>9d} {:^20s} {:>6s} {:>10d} {:>9d} {:^20s} {:>8d} {:>8d} {:>8d}'
 
 
 def print_query_header():
-    print(header_format_string.format('ENTRY', 'GROUP1', 'IntDofRot1', 'IntDofTx1', 'ReferenceFrameDof1', 'GROUP2',
-                                      'IntDofRot2', 'IntDofTx2', 'ReferenceFrameDof2', 'RESULT'))
+    # number_of_groups: int
+    print('\033[1m{:5s} {:6s} {:9} {:6s} {:10s} {:9s} {:^20s} {:6s} {:10s} {:9s} {:^20s} {:8s} {:8s} {:8s}\033['
+          '0m'.format(
+              'Entry', 'Result', 'Dimension',
+              f'Group1', 'IntDofRot1', 'IntDofTx1', 'ReferenceFrameDof1',
+              'Group2', 'IntDofRot2', 'IntDofTx2', 'ReferenceFrameDof2', 'TotalDof', 'RingSize', 'Dockable'))
+    # *((f'Group{i}', f'IntDofRot{i}', f'IntDofTx{i}', f'ReferenceFrameDof{i}' for i in range(number_of_groups))
 
 
 def symmetry_groups_are_allowed_in_entry(symmetry_operators: Iterable[str], *groups: Iterable[str], result: str = None,
@@ -1273,6 +1278,23 @@ def symmetry_groups_are_allowed_in_entry(symmetry_operators: Iterable[str], *gro
     return True  # Assume correct unless proven incorrect
 
 
+def get_int_dof(*groups: Iterable[str]) -> list[tuple[int, int], ...]:
+    """Usage
+    int_dof1, int_dof2, *_ = get_int_dof(int_dof_group1, int_dof_group2)
+    """
+    group_int_dofs = []
+    for group_int_dof in groups:
+        int_rot = int_tx = 0
+        for int_dof in group_int_dof:
+            if int_dof.startswith('r'):
+                int_rot = 1
+            if int_dof.startswith('t'):
+                int_tx = 1
+        group_int_dofs.append((int_rot, int_tx))
+
+    return group_int_dofs
+
+
 def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: str) -> int:
     """Given the resulting symmetry and the symmetry operators for each Entity, solve for the SymEntry
 
@@ -1283,31 +1305,23 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
         The entry number of the SymEntry
     """
 
-    def print_matching_entries(entries):
-        if not entries:
-            return
-        print_query_header()
-        for _entry in entries:
-            _group1, _int_dof_group1, _, _ref_frame_tx_dof_group1, _group2, _int_dof_group2, _, \
-                _ref_frame_tx_dof_group2, *_ = symmetry_combinations[_entry]
-            int_rot1 = int_tx1 = int_rot2 = int_tx2 = 0
-            for int_dof in _int_dof_group1:
-                if int_dof.startswith('r'):
-                    int_rot1 = 1
-                if int_dof.startswith('t'):
-                    int_tx1 = 1
-            for int_dof in _int_dof_group2:
-                if int_dof.startswith('r'):
-                    int_rot2 = 1
-                if int_dof.startswith('t'):
-                    int_tx2 = 1
-            print(query_output_format_string.format(
-                str(_entry), _group1, str(int_rot1), str(int_tx1), str(_ref_frame_tx_dof_group1), _group2,
-                str(int_rot2), str(int_tx2), str(_ref_frame_tx_dof_group2), result))
+    # def print_matching_entries(entries):
+    #     if not entries:
+    #         return
+    #     print_query_header()
+    #     for _entry in entries:
+    #         _group1, _int_dof_group1, _, _ref_frame_tx_dof_group1, _group2, _int_dof_group2, _, \
+    #             _ref_frame_tx_dof_group2, _, _result, dimension, *_ = symmetry_combinations[_entry]
+    #         int_dof1, int_dof2, *_ = get_int_dof(_int_dof_group1, _int_dof_group2)
+    #         print(query_output_format_string.format(
+    #             _entry, result, dimension,
+    #             _group1, *int_dof1, str(_ref_frame_tx_dof_group1),
+    #             _group2, *int_dof2, str(_ref_frame_tx_dof_group2)))
 
     def report_multiple_solutions(entries: list[int]):
-        entries = sorted(entries)
-        print(f'\033[1mFound specified symmetries matching including {", ".join(map(str, entries))}\033[0m')
+        # entries = sorted(entries)
+        # print(f'\033[1mFound specified symmetries matching including {", ".join(map(str, entries))}\033[0m')
+        # print(f'\033[1mFound specified symmetries matching\033[0m')
         print_matching_entries(entries)
         print(repeat_with_sym_entry)
 
@@ -1409,209 +1423,135 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
     return matching_entries[0]
 
 
-def query_combination(combination_list):
-    if isinstance(combination_list, list) and len(combination_list) == 2:
-        matching_entries = []
-        for entry_number, entry in nanohedra_symmetry_combinations.items():
-            group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-                ref_frame_tx_dof_group2, _, result, dimension, *_ = entry
-            # group2 = entry[6]
-            # int_dof_group1 = entry[3]
-            # int_dof_group2 = entry[8]
-            # ref_frame_tx_dof_group1 = entry[5]
-            # ref_frame_tx_dof_group2 = entry[10]
-            # result = entry[12]
-            if combination_list == [group1, group2] or combination_list == [group2, group1]:
-                int_rot1 = 0
-                int_tx1 = 0
-                int_rot2 = 0
-                int_tx2 = 0
-                for int_dof in int_dof_group1:
-                    if int_dof.startswith('r'):
-                        int_rot1 = 1
-                    if int_dof.startswith('t'):
-                        int_tx1 = 1
-                for int_dof in int_dof_group2:
-                    if int_dof.startswith('r'):
-                        int_rot2 = 1
-                    if int_dof.startswith('t'):
-                        int_tx2 = 1
-                matching_entries.append(query_output_format_string.format(str(entry_number), group1, str(int_rot1),
-                                                                          str(int_tx1), ref_frame_tx_dof_group1, group2,
-                                                                          str(int_rot2), str(int_tx2),
-                                                                          ref_frame_tx_dof_group2, result))
-        if not matching_entries:
-            print('\033[1m' + "NO MATCHING ENTRY FOUND" + '\033[0m')
-            print('')
-        else:
-            print('\033[1m' + "POSSIBLE COMBINATION(S) FOR: %s + %s" % (combination_list[0], combination_list[1]) +
-                  '\033[0m')
-            print_query_header()
-            for match in matching_entries:
-                print(match)
+def print_matching_entries(match_string, matching_entries: Iterable[int]):
+    """USAGE
+    print_matching_entries(match_string, matching_entries)
+
+    Args:
+        match_string: The string inserted into "All entries found matching {match_string}:"
+        matching_entries: The matching entry numbers
+
+    Returns:
+
+    """
+    if not matching_entries:
+        print('\033[1mNo matching entries found\033[0m\n')
+        return
     else:
-        print("INVALID ENTRY")
+        matching_entries = sorted(matching_entries)
 
-
-def query_result(desired_result):
-    if isinstance(desired_result, str):
-        matching_entries = []
-        for entry_number, entry in nanohedra_symmetry_combinations.items():
-            group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-                ref_frame_tx_dof_group2, _, result, dimension, *_ = entry
-            # group2 = entry[6]
-            # int_dof_group1 = entry[3]
-            # int_dof_group2 = entry[8]
-            # ref_frame_tx_dof_group1 = entry[5]
-            # ref_frame_tx_dof_group2 = entry[10]
-            # result = entry[12]
-            if desired_result == result:
-                int_rot1 = 0
-                int_tx1 = 0
-                int_rot2 = 0
-                int_tx2 = 0
-                for int_dof in int_dof_group1:
-                    if int_dof.startswith('r'):
-                        int_rot1 = 1
-                    if int_dof.startswith('t'):
-                        int_tx1 = 1
-                for int_dof in int_dof_group2:
-                    if int_dof.startswith('r'):
-                        int_rot2 = 1
-                    if int_dof.startswith('t'):
-                        int_tx2 = 1
-                matching_entries.append(query_output_format_string.format(str(entry_number), group1, str(int_rot1),
-                                                                          str(int_tx1), ref_frame_tx_dof_group1, group2,
-                                                                          str(int_rot2), str(int_tx2),
-                                                                          ref_frame_tx_dof_group2, result))
-        if not matching_entries:
-            print('\033[1m' + "NO MATCHING ENTRY FOUND" + '\033[0m')
-            print('')
-        else:
-            print('\033[1m' + "POSSIBLE COMBINATION(S) FOR: %s" % desired_result + '\033[0m')
-            print_query_header()
-            for match in matching_entries:
-                print(match)
-    else:
-        print("INVALID ENTRY")
-
-
-def query_counterpart(query_group):
-    if isinstance(query_group, str):
-        matching_entries = []
-        for entry_number, entry in nanohedra_symmetry_combinations.items():
-            group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-                ref_frame_tx_dof_group2, _, result, dimension, *_ = entry
-            # group2 = entry[6]
-            # int_dof_group1 = entry[3]
-            # int_dof_group2 = entry[8]
-            # ref_frame_tx_dof_group1 = entry[5]
-            # ref_frame_tx_dof_group2 = entry[10]
-            # result = entry[12]
-            if query_group in [group1, group2]:
-                int_rot1 = 0
-                int_tx1 = 0
-                int_rot2 = 0
-                int_tx2 = 0
-                for int_dof in int_dof_group1:
-                    if int_dof.startswith('r'):
-                        int_rot1 = 1
-                    if int_dof.startswith('t'):
-                        int_tx1 = 1
-                for int_dof in int_dof_group2:
-                    if int_dof.startswith('r'):
-                        int_rot2 = 1
-                    if int_dof.startswith('t'):
-                        int_tx2 = 1
-                matching_entries.append(
-                    "{:>5s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}".format(
-                        str(entry_number), group1, str(int_rot1), str(int_tx1), ref_frame_tx_dof_group1, group2,
-                        str(int_rot2), str(int_tx2), ref_frame_tx_dof_group2, result))
-        if not matching_entries:
-            print('\033[1m' + "NO MATCHING ENTRY FOUND" + '\033[0m')
-            print('')
-        else:
-            print('\033[1m' + "POSSIBLE COMBINATION(S) FOR: %s" % query_group + '\033[0m')
-            print_query_header()
-            for match in matching_entries:
-                print(match)
-    else:
-        print("INVALID ENTRY")
-
-
-def all_entries():
-    all_entries_list = []
-    for entry_number, entry in nanohedra_symmetry_combinations.items():
-        group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-            ref_frame_tx_dof_group2, _, result, dimension, *_ = entry
-        # group2 = entry[6]
-        # int_dof_group1 = entry[3]
-        # int_dof_group2 = entry[8]
-        # ref_frame_tx_dof_group1 = entry[5]
-        # ref_frame_tx_dof_group2 = entry[10]
-        # result = entry[12]
-        int_rot1 = 0
-        int_tx1 = 0
-        int_rot2 = 0
-        int_tx2 = 0
-        for int_dof in int_dof_group1:
-            if int_dof.startswith('r'):
-                int_rot1 = 1
-            if int_dof.startswith('t'):
-                int_tx1 = 1
-        for int_dof in int_dof_group2:
-            if int_dof.startswith('r'):
-                int_rot2 = 1
-            if int_dof.startswith('t'):
-                int_tx2 = 1
-        all_entries_list.append(query_output_format_string.format(str(entry_number), group1, str(int_rot1),
-                                                                  str(int_tx1), ref_frame_tx_dof_group1, group2,
-                                                                  str(int_rot2), str(int_tx2), ref_frame_tx_dof_group2,
-                                                                  result))
-    print('\033[1m' + "ALL ENTRIES" + '\033[0m')
+    print(f'\033[1mAll entries found matching {match_string}:\033[0m')
     print_query_header()
-    for entry in all_entries_list:
-        print(entry)
+    for entry in matching_entries:
+        group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
+            ref_frame_tx_dof_group2, result_point_group, result, dimension, cell_lengths, cell_angles, tot_dof, \
+            ring_size = symmetry_combinations[entry]
+        int_dof1, int_dof2, *_ = get_int_dof(int_dof_group1, int_dof_group2)
+        # print(entry, result, dimension,
+        #       group1, *int_dof1, ref_frame_tx_dof_group1,
+        #       group2, *int_dof2, ref_frame_tx_dof_group2, tot_dof, ring_size)
+        if ref_frame_tx_dof_group1 is None:
+            ref_frame_tx_dof_group1 = '0,0,0'
+        if ref_frame_tx_dof_group2 is None:
+            ref_frame_tx_dof_group2 = '0,0,0'
+        print(query_output_format_string.format(
+                entry, result, dimension,
+                group1, *int_dof1, f'<{ref_frame_tx_dof_group1}>',
+                str(group2), *int_dof2, f'<{ref_frame_tx_dof_group2}>', tot_dof, ring_size,
+                True if entry in nanohedra_symmetry_combinations else False))
 
 
-def dimension(dim):
-    if dim in [0, 2, 3]:
-        matching_entries_list = []
-        for entry_number, entry in nanohedra_symmetry_combinations.items():
-            group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-                ref_frame_tx_dof_group2, _, result, dimension, *_ = entry
-            # group1 = entry[1]
-            # group2 = entry[6]
-            # int_dof_group1 = entry[3]
-            # int_dof_group2 = entry[8]
-            # ref_frame_tx_dof_group1 = entry[5]
-            # ref_frame_tx_dof_group2 = entry[10]
-            # result = entry[12]
-            if dimension == dim:
-                int_rot1 = 0
-                int_tx1 = 0
-                int_rot2 = 0
-                int_tx2 = 0
-                for int_dof in int_dof_group1:
-                    if int_dof.startswith('r'):
-                        int_rot1 = 1
-                    if int_dof.startswith('t'):
-                        int_tx1 = 1
-                for int_dof in int_dof_group2:
-                    if int_dof.startswith('r'):
-                        int_rot2 = 1
-                    if int_dof.startswith('t'):
-                        int_tx2 = 1
-                matching_entries_list.append(query_output_format_string.format(str(entry_number), group1, str(int_rot1),
-                                                                               str(int_tx1), ref_frame_tx_dof_group1,
-                                                                               group2, str(int_rot2), str(int_tx2),
-                                                                               ref_frame_tx_dof_group2, result))
-        print('\033[1m' + 'ALL ENTRIES FOUND WITH DIMENSION %d: ' % dim + '\033[0m')
-        print_query_header()
-        for entry in matching_entries_list:
-            print(entry)
+query_modes_literal = Literal['all-entries', 'combination', 'group', 'dimension', 'result']
+query_mode_args = get_args(query_modes_literal)
+
+
+def query(mode: query_modes_literal, *additional_mode_args, nanohedra: bool = True):
+    """Perform a query of the symmetry combinations
+
+    Args:
+        mode: The type of query to perform. Viable options are:
+            'all-entries', 'combination', 'counterpart', 'dimension', and 'result'
+        *additional_mode_args: Additional query args required
+        nanohedra: True if only Nanohedra docking symmetries should be queried
+    Returns:
+        None
+    """
+    if nanohedra:
+        symmetry_combinations_of_interest = nanohedra_symmetry_combinations
     else:
-        print('DIMENSION NOT SUPPORTED, VALID DIMENSIONS ARE: 0, 2 or 3')
+        symmetry_combinations_of_interest = symmetry_combinations
+
+    matching_entries = []
+    if mode == 'all-entries':
+        match_string = mode
+        # all_entries()
+        # def all_entries():
+        matching_entries.extend(symmetry_combinations_of_interest.keys())
+    else:
+        if not additional_mode_args:
+            # raise ValueError(
+            #     f"Can't query with mode '{mode}' without additional arguments")
+            instructions = defaultdict(str, {
+                'combination': 'Provide multiple symmetry groups from the possible groups '
+                               f'{", ".join(valid_symmetries)}\n'})
+            mode_instructions = instructions[mode]
+            more_info_prompt = f"For the query mode '{mode}, more information is needed\n" \
+                               f"{mode_instructions}What {mode} is requested?"
+            additional_mode_args = resources.query.format_input(more_info_prompt)
+
+        if mode == 'combination':
+            combination, *_ = additional_mode_args
+            match_string = f'{mode} %s' % ''.join('{%s}' % group for group in combination)
+            # query_combination(*additional_mode_args)
+            # def query_combination(*combination):
+            for entry_number, entry in symmetry_combinations_of_interest.items():
+                group1, _, _, _, group2, *_ = entry
+                if combination == (group1, group2) or combination == (group2, group1):
+                    matching_entries.append(entry_number)
+        elif mode == 'result':
+            result, *_ = additional_mode_args
+            match_string = f'{mode}={result}'
+            # query_result(result)
+            # def query_result(desired_result: str):
+            for entry_number, entry in symmetry_combinations_of_interest.items():
+                _, _, _, _, _, _, _, _, _, entry_result, *_ = entry
+                if result == entry_result:
+                    matching_entries.append(entry_number)
+        elif mode == 'group':
+            group, *_ = additional_mode_args
+            match_string = f'{mode}={group}'
+            # query_counterpart(counterpart)
+            # def query_counterpart(group: str):
+            for entry_number, entry in symmetry_combinations_of_interest.items():
+                group1, _, _, _, group2, *_ = entry
+                if group in (group1, group2):
+                    matching_entries.append(entry_number)
+
+        elif mode == 'dimension':
+            dim, *_ = additional_mode_args
+            match_string = f'{mode}={dim}'
+            # dimension(dim)
+            # def dimension(dim: int):
+            try:
+                dim = int(dim)
+            except ValueError:
+                pass
+
+            if dim in [0, 2, 3]:
+                for entry_number, entry in symmetry_combinations_of_interest.items():
+                    _, _, _, _, _, _, _, _, _, _, dimension, *_ = entry
+                    if dimension == dim:
+                        matching_entries.append(entry_number)
+            else:
+                print(f"Dimension '{dim}' isn't supported. Valid dimensions are: 0, 2 or 3'")
+                sys.exit()
+        else:
+            raise ValueError(
+                f"The mode '{mode}' isn't available")
+
+    # Report those found
+    # print(matching_entries)
+    print_matching_entries(match_string, matching_entries)
 
 
 if __name__ == '__main__':

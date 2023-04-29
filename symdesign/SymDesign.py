@@ -488,7 +488,7 @@ def main():
     #  Process optional program flags
     # -----------------------------------------------------------------------------------------------------------------
     # Ensure module specific arguments are collected and argument help is printed in full
-    args, additional_args = flags.argparsers[flags.parser_guide].parse_known_args()
+    args, additional_args = flags.guide_parser.parse_known_args()
     # -----------------------------------------------------------------------------------------------------------------
     #  Display the program guide if requested
     # -----------------------------------------------------------------------------------------------------------------
@@ -551,12 +551,14 @@ def main():
     #  Initialize program with provided flags and arguments
     # -----------------------------------------------------------------------------------------------------------------
     # Parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
-    module_parser = flags.argparsers[flags.parser_module]
+    module_parser = flags.module_parser
     args, additional_args = module_parser.parse_known_args()
 
-    if args.module == flags.nanohedra and args.query:
-        # Submit before checking for additional_args as query comes with additional args
-        utils.nanohedra.cmdline.query_mode([__file__, '-query'] + additional_args)
+    # Checking for query before additional_args error as query has additional_args
+    if args.module == flags.symmetry:
+        # if not args.query:
+        #     args.query = 'all-entries'
+        utils.SymEntry.query(args.query, *additional_args, nanohedra=args.nanohedra)
         sys.exit()
 
     def handle_atypical_inputs(modules: Iterable[str]) -> bool:
@@ -585,9 +587,7 @@ def main():
         all_args = [args]
         for idx, module in enumerate(args.modules):
             # additional_args = [module] + additional_args
-            args, additional_args = \
-                module_parser.parse_known_args(args=[module] + additional_args)
-                                               # , namespace=args)
+            args, additional_args = module_parser.parse_known_args(args=[module] + additional_args)
             all_args.append(args)
             # input(f'{args}\n\n{additional_args}')
 
@@ -603,11 +603,10 @@ def main():
         args.module = flags.protocol
 
     # Check the provided flags against the full SymDesign entire_parser to print any help
-    entire_parser = flags.argparsers[flags.parser_entire]
-    _args, _additional_args = entire_parser.parse_known_args()
+    _args, _additional_args = flags.entire_parser.parse_known_args()
     # Parse the provided flags
-    for argparser in [flags.parser_options, flags.parser_residue_selector, flags.parser_output, flags.parser_input]:
-        args, additional_args = flags.argparsers[argparser].parse_known_args(args=additional_args, namespace=args)
+    for argparser in [flags.options_parser, flags.residue_selector_parser, flags.output_parser, flags.input_parser]:
+        args, additional_args = argparser.parse_known_args(args=additional_args, namespace=args)
 
     if additional_args:
         print(f"\nFound flag(s) that aren't recognized with the requested job/module(s): {', '.join(additional_args)}\n"

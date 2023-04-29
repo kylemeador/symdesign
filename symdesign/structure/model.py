@@ -35,7 +35,7 @@ from symdesign.resources import ml, query, sql
 from symdesign.sequence import default_substitution_matrix_array, default_substitution_matrix_translation_table, \
     generate_alignment, generate_mutations, get_equivalent_indices, numeric_to_sequence, \
     numerical_translation_alph1_unknown_gaped_bytes, numerical_translation_alph3_unknown_gaped_bytes, \
-    protein_letters_alph1, protein_letters_3to1_extended, protein_letters_1to3_extended, profile_types, \
+    protein_letters_3to1_extended, protein_letters_1to3_extended, profile_types, \
     protein_letters_alph1_unknown_gaped
 import symdesign.third_party.alphafold.alphafold.data.feature_processing as af_feature_processing
 import symdesign.third_party.alphafold.alphafold.data.parsers as af_data_parsers

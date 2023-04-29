@@ -11,9 +11,9 @@ from typing import AnyStr, Sequence
 
 logger = logging.getLogger(__name__)
 # Project strings and file names
-utils_dir = os.path.dirname(os.path.realpath(__file__))  # reveals utils subdirectory
-python_source = os.path.dirname(utils_dir)  # reveals the root symdesign directory with python code
-git_source = os.path.dirname(python_source)  # reveals the root symdesign directory for git
+utils_dir = os.path.dirname(os.path.realpath(__file__))  # Reveals utils subdirectory
+python_source = os.path.dirname(utils_dir)  # Reveals the root python code directory
+git_source = os.path.dirname(python_source)  # Reveals the root git directory
 try:
     p = subprocess.Popen(['git', '--git-dir', os.path.join(git_source, '.git'), 'rev-parse', 'HEAD'],
                          stdout=subprocess.PIPE)

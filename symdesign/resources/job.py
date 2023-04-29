@@ -1110,8 +1110,7 @@ class JobResources:
                     return
 
         # Get all the default program args and compare them to the provided values
-        entire_parser = flags.argparsers[flags.parser_entire]
-        for group in entire_parser._action_groups:
+        for group in flags.entire_parser._action_groups:
             for arg in group._group_actions:
                 if isinstance(arg, argparse._SubParsersAction):  # We have a subparser, recurse
                     for name, sub_parser in arg.choices.items():
