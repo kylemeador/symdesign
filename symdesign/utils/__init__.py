@@ -1068,18 +1068,21 @@ def collect_designs(files: Sequence = None, directory: AnyStr = None, projects: 
         all_paths = []
         for file in files:
             if not os.path.exists(file):
-                logger.critical(f'No "{file}" file found! Please ensure correct location/name!')
+                logger.critical(f"No '{file}' file found. Please ensure correct location/name")
                 sys.exit(1)
-            if '.pdb' in file:  # single .pdb files were passed as input and should be loaded as such
+            if '.pdb' in file:  # Single .pdb file passed as input
                 all_paths.append(file)
-            else:  # assume a file that specifies individual designs was passed and load all design names in that file
+            elif '.cif' in file:  # Single .cif file passed as input
+                all_paths.append(file)
+            else:  # Assume a file that specifies individual designs was passed and load all design names in that file
                 try:
                     with open(file, 'r') as f:
                         # only strip the trailing 'os.sep' in case file names are passed
                         paths = map(str.rstrip, [location.strip() for location in f.readlines()
                                                  if location.strip() != ''], repeat(os.sep))
                 except IsADirectoryError:
-                    raise InputError(f'{file} is a directory not a file. Did you mean to run with --file?')
+                    raise IsADirectoryError(
+                        f"'{file}' is a directory not a file. Did you mean to run with --file?'")
                 all_paths.extend(paths)
     else:
         base_directory = get_program_root_directory(directory)
@@ -1092,8 +1095,8 @@ def collect_designs(files: Sequence = None, directory: AnyStr = None, projects: 
         elif directory:  # This is probably an uninitialized project. Grab all .pdb files
             all_paths = get_directory_file_paths(directory, extension='.pdb')
             directory = os.path.basename(directory)  # This is for the location variable return
-        else:  # function was called with all set to None. This shouldn't happen
-            raise InputError(
+        else:  # Function was called with all set to None. This shouldn't happen
+            raise ValueError(
                 f"Can't {collect_designs.__name__}() with no arguments passed")
 
     location = (files or directory or projects or singles)

@@ -964,6 +964,8 @@ class JobResources:
         protocol_module_allowed_modules = [
             # 'find_asu',
             flags.orient,
+            flags.align_helices,
+            flags.bend,
             flags.expand_asu,
             flags.rename_chains,
             flags.check_clashes,

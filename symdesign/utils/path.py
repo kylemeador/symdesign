@@ -407,7 +407,7 @@ logging_cfg = {
         # Can't include any stream or file handlers from above as the handlers get added to configuration twice
     },
 }
-default_logging_level = 2
+default_logging_level = 20
 
 
 def make_path(path: AnyStr, condition: bool = True):

@@ -136,6 +136,12 @@ aligned_chain = 'aligned_chain'
 extend = 'extend'
 alignment_length = 'alignment_length'
 length = 'length'
+design_chains = 'design_chains'
+require_residues = 'require_residues'
+require_chains = 'require_chains'
+design_residues = 'design_residues'
+mask_residues = 'mask_residues'
+mask_chains = 'mask_chains'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -338,7 +344,13 @@ aligned_end = format_for_cmdline(aligned_end)
 aligned_chain = format_for_cmdline(aligned_chain)
 extend = format_for_cmdline(extend)
 alignment_length = format_for_cmdline(alignment_length)
-length = format_for_cmdline(length)
+design_chains = format_for_cmdline(design_chains)
+require_residues = format_for_cmdline(require_residues)
+require_chains = format_for_cmdline(require_chains)
+design_residues = format_for_cmdline(design_residues)
+mask_residues = format_for_cmdline(mask_residues)
+mask_chains = format_for_cmdline(mask_chains)
+
 select_modules = (
     select_poses,
     select_designs,
@@ -858,48 +870,44 @@ parser_residue_selector = {residue_selector: dict(description=residue_selector_h
 parser_residue_selector_group = dict(title=f'{"_" * len(design_selector_title)}\n{design_selector_title}',
                                      description=f'\n{residue_selector_help}')
 residue_selector_arguments = {
-    ('--require-design-at-residues',):
+    (f'--{require_residues}',):  # Todo make a ChainResidue parser like A27-35,B118,B281
         dict(metavar='',
-             help='Regardless of participation in an interface, if certain\nresidues should be included in'
-                  ' design, specify the\nresidue POSE numbers as a comma separated string.\n'
-                  'Ex: "23,24,35,41,100-110,267,289-293" Ranges are allowed'),
-    ('--require-design-at-chains',):
+             help='If design MUST occur at certain residues, specify their\n'
+                  'numbers as a comma separated, range string\n'
+                  "Ex: '23,24,35,41,100-110,267,289-293'"),
+    (f'--{require_chains}',):
         dict(metavar='',
-             help='Regardless of participation in an interface, if certain\nchains should be included in'
-                  " design, specify the\nchain ID's as a comma separated string.\n"
-                  'Ex: "A,D"'),
+             help='If design MUST occur on certain chains, specify their\n'
+                  "chain ID's as a comma separated string.\n"
+                  "Ex: 'A,D'"),
     # ('--select-designable-residues-by-sequence',):
     #     dict(help='If design should occur ONLY at certain residues, specify\nthe location of a .fasta file '
     #               f'containing the design selection\nRun "{program_command} --single my_pdb_file.pdb design_selector"'
     #               ' to set this up'),
-    ('--select-designable-residues-by-pdb-number',):
+    (f'--{design_residues}',):  # Todo make a ChainResidue parser like A27-35,B118,B281
         dict(metavar='',
-             help='If design should occur ONLY at certain residues, specify\nthe residue PDB number(s) '
-                  'as a comma separated string\nRanges are allowed Ex: "40-45,170-180,227,231"'),
-    ('--select-designable-residues-by-pose-number',):
+             help='If design should ONLY occur at certain residues, specify\n'
+                  'their numbers as a comma separated, range string\n'
+                  "Ex: '23,24,35,41,100-110,267,289-293'"),
+    (f'--{design_chains}',):
         dict(metavar='',
-             help='If design should occur ONLY at certain residues, specify\nthe residue POSE number(s) '
-                  'as a comma separated string\nRanges are allowed Ex: "23,24,35,41,100-110,267,289-293"'),
-    ('--select-designable-chains',):
-        dict(metavar='',
-             help="If a design should occur ONLY at certain chains, specify\nthe chain ID's as a comma "
-                  'separated string\nEx: "A,C,D"'),
+             help="If design should ONLY occur on certain chains, specify\n"
+                  "the chain ID's as a comma separated string\n"
+                  "Ex: 'A,C,D'"),
     # ('--mask-designable-residues-by-sequence',):
     #     dict(help='If design should NOT occur at certain residues, specify\nthe location of a .fasta file '
     #               f'containing the design mask\nRun "{program_command} --single my_pdb_file.pdb design_selector" '
     #               'to set this up'),
-    ('--mask-designable-residues-by-pdb-number',):
+    (f'--{mask_residues}',):  # Todo make a ChainResidue parser like A27-35,B118,B281
         dict(metavar='',
-             help='If design should NOT occur at certain residues, specify\nthe residue PDB number(s) '
-                  'as a comma separated string\nEx: "27-35,118,281" Ranges are allowed'),
-    ('--mask-designable-residues-by-pose-number',):
+             help='If design should NOT occur at certain residues, specify\n'
+                  'their numbers as a comma separated, range string\n'
+                  "Ex: '27-35,118,281'"),
+    (f'--{mask_chains}',):
         dict(metavar='',
-             help='If design should NOT occur at certain residues, specify\nthe residue POSE number(s) '
-                  'as a comma separated string\nEx: "27-35,118,281" Ranges are allowed'),
-    ('--mask-designable-chains',):
-        dict(metavar='',
-             help="If a design should NOT occur at certain chains, provide\nthe chain ID's as a comma "
-                  'separated string\nEx: "C"')
+             help="If a design should NOT occur at certain chains, provide\n"
+                  "the chain ID's as a comma separated string\n"
+                  "Ex: 'B,C'")
 }
 # ---------------------------------------------------
 # Set Up SubModule Parsers
@@ -1554,7 +1562,7 @@ input_arguments = {
     load_to_db_args: load_to_db_kwargs,
     # ('-N', f'--{nanohedra}V1-output'): dict(action='store_true', dest=nanohedra_output,
     #                                         help='Is the input a Nanohedra wersion 1 docking output?'),
-    (f'--{poses}',): dict(type=os.path.abspath, nargs='*',  # dest=putils.specification_file,
+    (f'--{poses}',): dict(type=os.path.abspath, nargs='*', default=tuple(),
                           metavar=ex_path(default_path_file.format('TIMESTAMP', 'MODULE', 'LOCATION')),
                           help=f'For each run of {program_name}, a file will be created that\n'
                                f'specifies the specific poses used during that module. Use\n'
@@ -1566,12 +1574,10 @@ input_arguments = {
     #                                        f'{current_energy_function}\nenergy function and/or missing loops'),
     (f'--{loop_model_input}',):
         dict(action=argparse.BooleanOptionalAction, default=None,
-             help='Whether the input building blocks should have missing regions modelled\n'
-                  f'{boolean_positional_prevent_msg(loop_model_input)}'),
+             help='Whether the input building blocks should have missing regions modelled'),
     (f'--{refine_input}',):
         dict(action=argparse.BooleanOptionalAction, default=None,
-             help=f'Whether the input building blocks should be refined into {current_energy_function}\n'
-                  f'{boolean_positional_prevent_msg(loop_model_input)}'),
+             help=f'Whether the input building blocks should be refined into {current_energy_function}'),
     (f'--{pre_loop_modeled}',):
         dict(action='store_true', help='Whether the input building blocks have been preprocessed for missing density'),
     (f'--{pre_refined}',):
@@ -1583,7 +1589,7 @@ input_arguments = {
                           # Required ^ for formatting
                           'Ex: 0-25'),
     specification_file_args:
-        dict(type=os.path.abspath, nargs='*', metavar=ex_path('pose_design_specifications.csv'),
+        dict(type=os.path.abspath, nargs='*', default=tuple(), metavar=ex_path('pose_design_specifications.csv'),
              help='Name of comma separated file with each line formatted:\n'
                   # 'poseID, [designID], [1:directive 2-9:directive ...]\n'
                   '"pose_identifier, [design_name], [1:directive 2-9:directive ...]"\n'
@@ -1602,15 +1608,15 @@ directory_kwargs = dict(type=os.path.abspath, metavar=ex_path('your_pdb_files'),
                              f'{program_name}. If the directory of interest resides in a {program_output}\n'
                              f'directory, it is recommended to use {format_args(file_args)}, '
                              f'{format_args(project_args)}, or {format_args(single_args)}')
-file_kwargs = dict(type=os.path.abspath, default=None, nargs='*', metavar=ex_path('file_with_pose.paths'),
+file_kwargs = dict(type=os.path.abspath, default=tuple(), nargs='*', metavar=ex_path('file_with_pose.paths'),
                    help='File(s) to be input or containing list of files to be input to the program')
 parser_input_mutual_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
 input_mutual_arguments = {
     directory_args: directory_kwargs,
     file_args: file_kwargs,
-    project_args: dict(type=os.path.abspath, nargs='*', metavar=ex_path(program_output, projects, 'yourProject'),
+    project_args: dict(type=os.path.abspath, nargs='*', default=tuple(), metavar=ex_path(program_output, projects, 'yourProject'),
                        help='Operate on designs specified within a project(s)'),
-    single_args: dict(type=os.path.abspath, nargs='*',
+    single_args: dict(type=os.path.abspath, nargs='*', default=tuple(),
                       metavar=ex_path(program_output, projects, 'yourProject', 'single_pose[.pdb]'),
                       help='Operate on single pose(s) in a project'),
 }
@@ -1921,6 +1927,7 @@ init_defaults = dict(namespace='init')
 predict_defaults = dict(namespace='predict')
 """Contains all the arguments and their default parameters used in structure prediction"""
 available_modules = []
+"""Contains all the registered modules"""
 
 
 def parse_flags_to_namespaces(parser: argparse.ArgumentParser):
@@ -1950,6 +1957,7 @@ registered_tools = [multicistronic, update_db]  # , flags.distribute]
 # Todo register these tools!
 #  ['concatenate-files', 'list-overlap', 'retrieve-oligomers', 'retrieve-pdb-codes']
 decoy_modules = [all_flags, initialize_building_blocks, input_, output, options, residue_selector]
+options_modules = [input_, output, options, residue_selector]
 available_tools = registered_tools + decoy_modules
 # logger.debug(f'Found the tools: {", ".join(available_tools)}')
 available_modules = sorted(set(available_modules).difference(available_tools))
