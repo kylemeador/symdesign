@@ -4449,49 +4449,18 @@ class SymmetricModel(Model):  # Models):
         #     generate_assembly_coords: Whether the symmetric coords should be generated from the ASU coords
         #     generate_symmetry_mates: Whether the symmetric models should be generated from the ASU model
         #          asu: PDB = None, asu_file: str = None
+        super().__init__(**kwargs)
         # Initialize symmetry first incase initialization of Model requires symmetric coordinate handling
-        self.expand_matrices = None
-        self.expand_translations = None
+        self.expand_matrices = self.expand_translations = None
         # self.uc_dimensions = None  # uc_dimensions
         self.set_symmetry(sym_entry=sym_entry, symmetry=symmetry, uc_dimensions=uc_dimensions,
-                          expand_matrices=expand_matrices)
-        super().__init__(**kwargs)
-
-        self._set_up_symmetry(transformations=transformations, surrounding_uc=surrounding_uc)
-
-    def _set_up_symmetry(self, transformations: list[types.TransformationMapping] = None, surrounding_uc: bool = True):
-        """Ensure that the symmetric system is set up properly
-
-        Args:
-            transformations: The entity_transformations operations that reproduce the individual oligomers
-            surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
-        """
-        if self.is_symmetric():  # True if symmetry keyword args were passed
-            # Ensure the number of Entity instances matches the SymEntry groups
-            number_of_entities = self.number_of_entities
-            if number_of_entities != self.sym_entry.number_of_groups:
-                raise SymmetryError(
-                    f'The {self.__class__.__name__} has {self.number_of_entities} symmetric entities. '
-                    f'{self.sym_entry.number_of_groups} were expected based on the specified symmetry '
-                    f'{repr(self.sym_entry)}')
-
-            # Ensure the Model is an asu
-            if number_of_entities != self.number_of_chains:
-                self.set_contacting_asu()
-            if self.symmetric_coords is None:
-                # We need to generate the symmetric coords
-                self.log.debug('Generating symmetric coords')
-                self.generate_symmetric_coords(surrounding_uc=surrounding_uc)  # Defaults to surrounding_uc=True
-
-            # Generate oligomers for each entity in the pose
-            for entity, subunit_number in zip(self.entities, self.sym_entry.group_subunit_numbers):
-                if entity.number_of_symmetry_mates != subunit_number:
-                    self.make_oligomers(transformations=transformations)
-                    break
-                self.log.debug(f'Entity {entity.name} is already the correct oligomer, skipping make_oligomer()')
+                          expand_matrices=expand_matrices,
+                          transformations=transformations, surrounding_uc=surrounding_uc)
 
     def set_symmetry(self, sym_entry: utils.SymEntry.SymEntry | int = None, symmetry: str = None,
-                     uc_dimensions: list[float] = None, expand_matrices: np.ndarray | list = None, **kwargs):
+                     uc_dimensions: list[float] = None, expand_matrices: np.ndarray | list = None,
+                     transformations: list[types.TransformationMapping] = None, surrounding_uc: bool = True,
+                     **kwargs):
         """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann–Mauguin symmetry
         notation (in CRYST1 format, ex P 4 3 2) for the Model assembly. If the assembly is a point group,
         only the symmetry is required
@@ -4501,10 +4470,8 @@ class SymmetricModel(Model):  # Models):
             symmetry: The name of a symmetry to be searched against the existing compatible symmetries
             uc_dimensions: Whether the symmetric coords should be generated from the ASU coords
             expand_matrices: A set of custom expansion matrices
-        Keyword Args:
-            transformations: list[types.TransformationMapping] = None - The entity_transformations operations that reproduce
-                the individual oligomers
-            surrounding_uc: bool = True - Whether the 3x3 layer group, or 3x3x3 space group should be generated
+            transformations: The entity_transformations operations that reproduce the individual oligomers
+            surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
         # Try to solve for symmetry as we want uc_dimensions if available for cryst ops
         if self.cryst_record:  # Was populated from file parsing
@@ -4580,12 +4547,30 @@ class SymmetricModel(Model):  # Models):
         #  remove any existing symmetry attr from the Model
         #  if not self.sym_entry:
         #      del self._symmetry
-        try:
-            self.entities
-        except AttributeError:
-            pass  # This is still in __init__
-        else:  # After __init__() construction, user set_symmetry()
-            self._set_up_symmetry(**kwargs)
+
+        if self.is_symmetric():  # True if symmetry keyword args were passed
+            # Ensure the number of Entity instances matches the SymEntry groups
+            number_of_entities = self.number_of_entities
+            if number_of_entities != self.sym_entry.number_of_groups:
+                raise SymmetryError(
+                    f'The {self.__class__.__name__} has {self.number_of_entities} symmetric entities. '
+                    f'{self.sym_entry.number_of_groups} were expected based on the specified symmetry '
+                    f'{repr(self.sym_entry)}')
+
+            # Ensure the Model is an asu
+            if number_of_entities != self.number_of_chains:
+                self.set_contacting_asu()
+            if self.symmetric_coords is None:
+                # Also need to generate the symmetric coords
+                self.log.debug('Generating symmetric coords')
+                self.generate_symmetric_coords(surrounding_uc=surrounding_uc)
+
+            # Generate oligomers for each entity in the pose
+            for entity, subunit_number in zip(self.entities, self.sym_entry.group_subunit_numbers):
+                if entity.number_of_symmetry_mates != subunit_number:
+                    self.make_oligomers(transformations=transformations)
+                    break
+                self.log.debug(f'Entity {entity.name} is already the correct oligomer, skipping make_oligomer()')
 
     # @property
     # def chains(self) -> list[Entity]:
