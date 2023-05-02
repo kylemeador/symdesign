@@ -1425,18 +1425,16 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
 
 
 def print_matching_entries(match_string, matching_entries: Iterable[int]):
-    """USAGE
-    print_matching_entries(match_string, matching_entries)
+    """Report the relevant information from passed SymEntry entry numbers
 
     Args:
         match_string: The string inserted into "All entries found matching {match_string}:"
         matching_entries: The matching entry numbers
-
     Returns:
-
+        None
     """
     if not matching_entries:
-        print('\033[1mNo matching entries found\033[0m\n')
+        print(f'\033[1mNo entries found matching {match_string}\033[0m\n')
         return
     else:
         matching_entries = sorted(matching_entries)
@@ -1496,13 +1494,13 @@ def query(mode: query_modes_literal, *additional_mode_args, nanohedra: bool = Tr
                 'combination': 'Provide multiple symmetry groups from the possible groups '
                                f'{", ".join(valid_symmetries)}\n'})
             mode_instructions = instructions[mode]
-            more_info_prompt = f"For the query mode '{mode}, more information is needed\n" \
+            more_info_prompt = f"For the query mode '{mode}', more information is needed\n" \
                                f"{mode_instructions}What {mode} is requested?"
             additional_mode_args = resources.query.format_input(more_info_prompt)
 
         if mode == 'combination':
             combination, *_ = additional_mode_args
-            match_string = f'{mode} %s' % ''.join('{%s}' % group for group in combination)
+            match_string = f"{mode} {''.join('{%s}' % group for group in combination)}"
             # query_combination(*additional_mode_args)
             # def query_combination(*combination):
             for entry_number, entry in symmetry_combinations_of_interest.items():
