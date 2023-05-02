@@ -1926,10 +1926,18 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     # chain_gen = chain_id_generator()
     # for entity_name, data in entity_info.items():
     #     data['chains'] = [next(chain_gen)]
+    if sym_entry.unit_cell:
+        # Calculate the vectorized uc_dimensions
+        full_uc_dimensions = sym_entry.get_uc_dimensions(full_optimal_ext_dof_shifts)
+        uc_dimensions = full_uc_dimensions[0]
+    else:
+        uc_dimensions = None
 
-    pose = Pose.from_entities([entity for model in input_models for entity in model.entities], log=None,
+    pose = Pose.from_entities([entity for model in input_models for entity in model.entities],
+                              log=True if job.debug else None,
                               sym_entry=sym_entry, name='asu', fragment_db=job.fragment_db,  # entity_info=entity_info,
-                              surrounding_uc=job.output_surrounding_uc, ignore_clashes=True, rename_chains=True)
+                              surrounding_uc=True, rename_chains=True, uc_dimensions=uc_dimensions)
+                              # surrounding_uc=job.output_surrounding_uc, rename_chains=True, uc_dimensions=uc_dimensions)
 
     # Ensure .metadata attribute is passed to each entity in the full assembly
     # This is crucial for sql usage
@@ -2068,9 +2076,6 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         passing_symmetric_clash_indices_perturb = slice(None)
     else:
         logger.info('Checking solutions for symmetric clashes')
-        if sym_entry.unit_cell:
-            # Calculate the vectorized uc_dimensions
-            full_uc_dimensions = sym_entry.get_uc_dimensions(full_optimal_ext_dof_shifts)
 
         # passing_symmetric_clash_indices = find_viable_symmetric_indices(number_viable_pose_interfaces)
         passing_symmetric_clash_indices = find_viable_symmetric_indices(passing_transforms_indices.tolist())
