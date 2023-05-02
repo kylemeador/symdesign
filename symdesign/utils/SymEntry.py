@@ -370,6 +370,9 @@ class SymEntry:
                 self.groups.append(group)
 
         # Solve the group information for each passed symmetry
+        self._int_dof_groups, self._setting_matrices, self._setting_matrices_numbers, self._ref_frame_tx_dof, \
+            self.__external_dof = [], [], [], [], []
+
         def add_group():
             # Todo
             #  Can the accuracy of this creation method be guaranteed with the usage of the same symmetry
@@ -379,6 +382,7 @@ class SymEntry:
             self._setting_matrices_numbers.append(set_mat_number)
             if ext_dof is None:
                 self._ref_frame_tx_dof.append(ext_dof)
+                self.__external_dof.append(construct_uc_matrix(('0', '0', '0')))
             else:
                 ref_frame_tx_dof = ext_dof.split(',')
                 self._ref_frame_tx_dof.append(ref_frame_tx_dof)
@@ -390,8 +394,6 @@ class SymEntry:
                         raise utils.SymmetryInputError(
                             f"Can't create {SymEntry.__name__} with external degrees of freedom and > 2 groups")
 
-        self._int_dof_groups, self._setting_matrices, self._setting_matrices_numbers, self._ref_frame_tx_dof, \
-            self.__external_dof = [], [], [], [], []
         for group_idx, group_symmetry in enumerate(self.groups, 1):
             if isinstance(group_symmetry, SymEntry):
                 group_symmetry = group_symmetry.resulting_symmetry
@@ -423,7 +425,7 @@ class SymEntry:
             if self.dimension == 0:
                 self.expand_matrices = point_group_symmetry_operators[self.resulting_symmetry]
             elif self.dimension in [2, 3]:
-                self.expand_matrices = space_group_symmetry_operators[self.resulting_symmetry]
+                self.expand_matrices, expand_translations = space_group_symmetry_operators[self.resulting_symmetry]
             else:
                 raise utils.SymmetryInputError(
                     'Invalid symmetry entry. Supported dimensions are 0, 2, and 3')
@@ -588,8 +590,7 @@ class SymEntry:
         try:
             return self._external_dof
         except AttributeError:
-            ref_frame_tx_dof = self._ref_frame_tx_dof
-            if not all(ref_frame_tx_dof):
+            if not any(self._ref_frame_tx_dof):
                 self._external_dof = np.empty((0, 3), float)  # <- np.array([[0.], [0.], [0.]])
             else:
                 difference_matrix = self.__external_dof[1] - self.__external_dof[0]
@@ -726,7 +727,7 @@ class SymEntry:
             optimal_shift_vec: An Nx3 array where N is the number of shift instances
                 and 3 is number of possible external degrees of freedom (even if they are not utilized)
         Returns:
-            The Unit Cell dimensions for each optimal shift vector passed
+            The unit cell dimensions for each optimal shift vector passed
         """
         if self.unit_cell is None:
             return None
