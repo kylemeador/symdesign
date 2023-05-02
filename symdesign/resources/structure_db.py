@@ -276,7 +276,10 @@ class StructureDatabase(Database):
             sym_entry: The SymEntry used to treat each passed Entity as symmetric. Default assumes no symmetry
             by_file: Whether to parse the structure_identifiers as file paths. Default treats as PDB EntryID or EntityID
         Returns:
-            The Model instances, oriented in a canonical orientation, and symmetrized
+            The tuple consisting of (
+                A map of the Model name to each Entity instance in the model,
+                A mapping of the UniProtEntity mapped to ProteinMetadata for every Entity instance identified
+            )
         """
         if not structure_identifiers:
             return {}, {}
@@ -422,6 +425,10 @@ class StructureDatabase(Database):
                 if structure_identifier in orient_asu_names:  # orient_asu file exists, just load
                     orient_asu_file = self.oriented_asu.retrieve_file(name=structure_identifier)
                     pose = Pose.from_file(orient_asu_file, name=structure_identifier, **pose_kwargs)
+                    if pose.symmetric_assembly_is_clash(warn=False):
+                        logger.critical(f"The '{structure_identifier}' Model isn't a viable symmetric assembly in the "
+                                        f"symmetry {sym_entry.resulting_symmetry}. Couldn't initialize")
+                        continue
 
                     # Write each Entity as well
                     for entity in pose.entities:
@@ -434,6 +441,10 @@ class StructureDatabase(Database):
                     orient_file = self.oriented.retrieve_file(name=structure_identifier)
                     # These name=structure_identifier should be the default parsing method anyway...
                     pose = Pose.from_file(orient_file, name=structure_identifier, **pose_kwargs)
+                    if pose.symmetric_assembly_is_clash(warn=False):
+                        logger.critical(f"The '{structure_identifier}' Model isn't a viable symmetric assembly in the "
+                                        f"symmetry {sym_entry.resulting_symmetry}. Couldn't initialize")
+                        continue
                     # Write out the Pose ASU
                     assembly_integer = '' if pose.biological_assembly is None else pose.biological_assembly
                     write_entities_and_asu(pose, assembly_integer)
@@ -706,10 +717,7 @@ class StructureDatabase(Database):
         full_model_dir = self.full_models.location
         # Identify the entities to refine and to model loops before proceeding
         protein_data_to_loop_model = []
-        sym_def_files = {}
         for data in metadata:
-            if data.symmetry_group not in sym_def_files:
-                sym_def_files[data.symmetry_group] = utils.SymEntry.sdf_lookup(data.symmetry_group)
             if not data.model_source:
                 logger.debug(f"{self.preprocess_metadata_for_design.__name__}: Couldn't find the "
                              f"ProteinMetadata.model_source for {data.entity_id}. Skipping loop model preprocessing")
@@ -898,7 +906,10 @@ class StructureDatabase(Database):
                     # Make all output paths and files for each loop ensemble
                     # logger.info('Preparing blueprint and loop files for structure:')
                     loop_model_cmds = []
+                    sym_def_files = {}
                     for idx, protein_data in enumerate(protein_data_to_loop_model):
+                        if data.symmetry_group not in sym_def_files:
+                            sym_def_files[data.symmetry_group] = utils.SymEntry.sdf_lookup(data.symmetry_group)
                         # Make a new directory for each structure
                         structure_out_path = os.path.join(full_model_dir, protein_data.name)
                         putils.make_path(structure_out_path)
@@ -994,6 +1005,11 @@ class StructureDatabase(Database):
                         refine_input = True
 
             if refine_input:
+                if not sym_def_files:
+                    sym_def_files = {}
+                    for data in protein_data_to_refine:
+                        if data.symmetry_group not in sym_def_files:
+                            sym_def_files[data.symmetry_group] = utils.SymEntry.sdf_lookup(data.symmetry_group)
                 # Generate sbatch refine command
                 flags_file = os.path.join(refine_dir, 'refine_flags')
                 # if not os.path.exists(flags_file):

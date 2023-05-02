@@ -138,7 +138,6 @@ def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.Un
 def initialize_structures(job: JobResources, sym_entry: utils.SymEntry.SymEntry = None, paths: Iterable[AnyStr] = False,
                           pdb_codes: list[str] = False, query_codes: bool = False) \
         -> tuple[dict[str, tuple[str, ...]], dict[tuple[str, ...], list[sql.ProteinMetadata]]]:
-    #    -> list[Model | Entity]:
     """From provided codes, files, or query directive, load structures into the runtime and orient them in the database
 
     Args:
@@ -148,7 +147,10 @@ def initialize_structures(job: JobResources, sym_entry: utils.SymEntry.SymEntry 
         pdb_codes: The PDB API EntryID, EntityID, or AssemblyID codes to fetch Structure instances
         query_codes: Whether a PDB API query should be initiated
     Returns:
-        The oriented Structure instances
+        The tuple consisting of (
+            A map of the Model name to each Entity instance in the model,
+            A mapping of the UniProtEntity mapped to ProteinMetadata for every Entity instance identified
+        )
     """
     # symmetry: str = None,
     #  symmetry: The symmetry used to perform the orient protocol on the specified structure identifiers
