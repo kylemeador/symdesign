@@ -1841,9 +1841,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # 'c_terminal_helix': self.is_termini_helical(termini='c'),
             # 'thermophile': thermophile
             # 'number_of_residues': self.number_of_residues,
-            'radius': self.distance_from_reference(**kwargs),
-            'min_radius': self.distance_from_reference(measure='min', **kwargs),
-            'max_radius': self.distance_from_reference(measure='max', **kwargs),
+            'radius': self.oligomer.distance_from_reference(**kwargs),
+            'min_radius': self.oligomer.distance_from_reference(measure='min', **kwargs),
+            'max_radius': self.oligomer.distance_from_reference(measure='max', **kwargs),
             'n_terminal_orientation': self.termini_proximity_from_reference(**kwargs),
             'c_terminal_orientation': self.termini_proximity_from_reference(termini='c', **kwargs),
         }
@@ -6350,12 +6350,10 @@ class Pose(SymmetricModel, Metrics):
         """
         minimum_radius, maximum_radius = float('inf'), 0.
         entity_metrics = []
-        dimension = self.dimension
+        reference_com = self.center_of_mass_symmetric
         for entity in self.entities:
-            if dimension and dimension > 0:
-                raise NotImplementedError('Need to add keyword reference= to Structure.distance_from_reference() call')
-            # _entity_metrics = sql.EntityMetrics(**entity.calculate_metrics())  # Todo add reference=
-            _entity_metrics = entity.calculate_metrics()  # Todo add reference=
+            # # _entity_metrics = sql.EntityMetrics(**entity.calculate_metrics(reference=reference_com))
+            _entity_metrics = entity.calculate_metrics(reference=reference_com)
 
             if _entity_metrics['min_radius'] < minimum_radius:
                 minimum_radius = _entity_metrics['min_radius']
