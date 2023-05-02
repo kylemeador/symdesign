@@ -649,8 +649,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         trajectory_models = Models()
 
     # Set up the TransformHasher to assist in scoring/pose output
-    radius1 = model1.distance_from_reference(measure='max')
-    radius2 = model2.distance_from_reference(measure='max')
+    radius1 = model1.radius  # .distance_from_reference(measure='max')
+    radius2 = model2.radius  # .distance_from_reference(measure='max')
     # Assume the maximum distance the box could get is the radius of each plus the interface distance
     box_width = radius1 + radius2 + cb_distance
     model_transform_hasher = TransformHasher(box_width)
@@ -1071,12 +1071,11 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         full_int_tx2 = zshift2 = None
 
     # Set up external translation parameters
+    full_optimal_ext_dof_shifts = []
     if sym_entry.unit_cell:
-        full_optimal_ext_dof_shifts = []
         positive_indices = None
     else:
-        full_optimal_ext_dof_shifts = []
-        # Ensure we slice by nothing, as None alone creates a new axis
+        # Ensure to slice by nothing, as None alone creates a new axis
         positive_indices = slice(None)
 
     # Initialize the OptimalTx object
@@ -1431,9 +1430,9 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                         f'(took {time.time() - euler_start:8f}s)')
 
             # # Tod0 debug
-            # # tx_param_list = []
-            # init_pass_ghost_numbers = init_ghost_residue_indices1[possible_ghost_frag_indices]
-            # init_pass_surf_numbers = init_surf_residue_indices2[possible_surf_frag_indices]
+            # tx_param_list = []
+            # # init_pass_ghost_numbers = init_ghost_residue_indices1[possible_ghost_frag_indices]
+            # # init_pass_surf_numbers = init_surf_residue_indices2[possible_surf_frag_indices]
             # for index in range(len(passing_ghost_coords)):
             #     o = OptimalTxOLD(set_mat1, set_mat2, sym_entry.is_internal_tx1, sym_entry.is_internal_tx2,
             #                      reference_rmsds[index],
@@ -1442,8 +1441,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             #     if o.get_zvalue() <= initial_z_value:
             #         # logger.debug(f'overlap found at ghost/surf residue pair {init_pass_ghost_numbers[index]} | '
             #         #              f'{init_pass_surf_numbers[index]}')
-            #         fragment_pairs.append((init_pass_ghost_numbers[index], init_pass_surf_numbers[index],
-            #                                initial_ghost_frags1[possible_ghost_frag_indices[index]].guide_coords))
+            #         # fragment_pairs.append((init_pass_ghost_numbers[index], init_pass_surf_numbers[index],
+            #         #                        initial_ghost_frags1[possible_ghost_frag_indices[index]].guide_coords))
             #         all_optimal_shifts = o.get_all_optimal_shifts()  # [OptimalExtDOFShifts, OptimalIntDOFShifts]
             #         tx_param_list.append(all_optimal_shifts)
             #
@@ -1454,11 +1453,11 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             #              f'{np.all(tx_param_list == transform_passing_shifts)}')
             # logger.debug(f'ALLCLOSE Equality of vectorized versus individual tx array: '
             #              f'{np.allclose(tx_param_list, transform_passing_shifts)}')
-            # check_forward_and_reverse(init_ghost_guide_coords1[possible_ghost_frag_indices],
-            #                           [rot_mat1], stacked_internal_tx_vectors1,
-            #                           init_surf_guide_coords2[euler_matched_surf_indices2[possible_overlaps]],
-            #                           [rot_mat2], stacked_internal_tx_vectors2,
-            #                           reference_rmsds)
+            # # check_forward_and_reverse(init_ghost_guide_coords1[possible_ghost_frag_indices],
+            # #                           [rot_mat1], stacked_internal_tx_vectors1,
+            # #                           init_surf_guide_coords2[euler_matched_surf_indices2[possible_overlaps]],
+            # #                           [rot_mat2], stacked_internal_tx_vectors2,
+            # #                           reference_rmsds)
             # # Tod0 debug
 
     # -----------------------------------------------------------------------------------------------------------------
@@ -3590,13 +3589,14 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                 z_heights2 = blank_parameter
 
             set_mat1_number, set_mat2_number, *_extra = sym_entry.setting_matrices_numbers
+            blank_parameters = list(repeat([None, None, None], number_of_transforms))
             # if sym_entry.unit_cell:
             #     full_uc_dimensions = full_uc_dimensions[passing_symmetric_clash_indices_perturb]
             #     full_ext_tx1 = full_ext_tx1[:]
             #     full_ext_tx2 = full_ext_tx2[:]
             #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
-            _full_ext_tx1 = blank_parameter if full_ext_tx1 is None else full_ext_tx1.squeeze()
-            _full_ext_tx2 = blank_parameter if full_ext_tx2 is None else full_ext_tx2.squeeze()
+            _full_ext_tx1 = blank_parameters if full_ext_tx1 is None else full_ext_tx1.squeeze()
+            _full_ext_tx2 = blank_parameters if full_ext_tx2 is None else full_ext_tx2.squeeze()
 
             for idx, pose_job in enumerate(pose_jobs):
                 # Add the next set of coordinates

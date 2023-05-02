@@ -539,7 +539,8 @@ def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[s
     """
     if sequence_file is None:
         if sequence is None:
-            raise ValueError(f"Can't perform {hhblits.__name__} without a 'sequence_file' or a 'sequence'")
+            raise ValueError(
+                f"{hhblits.__name__}: Can't proceed without argument 'sequence_file' or 'sequence'")
         else:
             sequence_file = write_sequences((name, sequence), file_name=os.path.join(out_dir, f'{name}.seq'))
     pssm_file = os.path.join(out_dir, f'{name}.hmm')

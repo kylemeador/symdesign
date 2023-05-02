@@ -228,7 +228,8 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                         if last_error is not None:  # This exited from the compute_failure_exceptions except
                             break  # break out and raise the _error
                         else:
-                            raise ValueError(f'The batch_length ({batch_length}) must be greater than 0')
+                            raise ValueError(
+                                f'The batch_length ({batch_length}) must be greater than 0')
                     # Perform any setup operations
                     # logger.critical(f'Before SETUP\nmemory_allocated: {torch.cuda.memory_allocated()}'
                     #                 f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
@@ -249,11 +250,13 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                             try:  # To access the return_container_key in the function
                                 return_containers[return_key][batch_slice] = return_value
                             except KeyError:  # If it doesn't exist
-                                raise KeyError(f"Couldn't return the data specified by {return_key} to the "
-                                               f"return_container with keys:{', '.join(return_containers.keys())}")
+                                raise KeyError(
+                                    f"Couldn't return the data specified by {return_key} to the return_container with "
+                                    f"keys:{', '.join(return_containers.keys())}")
                             except ValueError as error:  # Arrays are incorrectly sized
-                                raise ValueError(f"Couldn't return the data specified by {return_key} from "
-                                                 f"{func.__name__} due to: {error}")
+                                raise ValueError(
+                                    f"Couldn't return the data specified by {return_key} from {func.__name__} due to: "
+                                    f"{error}")
                         # for return_container_key, return_container in list(return_containers.items()):
                         #     try:  # To access the return_container_key in the function
                         #         return_container[batch_slice] = function_returns[return_container_key]
@@ -291,7 +294,8 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                 # except compute_failure_exceptions:
                 #     raise last_error
                 print(''.join(last_error))
-                raise RuntimeError(f"{func.__name__} wasn't able to be executed. See the above traceback")
+                raise RuntimeError(
+                    f"{func.__name__} wasn't able to be executed. See the above traceback")
 
             return return_containers
         return wrapped

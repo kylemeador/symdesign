@@ -1183,6 +1183,7 @@ class JobResources:
         info_messages = []
         hhblits_cmds, bmdca_cmds = [], []
         # Set up sequence data using hhblits and profile bmDCA for each input entity
+        all_entity_ids = []
         putils.make_path(self.sequences)
         if uniprot_entities is not None:
             for uniprot_entity in uniprot_entities:
@@ -1192,6 +1193,7 @@ class JobResources:
                                                 sequence=uniprot_entity.reference_sequence,
                                                 out_dir=self.profiles, threads=self.threads,
                                                 return_command=True))
+                    all_entity_ids.append(uniprot_entity.id)
                 # TODO reinstate
                 #  Solve .h_fields/.j_couplings
                 # # Before this is run, hhblits must be run and the file located at profiles/entity-name.fasta contains
@@ -1214,6 +1216,7 @@ class JobResources:
                     # entity.add_evolutionary_profile(out_dir=self.api_db.hhblits_profiles.location)
                     # To generate in a sbatch script
                     hhblits_cmds.append(entity.hhblits(out_dir=self.profiles, return_command=True))
+                    all_entity_ids.append(entity.name)
                 # TODO reinstate
                 # # Before this is run, hhblits must be run and the file located at profiles/entity-name.fasta contains
                 # # the multiple sequence alignment in .fasta format
@@ -1223,22 +1226,26 @@ class JobResources:
 
         if hhblits_cmds:
             if not os.access(putils.hhblits_exe, os.X_OK):
-                raise RuntimeError(f"Couldn't locate the {putils.hhblits} executable. Ensure the executable file "
-                                   f"referenced by '{putils.hhblits_exe} exists then try your job again. Otherwise, use"
-                                   f" the argument --no-{flags.evolution_constraint} OR set up hhblits to run."
-                                   f'{guide.hhblits_setup_instructions}')
-            putils.make_path(self.profiles)
-            putils.make_path(self.sbatch_scripts)
-            # hhblits_cmds, reformat_msa_cmds = zip(*profile_cmds)
-            # hhblits_cmds, _ = zip(*hhblits_cmds)
+                raise RuntimeError(
+                    f"Couldn't locate the {putils.hhblits} executable. Ensure the executable file referenced by "
+                    f"'{putils.hhblits_exe}' exists then try your job again. Otherwise, use the argument "
+                    f'--no-{flags.evolution_constraint} OR set up hhblits to run.{guide.hhblits_setup_instructions}')
+
+            reformat_cmds1 = []
+            reformat_cmds2 = []
             if not os.access(putils.reformat_msa_exe_path, os.X_OK):
                 logger.error(f"Couldn't execute multiple sequence alignment reformatting script")
-                reformat_msa_cmd1 = reformat_msa_cmd2 = []
             else:
-                reformat_msa_cmd1 = [putils.reformat_msa_exe_path, 'a3m', 'sto',
-                                     f"'{os.path.join(self.profiles, '*.a3m')}'", '.sto', '-num', '-uc']
-                reformat_msa_cmd2 = [putils.reformat_msa_exe_path, 'a3m', 'fas',
-                                     f"'{os.path.join(self.profiles, '*.a3m')}'", '.fasta', '-M', 'first', '-r']
+                for name in all_entity_ids:
+                    reformat_cmds1.append([
+                        putils.reformat_msa_exe_path, 'a3m', 'sto', f"{os.path.join(self.profiles, f'{name}.a3m')}",
+                        '.sto', '-num', '-uc'])
+                    reformat_cmds2.append([
+                        putils.reformat_msa_exe_path, 'a3m', 'fas', f"{os.path.join(self.profiles, f'{name}.a3m')}",
+                        '.fasta', '-M', 'first', '-r'])
+
+            putils.make_path(self.profiles)
+            putils.make_path(self.sbatch_scripts)
             hhblits_log_file = os.path.join(self.profiles, 'generate_profiles.log')
             # Run hhblits commands
             if not batch_commands and self.can_process_evolutionary_profiles():
@@ -1258,10 +1265,11 @@ class JobResources:
 
                 # Format .a3m multiple sequence alignments to .sto/.fasta
                 with open(hhblits_log_file, 'w') as f:
-                    p = subprocess.Popen(reformat_msa_cmd1, stdout=f, stderr=f)
-                    p.communicate()
-                    p = subprocess.Popen(reformat_msa_cmd2, stdout=f, stderr=f)
-                    p.communicate()
+                    for idx in range(len(reformat_cmds1)):
+                        p = subprocess.Popen(reformat_cmds1[idx], stdout=f, stderr=f)
+                        p.communicate()
+                        p = subprocess.Popen(reformat_cmds2[idx], stdout=f, stderr=f)
+                        p.communicate()
                 # Todo this would be more preferable
                 # for cmd in hhblits_cmds:
                 #     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -1269,23 +1277,35 @@ class JobResources:
                 #     if stdout or stderr:
                 #         logger.info()
             else:  # Convert each command to a string and write to distribute
-                instructions = 'Please follow the instructions below to generate sequence profiles for input proteins'
-                info_messages.append(instructions)
+                if distribute.is_sbatch_available():
+                    shell = distribute.sbatch
+                else:
+                    shell = distribute.default_shell
+
                 hhblits_cmds = [subprocess.list2cmdline(cmd) for cmd in hhblits_cmds]
+                reformat_cmds1 = [subprocess.list2cmdline(cmd) for cmd in reformat_cmds1]
+                reformat_cmds2 = [subprocess.list2cmdline(cmd) for cmd in reformat_cmds2]
                 hhblits_cmd_file = distribute.write_commands(hhblits_cmds, name=f'{utils.starttime}-{putils.hhblits}',
                                                              out_path=self.profiles)
+                reformat_msa_cmd_file = distribute.write_commands(
+                    reformat_cmds1 + reformat_cmds2, name=f'{utils.starttime}-{putils.hhblits}', out_path=self.profiles)
+                number_of_hhblits_cmds = len(hhblits_cmds)
+                hhblits_kwargs = dict(out_path=self.sbatch_scripts, scale=putils.hhblits,
+                                      max_jobs=number_of_hhblits_cmds, number_of_commands=number_of_hhblits_cmds,
+                                      log_file=hhblits_log_file)
+                reformat_msa_cmds_script = distribute.distribute(file=reformat_msa_cmd_file, **hhblits_kwargs)
+                # Todo
+                #  The finishing_commands includsion of another distribution script hasn't been tested
                 hhblits_script = \
-                    distribute.distribute(file=hhblits_cmd_file, out_path=self.sbatch_scripts,
-                                          scale=putils.hhblits, max_jobs=len(hhblits_cmds),
-                                          number_of_commands=len(hhblits_cmds), log_file=hhblits_log_file,
-                                          finishing_commands=[list2cmdline(reformat_msa_cmd1),
-                                                              list2cmdline(reformat_msa_cmd2)])
+                    distribute.distribute(file=hhblits_cmd_file,
+                                          finishing_commands=[f'{shell} {reformat_msa_cmds_script}'],
+                                          **hhblits_kwargs)
+                # Format messages
+                info_messages.append(
+                    'Please follow the instructions below to generate sequence profiles for input proteins')
                 hhblits_job_info_message = \
                     f'Enter the following to distribute {putils.hhblits} jobs:\n\t'
-                if distribute.is_sbatch_available():
-                    hhblits_job_info_message += f'{distribute.sbatch} {hhblits_script}'
-                else:
-                    hhblits_job_info_message += f'{distribute.default_shell} {hhblits_script}'
+                hhblits_job_info_message += f'{shell} {hhblits_script}'
                 info_messages.append(hhblits_job_info_message)
 
         if bmdca_cmds:

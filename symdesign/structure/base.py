@@ -5949,7 +5949,7 @@ class Structures(Structure, UserList):
 
     Args:
         structures: The Iterable of Structure to set the Structures with
-        dtype: If an empty Structures, tee specific subclass of Structure that Structures contains
+        dtype: If an empty Structures, the specific subclass of Structure that Structures contains
     """
     data: list[Structure]
     dtype: str
@@ -5972,15 +5972,15 @@ class Structures(Structure, UserList):
 
             self.dtype = dtype if dtype else type(self.data[0]).__name__
         else:
-            raise ValueError(f"Can't set {self.__class__.__name__} by passing "
-                             f'{", ".join(type(structure) for structure in self)}, must set with type [Structure, ...]'
-                             f'or an empty constructor. Ex: Structures()')
+            raise ValueError(
+                f"Can't set {self.__class__.__name__} by passing '{', '.join(type(structure) for structure in self)}, "
+                f'must set with type [Structure, ...] or an empty constructor. Ex: Structures()')
 
         # Overwrite attributes in Structure
         try:
             self.name = f'{self.parent.name}-{self.dtype}_{Structures.__name__}'
         except AttributeError:  # if not .parent.name
-            self._name = f'{"-".join(structure.name for structure in self)}_{Structures.__name__}'
+            self.name = f'{"-".join(structure.name for structure in self)}_{Structures.__name__}'
 
     # this setter would work in a world where Structures has it's own .coords, .atoms, and .residues
     # @StructureBase._parent.setter

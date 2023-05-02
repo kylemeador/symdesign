@@ -292,12 +292,12 @@ class MultiModel:
     each individual State instance.
 
     A more convenient way to think about this scenario is the following table:
-
-    |                State1      State2      State3      StateN
-    |        Index   0           1           2           -1
-    | Model1   0   - Protein1_1, Protein1_2, ...         Protein1_N
-    | Model2   1   - Protein2_1, Protein2_2, ...         Protein2_N
-    | Model3   2   - DNA1_1,     DNA1_2,     ...         DNA1_N
+     _______________________________________________________________
+    |                State1      State2      State3      StateN     |
+    |        Index   0           1           2           -1         |
+    | Model1   0   - Protein1_1, Protein1_2, ...         Protein1_N |
+    | Model2   1   - Protein2_1, Protein2_2, ...         Protein2_N |
+    | Model3   2   - DNA1_1,     DNA1_2,     ...         DNA1_N     |
 
     self.models holds each of the individual Structure instances which are involved in the MultiModel. As of now,
     no checks are made whether the identity of these are the same across States
@@ -335,7 +335,7 @@ class MultiModel:
         Ex: [Model_State1[Structure1, Structure2, ...], Model_State2[Structure1, Structure2, ...]]
 
         Keyword Args:
-            independent=False (bool): Whether the models are independent (True) or dependent on each other (False)
+            independent: bool = False - Whether each model is independent (True) of the others (False)
         """
         return cls(states=states, independent=independent, **kwargs)
 
@@ -363,7 +363,7 @@ class MultiModel:
 
         if model is not None:
             if not isinstance(model, Model):
-                model = Model(model)
+                model = Model.from_model(model)
 
             self.models = [model]
             # This loads Structure objects present in .models. Ex, the symmetry mates in SymmetricModel
@@ -371,8 +371,8 @@ class MultiModel:
 
             # self.structures = [[model.states]]
 
-        if isinstance(models, list):
-            self.models = models
+        elif isinstance(models, (list, Structures)):
+            self.models = models.copy()
             self.states = [[model[state_idx] for model in models] for state_idx in range(len(models[0].models))]
             # self.states = [[] for state in models[0].models]
             # for model in models:
@@ -386,27 +386,28 @@ class MultiModel:
             # for model in models:
             #     for idx, state in enumerate(model):
             #         structures[idx].append(state)
-
-        # collect the various structures and corresponding states of separate Structures
-        if state:
+        # Collect the various structures and corresponding states of separate Structures
+        elif state:
             if not isinstance(state, State):
                 state = State(state)
 
             self.states = [state]
             self.models = [[structure] for structure in state.structures]
             # self.structures = [[structure] for structure in state.structures]
-        if isinstance(states, list):
-            # modify loop order by separating Structure objects in same state to individual Entity containers
+        elif isinstance(states, (list, Structures)):
+            # Modify loop order by separating Structure objects in same state to individual Entity containers
             self.states = states
-            self.models = [[state[model_idx] for state in states] for model_idx in range(len(states[0].structures))]
+            self.models = [[state[model_idx] for state in states] for model_idx in range(len(states[0].entities))]
             # self.models = [state.structures for state in states]
 
             # self.structures = [[] for structure in states[0]]
             # for state in states:
             #     for idx, structure in enumerate(state.structures):
             #         self.structures[idx].append(structure)
+        else:
+            raise NotImplementedError("You must construct with either 'model', 'models', 'state', or 'states'")
 
-        # indicate whether each structure is an independent set of models by setting dependent to corresponding tuple
+        # Indicate whether each structure is an independent set of models by setting dependent to corresponding tuple
         dependents = [] if independent else range(self.number_of_models)
         self.dependents = set(dependents)  # tuple(dependents)
 
@@ -471,7 +472,7 @@ class MultiModel:
             raise IndexError('The added State contains fewer Structures than present in the MultiModel. Only pass a '
                              f'State that has the same number of Structures ({self.number_of_models}) as the MultiModel')
 
-    def append_model(self, model: Model, independent: bool = False):
+    def append(self, model: Model, independent: bool = False):
         """From a Structure with multiple states, incorporate the Model into the existing Model
 
         Sets:
@@ -529,7 +530,8 @@ class MultiModel:
             if dependent_index == -1:  # no index found, idx is in independents
                 independent_index = independent_sort.index(idx)
                 if independent_index == -1:  # no index found? Where is it
-                    raise IndexError('The index was not found in either independent or dependent models!')
+                    raise IndexError(
+                        'The index was not found in either independent or dependent models!')
                 else:
                     models.append(unordered_structure_models[len(dependent_sort) + independent_index])
             else:  # index found, idx is in dependents
@@ -613,7 +615,7 @@ class State(Structures):
     # #                              'view. To pass the Coords object for a Structure, use the private attribute _coords')
 
     # @property
-    # def model_coords(self):  # TODO RECONCILE with coords, SymmetricModel variation
+    # def model_coords(self):  # Todo RECONCILE with coords, SymmetricModel variation
     #     """Return a view of the modelled Coords. These may be symmetric if a SymmetricModel"""
     #     return self._model_coords.coords
     #
@@ -643,7 +645,7 @@ class State(Structures):
     #     return len(self.coords)
     #
     # @property
-    # def residues(self):  # TODO Residues iteration
+    # def residues(self):  # Todo Residues iteration
     #     try:
     #         return self._residues.residues.tolist()
     #     except AttributeError:
@@ -1470,8 +1472,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     #     self._number_of_symmetry_mates = number_of_symmetry_mates
 
     @property
-    def center_of_mass_symmetric(self) -> np.ndarray:  # Todo mirrors SymmetricModel
-        """The center of mass for the entire symmetric system"""
+    def center_of_mass_symmetric(self) -> np.ndarray:  # Todo exactly as in SymmetricModel
+        """The center of mass for the symmetric system with shape (3,)"""
         # number_of_symmetry_atoms = len(self.symmetric_coords)
         # return np.matmul(np.full(number_of_symmetry_atoms, 1 / number_of_symmetry_atoms), self.symmetric_coords)
         # v since all symmetry by expand_matrix anyway
@@ -2109,8 +2111,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                              stderr=subprocess.PIPE, cwd=putils.orient_exe_dir)
         in_symm_file = os.path.join(putils.orient_exe_dir, 'symm_files', symmetry)
         stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
-        self.log.info(file_name + stdout.decode()[28:])
-        self.log.info(stderr.decode()) if stderr else None
+        self.log.debug(file_name + stdout.decode()[28:])
+        self.log.debug(stderr.decode()) if stderr else None
         if not orient_output.exists() or orient_output.stat().st_size == 0:
             try:
                 log_file = getattr(self.log.handlers[0], 'baseFilename', None)
@@ -3193,8 +3195,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                              stderr=subprocess.PIPE, cwd=putils.orient_exe_dir)
         in_symm_file = os.path.join(putils.orient_exe_dir, 'symm_files', symmetry)
         stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
-        self.log.info(file_name + stdout.decode()[28:])
-        self.log.info(stderr.decode()) if stderr else None
+        self.log.debug(file_name + stdout.decode()[28:])
+        self.log.debug(stderr.decode()) if stderr else None
         if not orient_output.exists() or orient_output.stat().st_size == 0:
             try:
                 log_file = getattr(self.log.handlers[0], 'baseFilename', None)
@@ -4563,9 +4565,9 @@ class SymmetricModel(Model):  # Models):
                     np.ndarray(expand_matrices).swapaxes(-2, -1) if not isinstance(expand_matrices, np.ndarray) \
                     else expand_matrices
             else:
-                raise SymmetryError(f'The expand matrix form {expand_matrices} is not supported! Must provide a'
-                                    ' tuple of array like objects with the form (expand_matrix(s), '
-                                    'expand_translation(s))')
+                raise SymmetryError(
+                    f"The expand matrix form {expand_matrices} isn't supported. Must provide a tuple of array-like "
+                    'objects with the order (expand_matrix(s), expand_translation(s))')
         else:
             if self.dimension == 0:
                 self.expand_matrices, self.expand_translations = \
@@ -4773,9 +4775,10 @@ class SymmetricModel(Model):  # Models):
         try:
             return utils.symmetry.space_group_number_operations[self.symmetry]
         except KeyError:
-            raise SymmetryError(f"The symmetry '{self.symmetry}' isn't an available unit cell at this time. If "
-                                'this is a point group, adjust your code, otherwise, help expand the code to '
-                                'include the symmetry operators for this symmetry group')
+            raise SymmetryError(
+                f"The symmetry '{self.symmetry}' isn't an available unit cell at this time. If this is a point group, "
+                f"adjust your code, otherwise, help expand the code to include the symmetry operators for this symmetry"
+                f' group')
 
     # @number_of_uc_symmetry_mates.setter
     # def number_of_uc_symmetry_mates(self, number_of_uc_symmetry_mates):
@@ -4887,8 +4890,8 @@ class SymmetricModel(Model):  # Models):
             return self._symmetric_coords_by_entity
 
     @property
-    def center_of_mass_symmetric(self) -> np.ndarray:
-        """The center of mass for the full symmetric assembly"""
+    def center_of_mass_symmetric(self) -> np.ndarray:  # Todo exactly as in Entity
+        """The center of mass for the symmetric system with shape (3,)"""
         # number_of_symmetry_atoms = len(self.symmetric_coords)
         # return np.matmul(np.full(number_of_symmetry_atoms, 1 / number_of_symmetry_atoms), self.symmetric_coords)
         # v since all symmetry by expand_matrix anyway
@@ -4896,7 +4899,9 @@ class SymmetricModel(Model):  # Models):
 
     @property
     def center_of_mass_symmetric_models(self) -> np.ndarray:
-        """The set of center of mass points for each symmetry mate in the symmetric system"""
+        """The center of mass points for each symmetry mate in the symmetric system with shape
+        (number_of_symmetry_mates, 3)
+        """
         # number_of_atoms = self.number_of_atoms
         # return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms), self.symmetric_coords_split)
         # return np.matmul(self.center_of_mass, self.expand_matrices)
@@ -4908,7 +4913,9 @@ class SymmetricModel(Model):  # Models):
 
     @property
     def center_of_mass_symmetric_entities(self) -> list[list[np.ndarray]]:
-        """The set of center of mass points for each Entity instance in the symmetric system for each symmetry mate"""
+        """The center of mass points for each Entity instance in the symmetric system for each symmetry mate with shape
+        [(number_of_symmetry_mates, 3), ... number_of_entities]
+        """
         # if self.symmetry:
         # self._center_of_mass_symmetric_entities = []
         # for num_atoms, entity_coords in zip(self.number_of_atoms_per_entity, self.symmetric_coords_split_by_entity):
@@ -4919,7 +4926,6 @@ class SymmetricModel(Model):  # Models):
         try:
             return self._center_of_mass_symmetric_entities
         except AttributeError:
-            # self.log.debug(f"Creating _center_of_mass_symmetric_entities")
             self._center_of_mass_symmetric_entities = [list(self.return_symmetric_coords(entity.center_of_mass))
                                                        for entity in self.entities]
             return self._center_of_mass_symmetric_entities
@@ -5218,9 +5224,9 @@ class SymmetricModel(Model):  # Models):
                                        f'Sym-model com: {np.array_str(sym_model_center_of_mass, precision=2)}')
 
             if len(equivalent_models) != entity.number_of_chains:
-                raise SymmetryError(f'For Entity {entity.name}, the number of symmetry mates, {entity.number_of_chains}'
-                                    f' != {len(equivalent_models)}, the number of {self.__class__.__name__} equivalent '
-                                    'symmetric models')
+                raise SymmetryError(
+                    f'For Entity {entity.name}, the number of symmetry mates, {entity.number_of_chains} != '
+                    f'{len(equivalent_models)}, the number of {self.__class__.__name__} equivalent symmetric models')
 
             self._oligomeric_model_indices[entity] = equivalent_models
             self.log.info(f'Masking {entity.name} coordinates from models '
@@ -5275,13 +5281,12 @@ class SymmetricModel(Model):  # Models):
             #                             for asu_idx, assembly_contacts in enumerate(asu_query)
             #                             for assembly_idx in assembly_contacts]
             # interacting_models = sorted(set(contacting_model_indices))
-            # combine each subarray of the asu_query and divide by the assembly_tree interval length -> len(asu_query)
+            # Combine each subarray of the asu_query and divide by the assembly_tree interval length -> len(asu_query)
             interacting_models = \
                 ((np.array(list({asu_idx for asu_contacts in asu_query.tolist()
                                  for asu_idx in asu_contacts.tolist()}))//len(asu_query)) + 1).tolist()
             interacting_models = sorted(set(interacting_models))
-            # interacting_models = (np.unique(np.concatenate(asu_query)//len(asu_query)) + 1).tolist()
-            # asu is missing from assembly_tree so add 1 to get correct model index ^
+            # The asu is missing from assembly_tree so add 1 to get the correct model index ^
         else:
             # distance = self.asu.radius * 2  # value too large self.radius * 2
             # The furthest point from the ASU COM + the max individual Entity radius
@@ -5332,20 +5337,17 @@ class SymmetricModel(Model):  # Models):
         """Find the coordinate indices for the models in the SymmetricModel interacting with the asu. Zero-indexed
 
         Keyword Args:
-            calculate_contacts=True (bool): Whether to calculate interacting models by atomic contacts
-            distance=8.0 (float): When calculate_contacts is True, the CB distance which nearby symmetric models should be found
-                When calculate_contacts is False, uses the ASU radius plus the maximum Entity radius
+            calculate_contacts: bool = True - Whether to calculate interacting models by atomic contacts
+            distance: float = 8.0 - When calculate_contacts is True, the CB distance which nearby symmetric models
+                 should be found. When calculate_contacts is False, uses the ASU radius plus the maximum Entity radius
         Returns:
             The indices in the SymmetricModel where the asu contacts other models
         """
-        model_numbers = self.get_asu_interaction_model_indices(**kwargs)
-        interacting_indices = []
         number_of_atoms = self.number_of_atoms
-        # number_of_atoms = len(self.coords)
-        for model_number in model_numbers:
-            start_idx = number_of_atoms * model_number
-            end_idx = number_of_atoms * (model_number+1)
-            interacting_indices.extend(list(range(start_idx, end_idx)))
+        interacting_indices = []
+        for model_number in self.get_asu_interaction_model_indices(**kwargs):
+            interacting_indices.extend(range(number_of_atoms * model_number,
+                                             number_of_atoms * (model_number+1)))
 
         return interacting_indices
 
@@ -5361,8 +5363,9 @@ class SymmetricModel(Model):  # Models):
         try:
             jump_size = getattr(self, f'number_of_{dtype}s')
         except AttributeError:
-            raise AttributeError(f"The dtype 'number_of_{dtype}' wasn't found in the {self.__class__.__name__} object. "
-                                 f"'Possible values of dtype are 'atom' or 'residue''")
+            raise AttributeError(
+                f"The dtype 'number_of_{dtype}' wasn't found in the {self.__class__.__name__} object. "
+                "'Possible values of dtype are 'atom' or 'residue''")
 
         model_jumps = [jump_size * model_num for model_num in range(self.number_of_symmetry_mates)]
         return [idx + model_jump for model_jump in model_jumps for idx in indices]
@@ -5388,32 +5391,9 @@ class SymmetricModel(Model):  # Models):
         #                   f'{type(structure).__name__}.__copy__. This may not be adequate and need to be overwritten')
         # Caution, this function will return poor if the number of atoms in the structure is 1!
         # coords = structure.coords if return_side_chains else structure.backbone_and_cb_coords
-        uc_number = 1
+        # uc_number = 1
         number_of_symmetry_mates = self.number_of_symmetry_mates
-        if self.dimension == 0:
-            # Favoring this as it is more explicit
-            sym_coords = (np.matmul(np.tile(structure.coords, (number_of_symmetry_mates, 1, 1)),
-                                    self.expand_matrices) + self.expand_translations).reshape(-1, 3)
-        else:
-            if self.is_surrounding_uc():
-                shift_3d = [0., 1., -1.]
-                if self.dimension == 3:
-                    z_shifts, uc_number = shift_3d, 27
-                elif self.dimension == 2:
-                    z_shifts, uc_number = [0.], 9
-                else:
-                    raise SymmetryError(f'The specified dimension "{self.dimension}" is not crystalline')
-
-                # # The attribute self.number_of_symmetry_mates may not be set
-                # # as surrounding_uc True so perform that operation here
-                # number_of_symmetry_mates = self.number_of_uc_symmetry_mates * uc_number
-                uc_frac_coords = self.return_unit_cell_coords(structure.coords, fractional=True)
-                surrounding_frac_coords = \
-                    np.concatenate([uc_frac_coords + [x, y, z] for x in shift_3d for y in shift_3d for z in z_shifts])
-                sym_coords = self.frac_to_cart(surrounding_frac_coords)
-            else:
-                # number_of_symmetry_mates = self.number_of_uc_symmetry_mates
-                sym_coords = self.return_unit_cell_coords(structure.coords)
+        sym_coords = self.return_symmetric_coords(structure.coords)
 
         sym_mates = []
         for coord_set in np.split(sym_coords, number_of_symmetry_mates):
@@ -5421,13 +5401,6 @@ class SymmetricModel(Model):  # Models):
             symmetry_mate.coords = coord_set
             sym_mates.append(symmetry_mate)
 
-        if len(sym_mates) != uc_number * number_of_symmetry_mates:
-            if self.dimension > 0:
-                raise SymmetryError(f'Number of models ({len(sym_mates)}) is incorrect! Should be'
-                                    f' {uc_number * self.number_of_uc_symmetry_mates}')
-            else:
-                raise SymmetryError(f'Number of models ({len(sym_mates)}) is incorrect! Should be'
-                                    f' {number_of_symmetry_mates}')
         return sym_mates
 
     def return_symmetric_coords(self, coords: list | np.ndarray) -> np.ndarray:
@@ -5440,15 +5413,7 @@ class SymmetricModel(Model):  # Models):
         """
         # surrounding_uc: bool = True
         #   surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
-        if self.dimension == 0:
-            # coords_len = 1 if not isinstance(coords[0], (list, np.ndarray)) else len(coords)
-            # model_coords = np.empty((coords_length * self.number_of_symmetry_mates, 3), dtype=float)
-            # for idx, rotation in enumerate(self.expand_matrices):
-            #     model_coords[idx * coords_len: (idx + 1) * coords_len] = np.matmul(coords, np.transpose(rotation))
-
-            return (np.matmul(np.tile(coords, (self.number_of_symmetry_mates, 1, 1)),
-                              self.expand_matrices) + self.expand_translations).reshape(-1, 3)
-        else:
+        if self.dimension:
             if self.is_surrounding_uc():
                 shift_3d = [0., 1., -1.]
                 if self.dimension == 3:
@@ -5468,6 +5433,14 @@ class SymmetricModel(Model):  # Models):
                 # self._number_of_symmetry_mates = self.number_of_uc_symmetry_mates
                 # uc_number = 1
                 return self.return_unit_cell_coords(coords)
+        else:  # self.dimension = 0 or None
+            # coords_len = 1 if not isinstance(coords[0], (list, np.ndarray)) else len(coords)
+            # model_coords = np.empty((coords_length * self.number_of_symmetry_mates, 3), dtype=float)
+            # for idx, rotation in enumerate(self.expand_matrices):
+            #     model_coords[idx * coords_len: (idx + 1) * coords_len] = np.matmul(coords, np.transpose(rotation))
+
+            return (np.matmul(np.tile(coords, (self.number_of_symmetry_mates, 1, 1)),
+                              self.expand_matrices) + self.expand_translations).reshape(-1, 3)
 
     def return_unit_cell_coords(self, coords: np.ndarray, fractional: bool = False) -> np.ndarray:
         """Return the unit cell coordinates from a set of coordinates for the specified SymmetricModel
@@ -5527,9 +5500,9 @@ class SymmetricModel(Model):  # Models):
         # all_entities_com = np.matmul(np.full(len(entity_coms), 1 / len(entity_coms)), entity_coms)
         all_entities_com = self.center_of_mass
         # check if global symmetry is centered at the origin. If not, translate to the origin with ext_tx
-        self.log.debug('The symmetric center of mass is: %s' % str(self.center_of_mass_symmetric))
-        if np.isclose(self.center_of_mass_symmetric, utils.symmetry.origin):  # is this threshold loose enough?
-            # the com is at the origin
+        self.log.debug(f'The symmetric center of mass is: {self.center_of_mass_symmetric}')
+        if np.isclose(self.center_of_mass_symmetric, utils.symmetry.origin):
+            # The com is at the origin
             self.log.debug('The symmetric center of mass is at the origin')
             ext_tx = utils.symmetry.origin
             expand_matrices = self.expand_matrices
@@ -5675,7 +5648,8 @@ class SymmetricModel(Model):  # Models):
             The entity_transformations dictionaries that places each Entity with a proper symmetry axis in the Pose
         """
         if not self.is_symmetric():
-            raise SymmetryError(f'Must set a global symmetry to {self._assign_pose_transformation.__name__}')
+            raise SymmetryError(
+                f'Must set a global symmetry to {self._assign_pose_transformation.__name__}')
 
         self.log.debug(f'Searching for transformation parameters for the Pose {self.name}')
 
@@ -6099,7 +6073,8 @@ class SymmetricModel(Model):  # Models):
             True if the symmetric assembly clashes with the asu, False otherwise
         """
         if not self.is_symmetric():
-            raise SymmetryError("Can't check if the assembly is clashing as it has no symmetry")
+            raise SymmetryError(
+                "Can't check if the assembly is clashing as it has no symmetry")
 
         clashes = self.assembly_tree.two_point_correlation(self.coords[self.backbone_and_cb_indices], [distance])
         if clashes[0] > 0:
@@ -6169,7 +6144,8 @@ class SymmetricModel(Model):  # Models):
         Keyword Args:
             increment_chains: bool = False - Whether to write each Structure with a new chain name, otherwise write as
                 a new Model
-            surrounding_uc: bool = True - Write the surrounding unit cell if assembly is True and self.dimension > 1
+            surrounding_uc: bool = False - Whether the 3x3 layer group, or 3x3x3 space group should be written when
+                assembly is True and self.dimension > 1
             pdb: bool = False - Whether the Residue representation should use the number at file parsing
         Returns:
             The name of the written file if out_path is used
@@ -8070,7 +8046,7 @@ class Pose(SymmetricModel, Metrics):
         self.log.debug(f'Took {time.time() - fragment_time_start:.8f}s')
         # # Debug the fragment process
         # out_dir = os.getcwd()
-        # self.debug_pdb(out_dir=out_dir, tag='query_fragments')
+        # self.debug_pose(out_dir=out_dir, tag='query_fragments')
         # debug_path = os.path.join(out_dir, 'all_fragments.pdb')
         # with open(debug_path, 'w') as f:
         #     for fragment in frag_residues1 + frag_residues2:
@@ -8861,20 +8837,27 @@ class Pose(SymmetricModel, Metrics):
                                                 overlap_error=fragment.metrics.z_value_from_match_score(match_score),
                                                 match_number=match_count, out_path=out_path)
 
-    def debug_pdb(self, out_dir: AnyStr = os.getcwd(), tag: str = None):
+    def debug_pose(self, out_dir: AnyStr = os.getcwd(), tag: str = None):
         """Write out all Structure objects for the Pose PDB"""
-        debug_path = os.path.join(out_dir, f'{f"{tag}_" if tag else ""}POSE_DEBUG_{self.name}.pdb')
-        with open(debug_path, 'w') as f:
+        entity_debug_path = os.path.join(out_dir, f'{f"{tag}_" if tag else ""}POSE_DEBUG_Entities_{self.name}.pdb')
+        with open(entity_debug_path, 'w') as f:
             available_chain_ids = chain_id_generator()
             for entity_idx, entity in enumerate(self.entities, 1):
-                f.write(f'REMARK 999   Entity {entity_idx} - ID {entity.name}\n')
-                entity.write(file_handle=f, chain_id=next(available_chain_ids))
+                # f.write(f'REMARK 999   Entity {entity_idx} - ID {entity.name}\n')
+                # entity.write(file_handle=f, chain_id=next(available_chain_ids))
                 for chain_idx, chain in enumerate(entity.chains, 1):
                     f.write(f'REMARK 999   Entity {entity_idx} - ID {entity.name}   '
                             f'Chain {chain_idx} - ID {chain.chain_id}\n')
                     chain.write(file_handle=f, chain_id=next(available_chain_ids))
 
+        debug_path = os.path.join(out_dir, f'{f"{tag}_" if tag else ""}POSE_DEBUG_{self.name}.pdb')
+        assembly_debug_path = os.path.join(out_dir, f'{f"{tag}_" if tag else ""}POSE_DEBUG_Assembly_{self.name}.pdb')
+
+        self.log.critical(f'Wrote debugging Pose Entities to: {entity_debug_path}')
+        self.write(out_path=debug_path)
         self.log.critical(f'Wrote debugging Pose to: {debug_path}')
+        self.write(assembly=True, out_path=assembly_debug_path)
+        self.log.critical(f'Wrote debugging Pose assembly to: {assembly_debug_path}')
 
     # def get_interface_surface_area(self):
     #     # pdb1_interface_sa = entity1.get_surface_area_residues(self.split_residue_numbers[1])
