@@ -357,12 +357,6 @@ select_modules = (
     select_designs,
     select_sequences,
 )
-# def return_default_flags():
-#     # mode_flags = flags.get(mode, design_flags)
-#     # if mode_flags:
-#     return dict(zip(design_flags.keys(), [value_format['default'] for value_format in design_flags.values()]))
-#     # else:
-#     #     return dict(zip(all_flags.keys(), [value_format['default'] for value_format in all_flags.values()]))
 
 
 @handle_errors(errors=(KeyboardInterrupt,))
@@ -809,7 +803,7 @@ symmetry_kwargs = dict(metavar='RESULT:{GROUP1}{GROUP2}...',
 sym_entry_args = ('-E', f'--{sym_entry}', '--entry')
 sym_entry_kwargs = dict(type=int, metavar='INT',
                         help=f'The entry number of {nanohedra.title()} docking combinations to use.\n'
-                             f'See {nanohedra} --query for possible symmetries')
+                             f'See {symmetry} --query for possible symmetries')
 # ---------------------------------------------------
 symmetry_help = 'Specify a symmetric system in which to model inputs'
 parser_symmetry = {symmetry: dict(description=symmetry_help, help=symmetry_help)}
@@ -819,8 +813,8 @@ sym_query_args = ('--query',)
 symmetry_arguments = {
     sym_entry_args: sym_entry_kwargs,
     symmetry_args: symmetry_kwargs,
-    sym_query_args: dict(required=True, choices=query_mode_args,
-                         help='Query the available symmetries available for modeling\n'
+    sym_query_args: dict(choices=query_mode_args,  # required=True
+                         help='Query the symmetries available for modeling\n'
                               'Choices=%(choices)s'),
     (f'--{nanohedra}',): dict(action='store_true',
                               help=f'True if only {nanohedra.title()} docking symmetries should be queried')
@@ -1153,6 +1147,7 @@ nanohedra_arguments = {
     ('-r2', f'--{rotation_step2}'): dict(type=float, metavar='FLOAT', default=3.,
                                          help='The size of degree increments to search during initial rotational\n'
                                               'degrees of freedom search\nDefault=%(default)s'),
+    trim_termini_args: trim_termini_kwargs,
 }
 # parser_nanohedra_run_type_mutual_group = dict()  # required=True <- adding below to different parsers depending on need
 # nanohedra_run_type_mutual_arguments = {
@@ -1740,6 +1735,7 @@ module_parser_groups = {
 #  {module: dict(flags=getattr(globals(), f'{module}_arguments'),
 #                groups=getattr(globals(), f'parser_{module}_group'))
 #  }
+module_required = [f'{nanohedra}_mutual1']
 parser_arguments = {
     orient: orient_arguments,
     align_helices: align_helices_arguments,
@@ -1813,25 +1809,24 @@ guide_parser.add_argument(*setup_args, **setup_kwargs)
 guide_subparsers = guide_parser.add_subparsers(**module_subargparser)
 # For all parsing of module arguments
 subparsers = module_parser.add_subparsers(**module_subargparser)  # required=True,
-module_required = ['nanohedra_mutual1']
 module_suparsers: dict[str, argparse.ArgumentParser] = {}
 for parser_name, parser_kwargs in module_parser_groups.items():
-    arguments = parser_arguments.get(parser_name, {})
-    """arguments has args (flag names) as key and keyword args (flag params) as values"""
+    flags_kwargs = parser_arguments.get(parser_name, {})
+    """flags_kwargs has args (flag names) as key and keyword args (flag params) as values"""
     if 'mutual' in parser_name:  # We must create a mutually_exclusive_group from already formed subparser
         # Remove indication to "mutual" of the argparse group by removing any characters after "_mutual"
         exclusive_parser = module_suparsers[parser_name[:parser_name.find('_mutual')]].\
             add_mutually_exclusive_group(**parser_kwargs, **(dict(required=True) if parser_name in module_required
                                                              else {}))
         # Add the key word argument "required" to mutual parsers that use it ^
-        for args, kwargs in arguments.items():
-            exclusive_parser.add_argument(*args, **kwargs)
+        for flags_, kwargs in flags_kwargs.items():
+            exclusive_parser.add_argument(*flags_, **kwargs)
     else:  # Save the subparser in a dictionary to access with mutual groups
         module_suparsers[parser_name] = subparsers.add_parser(prog=module_usage_str.format(parser_name),
                                                               formatter_class=Formatter, allow_abbrev=False,
                                                               name=parser_name, **parser_kwargs[parser_name])
-        for args, kwargs in arguments.items():
-            module_suparsers[parser_name].add_argument(*args, **kwargs)
+        for flags_, kwargs in flags_kwargs.items():
+            module_suparsers[parser_name].add_argument(*flags_, **kwargs)
         # Add each subparser to a guide_subparser as well
         guide_subparser = guide_subparsers.add_parser(name=parser_name, add_help=False)  #, **parser_kwargs[parser_name])
         guide_subparser.add_argument(*guide_args, **guide_kwargs)
@@ -1851,24 +1846,25 @@ def set_up_parser_with_groups(parser: argparse.ArgumentParser, parser_groups: di
         """flags_kwargs has args (flag names) as key and keyword args (flag params) as values"""
         if 'mutual' in parser_name:  # Only has a dictionary as parser_arguments
             exclusive_parser = group.add_mutually_exclusive_group(required=required, **parser_kwargs)
-            for args, kwargs in flags_kwargs.items():
-                exclusive_parser.add_argument(*args, **kwargs)
+            for flags_, kwargs in flags_kwargs.items():
+                exclusive_parser.add_argument(*flags_, **kwargs)
         else:
             group = parser.add_argument_group(**parser_kwargs)
-            for args, kwargs in flags_kwargs.items():
-                group.add_argument(*args, **kwargs)
+            for flags_, kwargs in flags_kwargs.items():
+                group.add_argument(*flags_, **kwargs)
 
 
 # Set up option ArgumentParser with options arguments
 set_up_parser_with_groups(options_parser, option_parser_groups)
 # Set up residue selector ArgumentParser with residue selector arguments
 set_up_parser_with_groups(residue_selector_parser, residue_selector_parser_groups)
+# Set up output ArgumentParser with output arguments
+set_up_parser_with_groups(output_parser, output_parser_groups)
 # Set up symmetry ArgumentParser with symmetry arguments
 set_up_parser_with_groups(symmetry_parser, symmetry_parser_groups)
 # Set up input ArgumentParser with input arguments
 set_up_parser_with_groups(input_parser, input_parser_groups, required=True)
-# Set up output ArgumentParser with output arguments
-set_up_parser_with_groups(output_parser, output_parser_groups)
+additional_parsers = [options_parser, residue_selector_parser, output_parser, symmetry_parser, input_parser]
 # Set up entire ArgumentParser with all ArgumentParsers
 entire_argparser = dict(fromfile_prefix_chars='@', allow_abbrev=False,  # exit_on_error=False, # prog=program_name,
                         description=f'{"_" * len(program_name)}\n{program_name}\n\n'
@@ -1952,7 +1948,7 @@ def parse_flags_to_namespaces(parser: argparse.ArgumentParser):
 
 
 parse_flags_to_namespaces(entire_parser)
-registered_tools = [multicistronic, update_db]  # , flags.distribute]
+registered_tools = [multicistronic, update_db]  # , distribute]
 # Todo register these tools!
 #  ['concatenate-files', 'list-overlap', 'retrieve-oligomers', 'retrieve-pdb-codes']
 decoy_modules = [all_flags, initialize_building_blocks, input_, output, options, residue_selector]

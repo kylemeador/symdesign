@@ -602,7 +602,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                 pass
             else:
                 # Remove any unstructured termini from the Entity to allow best secondary structure docking
-                entity.delete_unstructured_termini()
+                if job.trim_termini:
+                    entity.delete_unstructured_termini()
                 entity.make_oligomer(symmetry=symmetry)
 
             if next(entity_count) > 2:

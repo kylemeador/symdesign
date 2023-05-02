@@ -551,8 +551,7 @@ def main():
     #  Initialize program with provided flags and arguments
     # -----------------------------------------------------------------------------------------------------------------
     # Parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
-    module_parser = flags.module_parser
-    args, additional_args = module_parser.parse_known_args()
+    args, additional_args = flags.module_parser.parse_known_args()
 
     # Checking for query before additional_args error as query has additional_args
     if args.module == flags.symmetry:
@@ -576,9 +575,9 @@ def main():
                 return True
         return False
 
-    remove_dummy = handle_atypical_inputs([args.module])
+    remove_dummy: bool = handle_atypical_inputs([args.module])
     if args.module == flags.all_flags:
-        sys.argv = ['symdesign', '--help']
+        sys.argv = [putils.program_exe, '--help']
     elif args.module == flags.protocol:
         remove_dummy = handle_atypical_inputs(args.modules)
 
@@ -587,7 +586,7 @@ def main():
         all_args = [args]
         for idx, module in enumerate(args.modules):
             # additional_args = [module] + additional_args
-            args, additional_args = module_parser.parse_known_args(args=[module] + additional_args)
+            args, additional_args = flags.module_parser.parse_known_args(args=[module] + additional_args)
             all_args.append(args)
             # input(f'{args}\n\n{additional_args}')
 
@@ -605,7 +604,7 @@ def main():
     # Check the provided flags against the full SymDesign entire_parser to print any help
     _args, _additional_args = flags.entire_parser.parse_known_args()
     # Parse the provided flags
-    for argparser in [flags.options_parser, flags.residue_selector_parser, flags.output_parser, flags.input_parser]:
+    for argparser in flags.additional_parsers:
         args, additional_args = argparser.parse_known_args(args=additional_args, namespace=args)
 
     if additional_args:
