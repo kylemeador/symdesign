@@ -1136,8 +1136,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 # Todo when capable of asymmetric symmetrization
                 #  self.chains.append(chain)
             # Inherent to Entity type is a single sequence. Therefore, must be symmetric
-            self.number_of_symmetry_mates = len(chains)
-            self.symmetry = f'D{self.number_of_symmetry_mates / 2}' if self.is_dihedral() \
+            self._number_of_symmetry_mates = len(chains)
+            self.symmetry = f'D{int(self.number_of_symmetry_mates / 2)}' if self.is_dihedral() \
                 else f'C{self.number_of_symmetry_mates}'
         else:
             self.symmetry = None
@@ -1465,9 +1465,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             self._number_of_symmetry_mates = utils.symmetry.valid_subunit_number.get(self.symmetry, len(self.chain_ids))
             return self._number_of_symmetry_mates
 
-    @number_of_symmetry_mates.setter
-    def number_of_symmetry_mates(self, number_of_symmetry_mates: int):  # Todo same as SymmetricModel
-        self._number_of_symmetry_mates = number_of_symmetry_mates
+    # @number_of_symmetry_mates.setter
+    # def number_of_symmetry_mates(self, number_of_symmetry_mates: int):  # Todo same as SymmetricModel
+    #     self._number_of_symmetry_mates = number_of_symmetry_mates
 
     @property
     def center_of_mass_symmetric(self) -> np.ndarray:  # Todo mirrors SymmetricModel
@@ -1553,7 +1553,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     def remove_mate_chains(self):
         """Clear the Entity of all Chain and Oligomer information"""
         self._chain_transforms.clear()
-        self.number_of_symmetry_mates = 1
+        self._number_of_symmetry_mates = 1
         self._chains.clear()
         self._chains.append(self)
         self._is_captain = False
@@ -1677,10 +1677,11 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         centered_coords_inv = transform_coordinate_sets(centered_coords, rotation=inv_rotation2,
                                                         translation=-translation, rotation2=inv_rotation)
         self._chain_transforms.clear()
-        number_of_subunits = 0
+        # number_of_subunits = 0
+        subunit_count = count()
         for rotation_matrix in degeneracy_rotation_matrices:
-            number_of_subunits += 1
-            if number_of_subunits == 1 and np.all(rotation_matrix == utils.symmetry.identity_matrix):
+            # number_of_subunits += 1
+            if next(subunit_count) == 0 and np.all(rotation_matrix == utils.symmetry.identity_matrix):
                 self.log.debug(f'Skipping {self.make_oligomer.__name__} transformation 1 as it is identity')
                 continue
             rot_centered_coords = transform_coordinate_sets(centered_coords_inv, rotation=rotation_matrix)
@@ -1690,7 +1691,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             self._chain_transforms.append(dict(rotation=rot, translation=tx))
 
         # Set the new properties
-        self.number_of_symmetry_mates = number_of_subunits
+        self._number_of_symmetry_mates = next(subunit_count)  # number_of_subunits
         self._chains.clear()
         self._chains.append(self)
         self._set_chain_ids()
@@ -4530,7 +4531,7 @@ class SymmetricModel(Models):
         #         # Not sure if cryst record can differentiate between 2D and 3D. 3D will be wrong if actually 2D
         #         self.dimension = 2 if symmetry in utils.symmetry.layer_group_cryst1_fmt_dict else 3
         #         try:
-        #             self.number_of_symmetry_mates = getattr(self.sym_entry, 'number_of_operations')
+        #             self._number_of_symmetry_mates = getattr(self.sym_entry, 'number_of_operations')
         #         except AttributeError:  # This is a lazy/incomplete implementation
         #             raise SymmetryError(f'The method taken in {self.set_symmetry.__name__} is naive, especially being '
         #                                 "depending on SymEntry and can't be completed with the specified options:\n"
@@ -4629,7 +4630,6 @@ class SymmetricModel(Models):
         self.symmetry = getattr(self.sym_entry, 'resulting_symmetry', None)
         self.point_group_symmetry = getattr(self.sym_entry, 'point_group_symmetry', None)
         self.dimension = getattr(self.sym_entry, 'dimension', None)
-        # self.number_of_symmetry_mates = getattr(self.sym_entry, 'number_of_operations', 1)
 
     @property  # Todo in Entity, exactly
     def symmetry(self) -> str | None:
@@ -4762,9 +4762,9 @@ class SymmetricModel(Models):
             self._number_of_symmetry_mates = getattr(self.sym_entry, 'number_of_operations', 1)
             return self._number_of_symmetry_mates
 
-    @number_of_symmetry_mates.setter
-    def number_of_symmetry_mates(self, number_of_symmetry_mates: int):  # Todo same as Entity
-        self._number_of_symmetry_mates = number_of_symmetry_mates
+    # @number_of_symmetry_mates.setter
+    # def number_of_symmetry_mates(self, number_of_symmetry_mates: int):  # Todo same as Entity
+    #     self._number_of_symmetry_mates = number_of_symmetry_mates
 
     @property
     def number_of_uc_symmetry_mates(self) -> int:
@@ -4995,7 +4995,7 @@ class SymmetricModel(Models):
                     uc_number = 9
                 # Set the number_of_symmetry_mates to account for the unit cell number
                 # This results in is_surrounding_uc() being True during return_symmetric_coords()
-                self.number_of_symmetry_mates = self.number_of_uc_symmetry_mates * uc_number
+                self._number_of_symmetry_mates = self.number_of_uc_symmetry_mates * uc_number
             # else:
             #     self.log.debug(f"The specified symmetry {self.symmetry} dimension ({self.dimension}) isn't "
             #                    f"crystalline")
@@ -5459,7 +5459,7 @@ class SymmetricModel(Models):
                 return self.frac_to_cart(surrounding_frac_coords)
             else:
                 # must set number_of_symmetry_mates before self.return_unit_cell_coords as it relies on copy number
-                # self.number_of_symmetry_mates = self.number_of_uc_symmetry_mates
+                # self._number_of_symmetry_mates = self.number_of_uc_symmetry_mates
                 # uc_number = 1
                 return self.return_unit_cell_coords(coords)
 
