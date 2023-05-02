@@ -4772,7 +4772,8 @@ class SymmetricModel(Model):  # Models):
     def is_surrounding_uc(self) -> bool:
         """Check if the current coords contains a number_of_symmetry_mates containing the surrounding_uc"""
         if self.dimension > 0:
-            return self.number_of_symmetry_mates == self.number_of_uc_symmetry_mates
+            # This is True if self.number_of_symmetry_mates was set to a larger value
+            return self.number_of_symmetry_mates > self.number_of_uc_symmetry_mates
         else:
             return False
 
@@ -4932,10 +4933,59 @@ class SymmetricModel(Model):  # Models):
         try:
             return self._assembly_minimally_contacting
         except AttributeError:
-            self._assembly_minimally_contacting = self._generate_assembly(minimal=True)
+            if self.dimension is None:
+                minimal = None
+            else:
+                minimal = True
+            self._assembly_minimally_contacting = self._generate_assembly(minimal=minimal)
             return self._assembly_minimally_contacting
 
-    def _generate_assembly(self, minimal: bool = False) -> Model:  # Todo reconcile mechanism with Entity.oligomer
+    # Todo reconcile mechanism with Entity.oligomer
+    def _generate_assembly_models(self, minimal: bool = False, surrounding_uc: bool = False) -> Models:
+        """"""
+        if minimal is None:
+            # When the Pose is asymmetric
+            name = f'{self.name}-copy'
+            models = [self.copy()]
+        else:  # Check for the surrounding_uc and minimial assembly flags
+            # surrounding_uc needs to be made before get_asu_interaction_model_indices()
+            if self.dimension:
+                if surrounding_uc:
+                    # When the surrounding_uc is requested, .symmetric_coords might need to be regenerated
+                    symmetry_type_str = 'surrounding-uc-'
+                    if not self.is_surrounding_uc():
+                        # The surrounding coords don't exist as the number of mates is equal to the unit cell
+                        self.generate_symmetric_coords(surrounding_uc=surrounding_uc)
+                    number_of_symmetry_mates = self.number_of_symmetry_mates
+                else:  # Enforce number_of_uc_symmetry_mates is used
+                    number_of_symmetry_mates = self.number_of_uc_symmetry_mates
+                    symmetry_type_str = 'uc-'
+            else:
+                number_of_symmetry_mates = self.number_of_symmetry_mates
+                symmetry_type_str = ''
+
+            if minimal:  # Only return contacting
+                name = f'{self.name}-minimal-assembly'
+                # Add the ASU index to the model first
+                model_indices = [0] + self.get_asu_interaction_model_indices()  # calculate_contacts=False)
+            else:
+                name = f'{self.name}-{symmetry_type_str}assembly'
+                model_indices = range(number_of_symmetry_mates)
+
+            self.log.debug(f'Found selected models {model_indices} for assembly')
+
+            # Update all models with the symmetric_coords
+            number_of_atoms = self.number_of_atoms
+            symmetric_coords = self.symmetric_coords
+            models = []
+            for model_idx in model_indices:
+                asu_copy = self.copy()
+                asu_copy.coords = symmetric_coords[model_idx * number_of_atoms: (model_idx + 1) * number_of_atoms]
+                models.append(asu_copy)
+
+        return Models(models, name=name)
+
+    def _generate_assembly(self, minimal: bool = False, surrounding_uc: bool = False) -> Model:
         """"""
         if minimal is None:
             # When the Pose is asymmetric
