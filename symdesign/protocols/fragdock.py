@@ -3576,7 +3576,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             rotation_degrees_x2, rotation_degrees_y2, rotation_degrees_z2 = \
                 zip(*rotations2.as_rotvec(degrees=True).tolist())
 
-            blank_parameter = list(repeat([None, None, None], number_of_transforms))
+            blank_parameter = list(repeat(None, number_of_transforms))
             if sym_entry.is_internal_tx1:
                 nonlocal full_int_tx1
                 if len(full_int_tx1) > 1:
