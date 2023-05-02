@@ -7,7 +7,7 @@ import os
 import subprocess
 import sys
 import time
-from collections import defaultdict
+from collections import UserList, defaultdict
 from copy import deepcopy
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product, count
 from logging import Logger
@@ -4269,12 +4269,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 #                 self.rotatePDB(-angle(corrected_vec1, corrected_vec2) / 2, "z")
 
 
-class Models(Model):
+# class Models(Structures):
+class Models(UserList):  # (Model):
     """Keep track of different variations of the same Model object such as altered coordinates (different decoy's or
     symmetric copies) [or mutated Residues]. In PDB parlance, this would be a multimodel, however could be multiple
     PDB files that share a common element.
     """
-    _models_coords: Coords
+    # _models_coords: Coords
     models: list[Model]  # Could be SymmetricModel/Pose
     # state_attributes: set[str] = Model.state_attributes | {'_models_coords'}
 
@@ -4283,49 +4284,48 @@ class Models(Model):
         """Initialize from an iterable of Model instances"""
         return cls(models=models, **kwargs)
 
-    def __init__(self, models: Iterable[Model] = None, **kwargs):
-        if models is None:
-            super().__init__(**kwargs)
-            self.models = []
-        else:
-            for model in models:
-                if not isinstance(model, Model):
-                    raise TypeError(
-                        f"Can't initialize {self.__class__.__name__} with a {type(model).__name__}. Must be an Iterable"
-                        f' of {Model.__name__}')
-            raise NotImplementedError("This method hasn't been solved logically... Current thinking is to take the "
-                                      "input models and combine into a single model. If one wanted to maintain model "
-                                      "independence, {MultiModel.__name__} is drafted better to suit that feature")
-            super().__init__(**kwargs)
-            self.models = list(models)
+    def __init__(self, models: Iterable[Model], name: str = None, **kwargs):
+        super().__init__(initlist=models)  # initlist sets UserList.data to Iterable[Model]
+
+        for model in self:
+            if not isinstance(model, Model):
+                raise TypeError(
+                    f"Can't initialize {self.__class__.__name__} with a {type(model).__name__}. Must be an Iterable"
+                    f' of {Model.__name__}')
+
+        self.name = name if name else f'Nameless-{Models.__name__}'
+        # raise NotImplementedError("This method hasn't been solved logically... Current thinking is to take the "
+        #                           "input models and combine into a single model. If one wanted to maintain model "
+        #                           "independence, {MultiModel.__name__} is drafted better to suit that feature")
+        # super().__init__(**kwargs)
 
     @property
     def number_of_models(self) -> int:
         """The number of unique models that are found in the Models object"""
-        return len(self.models)
+        return len(self.data)
 
-    @property
-    def models_coords(self) -> np.ndarray | None:
-        """Return a concatenated view of the Coords from all models"""
-        try:
-            return self._models_coords.coords
-        except AttributeError:
-            return None
+    # @property
+    # def models_coords(self) -> np.ndarray | None:
+    #     """Return a concatenated view of the Coords from all models"""
+    #     try:
+    #         return self._models_coords.coords
+    #     except AttributeError:
+    #         return None
+    #
+    # @models_coords.setter
+    # def models_coords(self, coords: Coords | np.ndarray | list[list[float]]):
+    #     if isinstance(coords, Coords):
+    #         self._models_coords = coords
+    #     else:
+    #         self._models_coords = Coords(coords)
 
-    @models_coords.setter
-    def models_coords(self, coords: Coords | np.ndarray | list[list[float]]):
-        if isinstance(coords, Coords):
-            self._models_coords = coords
-        else:
-            self._models_coords = Coords(coords)
-
-    def append_model(self, model: Model):
-        """Append an existing Model into the Models instance
-
-        Sets:
-            self.models
-        """
-        self.models.append(model)
+    # def append(self, model: Model):
+    #     """Append an existing Model into the Models instance
+    #
+    #     Sets:
+    #         self.models
+    #     """
+    #     self.models.append(model)
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
               increment_chains: bool = False, **kwargs) -> AnyStr | None:
@@ -4343,13 +4343,13 @@ class Models(Model):
         Returns:
             The name of the written file if out_path is used
         """
-        self.log.debug(f'Models is writing')
+        logger.debug(f'Models is writing')
 
         def models_write(handle):
             # self.models is populated
             if increment_chains:
                 available_chain_ids = chain_id_generator()
-                for model in self.models:
+                for model in self:
                     for entity in model.entities:
                         chain_id = next(available_chain_ids)
                         entity.write(file_handle=handle, chain_id=chain_id, **kwargs)
@@ -4358,7 +4358,7 @@ class Models(Model):
                         handle.write(f'TER   {c_term_residue.end_index + 1:>5d}      {c_term_residue.type:3s} '
                                      f'{chain_id:1s}{c_term_residue.number:>4d}\n')
             else:
-                for model_number, model in enumerate(self.models, 1):
+                for model_number, model in enumerate(self, 1):
                     handle.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
                     for entity in model.entities:
                         entity.write(file_handle=handle, **kwargs)
@@ -4372,7 +4372,7 @@ class Models(Model):
             models_write(file_handle)
             return None
         else:  # out_path always has default argument current working directory
-            _header = self.format_header(**kwargs)
+            _header = ''  # self.format_header(**kwargs)
             if header is not None and isinstance(header, str):
                 _header += (header if header[-2:] == '\n' else f'{header}\n')
 
@@ -4381,11 +4381,11 @@ class Models(Model):
                 models_write(outfile)
             return out_path
 
-    def __getitem__(self, idx: int) -> Structure:
-        return self.models[idx]
+    def __getitem__(self, idx: int) -> Model:
+        return self.data[idx]
 
 
-class SymmetricModel(Models):
+class SymmetricModel(Model):  # Models):
     _assembly: Model
     _assembly_minimally_contacting: Model
     _assembly_tree: BinaryTree  # stores a sklearn tree for coordinate searching
@@ -4401,6 +4401,7 @@ class SymmetricModel(Models):
     _point_group_symmetry: str
     _sym_entry: utils.SymEntry.SymEntry | None
     _symmetry: str
+    _symmetric_coords: Coords  # np.ndarray
     _symmetric_coords_by_entity: list[np.ndarray]
     _symmetric_coords_split: list[np.ndarray]
     _symmetric_coords_split_by_entity: list[list[np.ndarray]]
@@ -4410,7 +4411,7 @@ class SymmetricModel(Models):
     expand_matrices: np.ndarray | list[list[float]] | None
     expand_translations: np.ndarray | list[float] | None
     orthogonalization_matrix: np.ndarray
-    state_attributes = Models.state_attributes \
+    state_attributes = Model.state_attributes \
         | {'_assembly', '_assembly_minimally_contacting', '_assembly_tree', '_asu_indices', '_asu_model_idx',
            '_center_of_mass_symmetric_entities', '_center_of_mass_symmetric_models',
            '_oligomeric_model_indices', '_symmetric_coords_by_entity', '_symmetric_coords_split',
@@ -4833,7 +4834,7 @@ class SymmetricModel(Models):
     def symmetric_coords(self) -> np.ndarray | None:
         """Return a view of the symmetric Coords"""
         try:
-            return self._models_coords.coords
+            return self._symmetric_coords.coords
         except AttributeError:
             return None
 
@@ -4948,25 +4949,45 @@ class SymmetricModel(Models):
         if minimal is None:
             # When the Pose is asymmetric
             return self.copy()
-        else:
-            self.generate_assembly_symmetry_models(surrounding_uc=self.is_surrounding_uc())
+        else:  # Check for the surrounding_uc and minimial assembly flags
+            # surrounding_uc needs to be made before get_asu_interaction_model_indices()
+            if self.dimension:
+                if surrounding_uc:
+                    # When the surrounding_uc is requested, .symmetric_coords might need to be regenerated
+                    symmetry_type_str = 'surrounding-uc-'
+                    if not self.is_surrounding_uc():
+                        # The surrounding coords don't exist as the number of mates is equal to the unit cell
+                        self.generate_symmetric_coords(surrounding_uc=surrounding_uc)
+                    number_of_symmetry_mates = self.number_of_symmetry_mates
+                else:  # Enforce number_of_uc_symmetry_mates is used
+                    number_of_symmetry_mates = self.number_of_uc_symmetry_mates
+                    symmetry_type_str = 'uc-'
+            else:
+                number_of_symmetry_mates = self.number_of_symmetry_mates
+                symmetry_type_str = ''
 
             if minimal:  # Only return contacting
                 name = f'{self.name}-minimal-assembly'
-                interacting_model_indices = self.get_asu_interaction_model_indices()
-                # interacting_model_indices = self.get_asu_interaction_model_indices(calculate_contacts=False)
-                # Add the ASU to the model first
-                model_indices = [0] + interacting_model_indices
+                # Add the ASU index to the model first
+                model_indices = [0] + self.get_asu_interaction_model_indices()  # calculate_contacts=False)
             else:
-                name = f'{self.name}-assembly'
-                model_indices = range(self.number_of_models)
+                name = f'{self.name}-{symmetry_type_str}assembly'
+                model_indices = range(number_of_symmetry_mates)
 
             self.log.debug(f'Found selected models {model_indices} for assembly')
 
-            models = self.models
+            # Update all models with the symmetric_coords
+            number_of_atoms = self.number_of_atoms
+            symmetric_coords = self.symmetric_coords
             chains = []
-            for idx in model_indices:
-                chains.extend(models[idx].entities)
+            for model_idx in model_indices:
+                asu_copy = self.copy()
+                asu_copy.coords = symmetric_coords[model_idx * number_of_atoms: (model_idx + 1) * number_of_atoms]
+                chains.extend(asu_copy.entities)
+            # self.generate_assembly_symmetry_models(surrounding_uc=self.is_surrounding_uc())
+            # models = self.models
+            # for idx in model_indices:
+            #     chains.extend(models[idx].entities)
 
             return Model.from_chains(chains, name=name, log=self.log, biomt_header=self.format_biomt(),
                                      cryst_record=self.cryst_record, entity_info=self.entity_info)  # entities=False)
@@ -5002,7 +5023,7 @@ class SymmetricModel(Models):
 
         symmetric_coords = self.return_symmetric_coords(self.coords)
         # Set the self.symmetric_coords property
-        self._models_coords = Coords(symmetric_coords)
+        self._symmetric_coords = Coords(symmetric_coords)
         # Tod0 remove
         # self.report_symmetric_coords_issue(self.generate_symmetric_coords.__name__)
 
@@ -5036,106 +5057,91 @@ class SymmetricModel(Models):
 
         return np.matmul(frac_coords, np.transpose(self.orthogonalization_matrix))
 
-    # def get_assembly_symmetry_models(self, **kwargs) -> list[Structure]:  # Comment out
-    #     """Return symmetry mates as a collection of Structures with symmetric coordinates
+    # def generate_assembly_symmetry_models(self, surrounding_uc: bool = False, **kwargs):  # Unused
+    #     # , return_side_chains=True):
+    #     """Generate symmetry mates as a collection of Structures with symmetric coordinates
     #
-    #     Keyword Args:
-    #         surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
-    #     Returns:
-    #         All symmetry mates where Chain names match the ASU
+    #     Args:
+    #         surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
+    #     Sets:
+    #         self.models (list[Structure]): All symmetry mates where each mate has Chain names matching the ASU
     #     """
-    #     # if self.number_of_symmetry_mates != self.number_of_models:  # we haven't generated symmetry models
-    #     self.generate_assembly_symmetry_models(**kwargs)
-    #     if self.number_of_symmetry_mates != self.number_of_models:
-    #         raise utils.SymmetryError(f"{self.get_assembly_symmetry_models.__name__}: The assembly couldn't be "
-    #                                   f'returned')
+    #     if not self.is_symmetric():
+    #         # self.log.critical('%s: No symmetry set for %s! Cannot get symmetry mates'  # Todo
+    #         #                   % (self.generate_assembly_symmetry_models.__name__, self.name))
+    #         raise SymmetryError(
+    #             f'{self.generate_assembly_symmetry_models.__name__}: No symmetry set for {self.name}. '
+    #             "Can't get symmetry mates")
+    #     # if return_side_chains:  # get different function calls depending on the return type
+    #     #     extract_pdb_atoms = getattr(PDB, 'atoms')
+    #     # else:
+    #     #     extract_pdb_atoms = getattr(PDB, 'backbone_and_cb_atoms')
+    #     # Todo if surrounding_uc = False and self.is_surrounding_uc(), then only write the uc models
+    #     #  Need to use .assembly methods for this
+    #     if self.dimension and surrounding_uc:
+    #         # When the surrounding_uc is requested, .symmetric_coords might need to be regenerated
+    #         if not self.is_surrounding_uc():
+    #             # The surrounding coords don't exist as the number of mates is equal to the unit cell
+    #             self.generate_symmetric_coords(surrounding_uc=surrounding_uc)
     #
-    #     return self.models
-
-    def generate_assembly_symmetry_models(self, surrounding_uc: bool = True, **kwargs):
-        # , return_side_chains=True):
-        """Generate symmetry mates as a collection of Structures with symmetric coordinates
-
-        Args:
-            surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
-        Sets:
-            self.models (list[Structure]): All symmetry mates where each mate has Chain names matching the ASU
-        """
-        if not self.is_symmetric():
-            # self.log.critical('%s: No symmetry set for %s! Cannot get symmetry mates'  # Todo
-            #                   % (self.generate_assembly_symmetry_models.__name__, self.name))
-            raise SymmetryError(
-                f'{self.generate_assembly_symmetry_models.__name__}: No symmetry set for {self.name}. '
-                "Can't get symmetry mates")
-        # if return_side_chains:  # get different function calls depending on the return type
-        #     extract_pdb_atoms = getattr(PDB, 'atoms')
-        # else:
-        #     extract_pdb_atoms = getattr(PDB, 'backbone_and_cb_atoms')
-
-        if self.dimension > 0 and surrounding_uc:  # if the surrounding_uc is requested, we might need to generate it
-            if self.number_of_symmetry_mates == self.number_of_uc_symmetry_mates:  # ensure surrounding coords exist
-                self.generate_symmetric_coords(surrounding_uc=surrounding_uc)
-                # raise utils.SymmetryError('Cannot return the surrounding unit cells as no coordinates were generated '
-                #                           f'for them. Try passing surrounding_uc=True to '
-                #                           f'{self.generate_symmetric_coords.__name__}')
-
-        # self.log.debug(f'Ensure the output of symmetry mate creation is correct. The copy of a '
-        #                f'{self.__class__.__name__} is being taken which is relying on Structure.__copy__. This may '
-        #                f'not be adequate and need to be overwritten')
-
-        # Get this attribute fresh as it may have been set by self.generate_symmetric_coords()
-        number_of_symmetry_mates = self.number_of_symmetry_mates
-        if len(self.models) != number_of_symmetry_mates:
-            # self.log.debug(f'Generating symmetry mates')
-            # found__coords_ids = []
-            self.models.clear()
-            for _ in range(number_of_symmetry_mates):
-                symmetry_mate = self.copy()
-                self.models.append(symmetry_mate)
-                # new_id = id(symmetry_mate._coords)
-                # if new_id in found__coords_ids:
-                #     input(f"Found idx {_} which has existing id to {new_id}. self._coords id = {id(self._coords)}")
-                # else:
-                #     found__coords_ids.append(new_id)
-
-        # Update all models with the symmetric_coords
-        number_of_atoms = self.number_of_atoms
-        symmetric_coords = self.symmetric_coords
-        # self.log.debug(f'Setting symmetry mate coordinates')
-        # model_coord_ids = []
-        # model__coord_ids = []
-        # model_models_coord_ids = []
-        # model__models_coord_ids = []
-        for model_idx, model in enumerate(self.models):
-            model.coords = symmetric_coords[model_idx * number_of_atoms: (model_idx+1) * number_of_atoms]
-        #     # We have to reset since the new .coords are spatially different
-        #     # model._no_reset = True
-        #     print(f'Found model index {model_idx}, '
-        #           f'slice[{model_idx * number_of_atoms}:{(model_idx+1) * number_of_atoms}]')
-        #     setting_coords = symmetric_coords[model_idx * number_of_atoms: (model_idx+1) * number_of_atoms]
-        #     # print(f"Setting the coordinates to model.coords: {setting_coords[:2]}")
-        #     print(f"self.coords before: {self.coords[:2]}")
-        #     print(f"self._atom_indices before: {self._atom_indices[:2]}")
-        #     model.coords = setting_coords
-        #     # print(f"setting_coords now set as model.coords: {setting_coords[:2]}")
-        #     print(f"self.coords after: {self.coords[:2]}")
-        #     print(f"self._atom_indices after: {self._atom_indices[:2]}")
-        #     # del model._no_reset
-        #     model_coord_ids.append(id(model.coords))
-        #     model__coord_ids.append(id(model._coords))
-        #     model_models_coord_ids.append(id(model.models_coords))
-        #     model__models_coord_ids.append(id(model._models_coords))
-        #
-        # print(f"self._coords id = {id(self._coords)}")
-        # # print(f"Found the model.coord_ids: {', '.join(map(str, model_coord_ids))}\nset: {set(model_coord_ids)}")
-        # # print(f"Found the model._coord_ids: {', '.join(map(str, model__coord_ids))}\nset: {set(model__coord_ids)}")
-        # # print(f"Found the model.coords: {[model.coords[0] for model in self.models]}")
-        # print(f"Found the model.models_coords_ids: {', '.join(map(str, model_models_coord_ids))}\nset: {set(model_models_coord_ids)}")
-        # print(f"Found the model._models_coords_ids: {', '.join(map(str, model__models_coord_ids))}\nset: {set(model__models_coord_ids)}")
-        # print(f"Found the model.coords: {[model.coords[0] for model in self.models]}")
-        # print(f"Found the model.symmetric_coords ids: {[id(model._models_coords.coords) for model in self.models]}")
-        # print(f"Found the model.symmetric_coords: {[model.symmetric_coords[0] for model in self.models]}")
-        self.log.debug(f"Found {self.number_of_models} models in {self.generate_assembly_symmetry_models.__name__}")
+    #     # self.log.debug(f'Ensure the output of symmetry mate creation is correct. The copy of a '
+    #     #                f'{self.__class__.__name__} is being taken which is relying on Structure.__copy__. This may '
+    #     #                f'not be adequate and need to be overwritten')
+    #
+    #     # Get this attribute fresh as it may have been set by self.generate_symmetric_coords()
+    #     number_of_symmetry_mates = self.number_of_symmetry_mates
+    #     if self.number_of_models != number_of_symmetry_mates:
+    #         self.log.debug(f'Generating symmetry mates. The number of models, {self.number_of_models} != '
+    #                        f'{number_of_symmetry_mates}, the number of symmetry mates')
+    #         # found__coords_ids = []
+    #         self.models.clear()
+    #         for _ in range(number_of_symmetry_mates):
+    #             symmetry_mate = self.copy()
+    #             self.models.append(symmetry_mate)
+    #             # new_id = id(symmetry_mate._coords)
+    #             # if new_id in found__coords_ids:
+    #             #     input(f"Found idx {_} which has existing id to {new_id}. self._coords id = {id(self._coords)}")
+    #             # else:
+    #             #     found__coords_ids.append(new_id)
+    #
+    #     # Update all models with the symmetric_coords
+    #     number_of_atoms = self.number_of_atoms
+    #     symmetric_coords = self.symmetric_coords
+    #     # self.log.debug(f'Setting symmetry mate coordinates')
+    #     # model_coord_ids = []
+    #     # model__coord_ids = []
+    #     # model_models_coord_ids = []
+    #     # model__models_coord_ids = []
+    #     for model_idx, model in enumerate(self.models):
+    #         model.coords = symmetric_coords[model_idx * number_of_atoms: (model_idx+1) * number_of_atoms]
+    #     #     # Have to reset since the new .coords are spatially different
+    #     #     # model._no_reset = True
+    #     #     print(f'Found model index {model_idx}, '
+    #     #           f'slice[{model_idx * number_of_atoms}:{(model_idx+1) * number_of_atoms}]')
+    #     #     setting_coords = symmetric_coords[model_idx * number_of_atoms: (model_idx+1) * number_of_atoms]
+    #     #     # print(f"Setting the coordinates to model.coords: {setting_coords[:2]}")
+    #     #     print(f"self.coords before: {self.coords[:2]}")
+    #     #     print(f"self._atom_indices before: {self._atom_indices[:2]}")
+    #     #     model.coords = setting_coords
+    #     #     # print(f"setting_coords now set as model.coords: {setting_coords[:2]}")
+    #     #     print(f"self.coords after: {self.coords[:2]}")
+    #     #     print(f"self._atom_indices after: {self._atom_indices[:2]}")
+    #     #     # del model._no_reset
+    #     #     model_coord_ids.append(id(model.coords))
+    #     #     model__coord_ids.append(id(model._coords))
+    #     #     model_models_coord_ids.append(id(model.models_coords))
+    #     #     model__models_coord_ids.append(id(model._models_coords))
+    #     #
+    #     # print(f"self._coords id = {id(self._coords)}")
+    #     # # print(f"Found the model.coord_ids: {', '.join(map(str, model_coord_ids))}\nset: {set(model_coord_ids)}")
+    #     # # print(f"Found the model._coord_ids: {', '.join(map(str, model__coord_ids))}\nset: {set(model__coord_ids)}")
+    #     # # print(f"Found the model.coords: {[model.coords[0] for model in self.models]}")
+    #     # print(f"Found the model.models_coords_ids: {', '.join(map(str, model_models_coord_ids))}\nset: {set(model_models_coord_ids)}")
+    #     # print(f"Found the model._models_coords_ids: {', '.join(map(str, model__models_coord_ids))}\nset: {set(model__models_coord_ids)}")
+    #     # print(f"Found the model.coords: {[model.coords[0] for model in self.models]}")
+    #     # print(f"Found the model.symmetric_coords ids: {[id(model._models_coords.coords) for model in self.models]}")
+    #     # print(f"Found the model.symmetric_coords: {[model.symmetric_coords[0] for model in self.models]}")
+    #     self.log.debug(f"Found {self.number_of_models} models in {self.generate_assembly_symmetry_models.__name__}")
 
     @property
     def asu_model_index(self) -> int:
@@ -6174,10 +6180,17 @@ class SymmetricModel(Models):
             if self.is_symmetric():
                 # symmetric_model_write(outfile)
                 # def symmetric_model_write(handle):
-                if assembly:  # Will make models and use next logic steps to write them out
-                    self.generate_assembly_symmetry_models(**kwargs)
-                    # self.models is populated, use Models.write() to finish
-                    super(SymmetricModel, SymmetricModel).write(self, file_handle=handle, **kwargs)
+                if assembly:  # Will make assembly and use next logic steps to write them out
+                    # assembly_to_write = self._generate_assembly(**kwargs)
+                    # assembly_to_write.write(file_handle=handle, **kwargs)
+                    assembly_models = self._generate_assembly_models(**kwargs)
+                    assembly_models.write(file_handle=handle, **kwargs)
+                    # models_write(handle, assembly_models)
+
+                # if assembly:  # Will make models and use next logic steps to write them out
+                #     self.generate_assembly_symmetry_models(**kwargs)
+                #     # self.models is populated, use Models.write() to finish
+                #     super(SymmetricModel, SymmetricModel).write(self, file_handle=handle, **kwargs)
                 else:  # Skip models, write asu using biomt_record/cryst_record for sym
                     for entity in self.entities:
                         entity.write(file_handle=handle, **kwargs)
