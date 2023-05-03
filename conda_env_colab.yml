@@ -42,9 +42,7 @@ dependencies:
 # Dev below here
   - memory_profiler
 # Notebook packages
-  - jupyterlab
-  - ipykernel
-  - ipywidgets
+  - jupyter
   - py3dmol
   - seaborn
   - google-colab
