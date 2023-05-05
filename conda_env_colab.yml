@@ -1,12 +1,12 @@
 name: symdesign-dev
 channels:
   - conda-forge
-  - defaults
+#  - defaults
   - pytorch
   - nvidia
   - bioconda
-# PyMol
-  - schrodinger
+## PyMol
+#  - schrodinger
 dependencies:
   - python=3.9  # =3.10
   - numpy
@@ -46,8 +46,8 @@ dependencies:
   - py3dmol
   - seaborn
   - google-colab
-# PyMol
-  - pymol-bundle
+## PyMol
+#  - pymol-bundle
   - pip:
     - absl-py==1.0.0
     - chex==0.0.7
