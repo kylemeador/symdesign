@@ -4941,8 +4941,16 @@ class SymmetricModel(Model):  # Models):
             return self._assembly_minimally_contacting
 
     # Todo reconcile mechanism with Entity.oligomer
-    def _generate_assembly_models(self, minimal: bool = False, surrounding_uc: bool = False) -> Models:
-        """"""
+    def _generate_assembly_models(self, minimal: bool = False, surrounding_uc: bool = False, **kwargs) -> Models:
+        """Create a group of Model copies for a specified number of the symmetry mates
+
+        Args:
+            minimal: Whether to create the minimally contacting assembly model. This is advantageous in crystalline
+                symmetries to minimized the size of the "assembly"
+            surrounding_uc: Whether to generate the surrounding unit cells as part of the assembly models
+        Returns:
+            A Model instance for each of the symmetric mates. These are transformed copies of the SymmetricModel
+        """
         if minimal is None:
             # When the Pose is asymmetric
             name = f'{self.name}-copy'

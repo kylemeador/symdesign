@@ -25,6 +25,7 @@ from scipy.spatial.distance import pdist, cdist
 import sklearn as skl
 from sqlalchemy import select
 from sqlalchemy.orm import Session, reconstructor
+from sqlalchemy.orm.exc import DetachedInstanceError
 import torch
 
 from symdesign import flags, metrics, resources
@@ -1275,8 +1276,14 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                         'would like to generate the Assembly anyway, re-submit the command with '
                         f'{flags.format_args(flags.ignore_symmetric_clashes_args)}')
 
-            # If we have an empty list for the pose_transformation, save the identified transformations from the Pose
-            if not any(self.transformations):
+            # If there is an empty list for the pose_transformation, save the identified transformations from the Pose
+            try:
+                any_database_transformations = any(self.transformations)
+            except DetachedInstanceError:
+                any_database_transformations = False
+
+            if not any_database_transformations:
+                # Add the transformation data to the database
                 for data, transformation in zip(self.entity_data, self.pose.entity_transformations):
                     # Make an empty EntityTransform
                     data.transform = sql.EntityTransform()
