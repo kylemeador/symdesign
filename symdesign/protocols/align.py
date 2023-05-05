@@ -1283,8 +1283,6 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     # # Rename the models to enable fusion
                     # truncated_entity2.chain_id = chain_id
 
-                    if job.bend:  # Get the joint_residue for later manipulation
-                        joint_residue = transformed_entity2.residues[aligned_start_index + 2]
 
                     aligned_end_index = aligned_start_index + alignment_length
                     # Calculate the entity2 indices to delete after alignment position is found
@@ -1371,8 +1369,8 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             end_residue2 = transformed_entity2.c_terminal_residue
 
                         # Get the new fusion name
-                        alignment_numbers = f'{start_residue1.number}-{end_residue1.number}+{extension_str}/' \
-                                            f'{start_residue2.number}-{end_residue2.number}'
+                        # alignment_numbers = f'{start_residue1.number}-{end_residue1.number}+{extension_str}/' \
+                        #                     f'{start_residue2.number}-{end_residue2.number}'
                         fusion_name = f'{ordered_entity1.name}_{start_residue1.number}-' \
                                       f'{end_residue1.number}_fused{extension_str}-to' \
                                       f'_{ordered_entity2.name}_{start_residue2.number}-' \
@@ -1382,6 +1380,9 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                         helix_model.renumber_residues(index=helix_model_start_index, at=helix_n_terminal_residue_number)
                         helix_residues = helix_model.get_residues(indices=list(helix_model_range))
                         ordered_entity2.renumber_residues(at=helix_n_terminal_residue_number + len(helix_residues))
+
+                        if job.bend:  # Get the joint_residue for later manipulation
+                            joint_residue = transformed_entity2.residues[aligned_start_index + alignment_length//2]
 
                         # Create fused Entity and rename select attributes
                         fused_entity = Entity.from_residues(
@@ -1445,6 +1446,10 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                         # name = f'{termini}-term_{aligned_idx + 1}-{helix_start_index + 1}'
                         if job.bend:
                             central_aligned_residue = pose.chain(chain_id).residue(joint_residue.number)
+                            if central_aligned_residue is None:
+                                logger.warning(f"Couldn't locate the joint_residue with residue number "
+                                               f"{joint_residue.number} from chain {chain_id}")
+                                continue
                             # print(central_aligned_residue)
                             bent_coords = bend(pose, central_aligned_residue, termini, samples=job.bend,
                                                additional_entity_ids=[entity.name for entity in pose.entities

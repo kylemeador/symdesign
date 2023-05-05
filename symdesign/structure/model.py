@@ -6108,8 +6108,9 @@ class SymmetricModel(Model):  # Models):
             True if the symmetric assembly clashes with the asu, False otherwise
         """
         if not self.is_symmetric():
-            raise SymmetryError(
-                "Can't check if the assembly is clashing as it has no symmetry")
+            # raise SymmetryError(
+            self.log.warning("Can't check if the assembly is clashing as it has no symmetry")
+            return False
 
         clashes = self.assembly_tree.two_point_correlation(self.coords[self.backbone_and_cb_indices], [distance])
         if clashes[0] > 0:
@@ -6206,7 +6207,9 @@ class SymmetricModel(Model):  # Models):
                     for entity in self.entities:
                         entity.write(file_handle=handle, **kwargs)
             else:  # Use Model.write() to finish
-                super(Models, Models).write(self, file_handle=handle, **kwargs)
+                # self.write(file_handle=handle, **kwargs)
+                super(Model, Model).write(self, file_handle=handle, **kwargs)
+                # Models.write(self, file_handle=handle, **kwargs)
 
         if file_handle:
             write_pose(file_handle)
