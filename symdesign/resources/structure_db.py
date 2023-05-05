@@ -731,23 +731,23 @@ class StructureDatabase(Database):
             logger.info("The following structures haven't been modelled for disorder: "
                         f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_loop_model)))}')
             # Files found unloop_modeled, check to see if work should be done
-            if self.job.init.loop_model_input is not None:
-                loop_model_input = self.job.init.loop_model_input
-            else:  # Query user and set up commands to perform loop modelling on missing entities
-                print(f'If you plan on performing {flags.design}/{flags.predict_structure} with them, it is strongly '
-                      f'encouraged that you build missing loops to avoid disordered region clashing/misalignment')
-                print('Would you like to model loops for these structures now?')
-                if boolean_choice():
-                    loop_model_input = True
-                else:
-                    print('To confirm, asymmetric units are going to be generated without modeling disordered loops. '
-                          'Confirm with "y" to ensure this is what you want')
-                    if boolean_choice():
-                        loop_model_input = False
-                    else:
-                        loop_model_input = True
-
-            if loop_model_input:
+            if self.job.init.loop_model_input:  # is not None:
+            #     loop_model_input = self.job.init.loop_model_input
+            # else:  # Query user and set up commands to perform loop modelling on missing entities
+            #     print(f'If you plan on performing {flags.design}/{flags.predict_structure} with them, it is strongly '
+            #           f'encouraged that you build missing loops to avoid disordered region clashing/misalignment')
+            #     print('Would you like to model loops for these structures now?')
+            #     if boolean_choice():
+            #         loop_model_input = True
+            #     else:
+            #         print('To confirm, asymmetric units are going to be generated without modeling disordered loops. '
+            #               'Confirm with "y" to ensure this is what you want')
+            #         if boolean_choice():
+            #             loop_model_input = False
+            #         else:
+            #             loop_model_input = True
+            #
+            # if loop_model_input:
                 # Generate loop model commands
                 use_alphafold = True
                 if use_alphafold and self.job.gpu_available:
@@ -988,23 +988,23 @@ class StructureDatabase(Database):
             # Files found unrefined, check to see if work should be done
             logger.info("The following structures haven't been refined: "
                         f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_refine)))}')
-            if self.job.init.refine_input is not None:
-                refine_input = self.job.init.refine_input
-            else:  # Query user and set up commands to perform refinement on missing entities
-                print(f'If you plan on performing {flags.design} using Rosetta, it is strongly encouraged that you '
-                      f'perform initial refinement. You can also refine them later using the {flags.refine} module')
-                print('Would you like to refine them now?')
-                if boolean_choice():
-                    refine_input = True
-                else:
-                    print('To confirm, asymmetric units are going to be generated with input coordinates. Confirm '
-                          'with "y" to ensure this is what you want')
-                    if boolean_choice():
-                        refine_input = False
-                    else:
-                        refine_input = True
-
-            if refine_input:
+            if self.job.init.refine_input:  # is not None:
+            #     refine_input = self.job.init.refine_input
+            # else:  # Query user and set up commands to perform refinement on missing entities
+            #     print(f'If you plan on performing {flags.design} using Rosetta, it is strongly encouraged that you '
+            #           f'perform initial refinement. You can also refine them later using the {flags.refine} module')
+            #     print('Would you like to refine them now?')
+            #     if boolean_choice():
+            #         refine_input = True
+            #     else:
+            #         print('To confirm, asymmetric units are going to be generated with input coordinates. Confirm '
+            #               'with "y" to ensure this is what you want')
+            #         if boolean_choice():
+            #             refine_input = False
+            #         else:
+            #             refine_input = True
+            #
+            # if refine_input:
                 if not sym_def_files:
                     sym_def_files = {}
                     for data in protein_data_to_refine:
