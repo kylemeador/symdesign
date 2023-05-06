@@ -480,10 +480,10 @@ if __name__ == '__main__':
     #  setuptools.py aware
     parser = argparse.ArgumentParser(description=f'{os.path.basename(__file__)}: Set up {program_name} for usage')
     arguments = {
-        alphafold_database_args: alphafold_database_kwargs,
-        dry_run_args: dry_run_kwargs,
-        hhsuite_database_args: hhsuite_database_kwargs,
-        no_rosetta_args: no_rosetta_kwargs
+        flags.alphafold_database_args: flags.alphafold_database_kwargs,
+        flags.dry_run_args: flags.dry_run_kwargs,
+        flags.hhsuite_database_args: flags.hhsuite_database_kwargs,
+        flags.no_rosetta_args: flags.no_rosetta_kwargs
     }
     for _flags, flags_params in arguments.items():
         parser.add_argument(*_flags, **flags_params)
