@@ -32,7 +32,7 @@ config_file = os.path.join(python_source, 'cfg.json')
 third_party_dir = os.path.join(python_source, 'third_party')
 program_output = f'{program_name}Output'
 projects = 'Projects'
-program_command = f'python {program_exe}'
+program_command = f'{sys.executable} {program_exe}'
 submodule_guide = f'{program_command} MODULE --guide'
 program_help = f'{program_command} --help'
 submodule_help = f'{program_command} MODULE --help'
@@ -272,7 +272,7 @@ alignmentdb = os.path.join(dependency_dir, 'ncbi_databases', 'uniref90')
 try:
     with open(config_file, 'r') as f_save:
         config = json.load(f_save)
-except FileNotFoundError:  # We may be running setup.py or this wasn't installed made properly
+except FileNotFoundError:  # May be running setup.py or this wasn't installed properly
     config = {'hhblits_env': '', 'hhblits_db': '',
               'rosetta_env': '', 'rosetta_make': 'default',
               'af_params': ''}

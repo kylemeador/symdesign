@@ -17,8 +17,6 @@ rosetta_url = 'https://www.rosettacommons.org/software/license-and-download'
 rosetta_compile_url = 'https://www.rosettacommons.org/docs/latest/build_documentation/Build-Documentation'
 rosetta_extras_url = 'https://www.rosettacommons.org/docs/latest/rosetta_basics/running-rosetta-with-options#running-' \
                      'rosetta-with-multiple-threads'
-rosetta_variable_dictionary = {0: 'ROSETTA', 1: 'Rosetta', 2: 'rosetta'}
-# Todo use search_env_for_variable() to accomplsh this
 string_ops = [str.upper, str.lower, str.title]
 
 
@@ -32,8 +30,8 @@ def search_env_for_variable(search_variable: str) -> str | None:
     """
     env_variable = string = None
     search_strings = []
+    string_op_it = iter(string_ops)
     try:
-        string_op_it = iter(string_ops)
         while env_variable is None:
             string = next(string_op_it)(search_variable)
             search_strings.append(string)
@@ -55,7 +53,7 @@ def search_env_for_variable(search_variable: str) -> str | None:
     return string  # env_variable
 
 
-restart_command = f'python {__file__}'
+restart_command = f'{sys.executable} {__file__}'
 failure_prompt = f' If this command fails part way through, you can restart by running\n\t{restart_command}'
 
 
@@ -138,8 +136,8 @@ def download_alphafold_latest_params(version: str = None, dry_run: bool = False)
     openmm_path = os.path.join(conda_env_path, 'lib', f'python{vers.major}.{vers.minor}', 'site-packages')
 
     os.chdir(openmm_path)
-    patch_openmm_cmd = ['patch', '-p0', f'--input={putils.alphafold_openmm_patch}']  # '<',
-    # putils.alphafold_openmm_patch]
+    patch_openmm_cmd = ['patch', '-p0', f'--input={putils.alphafold_openmm_patch}']
+    # '<', putils.alphafold_openmm_patch]
     logger.debug(f'patch command:\n\t{subprocess.list2cmdline(patch_openmm_cmd)}')
     if dry_run:
         pass
@@ -243,129 +241,137 @@ def download_hhblits_latest_database(version: str = None, dry_run: bool = False)
     return uniclust_latest_tar_file.replace(putils.uniclust_hhsuite_file_identifier, '')
 
 
-if __name__ == '__main__':
-    # Todo argparse OR BETTER setuptools.py aware
-    _dry_run = input(f'Is this a real install or a "dry run"? Enter REAL if so{input_string}')
-    if _dry_run == 'REAL':
-        dry_run = False
-        logger.setLevel(logging.DEBUG)
-    else:
+def setup(args):
+    if args.dry_run:
         dry_run = True
-        logger.setLevel(logging.DEBUG)
-    logger.critical(f'Found the logger level: {logger.level}')
+        logger.setLevel(logging.debug)
+    else:
+        dry_run = False
+        logger.setLevel(logging.info)
+    # logger.critical(f'Found the logger level: {logger.level}')
 
     # This needs to be done before running setup.py
     # print(f'To properly set up your python environment use the {putils.conda_environment} to initialize your '
     #       "environment. If you are using anaconda/conda for instance, the command 'conda env create --file "
     #       f"{putils.conda_environment}' will handle this for you")
-    print(f'First, follow this url "{rosetta_url}" to begin licensing and download of the Rosetta Software suite if you'
-          " haven't installed already")
-    choice1 = utils.validate_input(
-        'Once downloaded, type "Y" to continue with install or "S" to skip if Rosetta is already '
-        "installed. ",
-        # Todo ensure that mpi is the case
-        #  "FYI this program is capable of using Rosetta's multithreading and MPI builds for "
-        #  f'faster execution. If you want to learn more, visit {rosetta_extras_url} for details.',
-        ['Y', 's'])
-    while True:
-        if choice1 == 'Y':
-            print('Next, you will want to move the downloaded tarball to a directory where all the Rosetta software '
-                  'will be stored. Follow typical software recommendations for the directory or choose your own.\n'
-                  'Once moved, you will want to unzip/extract all files in the tarball.\n'
-                  'This can be done with the command tar -zxvf [tarball_name_here] in a new terminal')
-            input('This command may take some time.\n'
-                  f'In the meantime, you may be interested in reading about compilation "{rosetta_compile_url}" and '
-                  f'different features available for increasing computation time "{rosetta_extras_url}".'
-                  f'Once this is finished press "Enter" on your keyboard.{input_string}')
-            input("Finally, lets compile Rosetta. If you aren't familiar with this process and haven't looked at the "
-                  'above links, check them out for assistance. To take full advantage of computation time, think '
-                  'carefully about how your computing environment can be set up to work with Rosetta. It is recommended'
-                  ' for large design batches to simply use default options for compilation. If you want to have '
-                  'individual jobs finish quicker, MPI compatibility may be of interest. Navigate to the MPI resources '
-                  'in rosettacommons.org for more information on setting this up.\nPress "Enter" once you have '
-                  f'completed compilation.{input_string}')
-            break
-        elif choice1 == 's':
-            break
-        else:
-            raise RuntimeError(f'Must be either Y/S. Got {choice1}')
-
-    print('Attempting to find environmental variable for Rosetta "main" directory')
-    rosetta_env_variable = ''
-    number_rosetta_variables = len(rosetta_variable_dictionary)
-    retry_kw = 'retry'
-    retry = None
-    rosetta_make = None
-    # Todo reconfigure with above environmental variable search
-    i = 0
-    while True:
-        # try:
-        rosetta_main = str(os.environ.get(rosetta_variable_dictionary[i]))
-        if rosetta_main.endswith('main'):
-            print('Automatic detection successful!')
-            rosetta_env_variable = rosetta_variable_dictionary[i]
-            # break
-        else:
-            i += 1
-            if i == number_rosetta_variables:
-                while rosetta_env_variable == '':
-                    print('Failed detection of Rosetta environmental variable = %s' % ', '.join(
-                        rosetta_variable_dictionary[i] for i in rosetta_variable_dictionary))
-                    print('For setup to be fully functional, the location of your Rosetta install needs to be accessed.'
-                          ' It is recommended to modify your shell to include an environmental variable "ROSETTA" '
-                          '(accessed at "$ROSETTA"), leading to the "main" directory of Rosetta.')
-                    choice2 = input(f'If you have one, please enter it below or reply N to set one up.{input_string}')
-                    choice2 = choice2.lstrip('$')
-                    if choice2.strip() == 'N':
-                        print('To make the ROSETTA environmental variable always present at the command line, the '
-                              'variable needs to be declared in your ~/.profile file (or analogous shell specific file '
-                              'like .bashrc (cshrc, zshrc, or tcshrc if you prefer) To add yourself, append the command'
-                              ' below to your ~/.profile file, replacing path/to/rosetta_src_20something.version#/main '
-                              'with your actual path.\nexport ROSETTA=path/to/rosetta_src_20something.version#/main\n')
-                        input(f'Once completed, press Enter.{input_string}')
-                    else:
-                        rosetta_main = str(os.environ.get(choice2.strip()))
-
-                    if rosetta_main.endswith('main'):
-                        rosetta_env_variable = choice2
-                    else:
-                        j = 0
-                        while True:
-                            rosetta_main = str(os.environ.get(rosetta_variable_dictionary[j]))
-                            if rosetta_main.endswith('main'):
-                                rosetta_env_variable = rosetta_variable_dictionary[j]
-                                break
-
-                            j += 1
-                            if j == number_rosetta_variables:  # We ran out of variable attempts
-                                break
-
-                    if rosetta_env_variable == '':
-                        retry = input(f'Rosetta dependency set up failed. To retry Rosetta connection, enter '
-                                      f'"{retry_kw}"{input_string}')
-                        break
-
+    if args.no_rosetta:
+        pass
+    else:
+        print(f'First, follow this url "{rosetta_url}" to begin licensing and download of the Rosetta Software suite '
+              "if you haven't installed already")
+        choice1 = utils.validate_input(
+            'Once downloaded, type "Y" to continue with install or "S" to skip if Rosetta is already '
+            "installed. ",
+            # Todo ensure that mpi is the case
+            #  "FYI this program is capable of using Rosetta's multithreading and MPI builds for "
+            #  f'faster execution. If you want to learn more, visit {rosetta_extras_url} for details.',
+            ['Y', 'S'])
+        while True:
+            if choice1 == 'Y':
+                print('Next, you will want to move the downloaded tarball to a directory where all the Rosetta software '
+                      'will be stored. Follow typical software recommendations for the directory or choose your own.\n'
+                      'Once moved, you will want to unzip/extract all files in the tarball.\n'
+                      'This can be done with the command tar -zxvf [tarball_name_here] in a new terminal')
+                input('This command may take some time.\n'
+                      f'In the meantime, you may be interested in reading about compilation "{rosetta_compile_url}" and '
+                      f'different features available for increasing computation time "{rosetta_extras_url}".'
+                      f'Once this is finished press "Enter" on your keyboard.{input_string}')
+                input("Finally, lets compile Rosetta. If you aren't familiar with this process and haven't looked at the "
+                      'above links, check them out for assistance. To take full advantage of computation time, think '
+                      'carefully about how your computing environment can be set up to work with Rosetta. It is recommended'
+                      ' for large design batches to simply use default options for compilation. If you want to have '
+                      'individual jobs finish quicker, MPI compatibility may be of interest. Navigate to the MPI resources '
+                      'in rosettacommons.org for more information on setting this up.\nPress "Enter" once you have '
+                      f'completed compilation.{input_string}')
+                break
+            elif choice1 == 'S':
+                break
             else:
-                continue
-        if os.path.exists(rosetta_main):
-            print(f'Wonderful, Rosetta environment located and exists. You can now use all the features of '
-                  f'{putils.program_name} to interface with Rosetta')
-            make_types = ['default', 'python', 'mpi', 'cxx11thread', 'cxx11threadmpi']
-            # if rosetta_env_variable == '':
-            rosetta_make = utils.validate_input(
-                'Did you make Rosetta with any particular build? This is usually a string of '
-                'characters that are a suffix to each of the executables in the '
-                f'{putils.rosetta_default_bin} directory', make_types)
-            if rosetta_env_variable == '':
-                rosetta_env_variable = search_env_for_variable(putils.rosetta_str)
-            break
-        elif retry == retry_kw:
-            # print(f"Rosetta environmental path doesn't exist. Ensure that ${rosetta_env_variable} is correct... "
-            print("Trying again...")
-            break
-        else:
-            # Todo issue command to set this feature up at a later date... Rerun with --rosetta-only for help
-            break
+                raise RuntimeError(
+                    f'Must be either Y/S. Got {choice1}')
+
+        # Todo use search_env_for_variable() to accomplish this
+        print('Attempting to find environmental variable for Rosetta "main" directory')
+        rosetta_env_variable = ''
+        rosetta_variable_dictionary = {0: 'ROSETTA', 1: 'Rosetta', 2: 'rosetta'}
+        number_rosetta_variables = len(rosetta_variable_dictionary)
+        retry_kw = 'retry'
+        retry = None
+        rosetta_make = None
+        # Todo reconfigure with above environmental variable search
+        i = 0
+        while True:
+            # try:
+            rosetta_main = str(os.environ.get(rosetta_variable_dictionary[i]))
+            if rosetta_main.endswith('main'):
+                print('Automatic detection successful!')
+                rosetta_env_variable = rosetta_variable_dictionary[i]
+                # break
+            else:
+                i += 1
+                if i == number_rosetta_variables:
+                    while rosetta_env_variable == '':
+                        print('Failed detection of Rosetta environmental variable = '
+                              f'{", ".join(op(rosetta_str) for op in string_ops)}')
+                        print('For setup to be fully functional, the location of your Rosetta install needs to be '
+                              'accessed. It is recommended to modify your shell to include an environmental variable '
+                              "'ROSETTA' (accessed at '$ROSETTA'), leading to the 'main' directory of Rosetta.")
+                        choice2 = input(f'If you have one, please enter it below or reply N to set one up.{input_string}')
+                        # choice2 = resources.query.format_input(
+                        #     'If you have one, please enter it below or reply N to set one up')
+                        choice2 = choice2.lstrip('$').strip()
+                        if choice2.upper() == 'N':
+                            print('To make the ROSETTA environmental variable always present at the command line, the '
+                                  'variable needs to be declared in your ~/.profile file (or analogous shell specific '
+                                  'file like .bashrc (cshrc, zshrc, or tcshrc if you prefer) To add yourself, append '
+                                  'the command below to your ~/.profile file, replacing path/to/rosetta_src_20something'
+                                  '.version#/main with your actual path.\n'
+                                  'export ROSETTA=path/to/rosetta_src_20something.version#/main\n')
+                            input(f'Once completed, press Enter.{input_string}')
+                            resources.query.format_input(f'Once completed, press Enter')
+                        else:
+                            rosetta_main = str(os.environ.get(choice2))
+
+                        if rosetta_main.endswith('main'):
+                            rosetta_env_variable = choice2
+                        else:
+                            j = 0
+                            while True:
+                                rosetta_main = str(os.environ.get(rosetta_variable_dictionary[j]))
+                                if rosetta_main.endswith('main'):
+                                    rosetta_env_variable = rosetta_variable_dictionary[j]
+                                    break
+
+                                j += 1
+                                if j == number_rosetta_variables:  # We ran out of variable attempts
+                                    break
+
+                        if rosetta_env_variable == '':
+                            retry = input(f'Rosetta dependency set up failed. To retry Rosetta connection, enter '
+                                          f'"{retry_kw}"{input_string}')
+                            break
+
+                else:
+                    continue
+            if os.path.exists(rosetta_main):
+                print(f'Wonderful, Rosetta environment located and exists. You can now use all the features of '
+                      f'{putils.program_name} to interface with Rosetta')
+                make_types = ['default', 'python', 'mpi', 'cxx11thread', 'cxx11threadmpi']
+                # if rosetta_env_variable == '':
+                rosetta_make = utils.validate_input(
+                    'Did you make Rosetta with any particular build? This is usually a string of '
+                    'characters that are a suffix to each of the executables in the '
+                    f'{putils.rosetta_default_bin} directory', make_types)
+                if rosetta_env_variable == '':
+                    rosetta_env_variable = search_env_for_variable(putils.rosetta_str)
+                break
+            elif retry == retry_kw:
+                # print(f"Rosetta environmental path doesn't exist. Ensure that ${rosetta_env_variable} is correct... "
+                print("Trying again...")
+                break
+            else:
+                # Todo issue command to set this feature up at a later date... Rerun with --rosetta-only for help
+                break
 
     # Set up git submodule
     git_submodule_cmd = ['git', 'submodule', 'update', '--init', '--recursive']
@@ -374,18 +380,23 @@ if __name__ == '__main__':
     from symdesign.data import pickle_structure_dependencies
     pickle_structure_dependencies.main()
     # Set up freesasa dependency
-    # Todo May need to investigate this option
+    # Todo
+    #  May need to investigate this option
     #  --disable-threads
-    # Todo required PREINSTALL CHECK
-    # sudo apt-get install build-essential autoconf libc++-dev libc++abi-dev
+    # Todo
+    #  Required PREINSTALL CHECK
+    #  sudo apt-get install build-essential autoconf libc++-dev libc++abi-dev
     freesasa_autoreconf_cmd = ['autoreconf', '-i']
     freesasa_configure_cmd = ['./configure', '--disable-xml', '--disable-json']
     make_cmd = ['make']
-    # Set up stride (or Todo another secondary structure program if not linux...)
+    # Set up stride
+    # Todo
+    #  Another secondary structure program if not linux...)
     ss_cmd = ['tar', '-zxf', 'stride.tar.gz']
     # Set up orient dependency
-    # Todo required PREINSTALL CHECK
-    # sudo apt install gfortran
+    # Todo
+    #  Required PREINSTALL CHECK
+    #  sudo apt install gfortran
     # Todo silence gfortran warnings
     orient_comple_cmd = ['gfortran', '-o', putils.orient_exe_path, f'{putils.orient_exe_path}.f']
     # Set up errat dependency
@@ -426,24 +437,29 @@ if __name__ == '__main__':
               }
 
     # Get hhblits database
-    _input = utils.validate_input('Finally, a UniClust database needs to be available for hhblits. The file will take '
-                                  '>50 GB of hard drive space. Ensure that you have the capacity for this operation. '
-                                  'This will automatically be downloaded for you in the directory '
-                                  f'"{putils.hhsuite_db_dir}" if you consent.', ['Y', 'n'])
+    if not args.hhsuite_database:
+        _input = utils.validate_input(
+            f'To use {hhblits} A UniClust database needs to be available for hhblits. The file will take >50 GB of hard'
+            f' drive space. Ensure that you have the capacity for this operation. This will automatically be downloaded'
+            f" for you in the directory '{putils.hhsuite_db_dir}' if you consent.", ['Y', 'n'])
+    else:
+        _input = 'y'
     if _input == 'n':
-        # Todo issue command to set this feature up at a later date... Rerun with --hhsuite-databases for help
         pass
     else:  # _input = 'y'
         config['uniclust_db'] = download_hhblits_latest_database(dry_run=dry_run)
 
     # Get alphafold database. 5.3 is for params only
-    _input = utils.validate_input('Finally, Alphafold databases need to be available for alphafold structure '
-                                  'prediction. The download will take 5.3 GB of hard drive space. Ensure that you '
-                                  'have the capacity for this operation. '
-                                  'This will automatically be downloaded for you in the directory '
-                                  f'"{putils.alphafold_db_dir}" if you consent.', ['Y', 'n'])
+    if args.alphafold_database:
+        _input = utils.validate_input(
+            'Finally, Alphafold databases need to be available for alphafold structure prediction. The download will '
+            'take 5.3 GB of hard drive space. Ensure that you have the capacity for this operation. This will '
+            f"automatically be downloaded for you in the directory '{putils.alphafold_db_dir}' if you consent.",
+            ['Y', 'n'])
+    else:
+        _input = 'y'
+
     if _input == 'n':
-        # Todo issue command to set this feature up at a later date... Rerun with --alphafold-databases for help
         pass
     else:  # _input = 'y'
         config['af_params'] = download_alphafold_latest_params(dry_run=dry_run)
@@ -451,7 +467,26 @@ if __name__ == '__main__':
     # Write the config file
     utils.write_json(config, putils.config_file)
 
-    # Todo Set up the module symdesign to be found in the PYTHONPATH variable
-    print(f'Set up is now complete! {putils.program_name} is now operational. Run the command {putils.program_exe} for '
-          f'usage instructions or visit the github for more info "{putils.git_url}')
-    print(f'All {putils.program_name} files are located in {putils.git_source}')
+    # Todo
+    #  Set up the module to be found in the PYTHONPATH variable
+    #  python -m symdesign or symdesign capability?
+    print(f'Set up complete, {putils.program_name} is now operational. Run the command {putils.program_exe} for '
+          f"usage instructions or visit '{putils.git_url}' for more info")
+    # print(f'All {putils.program_name} files are located in {putils.git_source}')
+
+
+if __name__ == '__main__':
+    # Todo
+    #  setuptools.py aware
+    parser = argparse.ArgumentParser(description=f'{os.path.basename(__file__)}: Set up {program_name} for usage')
+    arguments = {
+        alphafold_database_args: alphafold_database_kwargs,
+        dry_run_args: dry_run_kwargs,
+        hhsuite_database_args: hhsuite_database_kwargs,
+        no_rosetta_args: no_rosetta_kwargs
+    }
+    for _flags, flags_params in arguments.items():
+        parser.add_argument(*_flags, **flags_params)
+
+    args, additional_args = parser.parse_known_args()
+    setup(args)
