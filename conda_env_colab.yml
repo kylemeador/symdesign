@@ -43,6 +43,7 @@ dependencies:
   - memory_profiler
 # Notebook packages
   - jupyter
+  - ipykernel < 6
   - py3dmol
   - seaborn
   - google-colab
