@@ -369,6 +369,10 @@ if __name__ == '__main__':
 
     # Set up git submodule
     git_submodule_cmd = ['git', 'submodule', 'update', '--init', '--recursive']
+    # Set up fragment database from files
+    # Only import this after submodules are set up
+    from symdesign.data import pickle_structure_dependencies
+    pickle_structure_dependencies.main()
     # Set up freesasa dependency
     # Todo May need to investigate this option
     #  --disable-threads
