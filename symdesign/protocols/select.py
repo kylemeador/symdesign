@@ -2378,7 +2378,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                         nucleotide_sequence = \
                             optimize_protein_sequence(tagged_sequence, species=job.optimize_species)
                     except NoSolutionError:  # Add the protein sequence?
-                        logger.warning(f'Optimization of {design_string} was not successful!')
+                        logger.warning(f"Optimization of {design_string} wasn't successful")
                         codon_optimization_errors[design_string] = tagged_sequence
                         break
 
@@ -2398,6 +2398,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
     # Format expression sequence metrics
     sequence_metrics = {}
     for pose_job, designs_sequences in metrics_sequences.items():
+        pose_radius_of_gyration = pose_job.pose.radius_of_gyration
         for design, design_sequences in zip(pose_job.current_designs, designs_sequences):
             # Iterate over each Entity
             pose_sequence = ''
@@ -2406,6 +2407,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 sequence_metrics[(pose_job.pose_identifier, design.name, entity_idx)] = entity_sequence_features
                 pose_sequence += sequence
             pose_sequence_features = expression.get_sequence_features(pose_sequence)
+            pose_sequence_features['radius_of_gyration'] = pose_radius_of_gyration
             sequence_metrics[(pose_job.pose_identifier, design.name, 'pose')] = pose_sequence_features
     # Format DataFrame and save metrics
     sequence_metrics_df = pd.DataFrame(sequence_metrics.values(),

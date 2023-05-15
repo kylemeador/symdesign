@@ -4036,6 +4036,11 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """The furthest point from the center of mass of the Structure"""
         return np.max(np.linalg.norm(self.coords - self.center_of_mass, axis=1))
 
+    @property
+    def radius_of_gyration(self) -> float:
+        """The measurement of the implied radius affecting how the Structure diffuses through solution"""
+        return np.sqrt(np.mean(np.linalg.norm(self.coords - self.center_of_mass, axis=1) ** 2))
+
     def get_residue_atoms(self, numbers: Container[int] = None, **kwargs) -> list[Atom]:
         """Return the Atoms contained in the Residue objects matching a set of residue numbers
 
