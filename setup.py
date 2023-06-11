@@ -254,6 +254,8 @@ def setup(args):
     # print(f'To properly set up your python environment use the {putils.conda_environment} to initialize your '
     #       "environment. If you are using anaconda/conda for instance, the command 'conda env create --file "
     #       f"{putils.conda_environment}' will handle this for you")
+    rosetta_env_variable = rosetta_main = ''
+    rosetta_make = None
     if args.no_rosetta:
         pass
     else:
@@ -292,12 +294,10 @@ def setup(args):
 
         # Todo use search_env_for_variable() to accomplish this
         print('Attempting to find environmental variable for Rosetta "main" directory')
-        rosetta_env_variable = ''
         rosetta_variable_dictionary = {0: 'ROSETTA', 1: 'Rosetta', 2: 'rosetta'}
         number_rosetta_variables = len(rosetta_variable_dictionary)
         retry_kw = 'retry'
         retry = None
-        rosetta_make = None
         # Todo reconfigure with above environmental variable search
         i = 0
         while True:
