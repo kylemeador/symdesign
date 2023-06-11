@@ -438,9 +438,11 @@ def setup(args):
               }
 
     # Get hhblits database
+    # Todo
+    #  collab use bfd minimal...
     if not args.hhsuite_database:
         _input = utils.validate_input(
-            f'To use {hhblits} A UniClust database needs to be available for hhblits. The file will take >50 GB of hard'
+            f'To use {putils.hhblits} A UniClust database needs to be available. The file will take >50 GB of hard'
             f' drive space. Ensure that you have the capacity for this operation. This will automatically be downloaded'
             f" for you in the directory '{putils.hhsuite_db_dir}' if you consent.", ['Y', 'n'])
     else:
@@ -479,7 +481,8 @@ def setup(args):
 if __name__ == '__main__':
     # Todo
     #  setuptools.py aware
-    parser = argparse.ArgumentParser(description=f'{os.path.basename(__file__)}: Set up {program_name} for usage')
+    parser = argparse.ArgumentParser(
+        description=f'{os.path.basename(__file__)}: Set up {putils.program_name} for usage')
     arguments = {
         flags.alphafold_database_args: flags.alphafold_database_kwargs,
         flags.dry_run_args: flags.dry_run_kwargs,
