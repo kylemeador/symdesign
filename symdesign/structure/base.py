@@ -4038,7 +4038,14 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     @property
     def radius_of_gyration(self) -> float:
-        """The measurement of the implied radius affecting how the Structure diffuses through solution"""
+        """The measurement of the implied radius (Angstroms) affecting how the Structure diffuses through solution
+
+        Satisfies the equation:
+            Rg = SQRT(SUM|i->N(Ri**2)/N)
+        Where:
+            - Ri is the radius of the point i from the center of mass point
+            - N is the total number of points
+        """
         return np.sqrt(np.mean(np.linalg.norm(self.coords - self.center_of_mass, axis=1) ** 2))
 
     def get_residue_atoms(self, numbers: Container[int] = None, **kwargs) -> list[Atom]:
