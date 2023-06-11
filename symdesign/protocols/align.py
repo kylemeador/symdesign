@@ -1252,9 +1252,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                         f"Aligned component {entity2.name} {align_termini}-termini isn't long enough for alignment")
                     continue
 
-                aligned_range_end = aligned_start_index + aligned_length + 1
-                align_start_indices_sequence = range(aligned_start_index, aligned_range_end)
-                sample_all_alignments = True  # First draft
+                sample_all_alignments = False  # Debugging True  # First draft
                 if sample_all_alignments:
                     align_iteration_direction = iter
                     target_iteration_direction = iter
@@ -1270,6 +1268,8 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                         target_iteration_direction = iter
 
                 aligned_count = count(1)
+                aligned_range_end = aligned_start_index + aligned_length + 1
+                align_start_indices_sequence = range(aligned_start_index, aligned_range_end)
                 for aligned_start_index in align_iteration_direction(align_start_indices_sequence):
                     aligned_idx = next(aligned_count)
                     # logger.debug(f'aligned_idx: {aligned_idx}')
@@ -1282,7 +1282,6 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     # # Todo? , extend_helix=extension_length)
                     # # Rename the models to enable fusion
                     # truncated_entity2.chain_id = chain_id
-
 
                     aligned_end_index = aligned_start_index + alignment_length
                     # Calculate the entity2 indices to delete after alignment position is found
