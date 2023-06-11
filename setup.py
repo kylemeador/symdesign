@@ -375,10 +375,6 @@ def setup(args):
 
     # Set up git submodule
     git_submodule_cmd = ['git', 'submodule', 'update', '--init', '--recursive']
-    # Set up fragment database from files
-    # Only import this after submodules are set up
-    from symdesign.data import pickle_structure_dependencies
-    pickle_structure_dependencies.main()
     # Set up freesasa dependency
     # Todo
     #  May need to investigate this option
@@ -428,6 +424,11 @@ def setup(args):
             # Execute the command
             p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
             out, err = p.communicate()
+
+    # Set up fragment database from files
+    # Only import this after submodules are set up
+    from symdesign.data import pickle_structure_dependencies
+    pickle_structure_dependencies.main()
 
     # Set up the program config file
     config = {'rosetta_env': rosetta_env_variable,
