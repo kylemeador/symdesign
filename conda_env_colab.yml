@@ -44,6 +44,7 @@ dependencies:
 # Notebook packages
   - jupyter
   - ipykernel < 6
+  - ipywidgets < 8
   - py3dmol
   - seaborn
   - google-colab
