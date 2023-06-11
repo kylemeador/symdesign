@@ -244,10 +244,10 @@ def download_hhblits_latest_database(version: str = None, dry_run: bool = False)
 def setup(args):
     if args.dry_run:
         dry_run = True
-        logger.setLevel(logging.debug)
+        logger.setLevel(logging.DEBUG)
     else:
         dry_run = False
-        logger.setLevel(logging.info)
+        logger.setLevel(logging.INFO)
     # logger.critical(f'Found the logger level: {logger.level}')
 
     # This needs to be done before running setup.py
