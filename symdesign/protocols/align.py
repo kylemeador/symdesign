@@ -9,7 +9,7 @@ from itertools import count
 from typing import Generator, Iterable, Iterator
 
 import numpy as np
-# from memory_profiler import profile
+from memory_profiler import profile
 from sqlalchemy import inspect, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
@@ -831,7 +831,7 @@ def get_terminal_helix_start_index_and_length(secondary_structure: str, termini:
     return start_index, alignment_length
 
 
-# @profile
+@profile
 def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
     """
 
