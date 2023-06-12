@@ -1246,8 +1246,8 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 # Scan along the aligned helix length
                 logger.debug(f'length_of_aligned_helix: {length_of_aligned_helix}')
                 logger.debug(f'alignment_length: {alignment_length}')
-                aligned_length = length_of_aligned_helix - alignment_length
-                if aligned_length < 0:
+                aligned_length = length_of_aligned_helix + 1 - alignment_length
+                if aligned_length < 1:
                     logger.info(
                         f"Aligned component {entity2.name} {align_termini}-termini isn't long enough for alignment")
                     continue
@@ -1268,7 +1268,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                         target_iteration_direction = iter
 
                 aligned_count = count(1)
-                aligned_range_end = aligned_start_index + aligned_length + 1
+                aligned_range_end = aligned_start_index + aligned_length
                 align_start_indices_sequence = range(aligned_start_index, aligned_range_end)
                 for aligned_start_index in align_iteration_direction(align_start_indices_sequence):
                     aligned_idx = next(aligned_count)
@@ -1304,7 +1304,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
                         # if helix_end_index > maximum_helix_alignment_length:
                         #     break  # This isn't allowed
-                        sampling_index = f'{aligned_idx}/{aligned_range_end}, ' \
+                        sampling_index = f'{aligned_idx}/{aligned_length}, ' \
                                          f'{helix_start_index + 1}/{max_target_helix_length}'
                         # Get target coords
                         coords1 = helix_model.get_coords_subset(
