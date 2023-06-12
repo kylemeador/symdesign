@@ -1404,6 +1404,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             joint_residue = transformed_entity2.residues[aligned_start_index + alignment_length//2]
 
                         # Create fused Entity and rename select attributes
+                        logger.debug(f'Fusing {ordered_entity1} to {ordered_entity2}')
                         fused_entity = Entity.from_residues(
                             ordered_entity1.residues + helix_residues + ordered_entity2.residues,
                             name=fusion_name, chain_ids=[chain_id],
@@ -1456,6 +1457,8 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             # input('DEBUG_Additional2.pdb')
                             all_entities += transformed_additional_entities2
 
+                        logger.debug(f'Creating Pose from entities: '
+                                     f'{", ".join(repr(entity) for entity in all_entities)}')
                         pose = Pose.from_entities(all_entities, sym_entry=sym_entry_chimera)
                         # pose.entities[0].write(oligomer=True, out_path='DEBUG_oligomer.pdb')
                         # pose.write(out_path='DEBUG_POSE.pdb', increment_chains=True)
@@ -1466,7 +1469,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                         if job.bend:
                             central_aligned_residue = pose.chain(chain_id).residue(joint_residue.number)
                             if central_aligned_residue is None:
-                                logger.warning(f"Couldn't locate the joint_residue with residue number "
+                                logger.warning("Couldn't locate the joint_residue with residue number "
                                                f"{joint_residue.number} from chain {chain_id}")
                                 continue
                             # print(central_aligned_residue)
@@ -1481,7 +1484,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                                 if pose.is_symmetric() and not job.design.ignore_symmetric_clashes and \
                                         pose.symmetric_assembly_is_clash(warn=False):
                                     logger.info(f'Alignment {fusion_name}, bend {bend_idx} has '
-                                                f'symmetric clashes')
+                                                'symmetric clashes')
                                     continue
 
                                 output_pose(name + f'-bend{bend_idx}')
