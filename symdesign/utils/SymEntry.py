@@ -327,7 +327,8 @@ class SymEntry:
             self.point_group_symmetry, self.resulting_symmetry, self.dimension, self.cell_lengths, self.cell_angles, \
                 self.total_dof, self.cycle_size = result_info
         except ValueError:  # Not enough values to unpack, probably a CRYST token
-            group_info = []
+            # Todo - Crystallographic symmetry could coincide with group symmetry...
+            group_info = ['C1']  # Assume for now that the groups are C1
             self.point_group_symmetry = None
             self.resulting_symmetry = kwargs.get('resulting_symmetry', None)
             self.dimension = 2 if self.resulting_symmetry in utils.symmetry.layer_group_cryst1_fmt_dict else 3
@@ -1251,7 +1252,7 @@ def symmetry_groups_are_allowed_in_entry(symmetry_operators: Iterable[str], *gro
         # if group1 is None and group2 is None:
         if not groups:
             raise ValueError(
-                f"When using the argument 'result', must provide at least 1 *groups")
+                f"When using the argument 'result', must provide at least 1 group. Got {groups}")
     elif entry_number is not None:
         entry = symmetry_combinations.get(entry_number)
         if entry is None:
@@ -1262,7 +1263,7 @@ def symmetry_groups_are_allowed_in_entry(symmetry_operators: Iterable[str], *gro
         groups = (group1, group2)  # Todo modify for more than 2
     else:
         raise ValueError(
-            'Must provide entry_number, or the result, *groups arguments. None were provided')
+            'Must provide entry_number, or the result and *groups arguments. None were provided')
 
     # Find all sub_symmetries that are viable in the component group members
     for group in groups:
