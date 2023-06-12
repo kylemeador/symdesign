@@ -278,6 +278,39 @@ for entry_number, ent in symmetry_combinations.items():
         point_group_setting_matrix_members[point_group] = {group_1: {setting_1}, group_2: {setting_2}}
 
 
+def construct_uc_matrix(string_vector: Iterable[str]) -> np.ndarray:
+    """Calculate a matrix specifying the degrees of freedom in each dimension of the unit cell
+
+    Args:
+        string_vector: The string vector as parsed from the symmetry combination table
+    Returns:
+        3x3 float array with the values to specify unit cell dimensions from basis vector constraints
+    """
+    string_position = {'e': 0, 'f': 1, 'g': 2}
+    variable_matrix = np.zeros((3, 3))  # default is float
+    for col_idx, string in enumerate(string_vector):  # ex ['4*e', 'f', '0']
+        if string[-1] != '0':
+            row_idx = string_position[string[-1]]
+            variable_matrix[row_idx][col_idx] = float(string.split('*')[0]) if '*' in string else 1.
+
+            if '-' in string:
+                variable_matrix[row_idx][col_idx] *= -1
+
+    # for entry 6 - unit cell string_vector is ['4*e', '4*e', '4*e']
+    #  [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
+    #  component1 string vector is ['0', 'e', '0']
+    #   [[0, 1, 0], [0, 0, 0], [0, 0, 0]]
+    #  component2 string vector is ['0', '0', '0']
+    #   [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+    # for entry 85 - string_vector is ['4*e', '4*f', '4*g']
+    #  [[4, 0, 0], [0, 4, 0], [0, 0, 4]]
+    #  component1 string vector is ['0', '0', '0']
+    #   [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+    #  component2 string vector is ['e', 'f', 'g']
+    #   [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    return variable_matrix
+
+
 class SymEntry:
     __external_dof: list[np.ndarray]
     _degeneracy_matrices: np.ndarray | None
@@ -707,17 +740,18 @@ class SymEntry:
 
             self._degeneracy_matrices.append(degeneracy_matrices)
 
-    def get_optimal_external_tx_vector(self, optimal_ext_dof_shifts: np.ndarray, group_number: int = 1) -> np.ndarray:
-        """From the DOF and the computed shifts, return the translation vector
-
-        Args:
-            optimal_ext_dof_shifts: The parameters for an ideal shift of a single component in the resulting material
-            group_number: The number of the group to find the vector for
-        Returns:
-            The optimal vector for translation
-        """
-        optimal_shifts_t = getattr(self, f'external_dof{group_number}').T * optimal_ext_dof_shifts
-        return optimal_shifts_t.T.sum(axis=0)
+    # # UNUSED
+    # def get_optimal_external_tx_vector(self, optimal_ext_dof_shifts: np.ndarray, group_number: int = 1) -> np.ndarray:
+    #     """From the DOF and the computed shifts, return the translation vector
+    #
+    #     Args:
+    #         optimal_ext_dof_shifts: The parameters for an ideal shift of a single component in the resulting material
+    #         group_number: The number of the group to find the vector for
+    #     Returns:
+    #         The optimal vector for translation
+    #     """
+    #     optimal_shifts_t = getattr(self, f'external_dof{group_number}').T * optimal_ext_dof_shifts
+    #     return optimal_shifts_t.T.sum(axis=0)
 
     def get_uc_dimensions(self, optimal_shift_vec: np.ndarray) -> np.ndarray | None:
         """Return an array with the three unit cell lengths and three angles [20, 20, 20, 90, 90, 90] by combining UC
@@ -911,39 +945,6 @@ class SymEntryFactory:
 symmetry_factory = SymEntryFactory()
 
 
-def construct_uc_matrix(string_vector: Iterable[str]) -> np.ndarray:
-    """Calculate a matrix specifying the degrees of freedom in each dimension of the unit cell
-
-    Args:
-        string_vector: The string vector as parsed from the symmetry combination table
-    Returns:
-        3x3 float array with the values to specify unit cell dimensions from basis vector constraints
-    """
-    string_position = {'e': 0, 'f': 1, 'g': 2}
-    variable_matrix = np.zeros((3, 3))  # default is float
-    for col_idx, string in enumerate(string_vector):  # ex ['4*e', 'f', '0']
-        if string[-1] != '0':
-            row_idx = string_position[string[-1]]
-            variable_matrix[row_idx][col_idx] = float(string.split('*')[0]) if '*' in string else 1.
-
-            if '-' in string:
-                variable_matrix[row_idx][col_idx] *= -1
-
-    # for entry 6 - unit cell string_vector is ['4*e', '4*e', '4*e']
-    #  [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
-    #  component1 string vector is ['0', 'e', '0']
-    #   [[0, 1, 0], [0, 0, 0], [0, 0, 0]]
-    #  component2 string vector is ['0', '0', '0']
-    #   [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
-    # for entry 85 - string_vector is ['4*e', '4*f', '4*g']
-    #  [[4, 0, 0], [0, 4, 0], [0, 0, 4]]
-    #  component1 string vector is ['0', '0', '0']
-    #   [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
-    #  component2 string vector is ['e', 'f', 'g']
-    #   [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-    return variable_matrix
-
-
 # def construct_tx_dof_ref_frame_matrix(string_vector):
 #     """
 #
@@ -965,42 +966,42 @@ def construct_uc_matrix(string_vector: Iterable[str]) -> np.ndarray:
 #     return variable_matrix
 
 
-def get_tx_dof_ref_frame_var_vec(string_vec, var):
-    return_vec = [0.0, 0.0, 0.0]
-    for i in range(3):
-        if var in string_vec[i] and '*' in string_vec[i]:
-            return_vec[i] = float(string_vec[i].split('*')[0])
-        elif "-" + var in string_vec[i]:
-            return_vec[i] = -1.0
-        elif var == string_vec[i]:
-            return_vec[i] = 1.0
-    return return_vec
+# def get_tx_dof_ref_frame_var_vec(string_vec, var):  # UNUSED
+#     return_vec = [0., 0., 0.]
+#     for i in range(3):
+#         if var in string_vec[i] and '*' in string_vec[i]:
+#             return_vec[i] = float(string_vec[i].split('*')[0])
+#         elif "-" + var in string_vec[i]:
+#             return_vec[i] = -1.
+#         elif var == string_vec[i]:
+#             return_vec[i] = 1.
+#     return return_vec
 
 
-def parse_ref_tx_dof_str_to_list(ref_frame_tx_dof_string):
-    return list(map(str.strip, ref_frame_tx_dof_string.strip('<>').split(',')))
+# def parse_ref_tx_dof_str_to_list(ref_frame_tx_dof_string):  # UNUSED
+#     return list(map(str.strip, ref_frame_tx_dof_string.strip('<>').split(',')))
 
 
-def get_optimal_external_tx_vector(ref_frame_tx_dof, optimal_ext_dof_shifts):
-    """From the DOF and the computed shifts, return the translation vector
-
-    Args:
-        ref_frame_tx_dof:
-        optimal_ext_dof_shifts:
-
-    Returns:
-        (list[list[list]])
-    """
-    ext_dof_variables = ['e', 'f', 'g']
-
-    parsed_ref_tx_vec = parse_ref_tx_dof_str_to_list(ref_frame_tx_dof)
-
-    optimal_external_tx_vector = np.array([0.0, 0.0, 0.0])
-    for idx, dof_shift in enumerate(optimal_ext_dof_shifts):
-        var_vec = get_tx_dof_ref_frame_var_vec(parsed_ref_tx_vec, ext_dof_variables[idx])
-        optimal_external_tx_vector += np.array(var_vec) * dof_shift
-
-    return optimal_external_tx_vector.tolist()
+# def get_optimal_external_tx_vector(ref_frame_tx_dof, optimal_ext_dof_shifts):  # UNUSED
+#     """From the DOF and the computed shifts, return the translation vector
+#
+#     Args:
+#         ref_frame_tx_dof:
+#         optimal_ext_dof_shifts:
+#
+#     Returns:
+#         (list[list[list]])
+#     """
+#     ext_dof_variables = ['e', 'f', 'g']
+#
+#     parsed_ref_tx_vec = parse_ref_tx_dof_str_to_list(ref_frame_tx_dof)
+#
+#     optimal_external_tx_vector = np.array([0.0, 0.0, 0.0])
+#     for idx, dof_shift in enumerate(optimal_ext_dof_shifts):
+#         var_vec = get_tx_dof_ref_frame_var_vec(parsed_ref_tx_vec, ext_dof_variables[idx])
+#         optimal_external_tx_vector += np.array(var_vec) * dof_shift
+#
+#     return optimal_external_tx_vector.tolist()
 
 
 def get_rot_matrices(step_deg: int | float, axis: str = 'z', rot_range_deg: int | float = 360) -> np.ndarray | None:
@@ -1071,59 +1072,59 @@ def make_rotations_degenerate(rotations: np.ndarray | list[np.ndarray] | list[li
     return np.concatenate([np.matmul(rotations, degen_mat) for degen_mat in degeneracies])
 
 
-def parse_uc_str_to_tuples(uc_string):
-    """Acquire unit cell parameters from specified external degrees of freedom string"""
-    def s_to_l(string):
-        s1 = string.replace('(', '')
-        s2 = s1.replace(')', '')
-        l1 = s2.split(',')
-        l2 = [x.replace(' ', '') for x in l1]
-        return l2
-
-    # if '),' in uc_string:
-    #     l = uc_string.split('),')
-    # else:
-    #     l = [uc_string]
-
-    return [s_to_l(s) for s in uc_string.split('), ')]
-
-
-def get_uc_var_vec(string_vec, var):
-    """From the length specification return the unit vector"""
-    return_vec = [0.0, 0.0, 0.0]
-    for i in range(len(string_vec)):
-        if var in string_vec[i] and '*' in string_vec[i]:
-            return_vec[i] = (float(string_vec[i].split('*')[0]))
-        elif var == string_vec[i]:
-            return_vec.append(1.0)
-    return return_vec
+# def parse_uc_str_to_tuples(uc_string):  # UNUSED
+#     """Acquire unit cell parameters from specified external degrees of freedom string"""
+#     def s_to_l(string):
+#         s1 = string.replace('(', '')
+#         s2 = s1.replace(')', '')
+#         l1 = s2.split(',')
+#         l2 = [x.replace(' ', '') for x in l1]
+#         return l2
+#
+#     # if '),' in uc_string:
+#     #     l = uc_string.split('),')
+#     # else:
+#     #     l = [uc_string]
+#
+#     return [s_to_l(s) for s in uc_string.split('), ')]
 
 
-def get_uc_dimensions(uc_string, e=1, f=0, g=0):
-    """Return an array with the three unit cell lengths and three angles [20, 20, 20, 90, 90, 90] by combining UC
-    basis vectors with component translation degrees of freedom"""
-    string_vec_lens, string_vec_angles = parse_uc_str_to_tuples(uc_string)
-    e_vec = get_uc_var_vec(string_vec_lens, 'e')
-    f_vec = get_uc_var_vec(string_vec_lens, 'f')
-    g_vec = get_uc_var_vec(string_vec_lens, 'g')
-    e1 = [e_vec_val * e for e_vec_val in e_vec]
-    f1 = [f_vec_val * f for f_vec_val in f_vec]
-    g1 = [g_vec_val * g for g_vec_val in g_vec]
+# def get_uc_var_vec(string_vec, var):  # UNUSED
+#     """From the length specification return the unit vector"""
+#     return_vec = [0.0, 0.0, 0.0]
+#     for i in range(len(string_vec)):
+#         if var in string_vec[i] and '*' in string_vec[i]:
+#             return_vec[i] = (float(string_vec[i].split('*')[0]))
+#         elif var == string_vec[i]:
+#             return_vec.append(1.0)
+#     return return_vec
 
-    lengths = [0.0, 0.0, 0.0]
-    for i in range(len(string_vec_lens)):
-        lengths[i] = abs((e1[i] + f1[i] + g1[i]))
-    if len(string_vec_lens) == 2:
-        lengths[2] = 1.0
 
-    if len(string_vec_angles) == 1:
-        angles = [90.0, 90.0, float(string_vec_angles[0])]
-    else:
-        angles = [0.0, 0.0, 0.0]
-        for idx, string_vec_angle in enumerate(string_vec_angles):
-            angles[idx] = float(string_vec_angle)
-
-    return lengths + angles
+# def get_uc_dimensions(uc_string, e=1, f=0, g=0):  # UNUSED
+#     """Return an array with the three unit cell lengths and three angles [20, 20, 20, 90, 90, 90] by combining UC
+#     basis vectors with component translation degrees of freedom"""
+#     string_vec_lens, string_vec_angles = parse_uc_str_to_tuples(uc_string)
+#     e_vec = get_uc_var_vec(string_vec_lens, 'e')
+#     f_vec = get_uc_var_vec(string_vec_lens, 'f')
+#     g_vec = get_uc_var_vec(string_vec_lens, 'g')
+#     e1 = [e_vec_val * e for e_vec_val in e_vec]
+#     f1 = [f_vec_val * f for f_vec_val in f_vec]
+#     g1 = [g_vec_val * g for g_vec_val in g_vec]
+#
+#     lengths = [0.0, 0.0, 0.0]
+#     for i in range(len(string_vec_lens)):
+#         lengths[i] = abs((e1[i] + f1[i] + g1[i]))
+#     if len(string_vec_lens) == 2:
+#         lengths[2] = 1.0
+#
+#     if len(string_vec_angles) == 1:
+#         angles = [90.0, 90.0, float(string_vec_angles[0])]
+#     else:
+#         angles = [0.0, 0.0, 0.0]
+#         for idx, string_vec_angle in enumerate(string_vec_angles):
+#             angles[idx] = float(string_vec_angle)
+#
+#     return lengths + angles
 
 
 highest_point_group_msg = f'If this is a point group. You likely need to modify the current highest cyclic symmetry ' \
