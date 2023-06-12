@@ -957,6 +957,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
         """
         # Output the pose as a PoseJob
         # name = f'{termini}-term{helix_start_index + 1}'
+        logger.debug(f'Creating PoseJob')
         pose_job = PoseJob.from_name(name, project=project, protocol=protocol_name)
 
         # if job.output:
@@ -1515,8 +1516,8 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 session.rollback()
                 number_flush_attempts = next(error_count)
                 pose_names = list(pose_name_pose_jobs.keys())
-                logger.info(f'rollback() #{number_flush_attempts}')
-                logger.info(f'From {len(pose_names)} pose_names:\n{sorted(pose_names)}')
+                logger.debug(f'rollback() #{number_flush_attempts}')
+                logger.debug(f'From {len(pose_names)} pose_names:\n{sorted(pose_names)}')
                 # Find the actual pose_jobs_to_commit and place in session
                 fetch_jobs_stmt = select(PoseJob).where(PoseJob.project.is_(project)) \
                     .where(PoseJob.name.in_(pose_names))
@@ -1525,7 +1526,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 # ex, design 11 is processed before design 2
                 existing_pose_names = {pose_job_.name for pose_job_ in existing_pose_jobs}
                 new_pose_names = set(pose_names).difference(existing_pose_names)
-                logger.info(f'Found {len(new_pose_names)} new_pose_names:\n{sorted(new_pose_names)}')
+                logger.debug(f'Found {len(new_pose_names)} new_pose_names:\n{sorted(new_pose_names)}')
                 if not new_pose_names:  # No new PoseJobs
                     return existing_pose_jobs
                 else:
@@ -1560,12 +1561,12 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                                     break  # outer loop too
                                 else:
                                     insp = inspect(entity_data)
-                                    logger.critical(
+                                    logger.warning(
                                         f'Missing the {sql.ProteinMetadata.__name__} instance for {entity_data} with '
                                         f'entity_id {entity_id}')
-                                    logger.info(f'\tThis instance is transient? {insp.transient}, pending?'
-                                                f' {insp.pending}, persistent? {insp.persistent}')
-                        logger.info(f'Found the newly added Session instances:\n{session.new}')
+                                    logger.debug(f'\tThis instance is transient? {insp.transient}, pending?'
+                                                 f' {insp.pending}, persistent? {insp.persistent}')
+                        logger.debug(f'Found the newly added Session instances:\n{session.new}')
                     elif number_flush_attempts == 3:
                         attrs_of_interest = \
                             ['id', 'entity_id', 'reference_sequence', 'thermophilicity', 'symmetry_group', 'model_source']
@@ -1575,8 +1576,8 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                                 properties.append('\t'.join([f'{attr}={getattr(entity_data.meta, attr)}'
                                                              for attr in attrs_of_interest]))
                         pose_job_properties = '\n\t'.join(properties)
-                        logger.critical(f"The remaining PoseJob instances have the following "
-                                        f"{sql.ProteinMetadata.__name__} properties:\n\t{pose_job_properties}")
+                        logger.warning(f"The remaining PoseJob instances have the following "
+                                       f"{sql.ProteinMetadata.__name__} properties:\n\t{pose_job_properties}")
                         # This is another error
                         raise
             else:

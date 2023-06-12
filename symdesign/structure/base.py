@@ -5871,15 +5871,14 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # container to the missing class_structure_container
         missing_containers = self.__class__.class_structure_containers.difference(self.structure_containers)
         if missing_containers:
-            self.log.debug("Structure.copy(): This hasn't been debugged. "
-                           f"{self} is missing_containers={missing_containers}")
             if len(self.structure_containers) == 1:
                 existing_structure_type = self.structure_containers[0]
                 if existing_structure_type == 'entities':
                     for structure_type in missing_containers:
                         self.__setattr__(structure_type, existing_structure_type)
                 else:
-                    self.log.debug(f'Leaving the container {missing_containers} empty for now')
+                    self.log.debug("In {self._copy_structure_containers.__name__}: "
+                                   f"{self} is missing the container(s) {missing_containers}. Leaving empty for now")
             else:
                 raise NotImplementedError(
                     "Can't set up structure_containers when there are more than 1 initialized and there are missing "

@@ -6319,8 +6319,6 @@ class Pose(SymmetricModel, Metrics):
         self.ss_type_sequence = []
 
         self.create_design_selector()  # **self.design_selector)
-        self.log.debug(f'Entities: {", ".join(entity.name for entity in self.entities)}')
-        self.log.debug(f'Active Entities: {", ".join(entity.name for entity in self.active_entities)}')
 
     def calculate_metrics(self, **kwargs) -> dict[str, Any]:
         """Calculate metrics for the instance
@@ -6557,6 +6555,9 @@ class Pose(SymmetricModel, Metrics):
                 self.required_residues = self.get_residues_by_atom_indices(atom_indices=list(self.required_indices))
         else:
             entity_required, self.required_indices = set(), set()
+
+        self.log.debug(f'Entities: {", ".join(entity.name for entity in self.entities)}')
+        self.log.debug(f'Active Entities: {", ".join(entity.name for entity in self.active_entities)}')
 
     def get_alphafold_features(self, symmetric: bool = False, multimer: bool = False, no_msa: bool = False, **kwargs) \
             -> af_pipeline.FeatureDict:
