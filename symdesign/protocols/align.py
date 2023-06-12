@@ -1232,6 +1232,9 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
                 length_of_helix_model = helix_model.number_of_residues
                 logger.debug(f'length_of_helix_model: {length_of_helix_model}')
+                max_target_helix_length = length_of_helix_model - alignment_length
+                logger.debug(f'Number of helical positions on target: {max_target_helix_length}')
+                target_start_indices_sequence = range(max_target_helix_length)
 
                 # Get the aligned_start_index and length_of_aligned_helix
                 align_termini = opposite_termini[termini]
@@ -1256,6 +1259,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 if sample_all_alignments:
                     align_iteration_direction = iter
                     target_iteration_direction = iter
+                    target_start_iterator = target_start_indices_sequence
                 else:
                     # Todo
                     #  targeted method which searches only possible
@@ -1263,9 +1267,12 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     if termini == 'n':
                         align_iteration_direction = iter
                         target_iteration_direction = reversed
+                        target_pause_index_during_aligned_loop = max_target_helix_length - 1
                     else:  # termini == 'c'
                         align_iteration_direction = reversed
                         target_iteration_direction = iter
+                        target_pause_index_during_aligned_loop = 0
+                    target_start_iterator = [target_pause_index_during_aligned_loop]
 
                 aligned_count = count(1)
                 aligned_range_end = aligned_start_index + aligned_length
@@ -1293,12 +1300,25 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     coords2 = entity2.get_coords_subset(
                         indices=list(range(aligned_start_index, aligned_end_index)),
                         dtype='backbone')
-                    # Scan along the target helix length
-                    # helix_start_index = 0
-                    max_target_helix_length = length_of_helix_model - alignment_length
-                    logger.debug(f'Number of helical positions on target: {max_target_helix_length}')
-                    target_start_indices_sequence = range(max_target_helix_length)
-                    for helix_start_index in target_iteration_direction(target_start_indices_sequence):
+
+                    # Todo
+                    #  For every iteration of the aligned_start_index, perform the alignment procedure
+                    #  Need to perform short target loops during aligned loop or make alignment procedure a function...
+
+                    if aligned_idx == aligned_length:
+                        # The maximum number of aligned_start_index have been reached, iterate over the target now
+                        target_start_iterator = target_iteration_direction(target_start_indices_sequence)
+                    # else:
+                    #     target_start_iterator = []
+
+                    # # Scan along the target helix length
+                    # # helix_start_index = 0
+                    # max_target_helix_length = length_of_helix_model - alignment_length
+                    # logger.debug(f'Number of helical positions on target: {max_target_helix_length}')
+                    # target_start_indices_sequence = range(max_target_helix_length)
+                    # for helix_start_index in target_iteration_direction(target_start_indices_sequence):
+                    #
+                    for helix_start_index in target_start_iterator:
                         logger.debug(f'helix_start_index: {helix_start_index}')
                         helix_end_index = helix_start_index + alignment_length
 
