@@ -307,7 +307,6 @@ class SymEntry:
     @classmethod
     def from_cryst(cls, symmetry: str, **kwargs):  # uc_dimensions: Iterable[float],
         """Create a SymEntry from a specified symmetry in Hermain-Manguin notation and the unit-cell dimensions"""
-        # return cls(symmetry, uc_dimensions, **kwargs)
         return cls(0, resulting_symmetry=symmetry, **kwargs)
 
     def __init__(self, entry: int, sym_map: list[str] = None, **kwargs):
@@ -327,7 +326,7 @@ class SymEntry:
         try:  # To unpack the result_info. This will fail if a CRYST1 record placeholder
             self.point_group_symmetry, self.resulting_symmetry, self.dimension, self.cell_lengths, self.cell_angles, \
                 self.total_dof, self.cycle_size = result_info
-        except ValueError:  # Not enough values to unpack
+        except ValueError:  # Not enough values to unpack, probably a CRYST token
             group_info = []
             self.point_group_symmetry = None
             self.resulting_symmetry = kwargs.get('resulting_symmetry', None)
@@ -857,7 +856,7 @@ class SymEntry:
         return f'{self.__class__.__name__}({self.specification})'
 
 
-# Set up the baseline crystaline entry which will allow for flexible adaptation of non-Nanohedra SymEntry instances
+# Set up the baseline crystalline entry which will allow for flexible adaptation of non-Nanohedra SymEntry instances
 CRYST = SymEntry.from_cryst(symmetry='P1')
 
 

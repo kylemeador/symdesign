@@ -4482,10 +4482,12 @@ class SymmetricModel(Model):  # Models):
         if symmetry is not None:  # Ensure conversion to Hermann–Mauguin notation. ex: P23 not P 2 3
             symmetry = ''.join(symmetry.split())
 
+        number_of_entities = self.number_of_entities
         if sym_entry is not None:
             if isinstance(sym_entry, utils.SymEntry.SymEntry):
                 if sym_entry.number == 0:  # Token specifying use of the CRYST1 record. Replace with relevant info
-                    self.sym_entry = utils.SymEntry.SymEntry.from_cryst(symmetry=symmetry)
+                    self.sym_entry = utils.SymEntry.SymEntry.from_cryst(
+                        symmetry=symmetry, sym_map=[symmetry] + ['C1' for _ in range(number_of_entities)])
                 else:
                     self.sym_entry = sym_entry  # Attach as this is set up properly
             else:  # Try to solve using integer and any info in symmetry. Fails upon non Nanohedra chiral space-group...
@@ -4551,7 +4553,6 @@ class SymmetricModel(Model):  # Models):
 
         if self.is_symmetric():  # True if symmetry keyword args were passed
             # Ensure the number of Entity instances matches the SymEntry groups
-            number_of_entities = self.number_of_entities
             if number_of_entities != self.sym_entry.number_of_groups:
                 raise SymmetryError(
                     f'The {self.__class__.__name__} has {self.number_of_entities} symmetric entities. '
