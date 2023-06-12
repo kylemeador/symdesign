@@ -328,7 +328,7 @@ class SymEntry:
                 self.total_dof, self.cycle_size = result_info
         except ValueError:  # Not enough values to unpack, probably a CRYST token
             # Todo - Crystallographic symmetry could coincide with group symmetry...
-            group_info = ['C1']  # Assume for now that the groups are C1
+            group_info = [('C1', [['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, None])]  # Assume for now that the groups are C1
             self.point_group_symmetry = None
             self.resulting_symmetry = kwargs.get('resulting_symmetry', None)
             self.dimension = 2 if self.resulting_symmetry in utils.symmetry.layer_group_cryst1_fmt_dict else 3
