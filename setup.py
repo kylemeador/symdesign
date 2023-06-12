@@ -144,7 +144,7 @@ def download_alphafold_latest_params(version: str = None, dry_run: bool = False)
     else:
         # with open(putils.alphafold_openmm_patch, 'rb') as f:
         #     path_lines = f.read()
-        patch_p = subprocess.Popen(patch_openmm_cmd)  #, stdin=subprocess.PIPE)
+        patch_p = subprocess.Popen(patch_openmm_cmd)  # , stdin=subprocess.PIPE)
         patch_out, patch_err = patch_p.communicate()  # input=path_lines)  # .encode('utf-8'))
         logger.debug(f'patch stdout:\n{patch_out}\n\ndownload stderr:\n{patch_err}')
 

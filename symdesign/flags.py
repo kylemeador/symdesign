@@ -1479,7 +1479,7 @@ select_sequences_arguments = {
              help='Should nucleotide sequences by output in multicistronic format?\nBy default, uses the pET-Duet '
                   'intergeneic sequence containing\na T7 promoter, LacO, and RBS'),
     (f'--{nucleotide}',): dict(action=argparse.BooleanOptionalAction, default=True,
-                               help=f'Should codon optimized nucleotide sequences be output?'
+                               help='Should codon optimized nucleotide sequences be output?'
                                     f'\n{boolean_positional_prevent_msg(nucleotide)}'),
     ('-t', f'--{preferred_tag}'): dict(type=str.lower, choices=constants.expression_tags.keys(), default='his_tag',
                                        metavar='', help='The name of your preferred expression tag\n'
@@ -1519,7 +1519,7 @@ number_args = ('-n', f'--{number}')
 multicistronic_arguments = {
     **multicistronic_args,
     number_args: dict(type=int, metavar='INT', help='The number of protein sequences to concatenate into a '
-                                     'multicistronic expression output'),
+                                                    'multicistronic expression output'),
     output_directory_args: dict(type=os.path.abspath, required=True, help='Where should the output be written?'),
 }
 parser_update_db = {update_db: dict()}
@@ -1535,7 +1535,7 @@ update_db_arguments = {}
 # parser_asu = subparsers.add_parser('find_asu', description='From a symmetric assembly, locate an ASU and save the result.')
 # ---------------------------------------------------
 check_clashes_help = 'Check for any clashes in the input poses. This is performed by default at Pose\n' \
-                     f'load and will raise a ClashError (caught and reported) if clashes are found'
+                     'load and will raise a ClashError (caught and reported) if clashes are found'
 parser_check_clashes = {check_clashes: dict(description=check_clashes_help, help=check_clashes_help)}
 # ---------------------------------------------------
 # parser_check_unmodelled_clashes = subparsers.add_parser('check_unmodelled_clashes', description='Check for clashes between full models. Useful for understanding if loops are missing, whether their modelled density is compatible with the pose')
@@ -1551,7 +1551,7 @@ generate_fragments_arguments = {
     (f'--{interface_only}',): dict(action='store_true', help=f'Whether to limit to interface residues'),
     (f'--{oligomeric_interfaces}',):
         dict(action='store_true', help=f'Whether to {generate_fragments} at oligomeric interfaces in\naddition to '
-                                       f'hetrotypic interfaces')
+                                       'hetrotypic interfaces')
 }
 # ---------------------------------------------------
 rename_chains_help = 'For given poses, rename the chains in the source PDB to the alphabetic order.\n' \
@@ -1574,14 +1574,17 @@ load_to_db_kwargs = dict(action='store_true',
                          help=f'Use this input flag to load files existing in a {putils.program_output} to the DB')
 range_args = ('-r', '--range')
 # ---------------------------------------------------
+project_args = ('-p', '--project')
+single_args = ('-s', '--single')
+directory_args = ('-d', f'--{directory}')
 directory_needed = f'To locate poses from a file utilizing pose identifiers (--{poses}, -sf)\n' \
-                   f'provide your working {program_output} directory with -d/--directory.\n' \
+                   f'provide your working {program_output} directory with {format_args(directory_args)}.\n' \
                    f'If you run {program_name} in the context of an existing {program_output},\n' \
-                   f'the directory will automatically be inferred'
-input_help = f'Specify where/which poses should be included in processing\n{directory_needed}'
+                   'the directory will automatically be inferred.'
+input_help = f'Specify where/which poses should be included in processing.\n{directory_needed}'
 parser_input = {input_: dict(description=input_help)}  # , help=input_help
 parser_input_group = dict(title=f'{"_" * len(input_title)}\n{input_title}',
-                          description=f'\nSpecify where/which poses should be included in processing\n'
+                          description='\nSpecify where/which poses should be included in processing\n'
                                       f'{directory_needed}')
 input_arguments = {
     cluster_map_args: cluster_map_kwargs,
@@ -1634,9 +1637,6 @@ input_arguments = {
                                                                'identities of each constituent Entity')
 }
 # parser_input_mutual = parser_input.add_mutually_exclusive_group()
-project_args = ('-p', '--project')
-single_args = ('-s', '--single')
-directory_args = ('-d', f'--{directory}')
 directory_kwargs = dict(type=os.path.abspath, metavar=ex_path('your_pdb_files'),
                         help='Master directory where files to be designed are located. This may be\n'
                              'a random directory with poses requiring design, or the output from\n'
