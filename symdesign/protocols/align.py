@@ -853,24 +853,24 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
             f"Can't perform {align_helices.__name__} with {len(models)} models. Only 2 are allowed")
     # models = []
     # """The Structure instances to be used in docking"""
-    # Ensure models are oligomeric with make_oligomer()
-    for idx, input_model in enumerate(models):
-        for entity, symmetry in zip(input_model.entities, sym_entry.groups):
-            if entity.is_symmetric():
-                pass
-            else:
-                # Only respect the symmetry of the first input_model
-                if idx == 0:
-                    entity.make_oligomer(symmetry=symmetry)
-                else:
-                    logger.info(f'{align_helices.__name__}: Skipping symmetry for model {idx + 1} as no symmetry is '
-                                f'allowed for the second model')
-        # # Make, then save a new model based on the symmetric version of each Entity in the Model
-        # # model = input_model.assembly  # This is essentially what is happening here
-        # model = Model.from_chains([chain for entity in input_model.entities for chain in entity.chains],
-        #                           entities=False, name=input_model.name)
-        # model.fragment_db = job.fragment_db
-        # models.append(model)
+    # # Ensure models are oligomeric with make_oligomer()
+    # for idx, input_model in enumerate(models):
+    #     for entity, symmetry in zip(input_model.entities, sym_entry.groups):
+    #         if entity.is_symmetric():
+    #             pass
+    #         else:
+    #             # Only respect the symmetry of the first input_model
+    #             if idx == 0:
+    #                 entity.make_oligomer(symmetry=symmetry)
+    #             else:
+    #                 logger.info(f'{align_helices.__name__}: Skipping symmetry for model {idx + 1} as no symmetry is '
+    #                             f'allowed for the second model')
+    #     # # Make, then save a new model based on the symmetric version of each Entity in the Model
+    #     # # model = input_model.assembly  # This is essentially what is happening here
+    #     # model = Model.from_chains([chain for entity in input_model.entities for chain in entity.chains],
+    #     #                           entities=False, name=input_model.name)
+    #     # model.fragment_db = job.fragment_db
+    #     # models.append(model)
 
     model1: Pose
     model2: Model
