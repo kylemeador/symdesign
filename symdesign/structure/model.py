@@ -1548,6 +1548,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         try:
             return self._oligomer
         except AttributeError:
+            self.log.debug(f'Loading {self.name} oligomeric model upon first request')
             self._oligomer = Model.from_chains(self.chains, entities=False, log=self.log)
             # self._oligomer = Structures(self.chains, parent=self)  # NEW WAY Todo
             return self._oligomer
@@ -1790,7 +1791,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         Returns:
             The name of the written file if out_path is used
         """
-        self.log.debug(f'Entity is writing')
+        self.log.debug(f'Entity is writing {self}')
 
         def entity_write(handle):
             if oligomer:
@@ -4345,7 +4346,7 @@ class Models(UserList):  # (Model):
         Returns:
             The name of the written file if out_path is used
         """
-        logger.debug(f'Models is writing')
+        logger.debug(f'Models is writing {self}')
 
         def models_write(handle):
             # self.models is populated
@@ -6194,7 +6195,7 @@ class SymmetricModel(Model):  # Models):
         Returns:
             The name of the written file if out_path is used
         """
-        self.log.debug(f'SymmetricModel is writing')
+        self.log.debug(f'SymmetricModel is writing {self}')
 
         def write_pose(handle):
             if self.is_symmetric():
