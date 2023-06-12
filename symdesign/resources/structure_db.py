@@ -360,7 +360,8 @@ class StructureDatabase(Database):
 
         # Todo include Entity specific parsing from download_structures() in orient_existing_file(), then
         #  consolidate their overlap
-        def orient_existing_file(files: Iterable[str], sym_entry: SymEntry) -> list[Model]:
+        def orient_existing_file(files: Iterable[str], resulting_symmetry: str, sym_entry: SymEntry = None) \
+                -> list[Model]:
             """Return the structure identifier for a file that is loaded and oriented
 
             Args:
@@ -373,19 +374,23 @@ class StructureDatabase(Database):
             for file in files:
                 # Load entities to solve multi-component orient problem
                 model = Pose.from_file(file)
-                try:
-                    model.orient(symmetry=sym_entry.resulting_symmetry)
-                except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
-                    orient_logger.error(str(error))
-                    non_viable_structures.append(structure_identifier)
-                    continue
-                model.set_symmetry(sym_entry=sym_entry)
-                assembly_integer = '' if model.biological_assembly is None else model.biological_assembly
-                orient_file = os.path.join(self.oriented.location,
-                                           f'{model.name}.pdb{assembly_integer}')
-                model.write(out_path=orient_file)
-                orient_logger.info(f'Oriented: {orient_file}')  # <- This isn't ASU
-                write_entities_and_asu(model, assembly_integer)
+                if resulting_symmetry == 'CRYST':
+                    model.set_symmetry(sym_entry=sym_entry)
+                    model.file_path = model.write(out_path=os.path.join(models_dir, f'{model.name}.pdb'))
+                else:
+                    try:
+                        model.orient(symmetry=resulting_symmetry)
+                    except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
+                        orient_logger.error(str(error))
+                        non_viable_structures.append(structure_identifier)
+                        continue
+                    model.set_symmetry(sym_entry=sym_entry)
+                    assembly_integer = '' if model.biological_assembly is None else model.biological_assembly
+                    orient_file = os.path.join(self.oriented.location,
+                                               f'{model.name}.pdb{assembly_integer}')
+                    model.write(out_path=orient_file)
+                    orient_logger.info(f'Oriented: {orient_file}')  # <- This isn't ASU
+                    write_entities_and_asu(model, assembly_integer)
 
                 # model.symmetry = symmetry
                 # structure_identifiers_.append(model.name)
@@ -396,9 +401,12 @@ class StructureDatabase(Database):
         # if not symmetry or symmetry == 'C1':
         if not sym_entry:
         if isinstance(sym_entry, utils.SymEntry.SymEntry):
-            resulting_symmetry = sym_entry.resulting_symmetry
-            logger.info(f'The requested {"files" if by_file else "IDs"} are being checked for proper orientation '
-                        f'with symmetry {resulting_symmetry}: {", ".join(structure_identifiers)}')
+            if sym_entry.entry_number:
+                resulting_symmetry = sym_entry.resulting_symmetry
+                logger.info(f'The requested {"files" if by_file else "IDs"} are being checked for proper orientation '
+                            f'with symmetry {resulting_symmetry}: {", ".join(structure_identifiers)}')
+            else:  # This is entry_number 0, which is a TOKEN to use the CRYST record
+                resulting_symmetry = 'CRYST'
         else:  # Treat as asymmetric - i.e. C1
             if sym_entry:
                 logger.warning(f"The passed 'sym_entry' isn't of the required type {utils.SymEntry.SymEntry.__name__}. "
@@ -409,12 +417,16 @@ class StructureDatabase(Database):
                         f'{", ".join(structure_identifiers)}')
 
         if by_file:
-            orient_existing_file(structure_identifiers, sym_entry)
+            orient_existing_file(structure_identifiers, resulting_symmetry, sym_entry)
         else:  # Orienting the selected files and save
-            # Todo transfer the writing process to a SQL database
-            #  as the use of files and database constitutes bad unit of work
-            orient_names = self.oriented.retrieve_names()
-            orient_asu_names = self.oriented_asu.retrieve_names()
+            # First, check if using crystalline symmetry and prevent loading of existing files
+            if resulting_symmetry == 'CRYST':
+                orient_asu_names = orient_names = []
+            else:
+                # Todo transfer the writing process to a SQL database
+                #  as the use of files and database constitutes bad unit of work
+                orient_names = self.oriented.retrieve_names()
+                orient_asu_names = self.oriented_asu.retrieve_names()
             # Using Pose simplifies ASU writing, however if the Pose isn't oriented correctly SymEntry won't work
             # Todo
             #  Should clashes be warned?
@@ -427,7 +439,7 @@ class StructureDatabase(Database):
                     pose = Pose.from_file(orient_asu_file, name=structure_identifier, **pose_kwargs)
                     if pose.symmetric_assembly_is_clash(warn=False):
                         logger.critical(f"The '{structure_identifier}' Model isn't a viable symmetric assembly in the "
-                                        f"symmetry {sym_entry.resulting_symmetry}. Couldn't initialize")
+                                        f"symmetry {resulting_symmetry}. Couldn't initialize")
                         continue
 
                     # Write each Entity as well
@@ -443,7 +455,7 @@ class StructureDatabase(Database):
                     pose = Pose.from_file(orient_file, name=structure_identifier, **pose_kwargs)
                     if pose.symmetric_assembly_is_clash(warn=False):
                         logger.critical(f"The '{structure_identifier}' Model isn't a viable symmetric assembly in the "
-                                        f"symmetry {sym_entry.resulting_symmetry}. Couldn't initialize")
+                                        f"symmetry {resulting_symmetry}. Couldn't initialize")
                         continue
                     # Write out the Pose ASU
                     assembly_integer = '' if pose.biological_assembly is None else pose.biological_assembly
@@ -457,38 +469,44 @@ class StructureDatabase(Database):
                         non_viable_structures.append(structure_identifier)
                         continue
 
-                    try:  # Orient the Structure
-                        pose.orient(symmetry=resulting_symmetry)
-                    except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
-                        orient_logger.error(str(error))
-                        non_viable_structures.append(structure_identifier)
-                        continue
-                    else:  # Delete the source file(s) now that oriented correctly and saving elsewhere
-                        for pose_model in pose_models:
-                            model_file = Path(pose_model.file_path)
-                            model_file.unlink(missing_ok=True)
-
-                    assembly_integer = '' if pose.biological_assembly is None else pose.biological_assembly
-                    # Write out files for the orient database
-                    orient_file = os.path.join(self.oriented.location,
-                                               f'{structure_identifier}.pdb{assembly_integer}')
-                    if isinstance(pose, Entity):
-                        # The symmetry attribute should be set from parsing, so oligomer=True will work
-                        # and create_protein_metadata has access to .symmetry
-                        # Todo?
-                        #  pose.set_symmetry(sym_entry=sym_entry)
-                        pose.write(oligomer=True, out_path=orient_file)
-                        # Write out ASU file
-                        asu_path = os.path.join(self.oriented_asu.location,
-                                                f'{structure_identifier}.pdb{assembly_integer}')
-                        # Set the Entity.file_path for ProteinMetadata
-                        pose.file_path = pose.write(out_path=asu_path)
-                    else:
+                    if resulting_symmetry == 'CRYST':
                         pose.set_symmetry(sym_entry=sym_entry)
-                        pose.write(out_path=orient_file)
-                        write_entities_and_asu(pose, assembly_integer)
+                        # pose.file_path is already set
+                        # orient_file = os.path.join(models_dir, f'{structure_identifier}.pdb')
+                        # pose.file_path = pose.write(out_path=orient_file)
+                    else:
+                        try:  # Orient the Structure
+                            pose.orient(symmetry=resulting_symmetry)
+                        except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
+                            orient_logger.error(str(error))
+                            non_viable_structures.append(structure_identifier)
+                            continue
+                        # else:  # Delete the source file(s) now that oriented correctly and saving elsewhere
+                        #     for pose_model in pose_models:
+                        #         model_file = Path(pose_model.file_path)
+                        #         model_file.unlink(missing_ok=True)
+                        assembly_integer = '' if pose.biological_assembly is None else pose.biological_assembly
+                        # Write out files for the orient database
+                        orient_file = os.path.join(self.oriented.location,
+                                                   f'{structure_identifier}.pdb{assembly_integer}')
 
-                    orient_logger.info(f'Oriented: {orient_file}')
+                        if isinstance(pose, Entity):
+                            # The symmetry attribute should be set from parsing, so oligomer=True will work
+                            # and create_protein_metadata has access to .symmetry
+                            # Todo?
+                            #  pose.set_symmetry(sym_entry=sym_entry)
+                            pose.write(oligomer=True, out_path=orient_file)
+                            # Write out ASU file
+                            asu_path = os.path.join(self.oriented_asu.location,
+                                                    f'{structure_identifier}.pdb{assembly_integer}')
+                            # Set the Entity.file_path for ProteinMetadata
+                            pose.file_path = pose.write(out_path=asu_path)
+                        else:
+                            pose.set_symmetry(sym_entry=sym_entry)
+                            pose.write(out_path=orient_file)
+                            write_entities_and_asu(pose, assembly_integer)
+
+                        orient_logger.info(f'Oriented: {orient_file}')
 
                 create_protein_metadata(pose)  # , sym_entry=sym_entry)
 
