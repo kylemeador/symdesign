@@ -996,9 +996,11 @@ def main():
                                 if data.entity_id == entity_id:
                                     break
                             else:
-                                raise utils.SymDesignException(f"Indexing the correct entity_id has failed")
-                                # break
-                                # continue
+                                raise utils.SymDesignException(
+                                    f"Indexing the correct entity_id has failed")
+                                # break  # continue
+                            # Todo
+                            #  This must load the CRYST record for any usage in crystalline symmetries
                             entity = Entity.from_file(data.model_source, name=data.entity_id, metadata=data)
                             entity.stride(to_file=job.api_db.stride.path_to(name=data.entity_id))
                             data.n_terminal_helix = entity.is_termini_helical()
