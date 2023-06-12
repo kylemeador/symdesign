@@ -4570,7 +4570,6 @@ class SymmetricModel(Model):  # Models):
                 if entity.number_of_symmetry_mates != subunit_number:
                     self.make_oligomers(transformations=transformations)
                     break
-                self.log.debug(f'Entity {entity.name} is already the correct oligomer, skipping make_oligomer()')
 
     # @property
     # def chains(self) -> list[Entity]:
@@ -6094,6 +6093,7 @@ class SymmetricModel(Model):  # Models):
         Args:
             transformations: The entity_transformations operations that reproduce the individual oligomers
         """
+        self.log.debug(f'Initializing oligomeric symmetry')
         if transformations is None or not all(transformations):
             # If this fails then the symmetry is failed... It should never return an empty list as
             # .entity_transformations -> ._assign_pose_transformation() will raise SymmetryError
@@ -6101,10 +6101,10 @@ class SymmetricModel(Model):  # Models):
 
         for entity, subunit_number, symmetry, transformation in zip(self.entities, self.sym_entry.group_subunit_numbers,
                                                                     self.sym_entry.groups, transformations):
-            # if entity.number_of_symmetry_mates != subunit_number:
-            entity.make_oligomer(symmetry=symmetry, **transformation)
-            # else:
-            #     self.log.debug(f'{self.make_oligomers.__name__}: Entity is already the correct oligomer')
+            if entity.number_of_symmetry_mates != subunit_number:
+                entity.make_oligomer(symmetry=symmetry, **transformation)
+            else:
+                self.log.debug(f'Entity {entity} is already the correct oligomer, skipping make_oligomer()')
 
     def symmetric_assembly_is_clash(self, distance: float = 2.1, warn: bool = True) -> bool:  # Todo design_selector
         """Returns True if the SymmetricModel presents any clashes. Checks only backbone and CB atoms
