@@ -453,7 +453,7 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
             header.append(line.strip())
         elif remark == 'CRYST1':
             header.append(line.strip())
-            cryst_record = line  # don't .strip() so we can keep \n attached for output
+            cryst_record = line  # Don't .strip() so '\n' is attached for output
             # uc_dimensions, space_group = parse_cryst_record(cryst_record)
             # cryst = {'space': space_group, 'a_b_c': tuple(uc_dimensions[:3]), 'ang_a_b_c': tuple(uc_dimensions[3:])}
 

@@ -147,7 +147,7 @@ class GhostFragment:
             return None
         else:  # out_path always has default argument current working directory
             _header = self.representative.format_header(**kwargs)
-            if header is not None and isinstance(header, str):  # used for cryst_record now...
+            if header is not None and isinstance(header, str):  # Used for cryst_record now...
                 _header += (header if header[-2:] == '\n' else f'{header}\n')
 
             with open(out_path, 'w') as outfile:

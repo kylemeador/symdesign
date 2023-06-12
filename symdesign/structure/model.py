@@ -217,13 +217,8 @@ def parse_cryst_record(cryst_record: str) -> tuple[list[float], str]:
     """
     try:
         cryst, a, b, c, ang_a, ang_b, ang_c, *space_group = cryst_record.split()
-        # a = float(cryst1_record[6:15])
-        # b = float(cryst1_record[15:24])
-        # c = float(cryst1_record[24:33])
-        # ang_a = float(cryst1_record[33:40])
-        # ang_b = float(cryst1_record[40:47])
-        # ang_c = float(cryst1_record[47:54])
-    except ValueError:  # split and unpacking went wrong
+        # a = [6:15], b = [15:24], c = [24:33], ang_a = [33:40], ang_b = [40:47], ang_c = [47:54]
+    except ValueError:  # split() or unpacking went wrong
         a = b = c = ang_a = ang_b = ang_c = 0
 
     return list(map(float, [a, b, c, ang_a, ang_b, ang_c])), cryst_record[55:66].strip()
@@ -4474,8 +4469,9 @@ class SymmetricModel(Model):  # Models):
             transformations: The entity_transformations operations that reproduce the individual oligomers
             surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
-        # Try to solve for symmetry as we want uc_dimensions if available for cryst ops
+        # Try to solve for symmetry as uc_dimensions are needed for cryst ops, if available
         if self.cryst_record:  # Was populated from file parsing
+            self.log.debug(f'Found cryst_record:\n{self.cryst_record}')
             if uc_dimensions is None and symmetry is None:  # Only if user didn't provide either
                 uc_dimensions, symmetry = parse_cryst_record(self.cryst_record)
 
@@ -4728,7 +4724,7 @@ class SymmetricModel(Model):  # Models):
             return self._cryst_record
         except AttributeError:  # As of now, don't use if the structure wasn't symmetric and no attribute was parsed
             # Todo
-            #  Should we always generate _cryst_record?
+            #  Always generate _cryst_record..?
             self._cryst_record = None if not self.is_symmetric() or self.dimension == 0 \
                 else utils.symmetry.generate_cryst1_record(self.uc_dimensions, self.symmetry)
             return self._cryst_record
