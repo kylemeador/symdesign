@@ -401,7 +401,7 @@ class StructureDatabase(Database):
         # if not symmetry or symmetry == 'C1':
         if not sym_entry:
         if isinstance(sym_entry, utils.SymEntry.SymEntry):
-            if sym_entry.entry_number:
+            if sym_entry.number:
                 resulting_symmetry = sym_entry.resulting_symmetry
                 logger.info(f'The requested {"files" if by_file else "IDs"} are being checked for proper orientation '
                             f'with symmetry {resulting_symmetry}: {", ".join(structure_identifiers)}')

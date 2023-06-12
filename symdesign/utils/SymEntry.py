@@ -834,8 +834,8 @@ class SymEntry:
             if symmetry == file:
                 return os.path.join(putils.symmetry_def_files, file + ext)
 
-        raise FileNotFoundError(f"Couldn't locate correct symmetry definition file at '{putils.symmetry_def_files}' "
-                                f'for SymEntry: {self.number}')
+        raise FileNotFoundError(
+            f"Couldn't locate symmetry definition file at '{putils.symmetry_def_files}' for SymEntry {self.number}")
 
     def log_parameters(self):
         """Log the SymEntry Parameters"""
