@@ -1538,7 +1538,7 @@ check_clashes_help = 'Check for any clashes in the input poses. This is performe
                      'load and will raise a ClashError (caught and reported) if clashes are found'
 parser_check_clashes = {check_clashes: dict(description=check_clashes_help, help=check_clashes_help)}
 # ---------------------------------------------------
-# parser_check_unmodelled_clashes = subparsers.add_parser('check_unmodelled_clashes', description='Check for clashes between full models. Useful for understanding if loops are missing, whether their modelled density is compatible with the pose')
+# parser_check_unmodeled_clashes = subparsers.add_parser('check_unmodeled_clashes', description='Check for clashes between full models. Useful for understanding if loops are missing, whether their modeled density is compatible with the pose')
 # ---------------------------------------------------
 expand_asu_help = 'For given poses, expand the asymmetric unit to a symmetric assembly and write the result'
 parser_expand_asu = {expand_asu: dict(description=expand_asu_help, help=expand_asu_help)}
@@ -1612,7 +1612,7 @@ input_arguments = {
     #                                        f'{current_energy_function}\nenergy function and/or missing loops'),
     (f'--{loop_model_input}',):
         dict(action=argparse.BooleanOptionalAction, default=None,
-             help='Whether the input building blocks should have missing regions modelled'),
+             help='Whether the input building blocks should have missing regions modeled'),
     (f'--{refine_input}',):
         dict(action=argparse.BooleanOptionalAction, default=None,
              help=f'Whether the input building blocks should be refined into {current_energy_function}'),

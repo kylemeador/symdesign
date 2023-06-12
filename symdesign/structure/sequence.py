@@ -657,7 +657,7 @@ class SequenceProfile(ABC):
                                       'residue in the profile')
                     incorrect_count += 1
                     if incorrect_count > 2:
-                        self.log.critical(f'This error has occurred {incorrect_count} times and your modelling accuracy'
+                        self.log.critical(f'This error has occurred {incorrect_count} times and your modeling accuracy'
                                           ' will probably suffer')
                     position_data['type'] = pose_res_type
                 else:

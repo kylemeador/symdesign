@@ -1132,7 +1132,7 @@ def main():
             - UniProtEntity
             - ProteinMetadata
             Files include:
-            - Structure in orient, refined, loop modelled
+            - Structure in orient, refined, loop modeled
             - Profile from hhblits, bmdca?
             """
 
@@ -1540,7 +1540,7 @@ def main():
         #     terminate(results=results)
         # # ---------------------------------------------------
         # Todo
-        # elif job.module == 'check_unmodelled_clashes':
+        # elif job.module == 'check_unmodeled_clashes':
         #     # Fetch the specified protocol
         #     protocol = getattr(protocols, job.module)
         #     if args.multi_processing:

@@ -616,7 +616,7 @@ class State(Structures):
 
     # @property
     # def model_coords(self):  # Todo RECONCILE with coords, SymmetricModel variation
-    #     """Return a view of the modelled Coords. These may be symmetric if a SymmetricModel"""
+    #     """Return a view of the modeled Coords. These may be symmetric if a SymmetricModel"""
     #     return self._model_coords.coords
     #
     # @model_coords.setter
@@ -986,7 +986,7 @@ class Chain(SequenceProfile, Structure):
 
     @property
     def reference_sequence(self) -> str:
-        """Return the entire Chain sequence, constituting all Residues, not just structurally modelled ones
+        """Return the entire Chain sequence, constituting all Residues, not just structurally modeled ones
 
         Returns:
             The sequence according to the Chain reference, or the Structure sequence if no reference available
@@ -1304,7 +1304,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
     @property
     def reference_sequence(self) -> str:
-        """Return the entire Entity sequence, constituting all Residues, not just structurally modelled ones
+        """Return the entire Entity sequence, constituting all Residues, not just structurally modeled ones
 
         Returns:
             The sequence according to the Entity reference, or the Structure sequence if no reference available
@@ -2403,12 +2403,12 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     def format_missing_loops_for_design(self, max_loop_length: int = 12, exclude_n_term: bool = True,
                                         ignore_termini: bool = False, **kwargs) \
             -> tuple[list[tuple], dict[int, int], int]:
-        """Process missing residue information to prepare for loop modelling files. Assumes residues in pose numbering!
+        """Process missing residue information to prepare for loop modeling files. Assumes residues in pose numbering!
 
         Args:
-            max_loop_length: The max length for loop modelling.
+            max_loop_length: The max length for loop modeling.
                 12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
-            exclude_n_term: Whether to exclude the N-termini from modelling due to Remodel Bug
+            exclude_n_term: Whether to exclude the N-termini from modeling due to Remodel Bug
             ignore_termini: Whether to ignore terminal loops in the loop file
         Returns:
             each loop start/end indices, loop and adjacent indices (not all disordered indices) mapped to their
@@ -2417,11 +2417,11 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         disordered_residues = self.disorder  # {residue_number: {'from': ,'to': }, ...}
         reference_sequence_length = len(self.reference_sequence)
         # disorder_indices = list(disordered_residues.keys())
-        # disorder_indices = []  # holds the indices that should be inserted into the total residues to be modelled
+        # disorder_indices = []  # Holds the indices that should be inserted into the total residues to be modeled
         loop_indices = []  # holds the loop indices
-        loop_to_disorder_indices = {}  # holds the indices that should be inserted into the total residues to be modelled
+        loop_to_disorder_indices = {}  # Holds the indices that should be inserted into the total residues to be modeled
         n_terminal_idx = 0  # initialize as an impossible value
-        excluded_disorder = 0  # total residues excluded from loop modelling. Needed for pose numbering translation
+        excluded_disorder = 0  # total residues excluded from loop modeling. Needed for pose numbering translation
         segment_length = 0  # iterate each missing residue
         n_term = False
         loop_start, loop_end = None, None
@@ -2429,7 +2429,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             segment_length += 1
             if residue_number - 1 not in disordered_residues:  # indicate that this residue_number starts disorder
                 # print('Residue number -1 not in loops', residue_number)
-                loop_start = residue_number - 1 - excluded_disorder  # - 1 as loop modelling needs existing residue
+                loop_start = residue_number - 1 - excluded_disorder  # - 1 as loop modeling needs existing residue
                 if loop_start < 1:
                     n_term = True
 
@@ -2437,7 +2437,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 if residue_number != reference_sequence_length:  # is it not the c-termini?
                     # print('Residue number +1 not in loops', residue_number)
                     # print('Adding loop with length', segment_length)
-                    if segment_length <= max_loop_length:  # modelling useful, add to loop_indices
+                    if segment_length <= max_loop_length:  # modeling useful, add to loop_indices
                         if n_term and (ignore_termini or exclude_n_term):  # check if the n_terminus should be included
                             excluded_disorder += segment_length  # sum the exclusion length
                             n_term = False  # we don't have any more n_term considerations
@@ -2450,7 +2450,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                             loop_to_disorder_indices[loop_start], loop_to_disorder_indices[loop_end] = -1, -1
                             if n_term and idx != 1:  # if n-termini and not just start Met
                                 n_terminal_idx = loop_end  # save idx of last n-term insertion
-                    else:  # modelling not useful, sum the exclusion length
+                    else:  # Modeling not useful, sum the exclusion length
                         excluded_disorder += segment_length
                     # after handling disordered segment, reset increment and loop indices
                     segment_length = 0
@@ -2479,16 +2479,16 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         Where LOOP specifies a loop line, start idx, end idx, cut site (0 lets Rosetta choose), skip rate, and extended
 
         All indices should refer to existing locations in the structure file so if a loop should be inserted into
-        missing density, the density needs to be modelled first before the loop file would work to be modelled. You
+        missing density, the density needs to be modeled first before the loop file would work to be modeled. You
         can't therefore specify that a loop should be between 779 and 780 if the loop is 12 residues long since there is
          no specification about how to insert those residues. This type of task requires a blueprint file.
 
         Args:
             out_path: The location the file should be written
         Keyword Args:
-            max_loop_length=12 (int): The max length for loop modelling.
+            max_loop_length=12 (int): The max length for loop modeling.
                 12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
-            exclude_n_term=True (bool): Whether to exclude the N-termini from modelling due to Remodel Bug
+            exclude_n_term=True (bool): Whether to exclude the N-termini from modeling due to Remodel Bug
             ignore_termini=False (bool): Whether to ignore terminal loops in the loop file
         Returns:
             The path of the file if one was written
@@ -2543,7 +2543,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         directive. For missing density at the n- or c-termini, the file should still start 1, however, the n-termini
         should be extended by prepending extra entries to the structurally defined n-termini entry 1. These blueprint
         entries should also have 1 as the residue index. For c-termini, extra entries should be appended with the
-        indices as 0 like in insertions. For all unmodelled entries for which design should be performed, there should
+        indices as 0 like in insertions. For all unmodeled entries for which design should be performed, there should
         be flanking attachment points that are also capable of design. Designable entries are seen above with the PIKAA
         directive. Other directives are available. The only location this isn't required is at the c-terminal attachment
         point
@@ -2551,9 +2551,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         Args:
             out_path: The location the file should be written
         Keyword Args:
-            max_loop_length=12 (int): The max length for loop modelling.
+            max_loop_length=12 (int): The max length for loop modeling.
                 12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
-            exclude_n_term=True (bool): Whether to exclude the N-termini from modelling due to Remodel Bug
+            exclude_n_term=True (bool): Whether to exclude the N-termini from modeling due to Remodel Bug
             ignore_termini=False (bool): Whether to ignore terminal loops in the loop file
         Returns:
             The path of the file if one was written
@@ -3094,7 +3094,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
     @property
     def reference_sequence(self) -> str:
-        """Return the entire Model sequence, constituting all Residues, not just structurally modelled ones
+        """Return the entire Model sequence, constituting all Residues, not just structurally modeled ones
 
         Returns:
             The sequence according to each of the Chain reference sequences
@@ -8286,7 +8286,7 @@ class Pose(SymmetricModel, Metrics):
 
         if terminate:
             self.log.critical('The set of interfaces found during interface search generated a topologically '
-                              'disallowed combination.\n\t %s\n This cannot be modelled by a simple split for residues '
+                              'disallowed combination.\n\t %s\n This cannot be modeled by a simple split for residues '
                               'on either side while respecting the requirements of polymeric Entities. '
                               '%sPlease correct your design_selectors to reduce the number of Entities you are '
                               'attempting to design'

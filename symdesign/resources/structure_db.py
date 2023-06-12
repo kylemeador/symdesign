@@ -499,7 +499,7 @@ class StructureDatabase(Database):
     #                                      script_out_path: AnyStr = os.getcwd(), batch_commands: bool = True) -> \
     #         tuple[list, bool, bool]:
     #     """Assess whether Structure objects require any processing prior to design calculations.
-    #     Processing includes relaxation "refine" into the energy function and/or modelling missing segments "loop model"
+    #     Processing includes relaxation "refine" into the energy function and/or modeling missing segments "loop model"
     #
     #     Args:
     #         structures: An iterable of Structure objects of interest with the following attributes:
@@ -510,7 +510,7 @@ class StructureDatabase(Database):
     #         Any instructions if processing is needed, then booleans for whether refinement and loop modeling has already
     #         occurred (True) or if files are not reported as having this modeling yet
     #     """
-    #     # and loop_modelled (True)
+    #     # and loop_modeled (True)
     #     # Todo
     #     #  Need to move make_loop_file to Pose/Structure (with SequenceProfile superclass)
     #     self.refined.make_path()
@@ -596,12 +596,12 @@ class StructureDatabase(Database):
     #                 raise NotImplementedError("Currently, refinement can't be run in the shell. "
     #                                           'Implement this if you would like this feature')
     #
-    #     # Query user and set up commands to perform loop modelling on missing entities
+    #     # Query user and set up commands to perform loop modeling on missing entities
     #     # Assume pre_loop_model is True until we find it isn't
     #     pre_loop_model = True
     #     if structures_to_loop_model:
     #         pre_loop_model = False
-    #         logger.info("The following structures haven't been modelled for disorder: "
+    #         logger.info("The following structures haven't been modeled for disorder: "
     #                     f'{", ".join(sorted(set(_structure.name for _structure in structures_to_loop_model)))}')
     #         print(f'If you plan on performing {flags.design}/{flags.predict_structure} with them, it is strongly '
     #               f'encouraged that you build missing loops to avoid disordered region clashing/misalignment')
@@ -693,7 +693,7 @@ class StructureDatabase(Database):
     def preprocess_metadata_for_design(self, metadata: list[sql.ProteinMetadata], script_out_path: AnyStr = os.getcwd(),
                                        batch_commands: bool = False) -> list[str] | list:
         """Assess whether Structure objects require any processing prior to design calculations.
-        Processing includes relaxation "refine" into the energy function and/or modelling missing segments "loop model"
+        Processing includes relaxation "refine" into the energy function and/or modeling missing segments "loop model"
 
         Args:
             metadata: An iterable of ProteinMetadata objects of interest with the following attributes:
@@ -728,12 +728,12 @@ class StructureDatabase(Database):
 
         info_messages = []
         if protein_data_to_loop_model:
-            logger.info("The following structures haven't been modelled for disorder: "
+            logger.info("The following structures haven't been modeled for disorder: "
                         f'{", ".join(sorted(set(protein.entity_id for protein in protein_data_to_loop_model)))}')
             # Files found unloop_modeled, check to see if work should be done
             if self.job.init.loop_model_input:  # is not None:
             #     loop_model_input = self.job.init.loop_model_input
-            # else:  # Query user and set up commands to perform loop modelling on missing entities
+            # else:  # Query user and set up commands to perform loop modeling on missing entities
             #     print(f'If you plan on performing {flags.design}/{flags.predict_structure} with them, it is strongly '
             #           f'encouraged that you build missing loops to avoid disordered region clashing/misalignment')
             #     print('Would you like to model loops for these structures now?')

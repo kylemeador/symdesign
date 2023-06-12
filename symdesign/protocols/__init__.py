@@ -335,7 +335,7 @@ def interface_metrics(job: pose.PoseJob):
 
 
 @protocol_decorator()
-def check_unmodelled_clashes(job: pose.PoseJob, clashing_threshold: float = 0.75):
+def check_unmodeled_clashes(job: pose.PoseJob, clashing_threshold: float = 0.75):
     """Given a multimodel file, measure the number of clashes is less than a percentage threshold
 
     Args:

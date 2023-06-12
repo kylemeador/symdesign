@@ -6039,7 +6039,7 @@ class Structures(Structure, UserList):
 
     # @property
     # def model_coords(self):  # TODO RECONCILE with coords, SymmetricModel, and State variation
-    #     """Return a view of the modelled Coords. These may be symmetric if a SymmetricModel"""
+    #     """Return a view of the modeled Coords. These may be symmetric if a SymmetricModel"""
     #     return self._model_coords.coords
     #
     # @model_coords.setter

@@ -476,7 +476,7 @@ def interface_composition_similarity(series: Mapping) -> float:
     Returns:
         Average similarity for expected residue classification given the observed classification
     """
-    # Calculate modelled number of residues according to buried surface area (Levy, E 2010)
+    # Calculate modeled number of residues according to buried surface area (Levy, E 2010)
     def core_res_fn(bsa):
         return 0.01*bsa + 0.6
 
