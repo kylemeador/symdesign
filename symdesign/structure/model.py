@@ -916,7 +916,10 @@ class ContainsChainsMixin:
         self._create_chains()
         """
         for original_chain, chain in zip(self.original_chain_ids, self.chains):
-            chain._reference_sequence = reference_sequence[original_chain]
+            try:
+                chain._reference_sequence = reference_sequence[original_chain]
+            except KeyError:  # Original_chain wasn't in SEQRES
+                pass
 
     @staticmethod
     def chain_id_generator() -> Generator[str, None, None]:
