@@ -382,12 +382,12 @@ class SymEntry:
         self._int_dof_groups, self._setting_matrices, self._setting_matrices_numbers, self._ref_frame_tx_dof, \
             self.__external_dof = [], [], [], [], []
         self.number = entry
-        entry_groups = [group_name for group_name, group_params in self.group_info if group_name]  # Ensure not None
+        self.entry_groups = [group_name for group_name, group_params in self.group_info if group_name]  # Ensure not None
         # group1, group2, *extra = entry_groups
         if sym_map is None:  # Assume standard SymEntry
             # Assumes 2 component symmetry. index with only 2 options
-            self.sym_map = [self.resulting_symmetry] + entry_groups
-            groups = entry_groups
+            self.sym_map = [self.resulting_symmetry] + self.entry_groups
+            groups = self.entry_groups
         else:  # Requires full specification of all symmetry groups
             self.sym_map = sym_map
             result, *groups = sym_map  # Remove the result and pass the groups
@@ -503,11 +503,11 @@ class SymEntry:
                     f"Trying to correct by applying another {self.__class__.__name__}()")
                 raise NotImplementedError()
 
-        if group not in entry_groups:
+        if group not in self.entry_groups:
             # This is probably a sub-symmetry of one of the groups. Is it allowed?
-            if not symmetry_groups_are_allowed_in_entry(groups, *entry_groups, result=self.resulting_symmetry):
+            if not symmetry_groups_are_allowed_in_entry(groups, *self.entry_groups, result=self.resulting_symmetry):
                 # group1=group1, group2=group2):
-                viable_groups = [group for group in entry_groups if group is not None]
+                viable_groups = [group for group in self.entry_groups if group is not None]
                 raise utils.SymmetryInputError(
                     f"The symmetry group '{group}' isn't an allowed sub-symmetry of the result "
                     f'{self.resulting_symmetry}, or the group(s) {", ".join(viable_groups)}')
