@@ -382,8 +382,7 @@ class SymEntry:
         self._int_dof_groups, self._setting_matrices, self._setting_matrices_numbers, self._ref_frame_tx_dof, \
             self.__external_dof = [], [], [], [], []
         self.number = entry
-        # entry_groups = [group_name for group_name, group_params in self.group_info if group_name]  # Ensure not None
-        entry_groups = [group_name for group_name, group_params in group_info if group_name]  # Ensure not None
+        entry_groups = [group_name for group_name, group_params in self.group_info if group_name]  # Ensure not None
         # group1, group2, *extra = entry_groups
         if sym_map is None:  # Assume standard SymEntry
             # Assumes 2 component symmetry. index with only 2 options
