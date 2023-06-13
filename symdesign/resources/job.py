@@ -410,8 +410,6 @@ class JobResources:
         # Process design_selector
         self.design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict = \
             process_design_selector_flags(**kwargs)
-        # self.design_selector = kwargs.get('design_selector', {})
-        input(self.design_selector)
 
         self.update_metadata = kwargs.get('update_metadata')
         pdb_codes1 = kwargs.get('pdb_codes1')

@@ -738,6 +738,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             """The SymEntry entry number"""
         if self.job.design_selector:
             self.design_selector = self.job.design_selector
+        print('PoseJob')
+        input(self.design_selector)
 
         # Set up original DesignData entry for the pose baseline
         if pose_source is None:
