@@ -1012,16 +1012,16 @@ def main():
                             structures.append(Pose.from_entities(entities, name=structure_id))
                         else:  # Just load the whole model based off of the name
                             # This would be useful in the case when CRYST record is used in crystalline symmetries
-                            for data in all_protein_metadata:
-                                if data.entity_id == entity_id:
-                                    break
-                                else:
-                                    raise utils.SymDesignException(
-                                        f"Indexing the correct entity_id has failed")
-                                    # break  # continue
-                            crystalline_file = os.path.join(os.path.dirname(job.structure_db.oriented),
+                            # for data in all_protein_metadata:
+                            #     if data.entity_id == entity_id:
+                            #         break
+                            #     else:
+                            #         raise utils.SymDesignException(
+                            #             f"Indexing the correct entity_id has failed")
+                            #         # break  # continue
+                            whole_model_file = os.path.join(os.path.dirname(job.structure_db.oriented),
                                                             f'{structure_id}.pdb')
-                            structures.append(Pose.from_file(crystalline_file, name=structure_id))
+                            structures.append(Pose.from_file(whole_model_file, name=structure_id))
                 else:  # These are already processed Structures
                     structures = structure_id_to_entity_ids
                 structures_grouped_by_component.append(structures)
