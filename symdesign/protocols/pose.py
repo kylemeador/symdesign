@@ -651,6 +651,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if self.job.sym_entry is not None:
             self.sym_entry = self.job.sym_entry
 
+        if self.job.design_selector:
+            self.design_selector = self.job.design_selector
+
         # self.specific_designs_file_paths = []
         # """Contains the various file paths for each design of interest according to self.specific_designs"""
 
@@ -736,10 +739,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             """The specification string of the SymEntry"""
             self.sym_entry_number = self.sym_entry.number
             """The SymEntry entry number"""
-        if self.job.design_selector:
-            self.design_selector = self.job.design_selector
-        print('PoseJob')
-        input(self.design_selector)
 
         # Set up original DesignData entry for the pose baseline
         if pose_source is None:

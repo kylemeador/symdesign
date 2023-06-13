@@ -6302,7 +6302,6 @@ class Pose(SymmetricModel, Metrics):
         super().__init__(**kwargs)
         # self.center_residue_indices = []
         self.design_selector = design_selector if design_selector else {}  # kwargs.get('design_selector', {})
-        input(f'Pose self.design_selector: {self.design_selector}')
         self.design_selector_entities = set()
         self.design_selector_indices = set()
         self.fragment_metrics = {}
