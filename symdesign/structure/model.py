@@ -4486,7 +4486,7 @@ class SymmetricModel(Model):  # Models):
             if isinstance(sym_entry, utils.SymEntry.SymEntry):
                 if sym_entry.is_cryst_record():  # Token specifying use of the CRYST1 record. Replace with relevant info
                     if sym_entry.cryst_record:
-                        # This is already a cryst_record containing CrystSymEntry
+                        # This is already a cryst_record containing CrystSymEntry. Use it as created
                         self.sym_entry = sym_entry
                     else:  # Create a new one
                         self.sym_entry = utils.SymEntry.CrystSymEntry(

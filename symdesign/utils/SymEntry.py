@@ -345,7 +345,8 @@ class SymEntry:
 
     def __init__(self, entry: int, sym_map: list[str] = None, **kwargs):
         try:
-            group_info, result_info = parsed_symmetry_combinations[entry]
+            self.group_info, result_info = parsed_symmetry_combinations[entry]
+            # group_info, result_info = parsed_symmetry_combinations[entry]
             # returns
             #  {'group1': [self.int_dof_group1, self.rot_set_group1, self.ref_frame_tx_dof1],
             #   'group2': [self.int_dof_group2, self.rot_set_group2, self.ref_frame_tx_dof2],
@@ -362,7 +363,8 @@ class SymEntry:
                 self.total_dof, self.cycle_size = result_info
         except ValueError:  # Not enough values to unpack, probably a CRYST token
             # Todo - Crystallographic symmetry could coincide with group symmetry...
-            group_info = [('C1', [['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, None])]  # Assume for now that the groups are C1
+            self.group_info = [('C1', [['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, None])]  # Assume for now that the groups are C1
+            # group_info = [('C1', [['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, None])]  # Assume for now that the groups are C1
             self.point_group_symmetry = None
             # self.resulting_symmetry = kwargs.get('resulting_symmetry', None)
             if 'space_group' in kwargs:
@@ -377,90 +379,97 @@ class SymEntry:
             self.cell_lengths = self.cell_angles = None
             self.total_dof = self.cycle_size = 0
 
+        self._int_dof_groups, self._setting_matrices, self._setting_matrices_numbers, self._ref_frame_tx_dof, \
+            self.__external_dof = [], [], [], [], []
         self.number = entry
+        # entry_groups = [group_name for group_name, group_params in self.group_info if group_name]  # Ensure not None
         entry_groups = [group_name for group_name, group_params in group_info if group_name]  # Ensure not None
         # group1, group2, *extra = entry_groups
         if sym_map is None:  # Assume standard SymEntry
             # Assumes 2 component symmetry. index with only 2 options
-            self.groups = entry_groups
-            self.sym_map = [self.resulting_symmetry] + self.groups
+            self.sym_map = [self.resulting_symmetry] + entry_groups
+            groups = entry_groups
         else:  # Requires full specification of all symmetry groups
             self.sym_map = sym_map
             result, *groups = sym_map  # Remove the result and pass the groups
-            self.groups = []
-            for idx, group in enumerate(groups, 1):
-                if group not in valid_symmetries:
-                    if group is None:
-                        # Todo
-                        #  Need to refactor symmetry_combinations for any number of elements
-                        continue
-                    else:  # Recurse to see if it is yet another symmetry specification
-                        # raise ValueError(
-                        logger.warning(
-                            f"The symmetry group '{group}' specified at index '{idx}' isn't a valid sub-symmetry. "
-                            f"Trying to correct by applying another {self.__class__.__name__}()")
-                        raise NotImplementedError()
-
-                if group not in entry_groups:
-                    # This is probably a sub-symmetry of one of the groups. Is it allowed?
-                    if not symmetry_groups_are_allowed_in_entry(groups, *entry_groups, result=self.resulting_symmetry):
-                                                                # group1=group1, group2=group2):
-                        viable_groups = [group for group in entry_groups if group is not None]
-                        raise utils.SymmetryInputError(
-                            f"The symmetry group '{group}' isn't an allowed sub-symmetry of the result "
-                            f'{self.resulting_symmetry}, or the group(s) {", ".join(viable_groups)}')
-                self.groups.append(group)
 
         # Solve the group information for each passed symmetry
-        self._int_dof_groups, self._setting_matrices, self._setting_matrices_numbers, self._ref_frame_tx_dof, \
-            self.__external_dof = [], [], [], [], []
+        self.groups = []
+        for idx, group in enumerate(groups, 1):
+            self.append_group(group)
+            # self.groups = []
+            # for idx, group in enumerate(groups, 1):
+            #     self.append_group(group)
+            #     # if group not in valid_symmetries:
+            #     #     if group is None:
+            #     #         # Todo
+            #     #         #  Need to refactor symmetry_combinations for any number of elements
+            #     #         continue
+            #     #     else:  # Recurse to see if it is yet another symmetry specification
+            #     #         # raise ValueError(
+            #     #         logger.warning(
+            #     #             f"The symmetry group '{group}' specified at index '{idx}' isn't a valid sub-symmetry. "
+            #     #             f"Trying to correct by applying another {self.__class__.__name__}()")
+            #     #         raise NotImplementedError()
+            #     #
+            #     # if group not in entry_groups:
+            #     #     # This is probably a sub-symmetry of one of the groups. Is it allowed?
+            #     #     if not symmetry_groups_are_allowed_in_entry(groups, *entry_groups, result=self.resulting_symmetry):
+            #     #                                                 # group1=group1, group2=group2):
+            #     #         viable_groups = [group for group in entry_groups if group is not None]
+            #     #         raise utils.SymmetryInputError(
+            #     #             f"The symmetry group '{group}' isn't an allowed sub-symmetry of the result "
+            #     #             f'{self.resulting_symmetry}, or the group(s) {", ".join(viable_groups)}')
+            #     # self.groups.append(group)
 
-        def add_group():
-            # Todo
-            #  Can the accuracy of this creation method be guaranteed with the usage of the same symmetry
-            #  operator and different orientations? Think T33
-            self._int_dof_groups.append(int_dof)
-            self._setting_matrices.append(setting_matrices[set_mat_number])
-            self._setting_matrices_numbers.append(set_mat_number)
-            if ext_dof is None:
-                self._ref_frame_tx_dof.append(ext_dof)
-                self.__external_dof.append(construct_uc_matrix(('0', '0', '0')))
-            else:
-                ref_frame_tx_dof = ext_dof.split(',')
-                self._ref_frame_tx_dof.append(ref_frame_tx_dof)
-                if group_idx <= 2:
-                    # This isn't possible with more than 2 groups unless the groups is tethered to existing
-                    self.__external_dof.append(construct_uc_matrix(ref_frame_tx_dof))
-                else:
-                    if ref_frame_tx_dof:
-                        raise utils.SymmetryInputError(
-                            f"Can't create {self.__class__.__name__} with external degrees of freedom and > 2 groups")
-
-        for group_idx, group_symmetry in enumerate(self.groups, 1):
-            if isinstance(group_symmetry, SymEntry):
-                group_symmetry = group_symmetry.resulting_symmetry
-            for entry_group_symmetry, (int_dof, set_mat_number, ext_dof) in group_info:
-                if group_symmetry == entry_group_symmetry:
-                    add_group()
-                    break
-            else:  # None was found for this group_symmetry
-                # raise utils.SymmetryInputError(
-                logger.critical(
-                    f"Trying to assign the group '{group_symmetry}' at index {group_idx} to "
-                    f"{self.__class__.__name__}.number={self.number}")
-                # See if the group is a sub-symmetry of a known group
-                for entry_group_symmetry, (int_dof, set_mat_number, ext_dof) in group_info:
-                    entry_sub_groups = sub_symmetries.get(entry_group_symmetry, [None])
-                    if group_symmetry in entry_sub_groups:
-                        add_group()
-                        break
-                else:
-                    raise utils.SymmetryInputError(
-                        f"Assignment of the group '{group_symmetry}' failed")
+        # def add_group():
+        #     # Todo
+        #     #  Can the accuracy of this creation method be guaranteed with the usage of the same symmetry
+        #     #  operator and different orientations? Think T33
+        #     self._int_dof_groups.append(int_dof)
+        #     self._setting_matrices.append(setting_matrices[set_mat_number])
+        #     self._setting_matrices_numbers.append(set_mat_number)
+        #     if ext_dof is None:
+        #         self._ref_frame_tx_dof.append(ext_dof)
+        #         self.__external_dof.append(construct_uc_matrix(('0', '0', '0')))
+        #     else:
+        #         ref_frame_tx_dof = ext_dof.split(',')
+        #         self._ref_frame_tx_dof.append(ref_frame_tx_dof)
+        #         if group_idx <= 2:
+        #             # This isn't possible with more than 2 groups unless the groups is tethered to existing
+        #             self.__external_dof.append(construct_uc_matrix(ref_frame_tx_dof))
+        #         else:
+        #             if ref_frame_tx_dof:
+        #                 raise utils.SymmetryInputError(
+        #                     f"Can't create {self.__class__.__name__} with external degrees of freedom and > 2 groups")
+        #
+        # for group_idx, group_symmetry in enumerate(self.groups, 1):
+        #     if isinstance(group_symmetry, SymEntry):
+        #         group_symmetry = group_symmetry.resulting_symmetry
+        #     # for entry_group_symmetry, (int_dof, set_mat_number, ext_dof) in self.group_info:
+        #     for entry_group_symmetry, (int_dof, set_mat_number, ext_dof) in group_info:
+        #         if group_symmetry == entry_group_symmetry:
+        #             add_group()
+        #             break
+        #     else:  # None was found for this group_symmetry
+        #         # raise utils.SymmetryInputError(
+        #         logger.critical(
+        #             f"Trying to assign the group '{group_symmetry}' at index {group_idx} to "
+        #             f"{self.__class__.__name__}.number={self.number}")
+        #         # See if the group is a sub-symmetry of a known group
+        #         # for entry_group_symmetry, (int_dof, set_mat_number, ext_dof) in self.group_info:
+        #         for entry_group_symmetry, (int_dof, set_mat_number, ext_dof) in group_info:
+        #             entry_sub_groups = sub_symmetries.get(entry_group_symmetry, [None])
+        #             if group_symmetry in entry_sub_groups:
+        #                 add_group()
+        #                 break
+        #         else:
+        #             raise utils.SymmetryInputError(
+        #                 f"Assignment of the group '{group_symmetry}' failed")
 
         # Check construction is valid
         if self.point_group_symmetry not in valid_symmetries:
-            if self.number != 0:  # Anything besides CRYST entry
+            if not self.is_cryst_record():  # Anything besides CRYST entry
                 raise utils.SymmetryInputError(
                     f'Invalid point group symmetry {self.point_group_symmetry}')
         try:
@@ -480,6 +489,72 @@ class SymEntry:
             self.unit_cell = (self.cell_lengths, self.cell_angles)
         else:
             self.unit_cell = None
+
+    def append_group(self, group: str):
+        """Add an additional symmetry group to the SymEntry"""
+        if group not in valid_symmetries:
+            if group is None:
+                # Todo
+                #  Need to refactor symmetry_combinations for any number of elements
+                return
+            else:  # Recurse to see if it is yet another symmetry specification
+                # raise ValueError(
+                logger.warning(
+                    f"The symmetry group '{group}' at index {len(self.groups)} isn't a valid sub-symmetry. "
+                    f"Trying to correct by applying another {self.__class__.__name__}()")
+                raise NotImplementedError()
+
+        if group not in entry_groups:
+            # This is probably a sub-symmetry of one of the groups. Is it allowed?
+            if not symmetry_groups_are_allowed_in_entry(groups, *entry_groups, result=self.resulting_symmetry):
+                # group1=group1, group2=group2):
+                viable_groups = [group for group in entry_groups if group is not None]
+                raise utils.SymmetryInputError(
+                    f"The symmetry group '{group}' isn't an allowed sub-symmetry of the result "
+                    f'{self.resulting_symmetry}, or the group(s) {", ".join(viable_groups)}')
+        self.groups.append(group)
+
+        def add_group():
+            # Todo
+            #  Can the accuracy of this creation method be guaranteed with the usage of the same symmetry
+            #  operator and different orientations? Think T33
+            self._int_dof_groups.append(int_dof)
+            self._setting_matrices.append(setting_matrices[set_mat_number])
+            self._setting_matrices_numbers.append(set_mat_number)
+            if ext_dof is None:
+                self._ref_frame_tx_dof.append(ext_dof)
+                self.__external_dof.append(construct_uc_matrix(('0', '0', '0')))
+            else:
+                ref_frame_tx_dof = ext_dof.split(',')
+                self._ref_frame_tx_dof.append(ref_frame_tx_dof)
+                if len(self.groups) <= 2:
+                    # This isn't possible with more than 2 groups unless the groups is tethered to existing
+                    self.__external_dof.append(construct_uc_matrix(ref_frame_tx_dof))
+                else:
+                    if ref_frame_tx_dof:
+                        raise utils.SymmetryInputError(
+                            f"Can't create {self.__class__.__name__} with external degrees of freedom and > 2 groups")
+
+        if isinstance(group, SymEntry):
+            group = group.resulting_symmetry
+        for entry_group_symmetry, (int_dof, set_mat_number, ext_dof) in self.group_info:
+            if group == entry_group_symmetry:
+                add_group()
+                break
+        else:  # None was found for this group
+            # raise utils.SymmetryInputError(
+            logger.critical(
+                f"Trying to assign the group '{group}' at index {len(self.groups)} to "
+                f"{self.__class__.__name__}.number={self.number}")
+            # See if the group is a sub-symmetry of a known group
+            for entry_group_symmetry, (int_dof, set_mat_number, ext_dof) in self.group_info:
+                entry_sub_groups = sub_symmetries.get(entry_group_symmetry, [None])
+                if group in entry_sub_groups:
+                    add_group()
+                    break
+            else:
+                raise utils.SymmetryInputError(
+                    f"Assignment of the group '{group}' failed")
 
     @property
     def number_of_operations(self) -> int:
@@ -1185,12 +1260,12 @@ def parse_symmetry_specification(specification: str) -> list[str]:
     return [split.strip('}:') for split in specification.split('{')]
 
 
-def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym_map: list[str] = None) -> \
+def parse_symmetry_to_sym_entry(sym_entry_number: int = None, symmetry: str = None, sym_map: list[str] = None) -> \
         SymEntry | None:
     """Take a symmetry specified in a number of ways and return the symmetry parameters in a SymEntry instance
 
     Args:
-        sym_entry: The integer corresponding to the desired SymEntry
+        sym_entry_number: The integer corresponding to the desired SymEntry
         symmetry: The symmetry specified by a string
         sym_map: A symmetry map where each successive entry is the corresponding symmetry group number for the structure
     Returns:
@@ -1221,23 +1296,23 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
             else:  # C35
                 raise ValueError(
                     f"{symmetry} isn't a supported symmetry... {highest_point_group_msg}")
-        elif sym_entry is not None:
-            return symmetry_factory.get(sym_entry)
+        elif sym_entry_number is not None:
+            return symmetry_factory.get(sym_entry_number)
         else:
             raise utils.SymmetryInputError(
                 f"{parse_symmetry_to_sym_entry.__name__}: Can't initialize without 'symmetry' or 'sym_map'")
 
-    if sym_entry is None:
+    if sym_entry_number is None:
         try:  # To lookup in the all_sym_entry_dict
-            sym_entry = utils.dictionary_lookup(all_sym_entry_dict, sym_map)
-            if not isinstance(sym_entry, int):
+            sym_entry_number = utils.dictionary_lookup(all_sym_entry_dict, sym_map)
+            if not isinstance(sym_entry_number, int):
                 raise TypeError
         except (KeyError, TypeError):
             # The prescribed symmetry is a point, plane, or space group that isn't in Nanohedra symmetry combinations.
             # Try to load a custom input
-            sym_entry = lookup_sym_entry_by_symmetry_combination(*sym_map)
+            sym_entry_number = lookup_sym_entry_by_symmetry_combination(*sym_map)
 
-    return symmetry_factory.get(sym_entry, sym_map=sym_map)
+    return symmetry_factory.get(sym_entry_number, sym_map=sym_map)
 
 
 def sdf_lookup(symmetry: str = None) -> AnyStr:
