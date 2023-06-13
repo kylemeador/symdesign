@@ -71,7 +71,7 @@ space_group_number_operations = \
 cubic_point_groups = ['T', 'O', 'I']
 point_group_symmetry_operators: dict[str, np.ndarray] = \
     unpickle(putils.point_group_symmetry_operator_location)
-"""A mapping of the point group name (in Herman-manguin notation) to the corresponding symmetry operators
+"""A mapping of the point group name (in Hermann-Mauguin notation) to the corresponding symmetry operators
 Formatted as {'symmetry': rotations[N, 3, 3], ...} where the rotations are pre-transposed to match requirements of 
 np.matmul(coords, rotation)"""
 space_group_symmetry_operators: dict[str, np.ndarray] = \
@@ -505,7 +505,7 @@ def get_ptgrp_sym_op(sym_type: str,
 #
 #     Args:
 #         asu (PDB): PDB object that contains the minimal protein for the specified material
-#         symmetry (str): The Herman Melville symmetry nomenclature of the symmetric group, ex: P432, F23, I, etc.
+#         symmetry (str): The Hermann-Mauguin symmetry nomenclature of the symmetric group, ex: P432, F23, I, etc.
 #     Keyword Args:
 #         uc_dimensions=None (list): [57, 57, 57, 90, 90, 90] lengths a, b, and c, then angles
 #         return_side_chains=False (bool): Whether to return all side chain atoms

@@ -313,6 +313,7 @@ def construct_uc_matrix(string_vector: Iterable[str]) -> np.ndarray:
 
 class SymEntry:
     __external_dof: list[np.ndarray]
+    _cryst_record: str | None
     _degeneracy_matrices: np.ndarray | None
     _external_dof: np.ndarray
     _group_subunit_numbers: list[int]
@@ -338,9 +339,9 @@ class SymEntry:
     expand_matrices: np.ndarray
 
     @classmethod
-    def from_cryst(cls, symmetry: str, **kwargs):  # uc_dimensions: Iterable[float],
-        """Create a SymEntry from a specified symmetry in Hermain-Manguin notation and the unit-cell dimensions"""
-        return cls(0, resulting_symmetry=symmetry, **kwargs)
+    def from_cryst(cls, space_group: str, **kwargs):  # uc_dimensions: Iterable[float],
+        """Create a SymEntry from a specified symmetry in Hermann-Mauguin notation and the unit-cell dimensions"""
+        return cls(0, resulting_symmetry=space_group, **kwargs)
 
     def __init__(self, entry: int, sym_map: list[str] = None, **kwargs):
         try:
@@ -369,7 +370,7 @@ class SymEntry:
             elif sym_map is None:
                 # self.resulting_symmetry = None
                 raise SymmetryInputError(
-                    f"Can't create a CrystSymEntry without passing 'resulting_symmetry' or 'sym_map'")
+                    f"Can't create a {self.__class__.__name__} without passing 'resulting_symmetry' or 'sym_map'")
             else:
                 self.resulting_symmetry, *_ = sym_map
             self.dimension = 2 if self.resulting_symmetry in utils.symmetry.layer_group_cryst1_fmt_dict else 3
@@ -397,7 +398,7 @@ class SymEntry:
                         # raise ValueError(
                         logger.warning(
                             f"The symmetry group '{group}' specified at index '{idx}' isn't a valid sub-symmetry. "
-                            f"Trying to correct by applying another SymEntry()")
+                            f"Trying to correct by applying another {self.__class__.__name__}()")
                         raise NotImplementedError()
 
                 if group not in entry_groups:
@@ -433,7 +434,7 @@ class SymEntry:
                 else:
                     if ref_frame_tx_dof:
                         raise utils.SymmetryInputError(
-                            f"Can't create {SymEntry.__name__} with external degrees of freedom and > 2 groups")
+                            f"Can't create {self.__class__.__name__} with external degrees of freedom and > 2 groups")
 
         for group_idx, group_symmetry in enumerate(self.groups, 1):
             if isinstance(group_symmetry, SymEntry):
@@ -446,7 +447,7 @@ class SymEntry:
                 # raise utils.SymmetryInputError(
                 logger.critical(
                     f"Trying to assign the group '{group_symmetry}' at index {group_idx} to "
-                    f"{SymEntry.__name__}.number={self.number}")
+                    f"{self.__class__.__name__}.number={self.number}")
                 # See if the group is a sub-symmetry of a known group
                 for entry_group_symmetry, (int_dof, set_mat_number, ext_dof) in group_info:
                     entry_sub_groups = sub_symmetries.get(entry_group_symmetry, [None])
@@ -675,6 +676,11 @@ class SymEntry:
             self._create_degeneracy_matrices()
             return self._degeneracy_matrices[1]
 
+    @property
+    def cryst_record(self) -> str | None:
+        """Get the CRYST1 record associated with this SymEntry"""
+        return None
+
     def is_cryst_record(self) -> bool:
         """Is the SymEntry utilizing a provided CRYST1 record"""
         return self.number == 0
@@ -847,7 +853,8 @@ class SymEntry:
                 return os.path.join(putils.symmetry_def_files, file + ext)
 
         raise FileNotFoundError(
-            f"Couldn't locate symmetry definition file at '{putils.symmetry_def_files}' for SymEntry {self.number}")
+            f"Couldn't locate symmetry definition file at '{putils.symmetry_def_files}' for {self.__class__.__name__} "
+            f"{self.number}")
 
     def log_parameters(self):
         """Log the SymEntry Parameters"""
@@ -903,8 +910,26 @@ class SymEntry:
         return f'{self.__class__.__name__}({self.specification})'
 
 
+class CrystSymEntry(SymEntry):
+    def __init__(self, **kwargs):
+        super().__init__(0, **kwargs)
+
+    @property
+    def cryst_record(self) -> str | None:
+        """Get the CRYST1 record associated with this SymEntry"""
+        try:
+            return self._cryst_record
+        except AttributeError:
+            self._cryst_record = None
+            return self._cryst_record
+
+    @cryst_record.setter
+    def cryst_record(self, cryst_record) -> str | None:
+        self._cryst_record = cryst_record
+
+
 # Set up the baseline crystalline entry which will allow for flexible adaptation of non-Nanohedra SymEntry instances
-CrystSymEntry = SymEntry.from_cryst(symmetry='P1')
+CrystRecord = CrystSymEntry(space_group='P1')
 
 
 class SymEntryFactory:
@@ -934,13 +959,17 @@ class SymEntryFactory:
         else:
             sym_map_string = '|'.join('None' if sym is None else sym for sym in sym_map)
 
+        if entry == 0:
+            # Don't add this to the self._entries
+            return CrystSymEntry(sym_map=sym_map, **kwargs)
+
         entry_key = f'{entry}|{sym_map_string}'
         symmetry = self._entries.get(entry_key)
         if symmetry:
             return symmetry
         else:
-            self._entries[entry_key] = SymEntry(entry, sym_map=sym_map)
-            return self._entries[entry_key]
+            self._entries[entry_key] = sym_entry = SymEntry(entry, sym_map=sym_map, **kwargs)
+            return sym_entry
 
     def get(self, entry: int, sym_map: list[str] = None, **kwargs) -> SymEntry:
         """Return the specified SymEntry object singleton
@@ -1271,7 +1300,7 @@ def symmetry_groups_are_allowed_in_entry(symmetry_operators: Iterable[str], *gro
         entry = symmetry_combinations.get(entry_number)
         if entry is None:
             raise utils.SymmetryInputError(
-                f"The entry number {entry_number} isn't an available SymEntry")
+                f"The entry number {entry_number} isn't an available {SymEntry.__name__}")
 
         group1, _, _, _, group2, _, _, _, _, result, *_ = entry
         groups = (group1, group2)  # Todo modify for more than 2
@@ -1416,7 +1445,7 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
                     # -------- TERMINATE --------
     elif symmetry_operators:
         if result in space_group_symmetry_operators:  # space_group_symmetry_operators in Hermann-Mauguin notation
-            matching_entries = [0]  # [CrystSymEntry]
+            matching_entries = [0]  # 0 = CrystSymEntry
         else:
             raise ValueError(
                 f"The specified symmetries '{', '.join(symmetry_operators)}' couldn't be coerced to make the resulting "
@@ -1436,7 +1465,7 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
                 f'{lookup_sym_entry_by_symmetry_combination.__name__} to use '
                 f'non-Nanohedra compatible chiral space_group_symmetry_operators. {highest_point_group_msg}')
 
-    logger.debug(f'Found matching SymEntry number {matching_entries[0]}')
+    logger.debug(f'Found matching SymEntry.number {matching_entries[0]}')
     return matching_entries[0]
 
 

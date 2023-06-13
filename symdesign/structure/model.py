@@ -4460,7 +4460,7 @@ class SymmetricModel(Model):  # Models):
                      uc_dimensions: list[float] = None, expand_matrices: np.ndarray | list = None,
                      transformations: list[types.TransformationMapping] = None, surrounding_uc: bool = True,
                      **kwargs):
-        """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann–Mauguin symmetry
+        """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann-Mauguin symmetry
         notation (in CRYST1 format, ex P 4 3 2) for the Model assembly. If the assembly is a point group,
         only the symmetry is required
 
@@ -4484,9 +4484,14 @@ class SymmetricModel(Model):  # Models):
         number_of_entities = self.number_of_entities
         if sym_entry is not None:
             if isinstance(sym_entry, utils.SymEntry.SymEntry):
-                if sym_entry.number == 0:  # Token specifying use of the CRYST1 record. Replace with relevant info
-                    self.sym_entry = utils.SymEntry.SymEntry.from_cryst(
-                        symmetry=symmetry, sym_map=[symmetry] + ['C1' for _ in range(number_of_entities)])
+                if sym_entry.is_cryst_record():  # Token specifying use of the CRYST1 record. Replace with relevant info
+                    if sym_entry.cryst_record:
+                        # This is already a cryst_record containing CrystSymEntry
+                        self.sym_entry = sym_entry
+                    else:  # Create a new one
+                        self.sym_entry = utils.SymEntry.CrystSymEntry(
+                            space_group=symmetry, sym_map=[symmetry] + ['C1' for _ in range(number_of_entities)])
+                        self.sym_entry.cryst_record = self.cryst_record
                 else:
                     self.sym_entry = sym_entry  # Attach as this is set up properly
             else:  # Try to solve using integer and any info in symmetry. Fails upon non Nanohedra chiral space-group...
