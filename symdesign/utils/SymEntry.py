@@ -675,6 +675,10 @@ class SymEntry:
             self._create_degeneracy_matrices()
             return self._degeneracy_matrices[1]
 
+    def is_cryst_record(self) -> bool:
+        """Is the SymEntry utilizing a provided CRYST1 record"""
+        return self.number == 0
+
     def _create_degeneracy_matrices(self):
         """From the intended point group symmetry and a single component, find the degeneracy matrices that produce all
         viable configurations of the single component in the final symmetry

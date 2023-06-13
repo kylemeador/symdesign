@@ -5693,6 +5693,8 @@ class SymmetricModel(Model):  # Models):
         if not self.is_symmetric():
             raise SymmetryError(
                 f'Must set a global symmetry to {self._assign_pose_transformation.__name__}')
+        elif self.sym_entry.is_cryst_record():
+            return [{} for entity in self.entities]
 
         self.log.debug(f'Searching for transformation parameters for the Pose {self.name}')
 
