@@ -1019,7 +1019,7 @@ def main():
                             #         raise utils.SymDesignException(
                             #             f"Indexing the correct entity_id has failed")
                             #         # break  # continue
-                            whole_model_file = os.path.join(os.path.dirname(job.structure_db.oriented),
+                            whole_model_file = os.path.join(os.path.dirname(job.structure_db.oriented.location),
                                                             f'{structure_id}.pdb')
                             structures.append(Pose.from_file(whole_model_file, name=structure_id))
                 else:  # These are already processed Structures
