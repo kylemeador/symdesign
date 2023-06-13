@@ -9,6 +9,7 @@ from scipy.spatial.transform import Rotation
 
 from . import path as putils, pickle_object, unpickle
 
+CRYST = 'CRYST'
 chiral_space_groups = [
     'P1',  # TRICLINIC
     'P121', 'P1211', 'C121',  # MONOCLINIC

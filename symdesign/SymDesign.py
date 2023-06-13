@@ -979,14 +979,14 @@ def main():
 
             # Correct existing ProteinMetadata, now that Entity instances are processed
             structures_grouped_by_component = []
-            for structure_id_entity_ids in grouped_structures_entity_ids:
+            for structure_id_to_entity_ids in grouped_structures_entity_ids:
                 structures = []
-                if not structure_id_entity_ids:
+                if not structure_id_to_entity_ids:
                     pass
-                elif isinstance(structure_id_entity_ids, dict):
+                elif isinstance(structure_id_to_entity_ids, dict):
                     structures = []
                     # for orient_structure, structure_uniprot_ids in zip(orient_structures, structures_uniprot_ids):
-                    for structure_id, entity_ids in structure_id_entity_ids.items():
+                    for structure_id, entity_ids in structure_id_to_entity_ids.items():
                         entities = []
                         # for uniprot_ids in structure_uniprot_ids:
                         for entity_id in entity_ids:
@@ -999,8 +999,6 @@ def main():
                                 raise utils.SymDesignException(
                                     f"Indexing the correct entity_id has failed")
                                 # break  # continue
-                            # Todo
-                            #  This must load the CRYST record for any usage in crystalline symmetries
                             entity = Entity.from_file(data.model_source, name=data.entity_id, metadata=data)
                             entity.stride(to_file=job.api_db.stride.path_to(name=data.entity_id))
                             data.n_terminal_helix = entity.is_termini_helical()
@@ -1008,10 +1006,24 @@ def main():
                             # Set .metadata attribute to carry through protocol
                             entity.metadata = data
                             entities.append(entity)
-                        # Don't include symmetry as this will be initialized by fragdock.fragment_dock()
-                        structures.append(Pose.from_entities(entities, name=structure_id))  # symmetry=symmetry))
+                        # For Pose constructor, don't include symmetry.
+                        # Symmetry is initialized by fragdock.fragment_dock() and align.align_helices()
+                        if entities:
+                            structures.append(Pose.from_entities(entities, name=structure_id))
+                        else:  # Just load the whole model based off of the name
+                            # This would be useful in the case when CRYST record is used in crystalline symmetries
+                            for data in all_protein_metadata:
+                                if data.entity_id == entity_id:
+                                    break
+                                else:
+                                    raise utils.SymDesignException(
+                                        f"Indexing the correct entity_id has failed")
+                                    # break  # continue
+                            crystalline_file = os.path.join(os.path.dirname(job.structure_db.oriented),
+                                                            f'{structure_id}.pdb')
+                            structures.append(Pose.from_file(crystalline_file, name=structure_id))
                 else:  # These are already processed Structures
-                    structures = structure_id_entity_ids
+                    structures = structure_id_to_entity_ids
                 structures_grouped_by_component.append(structures)
             session.commit()
 

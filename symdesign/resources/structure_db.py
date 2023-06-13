@@ -21,7 +21,7 @@ from symdesign.sequence import generate_mutations, expression
 from symdesign.utils import rosetta
 from symdesign.structure.model import Entity, Model, Pose
 from symdesign.utils.SymEntry import SymEntry
-
+from symdesign.utils.symmetry import CRYST
 putils = utils.path
 
 # Todo adjust the logging level for this module?
@@ -289,20 +289,33 @@ class StructureDatabase(Database):
         models_dir = os.path.dirname(orient_dir)
         # models_dir is this was because it was specified, not required...
         self.oriented_asu.make_path()
-        self.stride.make_path()
+
+        if isinstance(sym_entry, utils.SymEntry.SymEntry):
+            if sym_entry.number:
+                resulting_symmetry = sym_entry.resulting_symmetry
+                logger.info(f'The requested {"files" if by_file else "IDs"} are being checked for proper orientation '
+                            f'with symmetry {resulting_symmetry}: {", ".join(structure_identifiers)}')
+            else:  # This is entry_number 0, which is a TOKEN to use the CRYST record
+                resulting_symmetry = CRYST
+        else:  # Treat as asymmetric - i.e. C1
+            if sym_entry:
+                logger.warning(f"The passed 'sym_entry' isn't of the required type {utils.SymEntry.SymEntry.__name__}. "
+                               "Treating as asymmetric")
+            sym_entry = None  # Ensure not something else
+            resulting_symmetry = 'C1'
+            logger.info(f'The requested {"files" if by_file else "IDs"} are being set up into the DataBase: '
+                        f'{", ".join(structure_identifiers)}')
 
         orient_logger = logging.getLogger(putils.orient)
         structure_identifier_tuples: dict[str, tuple[str, ...]] = {}
         uniprot_id_to_protein_metadata: dict[tuple[str, ...], list[sql.ProteinMetadata]] = defaultdict(list)
         non_viable_structures = []
 
-        def create_protein_metadata(model: Model | Entity, symmetry: str = None):
-            # -> dict[tuple[str, ...], list[sql.ProteinMetadata]]:
+        def create_protein_metadata(model: Model | Entity):
             """From a Structure instance, extract the unique metadata to identify the entities involved
 
             Args:
                 model: The Structure instances to initialize to ProteinMetadata
-                symmetry: The symmetry to use in initialization of ProteinMetadata
             """
             for entity in model.entities:
                 protein_metadata = sql.ProteinMetadata(
@@ -323,7 +336,10 @@ class StructureDatabase(Database):
                 uniprot_ids = entity.uniprot_ids
 
                 uniprot_id_to_protein_metadata[uniprot_ids].append(protein_metadata)
-            structure_identifier_tuples[model.name] = tuple(entity.name for entity in model.entities)
+            if resulting_symmetry == CRYST:
+                structure_identifier_tuples[model.name] = tuple()
+            else:
+                structure_identifier_tuples[model.name] = tuple(entity.name for entity in model.entities)
 
         def report_non_viable_structures():
             if non_viable_structures:
@@ -397,24 +413,6 @@ class StructureDatabase(Database):
                 # all_structure.append(model)
                 # create_protein_metadata(model, sym_entry=sym_entry)
                 create_protein_metadata(model)
-
-        # if not symmetry or symmetry == 'C1':
-        if not sym_entry:
-        if isinstance(sym_entry, utils.SymEntry.SymEntry):
-            if sym_entry.number:
-                resulting_symmetry = sym_entry.resulting_symmetry
-                logger.info(f'The requested {"files" if by_file else "IDs"} are being checked for proper orientation '
-                            f'with symmetry {resulting_symmetry}: {", ".join(structure_identifiers)}')
-            else:  # This is entry_number 0, which is a TOKEN to use the CRYST record
-                resulting_symmetry = 'CRYST'
-        else:  # Treat as asymmetric - i.e. C1
-            if sym_entry:
-                logger.warning(f"The passed 'sym_entry' isn't of the required type {utils.SymEntry.SymEntry.__name__}. "
-                               "Treating as asymmetric")
-            sym_entry = None  # Ensure not something else
-            resulting_symmetry = 'C1'
-            logger.info(f'The requested {"files" if by_file else "IDs"} are being set up into the DataBase: '
-                        f'{", ".join(structure_identifiers)}')
 
         if by_file:
             orient_existing_file(structure_identifiers, resulting_symmetry, sym_entry)
