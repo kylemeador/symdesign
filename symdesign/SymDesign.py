@@ -1011,14 +1011,7 @@ def main():
                         if entities:
                             structures.append(Pose.from_entities(entities, name=structure_id))
                         else:  # Just load the whole model based off of the name
-                            # This would be useful in the case when CRYST record is used in crystalline symmetries
-                            # for data in all_protein_metadata:
-                            #     if data.entity_id == entity_id:
-                            #         break
-                            #     else:
-                            #         raise utils.SymDesignException(
-                            #             f"Indexing the correct entity_id has failed")
-                            #         # break  # continue
+                            # This is useful in the case when CRYST record is used in crystalline symmetries
                             whole_model_file = os.path.join(os.path.dirname(job.structure_db.oriented.location),
                                                             f'{structure_id}.pdb*')
                             matching_files = glob(whole_model_file)
@@ -1026,9 +1019,25 @@ def main():
                                 if len(matching_files) > 1:
                                     logger.warning(f"{len(matching_files)} matching files for {structure_id} at "
                                                    f"'{whole_model_file}'. Choosing the first")
-                                structures.append(Pose.from_file(matching_files[0], name=structure_id))
+                                pose = Pose.from_file(matching_files[0], name=structure_id)
                             else:
                                 logger.warning(f"No matching files for {structure_id} at '{whole_model_file}'")
+                                continue
+
+                            for entity in pose.entities:
+                                for data in all_protein_metadata:
+                                    if data.entity_id == entity.name:
+                                        break
+                                    else:
+                                        raise utils.SymDesignException(
+                                            f"Indexing the correct entity_id has failed")
+                                        # break  # continue
+                            entity.stride(to_file=job.api_db.stride.path_to(name=data.entity_id))
+                            data.n_terminal_helix = entity.is_termini_helical()
+                            data.c_terminal_helix = entity.is_termini_helical('c')
+                            # Set .metadata attribute to carry through protocol
+                            entity.metadata = data
+                            structures.append(pose)
                 else:  # These are already processed Structures
                     structures = structure_id_to_entity_ids
                 structures_grouped_by_component.append(structures)
