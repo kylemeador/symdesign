@@ -946,7 +946,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         """Provide the design_selector parameters for the design in question
 
         Returns:
-            {}, A mapping of the selection criteria in the Pose according to set up
+            A mapping of the selection criteria for Structure objects in the Pose
         """
         try:
             return self._design_selector
@@ -959,7 +959,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if isinstance(design_selector, dict):
             self._design_selector = self.info['design_selector'] = design_selector
         else:
-            raise ValueError(f'The attribute design_selector must be a dict, not {type(design_selector).__name__}')
+            raise ValueError(
+                f'The attribute design_selector must be a dict, not {type(design_selector).__name__}')
 
     # @property
     # def design_indices(self) -> list[int]:

@@ -78,12 +78,7 @@ def process_design_selector_flags(
         require_residues: str = None,
         require_chains: str = None,
         **kwargs: dict[str]) -> dict[str, dict[str, set | set[int] | set[str]]]:
-    # design_chains = 'design_chains'
-    # design_residues = 'design_residues'
-    # mask_residues = 'mask_residues'
-    # mask_chains = 'mask_chains'
-    # require_residues = 'require_residues'
-    # require_chains = 'require_chains'
+
     # Todo move to a verify design_selectors function inside of Pose? Own flags module?
     #  Pull mask_design_using_sequence out of flags
     # -------------------
@@ -416,6 +411,7 @@ class JobResources:
         self.design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict = \
             process_design_selector_flags(**kwargs)
         # self.design_selector = kwargs.get('design_selector', {})
+        input(self.design_selector)
 
         self.update_metadata = kwargs.get('update_metadata')
         pdb_codes1 = kwargs.get('pdb_codes1')
