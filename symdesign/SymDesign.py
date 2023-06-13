@@ -1020,8 +1020,15 @@ def main():
                             #             f"Indexing the correct entity_id has failed")
                             #         # break  # continue
                             whole_model_file = os.path.join(os.path.dirname(job.structure_db.oriented.location),
-                                                            f'{structure_id}.pdb')
-                            structures.append(Pose.from_file(whole_model_file, name=structure_id))
+                                                            f'{structure_id}.pdb*')
+                            matching_files = glob(whole_model_file)
+                            if matching_files:
+                                if len(matching_files) > 1:
+                                    logger.warning(f"{len(matching_files)} matching files for {structure_id} at "
+                                                   f"'{whole_model_file}'. Choosing the first")
+                                structures.append(Pose.from_file(matching_files[0], name=structure_id))
+                            else:
+                                logger.warning(f"No matching files for {structure_id} at '{whole_model_file}'")
                 else:  # These are already processed Structures
                     structures = structure_id_to_entity_ids
                 structures_grouped_by_component.append(structures)
