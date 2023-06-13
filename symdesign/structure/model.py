@@ -4474,13 +4474,9 @@ class SymmetricModel(Model):  # Models):
         """
         # Try to solve for symmetry as uc_dimensions are needed for cryst ops, if available
         if self.cryst_record:  # Was populated from file parsing
-            self.log.debug(f'Found cryst_record:\n{self.cryst_record}')
+            self.log.debug(f'Parsed CRYST1 record: {self.cryst_record.strip()}')
             if uc_dimensions is None and symmetry is None:  # Only if user didn't provide either
                 uc_dimensions, symmetry = parse_cryst_record(self.cryst_record)
-
-        # Set the uc_dimensions if they were parsed or provided. Must occur before CrystSymEntry() construction
-        if uc_dimensions is not None and self.dimension > 0:
-            self.uc_dimensions = uc_dimensions
 
         if symmetry is not None:  # Ensure conversion to Hermann–Mauguin notation. ex: P23 not P 2 3
             symmetry = ''.join(symmetry.split())
@@ -4495,6 +4491,8 @@ class SymmetricModel(Model):  # Models):
                     else:  # Create a new one
                         self.sym_entry = utils.SymEntry.CrystSymEntry(
                             space_group=symmetry, sym_map=[symmetry] + ['C1' for _ in range(number_of_entities)])
+                        # Set the uc_dimensions as they must be parsed or provided
+                        self.uc_dimensions = uc_dimensions
                         self.sym_entry.cryst_record = self.cryst_record
                 else:
                     self.sym_entry = sym_entry  # Attach as this is set up properly

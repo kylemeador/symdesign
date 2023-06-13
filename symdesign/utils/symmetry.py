@@ -196,12 +196,12 @@ multicomponent_valid_subunit_number = \
 #      'I': multicomponent_by_number(60)}
 
 
-def generate_cryst1_record(dimensions, space_group) -> str:
+def generate_cryst1_record(dimensions: Sequence[float], space_group: str) -> str:
     """Format the CRYST1 record from specified unit cell dimensions and space group for a .pdb file
 
     Args:
-        dimensions (union[list, tuple]): Containing a, b, c (Angstroms) alpha, beta, gamma (degrees)
-        space_group (str): The space group of interest in compact format
+        dimensions: Containing a, b, c (Angstroms) alpha, beta, gamma (degrees)
+        space_group: The space group of interest in compact format
     Returns:
         The CRYST1 record
     """
@@ -214,10 +214,13 @@ def generate_cryst1_record(dimensions, space_group) -> str:
         dimensions[5] = 90.
     else:
         raise ValueError(
-            f"The space group {space_group} isn't supported")
+            f"The space group '{space_group}' isn't supported")
 
-    return 'CRYST1{dim[0]:9.3f}{dim[1]:9.3f}{dim[2]:9.3f}{dim[3]:7.2f}{dim[4]:7.2f}{dim[5]:7.2f} {sg:<11s}{z:4d}\n'\
-        .format(dim=dimensions, sg=formatted_space_group, z=space_group_number_operations[space_group])
+    try:
+        return 'CRYST1{dim[0]:9.3f}{dim[1]:9.3f}{dim[2]:9.3f}{dim[3]:7.2f}{dim[4]:7.2f}{dim[5]:7.2f} {sg:<11s}{z:4d}\n'\
+            .format(dim=dimensions, sg=formatted_space_group, z=space_group_number_operations[space_group])
+    except TypeError:  # NoneType was passed
+        raise ValueError(f"Can't {generate_cryst1_record.__name__} without passing 'dimensions'")
 
 
 def cart_to_frac(cart_coords, dimensions):
