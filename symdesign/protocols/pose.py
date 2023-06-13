@@ -722,6 +722,11 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         self.__init_from_db__()
 
         # Save job variables to the state during initialization
+        # Todo does seting this variable change the database?
+        sym_entry = kwargs.get('sym_entry')
+        if sym_entry:
+            self.sym_entry = sym_entry
+
         if self.sym_entry:
             self.symmetry_dimension = self.sym_entry.dimension
             """The dimension of the SymEntry"""

@@ -958,7 +958,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
         # Output the pose as a PoseJob
         # name = f'{termini}-term{helix_start_index + 1}'
         logger.debug(f'Creating PoseJob')
-        pose_job = PoseJob.from_name(name, project=project, protocol=protocol_name)
+        pose_job = PoseJob.from_name(name, project=project, protocol=protocol_name, sym_entry=sym_entry_chimera)
 
         # if job.output:
         if job.output_fragments:
