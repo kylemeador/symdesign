@@ -398,7 +398,7 @@ class StructureDatabase(Database):
                         model.orient(symmetry=resulting_symmetry)
                     except (ValueError, RuntimeError, structure.utils.SymmetryError) as error:
                         orient_logger.error(str(error))
-                        non_viable_structures.append(structure_identifier)
+                        non_viable_structures.append(file)
                         continue
                     model.set_symmetry(sym_entry=sym_entry)
                     assembly_integer = '' if model.biological_assembly is None else model.biological_assembly

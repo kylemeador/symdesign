@@ -42,8 +42,8 @@ def generate_sequence_mask(fasta_file: AnyStr) -> list[int]:
     # sequences = sequence_and_mask
     _sequence, mask, *_ = sequence_and_mask
     if not len(_sequence) == len(mask):
-        raise ValueError('The sequence and design_selector are different lengths. Please correct the alignment and '
-                         'lengths before proceeding.')
+        raise ValueError(
+            'The sequence and design_selector are different lengths. Please correct the alignment before proceeding')
 
     return [idx for idx, aa in enumerate(mask, 1) if aa != '-']
 
