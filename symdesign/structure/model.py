@@ -6513,12 +6513,13 @@ class Pose(SymmetricModel, Metrics):
                 entity_set = set_function(entity_set, [self.entity(entity) for entity in entities])
             if chains:  # is not None:
                 # vv This is for the intersectional model
-                atom_indices = set_function(atom_indices, iter_chain.from_iterable([self.chain(chain_id).atom_indices
-                                                                                    for chain_id in chains]))
+                atom_indices = set_function(
+                    atom_indices, iter_chain.from_iterable([self.chain(chain_id).atom_indices for chain_id in chains]))
                 # atom_indices.union(iter_chain.from_iterable(self.chain(chain_id).get_residue_atom_indices(numbers=residues)
                 #                                     for chain_id in chains))
                 # ^^ This is for the additive model
-                entity_set = set_function(entity_set, [self.chain(chain_id) for chain_id in chains])
+                entity_set = set_function(
+                    entity_set, [self.entity(self.chain(chain_id).entity_id) for chain_id in chains])
             if residues:  # is not None:
                 atom_indices = set_function(atom_indices, self.get_residue_atom_indices(numbers=list(residues)))
             if pdb_residues:  # is not None:
