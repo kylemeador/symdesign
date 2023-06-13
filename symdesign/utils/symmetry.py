@@ -71,12 +71,14 @@ space_group_number_operations = \
 cubic_point_groups = ['T', 'O', 'I']
 point_group_symmetry_operators: dict[str, np.ndarray] = \
     unpickle(putils.point_group_symmetry_operator_location)
-# with format {'symmetry': rotations[N, 3, 3], ...}
-# where the rotations are pre-transposed to match requirements of np.matmul(coords, rotation)
+"""A mapping of the point group name (in Herman-manguin notation) to the corresponding symmetry operators
+Formatted as {'symmetry': rotations[N, 3, 3], ...} where the rotations are pre-transposed to match requirements of 
+np.matmul(coords, rotation)"""
 space_group_symmetry_operators: dict[str, np.ndarray] = \
     unpickle(putils.space_group_symmetry_operator_location)
-# with format {'symmetry': (rotations[N, 3, 3], translations[N, 1, 3]), ...}
-# where the rotations are pre-transposed to match requirements of np.matmul(coords, rotation)
+"""A mapping of the space group name (in Hermann-Mauguin notation) to the corresponding symmetry operators
+Formatted as {'symmetry': (rotations[N, 3, 3], translations[N, 1, 3]), ...} where the rotations are pre-transposed to 
+match requirements of np.matmul(coords, rotation)"""
 # Todo modify to use only this or all_sym_entry_dict
 possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T', 'O32': 'O', 'O42': 'O', 'O43': 'O',
                        'I23': 'I', 'I25': 'I', 'I35': 'I', 'T23': 'T', 'O23': 'O', 'O24': 'O', 'O34': 'O',
@@ -207,11 +209,12 @@ def generate_cryst1_record(dimensions, space_group) -> str:
         formatted_space_group = space_group_cryst1_fmt_dict[space_group]
     elif space_group in layer_group_cryst1_fmt_dict:
         formatted_space_group = layer_group_cryst1_fmt_dict[space_group]
-        dimensions[2] = 1.0
-        dimensions[4] = 90.0
-        dimensions[5] = 90.0
+        dimensions[2] = 1.
+        dimensions[4] = 90.
+        dimensions[5] = 90.
     else:
-        raise ValueError('SPACEGROUP NOT SUPPORTED')
+        raise ValueError(
+            f"The space group {space_group} isn't supported")
 
     return 'CRYST1{dim[0]:9.3f}{dim[1]:9.3f}{dim[2]:9.3f}{dim[3]:7.2f}{dim[4]:7.2f}{dim[5]:7.2f} {sg:<11s}{z:4d}\n'\
         .format(dim=dimensions, sg=formatted_space_group, z=space_group_number_operations[space_group])

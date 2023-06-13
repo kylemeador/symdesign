@@ -390,7 +390,7 @@ class StructureDatabase(Database):
             for file in files:
                 # Load entities to solve multi-component orient problem
                 model = Pose.from_file(file)
-                if resulting_symmetry == 'CRYST':
+                if resulting_symmetry == CRYST:
                     model.set_symmetry(sym_entry=sym_entry)
                     model.file_path = model.write(out_path=os.path.join(models_dir, f'{model.name}.pdb'))
                 else:
@@ -418,7 +418,7 @@ class StructureDatabase(Database):
             orient_existing_file(structure_identifiers, resulting_symmetry, sym_entry)
         else:  # Orienting the selected files and save
             # First, check if using crystalline symmetry and prevent loading of existing files
-            if resulting_symmetry == 'CRYST':
+            if resulting_symmetry == CRYST:
                 orient_asu_names = orient_names = []
             else:
                 # Todo transfer the writing process to a SQL database
@@ -467,7 +467,7 @@ class StructureDatabase(Database):
                         non_viable_structures.append(structure_identifier)
                         continue
 
-                    if resulting_symmetry == 'CRYST':
+                    if resulting_symmetry == CRYST:
                         pose.set_symmetry(sym_entry=sym_entry)
                         # pose.file_path is already set
                         # orient_file = os.path.join(models_dir, f'{structure_identifier}.pdb')

@@ -913,8 +913,10 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
     # Create the corresponding SymEntry from the original SymEntry and the fusion
     if sym_entry:
         model1.set_symmetry(sym_entry=sym_entry)
-        # Todo currently only C1 can be fused. Remove hard coding when changed
-        symmetry = sym_entry.specification + '{C1}' * model2_entities_after_fusion
+        # Todo
+        #  Currently only C1 can be fused. Remove hard coding when changed
+        # Use the model1.sym_entry as this could be crystalline
+        symmetry = model1.sym_entry.specification + '{C1}' * model2_entities_after_fusion
         sym_entry_chimera = parse_symmetry_to_sym_entry(symmetry=symmetry)
     else:
         sym_entry_chimera = None

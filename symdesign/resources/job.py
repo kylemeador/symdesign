@@ -556,7 +556,7 @@ class JobResources:
         else:
             if symmetry and 'cryst' in symmetry.lower():
                 # Later, symmetry information will be retrieved from the file header
-                self.sym_entry = SymEntry.CRYST  # 'cryst'
+                self.sym_entry = SymEntry.CrystSymEntry  # 'cryst'
             else:
                 self.sym_entry = SymEntry.parse_symmetry_to_sym_entry(sym_entry=sym_entry, symmetry=symmetry)
 

@@ -892,7 +892,7 @@ class SymEntry:
 
 
 # Set up the baseline crystalline entry which will allow for flexible adaptation of non-Nanohedra SymEntry instances
-CRYST = SymEntry.from_cryst(symmetry='P1')
+CrystSymEntry = SymEntry.from_cryst(symmetry='P1')
 
 
 class SymEntryFactory:
@@ -1159,14 +1159,14 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
         if symmetry is not None:
             symmetry = symmetry.strip()
             if symmetry in space_group_symmetry_operators:  # space_group_symmetry_operators in Hermann-Mauguin notation
-                # We only have the resulting symmetry, set it and then solve by lookup_sym_entry_by_symmetry_combination
+                # Only have the resulting symmetry, set it and then solve by lookup_sym_entry_by_symmetry_combination()
                 sym_map = [symmetry]
             elif len(symmetry) > 3:
                 if ':{' in symmetry:  # Symmetry specification of typical type result:{subsymmetry}{}...
                     sym_map = parse_symmetry_specification(symmetry)
-                elif 'cryst' in symmetry.lower():  # this is crystal specification
+                elif CRYST in symmetry.upper():  # This is crystal specification
                     return None  # Have to set this up after parsing cryst records
-                else:  # this is some Rosetta based symmetry?
+                else:  # This is some Rosetta based symmetry?
                     sym_str1, sym_str2, sym_str3, *_ = symmetry
                     sym_map = f'{sym_str1} C{sym_str2} C{sym_str3}'.split()
                     logger.error(f"Symmetry specification '{symmetry}' isn't understood, trying to solve anyway\n\n")
@@ -1192,7 +1192,8 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
             if not isinstance(sym_entry, int):
                 raise TypeError
         except (KeyError, TypeError):
-            # The prescribed symmetry is a point, plane, or space group that isn't in nanohedra. Try a custom input
+            # The prescribed symmetry is a point, plane, or space group that isn't in Nanohedra symmetry combinations.
+            # Try to load a custom input
             sym_entry = lookup_sym_entry_by_symmetry_combination(*sym_map)
 
     return symmetry_factory.get(sym_entry, sym_map=sym_map)
@@ -1301,7 +1302,7 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
     """Given the resulting symmetry and the symmetry operators for each Entity, solve for the SymEntry
 
     Args:
-        result: The final symmetry
+        result: The global symmetry
         symmetry_operators: Additional operators which specify sub-symmetric systems in the larger result
     Returns:
         The entry number of the SymEntry
@@ -1404,12 +1405,15 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
 
         logger.debug(f'Found matching SymEntry number {matching_entries[0]}')
     elif symmetry_operators:
-        raise ValueError(
-            f"The specified symmetries '{', '.join(symmetry_operators)}' could not be coerced to make the resulting "
-            f"symmetry '{result}'. Try to reformat your symmetry specification if this is the result of a typo to "
-            'include only symmetries that are group members of the resulting symmetry such as '
-            f'{", ".join(all_sym_entry_dict.get(result, {}).keys())}\nUse the format {example_symmetry_specification} '
-            'during your specification')
+        if result in space_group_symmetry_operators:  # space_group_symmetry_operators in Hermann-Mauguin notation
+            matching_entries = [0]  # [CrystSymEntry]
+        else:
+            raise ValueError(
+                f"The specified symmetries '{', '.join(symmetry_operators)}' couldn't be coerced to make the resulting "
+                f"symmetry '{result}'. Try to reformat your symmetry specification if this is the result of a typo to "
+                'include only symmetries that are group members of the resulting symmetry such as '
+                f'{", ".join(all_sym_entry_dict.get(result, {}).keys())}\nUse the format {example_symmetry_specification} '
+                'during your specification')
     else:  # No symmetry_operators
         if result_entries:
             report_multiple_solutions(result_entries)
