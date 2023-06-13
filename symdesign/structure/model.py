@@ -4485,14 +4485,14 @@ class SymmetricModel(Model):  # Models):
         if sym_entry is not None:
             if isinstance(sym_entry, utils.SymEntry.SymEntry):
                 if sym_entry.is_cryst_record():  # Token specifying use of the CRYST1 record. Replace with relevant info
+                    # Set the uc_dimensions as they must be parsed or provided
+                    self.uc_dimensions = uc_dimensions
                     if sym_entry.cryst_record:
                         # This is already a cryst_record containing CrystSymEntry. Use it as created
                         self.sym_entry = sym_entry
                     else:  # Create a new one
                         self.sym_entry = utils.SymEntry.CrystSymEntry(
                             space_group=symmetry, sym_map=[symmetry] + ['C1' for _ in range(number_of_entities)])
-                        # Set the uc_dimensions as they must be parsed or provided
-                        self.uc_dimensions = uc_dimensions
                         self.sym_entry.cryst_record = self.cryst_record
                 else:
                     self.sym_entry = sym_entry  # Attach as this is set up properly
