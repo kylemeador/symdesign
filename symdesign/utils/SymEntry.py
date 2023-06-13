@@ -341,7 +341,7 @@ class SymEntry:
     @classmethod
     def from_cryst(cls, space_group: str, **kwargs):  # uc_dimensions: Iterable[float],
         """Create a SymEntry from a specified symmetry in Hermann-Mauguin notation and the unit-cell dimensions"""
-        return cls(0, resulting_symmetry=space_group, **kwargs)
+        return cls(0, space_group=space_group, **kwargs)
 
     def __init__(self, entry: int, sym_map: list[str] = None, **kwargs):
         try:
@@ -365,12 +365,12 @@ class SymEntry:
             group_info = [('C1', [['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, None])]  # Assume for now that the groups are C1
             self.point_group_symmetry = None
             # self.resulting_symmetry = kwargs.get('resulting_symmetry', None)
-            if 'resulting_symmetry' in kwargs:
-                self.resulting_symmetry = kwargs['resulting_symmetry']
+            if 'space_group' in kwargs:
+                self.resulting_symmetry = kwargs['space_group']
             elif sym_map is None:
                 # self.resulting_symmetry = None
                 raise utils.SymmetryInputError(
-                    f"Can't create a {self.__class__.__name__} without passing 'resulting_symmetry' or 'sym_map'")
+                    f"Can't create a {self.__class__.__name__} without passing 'space_group' or 'sym_map'")
             else:
                 self.resulting_symmetry, *_ = sym_map
             self.dimension = 2 if self.resulting_symmetry in utils.symmetry.layer_group_cryst1_fmt_dict else 3
