@@ -4478,6 +4478,10 @@ class SymmetricModel(Model):  # Models):
             if uc_dimensions is None and symmetry is None:  # Only if user didn't provide either
                 uc_dimensions, symmetry = parse_cryst_record(self.cryst_record)
 
+        # Set the uc_dimensions if they were parsed or provided. Must occur before CrystSymEntry() construction
+        if uc_dimensions is not None and self.dimension > 0:
+            self.uc_dimensions = uc_dimensions
+
         if symmetry is not None:  # Ensure conversion to Hermann–Mauguin notation. ex: P23 not P 2 3
             symmetry = ''.join(symmetry.split())
 
@@ -4520,10 +4524,6 @@ class SymmetricModel(Model):  # Models):
             # raise utils.SymmetryError('A SymmetricModel was initiated without any symmetry! Ensure you specify the
             #                           'symmetry upon class initialization by passing symmetry=, or sym_entry=')
             return
-
-        # Set the uc_dimensions if they were parsed or provided
-        if uc_dimensions is not None and self.dimension > 0:
-            self.uc_dimensions = uc_dimensions
 
         if expand_matrices is not None:  # Perhaps these would be from a fiber or some sort of BIOMT?
             if isinstance(expand_matrices, tuple) and len(expand_matrices) == 2:
