@@ -363,7 +363,15 @@ class SymEntry:
             # Todo - Crystallographic symmetry could coincide with group symmetry...
             group_info = [('C1', [['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, None])]  # Assume for now that the groups are C1
             self.point_group_symmetry = None
-            self.resulting_symmetry = kwargs.get('resulting_symmetry', None)
+            # self.resulting_symmetry = kwargs.get('resulting_symmetry', None)
+            if 'resulting_symmetry' in kwargs:
+                self.resulting_symmetry = kwargs['resulting_symmetry']
+            elif sym_map is None:
+                # self.resulting_symmetry = None
+                raise SymmetryInputError(
+                    f"Can't create a CrystSymEntry without passing 'resulting_symmetry' or 'sym_map'")
+            else:
+                self.resulting_symmetry, *_ = sym_map
             self.dimension = 2 if self.resulting_symmetry in utils.symmetry.layer_group_cryst1_fmt_dict else 3
             self.cell_lengths = self.cell_angles = None
             self.total_dof = self.cycle_size = 0
@@ -1402,8 +1410,6 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
                     report_multiple_solutions(exact_matches)
                     sys.exit(1)
                     # -------- TERMINATE --------
-
-        logger.debug(f'Found matching SymEntry number {matching_entries[0]}')
     elif symmetry_operators:
         if result in space_group_symmetry_operators:  # space_group_symmetry_operators in Hermann-Mauguin notation
             matching_entries = [0]  # [CrystSymEntry]
@@ -1426,6 +1432,7 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
                 f'{lookup_sym_entry_by_symmetry_combination.__name__} to use '
                 f'non-Nanohedra compatible chiral space_group_symmetry_operators. {highest_point_group_msg}')
 
+    logger.debug(f'Found matching SymEntry number {matching_entries[0]}')
     return matching_entries[0]
 
 
