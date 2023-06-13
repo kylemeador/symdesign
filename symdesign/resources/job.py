@@ -60,57 +60,68 @@ def generate_chain_mask(chains: str) -> set[str]:
 
 
 def process_design_selector_flags(
-        select_designable_residues_by_sequence: str = None,
-        select_designable_residues_by_pdb_number: str = None,
-        select_designable_residues_by_pose_number: str = None,
-        select_designable_chains: str = None,
-        mask_designable_residues_by_sequence: str = None,
-        mask_designable_residues_by_pdb_number: str = None,
-        mask_designable_residues_by_pose_number: str = None,
-        mask_designable_chains: str = None,
-        require_design_by_pdb_number: str = None,
-        require_design_by_pose_number: str = None,
-        require_design_by_chain: str = None,
+        # select_designable_residues_by_sequence: str = None,
+        # select_designable_residues_by_pdb_number: str = None,
+        # select_designable_residues_by_pose_number: str = None,
+        # select_designable_chains: str = None,
+        # mask_designable_residues_by_sequence: str = None,
+        # mask_designable_residues_by_pdb_number: str = None,
+        # mask_designable_residues_by_pose_number: str = None,
+        # mask_designable_chains: str = None,
+        # require_design_by_pdb_number: str = None,
+        # require_design_by_pose_number: str = None,
+        # require_design_by_chain: str = None,
+        design_chains: str = None,
+        design_residues: str = None,
+        mask_residues: str = None,
+        mask_chains: str = None,
+        require_residues: str = None,
+        require_chains: str = None,
         **kwargs: dict[str]) -> dict[str, dict[str, set | set[int] | set[str]]]:
+    # design_chains = 'design_chains'
+    # design_residues = 'design_residues'
+    # mask_residues = 'mask_residues'
+    # mask_chains = 'mask_chains'
+    # require_residues = 'require_residues'
+    # require_chains = 'require_chains'
     # Todo move to a verify design_selectors function inside of Pose? Own flags module?
     #  Pull mask_design_using_sequence out of flags
     # -------------------
     entity_select, chain_select, residue_select, residue_pdb_select = set(), set(), set(), set()
-    if select_designable_residues_by_sequence is not None:
-        residue_select = residue_select.union(generate_sequence_mask(select_designable_residues_by_sequence))
+    # if select_designable_residues_by_sequence is not None:
+    #     residue_select = residue_select.union(generate_sequence_mask(select_designable_residues_by_sequence))
 
-    if select_designable_residues_by_pdb_number is not None:
-        residue_pdb_select = \
-            residue_pdb_select.union(utils.format_index_string(select_designable_residues_by_pdb_number))
+    if design_residues is not None:
+        residue_pdb_select = residue_pdb_select.union(utils.format_index_string(design_residues))
 
-    if select_designable_residues_by_pose_number is not None:
-        residue_select = residue_select.union(utils.format_index_string(select_designable_residues_by_pose_number))
+    # if select_designable_residues_by_pose_number is not None:
+    #     residue_select = residue_select.union(utils.format_index_string(select_designable_residues_by_pose_number))
 
-    if select_designable_chains is not None:
-        chain_select = chain_select.union(generate_chain_mask(select_designable_chains))
+    if design_chains is not None:
+        chain_select = chain_select.union(generate_chain_mask(design_chains))
     # -------------------
     entity_mask, chain_mask, residue_mask, residue_pdb_mask = set(), set(), set(), set()
-    if mask_designable_residues_by_sequence is not None:
-        residue_mask = residue_mask.union(generate_sequence_mask(mask_designable_residues_by_sequence))
+    # if mask_designable_residues_by_sequence is not None:
+    #     residue_mask = residue_mask.union(generate_sequence_mask(mask_designable_residues_by_sequence))
 
-    if mask_designable_residues_by_pdb_number is not None:
-        residue_pdb_mask = residue_pdb_mask.union(utils.format_index_string(mask_designable_residues_by_pdb_number))
+    if mask_residues is not None:
+        residue_pdb_mask = residue_pdb_mask.union(utils.format_index_string(mask_residues))
 
-    if mask_designable_residues_by_pose_number is not None:
-        residue_mask = residue_mask.union(utils.format_index_string(mask_designable_residues_by_pose_number))
+    # if mask_designable_residues_by_pose_number is not None:
+    #     residue_mask = residue_mask.union(utils.format_index_string(mask_designable_residues_by_pose_number))
 
-    if mask_designable_chains is not None:
-        chain_mask = chain_mask.union(generate_chain_mask(mask_designable_chains))
+    if mask_chains is not None:
+        chain_mask = chain_mask.union(generate_chain_mask(mask_chains))
     # -------------------
     entity_req, chain_req, residues_req, residues_pdb_req = set(), set(), set(), set()
-    if require_design_by_pdb_number is not None:
-        residues_pdb_req = residues_pdb_req.union(utils.format_index_string(require_design_by_pdb_number))
+    if require_residues is not None:
+        residues_pdb_req = residues_pdb_req.union(utils.format_index_string(require_residues))
 
-    if require_design_by_pose_number is not None:
-        residues_req = residues_req.union(utils.format_index_string(require_design_by_pose_number))
+    # if require_design_by_pose_number is not None:
+    #     residues_req = residues_req.union(utils.format_index_string(require_design_by_pose_number))
 
-    if require_design_by_chain is not None:
-        chain_req = chain_req.union(generate_chain_mask(require_design_by_chain))
+    if require_chains is not None:
+        chain_req = chain_req.union(generate_chain_mask(require_chains))
 
     return dict(selection=dict(entities=entity_select, chains=chain_select, residues=residue_select,
                                pdb_residues=residue_pdb_select),
