@@ -1037,7 +1037,7 @@ def initialize_metadata(session: Session,
         else:
             existing_protein_metadata = {}
 
-        return {protein_data.uniprot_ids: protein_data for protein_data in existing_protein_metadata}
+        return {protein_data.uniprot_ids: [protein_data] for protein_data in existing_protein_metadata}
 
     # Todo
     #  If I ever adopt the UniqueObjectValidatedOnPending recipe, that could perform the work of getting the
