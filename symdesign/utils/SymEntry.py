@@ -369,7 +369,7 @@ class SymEntry:
                 self.resulting_symmetry = kwargs['resulting_symmetry']
             elif sym_map is None:
                 # self.resulting_symmetry = None
-                raise SymmetryInputError(
+                raise utils.SymmetryInputError(
                     f"Can't create a {self.__class__.__name__} without passing 'resulting_symmetry' or 'sym_map'")
             else:
                 self.resulting_symmetry, *_ = sym_map
