@@ -952,13 +952,13 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         try:
             return self._design_selector
         except AttributeError:  # Get from the pose state
-            self._design_selector = self.info.get('design_selector', {})
+            self._design_selector = {}
             return self._design_selector
 
     @design_selector.setter
     def design_selector(self, design_selector: dict):
         if isinstance(design_selector, dict):
-            self._design_selector = self.info['design_selector'] = design_selector
+            self._design_selector = design_selector
         else:
             raise ValueError(
                 f'The attribute design_selector must be a dict, not {type(design_selector).__name__}')
