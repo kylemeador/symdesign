@@ -325,6 +325,7 @@ class SymEntry:
     _rotation_range: list[int]
     _setting_matrices: list[np.ndarray]
     _setting_matrices_numbers: list[int]
+    _uc_dimensions: tuple[float, float, float, float, float, float] | None
     cycle_size: int
     dimension: int
     number: int
@@ -985,8 +986,63 @@ class SymEntry:
 
 
 class CrystSymEntry(SymEntry):
+    deorthogonalization_matrix: np.ndarray
+    orthogonalization_matrix: np.ndarray
+
     def __init__(self, **kwargs):
         super().__init__(0, **kwargs)
+
+    @property
+    def uc_dimensions(self) -> tuple[float, float, float, float, float, float] | None:
+        """The unit cell dimensions for the lattice specified by lengths a, b, c and angles alpha, beta, gamma
+
+        Returns:
+            length a, length b, length c, angle alpha, angle beta, angle gamma
+        """
+        try:
+            return self._uc_dimensions
+        except AttributeError:
+            return None
+
+    @uc_dimensions.setter
+    def uc_dimensions(self, uc_dimensions: tuple[float, float, float, float, float, float]):
+        """Set the unit cell dimensions according to the lengths a, b, and c, and angles alpha, beta, and gamma
+
+        From http://www.ruppweb.org/Xray/tutorial/Coordinate%20system%20transformation.htm
+        """
+        try:
+            a, b, c, alpha, beta, gamma = self._uc_dimensions = uc_dimensions
+        except (TypeError, ValueError):  # Unpacking didn't work
+            return
+
+        degree_to_radians = math.pi / 180.
+        gamma *= degree_to_radians
+
+        # unit cell volume
+        a_cos = math.cos(alpha * degree_to_radians)
+        b_cos = math.cos(beta * degree_to_radians)
+        g_cos = math.cos(gamma)
+        g_sin = float(math.sin(gamma))
+        uc_volume = float(a * b * c * math.sqrt(1 - a_cos**2 - b_cos**2 - g_cos**2 + 2*a_cos*b_cos*g_cos))
+
+        # deorthogonalization matrix m
+        # m0 = [1./a, -g_cos / (a*g_sin),
+        #       ((b*g_cos*c*(a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/self.uc_volume)]
+        # m1 = [0., 1./b*g_sin, -(a*c*(a_cos - b_cos*g_cos) / (self.uc_volume*g_sin))]
+        # m2 = [0., 0., a*b*g_sin/self.uc_volume]
+        self.deorthogonalization_matrix = np.array(
+            [[1. / a, -g_cos / (a*g_sin),
+              ((b * g_cos * c * (a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/uc_volume)],
+             [0., 1. / (b*g_sin), -(a * c * (a_cos-b_cos*g_cos) / (self.uc_volume*g_sin))],
+             [0., 0., a * b * g_sin / uc_volume]])
+
+        # orthogonalization matrix m_inv
+        # m_inv_0 = [a, b*g_cos, c*b_cos]
+        # m_inv_1 = [0., b*g_sin, (c*(a_cos - b_cos*g_cos))/g_sin]
+        # m_inv_2 = [0., 0., self.uc_volume/(a*b*g_sin)]
+        self.orthogonalization_matrix = np.array([[a, b * g_cos, c * b_cos],
+                                                  [0., b * g_sin, (c * (a_cos - b_cos*g_cos)) / g_sin],
+                                                  [0., 0., uc_volume / (a*b*g_sin)]])
 
     @property
     def cryst_record(self) -> str | None:
@@ -998,7 +1054,7 @@ class CrystSymEntry(SymEntry):
             return self._cryst_record
 
     @cryst_record.setter
-    def cryst_record(self, cryst_record) -> str | None:
+    def cryst_record(self, cryst_record: str | None):
         self._cryst_record = cryst_record
 
 

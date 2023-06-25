@@ -4408,10 +4408,10 @@ class SymmetricModel(Model):  # Models):
     _symmetric_coords_split_by_entity: list[list[np.ndarray]]
     _transformation: list[types.TransformationMapping] | list[dict]
     _uc_dimensions: tuple[float, float, float, float, float, float] | None
-    deorthogonalization_matrix: np.ndarray
+    # deorthogonalization_matrix: np.ndarray
     expand_matrices: np.ndarray | list[list[float]] | None
     expand_translations: np.ndarray | list[float] | None
-    orthogonalization_matrix: np.ndarray
+    # orthogonalization_matrix: np.ndarray
     state_attributes = Model.state_attributes \
         | {'_assembly', '_assembly_minimally_contacting', '_assembly_tree', '_asu_indices', '_asu_model_idx',
            '_center_of_mass_symmetric_entities', '_center_of_mass_symmetric_models',
@@ -4419,8 +4419,8 @@ class SymmetricModel(Model):  # Models):
            '_symmetric_coords_split_by_entity'}
     symmetry_state_attrs = [
         '_symmetry', '_point_group_symmetry', '_dimension', '_cryst_record', '_number_of_symmetry_mates', 'uc_volume',
-        'orthogonalization_matrix', 'deorthogonalization_matrix']
-    uc_volume: float
+        ]
+        # 'orthogonalization_matrix', 'deorthogonalization_matrix']
 
     @classmethod
     def from_assembly(cls, assembly: list[Structure], sym_entry: utils.SymEntry.SymEntry | int = None,
@@ -4439,9 +4439,9 @@ class SymmetricModel(Model):  # Models):
 
         Args:
             sym_entry: The SymEntry which specifies all symmetry parameters
-            symmetry: The name of a symmetry to be searched against the existing compatible symmetries
-            transformations: The entity_transformations operations that reproduce the individual oligomers
-            uc_dimensions: Whether the symmetric coords should be generated from the ASU coords
+            symmetry: The name of a symmetry to be searched against compatible symmetries
+            transformations: Transformation operations that reproduce the oligomeric state for each Entity
+            uc_dimensions: The unit cell dimensions for the crystalline symmetry
             expand_matrices: A set of custom expansion matrices
             surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
@@ -4466,10 +4466,10 @@ class SymmetricModel(Model):  # Models):
 
         Args:
             sym_entry: The SymEntry which specifies all symmetry parameters
-            symmetry: The name of a symmetry to be searched against the existing compatible symmetries
-            uc_dimensions: Whether the symmetric coords should be generated from the ASU coords
+            symmetry: The name of a symmetry to be searched against compatible symmetries
+            uc_dimensions: The unit cell dimensions for the crystalline symmetry
             expand_matrices: A set of custom expansion matrices
-            transformations: The entity_transformations operations that reproduce the individual oligomers
+            transformations: Transformation operations that reproduce the oligomeric state for each Entity
             surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
         # Try to solve for symmetry as uc_dimensions are needed for cryst ops, if available
@@ -4485,15 +4485,19 @@ class SymmetricModel(Model):  # Models):
         if sym_entry is not None:
             if isinstance(sym_entry, utils.SymEntry.SymEntry):
                 if sym_entry.is_cryst_record():  # Token specifying use of the CRYST1 record. Replace with relevant info
-                    # Set the uc_dimensions as they must be parsed or provided
-                    self.uc_dimensions = uc_dimensions
                     if sym_entry.cryst_record:
                         # This is already a cryst_record containing CrystSymEntry. Use it as created
+                        self.log.critical(f'Setting {self}.sym_entry to {sym_entry}')
                         self.sym_entry = sym_entry
+                        # Set the uc_dimensions as they must be parsed or provided
+                        # TODO
                     else:  # Create a new one
                         self.sym_entry = utils.SymEntry.CrystSymEntry(
                             space_group=symmetry, sym_map=[symmetry] + ['C1' for _ in range(number_of_entities)])
-                        self.sym_entry.cryst_record = self.cryst_record
+                        # Set the uc_dimensions as they must be parsed or provided
+                        self.log.critical(f'Setting {self}.sym_entry to new crysalline symmetry {sym_entry}')
+                        self.sym_entry.uc_dimensions = uc_dimensions
+                        # cryst_record = self.cryst_record
                 else:
                     self.sym_entry = sym_entry  # Attach as this is set up properly
             else:  # Try to solve using integer and any info in symmetry. Fails upon non Nanohedra chiral space-group...
@@ -4669,57 +4673,49 @@ class SymmetricModel(Model):  # Models):
             length a, length b, length c, angle alpha, angle beta, angle gamma
         """
         try:
-            return self._uc_dimensions
+            return self.sym_entry.uc_dimensions
         except AttributeError:
             return None
 
-    # @property
-    # def uc_dimensions(self) -> list[float]:
+    # @uc_dimensions.setter
+    # def uc_dimensions(self, uc_dimensions: tuple[float, float, float, float, float, float]):
+    #     """Set the unit cell dimensions according to the lengths a, b, and c, and angles alpha, beta, and gamma
+    #
+    #     From http://www.ruppweb.org/Xray/tutorial/Coordinate%20system%20transformation.htm
+    #     """
     #     try:
-    #         return self._uc_dimensions
-    #     except AttributeError:
-    #         self._uc_dimensions = list(self.cryst['a_b_c']) + list(self.cryst['ang_a_b_c'])
-    #         return self._uc_dimensions
-
-    @uc_dimensions.setter
-    def uc_dimensions(self, uc_dimensions: tuple[float, float, float, float, float, float]):
-        """Set the unit cell dimensions according to the lengths a, b, and c, and angles alpha, beta, and gamma
-
-        From http://www.ruppweb.org/Xray/tutorial/Coordinate%20system%20transformation.htm
-        """
-        try:
-            a, b, c, alpha, beta, gamma = self._uc_dimensions = uc_dimensions
-        except (TypeError, ValueError):  # Unpacking didn't work
-            return
-
-        degree_to_radians = math.pi / 180.
-        gamma *= degree_to_radians
-
-        # unit cell volume
-        a_cos = math.cos(alpha * degree_to_radians)
-        b_cos = math.cos(beta * degree_to_radians)
-        g_cos = math.cos(gamma)
-        g_sin = float(math.sin(gamma))
-        self.uc_volume = float(a * b * c * math.sqrt(1 - a_cos**2 - b_cos**2 - g_cos**2 + 2*a_cos*b_cos*g_cos))
-
-        # deorthogonalization matrix m
-        # m0 = [1./a, -g_cos / (a*g_sin),
-        #       ((b*g_cos*c*(a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/self.uc_volume)]
-        # m1 = [0., 1./b*g_sin, -(a*c*(a_cos - b_cos*g_cos) / (self.uc_volume*g_sin))]
-        # m2 = [0., 0., a*b*g_sin/self.uc_volume]
-        self.deorthogonalization_matrix = np.array(
-            [[1. / a, -g_cos / (a*g_sin),
-              ((b * g_cos * c * (a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/self.uc_volume)],
-             [0., 1. / (b*g_sin), -(a * c * (a_cos-b_cos*g_cos) / (self.uc_volume*g_sin))],
-             [0., 0., a * b * g_sin / self.uc_volume]])
-
-        # orthogonalization matrix m_inv
-        # m_inv_0 = [a, b*g_cos, c*b_cos]
-        # m_inv_1 = [0., b*g_sin, (c*(a_cos - b_cos*g_cos))/g_sin]
-        # m_inv_2 = [0., 0., self.uc_volume/(a*b*g_sin)]
-        self.orthogonalization_matrix = np.array([[a, b * g_cos, c * b_cos],
-                                                 [0., b * g_sin, (c * (a_cos - b_cos*g_cos)) / g_sin],
-                                                 [0., 0., self.uc_volume / (a*b*g_sin)]])
+    #         a, b, c, alpha, beta, gamma = self._uc_dimensions = uc_dimensions
+    #     except (TypeError, ValueError):  # Unpacking didn't work
+    #         return
+    #
+    #     degree_to_radians = math.pi / 180.
+    #     gamma *= degree_to_radians
+    #
+    #     # unit cell volume
+    #     a_cos = math.cos(alpha * degree_to_radians)
+    #     b_cos = math.cos(beta * degree_to_radians)
+    #     g_cos = math.cos(gamma)
+    #     g_sin = float(math.sin(gamma))
+    #     self.uc_volume = float(a * b * c * math.sqrt(1 - a_cos**2 - b_cos**2 - g_cos**2 + 2*a_cos*b_cos*g_cos))
+    #
+    #     # deorthogonalization matrix m
+    #     # m0 = [1./a, -g_cos / (a*g_sin),
+    #     #       ((b*g_cos*c*(a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/self.uc_volume)]
+    #     # m1 = [0., 1./b*g_sin, -(a*c*(a_cos - b_cos*g_cos) / (self.uc_volume*g_sin))]
+    #     # m2 = [0., 0., a*b*g_sin/self.uc_volume]
+    #     self.deorthogonalization_matrix = np.array(
+    #         [[1. / a, -g_cos / (a*g_sin),
+    #           ((b * g_cos * c * (a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/self.uc_volume)],
+    #          [0., 1. / (b*g_sin), -(a * c * (a_cos-b_cos*g_cos) / (self.uc_volume*g_sin))],
+    #          [0., 0., a * b * g_sin / self.uc_volume]])
+    #
+    #     # orthogonalization matrix m_inv
+    #     # m_inv_0 = [a, b*g_cos, c*b_cos]
+    #     # m_inv_1 = [0., b*g_sin, (c*(a_cos - b_cos*g_cos))/g_sin]
+    #     # m_inv_2 = [0., 0., self.uc_volume/(a*b*g_sin)]
+    #     self.orthogonalization_matrix = np.array([[a, b * g_cos, c * b_cos],
+    #                                              [0., b * g_sin, (c * (a_cos - b_cos*g_cos)) / g_sin],
+    #                                              [0., 0., self.uc_volume / (a*b*g_sin)]])
 
     @property
     def cryst_record(self) -> str | None:
@@ -5092,7 +5088,7 @@ class SymmetricModel(Model):  # Models):
             raise ValueError(
                 "Can't manipulate the unit cell. No unit cell dimensions were passed")
 
-        return np.matmul(cart_coords, np.transpose(self.deorthogonalization_matrix))
+        return np.matmul(cart_coords, np.transpose(self.sym_entry.deorthogonalization_matrix))
 
     def frac_to_cart(self, frac_coords: np.ndarray | Iterable | int | float) -> np.ndarray:
         """Return cartesian coordinates from fractional coordinates
@@ -5107,7 +5103,7 @@ class SymmetricModel(Model):  # Models):
             raise ValueError(
                 "Can't manipulate the unit cell. No unit cell dimensions were passed")
 
-        return np.matmul(frac_coords, np.transpose(self.orthogonalization_matrix))
+        return np.matmul(frac_coords, np.transpose(self.sym_entry.orthogonalization_matrix))
 
     # def generate_assembly_symmetry_models(self, surrounding_uc: bool = False, **kwargs):  # Unused
     #     # , return_side_chains=True):
