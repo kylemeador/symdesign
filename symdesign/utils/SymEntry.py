@@ -1013,6 +1013,8 @@ class CrystSymEntry(SymEntry):
         try:
             a, b, c, alpha, beta, gamma = self._uc_dimensions = uc_dimensions
         except (TypeError, ValueError):  # Unpacking didn't work
+            self.log.warning(f"The passed uc_dimensions '{uc_dimensions}' aren't a valid "
+                             f"tuple[float, float, float, float, float, float]")
             return
 
         degree_to_radians = math.pi / 180.

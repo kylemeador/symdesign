@@ -4623,11 +4623,11 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self.log.debug(f'Found c-term secondary_structure {secondary_structure[-(remove_x_cterm_residues + 5):]}')
         self.log.info(f"Removing {remove_x_nterm_residues} n-term and {remove_x_cterm_residues} c-term "
                       f"residues with new terminal secondary structure:\n"
-                      f"\told n={'-' * remove_x_nterm_residues}"
+                      f"\tnew n={'-' * remove_x_nterm_residues}"
                       f"{secondary_structure[remove_x_nterm_residues:remove_x_nterm_residues + 10]}\n"
-                      f"\tnew n={secondary_structure[:remove_x_nterm_residues + 10]}\n"
-                      f"\told c={secondary_structure[c_term_index - 10:c_term_index]}{'-' * remove_x_cterm_residues}\n"
-                      f"\tnew c={secondary_structure[c_term_index - 10:]}"
+                      f"\told n={secondary_structure[:remove_x_nterm_residues + 10]}\n"
+                      f"\tnew c={secondary_structure[c_term_index - 10:c_term_index]}{'-' * remove_x_cterm_residues}\n"
+                      f"\told c={secondary_structure[c_term_index - 10:]}"
                       )
         residues = self.residues
         self.delete_residues(residues[:remove_x_nterm_residues])
