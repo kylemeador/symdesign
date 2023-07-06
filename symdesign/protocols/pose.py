@@ -1296,9 +1296,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     data.transform = sql.EntityTransform()
                     data.transform.transformation = transformation
                 # Ensure this information is persistent
-                with self.job.db.session(expire_on_commit=False) as session:
-                    session.add(self)
-                    session.commit()
+                self._update_db()
 
         # if not self.entity_names:  # Store the entity names if they were never generated
         #     self.entity_names = [entity.name for entity in self.pose.entities]
@@ -1314,9 +1312,17 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             self.source_path = out_path = self.pose_path
             # # Propagate to the PoseJob parent DesignData
             # self.source_path = out_path = self.pose_source.structure_path = self.pose_path
+            # Ensure this information is persistent
+            self._update_db()
         else:
             out_path = None
         self.output_pose(path=out_path)
+
+    def _update_db(self):
+        """Ensure information added to the PoseJob is persistent in the database"""
+        with self.job.db.session(expire_on_commit=False) as session:
+            session.add(self)
+            session.commit()
 
     def output_pose(self, path: AnyStr = None):  # Todo to PoseProtocols?
         """Save a new Structure from multiple Chain or Entity objects including the Pose symmetry"""
