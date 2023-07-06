@@ -4495,7 +4495,7 @@ class SymmetricModel(Model):  # Models):
                         self.sym_entry = utils.SymEntry.CrystSymEntry(
                             space_group=symmetry, sym_map=[symmetry] + ['C1' for _ in range(number_of_entities)])
                         # Set the uc_dimensions as they must be parsed or provided
-                        self.log.critical(f'Setting {self}.sym_entry to new crysalline symmetry {sym_entry}')
+                        self.log.critical(f'Setting {self}.sym_entry to new crysalline symmetry {self.sym_entry}')
                         self.sym_entry.uc_dimensions = uc_dimensions
                         # cryst_record = self.cryst_record
                 else:

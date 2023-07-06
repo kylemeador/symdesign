@@ -921,7 +921,10 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
         sym_entry_chimera = model1.sym_entry
         for _ in range(model2_entities_after_fusion):
             sym_entry_chimera.append_group('C1')
+        input(f'sym_entry_chimera: {repr(sym_entry_chimera)},'
+              f' specification {sym_entry_chimera.specification}')
     else:
+        # Todo this can't be none as .groups[] is indexed later...
         sym_entry_chimera = None
 
     # Create the entity_transformations for model1
