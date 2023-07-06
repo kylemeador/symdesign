@@ -1033,7 +1033,7 @@ class CrystSymEntry(SymEntry):
         self.deorthogonalization_matrix = np.array(
             [[1. / a, -g_cos / (a*g_sin),
               ((b * g_cos * c * (a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/uc_volume)],
-             [0., 1. / (b*g_sin), -(a * c * (a_cos-b_cos*g_cos) / (self.uc_volume*g_sin))],
+             [0., 1. / (b*g_sin), -(a * c * (a_cos-b_cos*g_cos) / (uc_volume*g_sin))],
              [0., 0., a * b * g_sin / uc_volume]])
 
         # orthogonalization matrix m_inv
