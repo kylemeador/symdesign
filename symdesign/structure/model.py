@@ -4497,7 +4497,7 @@ class SymmetricModel(Model):  # Models):
                         # Set the uc_dimensions as they must be parsed or provided
                         self.log.critical(f'Setting {self}.sym_entry to new crysalline symmetry {self.sym_entry}')
                         self.sym_entry.uc_dimensions = uc_dimensions
-                        # cryst_record = self.cryst_record
+                        self.sym_entry.cryst_record = self.cryst_record
                 else:
                     self.sym_entry = sym_entry  # Attach as this is set up properly
             else:  # Try to solve using integer and any info in symmetry. Fails upon non Nanohedra chiral space-group...
