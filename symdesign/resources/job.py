@@ -549,16 +549,16 @@ class JobResources:
         self.specific_protocol: str = kwargs.get('specific_protocol')
         # self.structure_background: bool = kwargs.get(structure_background, False)
         # Process symmetry
-        sym_entry = kwargs.get(putils.sym_entry)
+        sym_entry_number = kwargs.get(putils.sym_entry)
         symmetry = kwargs.get('symmetry')
-        if sym_entry is None and symmetry is None:
+        if sym_entry_number is None and symmetry is None:
             self.sym_entry: SymEntry.SymEntry | str | None = None
         else:
             if symmetry and 'cryst' in symmetry.lower():
                 # Later, symmetry information will be retrieved from the file header
                 self.sym_entry = SymEntry.CrystRecord  # Input was provided as 'cryst'
             else:
-                self.sym_entry = SymEntry.parse_symmetry_to_sym_entry(sym_entry=sym_entry, symmetry=symmetry)
+                self.sym_entry = SymEntry.parse_symmetry_to_sym_entry(sym_entry_number=sym_entry_number, symmetry=symmetry)
 
         # Selection flags
         self.save_total = kwargs.get('save_total')

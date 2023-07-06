@@ -4500,8 +4500,10 @@ class SymmetricModel(Model):  # Models):
                         self.sym_entry.cryst_record = self.cryst_record
                 else:
                     self.sym_entry = sym_entry  # Attach as this is set up properly
-            else:  # Try to solve using integer and any info in symmetry. Fails upon non Nanohedra chiral space-group...
-                self.sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(sym_entry=sym_entry, symmetry=symmetry)
+            else:  # Try to solve using sym_entry as integer and any info in symmetry.
+                # Fails upon non-Nanohedra, chiral space-groups...
+                self.sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(
+                    sym_entry_number=sym_entry, symmetry=symmetry)
         # Todo this may be needed if wanting crystal symmetries
         # elif symmetry:  # Either provided or solved from cryst_record
         #     # Existing sym_entry takes precedence since the user specified it
