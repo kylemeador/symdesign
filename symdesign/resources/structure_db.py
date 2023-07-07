@@ -208,7 +208,7 @@ def download_structures(structure_identifiers: Iterable[str], out_dir: str = os.
                 file_path = model.file_path
                 model = entity
                 model.file_path = file_path
-            else:  # We couldn't find the specified EntityID
+            else:  # Couldn't find the specified EntityID
                 logger.warning(f"For {structure_identifier}, couldn't locate the specified Entity "
                                f"'{structure_identifier}'. The available Entity instances are "
                                f'{", ".join(entity.name for entity in model.entities)}')
@@ -472,6 +472,10 @@ class StructureDatabase(Database):
                         # pose.file_path is already set
                         # orient_file = os.path.join(models_dir, f'{structure_identifier}.pdb')
                         # pose.file_path = pose.write(out_path=orient_file)
+                        # Set each Entity.file_path
+                        for entity in pose.entities:
+                            entity_cryst_path = os.path.join(models_dir, f'{entity.name}.pdb')
+                            entity.file_path = entity.write(out_path=entity_cryst_path)
                     else:
                         try:  # Orient the Structure
                             pose.orient(symmetry=resulting_symmetry)
