@@ -1487,11 +1487,11 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                                                                       if entity.name in additional_entity_ids2])
                             for bend_idx, coords in enumerate(bent_coords, 1):
                                 pose.coords = coords
-                                if pose.is_clash(warn=False, silence_exceptions=True):
+                                if pose.is_clash(silence_exceptions=True):
                                     logger.info(f'Alignment {fusion_name}, bend {bend_idx} clashes')
                                     continue
                                 if pose.is_symmetric() and not job.design.ignore_symmetric_clashes and \
-                                        pose.symmetric_assembly_is_clash(warn=False):
+                                        pose.symmetric_assembly_is_clash():
                                     logger.info(f'Alignment {fusion_name}, bend {bend_idx} has '
                                                 'symmetric clashes')
                                     continue
@@ -1499,12 +1499,12 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                                 output_pose(name + f'-bend{bend_idx}')
                         else:
                             if not job.design.ignore_pose_clashes and \
-                                    pose.is_clash(warn=False, silence_exceptions=True):
+                                    pose.is_clash(silence_exceptions=True):
                                 logger.info(f'Alignment {fusion_name} clashes')
                                 continue
 
                             if pose.is_symmetric() and not job.design.ignore_symmetric_clashes and \
-                                    pose.symmetric_assembly_is_clash(warn=False):
+                                    pose.symmetric_assembly_is_clash():
                                 logger.info(f'Alignment {fusion_name} has symmetric clashes')
                                 continue
 

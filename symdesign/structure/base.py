@@ -4771,7 +4771,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         return [residue.local_density for residue in self.residues]
 
     def is_clash(self, measure: coords_type_literal = 'backbone_and_cb', distance: float = 2.1,
-                 warn: bool = True, silence_exceptions: bool = False,
+                 warn: bool = False, silence_exceptions: bool = False,
                  report_hydrogen: bool = False) -> bool:
         """Check if the Structure contains any self clashes. If clashes occur with the Backbone, return True. Reports
         the Residue where the clash occurred and the clashing Atoms

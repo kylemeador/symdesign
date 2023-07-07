@@ -505,7 +505,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     def from_path(cls, path: str, project: str = None, **kwargs):
         # path = os.path.abspath(path)
         if not os.path.exists(path):
-            raise FileNotFoundError(f"The specified {cls.__name__} path '{path}' wasn't found")
+            raise FileNotFoundError(
+                f"The specified {cls.__name__} path '{path}' wasn't found")
         filename, extension = os.path.splitext(path)
         # if 'pdb' in extension or 'cif' in extension:  # Initialize from input file
         if extension != '':  # Initialize from input file
@@ -517,8 +518,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 #     project = path_components[-2]
                 # except IndexError:  # We only have a 2 index list
                 if project == '':
-                    raise InputError(f"Couldn't get the project from the path '{path}'. Please provide "
-                                     f"project name with --{flags.project_name}")
+                    raise InputError(
+                        f"Couldn't get the project from the path '{path}'. Please provide "
+                        f"project name with --{flags.project_name}")
 
             return cls(name=name, project=project, source_path=path, **kwargs)
         elif os.path.isdir(path):
@@ -526,11 +528,13 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             try:
                 name, project, *_ = reversed(path.split(os.sep))
             except ValueError:  # Only got 1 value during unpacking... This isn't a "pose_directory" identifier
-                raise InputError(f"Couldn't coerce {path} to a {cls.__name__}. The directory must contain the "
-                                 f'"project{os.sep}pose_name" string')
+                raise InputError(
+                    f"Couldn't coerce {path} to a {cls.__name__}. The directory must contain the "
+                    f'"project{os.sep}pose_name" string')
             return cls(name=name, project=project, **kwargs)  # source_path=None,
         else:
-            raise InputError(f"{cls.__name__} couldn't load the specified source path '{path}'")
+            raise InputError(
+                f"{cls.__name__} couldn't load the specified source path '{path}'")
 
     @classmethod
     def from_file(cls, file: str, project: str = None, **kwargs):
@@ -544,7 +548,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         """
         # file = os.path.abspath(file)
         if not os.path.exists(file):
-            raise FileNotFoundError(f"The specified {cls.__name__} structure source file '{file}' wasn't found!")
+            raise FileNotFoundError(
+                f"The specified {cls.__name__} structure source file '{file}' wasn't found!")
         filename, extension = os.path.splitext(file)
         # if 'pdb' in extension or 'cif' in extension:  # Initialize from input file
         if extension != '':  # Initialize from input file
@@ -555,7 +560,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #     # self.project = os.path.basename(self.project_path)
         #     # self.pose_identifier = f'{self.project}{os.sep}{self.name}'
         else:
-            raise InputError(f"{cls.__name__} couldn't load the specified source file '{file}'")
+            raise InputError(
+                f"{cls.__name__} couldn't load the specified source file '{file}'")
 
         # if self.job.nanohedra_outputV1:
         #     # path/to/design_symmetry/building_blocks/degen/rot/tx
@@ -571,8 +577,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             #     project = path_components[-2]
             # except IndexError:  # We only have a 2 index list
             if project == '':
-                raise InputError(f"Couldn't get the project from the path '{file}'. Please provide "
-                                 f"project name with --{flags.project_name}")
+                raise InputError(
+                    f"Couldn't get the project from the path '{file}'. Please provide "
+                    f"project name with --{flags.project_name}")
 
         return cls(name=name, project=project, source_path=file, **kwargs)
 
@@ -589,8 +596,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         try:
             name, project, *_ = reversed(source_path.split(os.sep))
         except ValueError:  # Only got 1 value during unpacking... This isn't a "pose_directory" identifier
-            raise InputError(f"Couldn't coerce {source_path} to a {cls.__name__}. The directory must contain the "
-                             f'"project{os.sep}pose_name" string')
+            raise InputError(
+                f"Couldn't coerce {source_path} to a {cls.__name__}. The directory must contain the "
+                f'"project{os.sep}pose_name" string')
 
         return cls(name=name, project=project, **kwargs)  # source_path=os.path.join(root, source_path),
 
@@ -616,8 +624,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         try:
             project, name = pose_identifier.split(os.sep)
         except ValueError:  # We don't have a pose_identifier
-            raise InputError(f"Couldn't coerce {pose_identifier} to 'project' {os.sep} 'name'. Please ensure the "
-                             f'pose_identifier is passed with the "project{os.sep}name" string')
+            raise InputError(
+                f"Couldn't coerce {pose_identifier} to 'project' {os.sep} 'name'. Please ensure the "
+                f'pose_identifier is passed with the "project{os.sep}name" string')
         return cls(name=name, project=project, **kwargs)
     # END classmethods where the PoseData hasn't been initialized from sqlalchemy
 
@@ -783,7 +792,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if self.initial_model is None:
             if self.source_path is None:
                 raise InputError(
-                    f"Couldn't {self.load_initial_model.__name__} for {self.name} as there isn't a specified file")
+                    f"Couldn't {self.load_initial_model.__name__}() for {self.name} as there isn't a specified file")
             self.initial_model = Model.from_file(self.source_path, log=self.log)
             # # Todo ensure that the chain names are renamed if they are imported a certain way
             # if len(set([entity.chain_id for entity in self.initial_model.entities])) \
@@ -1267,16 +1276,16 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             self.pose = Pose.from_file(self.structure_source, name=self.name, **self.pose_kwargs)
 
         try:
-            self.pose.is_clash()
+            self.pose.is_clash(warn=not self.job.design.ignore_clashes)
         except ClashError:  # as error:
             if self.job.design.ignore_pose_clashes:
-                self.log.critical(f"The Pose from '{self.structure_source}' contains clashes")
+                self.log.warning(f"The Pose from '{self.structure_source}' contains clashes")
             else:
                 raise
         if self.pose.is_symmetric():
             if self.pose.symmetric_assembly_is_clash():
                 if self.job.design.ignore_symmetric_clashes:
-                    self.log.critical(f"The Pose symmetric assembly from '{self.structure_source}' contains clashes")
+                    self.log.warning(f"The Pose symmetric assembly from '{self.structure_source}' contains clashes")
                 else:
                     raise ClashError(
                         "The Pose symmetric assembly contains clashes and won't be considered. If you "

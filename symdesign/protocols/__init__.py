@@ -396,6 +396,8 @@ def orient(job: pose.PoseJob, to_pose_directory: bool = True):
         job: The PoseJob for which the protocol should be performed on
         to_pose_directory: Whether to write the file to the pose_directory or to another source
     """
+    # Todo
+    #  Should this module only be used with imported structures? Prohibit after import?
     if not job.initial_model:
         job.load_initial_model()
 
@@ -918,11 +920,11 @@ def helix_bending(job: pose.PoseJob):
     for bent_idx, coords in enumerate(bent_coords, 1):
         job.pose.coords = coords
         # Check for clashes
-        if job.pose.is_clash(warn=False, silence_exceptions=True):
+        if job.pose.is_clash(silence_exceptions=True):
             logger.info(f'Bend index {bent_idx} clashes')
             continue
         if job.pose.is_symmetric() and not job.design.ignore_symmetric_clashes and \
-                job.pose.symmetric_assembly_is_clash(warn=False):
+                job.pose.symmetric_assembly_is_clash():
             logger.info(f'Bend index {bent_idx} has symmetric clashes')
             continue
 

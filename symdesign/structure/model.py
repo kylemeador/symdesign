@@ -6038,8 +6038,8 @@ class SymmetricModel(Model):  # Models):
         # Check to see if the parsed Model is already represented symmetrically
         number_of_symmetry_mates = self.number_of_symmetry_mates
         if self.number_of_entities * number_of_symmetry_mates == self.number_of_chains:
-            self.log.critical(f'Setting the {self.__class__.__name__} to an ASU from a symmetric representation. '
-                              "This method hasn't been thoroughly debugged")
+            self.log.debug(f'Setting the {self.__class__.__name__} to an ASU from a symmetric representation. '
+                           "This method hasn't been thoroughly debugged")
             # Set base Structure attributes
             # Can't do this as they may not be symmetric!
             # # Set the symmetric coords according to existing coords
@@ -6110,12 +6110,12 @@ class SymmetricModel(Model):  # Models):
             else:
                 self.log.debug(f'Entity {entity} is already the correct oligomer, skipping make_oligomer()')
 
-    def symmetric_assembly_is_clash(self, distance: float = 2.1, warn: bool = True) -> bool:  # Todo design_selector
+    def symmetric_assembly_is_clash(self, distance: float = 2.1, warn: bool = False) -> bool:  # Todo design_selector
         """Returns True if the SymmetricModel presents any clashes. Checks only backbone and CB atoms
 
         Args:
             distance: The cutoff distance for the coordinate overlap
-            warn: Whether to emit warnings about identified clashes. Output grouped into measure vs non-measure
+            warn: Whether to emit warnings about identified clashes
         Returns:
             True if the symmetric assembly clashes with the asu, False otherwise
         """

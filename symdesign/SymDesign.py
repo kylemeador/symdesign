@@ -462,7 +462,7 @@ def main():
             if stage and job.distribute_work:
                 scripts_to_distribute = [os.path.join(pose_job.scripts_path, f'{utils.starttime}{stage}.sh')
                                          for pose_job in successful_pose_jobs]
-                distribute.check_scripts_exist(commands=scripts_to_distribute)
+                distribute.check_scripts_exist(directives=scripts_to_distribute)
                 distribute.commands(scripts_to_distribute, name='_'.join(job.default_output_tuple), scale=stage,
                                     out_path=job.sbatch_scripts, commands_out_path=job.job_paths)
 
@@ -613,7 +613,7 @@ def main():
         print(f"\nFound flag(s) that aren't recognized with the requested job/module(s): {', '.join(additional_args)}\n"
               'Please correct/remove them and resubmit your command. Try adding -h/--help for available formatting\n'
               f"If you want to view all {putils.program_name} flags, "
-              f"replace the MODULE '{args.module}' with '{flags.all_flags}'")
+              f"replace the MODULE '{args.module}' with '{flags.all_flags}'\n")
         sys.exit(1)
 
     if remove_dummy:  # Remove the dummy input
