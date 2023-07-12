@@ -5197,10 +5197,11 @@ class PoseProtocol(PoseData):
             fig = plt.figure(figsize=figure_aspect_ratio)
             # legend_fill_value = int(15 * pose_length / 100)
 
+            # sharex=True allows the axis to be shared across plots
             # collapse_ax, contact_ax, errat_ax = fig.subplots(3, 1, sharex=True)
             # collapse_ax, errat_ax = fig.subplots(2, 1, sharex=True)
             collapse_ax = fig.subplots(1, 1, sharex=True)
-            # add the contact order to a new plot
+            # Add the contact order to the same plot with a separate axis
             contact_ax = collapse_ax.twinx()
             contact_order_df = residues_df.loc[pose_name, idx_slice[:, 'contact_order']].droplevel(-1, axis=1)
             # source_contact_order_s = pd.Series(source_contact_order, index=residue_indices, name='contact_order')

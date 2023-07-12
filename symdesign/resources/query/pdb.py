@@ -319,17 +319,19 @@ def format_terminal_group(*group_args, service: service_types_literal = 'text', 
     elif service == 'sequence':
         sequence_values = default_sequence_values.copy()
         if 'evalue_cutoff' in group_kwargs:
-            sequence_values['evalue_cutoff'] = kwargs['evalue_cutoff']
+            sequence_values['evalue_cutoff'] = group_kwargs['evalue_cutoff']
         if 'identity_cutoff' in group_kwargs:
-            sequence_values['identity_cutoff'] = kwargs['identity_cutoff']
+            sequence_values['identity_cutoff'] = group_kwargs['identity_cutoff']
         try:
             sequence = group_kwargs['sequence']
         except KeyError:
-            raise ValueError(f"Can't use the service='sequence' without providing keyword argument sequence='MSVQW...'")
+            raise ValueError(
+                f"Can't use the service='sequence' without providing keyword argument sequence='MSVQW...'")
         terminal_group['parameters'] = dict(sequence_type='protein', value=sequence, **sequence_values)
         # 'target': 'pdb_protein_sequence',
     else:
-        raise ValueError(f"The service '{service}' isn't implemented. Only 'text' and 'sequence' are valid")
+        raise ValueError(
+            f"The service '{service}' isn't implemented. Only 'text' and 'sequence' are valid")
 
     return terminal_group
 
@@ -1809,7 +1811,7 @@ def solve_confirmed_assemblies(params: QueryParams, grouped_entity_ids: dict[str
             The Entity group ID of those groups that couldn't be solved
         )
     """
-    # Check if the top thermophilic ids are actually bonafide assemblies
+    # Check if the top thermophilic ids are actually bona-fide assemblies
     top_entity_ids = []
     # If they aren't, then solve by PDB API query
     solve_group_by_pdb = []
@@ -1836,9 +1838,9 @@ def solve_confirmed_assemblies(params: QueryParams, grouped_entity_ids: dict[str
     author_confirmed_entry_ids = [id_[:4] for id_ in author_confirmed_assembly_ids]
     remove_group_ids = []
     remove_group_indices = []
-    # Find those author confirmed assemblies to fit in their corresponding groups
-    for group_idx, (group_id, thermo_id) in enumerate(zip(grouped_entity_ids.keys(), top_entity_ids)):
-        if thermo_id is None:
+    # For orphaned groups, find and fit author confirmed assemblies in their corresponding groups
+    for group_idx, (top_id, group_id) in enumerate(zip(top_entity_ids, grouped_entity_ids.keys())):
+        if top_id is None:
             for entity_id in grouped_entity_ids[group_id]:
                 if entity_id[:4] in author_confirmed_entry_ids:
                     top_entity_ids[group_idx] = entity_id

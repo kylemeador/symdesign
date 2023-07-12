@@ -47,7 +47,8 @@ if __name__ == '__main__':
     # group_ids = [group['identifier'] for group in query_json["group_set"]]
     if thermophilic_groups:
         thermophilic_group_ids = parse_pdb_response_for_ids(thermophilic_groups, groups=True)
-        grouped_thermophilic_entity_ids = [parse_pdb_response_for_ids(group) for group in thermophilic_groups['group_set']]
+        grouped_thermophilic_entity_ids = [parse_pdb_response_for_ids(group)
+                                           for group in thermophilic_groups['group_set']]
         logger.debug(f'Found the thermophilic return ids: {grouped_thermophilic_entity_ids}')
     else:
         thermophilic_group_ids = []
@@ -92,8 +93,7 @@ if __name__ == '__main__':
     # logger.debug(f'other_symmetry_returns: {other_symmetry_returns}')
     # other_symmetry_return_ids = parse_pdb_response_for_ids(other_symmetry_returns)
     # logger.info(f'Found all other return_ids: {other_symmetry_return_ids}')
-    final_building_blocks = top_thermophilic_entity_ids + top_other_symmetry_entity_ids
-    final_building_blocks = sorted(final_building_blocks)
+    final_building_blocks = sorted(top_thermophilic_entity_ids + top_other_symmetry_entity_ids)
     logger.info(f'Found all EntityIDs: {final_building_blocks}')
 
     utils.io_save(final_building_blocks)

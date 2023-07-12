@@ -6906,7 +6906,7 @@ class Pose(SymmetricModel, Metrics):
         Args:
             sequences: The sequences to score
             method: Whether to score using ProteinMPNN or Rosetta
-            measure_unbound: Whether the protein should be designed with concern for the unbound state
+            measure_unbound: Whether the protein should be scored in the unbound state
             ca_only: Whether a minimal CA variant of the protein should be used for design calculations
         Keyword Args:
             model_name: The name of the model to use from ProteinMPNN taking the format v_X_Y,
@@ -6926,8 +6926,8 @@ class Pose(SymmetricModel, Metrics):
             A mapping of the design score type name to the per-residue output data which is a ndarray with shape
             (number of sequences, pose_length).
             For proteinmpnn,
-            these are the outputs 'sequences', 'numeric_sequences', 'proteinmpnn_loss_complex', and
-            'proteinmpnn_loss_unbound' mapped to their corresponding arrays with dat types as
+            these are the outputs: 'sequences', 'numeric_sequences', 'proteinmpnn_loss_complex', and
+            'proteinmpnn_loss_unbound' mapped to their corresponding arrays with data types as np.ndarray
 
             For rosetta, this function isn't implemented
         """
@@ -7047,7 +7047,8 @@ class Pose(SymmetricModel, Metrics):
                                     **scores}
         else:
             sequences_and_scores = {}
-            raise ValueError(f"The method '{method}' isn't a viable scoring protocol")
+            raise ValueError(
+                f"The method '{method}' isn't a viable scoring protocol")
 
         return sequences_and_scores
 
