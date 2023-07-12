@@ -2344,13 +2344,14 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                         mpnn_model.unconditional_probs(unbound_batch['X_unbound'], unbound_batch['mask'],
                                                        unbound_batch['residue_idx'],
                                                        unbound_batch['chain_encoding']).cpu()
-                    asu_conditional_softmax_seq_unbound = \
+                    asu_unconditional_softmax_seq_unbound = \
                         np.exp(unconditional_log_probs_unbound[:, :pose_length, :mpnn_null_idx])
                 # Remove any unnecessary reserved memory
                 del unbound_batch
             else:
-                raise NotImplementedError(f"{fragment_dock.__name__} isn't written to only measure the complexed state")
-                asu_conditional_softmax_seq_unbound = None
+                raise NotImplementedError(
+                    f"{fragment_dock.__name__} isn't written to only measure the complex state")
+                asu_unconditional_softmax_seq_unbound = None
             # Disregard X, chain_M_pos, and bias_by_res parameters return and use the pose specific data from below
             # parameters.pop('X')  # overwritten by X_unbound
             parameters.pop('chain_M_pos')
@@ -2430,9 +2431,9 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                     #     np.exp(conditional_log_probs_null_seq[:, :pose_length, :mpnn_null_idx])
 
                 # Remove the gaps index from the softmax input with :mpnn_null_idx]
-                asu_conditional_softmax_seq = \
+                asu_unconditional_softmax_seq = \
                     np.exp(unconditional_log_probs[:, :pose_length, :mpnn_null_idx])
-                # asu_conditional_softmax_seq
+                # asu_unconditional_softmax_seq
                 # tensor([[[0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
                 #          ...,
                 #          [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059]],
@@ -2441,8 +2442,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                 #          ...,
                 #          [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059]]])
                 per_residue_dock_cross_entropy = \
-                    metrics.cross_entropy(asu_conditional_softmax_seq,
-                                          asu_conditional_softmax_seq_unbound[:actual_batch_length],
+                    metrics.cross_entropy(asu_unconditional_softmax_seq,
+                                          asu_unconditional_softmax_seq_unbound[:actual_batch_length],
                                           per_entry=True)
 
                 # Set up per_residue metrics
@@ -2460,7 +2461,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                     # np.log causes -inf at 0, thus we need to correct these to a very large number
                     batch_fragment_profile = torch.from_numpy(fragment_profile_array)
                     per_residue_fragment_cross_entropy = \
-                        metrics.cross_entropy(asu_conditional_softmax_seq,
+                        metrics.cross_entropy(asu_unconditional_softmax_seq,
                                               batch_fragment_profile,
                                               per_entry=True)
                     # per_residue_fragment_cross_entropy
@@ -2473,7 +2474,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
 
                 if pose.evolutionary_profile:
                     per_residue_evolution_cross_entropy = \
-                        metrics.cross_entropy(asu_conditional_softmax_seq,
+                        metrics.cross_entropy(asu_unconditional_softmax_seq,
                                               batch_evolutionary_profile[:actual_batch_length],
                                               per_entry=True)
                 else:  # Populate with null data
@@ -2486,7 +2487,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                     #  need to make scipy.softmax(design_profiles) so scaling matches
                     batch_design_profile = torch.from_numpy(np.array(design_profiles))
                     per_residue_design_cross_entropy = \
-                        metrics.cross_entropy(asu_conditional_softmax_seq,
+                        metrics.cross_entropy(asu_unconditional_softmax_seq,
                                               batch_design_profile,
                                               per_entry=True)
                 else:  # Populate with null data
@@ -2516,7 +2517,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                 if collapse_profile.size:  # Not equal to zero
                     # Include new axis for the sequence iteration to work on an array v
                     collapse_by_pose = \
-                        metrics.collapse_per_residue(asu_conditional_softmax_seq[:, None],
+                        metrics.collapse_per_residue(asu_unconditional_softmax_seq[:, None],
                                                      contact_order_per_res_z, reference_collapse,
                                                      alphabet_type=protein_letters_alph1,
                                                      hydrophobicity='expanded')
