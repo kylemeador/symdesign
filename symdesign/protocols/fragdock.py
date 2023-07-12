@@ -3249,7 +3249,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
 
         # logger.debug(f'before rotations[:3]: {rotations[:3]}')
         # logger.debug(f'before translations[:3]: {translations[:3]}')
-        hashed_transforms = model_transform_hasher.transforms_to_hash(rotations, translations)
+        hashed_transforms = model_transform_hasher.transforms_to_hash(rotations, np.array(translations))
         # rotations, translations = model_transform_hasher.hash_to_transforms(hashed_transforms)
         # logger.debug(f'after rotations[:3]: {rotations[:3]}')
         # logger.debug(f'after translations[:3]: {translations[:3]}')
