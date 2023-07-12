@@ -7501,6 +7501,23 @@ class Pose(SymmetricModel, Metrics):
         pose_metrics['interface_secondary_structure_topology'] = total_interface_ss_topology
         pose_metrics['interface_secondary_structure_count'] = len(total_interface_ss_topology)
 
+        # Calculate secondary structure percent for the entire interface
+        helical_designations = ['H', 'G', 'I']
+        strand_designations = ['E', 'B']
+        coil_designations = ['C', 'T']
+        number_helical_residues = number_strand_residues = number_loop_residues = 0
+        for residue in interface_residues:
+            if residue.secondary_structure in helical_designations:
+                number_helical_residues += 1
+            elif residue.secondary_structure in strand_designations:
+                number_strand_residues += 1
+            elif residue.secondary_structure in coil_designations:
+                number_loop_residues += 1
+
+        pose_metrics['percent_interface_helix'] = number_helical_residues / number_residues_interface
+        pose_metrics['percent_interface_strand'] = number_strand_residues / number_residues_interface
+        pose_metrics['percent_interface_coil'] = number_loop_residues / number_residues_interface
+
         # if self.is_symmetric():
         #     pose_metrics['design_dimension'] = self.dimension
         #     # for idx, group in enumerate(self.sym_entry.groups, 1):
@@ -8361,7 +8378,7 @@ class Pose(SymmetricModel, Metrics):
             self.ss_type_sequence (list[str]):
                 The ordered secondary structure type sequence which contains one character/secondary structure element
             self.split_interface_ss_elements (dict[int, list[int]]):
-                Stores the interface number mapped to an index corresponding to the secondary structure type
+                Maps the interface number to a list of indices corresponding to the secondary structure type
                 Ex: {1: [0, 0, 1, 2, ...] , 2: [9, 9, 9, 13, ...]]}
         """
         pose_secondary_structure = ''
