@@ -1,0 +1,39 @@
+axes.titlesize : 7
+axes.labelsize : 7
+axes.linewidth      : 1        # edge linewidth
+axes.labelpad : 3     # space between label and axis
+axes.prop_cycle : cycler('color', ['49006a', '7a0177', 'ae017e', 'dd3497', 'f768a1', 'fa9fb5', 'fcc5c0', 'fde0dd', 'fff7f3'])
+axes.grid           : False
+axes.axisbelow      : True     # whether axis gridlines and ticks are below the axes elements (lines, text, etc)
+axes.facecolor      : whitesmoke  # eeeeee   # axes background color
+# axes.edgecolor      : bcbcbc   # axes edge color
+grid.color       :   white  # 000000   # grid color
+grid.linestyle   :   --       # dotted
+grid.linewidth   :   0.5     # in points
+figure.dpi : 300
+figure.edgecolor    : 111111   # 0.50   # figure edgecolor
+font.family : sans-serif
+font.sans-serif : Arial
+legend.fancybox      : True
+legend.fontsize      : 6
+lines.antialiased : True
+lines.linewidth : 2
+lines.markersize : 2
+xtick.labelsize : 6
+ytick.labelsize : 6
+
+xtick.major.size     : 2      # major tick size in points
+xtick.minor.size     : 0      # minor tick size in points
+xtick.major.pad      : 2      # distance to major tick label in points
+xtick.minor.pad      : 2      # distance to the minor tick label in points
+xtick.color          : 222222      # color of the tick labels
+#xtick.labelsize      : medium # fontsize of the tick labels
+xtick.direction      : out     # direction: in or out
+
+ytick.major.size     : 2      # major tick size in points
+ytick.minor.size     : 0      # minor tick size in points
+ytick.major.pad      : 2      # distance to major tick label in points
+ytick.minor.pad      : 2      # distance to the minor tick label in points
+ytick.color          : 222222      # color of the tick labels
+#ytick.labelsize      : medium # fontsize of the tick labels
+ytick.direction      : out     # direction: in or out

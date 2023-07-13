@@ -1,0 +1,14 @@
+show nucleic
+hide protein|solvent|H
+surf hide
+style (protein|nucleic|solvent) & @@draw_mode=0 stick
+cartoon
+cartoon style modeh def arrows t arrowshelix f arrowscale 2 wid 2 thick 0.4 sides 12 div 20
+cartoon style ~(nucleic|strand) x round
+cartoon style (nucleic|strand) x rect
+nucleotides tube/slab shape box
+color /A,C,E,G,I,K,M,O,Q,S,U,W chartreuse
+color /B,D,F,H,J,L,N,P,R,T,V,X medium slate blue
+lighting soft
+lighting shadows true intensity 0.5
+set bgColor white
