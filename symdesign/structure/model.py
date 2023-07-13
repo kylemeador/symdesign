@@ -6892,7 +6892,7 @@ class Pose(SymmetricModel, Metrics):
             def coord_func(coords): return coords
 
         entity_unbound_coords = []
-        for idx, entity in enumerate(self.entities):
+        for idx, entity in enumerate(self.entities, 1):
             entity_unbound_coords.append(coord_func(getattr(entity, coords_type) + unbound_transform*idx))
 
         return np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
