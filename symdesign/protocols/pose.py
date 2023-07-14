@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import shutil
+import traceback
 import warnings
 from glob import glob
 from itertools import combinations, repeat, count
