@@ -371,10 +371,14 @@ class JobResources:
         self.load_to_db = kwargs.get('load_to_db')
         self.reset_db = kwargs.get('reset_db')
         if self.reset_db:
-            # All tables are deleted
-            sql.Base.metadata.drop_all(self.db.engine)
-            # Emit CREATE TABLE DDL
-            sql.Base.metadata.create_all(self.db.engine)
+            response = input("All database information will be wiped if ou proceed. Enter 'YES' to proceed")
+            if response == 'YES':
+                # All tables are deleted
+                sql.Base.metadata.drop_all(self.db.engine)
+                # Emit CREATE TABLE DDL
+                sql.Base.metadata.create_all(self.db.engine)
+            else:
+                pass
         # else:  # When --no-database is provided as a flag
         #     self.db = None
 
