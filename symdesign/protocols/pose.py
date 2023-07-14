@@ -2465,7 +2465,7 @@ class PoseProtocol(PoseData):
         if self.job.distribute_work:
             analysis_cmd = self.make_analysis_cmd()
             self.current_script = distribute.write_script(
-                list2cmdline(relax_cmd), name=f'{utils.starttime}_{self.protocol}.sh', out_path=flag_dir,
+                list2cmdline(relax_cmd), name=f'{starttime}_{self.protocol}.sh', out_path=flag_dir,
                 additional=[list2cmdline(generate_files_cmd)]
                 + [list2cmdline(command) for command in metric_cmds] + [list2cmdline(analysis_cmd)])
         else:
@@ -2583,7 +2583,7 @@ class PoseProtocol(PoseData):
         if self.job.distribute_work:
             analysis_cmd = self.make_analysis_cmd()
             self.current_script = distribute.write_script(
-                list2cmdline(design_cmd), name=f'{utils.starttime}_{self.protocol}', out_path=self.scripts_path,
+                list2cmdline(design_cmd), name=f'{starttime}_{self.protocol}', out_path=self.scripts_path,
                 additional=[list2cmdline(command) for command in additional_cmds]
                 + [list2cmdline(generate_files_cmd)]
                 + [list2cmdline(command) for command in metric_cmds] + [list2cmdline(analysis_cmd)])
