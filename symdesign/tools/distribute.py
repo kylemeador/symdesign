@@ -7,7 +7,7 @@ import subprocess
 import sys
 from itertools import repeat
 
-from symdesign.resources.distribute import create_file, default_shell, process_scale, run
+from symdesign.resources.distribute import create_file, default_shell, run
 from symdesign.utils import calculate_mp_cores, mp_starmap, path as putils
 
 index_offset = 1
@@ -16,10 +16,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=f'{os.path.basename(__file__)}\nGather commands set up by '
                                                  f'{putils.program_name} and distribute to computational nodes for '
                                                  f'processing')
-    parser.add_argument(f'--number-of-processes', type=int, help='The number of processes to spawn'),
-    parser.add_argument('--stage', choices=tuple(process_scale.keys()),
-                        help='The stage of design to be distributed. Each stage has optimal computing requirements to '
-                             f'maximally utilize computers. One of {", ".join(list(process_scale.keys()))}')
+    parser.add_argument(f'--number-of-processes', type=int, default=1, help='The number of processes to spawn'),
+    # parser.add_argument('--stage', choices=tuple(process_scale.keys()),
+    #                     help='The stage of design to be distributed. Each stage has optimal computing requirements to'
+    #                          f' maximally utilize cpus. One of {", ".join(list(process_scale.keys()))}')
     subparsers = parser.add_subparsers(title='SubModules', dest='module',
                                        description='These are the different modes that designs are processed',
                                        help='Chose one of the SubModules followed by SubModule specific flags. To get '
@@ -57,10 +57,10 @@ if __name__ == '__main__':
         all_commands = cmd_f.readlines()
 
     # Select exact poses to be handled according to array_ID and design stage
-    if args.stage:
-        number_of_processes = process_scale[args.stage]
-    else:
-        number_of_processes = args.number_of_processes
+    # if args.stage:
+    #     number_of_processes = process_scale[args.stage]
+    # else:
+    number_of_processes = args.number_of_processes
 
     array_number = os.environ.get('SLURM_ARRAY_TASK_ID')
     if array_number:
@@ -142,7 +142,6 @@ if __name__ == '__main__':
     # number_of_commands is different from process scale and could reflect edge cases
     number_of_commands = len(specific_commands)
     if number_of_commands > 1:
-        # The args.jobs was set by the process_scale dictionary
         number_of_mp_processes = calculate_mp_cores(cores=number_of_commands, jobs=args.jobs)
         if number_of_mp_processes > 1:
             results = mp_starmap(run, zipped_commands, processes=number_of_mp_processes)

@@ -74,25 +74,8 @@ protocols_literal = Literal[
 ]
 protocols: tuple[str, ...] = get_args(protocols_literal)
 # Cluster Dependencies and Multiprocessing
-processes = (1, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 2, 1)
-process_scale = dict(zip(protocols, processes))
-
-# process_scale = {
-#     flags.refine: 2,
-#     flags.interface_design: 2,
-#     flags.consensus: 2,
-#     flags.nanohedra: 1,
-#     'rmsd_calculation': 1,
-#     'all_to_all': 1,
-#     'rmsd_clustering': 1,
-#     'rmsd_to_cluster': 1,
-#     flags.scout: 2,
-#     putils.hbnet_design_profile: 2,
-#     flags.optimize_designs: 2,
-#     flags.interface_metrics: 2,
-#     putils.hhblits: 1,
-#     'bmdca': 2}
-
+# processes = (1, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 2, 1)
+# process_scale = dict(zip(protocols, processes))
 sbatch_templates_tuple = (
     os.path.join(sbatch_template_dir, flags.refine),
     os.path.join(sbatch_template_dir, flags.refine),
@@ -279,7 +262,9 @@ def distribute(file: AnyStr, scale: protocols_literal, number_of_commands: int, 
                 new_f.write(''.join(template_f.readlines()))
             out = f'output={output}/%A_%a.out'
             new_f.write(f'{sb_flag}{out}\n')
-            array = f'array=1-{int(number_of_commands / process_scale[scale] + 0.5)}%{max_jobs}'
+            # Removing possibility to run multiple jobs simultaneously
+            # array = f'array=1-{int(number_of_commands/process_scale[scale] + 0.5)}%{max_jobs}'
+            array = f'array=1-{number_of_commands}%{max_jobs}'
             new_f.write(f'{sb_flag}{array}\n\n')
         new_f.write(f'python {putils.distributer_tool} --stage {scale} {f"--log-file {log_file} " if log_file else ""}'
                     f'--success-file {success_file} --failure-file {failure_file} --command-file {file}')

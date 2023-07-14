@@ -658,10 +658,10 @@ def calculate_mp_cores(cores: int = None, mpi: bool = False, jobs: int = None) -
         The number of cores to use taking the minimum of cores, jobs, and max cpus available
     """
     allocated_cpus = os.environ.get('SLURM_CPUS_PER_TASK')
-    if allocated_cpus:  # we are in a SLURM environment and should follow allocation
+    if allocated_cpus:  # Should follow allocation from SLURM environment
         max_cpus_to_use = int(allocated_cpus)
     else:  # logical=False only uses physical cpus, not logical threads
-        max_cpus_to_use = psutil.cpu_count(logical=False) - 1  # leave CPU available for computer
+        max_cpus_to_use = psutil.cpu_count(logical=False) - 1  # Leave CPU available for computer
 
     if cores or jobs:
         # Take the minimum
