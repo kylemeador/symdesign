@@ -77,7 +77,7 @@ def handle_design_errors(errors: tuple[Type[Exception], ...] = (DesignError,)) -
             except errors as error:
                 # Perform exception reporting using self.log
                 job.log.error(error)
-                job.log.info(''.join(traceback.format_exc()))  # .format_exception(error)))
+                job.format_error_for_log()
                 return ReportException(str(error))
         return wrapped
     return wrapper

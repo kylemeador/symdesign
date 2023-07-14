@@ -1214,6 +1214,17 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #         self.entities.append(Model.from_file(file, name=os.path.splitext(os.path.basename(file))[0],
         #                                              log=self.log))
 
+    def format_error_for_log(self) -> None:  # , error: Type[Exception]):
+        """Handle any PoseJob particular processing of errors that should be captured in the log file.
+
+        Currently reports error traceback
+        """
+        self.log.info(''.join(traceback.format_exc()))  # .format_exception(error)))
+
+    def format_see_log_msg(self) -> str:
+        """Issue a standard informational message indicating the location of further error information"""
+        return f"See the log file '{self.log_path}' for further information"
+
     def load_pose(self, file: str = None, entities: list[Structure] = None):
         """For the design info given by a PoseJob source, initialize the Pose with self.source_path file,
         self.symmetry, self.job, self.fragment_database, and self.log objects
@@ -1237,7 +1248,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             #     raise RuntimeError(f"Couldn't {self.get_entities.__name__} as there was no "
             #                        f"{resources.structure_db.StructureDatabase.__name__}"
             #                        f" attached to the {self.__class__.__name__}")
-            self.log.info(f'No ".source_path" found. Fetching structure_source from '
+            self.log.info(f"No '.source_path' found. Fetching structure_source from "
                           f'{type(self.job.structure_db).__name__} and transforming to Pose')
             # Minimize I/O with transform...
             entities = self.transform_entities_to_pose()
@@ -1279,13 +1290,16 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             self.pose.is_clash(warn=not self.job.design.ignore_clashes)
         except ClashError:  # as error:
             if self.job.design.ignore_pose_clashes:
-                self.log.warning(f"The Pose from '{self.structure_source}' contains clashes")
+                self.format_error_for_log()
+                self.log.warning(f"The Pose from '{self.structure_source}' contains clashes.{self.format_see_log_msg()}")
             else:
                 raise
         if self.pose.is_symmetric():
             if self.pose.symmetric_assembly_is_clash():
                 if self.job.design.ignore_symmetric_clashes:
+                    # self.format_error_for_log()
                     self.log.warning(f"The Pose symmetric assembly from '{self.structure_source}' contains clashes")
+                    #                  f".{self.format_see_log_msg()}")
                 else:
                     raise ClashError(
                         "The Pose symmetric assembly contains clashes and won't be considered. If you "
@@ -1604,7 +1618,7 @@ class PoseProtocol(PoseData):
         if len(self.symmetry_definition_files) != len(self.entity_data) or self.job.force:
             putils.make_path(self.data_path)
             for entity in self.pose.entities:
-                if entity.is_symmetric():  # make symmetric energy in line with SymDesign energies v
+                if entity.is_symmetric():  # Make symmetric energy in line with SymDesign energies v
                     entity.make_sdf(out_path=self.data_path,
                                     modify_sym_energy_for_cryst=True if self.sym_entry.dimension in [2, 3] else False)
                 # Todo monitor if Rosetta energy modifier changed from 2x for crystal set up and adjust accordingly

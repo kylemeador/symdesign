@@ -60,9 +60,9 @@ def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.Un
         if messages:
             # Entity processing commands are needed
             if distribute.is_sbatch_available():
-                logger.critical(distribute.sbatch_warning)
+                logger.info(distribute.sbatch_warning)
             else:
-                logger.critical(distribute.script_warning)
+                logger.info(distribute.script_warning)
 
             for message in messages:
                 logger.info(message)

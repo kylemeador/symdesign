@@ -2309,7 +2309,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         if os.path.exists(struct_file):
             os.system(f'rm {struct_file}')
         if p.returncode != 0:
-            raise DesignError(f'Symmetry definition file creation failed for {self.name}')
+            raise DesignError(
+                f'Symmetry definition file creation failed for {self.name}')
 
         self.format_sdf(out.decode('utf-8').split('\n')[:-1], to_file=out_file, **kwargs)
         #                 modify_sym_energy_for_cryst=False, energy=2)

@@ -91,7 +91,7 @@ if __name__ == '__main__':
         # v this overlaps with len(specific_commands[0].split()) > 1 as only shell scripts really satisfy this
         log_files = [f'{os.path.splitext(shell_path)[0]}.log' for shell_path in specific_commands]
         for idx, log_file in enumerate(log_files):
-            print(f'Writing job {idx} log to "{args.log_file}"')
+            print(f'Writing job {idx} log to "{log_file}"')
     else:
         log_files = [None for _ in specific_commands]
 

@@ -214,7 +214,6 @@ refine = \
     f'{flags.refine}, is useful for creating a more idealized structure to be put into subsequent design ' \
     f'processes. However, {flags.refine} can also be a means of querying a model against a particular energy ' \
     f'landscape, and then pulling metrics out of that design.{module_help_string}'
-# f' Therefore, all of these different processes rely on {flags.interface_metrics}'
 optimize_designs = \
     f'{flags.optimize_designs} is used to fine-tune designs after identifying a viable set of designs. As the ' \
     f'interface design protocol is agnostic to the number of mutations generated, it is useful to ensure that any ' \
