@@ -1298,6 +1298,7 @@ interface_metrics_arguments = {
                                                  'If not provided, captures all design protocols')
 }
 # ---------------------------------------------------
+poses_args = (f'--{poses}',)
 specification_file_args = ('-sf', f'--{specification_file}')
 optimize_designs_help = f'Subtly and explicitly modify pose/designs. Useful for reverting\n' \
                         'mutations to wild-type, directing exploration of troublesome areas,\n' \
@@ -1600,13 +1601,13 @@ input_arguments = {
     load_to_db_args: load_to_db_kwargs,
     # ('-N', f'--{nanohedra}V1-output'): dict(action='store_true', dest=nanohedra_output,
     #                                         help='Is the input a Nanohedra wersion 1 docking output?'),
-    (f'--{poses}',): dict(type=os.path.abspath, nargs='*', default=tuple(),
-                          metavar=ex_path(default_path_file.format('TIMESTAMP', 'MODULE', 'LOCATION')),
-                          help=f'For each run of {program_name}, a file will be created that\n'
-                               f'specifies the specific poses used during that module. Use\n'
-                               f'these files to interact with those poses in subsequent commands'),
-    #                            'If pose identifiers are specified in a file, say as the result of\n'
-    #                            f'{select_poses} or {select_designs}'),
+    poses_args: dict(type=os.path.abspath, nargs='*', default=tuple(),
+                     metavar=ex_path(default_path_file.format('TIMESTAMP', 'MODULE', 'LOCATION')),
+                     help=f'For each run of {program_name}, a file will be created that\n'
+                          f'specifies the specific poses used during that module. Use\n'
+                          f'these files to interact with those poses in subsequent commands'),
+    #                       'If pose identifiers are specified in a file, say as the result of\n'
+    #                       f'{select_poses} or {select_designs}'),
     # ('-P', f'--{preprocessed}'): dict(action='store_true',
     #                                   help='Whether the designs of interest have been preprocessed for the '
     #                                        f'{current_energy_function}\nenergy function and/or missing loops'),

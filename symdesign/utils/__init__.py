@@ -1112,15 +1112,20 @@ def get_program_root_directory(search_path: str = None) -> AnyStr | None:
     Returns:
         The absolute path of the identified program root
     """
-    base_dir = None
+    root_directory = None
     if search_path is not None:
+        # Search for the program_output name in the provided path
         search_path = os.path.abspath(search_path)
         if putils.program_output in search_path:   # directory1/program_output/directory2/directory3
+            # Return the path to that directory
             for idx, dirname in enumerate(search_path.split(os.sep), 1):
                 if dirname == putils.program_output:
-                    base_dir = f'{os.sep}{os.path.join(*search_path.split(os.sep)[:idx])}'
+                    root_directory = f'{os.sep}{os.path.join(*search_path.split(os.sep)[:idx])}'
                     break
-        else:
+            else:
+                raise InputError(
+                    f'{putils.program_output} is missing in search_path. This should never happen')
+        else:  # See if program_output is a child of the provided search_path
             try:
                 all_files = os.listdir(search_path)
             except FileNotFoundError:
@@ -1128,10 +1133,13 @@ def get_program_root_directory(search_path: str = None) -> AnyStr | None:
             if putils.program_output in all_files:  # directory_provided/program_output
                 for sub_directory in all_files:
                     if sub_directory == putils.program_output:
-                        base_dir = os.path.join(search_path, sub_directory)
+                        root_directory = os.path.join(search_path, sub_directory)
                         break
+                else:
+                    raise InputError(
+                        f'{putils.program_output} is missing in all_files. This should never happen')
 
-    return base_dir
+    return root_directory
 
 
 def get_program_directories(base: str = None, projects: Iterable = None, singles: Iterable = None) -> Iterator:

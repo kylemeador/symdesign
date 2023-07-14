@@ -222,7 +222,7 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Initialize local functions
     # -----------------------------------------------------------------------------------------------------------------
-    def fetch_pose_jobs_from_database(args: Namespace) -> list[PoseJob]:
+    def fetch_pose_jobs_from_database(args: Namespace, in_root: bool = False) -> list[PoseJob]:
         # Use sqlalchemy database selection to find the requested work
         pose_identifiers = []
         designs = []
@@ -230,10 +230,15 @@ def main():
         if args.poses or args.specification_file:
             # Todo no --file and --specification-file at the same time
             # These poses are already included in the "program state"
-            if not args.directory:  # Todo react .directory to program operation inside or in dir with SymDesignOutput
-                raise utils.InputError(
-                    f'A {flags.format_args(flags.directory_args)} must be provided when using '
-                    f'{flags.format_args(flags.specification_file_args)}')
+            if not in_root or not args.directory:
+                directory_required = f'A {flags.format_args(flags.directory_args)} must be provided when using '
+                not_in_current = f" if the target {putils.program_name} isn't in, or the current working directory"
+                if args.poses:
+                    raise utils.InputError(
+                        f'{directory_required}{flags.format_args(flags.poses_args)}{not_in_current}')
+                elif args.specification_file:
+                    raise utils.InputError(
+                        f'{directory_required}{flags.format_args(flags.specification_file_args)}{not_in_current}')
             # Todo, combine this with collect_designs
             #  this works for file locations as well! should I have a separate mechanism for each?
             if args.poses:
@@ -620,15 +625,22 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Find base output directory and check for proper set up of program i/o
     # -----------------------------------------------------------------------------------------------------------------
-    symdesign_directory = utils.get_program_root_directory(
-        (args.directory or (args.project or args.single or [None])[0] or os.getcwd()))
+    root_directory = utils.get_program_root_directory(
+        args.directory or (args.project or args.single or [None])[0])  # Get the first in the sequence
+    root_in_cwd = utils.get_program_root_directory(os.getcwd())
+    if root_in_cwd:
+        root_in_current = True
+        if root_directory is None:  # No directory from the input. Is it in, or the current working directory?
+            root_directory = root_in_cwd
+    else:
+        root_in_current = False
 
     project_name = None
     """Used to set a leading string on all new PoseJob paths"""
-    if symdesign_directory is None:  # We found no directory from the input
+    if root_directory is None:  # No program output directory from the input
         # By default, assume new input and make in the current directory
         new_program_output = True
-        symdesign_directory = os.path.abspath(os.path.join(os.getcwd(), putils.program_output))
+        root_directory = os.path.abspath(os.path.join(os.getcwd(), putils.program_output))
         # Check if there is a file and see if we can solve there
         file_sources = ['file', 'poses', 'specification_file']  # 'poses' 'pose_file'
         for file_source in file_sources:
@@ -639,10 +651,10 @@ def main():
                 with open(file, 'r') as f:
                     line = f.readline()
                     basename, extension = os.path.splitext(line)
-                    if extension == '':  # Provided as directory/pose_name (pose_identifier) from SymDesignOutput
+                    if extension == '':  # Provided as directory/pose_name (pose_identifier) from putils.program_output
                         file_directory = utils.get_program_root_directory(line)
                         if file_directory is not None:
-                            symdesign_directory = file_directory
+                            root_directory = file_directory
                             new_program_output = False
                     else:
                         # Set file basename as "project_name" in case poses are being integrated for the first time
@@ -651,13 +663,13 @@ def main():
                         project_name = os.path.splitext(os.path.basename(file))[0]
                 break
         # Ensure the base directory is made if it is indeed new and in os.getcwd()
-        putils.make_path(symdesign_directory)
+        putils.make_path(root_directory)
     else:
         new_program_output = False
     # -----------------------------------------------------------------------------------------------------------------
     #  Process JobResources which holds shared program objects and command-line arguments
     # -----------------------------------------------------------------------------------------------------------------
-    job = job_resources_factory.get(program_root=symdesign_directory, arguments=args, initial=new_program_output)
+    job = job_resources_factory.get(program_root=root_directory, arguments=args, initial=new_program_output)
     if job.project_name:  # One was provided using flags (arguments=args) ^
         project_name = job.project_name
     # else:
@@ -719,18 +731,18 @@ def main():
                 design_stmt = select(sql.DesignData).where(sql.DesignProtocol.file.is_not(None)) \
                     .where(sql.DesignProtocol.design_id == sql.DesignData.id)
 
-                designs = session.scalars(design_stmt).unique().all()
-                for design in designs:
-                    for protocol in design.protocols:
+                design_data = session.scalars(design_stmt).unique().all()
+                for data in design_data:
+                    for protocol in data.protocols:
                         if protocol.protocol == 'thread':
-                            design.structure_path = protocol.file
+                            data.structure_path = protocol.file
                         # else:
                         #     print(protocol.protocol)
 
                 counter = count()
-                for design in designs:
-                    if design.structure_path is None:
-                        logger.error(f'The design {design} has no .structure_path')
+                for data in design_data:
+                    if data.structure_path is None:
+                        logger.error(f'The design {data} has no .structure_path')
                     else:
                         next(counter)
                 logger.info(f'Found {next(counter)} updated designs')
@@ -900,7 +912,7 @@ def main():
         grouped_structures_entity_ids: list[list[Pose] | dict[str, tuple[str, ...]]] = []
         possibly_new_uniprot_to_prot_metadata: dict[tuple[str, ...], list[sql.ProteinMetadata]] = defaultdict(list)
         if args.poses or args.specification_file or args.project or args.single:
-            pose_jobs = fetch_pose_jobs_from_database(args)
+            pose_jobs = fetch_pose_jobs_from_database(args, in_root=root_in_current)
             poses = []
             for pose_job in pose_jobs:
                 pose_job.load_pose()
@@ -1139,7 +1151,7 @@ def main():
             if paths:  # There are files present
                 pose_jobs = [PoseJob.from_directory(path) for path in job.get_range_slice(paths)]
         elif args.poses or args.specification_file or args.project or args.single:
-            pose_jobs = fetch_pose_jobs_from_database(args)
+            pose_jobs = fetch_pose_jobs_from_database(args, in_root=root_in_current)
         elif select_from_directory:
             # Can make an empty pose_jobs when the program_root is args.directory
             job.location = args.directory
@@ -1422,8 +1434,9 @@ def main():
                         # Remove pose_jobs_to_commit from session
                         session.rollback()
                         # Find the actual pose_jobs_to_commit and place in session
-                        pose_identifiers = [pose_job.new_pose_identifier for pose_job in pose_jobs_to_commit]
-                        fetch_jobs_stmt = select(PoseJob).where(PoseJob.pose_identifier.in_(pose_identifiers))
+                        possible_pose_identifiers = [pose_job.new_pose_identifier for pose_job in pose_jobs_to_commit]
+                        fetch_jobs_stmt = select(PoseJob).where(
+                            PoseJob.pose_identifier.in_(possible_pose_identifiers))
                         existing_pose_jobs = session.scalars(fetch_jobs_stmt).all()
 
                         existing_pose_identifiers = [pose_job.pose_identifier for pose_job in existing_pose_jobs]
