@@ -222,7 +222,7 @@ def check_scripts_exist(directives: Iterable[str] = None, file: AnyStr = None):
         if directive[-3:] == '.sh':  # This is a file
             if not os.path.exists(directive):  # Check if file is missing
                 raise InputError(
-                    f"{file} is malformed at line {idx}. The command at location '{directive}' doesn't exist")
+                    f"The command at location '{directive}' doesn't exist")
             if not contains_scripts:  # There was a change from non-script files
                 raise InputError(script_or_command.format(file, idx, directive))
         else:  # directive is a command

@@ -217,8 +217,8 @@ class PoseDirectory:
         # /root/Projects/project_Poses/design/data/design_name.pdb
         self.consensus_pdb: str | Path = f'{os.path.splitext(self.pose_path)[0]}_for_consensus.pdb'
         # /root/Projects/project_Poses/design/design_name_for_consensus.pdb
-        self.consensus_design_pdb: str | Path = os.path.join(self.designs_path, os.path.basename(self.consensus_pdb))
-        # /root/Projects/project_Poses/design/designs/design_name_for_consensus.pdb
+        # self.consensus_design_pdb: str | Path = os.path.join(self.designs_path, os.path.basename(self.consensus_pdb))
+        # # /root/Projects/project_Poses/design/designs/design_name_for_consensus.pdb
         self.design_profile_file: str | Path = os.path.join(self.data_path, 'design.pssm')
         # /root/Projects/project_Poses/design/data/design.pssm
         self.evolutionary_profile_file: str | Path = os.path.join(self.data_path, 'evolutionary.pssm')
@@ -234,7 +234,7 @@ class PoseDirectory:
         self.residues_metrics_csv = os.path.join(self.data_path, f'residues.csv')
         # self.designed_sequences_file = os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
         self.designed_sequences_file = os.path.join(self.designs_path, f'sequences.fasta')
-
+        self.current_script = None
         # try:
         #     if self.initial:  # This is the first creation
         #         if os.path.exists(self.serialized_info):
@@ -2464,9 +2464,10 @@ class PoseProtocol(PoseData):
         # Create executable/Run FastRelax on Clean ASU with RosettaScripts
         if self.job.distribute_work:
             analysis_cmd = self.make_analysis_cmd()
-            distribute.write_script(list2cmdline(relax_cmd), name=self.protocol, out_path=flag_dir,
-                                    additional=[list2cmdline(generate_files_cmd)]
-                                    + [list2cmdline(command) for command in metric_cmds] + [list2cmdline(analysis_cmd)])
+            self.current_script = distribute.write_script(
+                list2cmdline(relax_cmd), name=f'{utils.starttime}_{self.protocol}.sh', out_path=flag_dir,
+                additional=[list2cmdline(generate_files_cmd)]
+                + [list2cmdline(command) for command in metric_cmds] + [list2cmdline(analysis_cmd)])
         else:
             relax_process = Popen(relax_cmd)
             relax_process.communicate()  # Wait for command to complete
@@ -2551,25 +2552,19 @@ class PoseProtocol(PoseData):
 
         if self.job.design.method == putils.consensus:
             self.protocol = putils.consensus
-            consensus_cmd = main_cmd + rosetta.relax_flags_cmdline \
+            design_cmd = main_cmd + rosetta.relax_flags_cmdline \
                 + [f'@{self.flags}', '-in:file:s', self.consensus_pdb,
                    # '-in:file:native', self.refined_pdb,
-                   '-parser:protocol', os.path.join(putils.rosetta_scripts_dir,
-                                                    f'{putils.consensus}.xml'),
-                   '-parser:script_vars', f'switch={putils.consensus}']
-            self.log.info(f'Consensus command: {list2cmdline(consensus_cmd)}')
-            if self.job.distribute_work:
-                distribute.write_script(list2cmdline(consensus_cmd), name=putils.consensus,
-                                        out_path=self.scripts_path)
-            else:
-                consensus_process = Popen(consensus_cmd)
-                consensus_process.communicate()
-
-        design_cmd = main_cmd + profile_cmd + \
-            [f'@{self.flags}', '-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
-             '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml'),
-             '-out:suffix', f'_{self.protocol}'] + (['-overwrite'] if self.job.overwrite else []) \
-            + out_file + nstruct_instruct
+                   '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{putils.consensus}.xml'),
+                   '-out:suffix', f'_{self.protocol}', '-parser:script_vars', f'switch={putils.consensus}']
+        else:
+            design_cmd = main_cmd + profile_cmd + \
+                [f'@{self.flags}', '-in:file:s',
+                 self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
+                 '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml'),
+                 '-out:suffix', f'_{self.protocol}'] + out_file + nstruct_instruct
+        if self.job.overwrite:
+            design_cmd += ['-overwrite']
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
@@ -2587,10 +2582,11 @@ class PoseProtocol(PoseData):
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.job.distribute_work:
             analysis_cmd = self.make_analysis_cmd()
-            distribute.write_script(list2cmdline(design_cmd), name=self.protocol, out_path=self.scripts_path,
-                                    additional=[list2cmdline(command) for command in additional_cmds]
-                                    + [list2cmdline(generate_files_cmd)]
-                                    + [list2cmdline(command) for command in metric_cmds] + [list2cmdline(analysis_cmd)])
+            self.current_script = distribute.write_script(
+                list2cmdline(design_cmd), name=f'{utils.starttime}_{self.protocol}', out_path=self.scripts_path,
+                additional=[list2cmdline(command) for command in additional_cmds]
+                + [list2cmdline(generate_files_cmd)]
+                + [list2cmdline(command) for command in metric_cmds] + [list2cmdline(analysis_cmd)])
         else:
             design_process = Popen(design_cmd)
             design_process.communicate()  # Wait for command to complete

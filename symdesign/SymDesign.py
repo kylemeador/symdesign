@@ -460,8 +460,7 @@ def main():
             }
             stage = module_files.get(job.module)
             if stage and job.distribute_work:
-                scripts_to_distribute = [os.path.join(pose_job.scripts_path, f'{utils.starttime}{stage}.sh')
-                                         for pose_job in successful_pose_jobs]
+                scripts_to_distribute = [pose_job.current_script for pose_job in successful_pose_jobs]
                 distribute.check_scripts_exist(directives=scripts_to_distribute)
                 distribute.commands(scripts_to_distribute, name='_'.join(job.default_output_tuple), scale=stage,
                                     out_path=job.sbatch_scripts, commands_out_path=job.job_paths)

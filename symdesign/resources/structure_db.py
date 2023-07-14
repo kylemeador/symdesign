@@ -941,8 +941,8 @@ class StructureDatabase(Database):
                             copy_cmd = ['scp', self.refined.path_to(protein_data.name),
                                         self.full_models.path_to(protein_data.name)]
                             loop_model_cmds.append(
-                                resources.distribute.write_script(subprocess.list2cmdline(copy_cmd),
-                                                                  name=protein_data.name, out_path=full_model_dir))
+                                resources.distribute.write_script(
+                                    subprocess.list2cmdline(copy_cmd), name=protein_data.name, out_path=full_model_dir))
                             # Can't do this v as refined path doesn't exist yet
                             # shutil.copy(self.refined.path_to(protein_data.name),
                             #             self.full_models.path_to(protein_data.name))
