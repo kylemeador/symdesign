@@ -1226,34 +1226,44 @@ def main():
                         logger.info(f"Modifying identifiers for the input '{pose_job.name}'")
                         if use_map:
                             this_pose_entities = pose_entity_mapping[pose_job.name]
-                        for entity_idx, entity in enumerate(pose_job.initial_model.entities):
-                            old_name = entity.name
+
+                        while True:
+                            specified_names = []
+                            for entity_idx, entity in enumerate(pose_job.initial_model.entities):
+                                old_name = entity.name
+                                if use_map:
+                                    specified_name = this_pose_entities[entity_idx].lower()
+                                    if len(specified_name) == 4:
+                                        # Add an entity identifier underscore and assume it is the first
+                                        specified_name = f'{specified_name}_1'
+                                else:
+                                    proceed = False
+                                    while not proceed:
+                                        specified_name = user_query.format_input(
+                                            f"Which name should be used for {entity.__class__.__name__} with name "
+                                            f"'{old_name}' and chainID '{entity.chain_id}'")
+                                        if specified_name == old_name:
+                                            break
+                                        # If different, ensure that it is desired
+                                        if len(specified_name) != 6:  # 6 is the typical length for pdb entities i.e. 1abc_1
+                                            logger.warning(
+                                                f"'{specified_name}' isn't the expected number of characters (6)")
+                                        proceed = user_query.confirm_input_action(
+                                            f"The name '{specified_name}' will be used instead of '{old_name}'")
+                                if specified_name != old_name:
+                                    entity.name = specified_name
+                                    # Explicitly clear old metadata
+                                    entity.clear_api_data()
+                                    entity.retrieve_api_metadata()
+                                    if entity._api_data is None:  # Information wasn't found
+                                        logger.warning(f"There wasn't any information found from the PDB API for the name"
+                                                       f" '{specified_name}")
+                                    specified_names.append(specified_name)
                             if use_map:
-                                specified_name = this_pose_entities[entity_idx].lower()
-                                if len(specified_name) == 4:
-                                    # Add an entity identifier underscore and assume it is the first
-                                    specified_name = f'{specified_name}_1'
-                            else:
-                                proceed = False
-                                while not proceed:
-                                    specified_name = user_query.format_input(
-                                        f"Which name should be used for {entity.__class__.__name__} with name '{old_name}'"
-                                        f" and chainID '{entity.chain_id}'")
-                                    if specified_name == old_name:
-                                        break
-                                    # If different, ensure that it is desired
-                                    if len(specified_name) != 6:  # 6 is the typical length for pdb entities, i.e. 1abc_1
-                                        logger.warning(f"'{specified_name}' isn't the expected number of characters (6)")
-                                    proceed = user_query.confirm_input_action(
-                                        f"The name '{specified_name}' will be used instead of '{old_name}'")
-                            if specified_name != old_name:
-                                entity.name = specified_name
-                                # Explicitly clear old metadata
-                                entity.clear_api_data()
-                                entity.retrieve_api_metadata()
-                                if entity._api_data is None:  # Information wasn't found
-                                    logger.warning(f"There wasn't any information found from the PDB API for the name"
-                                                   f" '{specified_name}")
+                                logger.info(f"New identifiers '{pose_job.name}':{{{'}{'.join(specified_names)}}}")
+                                print("If this is correct, press 'enter', or input [y/n]")
+                                if user_query.utils.boolean_choice():
+                                    break
 
                     for entity, symmetry in zip(pose_job.initial_model.entities, symmetry_map):
                         try:
