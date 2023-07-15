@@ -874,6 +874,7 @@ def main():
                 session.commit()
             else:
                 # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
+                session.add_all(uniprot_entities)
                 initialize_entities(job, uniprot_entities, all_protein_metadata, batch_commands=job.distribute_work)
                 session.commit()
 
@@ -981,6 +982,7 @@ def main():
                     uniprot_entities.extend(data.uniprot_entities)
 
             # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
+            session.add_all(uniprot_entities)
             initialize_entities(job, uniprot_entities, all_protein_metadata, batch_commands=job.distribute_work)
 
             # Todo need to take the version of all_structures from refine/loop modeling and insert entity.metadata
@@ -1418,6 +1420,7 @@ def main():
                 #         protein_metadata.model_source = entity.file_path
                 #
                 # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
+                session.add_all(uniprot_entities)
                 initialize_entities(job, uniprot_entities, [])  # all_uniprot_id_to_prot_data.values())
                 #
                 # # Todo replace the passed files with the processed versions?
