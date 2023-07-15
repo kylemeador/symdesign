@@ -1264,13 +1264,13 @@ def main():
 
                         for name, entity in zip(using_names, pose_job.initial_model.entities):
                             if name != entity.name:
-                                entity.name = specified_name
+                                entity.name = name
                                 # Explicitly clear old metadata
                                 entity.clear_api_data()
                                 entity.retrieve_api_metadata()
                                 if entity._api_data is None:  # Information wasn't found
                                     logger.warning(f"There wasn't any information found from the PDB API for the "
-                                                   f"name '{specified_name}")
+                                                   f"name '{name}")
 
                     for entity, symmetry in zip(pose_job.initial_model.entities, symmetry_map):
                         try:
