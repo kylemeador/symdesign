@@ -1292,15 +1292,16 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         except ClashError:  # as error:
             if self.job.design.ignore_pose_clashes:
                 self.format_error_for_log()
-                self.log.warning(f"The Pose from '{self.structure_source}' contains clashes.{self.format_see_log_msg()}")
+                self.log.warning(f"The Pose from '{self.structure_source}' contains clashes. "
+                                 f"{self.format_see_log_msg()}")
             else:
                 raise
         if self.pose.is_symmetric():
             if self.pose.symmetric_assembly_is_clash():
                 if self.job.design.ignore_symmetric_clashes:
                     # self.format_error_for_log()
-                    self.log.warning(f"The Pose symmetric assembly from '{self.structure_source}' contains clashes")
-                    #                  f".{self.format_see_log_msg()}")
+                    self.log.warning(f"The Pose symmetric assembly from '{self.structure_source}' contains clashes. ")
+                    #                  f"{self.format_see_log_msg()}")
                 else:
                     raise ClashError(
                         "The symmetric assembly contains clashes and won't be considered. If you "

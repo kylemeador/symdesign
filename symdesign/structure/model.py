@@ -1404,7 +1404,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             while discard != first_chain_id:
                 discard = next(chain_gen)
         except StopIteration:
-            self.log.warning(f"Couldn't find the self.chain_id {self.chain_id} in the chain_id_generator()")
+            self.log.warning(f"Couldn't find the self.chain_id '{self.chain_id}' in chain_id_generator()")
             # The end of the generator was reached without a success. Try to just use the first chain_ids returned
             chain_gen = chain_id_generator()
 
@@ -3937,15 +3937,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     self.entity_info[entity_name] = dict(chains=[chain_id], sequence=chain_sequence)
 
         self.log.debug(f'Entity information was solved by {method} match')
-
-        # # Check if information was found from PDB API, but was not accurate with regard to chains. Add existing info
-        # if existing_entity_info:
-        #     for entity_name, data in self.entity_info.items():
-        #         original_entity_data = existing_entity_info.get(entity_name)
-        #         if original_entity_data:
-        #             original_entity_data.pop('chains', None)
-        #             original_entity_data.pop('sequence', None)
-        #             data.update(original_entity_data)
 
     def entity_from_chain(self, chain_id: str) -> Entity | None:
         """Return the entity associated with a particular chain id"""

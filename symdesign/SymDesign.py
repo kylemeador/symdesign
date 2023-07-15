@@ -589,26 +589,23 @@ def main():
         remove_dummy = handle_atypical_inputs(args.modules)
 
         # Parse all options for every module provided
-        # input(f'{args}\n\n{additional_args}')
         all_args = [args]
         for idx, module in enumerate(args.modules):
             # additional_args = [module] + additional_args
             args, additional_args = flags.module_parser.parse_known_args(args=[module] + additional_args)
             all_args.append(args)
-            # input(f'{args}\n\n{additional_args}')
 
         # Invert all the arguments to ensure those that were specified first are set and not overwritten by default
         for _args in reversed(all_args):
             _args_ = vars(args)
             _args_.update(**vars(_args))
-            # print(_args_)
             args = Namespace(**_args_)
             # args = Namespace(**vars(args), **vars(_args))
-            # input(args)
+
         # Set the module to flags.protocol again after parsing
         args.module = flags.protocol
 
-    # Check the provided flags against the full SymDesign entire_parser to print any help
+    # Check the provided flags against the entire_parser to print any help
     _args, _additional_args = flags.entire_parser.parse_known_args()
     # Parse the provided flags
     for argparser in flags.additional_parsers:
@@ -1256,7 +1253,7 @@ def main():
                             if use_map:
                                 logger.info(f"Using identifiers '{pose_job.name}':{{{'}{'.join(using_names)}}}")
                                 print("If this isn't correct, you can repeat with 'n'."
-                                      " Otherwise, press 'enter', or 'y'")
+                                      " Otherwise, press enter, or 'y'")
                                 if user_query.utils.boolean_choice():
                                     break
                                 else:
