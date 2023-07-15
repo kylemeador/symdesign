@@ -1129,8 +1129,18 @@ def initialize_metadata(session: Session,
         uniprot_ids_to_new_metadata[possibly_new_entity_id_to_uniprot_ids[entity_id]].append(
             possibly_new_entity_id_to_protein_data[entity_id])
 
-    # Attach UniProtEntity to new ProteinMetadata by UniProtID
+    # Add all existing to UniProtIDs to ProteinMetadata mapping
+    uniprot_id_to_metadata = defaultdict(list)
+    for protein_data in existing_protein_metadata:
+        uniprot_id_to_metadata[protein_data.uniprot_ids].append(protein_data)
+
+    # Collect all remaining ProteinMetadata
+    all_protein_metadata = []
     for uniprot_ids, metadatas in uniprot_ids_to_new_metadata.items():
+        all_protein_metadata.extend(metadatas)
+        # Add to UniProtIDs to ProteinMetadata map
+        uniprot_id_to_metadata[uniprot_ids].extend(metadatas)
+        # Attach UniProtEntity to new ProteinMetadata by UniProtID
         for protein_metadata in metadatas:
             # Create the ordered_list of UniProtIDs (UniProtEntity) on ProteinMetadata entry
             try:
@@ -1143,20 +1153,9 @@ def initialize_metadata(session: Session,
             except KeyError:  # uniprot_id_to_unp_entity is missing a key, but I can't see a way it would be here...
                 raise SymDesignException(putils.report_issue)
 
-    # Insert the remaining ProteinMetadata
-    all_protein_metadata = []
-    for metadatas in uniprot_ids_to_new_metadata.values():
-        all_protein_metadata.extend(metadatas)
+    # Insert remaining ProteinMetadata
     session.add_all(all_protein_metadata)
     # # Finalize additions to the database
     # session.commit()
-
-    # Now that new are found, map all UniProtIDs to all ProteinMetadata
-    # uniprot_id_to_metadata = {protein_data.uniprot_ids: protein_data
-    #                           for protein_data in existing_protein_metadata}
-    uniprot_id_to_metadata = defaultdict(list)
-    for protein_data in existing_protein_metadata:
-        uniprot_id_to_metadata[protein_data.uniprot_ids].append(protein_data)
-    uniprot_id_to_metadata.update(uniprot_ids_to_new_metadata)
 
     return uniprot_id_to_metadata
