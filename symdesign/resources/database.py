@@ -142,7 +142,7 @@ class DataStore:
         path = self.glob_path()
         names = list(map(os.path.basename, [os.path.splitext(file)[0] for file in sorted(glob(path))]))
         if not names:
-            self.log.warning(f'No data found with names at "{path}"')
+            self.log.debug(f'No data found with names at "{path}"')
         return names
 
     def store_data(self, data: Any, name: str, **kwargs):
@@ -253,8 +253,9 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         try:
             return getattr(self, name)
         except AttributeError:
-            raise AttributeError(f'There is no source named "{name}" found in the {self.__class__.__name__}. '
-                                 f'Possible sources are: {", ".join(self.__dict__)}')
+            raise AttributeError(
+                f"There was no source named '{name}' found in the {self.__class__.__name__}. "
+                f'Possible sources are: {", ".join(self.__dict__)}')
 
     def retrieve_data(self, source: str = None, name: str = None) -> object | None:
         """Return the data requested by name from the specified source. Otherwise, load into the Database from a

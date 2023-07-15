@@ -1208,7 +1208,6 @@ def main():
                     file = input(user_query.utils.input_string)
                     with open(file) as f:
                         pose_entity_mapping = {row[0]: row[1:] for row in csv.reader(f)}
-                    print(pose_entity_mapping)
 
             for idx, pose_job in enumerate(pose_jobs):
                 if pose_job.id is None:
@@ -1227,12 +1226,13 @@ def main():
                         logger.info(f"Modifying identifiers for the input '{pose_job.name}'")
                         if use_map:
                             this_pose_entities = pose_entity_mapping[pose_job.name]
+                            modify_map = False
 
                         while True:
                             using_names = []
                             for entity_idx, entity in enumerate(pose_job.initial_model.entities):
                                 old_name = entity.name
-                                if use_map:
+                                if use_map and not modify_map:
                                     specified_name = this_pose_entities[entity_idx].lower()
                                     if len(specified_name) == 4:
                                         # Add an entity identifier underscore and assume it is the first
@@ -1263,9 +1263,12 @@ def main():
 
                             if use_map:
                                 logger.info(f"Using identifiers '{pose_job.name}':{{{'}{'.join(using_names)}}}")
-                                print("If this is correct, press 'enter', or input [y/n]")
+                                print("If this isn't correct, you can repeat with 'n'."
+                                      " Otherwise, press 'enter', or 'y'")
                                 if user_query.utils.boolean_choice():
                                     break
+                                else:
+                                    modify_map = True
 
                     for entity, symmetry in zip(pose_job.initial_model.entities, symmetry_map):
                         try:

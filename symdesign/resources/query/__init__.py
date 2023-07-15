@@ -48,4 +48,4 @@ def validate_input_return_response_value(prompt: str, response: dict[str, Any]) 
     while choice not in response:
         choice = input(f"{choice} isn't a valid choice, please try again{input_string}")
 
-    return response[_input]
+    return response[choice]

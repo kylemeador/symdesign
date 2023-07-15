@@ -15,7 +15,7 @@ NOR = 'Norine'
 UKB = 'UniProt'
 """The module level identifer for a UniProtID"""
 input_string = '\nInput: '
-confirmation_string = f'If this is correct, indicate "y", if not "n", and you can re-input{input_string}'
+confirmation_string = f"If this is correct, indicate 'y', if not 'n', and you can re-input{input_string}"
 bool_d = {'y': True, 'n': False, 'yes': True, 'no': False, '': True}
 boolean_input_string = f'\nPlease specify [y/n]{input_string}'
 invalid_string = 'Invalid choice, please try again.'
@@ -36,7 +36,7 @@ def validate_input(prompt: str, response: Iterable[str]) -> str:
     """
     _input = input(f'{prompt}\nChoose from [{", ".join(response)}]{input_string}')
     while _input not in response:
-        _input = input(f'Invalid input... "{_input}" not a valid response. Try again{input_string}')
+        _input = input(f"'Invalid input... '{_input}' isn't a valid response. Try again{input_string}'")
 
     return _input
 
@@ -115,7 +115,7 @@ def connection_exception_handler(url: str, max_attempts: int = 2) -> requests.Re
                     time.sleep(1)
                     iteration += 1
             except ValueError as error:  # The json response was bad...
-                logger.error(f'A json response was missing or corrupted from "{url}" Error: {error}')
+                logger.error(f"A json response was missing or corrupted from '{url}' Error: {error}")
                 break
 
         if MAX_RESOURCE_ATTEMPTS > 2:
@@ -126,7 +126,7 @@ def connection_exception_handler(url: str, max_attempts: int = 2) -> requests.Re
         elif iteration > max_attempts:
             MAX_RESOURCE_ATTEMPTS += 1
             logger.error('The maximum number of resource fetch attempts was made with no resolution. '
-                         f'Offending request "{url}"')
+                         f"Offending request '{url}'")
             break
 
     return

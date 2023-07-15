@@ -1303,8 +1303,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     #                  f".{self.format_see_log_msg()}")
                 else:
                     raise ClashError(
-                        "The Pose symmetric assembly contains clashes and won't be considered. If you "
-                        'would like to generate the Assembly anyway, re-submit the command with '
+                        "The symmetric assembly contains clashes and won't be considered. If you "
+                        'would like to proceed regardless, re-submit the job with '
                         f'{flags.format_args(flags.ignore_symmetric_clashes_args)}')
 
             # If there is an empty list for the pose_transformation, save the identified transformations from the Pose

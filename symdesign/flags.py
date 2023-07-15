@@ -1306,12 +1306,12 @@ optimize_designs_help = f'Subtly and explicitly modify pose/designs. Useful for 
                         f'or modifying surface charge. {optimize_designs} is based on amino acid\n' \
                         f'frequency profiles. Use with {format_args(specification_file_args)} is suggested'
 parser_optimize_designs = {optimize_designs: dict(description=optimize_designs_help, help=optimize_designs_help)}
-backgroud_profile_args = ('-bg', f'--{background_profile}')
+background_profile_args = ('-bg', f'--{background_profile}')
 optimize_designs_arguments = {
-    backgroud_profile_args: dict(type=str.lower, default=design_profile, metavar='',
-                                 choices={design_profile, evolutionary_profile, fragment_profile},
-                                 help='Which profile should be used as the background profile?\n'
-                                      'Choices=%(choices)s\nDefault=%(default)s')
+    background_profile_args: dict(type=str.lower, default=design_profile, metavar='',
+                                  choices={design_profile, evolutionary_profile, fragment_profile},
+                                  help='Which profile should be used as the background profile?\n'
+                                       'Choices=%(choices)s\nDefault=%(default)s')
 }
 # ---------------------------------------------------
 # parser_custom = dict(custom_script=
