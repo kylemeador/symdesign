@@ -3601,40 +3601,48 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self.entity_info = {}
                 self._get_entity_info_from_atoms(**kwargs)
                 if query_by_sequence and entity_names is None:
-                    for entity_name, data in list(self.entity_info.items()):  # Make a new list to prevent pop issues
+                    # Copy self.entity_info data for iteration, then reset for re-addition
+                    entity_names_to_data = list(self.entity_info.items())
+                    self.entity_info = {}
+                    for entity_name, data in entity_names_to_data:
                         # Todo incorporate wrapapi call to fetch from local sequence db
                         # Using data['sequence'] here as there is no data['reference_sequence'] from PDB API
                         pdb_api_entity_id = query.pdb.retrieve_entity_id_by_sequence(data['sequence'])
                         if pdb_api_entity_id:
-                            pdb_api_entity_id = pdb_api_entity_id.lower()
-                            self.log.info(f'Entity {entity_name} now named "{pdb_api_entity_id}", as found by PDB API '
+                            new_name = pdb_api_entity_id.lower()
+                            self.log.info(f'Entity {entity_name} now named "{new_name}", as found by PDB API '
                                           f'sequence search')
-                            self.entity_info[pdb_api_entity_id] = self.entity_info.pop(entity_name)
                         else:
                             self.log.info(f"Entity {entity_name} couldn't be located by PDB API sequence search")
                             # Set as the reference_sequence because we won't find one without another database...
                             data['reference_sequence'] = data['sequence']
+                            new_name = entity_name
+                        self.entity_info[new_name] = data
         else:
             # self.log.debug(f"_create_entities entity_info={self.entity_info}")
             # This is being set to True because there is API info in the self.entity_info (If passed correctly)
             found_api_entry = True
 
         if entity_names is not None:
-            for idx, entity_name in enumerate(list(self.entity_info.keys())):  # Make a new list to prevent pop issues
+            renamed_entity_info = {}
+            for idx, (entity_name, data) in enumerate(self.entity_info.items()):
                 try:
                     new_entity_name = entity_names[idx]
                 except IndexError:
-                    raise IndexError(f'The number of indices in entity_names ({len(entity_names)}) must equal the '
-                                     f'number of entities ({len(self.entity_info)})')
+                    raise IndexError(
+                        f'The number of indices in entity_names, {len(entity_names)} != {len(self.entity_info)}, the '
+                        f'number of entities in the {self.__class__.__name__}')
 
                 # Get any info already solved using the old name
-                self.entity_info[new_entity_name] = self.entity_info.pop(entity_name)
+                renamed_entity_info[new_entity_name] = data
                 self.log.debug(f'Entity {entity_name} now named "{new_entity_name}", as supplied by entity_names')
+            # Reset self.entity_info with the same order, but new names
+            self.entity_info = renamed_entity_info
 
         # Check to see that the parsed entity_info is compatible with the chains already parsed
-        if found_api_entry:  # found_api_entry is set only if self.retrieve_metadata_from_pdb was called above
+        if found_api_entry:
+            # Set if self.retrieve_metadata_from_pdb was called above or entity_info provided to Model construction
             if self.nucleotides_present:
-                # raise NotImplementedError(f"The parsing and integration of nucleotides hasn't been worked out")
                 self.log.warning(f"Integration of nucleotides hasn't been worked out yet, API information not useful")
 
             max_reference_sequence = 0
@@ -3649,13 +3657,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 if chain_sequence_length < min_chain_sequence:
                     min_chain_sequence = chain_sequence_length
 
-            # We didn't get this correct, so use the Structure attributes to fix
+            # Use the Structure attributes to get the entity info correct
             # Provide an expected tolerance and length_difference
-            # We could be highly mutated compared to the reference, so lets set the tolerance threshold to a percentage
-            # of the maximum. This value seems to be close given Sanders and Sanders? 1994 (BLOSUM matrix publicaiton)
-            tolerance = .2  # .3 <- some ProteinMPNN sequences failed this bar
-            # Because we are using a reference sequence which could be much longer than the chain sequence find an
-            # expected length proportion
+            # Sequence could be highly mutated compared to the reference, so set the tolerance threshold to a percentage
+            # of the maximum. This value seems to be close given Sanders and Sanders? 1994 (BLOSUM matrix publication)
+            tolerance = .2  # .3 <- Some ProteinMPNN sequences failed this bar
+            # Because the reference sequence could be much longer than the chain sequence,
+            # find an 'expected' length proportion
             length_proportion = (max_reference_sequence-min_chain_sequence) / max_reference_sequence
             self._get_entity_info_from_atoms(tolerance=tolerance, length_difference=length_proportion, **kwargs)
         else:
@@ -3685,7 +3693,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 This is the final format of each entry in the self.entity_info dictionary
                 """
                 # Set the parent self.api_entry['entity']
-                # If the entity_name is already present, we expect that self.entity_info is already solved
+                # If the entity_name is already present, it's expected that self.entity_info is already solved
                 if entity_api_data:  # and entity_name not in entity_api_entry:
                     entity_api_entry.update(entity_api_data)
                     # Respect already solved 'chains' info in self.entity_info
@@ -3760,9 +3768,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 'chains': entity_chains,  # Overwrite chains in data dictionary
                 'uniprot_ids': uniprot_ids,
             }
-            if len(entity_data['chains']) == 0:
+            if len(entity_chains) == 0:
                 if self.nucleotides_present:
-                    self.log.warning(f"Nucleotide chain was removed from Structure")
+                    self.log.warning(f'Nucleotide chain was already removed from Structure')
                 else:
                     # This occurred when there were 2 entity records in the entity_info but only 1 in the Structure
                     self.log.debug(f'Missing associated chains for the Entity {entity_name} with data: '
@@ -3770,9 +3778,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                                    f"data['chains']={data_chains}, "
                                    f'{", ".join(f"{k}={v}" for k, v in data.items())}')
                     # Drop this section in the entity_info
-                    self.entity_info.pop(entity_name)
                     self.log.warning(f'Dropping Entity {entity_name} from {self.__class__.__name__} as no Structure '
                                      f'information exists for it')
+                    self.entity_info.pop(entity_name)
                     # raise DesignError(f"The Entity couldn't be processed as currently configured")
                 continue
             #     raise utils.DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and '
