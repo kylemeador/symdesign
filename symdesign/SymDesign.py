@@ -1421,7 +1421,8 @@ def main():
                 #
                 # Set up evolution and structures. All attributes will be reflected in ProteinMetadata
                 session.add_all(uniprot_entities)
-                initialize_entities(job, uniprot_entities, [])  # all_uniprot_id_to_prot_data.values())
+                initialize_entities(job, uniprot_entities, [],  # all_uniprot_id_to_prot_data.values())
+                                    batch_commands=job.distribute_work)
                 #
                 # # Todo replace the passed files with the processed versions?
                 # #  See PoseJob.load_pose()
