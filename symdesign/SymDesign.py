@@ -1203,8 +1203,9 @@ def main():
                       "Would you like to use a map?")
                 use_map = user_query.utils.boolean_choice()
                 if use_map:
-                    file = input('Please provide the name of a .csv file with a map in the form of:'
-                                 '\n\tPoseName,EntityName1,EntityName2,...')
+                    print('Please provide the name of a .csv file with a map in the form of:'
+                          '\n\tPoseName,EntityName1,EntityName2,...')
+                    file = input(user_query.utils.input_string)
                     with open(file) as f:
                         pose_entity_mapping = {row[0]: row[1:] for row in csv.reader(f)}
                     print(pose_entity_mapping)
@@ -1228,7 +1229,7 @@ def main():
                             this_pose_entities = pose_entity_mapping[pose_job.name]
 
                         while True:
-                            specified_names = []
+                            using_names = []
                             for entity_idx, entity in enumerate(pose_job.initial_model.entities):
                                 old_name = entity.name
                                 if use_map:
@@ -1245,7 +1246,7 @@ def main():
                                         if specified_name == old_name:
                                             break
                                         # If different, ensure that it is desired
-                                        if len(specified_name) != 6:  # 6 is the typical length for pdb entities i.e. 1abc_1
+                                        if len(specified_name) != 6:  # 6 is the length for pdb entities i.e. 1abc_1
                                             logger.warning(
                                                 f"'{specified_name}' isn't the expected number of characters (6)")
                                         proceed = user_query.confirm_input_action(
@@ -1256,11 +1257,12 @@ def main():
                                     entity.clear_api_data()
                                     entity.retrieve_api_metadata()
                                     if entity._api_data is None:  # Information wasn't found
-                                        logger.warning(f"There wasn't any information found from the PDB API for the name"
-                                                       f" '{specified_name}")
-                                    specified_names.append(specified_name)
+                                        logger.warning(f"There wasn't any information found from the PDB API for the "
+                                                       f"name '{specified_name}")
+                                using_names.append(entity.name)
+
                             if use_map:
-                                logger.info(f"New identifiers '{pose_job.name}':{{{'}{'.join(specified_names)}}}")
+                                logger.info(f"Using identifiers '{pose_job.name}':{{{'}{'.join(using_names)}}}")
                                 print("If this is correct, press 'enter', or input [y/n]")
                                 if user_query.utils.boolean_choice():
                                     break
