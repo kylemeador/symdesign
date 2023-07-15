@@ -960,7 +960,7 @@ class SequenceProfile(ABC):
     #     Sets:
     #         (dict) self.secondary_structure
     #     """
-    #     # self.retrieve_info_from_api()
+    #     # self.retrieve_api_metadata()
     #     # grab the reference sequence used for translation (expression)
     #     # if not self.reference_sequence:
     #     #     self._retrieve_sequence_from_api(entity_id=self.name)

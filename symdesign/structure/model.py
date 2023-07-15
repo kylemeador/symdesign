@@ -1150,7 +1150,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 if isinstance(reference_sequence, dict):  # Was parsed from file
                     # self.log.debug(f'Found reference_sequence data: {reference_sequence}')
                     self.set_reference_sequence_from_seqres(reference_sequence)
-                else:  # Assumeing a string from create_entities()
+                else:  # Assuming a string from create_entities()
                     self._reference_sequence = reference_sequence
                 if chains:
                     # Set each of the constructing chains, chain.reference_sequence
@@ -1223,7 +1223,13 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         else:  # Accept the new coords
             super(Structure, Structure).coords.fset(self, coords)
 
-    def retrieve_info_from_api(self):
+    def clear_api_data(self):
+        """Remove any state information associated with the Entity from the PDB API"""
+        del self._reference_sequence
+        self.uniprot_ids = (None,)
+        self.thermophilicity = None
+
+    def retrieve_api_metadata(self):
         """Try to set attributes about the Entity from PDB API query information
 
         Sets:
@@ -1253,7 +1259,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         ...}
         """
         if api_return:
-            self._api_data: dict[str, Any] = api_return[self.name]
+            self._api_data = api_return[self.name]
         else:
             self._api_data = {}
 
@@ -1287,7 +1293,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         except AttributeError:
             # Set None but attempt to get from the API
             self._uniprot_ids = (None,)
-            self.retrieve_info_from_api()
+            if self._api_data is None:
+                self.retrieve_api_metadata()
         return self._uniprot_ids
 
     @uniprot_ids.setter
@@ -1311,10 +1318,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         try:
             return self._reference_sequence
         except AttributeError:
-            self.retrieve_info_from_api()
-            try:
-                return self._reference_sequence
-            except AttributeError:
+            if self._api_data is None:
+                self.retrieve_api_metadata()
+            else:  # retrieve_api_metadata() was already attempted
                 self._reference_sequence = self._retrieve_sequence_from_api()
                 if self._reference_sequence is None:
                     self.log.info("The reference sequence couldn't be found. Using the Structure sequence instead")

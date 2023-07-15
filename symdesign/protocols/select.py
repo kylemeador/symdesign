@@ -967,7 +967,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
             sequences_and_tags = {}
             entity_termini_availability, entity_helical_termini = {}, {}
             for idx, (source_entity, design_entity) in enumerate(zip(pose_job.pose.entities, design_pose.entities)):
-                # source_entity.retrieve_info_from_api()
+                # source_entity.retrieve_api_metadata()
                 # source_entity.reference_sequence
                 sequence_id = f'{pose_job}_{source_entity.name}'
                 # design_string = '%s_design_%s_%s' % (pose_job, design, source_entity.name)  # [i])), pdb_code)

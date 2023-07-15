@@ -1228,7 +1228,9 @@ def main():
                                     f"The name '{specified_name}' will be used instead of '{old_name}'")
                             if specified_name != old_name:
                                 entity.name = specified_name
-                                entity.retrieve_info_from_api()
+                                # Explicitly clear old metadata
+                                entity.clear_api_data()
+                                entity.retrieve_api_metadata()
                                 if entity._api_data is None:  # Information wasn't found
                                     logger.warning(f"There wasn't any information found from the PDB API for the name"
                                                    f" '{specified_name}")
