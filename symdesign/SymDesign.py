@@ -6,6 +6,7 @@ SLURM computational clusters, analysis of designed poses, and sequence selection
 from __future__ import annotations
 
 # import logging
+import csv
 import logging.config
 import os
 import random
@@ -1197,6 +1198,17 @@ def main():
             existing_random_ids = []
             remove_pose_jobs = []
             pose_jobs_to_commit = []
+            if job.specify_entities:
+                print("You can use a map to relate the entity by its position in the pose with it's name. "
+                      "Would you like to use a map?")
+                use_map = user_query.utils.boolean_choice()
+                if use_map:
+                    file = input('Please provide the name of a .csv file with a map in the form of:'
+                                 '\n\tPoseName,EntityName1,EntityName2,...')
+                    with open(file) as f:
+                        pose_entity_mapping = {row[0]: row[1:] for row in csv.reader(f)}
+                    print(pose_entity_mapping)
+
             for idx, pose_job in enumerate(pose_jobs):
                 if pose_job.id is None:
                     # Todo expand the definition of SymEntry/Entity to include
@@ -1212,20 +1224,28 @@ def main():
                     if job.specify_entities:
                         # Give the input new EntityID's
                         logger.info(f"Modifying identifiers for the input '{pose_job.name}'")
-                        for entity in pose_job.initial_model.entities:
+                        if use_map:
+                            this_pose_entities = pose_entity_mapping[pose_job.name]
+                        for entity_idx, entity in enumerate(pose_job.initial_model.entities):
                             old_name = entity.name
-                            proceed = False
-                            while not proceed:
-                                specified_name = user_query.format_input(
-                                    f"Which name should be used for {entity.__class__.__name__} with name '{old_name}'"
-                                    f" and chainID '{entity.chain_id}'")
-                                if specified_name == old_name:
-                                    break
-                                # If different, ensure that it is desired
-                                if len(specified_name) != 6:  # 6 is the typical length for pdb entities, i.e. 1abc_1
-                                    logger.warning(f"'{specified_name}' isn't the expected number of characters (6)")
-                                proceed = user_query.confirm_input_action(
-                                    f"The name '{specified_name}' will be used instead of '{old_name}'")
+                            if use_map:
+                                specified_name = this_pose_entities[entity_idx].lower()
+                                if len(specified_name) == 4:
+                                    # Add an entity identifier underscore and assume it is the first
+                                    specified_name = f'{specified_name}_1'
+                            else:
+                                proceed = False
+                                while not proceed:
+                                    specified_name = user_query.format_input(
+                                        f"Which name should be used for {entity.__class__.__name__} with name '{old_name}'"
+                                        f" and chainID '{entity.chain_id}'")
+                                    if specified_name == old_name:
+                                        break
+                                    # If different, ensure that it is desired
+                                    if len(specified_name) != 6:  # 6 is the typical length for pdb entities, i.e. 1abc_1
+                                        logger.warning(f"'{specified_name}' isn't the expected number of characters (6)")
+                                    proceed = user_query.confirm_input_action(
+                                        f"The name '{specified_name}' will be used instead of '{old_name}'")
                             if specified_name != old_name:
                                 entity.name = specified_name
                                 # Explicitly clear old metadata
@@ -1435,9 +1455,6 @@ def main():
                         #     data.transform = sql.EntityTransform()
                         #     data.transform.transformation = transformation
                     session.add_all(pose_jobs_to_commit)
-                    confirm = input('Suspend execution after debug? Enter YES to suspend')
-                    if confirm == 'YES':
-                        sys.exit(1)
                     # When pose_jobs_to_commit already exist, deal with it by getting those already
                     # OR raise a useful error for the user about input
                     try:
