@@ -1297,14 +1297,12 @@ class JobResources:
                 hhblits_cmd_file = distribute.write_commands(hhblits_cmds, name=f'{utils.starttime}-{putils.hhblits}',
                                                              out_path=self.profiles)
                 reformat_msa_cmd_file = distribute.write_commands(
-                    reformat_cmds1 + reformat_cmds2, name=f'{utils.starttime}-{putils.hhblits}', out_path=self.profiles)
+                    reformat_cmds1 + reformat_cmds2, name=f'{utils.starttime}-reformat-msas', out_path=self.profiles)
                 number_of_hhblits_cmds = len(hhblits_cmds)
                 hhblits_kwargs = dict(out_path=self.sbatch_scripts, scale=putils.hhblits,
                                       max_jobs=number_of_hhblits_cmds, number_of_commands=number_of_hhblits_cmds,
                                       log_file=hhblits_log_file)
                 reformat_msa_cmds_script = distribute.distribute(file=reformat_msa_cmd_file, **hhblits_kwargs)
-                # Todo
-                #  The finishing_commands includsion of another distribution script hasn't been tested
                 hhblits_script = \
                     distribute.distribute(file=hhblits_cmd_file,
                                           finishing_commands=[f'{shell} {reformat_msa_cmds_script}'],
