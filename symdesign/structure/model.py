@@ -6375,6 +6375,7 @@ class Pose(SymmetricModel, Metrics):
              'percent_residues_fragment_interface_center',
              'percent_residues_non_fragment_interface',
              'pose_length',
+             'symmetric_interface'
              }
         """
         minimum_radius, maximum_radius = float('inf'), 0.
@@ -7442,6 +7443,7 @@ class Pose(SymmetricModel, Metrics):
              'percent_residues_fragment_interface_center',
              'percent_residues_non_fragment_interface',
              'pose_length',
+             'symmetric_interface'
              }
              # 'entity_radius_ratio_#v#',
              # 'entity_min_radius_ratio_#v#',
@@ -7534,6 +7536,10 @@ class Pose(SymmetricModel, Metrics):
         pose_metrics['percent_interface_helix'] = number_helical_residues / number_residues_interface
         pose_metrics['percent_interface_strand'] = number_strand_residues / number_residues_interface
         pose_metrics['percent_interface_coil'] = number_loop_residues / number_residues_interface
+        if self.interface_residues_by_interface == self.interface_residues_by_interface_unique:
+            pose_metrics['symmetric_interface'] = True
+        else:
+            pose_metrics['symmetric_interface'] = False
 
         # if self.is_symmetric():
         #     pose_metrics['design_dimension'] = self.dimension

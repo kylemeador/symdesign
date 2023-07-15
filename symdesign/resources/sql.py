@@ -254,6 +254,7 @@ class PoseMetrics(Base):
     pose_length = Column(Integer)
     # Pose features end
     pose_thermophilicity = Column(Float)
+    symmetric_interface = Column(Boolean)
     """Thermophilicity implies this is a spectrum, while thermophilic implies binary"""
 
 
