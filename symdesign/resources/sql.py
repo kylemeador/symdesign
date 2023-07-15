@@ -1034,7 +1034,8 @@ def initialize_metadata(session: Session,
     if not possibly_new_uniprot_to_prot_data:
         if existing_protein_metadata:
             pass
-            # uniprot_id_to_metadata = {protein_data.uniprot_ids: protein_data for protein_data in existing_protein_metadata}
+            # uniprot_id_to_metadata = {protein_data.uniprot_ids:
+            #                           protein_data for protein_data in existing_protein_metadata}
         elif existing_uniprot_entities:
             existing_protein_metadata = {unp_entity.protein_metadata for unp_entity in existing_uniprot_entities}
         else:
@@ -1119,7 +1120,7 @@ def initialize_metadata(session: Session,
 
     # Get all the existing ProteinMetadata.entity_ids to handle the certainly new ones
     existing_entity_ids = {protein_data.entity_id for protein_data in existing_protein_metadata}
-    # The remaining entity_ids are new and must be added
+    # Any remaining entity_ids are new and must be added
     new_entity_ids = possibly_new_entity_ids.difference(existing_entity_ids)
     # uniprot_ids_to_new_metadata = {
     #     possibly_new_entity_id_to_uniprot_ids[entity_id]: possibly_new_entity_id_to_protein_data[entity_id]
@@ -1130,16 +1131,16 @@ def initialize_metadata(session: Session,
             possibly_new_entity_id_to_protein_data[entity_id])
 
     # Add all existing to UniProtIDs to ProteinMetadata mapping
-    uniprot_id_to_metadata = defaultdict(list)
+    all_uniprot_id_to_prot_data = defaultdict(list)
     for protein_data in existing_protein_metadata:
-        uniprot_id_to_metadata[protein_data.uniprot_ids].append(protein_data)
+        all_uniprot_id_to_prot_data[protein_data.uniprot_ids].append(protein_data)
 
-    # Collect all remaining ProteinMetadata
+    # Collect all new ProteinMetadata which remain
     all_protein_metadata = []
     for uniprot_ids, metadatas in uniprot_ids_to_new_metadata.items():
         all_protein_metadata.extend(metadatas)
         # Add to UniProtIDs to ProteinMetadata map
-        uniprot_id_to_metadata[uniprot_ids].extend(metadatas)
+        all_uniprot_id_to_prot_data[uniprot_ids].extend(metadatas)
         # Attach UniProtEntity to new ProteinMetadata by UniProtID
         for protein_metadata in metadatas:
             # Create the ordered_list of UniProtIDs (UniProtEntity) on ProteinMetadata entry
@@ -1158,4 +1159,4 @@ def initialize_metadata(session: Session,
     # # Finalize additions to the database
     # session.commit()
 
-    return uniprot_id_to_metadata
+    return all_uniprot_id_to_prot_data

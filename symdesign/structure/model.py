@@ -949,6 +949,7 @@ class Chain(SequenceProfile, Structure):
         if type(self) == Chain and chain_id is not None:
             self.set_residues_attributes(chain_id=chain_id)
             self._chain_id = chain_id
+            self._entity_id = None
 
         if as_mate:
             self.detach_from_parent()
@@ -1380,7 +1381,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     @entity_id.setter
     def entity_id(self, entity_id: str):
         # self.set_residues_attributes(entity_id=entity_id)
-        self._entity_id = entity_id
+        self.name = entity_id
 
     def _set_chain_ids(self):
         """From the Entity.chain_id set all mate Chains with an incrementally higher id

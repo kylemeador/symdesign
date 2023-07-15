@@ -1211,7 +1211,7 @@ def main():
                         continue
                     if job.specify_entities:
                         # Give the input new EntityID's
-                        logger.info(f"Modifying identifiers for the input '{pose_job.name}'?")
+                        logger.info(f"Modifying identifiers for the input '{pose_job.name}'")
                         for entity in pose_job.initial_model.entities:
                             old_name = entity.name
                             proceed = False
@@ -1412,9 +1412,17 @@ def main():
                                     entity_data.append(sql.EntityData(meta=protein_metadata))
                                     break
                             else:
+                                # There could be an issue here where the same entity.entity_id could be used for
+                                # different entity.uniprot_ids and sql.initialize_metadata() would overwrite the first
+                                # entity_id upon seeing the second.
+                                available_entity_ids = \
+                                    [data.entity_id for data in all_uniprot_id_to_prot_data[entity.uniprot_ids]]
                                 raise utils.InputError(
                                     f"Couldn't set up the {repr(pose_job)} {repr(entity)} with a corresponding "
-                                    f"{sql.ProteinMetadata.__name__} entry")
+                                    f"{sql.ProteinMetadata.__name__} entry. Found {repr(entity)} features:"
+                                    f" .entity_id={entity.entity_id} .uniprot_ids={entity.uniprot_ids} and "
+                                    f"corresponding {sql.ProteinMetadata.__name__} entries:"
+                                    f"{', '.join(available_entity_ids)}")
                         pose_job.entity_data = entity_data
 
                         # Todo this could be useful if optimizing database access with concurrency
@@ -1425,7 +1433,9 @@ def main():
                         #     data.transform = sql.EntityTransform()
                         #     data.transform.transformation = transformation
                     session.add_all(pose_jobs_to_commit)
-
+                    confirm = input('Suspend execution after debug? Enter YES to suspend')
+                    if confirm == 'YES':
+                        sys.exit(1)
                     # When pose_jobs_to_commit already exist, deal with it by getting those already
                     # OR raise a useful error for the user about input
                     try:
