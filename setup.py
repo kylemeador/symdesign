@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 import re
@@ -8,7 +9,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-from symdesign import utils
+from symdesign import utils, flags
 from symdesign.utils import path as putils, input_string
 
 logger = utils.start_log()
@@ -256,9 +257,7 @@ def setup(args):
     #       f"{putils.conda_environment}' will handle this for you")
     rosetta_env_variable = rosetta_main = ''
     rosetta_make = None
-    if args.no_rosetta:
-        pass
-    else:
+    if args.rosetta:
         print(f'First, follow this url "{rosetta_url}" to begin licensing and download of the Rosetta Software suite '
               "if you haven't installed already")
         choice1 = utils.validate_input(
@@ -440,11 +439,12 @@ def setup(args):
     # Get hhblits database
     # Todo
     #  collab use bfd minimal...
-    if not args.hhsuite_database:
+    if args.hhsuite_database:
         _input = utils.validate_input(
-            f'To use {putils.hhblits} A UniClust database needs to be available. The file will take >50 GB of hard'
-            f' drive space. Ensure that you have the capacity for this operation. This will automatically be downloaded'
-            f" for you in the directory '{putils.hhsuite_db_dir}' if you consent.", ['Y', 'n'])
+            f'To use {putils.hhblits}, a sequence database needs to be available. Default use is with UniClust and the '
+            f'database file will take >50 GB of hard drive space. Ensure that you have the capacity for this operation.'
+            f" This will automatically be downloaded in the directory '{putils.hhsuite_db_dir}' if you consent.",
+            ['Y', 'n'])
     else:
         _input = 'y'
     if _input == 'n':
@@ -455,10 +455,9 @@ def setup(args):
     # Get alphafold database. 5.3 is for params only
     if args.alphafold_database:
         _input = utils.validate_input(
-            'Finally, Alphafold databases need to be available for alphafold structure prediction. The download will '
-            'take 5.3 GB of hard drive space. Ensure that you have the capacity for this operation. This will '
-            f"automatically be downloaded for you in the directory '{putils.alphafold_db_dir}' if you consent.",
-            ['Y', 'n'])
+            'To use AlphaFold for structure prediction, model parameters need to be available. Downloading them will '
+            'take 5.3 GB of hard drive space. This will automatically be downloaded in the directory '
+            f"'{putils.alphafold_db_dir}' if you consent.", ['Y', 'n'])
     else:
         _input = 'y'
 
@@ -487,7 +486,7 @@ if __name__ == '__main__':
         flags.alphafold_database_args: flags.alphafold_database_kwargs,
         flags.dry_run_args: flags.dry_run_kwargs,
         flags.hhsuite_database_args: flags.hhsuite_database_kwargs,
-        flags.no_rosetta_args: flags.no_rosetta_kwargs
+        flags.rosetta_args: flags.rosetta_kwargs
     }
     for _flags, flags_params in arguments.items():
         parser.add_argument(*_flags, **flags_params)

@@ -133,7 +133,7 @@ def format_args_for_namespace(args_: dict[str, Any], namespace: str, flags_: Ite
             arg_ = args_[flag]  # .pop(flag)  # , None)  # get(flag)
         except KeyError:  # No flag is here
             continue
-        else:# logger.debug('flag', flag, 'arg', arg_)
+        else:  # logger.debug('flag', flag, 'arg', arg_)
         # if arg_ is not None:
             # Replace the arg destination with the plain flag, no namespace prefix
             namespace_args[flag.replace(f'{namespace}_', '')] = arg_
@@ -531,6 +531,8 @@ class JobResources:
         if self.design.evolution_constraint and \
                 (flags.design not in self.modules and flags.nanohedra not in self.modules and
                  flags.predict_structure not in self.modules and flags.initialize_building_blocks not in self.modules):
+            logger.debug(f'Setting {flags.format_args(flags.evolution_constraint_args)} to False as the no module '
+                         f'requesting evolutionary information is utilized')
             self.design.evolution_constraint = False
 
         # self.dock_only: bool = kwargs.get('dock_only')

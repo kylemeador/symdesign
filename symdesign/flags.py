@@ -143,7 +143,7 @@ mask_residues = 'mask_residues'
 mask_chains = 'mask_chains'
 require_residues = 'require_residues'
 require_chains = 'require_chains'
-no_rosetta = 'no_rosetta'
+rosetta = 'rosetta'
 alphafold_database = 'alphafold_database'
 hhsuite_database = 'hhsuite_database'
 # Set up JobResources namespaces for different categories of flags
@@ -354,7 +354,7 @@ require_chains = format_for_cmdline(require_chains)
 design_residues = format_for_cmdline(design_residues)
 mask_residues = format_for_cmdline(mask_residues)
 mask_chains = format_for_cmdline(mask_chains)
-no_rosetta = format_for_cmdline(no_rosetta)
+rosetta = format_for_cmdline(rosetta)
 alphafold_database = format_for_cmdline(alphafold_database)
 hhsuite_database = format_for_cmdline(hhsuite_database)
 
@@ -802,9 +802,9 @@ alphafold_database_kwargs = \
 hhsuite_database_args = (f'--{hhsuite_database}',)
 hhsuite_database_kwargs = \
     dict(action='store_true', help=f'Whether {program_name} should be set up with hhsuite databases')
-no_rosetta_args = (f'--{no_rosetta}',)
-no_rosetta_kwargs = \
-    dict(action='store_true', help=f'Whether {program_name} should be set up without Rosetta dependency')
+rosetta_args = (f'--{rosetta}',)
+rosetta_kwargs = \
+    dict(action='store_true', help=f'Whether {program_name} should be set up with Rosetta dependency')
 dry_run = 'dry_run'
 dry_run_args = (f'--{dry_run}',)
 dry_run_kwargs = dict(action='store_true', help=f'Is this a real install or a "dry run"?')
@@ -888,8 +888,8 @@ options_arguments = {
                                       'Default is inferred from input'),
     multiprocessing_args: multiprocessing_kwargs,
     (f'--{profile_memory}',): dict(action='store_true',
-                                   help='Use memory_profiler.profile() to understand memory usage of a module. Must be '
-                                        'run with --development'),
+                                   help='Use memory_profiler.profile() to understand memory usage of a module.\n'
+                                        'Must be run with --development'),
     quick_args: dict(action='store_true',
                      help='Run Nanohedra in minimal sampling mode to generate enough hits to\n'
                           'test quickly. This should only be used for active development'),  # Todo DEV branch
@@ -955,7 +955,7 @@ protocol_arguments = {
     ('-m', f'--{modules}'): dict(nargs='*', default=tuple(), required=True, help='The modules to run in order'),
 }
 # ---------------------------------------------------
-predict_structure_help = 'Predict the 3D structure from specified sequence(s)'
+predict_structure_help = 'Predict 3D structures from specified sequences'
 parser_predict_structure = \
     {predict_structure: dict(description=f'{predict_structure_help}\nPrediction occurs on designed sequences by '
                                          f'default.\nIf prediction should be performed on the Pose, use '
@@ -1009,7 +1009,12 @@ helix_bending_arguments = {
     sample_number_args: sample_number_kwargs
 }
 # ---------------------------------------------------
-align_helices_help = 'Align helices of one protein with another'
+align_helices_help = 'Align, then fuse, the helices of one protein with another. The aligned\n' \
+                     'molecule is transformed to the reference frame of the target molecule.\n' \
+                     'Submit arguments with target as component1. All symmetry reflects the target\n' \
+                     'while the aligned component must be asymmetric'
+# To align helices where both components are symmetric, run Nanohedra to perform helical alignment in the available
+# Nanohedra symmetry combination materials (SCM)
 parser_align_helices = {align_helices: dict(description=align_helices_help, help=align_helices_help)}
 target_start_args = (f'--{target_start}',)
 target_start_kwargs = dict(type=int, metavar='INT', help='First residue of the targe molecule to align on')
@@ -1019,7 +1024,7 @@ target_chain_args = (f'--{target_chain}',)
 target_chain_kwargs = dict(help='A desired chainID of the target molecule')
 target_termini_args = (f'--{target_termini}',)
 target_termini_kwargs = dict(type=str.lower, nargs='*', choices=possible_termini,
-                             help="If particular termini are desired, specify with 'n' and/or 'c'")
+                             help="If particular termini of the target are desired, specify with 'n' and/or 'c'")
 trim_termini_args = (f'--{trim_termini}',)
 trim_termini_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
                            help='Whether the termini should be trimmed back to the nearest helix\n'
@@ -1300,6 +1305,8 @@ interface_metrics_arguments = {
 # ---------------------------------------------------
 poses_args = (f'--{poses}',)
 specification_file_args = ('-sf', f'--{specification_file}')
+use_specification_file_str = f'The input flag {format_args(specification_file_args)} can be provided\n' \
+                             'to restrict selection to specific designs from each pose'
 optimize_designs_help = f'Subtly and explicitly modify pose/designs. Useful for reverting\n' \
                         'mutations to wild-type, directing exploration of troublesome areas,\n' \
                         'stabilizing an entire design based on evolution, increasing solubility,\n' \
@@ -1424,10 +1431,9 @@ select_arguments = {
     weight_function_args: weight_function_kwargs,
 }
 # ---------------------------------------------------
-select_poses_help = 'Select poses based on specific metrics.\nSelection will be the result of a handful of metrics ' \
-                    f'combined using {format_args(all_filter_args)} and/or\n{format_args(all_weight_args)}. For ' \
-                    f'metric options, see the {analysis} {format_args(guide_args)}. The pose input flag'\
-                    f'\n{format_args(specification_file_args)} can be provided to restrict selection criteria'
+select_poses_help = f'Select poses based on specific metrics. Use {format_args(all_filter_args)}\n' \
+                    f'and/or {format_args(all_weight_args)}. ' \
+                    f'For metric options, see {analysis} {format_args(guide_args)}.\n{use_specification_file_str}'
 parser_select_poses = {select_poses: dict(description=select_poses_help, help=select_poses_help)}
 select_poses_arguments = {
     **select_arguments,
@@ -1449,12 +1455,12 @@ intergenic_sequence_args = ('-ms', f'--{multicistronic_intergenic_sequence}')
 intergenic_sequence_kwargs = dict(default=constants.ncoI_multicistronic_sequence,
                                   help='The sequence to use in the intergenic region of a multicistronic expression '
                                        'output')
-select_sequences_help = 'From the provided poses, generate sequences (nucleotide/protein) based on specified\n' \
-                        'selection criteria and prioritized metrics. Generation of output sequences can take\n' \
-                        'multiple forms depending on downstream needs. By default, disordered region insertion,\n' \
-                        f'tagging for expression, and codon optimization (--{nucleotide}) are performed. The\n' \
-                        f'pose input flag {format_args(specification_file_args)} can be provided to restrict\n' \
-                        f'selection criteria'
+nucleotide_args = (f'--{nucleotide}',)
+select_sequences_help = 'Select designs and output their sequences (nucleotide/protein) based on\n' \
+                        'selection criteria and metrics. Generation of output sequences can take\n' \
+                        'multiple forms depending on downstream needs. By default, disordered\n' \
+                        'region sequence insertion, expression tagging, and codon optimization\n' \
+                        f'({format_args(nucleotide_args)}) are performed.\n{use_specification_file_str}'
 multicistronic_args = {
     csv_args: csv_kwargs,
     intergenic_sequence_args: intergenic_sequence_kwargs,
@@ -1479,7 +1485,7 @@ select_sequences_arguments = {
         dict(action='store_true',
              help='Should nucleotide sequences by output in multicistronic format?\nBy default, uses the pET-Duet '
                   'intergeneic sequence containing\na T7 promoter, LacO, and RBS'),
-    (f'--{nucleotide}',): dict(action=argparse.BooleanOptionalAction, default=True,
+    nucleotide_args: dict(action=argparse.BooleanOptionalAction, default=True,
                                help='Should codon optimized nucleotide sequences be output?'
                                     f'\n{boolean_positional_prevent_msg(nucleotide)}'),
     ('-t', f'--{preferred_tag}'): dict(type=str.lower, choices=constants.expression_tags.keys(), default='his_tag',
@@ -1501,9 +1507,7 @@ select_sequences_arguments = {
     **multicistronic_args,
 }
 # ---------------------------------------------------
-select_designs_help = f'From the provided poses, {select_designs} based on specified selection criteria using\n' \
-                      f'metrics. The pose input flag {format_args(specification_file_args)} can be provided\n' \
-                      'to restrict selection criteria to specific designs for each pose'
+select_designs_help = f'Select designs based on specified criteria using metrics.\n{use_specification_file_str}'
 parser_select_designs = {select_designs: dict(description=select_designs_help, help=select_designs_help)}
 select_designs_arguments = {
     **select_arguments,
@@ -1512,9 +1516,9 @@ select_designs_arguments = {
 }
 # ---------------------------------------------------
 file_args = ('-f', '--file')
-multicistronic_help = 'Generate nucleotide sequences for selected designs by codon optimizing protein\n' \
-                      'sequences, then concatenating nucleotide sequences. Provide a .csv/.fasta file\n' \
-                      f'with the {format_args(file_args)} argument'
+multicistronic_help = 'Generate nucleotide sequences for selected designs by codon\n' \
+                      'optimizing protein sequences, then concatenating nucleotide\n' \
+                      f'sequences. Either .csv or .fasta file accepted with {format_args(file_args)}'
 parser_multicistronic = {multicistronic: dict(description=multicistronic_help, help=multicistronic_help)}
 number_args = ('-n', f'--{number}')
 multicistronic_arguments = {
@@ -1535,16 +1539,18 @@ update_db_arguments = {}
 # ---------------------------------------------------
 # parser_asu = subparsers.add_parser('find_asu', description='From a symmetric assembly, locate an ASU and save the result.')
 # ---------------------------------------------------
-check_clashes_help = 'Check for any clashes in the input poses. This is performed by default at Pose\n' \
-                     'load and will raise a ClashError (caught and reported) if clashes are found'
+check_clashes_help = 'Check for any clashes in the input poses.\n' \
+                     'This is always performed by default at Pose load and will \n' \
+                     'raise a ClashError if clashes are found'
 parser_check_clashes = {check_clashes: dict(description=check_clashes_help, help=check_clashes_help)}
 # ---------------------------------------------------
 # parser_check_unmodeled_clashes = subparsers.add_parser('check_unmodeled_clashes', description='Check for clashes between full models. Useful for understanding if loops are missing, whether their modeled density is compatible with the pose')
 # ---------------------------------------------------
-expand_asu_help = 'For given poses, expand the asymmetric unit to a symmetric assembly and write the result'
+expand_asu_help = 'For given poses, expand the asymmetric unit to the full symmetric\n' \
+                  'assembly and write the result'
 parser_expand_asu = {expand_asu: dict(description=expand_asu_help, help=expand_asu_help)}
 # ---------------------------------------------------
-generate_fragments_help = 'Generate fragment overlap for poses of interest and write fragments'
+generate_fragments_help = 'Generate fragment overlap for interfaces of interest and write fragments'
 parser_generate_fragments = \
     {generate_fragments: dict(description=generate_fragments_help, help=generate_fragments_help)}
 generate_fragments_arguments = {
@@ -1555,8 +1561,7 @@ generate_fragments_arguments = {
                                        'hetrotypic interfaces')
 }
 # ---------------------------------------------------
-rename_chains_help = 'For given poses, rename the chains in the source PDB to the alphabetic order.\n' \
-                     'Useful for writing a multi-model as distinct chains or fixing PDB formatting errors'
+rename_chains_help = 'For given poses, rename the chains in the source file in alphabetic order'
 parser_rename_chains = {rename_chains:
                         dict(description=rename_chains_help, help=rename_chains_help)}
 # # ---------------------------------------------------
@@ -1585,8 +1590,7 @@ directory_needed = f'To locate poses from a file utilizing pose identifiers (--{
 input_help = f'Specify where/which poses should be included in processing.\n{directory_needed}'
 parser_input = {input_: dict(description=input_help)}  # , help=input_help
 parser_input_group = dict(title=f'{"_" * len(input_title)}\n{input_title}',
-                          description='\nSpecify where/which poses should be included in processing\n'
-                                      f'{directory_needed}')
+                          description=f'\n{input_help}')
 input_arguments = {
     cluster_map_args: cluster_map_kwargs,
     ('-df', f'--{dataframe}'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
@@ -1618,10 +1622,10 @@ input_arguments = {
         dict(action=argparse.BooleanOptionalAction, default=None,
              help=f'Whether the input building blocks should be refined into {current_energy_function}'),
     (f'--{pre_loop_modeled}',):
-        dict(action='store_true', help='Whether the input building blocks have been preprocessed for missing density'),
+        dict(action='store_true', help='Whether input building blocks have been preprocessed for\nmissing density'),
     (f'--{pre_refined}',):
-        dict(action='store_true', help='Whether the input building blocks have been preprocessed by refinement into the'
-                                       f' {current_energy_function}'),
+        dict(action='store_true', help='Whether input building blocks have been preprocessed by\nrefinement into the'
+                                       f' {current_energy_function}'),  # Todo change this
     range_args: dict(metavar='INT-INT',
                      help='The range of poses to process from a larger specification.\n'
                           'Specify a %% between 0 and 100, separating the range by "-"\n'
