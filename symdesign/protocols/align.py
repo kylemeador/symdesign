@@ -1005,7 +1005,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
         pose_job.pose = pose
         # pose_job.calculate_pose_design_metrics(session)
         putils.make_path(pose_job.pose_directory)
-        pose_job.output_pose(path=pose_job.pose_path)
+        pose_job.output_pose()
         pose_job.source_path = pose_job.pose_path
         pose_job.pose = None
         if job.output_to_directory:

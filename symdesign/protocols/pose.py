@@ -1339,9 +1339,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             # self.source_path = out_path = self.pose_source.structure_path = self.pose_path
             # Ensure this information is persistent
             self._update_db()
-        else:
+        else:  # Explicitly set None and write anything else requested by input options
             out_path = None
-        self.output_pose(path=out_path)
+        self.output_pose(out_path=out_path)
 
     def _update_db(self):
         """Ensure information added to the PoseJob is persistent in the database"""
@@ -1349,7 +1349,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             session.add(self)
             session.commit()
 
-    def output_pose(self, path: AnyStr = None):  # Todo to PoseProtocols?
+    def output_pose(self, out_path: AnyStr = 'POSE'):  # Todo to PoseProtocols?
         """Save a new Structure from multiple Chain or Entity objects including the Pose symmetry"""
         # if self.job.pose_format:
         #     self.pose.pose_numbering()
@@ -1416,15 +1416,18 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 interface_path = os.path.join(self.pose_directory, f'{self.name}_interface.pdb')
             interface_structure.write(out_path=interface_path)
 
-        if path:
-            self.pose.write(out_path=path)
-            self.log.info(f'Wrote Pose file to: "{path}"')
+        if out_path is 'POSE':
+            out_path = self.pose_path
+
+        if out_path:
+            self.pose.write(out_path=out_path)
+            self.log.info(f'Wrote Pose file to: "{out_path}"')
 
         if self.job.output_to_directory:
             if not os.path.exists(self.output_pose_path) or self.job.force:
-                path = self.output_pose_path
-                self.pose.write(out_path=path)
-                self.log.info(f'Wrote Pose file to: "{path}"')
+                out_path = self.output_pose_path
+                self.pose.write(out_path=out_path)
+                self.log.info(f'Wrote Pose file to: "{out_path}"')
 
     def set_up_evolutionary_profile(self, **kwargs):
         """Add evolutionary profile information for each Entity to the Pose

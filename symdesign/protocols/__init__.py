@@ -383,9 +383,9 @@ def rename_chains(job: pose.PoseJob):
     Args:
         job: The PoseJob for which the protocol should be performed on
     """
-    model = Model.from_file(job.source, log=job.log)
-    model.rename_chains()
-    model.write(out_path=job.pose_path)
+    job.load_pose()
+    job.pose.rename_chains()
+    job.output_pose()
 
 
 @protocol_decorator(errors=(DesignError, RuntimeError))  # Todo remove RuntimeError from .orient()
@@ -448,7 +448,7 @@ def find_asu(job: pose.PoseJob):
         # asu.update_attributes_from_pdb(pdb)
 
     # Save the Pose.asu
-    job.output_pose(path=job.pose_path)
+    job.output_pose()
 
 
 @protocol_decorator()
