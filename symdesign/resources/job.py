@@ -667,6 +667,7 @@ class JobResources:
         self.output_fragments: bool = kwargs.get(putils.output_fragments)
         self.output_interface: bool = kwargs.get(putils.output_interface)
         self.output_oligomers: bool = kwargs.get(putils.output_oligomers)
+        self.output_entities: bool = kwargs.get(putils.output_entities)
         self.output_structures: bool = kwargs.get(putils.output_structures)
         self.output_trajectory: bool = kwargs.get(putils.output_trajectory)
 
@@ -676,7 +677,7 @@ class JobResources:
         self.figures: bool = kwargs.get('figures')
 
         if self.output_structures or self.output_assembly or self.output_surrounding_uc or self.output_fragments \
-                or self.output_oligomers or self.output_trajectory:
+                or self.output_oligomers or self.output_entities or self.output_trajectory:
             self.output: bool = True
         else:
             self.output: bool = False
@@ -963,7 +964,7 @@ class JobResources:
         if self._construct_pose:
             pass
         else:  # No construction specific flags
-            self.output_fragments = self.output_oligomers = False
+            self.output_fragments = self.output_oligomers = self.output_entities = False
 
     # Todo make part of modules.setter routine
     def check_protocol_module_arguments(self):

@@ -1392,7 +1392,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                                     increment_chains=self.job.increment_chains,
                                     surrounding_uc=self.job.output_surrounding_uc)
                     self.log.info(f'Symmetric assembly written to: "{assembly_path}"')
-            if self.job.output_oligomers:  # Write out new oligomers to the PoseJob
+            if self.job.output_oligomers:  # Write out Entity.oligomer instances to the PoseJob
                 for idx, entity in enumerate(self.pose.entities):
                     if self.job.output_to_directory:
                         oligomer_path = os.path.join(self.output_path, f'{entity.name}_oligomer.pdb')
@@ -1401,6 +1401,16 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     if not os.path.exists(oligomer_path) or self.job.overwrite:
                         entity.write(oligomer=True, out_path=oligomer_path)
                         self.log.info(f'Entity {entity.name} oligomer written to: "{oligomer_path}"')
+
+        if self.job.output_entities:  # Write out Entity instances to the PoseJob
+            for idx, entity in enumerate(self.pose.entities):
+                if self.job.output_to_directory:
+                    entity_path = os.path.join(self.output_path, f'{entity.name}_entity_.pdb')
+                else:
+                    entity_path = os.path.join(self.pose_directory, f'{entity.name}_entity.pdb')
+                if not os.path.exists(entity_path) or self.job.overwrite:
+                    entity.write(out_path=entity_path)
+                    self.log.info(f'Entity {entity.name} written to: "{entity_path}"')
 
         if self.job.output_fragments:
             # if not self.pose.fragment_pairs:
