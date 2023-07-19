@@ -290,6 +290,10 @@ class PoseDirectory:
     # These next two file locations are used to dynamically update whether preprocessing should occur for designs
     @property
     def refined_pdb(self) -> str:
+        """Access the file which holds refined coordinates. These are not necessaryily refined, but if a file exists in
+        the designs_path with the pose name, it was generated from either Rosetta energy function minimization or from
+        structure prediction, which is assumed to be refined. If none, exists, use the self.pose_path
+        """
         try:
             return self._refined_pdb
         except AttributeError:
@@ -297,10 +301,14 @@ class PoseDirectory:
                 self._refined_pdb = self.pose_path
             else:
                 # self.refined_pdb = None  # /root/Projects/project_Poses/design/design_name_refined.pdb
-                self._refined_pdb = \
+                designs_refine_file = \
                     os.path.join(self.designs_path,
                                  f'{os.path.basename(os.path.splitext(self.pose_path)[0])}.pdb')
                                  # f'{os.path.basename(os.path.splitext(self.pose_path)[0])}_refined.pdb')
+                if os.path.exists(designs_refine_file):
+                    self._refined_pdb = designs_refine_file
+                else:
+                    self._refined_pdb = self.pose_path
             return self._refined_pdb
 
     @property
