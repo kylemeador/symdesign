@@ -530,7 +530,8 @@ class JobResources:
         # Explicitly set to false if not designing or predicting
         if self.design.evolution_constraint and \
                 (flags.design not in self.modules and flags.nanohedra not in self.modules and
-                 flags.predict_structure not in self.modules and flags.initialize_building_blocks not in self.modules):
+                 flags.predict_structure not in self.modules and flags.initialize_building_blocks not in self.modules
+                 and flags.refine not in self.modules and flags.interface_metrics not in self.modules):
             logger.debug(f'Setting {flags.format_args(flags.evolution_constraint_args)} to False as the no module '
                          f'requesting evolutionary information is utilized')
             self.design.evolution_constraint = False
