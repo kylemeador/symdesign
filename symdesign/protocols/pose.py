@@ -1427,7 +1427,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 interface_path = os.path.join(self.pose_directory, f'{self.name}_interface.pdb')
             interface_structure.write(out_path=interface_path)
 
-        if out_path is 'POSE':
+        if out_path == 'POSE':
             out_path = self.pose_path
 
         if out_path:
