@@ -14,8 +14,6 @@ from symdesign.utils import collect_designs, InputError, path as putils, pickle_
 
 # Globals
 logger = logging.getLogger(__name__)
-logger.setLevel(20)
-logger.addHandler(logging.StreamHandler())
 index_offset = 1
 mpi = 4
 hhblits_memory_threshold = 20e9  # 20 GB
@@ -170,7 +168,7 @@ def run(cmd: list[str] | AnyStr, log_file_name: str, program: str = None, srun: 
             p = subprocess.Popen(command, stdout=log_f, stderr=log_f)
             p.communicate()
     else:
-        logger.info(f'Command: {subprocess.list2cmdline(command)}\n')
+        print(f'Command: {subprocess.list2cmdline(command)}\n')
         p = subprocess.Popen(command)
         p.communicate()
 
