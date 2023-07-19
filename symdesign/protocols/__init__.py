@@ -281,8 +281,11 @@ def interface_metrics(job: pose.PoseJob):
         file_paths.append(job.pose_path)
     # If no designs specified or found and the pose_path exists, add it
     # The user probably wants pose metrics without specifying so
-    elif not file_paths and not job.designs and os.path.exists(job.pose_path):
-        file_paths.append(job.pose_path)
+    elif not file_paths:
+        with job.job.db.session(expire_on_commit=False) as session:
+            session.add(job)
+            if not job.designs and os.path.exists(job.pose_path):
+                file_paths.append(job.pose_path)
 
     if not file_paths:
         raise DesignError(
@@ -506,8 +509,11 @@ def refine(job: pose.PoseJob):
         file_paths.append(job.pose_path)
     # If no designs specified or found and the pose_path exists, add it
     # The user probably wants pose metrics without specifying so
-    elif not file_paths and not job.designs and os.path.exists(job.pose_path):
-        file_paths.append(job.pose_path)
+    elif not file_paths:
+        with job.job.db.session(expire_on_commit=False) as session:
+            session.add(job)
+            if not job.designs and os.path.exists(job.pose_path):
+                file_paths.append(job.pose_path)
 
     if not file_paths:
         raise DesignError(
