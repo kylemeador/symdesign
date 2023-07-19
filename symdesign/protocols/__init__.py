@@ -239,7 +239,7 @@ def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None
     if job.job.distribute_work:
         analysis_cmd = job.make_analysis_cmd()
         job.current_script = write_script(
-            list2cmdline(generate_files_cmd), name=f'{utils.starttime}_{script_name}.sh', out_path=job.scripts_path,
+            list2cmdline(generate_files_cmd), name=f'{starttime}_{script_name}.sh', out_path=job.scripts_path,
             additional=[list2cmdline(cmd)] + [list2cmdline(analysis_cmd)])
         # Todo metrics: [list2cmdline(command) for command in metric_cmds]
     else:
@@ -320,7 +320,7 @@ def interface_metrics(job: pose.PoseJob):
     if job.job.distribute_work:
         analysis_cmd = job.make_analysis_cmd()
         job.current_script = write_script(
-            metric_cmd_bound, name=f'{utils.starttime}_{job.protocol}.sh', out_path=job.scripts_path,
+            metric_cmd_bound, name=f'{starttime}_{job.protocol}.sh', out_path=job.scripts_path,
             additional=[list2cmdline(command) for command in entity_metric_cmds]
             + [list2cmdline(analysis_cmd)])
     else:
@@ -833,7 +833,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     if job.job.distribute_work:
         analysis_cmd = job.make_analysis_cmd()
         self.current_script = write_script(
-            list2cmdline(design_cmd), name=f'{utils.starttime}_{job.protocol}.sh', out_path=job.scripts_path,
+            list2cmdline(design_cmd), name=f'{starttime}_{job.protocol}.sh', out_path=job.scripts_path,
             additional=[list2cmdline(generate_files_cmd)]
             + [list2cmdline(command) for command in metric_cmds] + [list2cmdline(analysis_cmd)])
     else:
