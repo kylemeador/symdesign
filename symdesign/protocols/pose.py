@@ -1226,7 +1226,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
     def format_see_log_msg(self) -> str:
         """Issue a standard informational message indicating the location of further error information"""
-        return f"See the log file '{self.log_path}' for further information"
+        return f"See the log '{self.log_path}' for further information"
 
     def load_pose(self, file: str = None, entities: list[Structure] = None):
         """For the design info given by a PoseJob source, initialize the Pose with self.source_path file,
@@ -1672,7 +1672,8 @@ class PoseProtocol(PoseData):
                 the input sequence
         """
         if sequences is None:  # Gather all already designed sequences
-            raise NotImplementedError(f'Must pass sequences to {self.thread_sequences_to_backbone.__name__}')
+            raise NotImplementedError(
+                f'Must pass sequences to {self.thread_sequences_to_backbone.__name__}')
             # Todo, this doesn't work!
             # refine_sequences = unpickle(self.designed_sequences_file)
             sequences = {seq: seq.seq for seq in read_fasta_file(self.designed_sequences_file)}
@@ -1685,8 +1686,9 @@ class PoseProtocol(PoseData):
         design_files = []
         for sequence_id, sequence in sequences.items():
             if len(sequence) != number_of_residues:
-                raise DesignError(f'The length of the sequence {len(sequence)} != {number_of_residues}, '
-                                  f'the number of residues in the pose')
+                raise DesignError(
+                    f'The length of the sequence, {len(sequence)} != {number_of_residues}, '
+                    f'the number of residues in the pose')
             for res_idx, residue_type in enumerate(sequence):
                 pose_copy.mutate_residue(index=res_idx, to=residue_type)
             # pre_threaded_file = os.path.join(self.data_path, f'{self.name}_{self.protocol}{seq_idx:04d}.pdb')
@@ -1714,11 +1716,12 @@ class PoseProtocol(PoseData):
             with open(design_files_file, 'w') as f:
                 f.write('%s\n' % '\n'.join(design_files))
         else:
-            raise DesignError(f'{self.thread_sequences_to_backbone.__name__}: No designed sequences were located')
+            raise DesignError(
+                f'{self.thread_sequences_to_backbone.__name__}: No designed sequences were located')
 
         # self.refine(in_file_list=design_files_file)
         self.refine(design_files=design_files)
-        # # Todo Ensure that the structure_path is updated, currenlty setting in self.process_rosetta_metrics()
+        # # Todo Ensure that the structure_path is updated, currently setting in self.process_rosetta_metrics()
         # design_data.structure_path = \
         #     pose.write(out_path=os.path.join(self.designs_path, f'{design_data.name}.pdb'))
 
@@ -2443,7 +2446,6 @@ class PoseProtocol(PoseData):
                 for entity_pair, interface_residues_pair in self.pose.interface_residues_by_entity_pair.items():
                     # if interface_residues_pair[0]:  # Check that there are residues present
                     for entity, interface_residues in zip(entity_pair, interface_residues_pair):
-                        entity_name = entity.name
                         for residue in interface_residues:
                             if residue.type != 'GLY':  # No mutation from GLY to ALA as Rosetta would build a CB
                                 pose_copy.mutate_residue(residue=residue, to='A')
@@ -2520,6 +2522,12 @@ class PoseProtocol(PoseData):
         Stores job variables in a [stage]_flags file and the command in a [stage].sh file. Sets up dependencies based
         on the PoseJob
         """
+        raise NotImplementedError(
+            f'There are multiple outdated dependencies that need to be updated to use Rosetta {flags.interface_design}'
+            f'with modern {putils.program_name}')
+        # Todo
+        #  Modify the way that files are generated/named and later listed for metrics. Right now, reliance on the file
+        #  suffix to get this right, but with the database, this is not needed and will result in inaccurate use
         # Set up the command base (rosetta bin and database paths)
         main_cmd = rosetta.script_cmd.copy()
         if self.symmetry_dimension is not None and self.symmetry_dimension > 0:
@@ -2532,14 +2540,17 @@ class PoseProtocol(PoseData):
 
         additional_cmds = []
         out_file = []
+        design_files = os.path.join(self.scripts_path, f'{starttime}_design-files_{self.protocol}.txt')
         if self.job.design.scout:
             self.protocol = protocol_xml1 = putils.scout
-            generate_files_cmd = null_cmd
-            metrics_pdb = ['-in:file:s', self.scouted_pdb]
+            # metrics_pdb = ['-in:file:s', self.scouted_pdb]
+            generate_files_cmd = \
+                ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', design_files, '-e', '.pdb',
+                 '-s', f'_{self.protocol}']
+            metrics_pdb = ['-in:file:l', design_files]
             # metrics_flags = 'repack=no'
             nstruct_instruct = ['-no_nstruct_label', 'true']
         else:
-            design_files = os.path.join(self.scripts_path, f'design_files_{self.protocol}.txt')
             generate_files_cmd = \
                 ['python', putils.list_pdb_files, '-d', self.designs_path, '-o', design_files, '-e', '.pdb',
                  '-s', f'_{self.protocol}']
@@ -2590,8 +2601,8 @@ class PoseProtocol(PoseData):
                    '-out:suffix', f'_{self.protocol}', '-parser:script_vars', f'switch={putils.consensus}']
         else:
             design_cmd = main_cmd + profile_cmd + \
-                [f'@{self.flags}', '-in:file:s',
-                 self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
+                [f'@{self.flags}', '-in:file:s', self.refined_pdb,
+                 # self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
                  '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml'),
                  '-out:suffix', f'_{self.protocol}'] + out_file + nstruct_instruct
         if self.job.overwrite:
