@@ -1297,19 +1297,17 @@ class JobResources:
                 hhblits_cmds = [subprocess.list2cmdline(cmd) for cmd in hhblits_cmds]
                 reformat_cmds1 = [subprocess.list2cmdline(cmd) for cmd in reformat_cmds1]
                 reformat_cmds2 = [subprocess.list2cmdline(cmd) for cmd in reformat_cmds2]
-                hhblits_cmd_file = distribute.write_commands(hhblits_cmds, name=f'{utils.starttime}-{putils.hhblits}',
-                                                             out_path=self.profiles)
-                reformat_msa_cmd_file = distribute.write_commands(
-                    reformat_cmds1 + reformat_cmds2, name=f'{utils.starttime}-reformat-msas', out_path=self.profiles)
-                number_of_hhblits_cmds = len(hhblits_cmds)
+                all_evolutionary_commands = hhblits_cmds + reformat_cmds1 + reformat_cmds2
+                evolutionary_cmds_file = distribute.write_commands(
+                    all_evolutionary_commands, name=f'{utils.starttime}-{putils.hhblits}', out_path=self.profiles)
+                # reformat_msa_cmd_file = distribute.write_commands(
+                #     reformat_cmds1 + reformat_cmds2, name=f'{utils.starttime}-reformat-msas', out_path=self.profiles)
+                number_of_hhblits_cmds = len(all_evolutionary_commands)
                 hhblits_kwargs = dict(out_path=self.sbatch_scripts, scale=putils.hhblits,
                                       max_jobs=number_of_hhblits_cmds, number_of_commands=number_of_hhblits_cmds,
                                       log_file=hhblits_log_file)
-                reformat_msa_cmds_script = distribute.distribute(file=reformat_msa_cmd_file, **hhblits_kwargs)
-                hhblits_script = \
-                    distribute.distribute(file=hhblits_cmd_file,
-                                          finishing_commands=[f'{shell} {reformat_msa_cmds_script}'],
-                                          **hhblits_kwargs)
+                # reformat_msa_cmds_script = distribute.distribute(file=reformat_msa_cmd_file, **hhblits_kwargs)
+                hhblits_script = distribute.distribute(file=evolutionary_cmds_file, **hhblits_kwargs)
                 # Format messages
                 info_messages.append(
                     'Please follow the instructions below to generate sequence profiles for input proteins')
