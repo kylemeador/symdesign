@@ -681,7 +681,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             propagate = no_log_name = False
         elif self.log_path:
             if self.job.force:
-                os.system(f'rm {self.log_path}')
+                log_path = Path(self.log_path)
+                log_path.unlink(missing_ok=True)
             handler = level = 2  # To a file
             propagate = no_log_name = True
         else:  # Log to the __main__ file logger
