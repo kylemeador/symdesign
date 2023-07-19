@@ -66,6 +66,7 @@ protocols_literal = Literal[
     'rmsd_to_cluster',
     'scout',
     'hbnet_design_profile',
+    'structure_background',
     'optimize-designs',
     'interface-metrics',
     'hhblits',
@@ -74,7 +75,7 @@ protocols_literal = Literal[
 ]
 protocols: tuple[str, ...] = get_args(protocols_literal)
 # Cluster Dependencies and Multiprocessing
-# processes = (1, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 2, 1)
+# processes = (1, 2, 2, 2, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 1, 2, 1)
 # process_scale = dict(zip(protocols, processes))
 sbatch_templates_tuple = (
     os.path.join(sbatch_template_dir, flags.refine),
@@ -87,6 +88,7 @@ sbatch_templates_tuple = (
     os.path.join(sbatch_template_dir, 'rmsd_calculation'),
     os.path.join(sbatch_template_dir, 'rmsd_calculation'),
     os.path.join(sbatch_template_dir, 'rmsd_calculation'),
+    os.path.join(sbatch_template_dir, flags.interface_design),
     os.path.join(sbatch_template_dir, flags.interface_design),
     os.path.join(sbatch_template_dir, flags.interface_design),
     os.path.join(sbatch_template_dir, putils.hhblits),

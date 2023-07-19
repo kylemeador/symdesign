@@ -460,8 +460,8 @@ def main():
                 # flags.interface_design: design_stage,
                 flags.nanohedra: flags.nanohedra,
                 flags.refine: flags.refine,
-                flags.interface_metrics: putils.interface_metrics,
-                flags.optimize_designs: putils.optimize_designs
+                flags.interface_metrics: flags.interface_metrics,
+                flags.optimize_designs: flags.optimize_designs
                 # custom_script: os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],
             }
             stage = module_files.get(job.module)
