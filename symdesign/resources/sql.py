@@ -582,11 +582,12 @@ class JobProtocol(Base):
     id = Column(Integer, primary_key=True)
     __table_args__ = (
         UniqueConstraint(
+            'module', 'commit', 'proteinmpnn_model_name',
             'ca_only', 'contiguous_ghosts', 'evolution_constraint',
             'initial_z_value', 'interface', 'match_value',
             'minimum_matched', 'neighbors', 'number_predictions',
             'prediction_model', 'term_constraint', 'use_gpu_relax',
-            name='_pose_name_uc'
+            name='_job_protocol_uc'
         ),
     )
     module = Column(String(30), nullable=False)
