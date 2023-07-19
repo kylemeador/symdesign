@@ -364,7 +364,7 @@ def main():
             print('\n')
             exceptions_file = os.path.join(job_paths, putils.default_execption_file.format(*job.default_output_tuple))
             with open(exceptions_file, 'w') as f_out:
-                f_out.write('%s\n' % '\n'.join(str(pose_job) for pose_job, error_ in exceptions))
+                f_out.write('%s\n' % '\n'.join(str(pj) for pj, error_ in exceptions))
             logger.critical(f"The file '{exceptions_file}' contains the pose identifier of every pose that failed "
                             'checks/filters for this job')
 
@@ -399,11 +399,11 @@ def main():
                         os.path.join(job_paths, putils.default_path_file.format(*job.default_output_tuple))
 
                 with open(poses_file, 'w') as f_out:
-                    f_out.write('%s\n' % '\n'.join(str(pose_job) for pose_job in successful_pose_jobs))
-                logger.critical(f'The file "{poses_file}" contains the pose identifier of every pose that passed checks'
-                                f'/filters for this job. Utilize this file to input these poses in future '
-                                f'{putils.program_name} commands such as:'
-                                f'\n\t{putils.program_command} MODULE --{flags.poses} {poses_file} ...')
+                    f_out.write('%s\n' % '\n'.join(str(pj) for pj in successful_pose_jobs))
+                logger.error(f'The file "{poses_file}" contains the pose identifier of every pose that passed checks'
+                             f'/filters for this job. Utilize this file to input these poses in future '
+                             f'{putils.program_name} commands such as:'
+                             f'\n\t{putils.program_command} MODULE --{flags.poses} {poses_file} ...')
 
             # Output any additional files for the module
             if job.module in [flags.select_designs, flags.select_sequences]:
@@ -411,14 +411,14 @@ def main():
                     os.path.join(job_paths, putils.default_specification_file.format(*job.default_output_tuple))
                 try:
                     with open(designs_file, 'w') as f_out:
-                        f_out.write('%s\n' % '\n'.join(f'{pose_job}, {design.name}' for pose_job in successful_pose_jobs
-                                                       for design in pose_job.current_designs))
+                        f_out.write('%s\n' % '\n'.join(f'{pj}, {design.name}' for pj in successful_pose_jobs
+                                                       for design in pj.current_designs))
                         # Todo ensure .current_designs present ^
-                    logger.critical(f'The file "{designs_file}" contains the pose identifier and design identifier, of '
-                                    f'every design selected by this job. Utilize this file to input these designs in '
-                                    f'future'
-                                    f' {putils.program_name} commands such as:\n\t{putils.program_command} MODULE '
-                                    f'{flags.format_args(flags.specification_file_args)} {designs_file} ...')
+                    logger.info(f'The file "{designs_file}" contains the pose identifier and design identifier, of '
+                                f'every design selected by this job. Utilize this file to input these designs in '
+                                f'future'
+                                f' {putils.program_name} commands such as:\n\t{putils.program_command} MODULE '
+                                f'{flags.format_args(flags.specification_file_args)} {designs_file} ...')
                 except AttributeError:  # The pose_job variable is a str from select-designs
                     pass
 
