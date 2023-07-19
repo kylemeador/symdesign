@@ -240,15 +240,15 @@ def distribute(file: AnyStr, scale: protocols_literal, number_of_commands: int, 
     # Create success and failures files
     name, ext = os.path.splitext(os.path.basename(file))
     if success_file is None:
-        success_file = os.path.join(out_path, f'{name}-{sbatch}.success')
+        success_file = os.path.join(out_path, f'{name}.success')
     if failure_file is None:
-        failure_file = os.path.join(out_path, f'{name}-{sbatch}.failures')
-    output = os.path.join(out_path, 'sbatch_output')
+        failure_file = os.path.join(out_path, f'{name}.failures')
+    output = os.path.join(out_path, 'script-output')
     putils.make_path(output)
 
     # Make sbatch file from template, array details, and command distribution script
     if batch:
-        filename = os.path.join(out_path, f'{name}_{sbatch}.sh')
+        filename = os.path.join(out_path, f'{name}-{sbatch}.sh')
     else:
         filename = os.path.join(out_path, f'{name}.sh')
 
