@@ -299,7 +299,8 @@ class PoseDirectory:
                 # self.refined_pdb = None  # /root/Projects/project_Poses/design/design_name_refined.pdb
                 self._refined_pdb = \
                     os.path.join(self.designs_path,
-                                 f'{os.path.basename(os.path.splitext(self.pose_path)[0])}_refined.pdb')
+                                 f'{os.path.basename(os.path.splitext(self.pose_path)[0])}.pdb')
+                                 # f'{os.path.basename(os.path.splitext(self.pose_path)[0])}_refined.pdb')
             return self._refined_pdb
 
     @property
@@ -2451,8 +2452,8 @@ class PoseProtocol(PoseData):
             # else:  # Do nothing and refine the source
             #     pass
 
-            # Set up self.refined_pdb by using a suffix
-            suffix = ['-out:suffix', f'_{switch}']
+            # # Set up self.refined_pdb by using a suffix
+            # suffix = ['-out:suffix', f'_{switch}']
 
             self.pose.write(out_path=refine_pdb)
             self.log.debug(f'Cleaned PDB for {switch}: "{refine_pdb}"')
