@@ -323,7 +323,7 @@ def interface_metrics(job: pose.PoseJob):
     if job.job.distribute_work:
         analysis_cmd = job.make_analysis_cmd()
         job.current_script = write_script(
-            metric_cmd_bound, name=f'{starttime}_{job.protocol}.sh', out_path=job.scripts_path,
+            list2cmdline(metric_cmd_bound), name=f'{starttime}_{job.protocol}.sh', out_path=job.scripts_path,
             additional=[list2cmdline(command) for command in entity_metric_cmds]
             + [list2cmdline(analysis_cmd)])
     else:
