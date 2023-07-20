@@ -6251,7 +6251,7 @@ class Pose(SymmetricModel, Metrics):
     separate models across the Structure or sequence.
     """
     _active_entities: list[Entity]
-    _center_residue_indices: list[int]
+    _interface_fragment_residue_indices: list[int]
     _design_residues: list[Residue]
     # Metrics class attributes
     # _df: pd.Series  # Metrics
@@ -6310,7 +6310,7 @@ class Pose(SymmetricModel, Metrics):
         # Model init will handle Structure set up if a structure file is present
         # SymmetricModel init will generate_symmetric_coords() if symmetry specification present
         super().__init__(**kwargs)
-        # self.center_residue_indices = []
+        # self.interface_fragment_residue_indices = []
         self.design_selector = design_selector if design_selector else {}  # kwargs.get('design_selector', {})
         self.design_selector_entities = set()
         self.design_selector_indices = set()
@@ -7444,7 +7444,7 @@ class Pose(SymmetricModel, Metrics):
         """
         pose_metrics = self.get_fragment_metrics(total_interface=True)
         # Remove *_indices from further analysis
-        center_residue_indices = self.center_residue_indices = pose_metrics.pop('center_indices', [])
+        interface_fragment_residue_indices = self.interface_fragment_residue_indices = pose_metrics.pop('center_indices', [])
         pose_metrics.pop('total_indices')
         number_residues_fragment_center = pose_metrics.pop('number_residues_fragment_center')
         number_residues_fragment_total = pose_metrics.pop('number_residues_fragment_total')
@@ -7494,7 +7494,7 @@ class Pose(SymmetricModel, Metrics):
             # Use unique as 2-fold interfaces 'interface_residues_by_interface_unique' duplicate fragment_elements
             fragment_elements = {
                 element for residue, element in zip(self.interface_residues_by_interface_unique[number], elements)
-                if residue.index in center_residue_indices}
+                if residue.index in interface_fragment_residue_indices}
             # Take the set of elements as there are element repeats if SS is continuous over residues
             interface_ss_topology = ''.join(ss_type_array[element] for element in set(elements))
             interface_ss_fragment_topology = ''.join(ss_type_array[element] for element in fragment_elements)
@@ -8140,29 +8140,22 @@ class Pose(SymmetricModel, Metrics):
         self.fragment_pairs.extend(ghostfrag_surfacefrag_pairs)
 
     @property
-    def center_residue_indices(self) -> list[int]:
+    def interface_fragment_residue_indices(self) -> list[int]:
         """The Residue indices where Fragment occurrences are observed"""
-        # Populate self.fragment_metrics for repeat calculation efficiency
         try:
-            return self._center_residue_indices
+            return self._interface_fragment_residue_indices
         except AttributeError:
-            # if not self.fragment_metrics:
-            #     for query_pair, fragment_matches in self.fragment_queries.items():
-            #         self.fragment_metrics[query_pair] = self.fragment_db.calculate_match_metrics(fragment_matches)
-            # fragment_observations = self.get_fragment_observations()
-            center_residue_indices = set()
-            for fragment in self.get_fragment_observations():
-                center_residue_indices.update((fragment['mapped'], fragment['paired']))
-                # center_residue_indices.add(fragment['mapped'])
-                # center_residue_indices.add(fragment['paired'])
+            interface_fragment_residue_indices = set()
+            for frag_info in self.get_fragment_observations():
+                interface_fragment_residue_indices.update((frag_info['mapped'], frag_info['paired']))
 
-            self._center_residue_indices = sorted(center_residue_indices)
+            self._interface_fragment_residue_indices = sorted(interface_fragment_residue_indices)
 
-            return self._center_residue_indices
+            return self._interface_fragment_residue_indices
 
-    @center_residue_indices.setter
-    def center_residue_indices(self, indices: Iterable[int]):
-        self._center_residue_indices = sorted(indices)
+    @interface_fragment_residue_indices.setter
+    def interface_fragment_residue_indices(self, indices: Iterable[int]):
+        self._interface_fragment_residue_indices = sorted(indices)
 
     def score_interface(self, entity1: Entity = None, entity2: Entity = None, **kwargs) -> dict:
         """Generate the fragment metrics for a specified interface between two entities
@@ -8467,17 +8460,29 @@ class Pose(SymmetricModel, Metrics):
             self.fragment_profile = Profile(list(self.create_null_profile(nan=True, zero_index=True).values()),
                                             dtype='fragment')
 
-    def get_fragment_observations(self) -> list[dict[str, str | int | float]] | list:
-        """Return the fragment observations identified on the pose regardless of Entity binding
+    def get_fragment_observations(self, interface: bool = True) -> list[dict[str, str | int | float]] | list:
+        """Return the fragment observations identified on the Pose for various types of tertiary structure interactions
 
+        Args:
+            interface: Whether to return fragment observations from only the Pose interface
         Returns:
             The fragment observations formatted as [{'mapped': index (int), 'paired': index (int),
                                                      'cluster': tuple(int, int, int), 'match': float}, ...]
         """
+        # Ensure fragments are generated if they aren't already
+        if interface:
+            self.generate_interface_fragments()
+        else:
+            self.generate_fragments()
+
         observations = []
         # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: (int, int, int), match: score}, ...], ...}
         for query_pair, fragment_matches in self.fragment_queries.items():
-            observations.extend(fragment_matches)
+            if interface:
+                if query_pair in self.interface_residues_by_entity_pair:
+                    observations.extend(fragment_matches)
+            else:
+                observations.extend(fragment_matches)
 
         return observations
 
@@ -8506,7 +8511,7 @@ class Pose(SymmetricModel, Metrics):
                  'nanohedra_score_center_normalized',
                  'number_residues_fragment_total',
                  'number_residues_fragment_center',
-                 'multiple_frag_ratio',
+                 'multiple_fragment_ratio',
                  'number_fragments_interface'
                  'percent_fragment_helix'
                  'percent_fragment_strand'

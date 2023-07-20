@@ -1497,10 +1497,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             else:
                 self.pose.write_fragment_pairs(out_path=self.frags_path)
 
-        # self.fragment_observations = self.pose.get_fragment_observations()
-        # # Todo move to ProtocolMetaData?
+        # Todo move to ProtocolMetaData
         # self.info['fragment_source'] = self.job.fragment_db.source
-        # self.pickle_info()  # Todo remove once PoseJob state can be returned to the SymDesign dispatch w/ MP
 
     @property
     def _key(self) -> str:
@@ -1608,7 +1606,7 @@ class PoseProtocol(PoseData):
 
         # Allocate any "core" residues based on central fragment information
         residues = self.pose.residues
-        center_residues = [residues[index] for index in self.pose.center_residue_indices]
+        center_residues = [residues[index] for index in self.pose.interface_fragment_residue_indices]
         if center_residues:
             variables.extend([('core_residues', ','.join([f'{res.number}{res.chain_id}' for res in center_residues]))])
         else:  # Get an out-of-bounds index
