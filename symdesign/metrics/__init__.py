@@ -1074,29 +1074,33 @@ def position_specific_jsd(msa: np.ndarray, background: np.ndarray, **kwargs) -> 
     return np.array([js_divergence(msa[idx], background[idx], **kwargs) for idx in range(len(msa))])
 
 
-# KL divergence is similar to cross entropy loss or the "log loss"
-# divergence of p from q where p is the true distribution and q is the model
-# Cross-Entropy = -SUMi->N(probability(pi) * log(probability(qi)))
-# Kullback–Leibler-Divergence = -SUMi->N(probability(pi) * log(probability(qi)/probability(pi)))
-# Shannon-Entropy = -SUMi->N(probability(pi) * log(probability(pi)))
-# Cross entropy can be rearranged where:
-# Cross-Entropy = Shannon-Entropy + Kullback-Leibler-Divergence
-# CE = -SUMi->N(probability(pi) * log(probability(pi))) + -SUMi->N(probability(pi) * log(probability(qi)/probability(pi)))
-# CE = -SUMi->N(probability(pi) * log(probability(pi))) + -SUMi->N(probability(pi) * log(probability(qi)) - (probability(pi) * log(probability(pi)))
-# CE = ------------------------------------------------ + -SUMi->N(probability(pi) * log(probability(qi)) - ----------------------------------------
-# CE = -SUMi->N(probability(pi) * log(probability(qi))
+# Kullback–Leibler Divergence is similar to Cross Entropy loss or the "log loss".
+# Divergence of p from q where p is the true distribution and q is the model
+# KL divergence indicates the number of **additional** bits to encode a
+# distribution p as distribution q, while CE indicates the **total** bits to
+# encode distribution p as distribution q. This includes the entropy of distribution p
+#
+# Cross Entropy = -SUMi->N(probability(pi) * log(probability(qi)))
+# KL Divergence = SUMi->N(probability(pi) * log(probability(pi)/probability(qi)))
+# Shannon Entropy = -SUMi->N(probability(pi) * log(probability(pi)))
+# Cross Entropy can be rearranged where:
+# Cross Entropy = Shannon Entropy + Kullback-Leibler Divergence
+# CE = -SUMi->N(prob(pi) * log(prob(pi))) + SUMi->N(prob(pi) * log(prob(pi)/prob(qi)))
+# CE = -SUMi->N(prob(pi) * log(prob(pi))) + SUMi->N((prob(pi) * log(prob(pi))) - (prob(pi) * log(prob(qi))))
+# CE = ---------------------------------- + ---------------------------------- - SUMi->N(prob(pi) * log(prob(qi)))
+# CE = -SUMi->N(prob(pi) * log(prob(qi)))
 
 
 def kl_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, per_entry: bool = False,
                   mask: np.array = None, axis: int | tuple[int, ...] = None) \
         -> np.ndarray | float:
-    """Calculate Kullback–Leibler Divergence entropy between observed and background frequency distribution(s)
+    """Calculate Kullback–Leibler Divergence entropy between observed and background (true) frequency distribution(s)
 
     The divergence will be summed across the last axis/dimension of the input array
 
     Args:
-        frequencies: [0.05, 0.001, 0.1, ...] The true distribution
-        bgd_frequencies: [0, 0, ...] The model distribution
+        frequencies: [0.05, 0.001, 0.1, ...] The model distribution
+        bgd_frequencies: [0, 0, ...] The true distribution
         per_entry: Whether the result should be returned after summation over the last axis
         mask: A mask to restrict calculations to certain entries
         axis: If the input should be summed over additional axis, which one(s)?
@@ -1104,29 +1108,27 @@ def kl_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, per_entr
         The additional entropy needed to represent the frequencies as the background frequencies.
             The minimum divergence is 0 when both distributions are identical
     """
-    probs1 = bgd_frequencies * np.log(frequencies/bgd_frequencies)
-    # if per_residue:
+    probs1 = bgd_frequencies * np.log(bgd_frequencies/frequencies)
     kl_per_entry = np.sum(np.where(np.isnan(probs1), 0, probs1), axis=-1)
-    #     return loss
+
     if per_entry:
         return -kl_per_entry
     elif mask is None:
         return -np.sum(kl_per_entry, axis=axis)
     else:
-        # return -(kl_per_entry * mask) / mask
         return -np.sum(kl_per_entry * mask, axis=axis) / np.sum(mask, axis=axis)
 
 
 def cross_entropy(frequencies: np.ndarray, bgd_frequencies: np.ndarray, per_entry: bool = False,
                   mask: np.array = None, axis: int | tuple[int, ...] = None) \
         -> np.ndarray | float:
-    """Calculate the cross entropy between observed and background frequency distribution(s)
+    """Calculate the cross entropy between observed and background (truth) frequency distribution(s)
 
     The entropy will be summed across the last axis/dimension of the input array
 
     Args:
-        frequencies: [0.05, 0.001, 0.1, ...] The true distribution
-        bgd_frequencies: [0, 0, ...] The model distribution
+        frequencies: [0.05, 0.001, 0.1, ...] The model distribution
+        bgd_frequencies: [0, 0, ...] The true distribution
         per_entry: Whether the result should be returned after summation over the last axis
         mask: A mask to restrict calculations to certain entries
         axis: If the input should be summed over additional axis, which one(s)?
@@ -1135,24 +1137,22 @@ def cross_entropy(frequencies: np.ndarray, bgd_frequencies: np.ndarray, per_entr
             The minimum entropy is 0 where both distributions are identical
     """
     probs1 = bgd_frequencies * np.log(frequencies)
-    # if per_residue:
     ce_per_entry = np.sum(np.where(np.isnan(probs1), 0, probs1), axis=-1)
-    #     return loss
+
     if per_entry:
         return -ce_per_entry
     elif mask is None:
         return -np.sum(ce_per_entry, axis=axis)
     else:
-        # return -(ce_per_entry * mask) / mask
         return -np.sum(ce_per_entry * mask, axis=axis) / np.sum(mask, axis=axis)
 
 
 def js_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, lambda_: float = 0.5) -> float:
-    """Calculate Jensen-Shannon Divergence value from observed and background frequencies
+    """Calculate Jensen-Shannon Divergence value from observed and background (true) frequencies
 
     Args:
-        frequencies: [0.05, 0.001, 0.1, ...] The true distribution
-        bgd_frequencies: [0, 0, ...] The model distribution
+        frequencies: [0.05, 0.001, 0.1, ...] The model distribution
+        bgd_frequencies: [0, 0, ...] The true distribution
         lambda_: Bounded between 0 and 1 indicates weight of the observation versus the background
     Returns:
         Bounded between 0 and 1. 1 is more divergent from background frequencies
