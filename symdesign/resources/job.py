@@ -19,7 +19,7 @@ from sqlalchemy import create_engine, event, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
 
-from . import config, distribute, sql, structure_db, wrapapi
+from . import config, distribute, query, sql, structure_db, wrapapi
 from symdesign import flags, sequence, structure, utils
 from symdesign.sequence import hhblits
 from symdesign.structure.fragment import db
@@ -371,13 +371,16 @@ class JobResources:
         self.load_to_db = kwargs.get('load_to_db')
         self.reset_db = kwargs.get('reset_db')
         if self.reset_db:
-            response = input("All database information will be wiped if ou proceed. Enter 'YES' to proceed")
+            response = input(f"All database information will be wiped if you proceed. Enter 'YES' to proceed"
+                             f"{query.utils.input_string}")
             if response == 'YES':
+                logger.warning(f'Dropping all tables and data from DB')
                 # All tables are deleted
                 sql.Base.metadata.drop_all(self.db.engine)
                 # Emit CREATE TABLE DDL
                 sql.Base.metadata.create_all(self.db.engine)
             else:
+                logger.info(f'Skipping {flags.format_args(flags.reset_db)}')
                 pass
         # else:  # When --no-database is provided as a flag
         #     self.db = None

@@ -2660,7 +2660,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             remap_columns = dict(zip(_columns, _columns))
             remap_columns.update(dict(zip(collapse_metrics, (f'dock_{metric_}' for metric_ in collapse_metrics))))
             residues_df.columns = residues_df.columns.set_levels(unique_columns.map(remap_columns), level=-1)
-            # 'dock' metrics are by default not included
+            # 'dock' metrics aren't included by default
             per_res_columns = ['dock_hydrophobic_collapse', 'dock_collapse_deviation_magnitude']
             mean_columns = ['dock_hydrophobicity', 'dock_collapse_variance']
             _rename = dict(zip(per_res_columns, mean_columns))

@@ -209,10 +209,13 @@ metrics = {
                          ' mean of the collapse_significance_by_contact_order_z per-position experiencing collapse',
              direction=min_, function=rank, filter=True),
     'dock_collapse_variance':
-        dict(description='For the docked pose scored by ProteinMPNN, uses the sequence probabilities to calculate the'
+        dict(description='For the ProteinMPNN structure profile, calculate the'
                          ' average/expected deviation of the hydrophobic collapse from a reference collapse',
              direction=min_, function=rank, filter=True),
     'dock_collapse_violation':
+        dict(description='Whether there are dock_collapse_new_positions and the collapse profile is altered',
+             direction=min_, function=rank, filter=True),  # Boolean
+    'dock_hydrophobicity':
         dict(description='Whether there are dock_collapse_new_positions and the collapse profile is altered',
              direction=min_, function=rank, filter=True),  # Boolean
     'divergence_design_per_residue':

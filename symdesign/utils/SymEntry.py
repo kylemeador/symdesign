@@ -261,8 +261,8 @@ point_group_setting_matrix_members = {
     # 'O': {'C2': {3}, 'C3': {4, 12}, 'C4': {1}},
     # 'I': {'C2': {1}, 'C3': {7}, 'C5': {9}},
 }
-for entry_number, ent in symmetry_combinations.items():
-    group_1, _, setting_1, _, group_2, _, setting_2, _, point_group, *_ = ent
+for entry_number, entry_ in symmetry_combinations.items():
+    group_1, _, setting_1, _, group_2, _, setting_2, _, point_group, *_ = entry_
     result_entry = point_group_setting_matrix_members.get(point_group, None)
     if result_entry:
         if group_1 in result_entry:
@@ -892,7 +892,7 @@ class SymEntry:
             return None
         # uc_mat = construct_uc_matrix(string_lengths) * optimal_shift_vec[:, :, None]  # <- expands axis so mult accurate
         uc_mat = construct_uc_matrix(self.cell_lengths)
-        # to reverse the values from the incoming a, b, and c, we should divide by the uc_matrix_constraints
+        # To reverse the values from the incoming a, b, and c, divide by the uc_matrix_constraints
         # given the matrix should only ever have one value in each column (max) a sum over the column should produce the
         # desired vector to calculate the optimal shift.
         # There is a possibility of returning inf when we divide 0 by a value so ignore this warning
@@ -900,7 +900,7 @@ class SymEntry:
             # Cause all warnings to always be ignored
             warnings.simplefilter('ignore')
             external_translation_shifts = [a, b, c] / np.abs(uc_mat.sum(axis=-2))
-            # replace any inf with zero
+            # Replace any inf with zero
             external_translation_shifts = np.nan_to_num(external_translation_shifts, copy=False, posinf=0., neginf=0.)
 
         if len(self.cell_lengths) == 2:

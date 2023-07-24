@@ -564,6 +564,9 @@ def main():
     if args.module == flags.symmetry:
         # if not args.query:
         #     args.query = 'all-entries'
+        if args.query not in query_mode_args:
+            print(f"Error: Please specify the query mode with '--query' to proceed")
+            sys.exit(1)
         utils.SymEntry.query(args.query, *additional_args, nanohedra=args.nanohedra)
         sys.exit()
 
@@ -1039,15 +1042,16 @@ def main():
                                 for data in all_protein_metadata:
                                     if data.entity_id == entity.name:
                                         break
-                                    else:
-                                        raise utils.SymDesignException(
-                                            f"Indexing the correct entity_id has failed")
-                                        # break  # continue
-                            entity.stride(to_file=job.api_db.stride.path_to(name=data.entity_id))
-                            data.n_terminal_helix = entity.is_termini_helical()
-                            data.c_terminal_helix = entity.is_termini_helical('c')
-                            # Set .metadata attribute to carry through protocol
-                            entity.metadata = data
+                                else:
+                                    print([data.entity_id for data in all_protein_metadata])
+                                    raise utils.SymDesignException(
+                                        f"Indexing the correct entity_id for {entity.name} has failed")
+                                    # break  # continue
+                                entity.stride(to_file=job.api_db.stride.path_to(name=data.entity_id))
+                                data.n_terminal_helix = entity.is_termini_helical()
+                                data.c_terminal_helix = entity.is_termini_helical('c')
+                                # Set .metadata attribute to carry through protocol
+                                entity.metadata = data
                             structures.append(pose)
                 else:  # These are already processed Structures
                     structures = structure_id_to_entity_ids

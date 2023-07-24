@@ -123,7 +123,7 @@ setting_matrices = {
     # 90 degrees CW on Y
     3: np.array([[.707107, 0., .707107], [0., 1.0, 0.], [-.707107, 0., .707107]]),
     # 3: Rotation.from_euler('y', -math.pi/2),  # Todo test
-    # 45 degrees CW on Y, which is 2-fold axis in T, O
+    # 45 degrees CW on Y, which is 2-fold axis in O
     # 4: np.array([[0.707107, 0.408248, 0.577350], [-0.707107, 0.408248, 0.577350], [0.0, -0.816497, 0.577350]]),
     4: Rotation.from_euler('xz', (-math.acos(-1/3)/2, -math.pi/4)).as_matrix(),
     # ~54.73 degrees CCW on X, 45 degrees CCW on Z, which is X,Y,Z body diagonal or 3-fold axis in T, O

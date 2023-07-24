@@ -1553,7 +1553,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         try:
             return self._oligomer
         except AttributeError:
-            self.log.debug(f'Loading {self.name} oligomeric model upon first request')
+            self.log.debug(f'Loading {self.name}.oligomer model upon first access')
             self._oligomer = Model.from_chains(self.chains, entities=False, log=self.log)
             # self._oligomer = Structures(self.chains, parent=self)  # NEW WAY Todo
             return self._oligomer
