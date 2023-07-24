@@ -564,7 +564,7 @@ def main():
     if args.module == flags.symmetry:
         # if not args.query:
         #     args.query = 'all-entries'
-        if args.query not in query_mode_args:
+        if args.query not in utils.SymEntry.query_mode_args:
             print(f"Error: Please specify the query mode with '--query' to proceed")
             sys.exit(1)
         utils.SymEntry.query(args.query, *additional_args, nanohedra=args.nanohedra)

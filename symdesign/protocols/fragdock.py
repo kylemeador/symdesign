@@ -1468,8 +1468,9 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
         full_optimal_ext_dof_shifts = np.concatenate(full_optimal_ext_dof_shifts, axis=0)
         unsqueezed_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[:, :, None]
-        full_ext_tx1 = np.sum(unsqueezed_optimal_ext_dof_shifts * sym_entry.external_dof1, axis=-2)
-        full_ext_tx2 = np.sum(unsqueezed_optimal_ext_dof_shifts * sym_entry.external_dof2, axis=-2)
+        external_dof1, external_dof2, *_ = sym_entry.external_dofs
+        full_ext_tx1 = np.sum(unsqueezed_optimal_ext_dof_shifts * external_dof1, axis=-2)
+        full_ext_tx2 = np.sum(unsqueezed_optimal_ext_dof_shifts * external_dof2, axis=-2)
         full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
         del unsqueezed_optimal_ext_dof_shifts
     else:
@@ -2828,6 +2829,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             original_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts
             # original_ext_tx1 = full_ext_tx1
             # original_ext_tx2 = full_ext_tx2
+            external_dof1, external_dof2, *_ = sym_entry.external_dofs
         else:
             full_ext_tx1 = full_ext_tx2 = full_ext_tx_sum = None
 
@@ -2857,8 +2859,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
                 unsqueezed_perturbed_ext_dof_shifts = \
                     (original_optimal_ext_dof_shifts[idx] + ext_dof_perturbations)[:, :, None]
                 # unsqueezed_perturbed_ext_dof_shifts = perturbed_ext_dof_shift[:, :, None]
-                full_ext_tx1 = np.sum(unsqueezed_perturbed_ext_dof_shifts * sym_entry.external_dof1, axis=-2)
-                full_ext_tx2 = np.sum(unsqueezed_perturbed_ext_dof_shifts * sym_entry.external_dof2, axis=-2)
+                full_ext_tx1 = np.sum(unsqueezed_perturbed_ext_dof_shifts * external_dof1, axis=-2)
+                full_ext_tx2 = np.sum(unsqueezed_perturbed_ext_dof_shifts * external_dof2, axis=-2)
                 full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
             # Check for ASU clashes again
@@ -2911,8 +2913,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
             full_optimal_ext_dof_shifts = np.concatenate(perturb_optimal_ext_dof_shifts, axis=0)
             unsqueezed_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[:, :, None]
-            full_ext_tx1 = np.sum(unsqueezed_optimal_ext_dof_shifts * sym_entry.external_dof1, axis=-2)
-            full_ext_tx2 = np.sum(unsqueezed_optimal_ext_dof_shifts * sym_entry.external_dof2, axis=-2)
+            full_ext_tx1 = np.sum(unsqueezed_optimal_ext_dof_shifts * external_dof1, axis=-2)
+            full_ext_tx2 = np.sum(unsqueezed_optimal_ext_dof_shifts * external_dof2, axis=-2)
 
         transform_hashes = create_transformation_hash()
         logger.debug(f'Found the TransformHasher.translation_bin_width={model_transform_hasher.translation_bin_width}, '

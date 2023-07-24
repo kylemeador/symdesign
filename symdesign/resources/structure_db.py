@@ -293,8 +293,12 @@ class StructureDatabase(Database):
         if isinstance(sym_entry, utils.SymEntry.SymEntry):
             if sym_entry.number:
                 resulting_symmetry = sym_entry.resulting_symmetry
-                logger.info(f'The requested {"files" if by_file else "IDs"} are being checked for proper orientation '
-                            f'with symmetry {resulting_symmetry}: {", ".join(structure_identifiers)}')
+                if resulting_symmetry in utils.symmetry.space_group_cryst1_fmt_dict:
+                    # This is a crystalline symmetry, so we should use a TOKEN to use the CRYST record
+                    resulting_symmetry = CRYST
+                else:
+                    logger.info(f'The requested {"files" if by_file else "IDs"} are being checked for proper orientation '
+                                f'with symmetry {resulting_symmetry}: {", ".join(structure_identifiers)}')
             else:  # This is entry_number 0, which is a TOKEN to use the CRYST record
                 resulting_symmetry = CRYST
         else:  # Treat as asymmetric - i.e. C1
@@ -376,8 +380,7 @@ class StructureDatabase(Database):
 
         # Todo include Entity specific parsing from download_structures() in orient_existing_file(), then
         #  consolidate their overlap
-        def orient_existing_file(files: Iterable[str], resulting_symmetry: str, sym_entry: SymEntry = None) \
-                -> list[Model]:
+        def orient_existing_file(files: Iterable[str], resulting_symmetry: str, sym_entry: SymEntry = None):
             """Return the structure identifier for a file that is loaded and oriented
 
             Args:
@@ -393,6 +396,10 @@ class StructureDatabase(Database):
                 if resulting_symmetry == CRYST:
                     model.set_symmetry(sym_entry=sym_entry)
                     model.file_path = model.write(out_path=os.path.join(models_dir, f'{model.name}.pdb'))
+                    # Set each Entity.file_path
+                    for entity in model.entities:
+                        entity_cryst_path = os.path.join(models_dir, f'{entity.name}.pdb')
+                        entity.file_path = entity.write(out_path=entity_cryst_path)
                 else:
                     try:
                         model.orient(symmetry=resulting_symmetry)

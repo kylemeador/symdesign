@@ -327,9 +327,11 @@ class SymEntry:
     _setting_matrices_numbers: list[int]
     _uc_dimensions: tuple[float, float, float, float, float, float] | None
     cycle_size: int
+    deorthogonalization_matrix: np.ndarray
     dimension: int
     number: int
     groups: list[str]
+    orthogonalization_matrix: np.ndarray
     point_group_symmetry: str
     resulting_symmetry: str
     sym_map: list[str]
@@ -469,7 +471,7 @@ class SymEntry:
 
         # Check construction is valid
         if self.point_group_symmetry not in valid_symmetries:
-            if not self.is_cryst_record():  # Anything besides CRYST entry
+            if not self.number == 0:  # Anything besides CRYST entry
                 raise utils.SymmetryInputError(
                     f'Invalid point group symmetry {self.point_group_symmetry}')
         try:
@@ -506,7 +508,7 @@ class SymEntry:
 
         if group not in self.entry_groups:
             # This is probably a sub-symmetry of one of the groups. Is it allowed?
-            if not symmetry_groups_are_allowed_in_entry(groups, *self.entry_groups, result=self.resulting_symmetry):
+            if not symmetry_groups_are_allowed_in_entry([group], *self.entry_groups, result=self.resulting_symmetry):
                 # group1=group1, group2=group2):
                 viable_groups = [group for group in self.entry_groups if group is not None]
                 raise utils.SymmetryInputError(
@@ -584,6 +586,60 @@ class SymEntry:
     def uc_specification(self) -> tuple[tuple[str] | None, tuple[int] | None]:
         """The external dof and angle parameters which constitute a viable lattice"""
         return self.cell_lengths, self.cell_angles
+
+    @property
+    def uc_dimensions(self) -> tuple[float, float, float, float, float, float] | None:
+        """The unit cell dimensions for the lattice specified by lengths a, b, c and angles alpha, beta, gamma
+
+        Returns:
+            length a, length b, length c, angle alpha, angle beta, angle gamma
+        """
+        try:
+            return self._uc_dimensions
+        except AttributeError:
+            return None
+
+    @uc_dimensions.setter
+    def uc_dimensions(self, uc_dimensions: tuple[float, float, float, float, float, float]):
+        """Set the unit cell dimensions according to the lengths a, b, and c, and angles alpha, beta, and gamma
+
+        From http://www.ruppweb.org/Xray/tutorial/Coordinate%20system%20transformation.htm
+        """
+        try:
+            a, b, c, alpha, beta, gamma = self._uc_dimensions = uc_dimensions
+        except (TypeError, ValueError):  # Unpacking didn't work
+            logger.warning(f"The passed uc_dimensions '{uc_dimensions}' aren't a valid "
+                           f"tuple[float, float, float, float, float, float]")
+            return
+
+        degree_to_radians = math.pi / 180.
+        gamma *= degree_to_radians
+
+        # unit cell volume
+        a_cos = math.cos(alpha * degree_to_radians)
+        b_cos = math.cos(beta * degree_to_radians)
+        g_cos = math.cos(gamma)
+        g_sin = float(math.sin(gamma))
+        uc_volume = float(a * b * c * math.sqrt(1 - a_cos**2 - b_cos**2 - g_cos**2 + 2*a_cos*b_cos*g_cos))
+
+        # deorthogonalization matrix m
+        # m0 = [1./a, -g_cos / (a*g_sin),
+        #       ((b*g_cos*c*(a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/self.uc_volume)]
+        # m1 = [0., 1./b*g_sin, -(a*c*(a_cos - b_cos*g_cos) / (self.uc_volume*g_sin))]
+        # m2 = [0., 0., a*b*g_sin/self.uc_volume]
+        self.deorthogonalization_matrix = np.array(
+            [[1. / a, -g_cos / (a*g_sin),
+              ((b * g_cos * c * (a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/uc_volume)],
+             [0., 1. / (b*g_sin), -(a * c * (a_cos-b_cos*g_cos) / (uc_volume*g_sin))],
+             [0., 0., a * b * g_sin / uc_volume]])
+
+        # orthogonalization matrix m_inv
+        # m_inv_0 = [a, b*g_cos, c*b_cos]
+        # m_inv_1 = [0., b*g_sin, (c*(a_cos - b_cos*g_cos))/g_sin]
+        # m_inv_2 = [0., 0., self.uc_volume/(a*b*g_sin)]
+        self.orthogonalization_matrix = np.array([[a, b * g_cos, c * b_cos],
+                                                  [0., b * g_sin, (c * (a_cos - b_cos*g_cos)) / g_sin],
+                                                  [0., 0., uc_volume / (a*b*g_sin)]])
 
     @property
     def rotation_range1(self) -> float:
@@ -724,6 +780,11 @@ class SymEntry:
             return self._external_dof
 
     @property
+    def external_dofs(self) -> list[np.ndarray]:
+        """Return the 3x3 external degrees of freedom for component1"""
+        return self.__external_dof
+
+    @property
     def external_dof1(self) -> np.ndarray:
         """Return the 3x3 external degrees of freedom for component1"""
         return self.__external_dof[0]
@@ -751,14 +812,32 @@ class SymEntry:
             self._create_degeneracy_matrices()
             return self._degeneracy_matrices[1]
 
+    # @property
+    # def cryst_record(self) -> str | None:
+    #     """Get the CRYST1 record associated with this SymEntry"""
+    #     return None
+
     @property
     def cryst_record(self) -> str | None:
         """Get the CRYST1 record associated with this SymEntry"""
-        return None
+        try:
+            return self._cryst_record
+        except AttributeError:
+            self._cryst_record = None
+            return self._cryst_record
 
-    def is_cryst_record(self) -> bool:
+    @cryst_record.setter
+    def cryst_record(self, cryst_record: str | None):
+        self._cryst_record = cryst_record
+
+    def is_token(self) -> bool:
         """Is the SymEntry utilizing a provided CRYST1 record"""
         return self.number == 0
+
+    def needs_cryst_record(self) -> bool:
+        """Is the SymEntry utilizing a provided CRYST1 record"""
+        # If .number is 0, then definitely yes. Otherwise, need to check if one is already set
+        return self.dimension > 0 and self.uc_dimensions is None
 
     def _create_degeneracy_matrices(self):
         """From the intended point group symmetry and a single component, find the degeneracy matrices that produce all
@@ -986,78 +1065,78 @@ class SymEntry:
 
 
 class CrystSymEntry(SymEntry):
-    deorthogonalization_matrix: np.ndarray
-    orthogonalization_matrix: np.ndarray
+    # deorthogonalization_matrix: np.ndarray
+    # orthogonalization_matrix: np.ndarray
 
     def __init__(self, **kwargs):
         super().__init__(0, **kwargs)
 
-    @property
-    def uc_dimensions(self) -> tuple[float, float, float, float, float, float] | None:
-        """The unit cell dimensions for the lattice specified by lengths a, b, c and angles alpha, beta, gamma
+    # @property
+    # def uc_dimensions(self) -> tuple[float, float, float, float, float, float] | None:
+    #     """The unit cell dimensions for the lattice specified by lengths a, b, c and angles alpha, beta, gamma
+    #
+    #     Returns:
+    #         length a, length b, length c, angle alpha, angle beta, angle gamma
+    #     """
+    #     try:
+    #         return self._uc_dimensions
+    #     except AttributeError:
+    #         return None
+    #
+    # @uc_dimensions.setter
+    # def uc_dimensions(self, uc_dimensions: tuple[float, float, float, float, float, float]):
+    #     """Set the unit cell dimensions according to the lengths a, b, and c, and angles alpha, beta, and gamma
+    #
+    #     From http://www.ruppweb.org/Xray/tutorial/Coordinate%20system%20transformation.htm
+    #     """
+    #     try:
+    #         a, b, c, alpha, beta, gamma = self._uc_dimensions = uc_dimensions
+    #     except (TypeError, ValueError):  # Unpacking didn't work
+    #         logger.warning(f"The passed uc_dimensions '{uc_dimensions}' aren't a valid "
+    #                        f"tuple[float, float, float, float, float, float]")
+    #         return
+    #
+    #     degree_to_radians = math.pi / 180.
+    #     gamma *= degree_to_radians
+    #
+    #     # unit cell volume
+    #     a_cos = math.cos(alpha * degree_to_radians)
+    #     b_cos = math.cos(beta * degree_to_radians)
+    #     g_cos = math.cos(gamma)
+    #     g_sin = float(math.sin(gamma))
+    #     uc_volume = float(a * b * c * math.sqrt(1 - a_cos**2 - b_cos**2 - g_cos**2 + 2*a_cos*b_cos*g_cos))
+    #
+    #     # deorthogonalization matrix m
+    #     # m0 = [1./a, -g_cos / (a*g_sin),
+    #     #       ((b*g_cos*c*(a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/self.uc_volume)]
+    #     # m1 = [0., 1./b*g_sin, -(a*c*(a_cos - b_cos*g_cos) / (self.uc_volume*g_sin))]
+    #     # m2 = [0., 0., a*b*g_sin/self.uc_volume]
+    #     self.deorthogonalization_matrix = np.array(
+    #         [[1. / a, -g_cos / (a*g_sin),
+    #           ((b * g_cos * c * (a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/uc_volume)],
+    #          [0., 1. / (b*g_sin), -(a * c * (a_cos-b_cos*g_cos) / (uc_volume*g_sin))],
+    #          [0., 0., a * b * g_sin / uc_volume]])
+    #
+    #     # orthogonalization matrix m_inv
+    #     # m_inv_0 = [a, b*g_cos, c*b_cos]
+    #     # m_inv_1 = [0., b*g_sin, (c*(a_cos - b_cos*g_cos))/g_sin]
+    #     # m_inv_2 = [0., 0., self.uc_volume/(a*b*g_sin)]
+    #     self.orthogonalization_matrix = np.array([[a, b * g_cos, c * b_cos],
+    #                                               [0., b * g_sin, (c * (a_cos - b_cos*g_cos)) / g_sin],
+    #                                               [0., 0., uc_volume / (a*b*g_sin)]])
 
-        Returns:
-            length a, length b, length c, angle alpha, angle beta, angle gamma
-        """
-        try:
-            return self._uc_dimensions
-        except AttributeError:
-            return None
-
-    @uc_dimensions.setter
-    def uc_dimensions(self, uc_dimensions: tuple[float, float, float, float, float, float]):
-        """Set the unit cell dimensions according to the lengths a, b, and c, and angles alpha, beta, and gamma
-
-        From http://www.ruppweb.org/Xray/tutorial/Coordinate%20system%20transformation.htm
-        """
-        try:
-            a, b, c, alpha, beta, gamma = self._uc_dimensions = uc_dimensions
-        except (TypeError, ValueError):  # Unpacking didn't work
-            self.log.warning(f"The passed uc_dimensions '{uc_dimensions}' aren't a valid "
-                             f"tuple[float, float, float, float, float, float]")
-            return
-
-        degree_to_radians = math.pi / 180.
-        gamma *= degree_to_radians
-
-        # unit cell volume
-        a_cos = math.cos(alpha * degree_to_radians)
-        b_cos = math.cos(beta * degree_to_radians)
-        g_cos = math.cos(gamma)
-        g_sin = float(math.sin(gamma))
-        uc_volume = float(a * b * c * math.sqrt(1 - a_cos**2 - b_cos**2 - g_cos**2 + 2*a_cos*b_cos*g_cos))
-
-        # deorthogonalization matrix m
-        # m0 = [1./a, -g_cos / (a*g_sin),
-        #       ((b*g_cos*c*(a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/self.uc_volume)]
-        # m1 = [0., 1./b*g_sin, -(a*c*(a_cos - b_cos*g_cos) / (self.uc_volume*g_sin))]
-        # m2 = [0., 0., a*b*g_sin/self.uc_volume]
-        self.deorthogonalization_matrix = np.array(
-            [[1. / a, -g_cos / (a*g_sin),
-              ((b * g_cos * c * (a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/uc_volume)],
-             [0., 1. / (b*g_sin), -(a * c * (a_cos-b_cos*g_cos) / (uc_volume*g_sin))],
-             [0., 0., a * b * g_sin / uc_volume]])
-
-        # orthogonalization matrix m_inv
-        # m_inv_0 = [a, b*g_cos, c*b_cos]
-        # m_inv_1 = [0., b*g_sin, (c*(a_cos - b_cos*g_cos))/g_sin]
-        # m_inv_2 = [0., 0., self.uc_volume/(a*b*g_sin)]
-        self.orthogonalization_matrix = np.array([[a, b * g_cos, c * b_cos],
-                                                  [0., b * g_sin, (c * (a_cos - b_cos*g_cos)) / g_sin],
-                                                  [0., 0., uc_volume / (a*b*g_sin)]])
-
-    @property
-    def cryst_record(self) -> str | None:
-        """Get the CRYST1 record associated with this SymEntry"""
-        try:
-            return self._cryst_record
-        except AttributeError:
-            self._cryst_record = None
-            return self._cryst_record
-
-    @cryst_record.setter
-    def cryst_record(self, cryst_record: str | None):
-        self._cryst_record = cryst_record
+    # @property
+    # def cryst_record(self) -> str | None:
+    #     """Get the CRYST1 record associated with this SymEntry"""
+    #     try:
+    #         return self._cryst_record
+    #     except AttributeError:
+    #         self._cryst_record = None
+    #         return self._cryst_record
+    #
+    # @cryst_record.setter
+    # def cryst_record(self, cryst_record: str | None):
+    #     self._cryst_record = cryst_record
 
 
 # Set up the baseline crystalline entry which will allow for flexible adaptation of non-Nanohedra SymEntry instances
