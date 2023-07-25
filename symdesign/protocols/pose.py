@@ -1305,6 +1305,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 self.log.warning(f"The Pose from '{self.structure_source}' contains clashes. "
                                  f"{self.format_see_log_msg()}")
             else:
+                # Todo get the message from error and raise a ClashError(
+                #      f'{message}. If you would like to proceed regardless, re-submit the job with '
+                #      f'{flags.format_args(flags.ignore_pose_clashes_args)}'
                 raise
         if self.pose.is_symmetric():
             if self.pose.symmetric_assembly_is_clash():
@@ -2784,7 +2787,7 @@ class PoseProtocol(PoseData):
 
     def update_design_protocols(self, design_ids: Sequence[str], protocols: Sequence[str] = None,
                                 temperatures: Sequence[float] = None, files: Sequence[AnyStr] = None) \
-            -> list[sql.DesignProtocol]:
+            -> list[sql.DesignProtocol]:  # Unused
         """Associate newly created DesignData with DesignProtocol
 
         Args:
@@ -3111,7 +3114,7 @@ class PoseProtocol(PoseData):
                 try:
                     design_data_index = design_names.index(file_name)
                 except ValueError:  # file_name not in design_names
-                    # New, we haven't processed this file
+                    # New, this file hasn't been processed
                     new_design_paths_to_process.append(path)
                     rosetta_provided_new_design_names.append(file_name)
                 else:
@@ -3144,7 +3147,7 @@ class PoseProtocol(PoseData):
             # Replace missing values with the pose_source DesignData
             # This is loaded above at 'design_names = self.design_names'
             parents = scores_df.pop(putils.design_parent)  # .fillna(self.pose_source)
-            protocol_logger.critical(f"Setting parents functionality hasn't been tested. Proceed with caution")
+            protocol_logger.critical("Setting parents functionality hasn't been tested. Proceed with caution")
             for design, parent in parents.items():
                 if parent is np.nan:
                     parents[design] = self.pose_source
@@ -3218,8 +3221,9 @@ class PoseProtocol(PoseData):
             new_designs_data = \
                 self.update_design_data(design_parent=self.pose_source, number=len(new_design_paths_to_process))
             session.add_all(new_designs_data)
+            # Generate ids for new entries
             session.flush()
-            # design_ids = [design_data.id for design_data in designs_data]
+            session.add_all(self.current_designs)
 
             # Add attribute to DesignData to save the provided_name and design design_parent
             for design_data, provided_name in zip(new_designs_data, rosetta_provided_new_design_names):
@@ -3287,7 +3291,7 @@ class PoseProtocol(PoseData):
                     continue
                 elif os.path.exists(filename):
                     if not os.path.exists(new_filename):
-                        # We have the target file and nothing exists where we are moving it
+                        # Target file exists and nothing exists where it will be moved
                         files_to_move[filename] = new_filename
                     else:
                         # The new_filename already exists. Redirect the filename to a temporary file, then complete move
@@ -3296,9 +3300,8 @@ class PoseProtocol(PoseData):
                         temp_files_to_move[filename] = temp_filename
                         files_to_move[temp_filename] = new_filename
                 else:  # filename doesn't exist
-                    raise DesignError(f"The specified file {filename} doesn't exist")
-                    # raise DesignError('The specified file renaming scheme creates a conflict:\n'
-                    #                   f'\t{filename} -> {new_filename}')
+                    raise DesignError(
+                        f"The specified file {filename} doesn't exist")
 
             # If so, proceed with insert, file rename and commit
             self.output_metrics(session, designs=designs_df)

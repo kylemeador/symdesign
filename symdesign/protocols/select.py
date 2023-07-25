@@ -1672,14 +1672,17 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
     with job.db.session(expire_on_commit=False) as session:
         # Figure out designs from dataframe, filters, and weights
         total_df = load_sql_all_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
-        design_ids = total_df[design_id].unique().tolist()
-        design_metadata_df = load_sql_design_metadata_dataframe(session, design_ids=design_ids)
-        logger.info(f'design_metadata_df:\n{design_metadata_df}')
-        logger.info(f'columns:\n{sorted(design_metadata_df.columns.tolist())}')
         pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
         entity_metadata_df = load_sql_entity_metadata_dataframe(session, pose_ids=pose_ids)
         logger.debug(f'entity_metadata_df:\n{entity_metadata_df}')
-        total_df = total_df.join(design_metadata_df.set_index(design_id), on=design_id, rsuffix='_DROP')
+        design_ids = total_df[design_id].unique().tolist()
+        design_metadata_df = load_sql_design_metadata_dataframe(session, design_ids=design_ids)
+        # logger.info(f'design_metadata_df:\n{design_metadata_df}')
+        # logger.info(f'columns:\n{sorted(design_metadata_df.columns.tolist())}')
+        if design_metadata_df.empty:
+            pass
+        else:
+            total_df = total_df.join(design_metadata_df.set_index(design_id), on=design_id, rsuffix='_DROP')
         total_df = total_df.join(pose_metadata_df.set_index(pose_id), on=pose_id, rsuffix='_DROP')
         total_df = \
             total_df.join(entity_metadata_df.set_index([pose_id, entity_id]), on=[pose_id, entity_id], rsuffix='_DROP')
