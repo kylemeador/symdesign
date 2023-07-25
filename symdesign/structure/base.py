@@ -3976,16 +3976,19 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             length: The length of the addition, where viable values are [1-10] residues additions
             alignment_length: The number of residues used to calculation overlap of the target to the ideal helix
         """
-        self.log.debug(f'Adding ideal helix to {termini}-terminus of {self.name}')
-
-        maximum_extension_length = 10
+        maximum_extension_length = 15 - alignment_length
         if length > maximum_extension_length:
             number_of_iterations, length = divmod(length, maximum_extension_length)
+            # First add the remainder 'length' with the specified alignment length,
+            self.add_ideal_helix(termini=termini, length=length, alignment_length=alignment_length)
+            # Then perform 10 residue extensions until complete
+            # Using the default 10 and 5 alignment to prevent any errors from alignment of shorter amount from
+            # propagating to the ideal addition and creating ideal "kinks"
             addition_count = count()
             while next(addition_count) != number_of_iterations:
                 self.add_ideal_helix(termini=termini, length=10)
-            # raise ValueError(
-            #     f"{self.add_ideal_helix.__name__}: length can't be greater than {maximum_extension_length}")
+
+            return
         elif length < 1:
             return
         else:
