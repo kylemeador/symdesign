@@ -1510,24 +1510,36 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                                 pose.coords = coords
                                 if pose.is_clash(silence_exceptions=True):
                                     logger.info(f'Alignment {fusion_name}, bend {bend_idx} clashes')
-                                    continue
-                                if pose.is_symmetric() and not job.design.ignore_symmetric_clashes and \
-                                        pose.symmetric_assembly_is_clash():
-                                    logger.info(f'Alignment {fusion_name}, bend {bend_idx} has '
-                                                'symmetric clashes')
-                                    continue
+                                    if job.design.ignore_pose_clashes:
+                                        pass
+                                    else:
+                                        continue
+
+                                if pose.is_symmetric():
+                                    if pose.symmetric_assembly_is_clash():
+                                        logger.info(f'Alignment {fusion_name}, bend {bend_idx} has '
+                                                    'symmetric clashes')
+                                        if job.design.ignore_symmetric_clashes:
+                                            pass
+                                        else:
+                                            continue
 
                                 output_pose(name + f'-bend{bend_idx}')
                         else:
-                            if not job.design.ignore_pose_clashes and \
-                                    pose.is_clash(silence_exceptions=True):
+                            if pose.is_clash(silence_exceptions=True):
                                 logger.info(f'Alignment {fusion_name} clashes')
-                                continue
+                                if job.design.ignore_pose_clashes:
+                                    pass
+                                else:
+                                    continue
 
-                            if pose.is_symmetric() and not job.design.ignore_symmetric_clashes and \
-                                    pose.symmetric_assembly_is_clash():
-                                logger.info(f'Alignment {fusion_name} has symmetric clashes')
-                                continue
+                            if pose.is_symmetric():
+                                if pose.symmetric_assembly_is_clash():
+                                    logger.info(f'Alignment {fusion_name} has symmetric clashes')
+                                    if job.design.ignore_symmetric_clashes:
+                                        pass
+                                    else:
+                                        continue
 
                             output_pose(name)
 
