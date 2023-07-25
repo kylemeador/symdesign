@@ -1674,6 +1674,8 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
         total_df = load_sql_all_metrics_dataframe(session, pose_ids=pose_ids, design_ids=design_ids)
         design_ids = total_df[design_id].unique().tolist()
         design_metadata_df = load_sql_design_metadata_dataframe(session, design_ids=design_ids)
+        logger.info(f'design_metadata_df:\n{design_metadata_df}')
+        logger.info(f'columns:\n{sorted(design_metadata_df.columns.tolist())}')
         pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
         entity_metadata_df = load_sql_entity_metadata_dataframe(session, pose_ids=pose_ids)
         logger.debug(f'entity_metadata_df:\n{entity_metadata_df}')
