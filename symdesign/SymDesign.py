@@ -73,7 +73,7 @@ def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.Un
             sys.exit(1)
 
     # Set up common Structure/Entity resources
-    if job.design.evolution_constraint:
+    if job.use_evolution:
         profile_search_instructions = \
             job.process_evolutionary_info(uniprot_entities=uniprot_entities, batch_commands=batch_commands)
     else:
@@ -809,14 +809,14 @@ def main():
     logger.info('Starting with options:\n\t%s' % '\n\t'.join(utils.pretty_format_table(reported_args.items())))
 
     logger.info(f'Using resources in Database located at "{job.data}"')
-    if job.module in [flags.nanohedra, flags.generate_fragments, flags.design, flags.analysis]:  # interface_design
-        if job.design.term_constraint:
-            job.fragment_db = fragment_factory(source=args.fragment_database)
-            # Initialize EulerLookup class
-            euler_factory()
-            if job.module == flags.generate_fragments and job.fragment_db.source == putils.biological_interfaces:
-                logger.warning(f'The FragmentDatabase {job.fragment_db.source} has only been created with '
-                               'biological homo-oligomers. Use fragment information with caution')
+    uses_fragments = [flags.nanohedra, flags.generate_fragments, flags.design, flags.analysis]
+    if job.module in uses_fragments:
+        job.fragment_db = fragment_factory(source=args.fragment_database)
+        # Initialize EulerLookup class
+        euler_factory()
+        if job.module == flags.generate_fragments and job.fragment_db.source == putils.biological_interfaces:
+            logger.warning(f'The FragmentDatabase {job.fragment_db.source} has only been created with '
+                           'biological homo-oligomers. Use fragment information with caution')
     # -----------------------------------------------------------------------------------------------------------------
     #  Initialize the db.session, set into job namespace
     # -----------------------------------------------------------------------------------------------------------------

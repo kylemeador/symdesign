@@ -2165,7 +2165,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         #     pose.fragment_metrics = {entity_tuple: fragment_metrics}
 
     # Load evolutionary profiles of interest for optimization/analysis
-    if job.design.evolution_constraint:
+    if job.use_evolution:
         measure_evolution, measure_alignment = load_evolutionary_profile(job.api_db, pose)
 
         evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)

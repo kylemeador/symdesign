@@ -1458,7 +1458,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Keyword Args:
             warn_metrics: Whether to warn the user about missing files for metric collection
         """
-        if self.job.design.evolution_constraint:
+        if self.job.use_evolution:
             if self.measure_evolution is None and self.measure_alignment is None:
                 self.measure_evolution, self.measure_alignment = \
                     load_evolutionary_profile(self.job.api_db, self.pose, **kwargs)
@@ -3812,7 +3812,7 @@ class PoseProtocol(PoseData):
         # self.identify_interface()
 
         # Load fragment_profile into the analysis
-        if self.job.design.term_constraint and not self.pose.fragment_queries:
+        if not self.pose.fragment_queries:
             self.generate_fragments(interface=True)
             self.pose.calculate_fragment_profile()
 
@@ -4197,22 +4197,22 @@ class PoseProtocol(PoseData):
 
         # Load fragment_profile into the analysis
         # if self.job.design.term_constraint and not self.pose.fragment_queries:
-        if self.job.design.term_constraint:
-            if not self.pose.fragment_queries:
-                self.generate_fragments(interface=True)
-            if not self.pose.fragment_profile:
-                self.pose.calculate_fragment_profile()
-            profile_background['fragment'] = fragment_profile_array = self.pose.fragment_profile.as_array()
-            batch_fragment_profile = np.tile(fragment_profile_array, (number_of_sequences, 1, 1))
-            with warnings.catch_warnings():
-                warnings.simplefilter('ignore', category=RuntimeWarning)
-                # np.log causes -inf at 0, thus we correct these to a 'large' number
-                corrected_frag_array = np.nan_to_num(np.log(batch_fragment_profile), copy=False,
-                                                     nan=np.nan, neginf=metrics.zero_probability_frag_value)
-            per_residue_fragment_profile_loss = \
-                resources.ml.sequence_nllloss(torch_numeric_sequences, torch.from_numpy(corrected_frag_array))
-        else:
-            per_residue_fragment_profile_loss = nan_blank_data
+        # if self.job.design.term_constraint:
+        if not self.pose.fragment_queries:
+            self.generate_fragments(interface=True)
+        if not self.pose.fragment_profile:
+            self.pose.calculate_fragment_profile()
+        profile_background['fragment'] = fragment_profile_array = self.pose.fragment_profile.as_array()
+        batch_fragment_profile = np.tile(fragment_profile_array, (number_of_sequences, 1, 1))
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=RuntimeWarning)
+            # np.log causes -inf at 0, so they are corrected to a 'large' number
+            corrected_frag_array = np.nan_to_num(np.log(batch_fragment_profile), copy=False,
+                                                 nan=np.nan, neginf=metrics.zero_probability_frag_value)
+        per_residue_fragment_profile_loss = \
+            resources.ml.sequence_nllloss(torch_numeric_sequences, torch.from_numpy(corrected_frag_array))
+        # else:
+        #     per_residue_fragment_profile_loss = nan_blank_data
 
         # Set up "design" profile
         self.pose.calculate_profile()
@@ -4221,7 +4221,7 @@ class PoseProtocol(PoseData):
         if self.pose.fragment_queries:
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore', category=RuntimeWarning)
-                # np.log causes -inf at 0, thus we correct these to a 'large' number
+                # np.log causes -inf at 0, so they are corrected to a 'large' number
                 corrected_design_array = np.nan_to_num(np.log(batch_design_profile), copy=False,
                                                        nan=np.nan, neginf=metrics.zero_probability_frag_value)
                 torch_log_design_profile = torch.from_numpy(corrected_design_array)
@@ -4367,7 +4367,7 @@ class PoseProtocol(PoseData):
         # self.identify_interface()
 
         # Load fragment_profile into the analysis
-        if self.job.design.term_constraint and not self.pose.fragment_queries:
+        if not self.pose.fragment_queries:
             self.generate_fragments(interface=True)
             self.pose.calculate_fragment_profile()
 

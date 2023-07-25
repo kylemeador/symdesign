@@ -23,8 +23,8 @@ from symdesign.utils.path import biological_interfaces, default_logging_level, e
 # These attributes ^ shouldn't be moved here. Below should be with proper handling of '-' vs. '_'
 from symdesign.utils.path import submodule_guide, submodule_help, force, sym_entry, program_output, projects, \
     interface_metrics, component1, component2, data, multi_processing, residue_selector, options, \
-    cluster_poses, orient, default_clustered_pose_file, interface_design, evolution_constraint, hbnet, term_constraint,\
-    design_number, refine, structure_background, scout, design_profile, evolutionary_profile, \
+    cluster_poses, orient, default_clustered_pose_file, interface_design, evolution_constraint, use_evolution, hbnet, \
+    term_constraint, design_number, refine, structure_background, scout, design_profile, evolutionary_profile, \
     fragment_profile, select_sequences, program_name, nanohedra, predict_structure, output_interface, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, output_entities, protocol, current_energy_function, \
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, proteinmpnn, \
@@ -245,6 +245,7 @@ check_clashes = format_for_cmdline(check_clashes)
 expand_asu = format_for_cmdline(expand_asu)
 rename_chains = format_for_cmdline(rename_chains)
 evolution_constraint = format_for_cmdline(evolution_constraint)
+use_evolution = format_for_cmdline(use_evolution)
 term_constraint = format_for_cmdline(term_constraint)
 design_number = format_for_cmdline(design_number)
 design_method = format_for_cmdline(design_method)
@@ -771,6 +772,11 @@ usage_str = module_usage_str.format(f'module [{arg_cat_usage(module_title)}]')
 
 # Reused arguments
 distribute_args = ('-D', f'--{distribute_work}')
+use_evolution_args = (f'--{use_evolution}',)
+use_evolution_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
+                            help='Whether to perform calculations with an evolution profile\n'
+                                 'during the job. Will create one if not made.\n'
+                                 f'{boolean_positional_prevent_msg(use_evolution)}')
 evolution_constraint_args = ('-ec', f'--{evolution_constraint}')
 evolution_constraint_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
                                    help='Whether to include evolutionary constraints during design.\n'
@@ -862,8 +868,7 @@ options_arguments = {
     (f'--{development}',): dict(action='store_true',
                                 help="Run in development mode. Only use if you're actively\n"
                                      'developing and understand the side effects'),
-    evolution_constraint_args: evolution_constraint_kwargs,
-    term_constraint_args: term_constraint_kwargs,
+    use_evolution_args: use_evolution_kwargs,
     distribute_args: dict(action='store_true',
                           help='Should individual jobs be formatted for distribution across\n'
                                'computational resources? This is useful on a cluster\nDefault=%(default)s'),
@@ -1125,7 +1130,6 @@ nanohedra_arguments = {
     dock_filter_file_args: dock_filter_file_kwargs,
     dock_weight_args: dock_weight_kwargs,
     dock_weight_file_args: dock_weight_file_kwargs,
-    evolution_constraint_args: evolution_constraint_kwargs,
     ('-iz', f'--{initial_z_value}'): dict(type=float, default=1.,
                                           help='The standard deviation z-score threshold for initial fragment overlap\n'
                                                'Smaller values lead to more stringent matching overlaps\n'

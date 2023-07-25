@@ -507,6 +507,15 @@ class JobResources:
         self.interface = kwargs.get('interface')
         self.interface_only = kwargs.get('interface_only')
         self.oligomeric_interfaces = kwargs.get('oligomeric_interfaces')
+        self.use_evolution = kwargs.get('use_evolution')
+        # # Explicitly set to false if not designing or predicting
+        if self.use_evolution and (flags.nanohedra not in self.modules and flags.predict_structure not in self.modules
+                                   and flags.initialize_building_blocks not in self.modules
+                                   and flags.refine not in self.modules
+                                   and flags.interface_metrics not in self.modules):
+            logger.debug(f'Setting {flags.format_args(flags.use_evolution_args)} to False as no module '
+                         'requesting evolutionary information is utilized')
+            self.use_evolution = False
 
         # Design flags
         self.design = Design.from_flags(**kwargs)
@@ -530,34 +539,22 @@ class JobResources:
             self.design.scout = False
             self.design.term_constraint = False
 
-        # Explicitly set to false if not designing or predicting
-        if self.design.evolution_constraint and \
-                (flags.design not in self.modules and flags.nanohedra not in self.modules and
-                 flags.predict_structure not in self.modules and flags.initialize_building_blocks not in self.modules
-                 and flags.refine not in self.modules and flags.interface_metrics not in self.modules):
-            logger.debug(f'Setting {flags.format_args(flags.evolution_constraint_args)} to False as the no module '
-                         f'requesting evolutionary information is utilized')
-            self.design.evolution_constraint = False
+        # if self.design.evolution_constraint and flags.design not in self.modules:
+        #     logger.debug(f'Setting {flags.format_args(flags.evolution_constraint_args)} to False as the no module '
+        #                  f'requesting evolutionary information is utilized')
+        #     self.design.evolution_constraint = False
 
         # self.dock_only: bool = kwargs.get('dock_only')
         # if self.dock_only:
         #     self.design.sequences = self.design.structures = False
         self.only_write_frag_info: bool = kwargs.get('only_write_frag_info')
-        # else:
-        #     self.ignore_pose_clashes: bool = kwargs.get(ignore_pose_clashes, False)
-        #     self.ignore_symmetric_clashes: bool = kwargs.get(ignore_symmetric_clashes, False)
         self.increment_chains: bool = kwargs.get('increment_chains')
-        # self.evolution_constraint: bool = kwargs.get(evolution_constraint, False)
-        # self.hbnet: bool = kwargs.get(hbnet, False)
-        # self.term_constraint: bool = kwargs.get(term_constraint, False)
         # self.pre_refined: bool = kwargs.get('pre_refined', True)
         # self.pre_loop_modeled: bool = kwargs.get('pre_loop_modeled', True)
         self.interface_to_alanine: bool = kwargs.get('interface_to_alanine')
         self.metrics: bool = kwargs.get(flags._metrics)
-        # self.scout: bool = kwargs.get(scout, False)
         self.measure_pose: str = kwargs.get('measure_pose')
         self.specific_protocol: str = kwargs.get('specific_protocol')
-        # self.structure_background: bool = kwargs.get(structure_background, False)
         # Process symmetry
         sym_entry_number = kwargs.get(putils.sym_entry)
         symmetry = kwargs.get('symmetry')
@@ -1177,9 +1174,6 @@ class JobResources:
             logger.critical(f'The available RAM is probably insufficient to run {putils.hhblits}. '
                             f'Required/Available memory: {distribute.hhblits_memory_threshold / gb_divisior:.2f} GB/'
                             f'{psutil.virtual_memory().available / gb_divisior:.2f} GB')
-            #                 '\tPlease allocate the job to a computer with more memory or the process will fail, '
-            #                 f'otherwise, submit the job with --no-{flags.evolution_constraint}')
-            # sys.exit(1)
             logger.critical(f'Creating scripts that can be distributed to a capable computer instead')
             return False
         return True
@@ -1245,7 +1239,7 @@ class JobResources:
                 raise RuntimeError(
                     f"Couldn't locate the {putils.hhblits} executable. Ensure the executable file referenced by "
                     f"'{putils.hhblits_exe}' exists then try your job again. Otherwise, use the argument "
-                    f'--no-{flags.evolution_constraint} OR set up hhblits to run.{guide.hhblits_setup_instructions}')
+                    f'--no-{flags.use_evolution} OR set up hhblits to run.{guide.hhblits_setup_instructions}')
 
             reformat_cmds1 = []
             reformat_cmds2 = []

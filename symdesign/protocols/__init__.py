@@ -548,11 +548,11 @@ def interface_design(job: pose.PoseJob):
         # Todo update upon completion given results of designs list file...
         job.update_design_data(design_parent=job.pose_source, number=job.job.design.number)
         favor_fragments = evo_fill = True
+        if job.job.design.term_constraint:
+            job.generate_fragments(interface=True)
+            job.pose.calculate_fragment_profile(evo_fill=evo_fill)
     else:
         favor_fragments = evo_fill = False
-
-    if job.job.design.term_constraint:
-        # if not job.pose.fragment_queries:
         job.generate_fragments(interface=True)
         job.pose.calculate_fragment_profile(evo_fill=evo_fill)
     # elif isinstance(job.fragment_observations, list):
@@ -631,13 +631,15 @@ def design(job: pose.PoseJob):
             pass
         else:
             raise NotImplementedError(
-                f"Can't perform design using Rosetta just yet. Try {flags.interface_design} instead...")
+                f"Can't perform design using Rosetta. Try {flags.interface_design} instead...")
         favor_fragments = evo_fill = True
+        if job.job.design.term_constraint:
+            # Todo this is working but the information isn't really used...
+            #  ALSO Need to get oligomeric type frags
+            job.generate_fragments(interface=True)  # job.job.design.interface
+            job.pose.calculate_fragment_profile(evo_fill=evo_fill)
     else:
         favor_fragments = evo_fill = False
-
-    if job.job.design.term_constraint:
-        # if not job.pose.fragment_queries:
         # Todo this is working but the information isn't really used...
         #  ALSO Need to get oligomeric type frags
         job.generate_fragments(interface=True)  # job.job.design.interface

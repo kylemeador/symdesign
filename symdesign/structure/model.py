@@ -7469,8 +7469,8 @@ class Pose(SymmetricModel, Metrics):
                     else:
                         profile_array = pssm_as_array(profile)
                 except AttributeError:  # No profile from getattr()
-                    raise ValueError(f"The profile_type '{profile_type}' isn't available on "
-                                     f"{type(entity).__name__} {entity.name}")
+                    raise ValueError(
+                        f"The profile_type '{profile_type}' isn't available on {type(entity).__name__} {entity.name}")
 
                 hydrophobic_collapse_profile.append(
                     metrics.hydrophobic_collapse_index(profile_array, alphabet_type='protein_letters_alph1', **kwargs))
@@ -7482,8 +7482,8 @@ class Pose(SymmetricModel, Metrics):
         hydrophobic_collapse = np.concatenate(hydrophobic_collapse)
         if sum(missing):  # Need to sum as it could be empty from no .entities and then wouldn't collect either
             hydrophobic_collapse_profile = np.empty(0)
-            self.log.warning(f'There were {sum(missing)} missing Entity.SequenceProfile instances. The collapse_profile'
-                             f' will not be captured for the entire {self.__class__.__name__}.')
+            self.log.warning(f'There were missing .evolutionary_profile attributes for {sum(missing)} Entity instances.'
+                             f' The collapse_profile will not be captured for the entire {self.__class__.__name__}')
         #     self.log.warning(f'There were missing MultipleSequenceAlignment objects on {sum(missing)} Entity '
         #                      'instances. The collapse_profile will not be captured for the entire '
         #                      f'{self.__class__.__name__}.')

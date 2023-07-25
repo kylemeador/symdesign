@@ -378,7 +378,7 @@ metrics = {
         dict(description='Whether a residue window deviates significantly from typical Errat distribution',
              direction=min_, function=boolean, filter=True),
     'evolution_constraint':
-        dict(description='Whether evolutionary constraints were used to constrain design/perform analysis',
+        dict(description='Whether evolutionary constraints were used to constrain design',
              direction=None, function=boolean, filter=True),
     'favor_residue_energy':
         dict(description='Total weight of sequence constraints used to favor certain amino acids in design. '
@@ -846,7 +846,7 @@ metrics = {
         dict(description='The temperature that the design was performed at. Bounded between (0-1]',
              direction=min_, function=normalize, filter=True),
     'term_constraint':
-        dict(description='Whether tertiary constraints were used to constrain design/perform analysis',
+        dict(description='Whether tertiary constraints were used to constrain design',
              direction=None, function=boolean, filter=True),
     # 'total_charge_per_res': dict(),  # Todo
     'use_gpu_relax':
