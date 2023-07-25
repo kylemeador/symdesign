@@ -1128,7 +1128,7 @@ def get_program_root_directory(search_path: str = None) -> AnyStr | None:
         else:  # See if program_output is a child of the provided search_path
             try:
                 all_files = os.listdir(search_path)
-            except FileNotFoundError:
+            except (FileNotFoundError, NotADirectoryError):
                 all_files = []
             if putils.program_output in all_files:  # directory_provided/program_output
                 for sub_directory in all_files:

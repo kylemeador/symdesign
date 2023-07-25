@@ -1349,7 +1349,7 @@ optimize_designs_arguments = {
 #     # Todo either a known value or an attribute available to the Pose object
 # }
 # ---------------------------------------------------
-analysis_help = 'Analyze all poses specified generating a suite of metrics'
+analysis_help = 'Analyze specified Pose/Designs to generate a suite of metrics'
 parser_analysis = {analysis: dict(description=analysis_help, help=analysis_help)}
 analysis_arguments = {
     # ('--figures',): dict(action=argparse.BooleanOptionalAction, default=False,

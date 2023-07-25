@@ -1572,12 +1572,14 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
     #             _entry, result, dimension,
     #             _group1, *int_dof1, str(_ref_frame_tx_dof_group1),
     #             _group2, *int_dof2, str(_ref_frame_tx_dof_group2)))
+    def specification_string(result, symmetry_operators):
+        return f'{result}:{{{"}{".join(symmetry_operators)}}}'
 
     def report_multiple_solutions(entries: list[int]):
         # entries = sorted(entries)
         # print(f'\033[1mFound specified symmetries matching including {", ".join(map(str, entries))}\033[0m')
         # print(f'\033[1mFound specified symmetries matching\033[0m')
-        print_matching_entries(entries)
+        print_matching_entries(specification_string(result, symmetry_operators), entries)
         print(repeat_with_sym_entry)
 
     result = str(result)
@@ -1651,7 +1653,8 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
                     #     matching_entries = exact_matches
                     # else:  # Still equal, report bad
                     # print('non-exact matches')
-                    report_multiple_solutions(exact_matches)
+                    print_matching_entries(specification_string(result, symmetry_operators), exact_matches)
+                    # report_multiple_solutions(exact_matches)
                     sys.exit(1)
                     # -------- TERMINATE --------
     elif symmetry_operators:

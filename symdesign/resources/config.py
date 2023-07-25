@@ -11,7 +11,7 @@ relax_options_literal = Literal['all', 'best', 'none']
 relax_options: tuple[str, ...] = get_args(relax_options_literal)
 min_, max_ = 'min', 'max'
 rank, normalize, boolean = 'rank', 'normalize', 'boolean'
-weight_functions_literal = Literal['rank', 'normalize']
+weight_functions_literal = Literal['normalize', 'rank']
 default_weight_parameter: dict[str, str] = {
     putils.rosetta_str: 'interface_energy',
     putils.proteinmpnn: 'proteinmpnn_score_complex',

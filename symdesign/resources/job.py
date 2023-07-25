@@ -231,8 +231,8 @@ class JobResources:
         """Parse the program operation location, ensure paths to these resources are available, and parse arguments
 
         Args:
-            program_root:
-            arguments:
+            program_root: The root location of program operation
+            arguments: The argparse.Namespace object with associated program flags
             initial: Whether this is the first instance of the particular program output
         """
         try:
@@ -359,12 +359,13 @@ class JobResources:
                         f"The --database-url '{database_url}' can't be used as this {putils.program_output} "
                         f"was already initialized with the url='{db_cfg['url']}")
                 else:
-                    database_url = db_cfg.get('url')  # , default_db)
+                    database_url = db_cfg.get('url')
             else:  # This should always exist
                 database_url = default_db
 
+        self.database_url = database_url
         self.debug_db = kwargs.get('debug_db')
-        self.db: DBInfo = DBInfo(database_url, echo=self.debug_db)
+        self.db: DBInfo = DBInfo(self.database_url, echo=self.debug_db)
         if initial:  # if not os.path.exists(self.internal_db):
             # Emit CREATE TABLE DDL
             sql.Base.metadata.create_all(self.db.engine)
@@ -1125,7 +1126,7 @@ class JobResources:
         # Get all the default program args and compare them to the provided values
         for group in flags.entire_parser._action_groups:
             for arg in group._group_actions:
-                if isinstance(arg, argparse._SubParsersAction):  # We have a subparser, recurse
+                if isinstance(arg, argparse._SubParsersAction):  # This is a subparser, recurse
                     for name, sub_parser in arg.choices.items():
                         for sub_group in sub_parser._action_groups:
                             for arg in sub_group._group_actions:

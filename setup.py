@@ -258,10 +258,10 @@ def setup(args):
     rosetta_env_variable = rosetta_main = ''
     rosetta_make = None
     if args.rosetta:
-        print(f'First, follow this url "{rosetta_url}" to begin licensing and download of the Rosetta Software suite '
-              "if you haven't installed already")
+        print(f"First, follow this url '{rosetta_url}' to begin licensing and download of the Rosetta Software suite "
+              "if you haven't installed it already")
         choice1 = utils.validate_input(
-            'Once downloaded, type "Y" to continue with install or "S" to skip if Rosetta is already '
+            "Once downloaded, type 'Y' to continue with install or 'S' to skip if Rosetta is already "
             "installed. ",
             # Todo ensure that mpi is the case
             #  "FYI this program is capable of using Rosetta's multithreading and MPI builds for "

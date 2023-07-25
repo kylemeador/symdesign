@@ -295,7 +295,7 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                 #     raise last_error
                 print(''.join(last_error))
                 raise RuntimeError(
-                    f"{func.__name__} wasn't able to be executed. See the above traceback")
+                    f"{func.__name__}() wasn't able to be executed. See the above traceback")
 
             return return_containers
         return wrapped
@@ -926,7 +926,7 @@ def proteinmpnn_batch_score(batch_slice: slice, proteinmpnn: ProteinMPNN,
     elif residue_mask is not None:
         pass
     else:
-        raise ValueError(f'Must pass either "residue_mask" or "chain_M_pos"')
+        raise ValueError("Must pass either 'residue_mask' or 'chain_M_pos'")
 
     if pose_length is None:
         batch_length, pose_length, *_ = X.shape
@@ -975,7 +975,7 @@ def proteinmpnn_batch_score(batch_slice: slice, proteinmpnn: ProteinMPNN,
         provided_decoding_order = False
     else:
         # Todo generate a randn fresh?
-        raise ValueError('Missing required argument "randn" or "decoding_order"')
+        raise ValueError("Missing required argument 'randn' or 'decoding_order'")
 
     # decoding_order_out = decoding_order  # When using the same decoding order for all
     log_probs_start_time = time.time()

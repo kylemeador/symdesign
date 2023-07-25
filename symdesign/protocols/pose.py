@@ -3875,7 +3875,10 @@ class PoseProtocol(PoseData):
         with self.job.db.session(expire_on_commit=False) as session:
             if designs is None:
                 session.add(self)
-                self.current_designs = designs = self.designs
+                if self.current_designs:
+                    designs = self.current_designs
+                else:
+                    self.current_designs = designs = self.designs
 
             if not designs:
                 return  # There is nothing to analyze
@@ -4151,21 +4154,22 @@ class PoseProtocol(PoseData):
             if isinstance(design_ids, Sequence):
                 design_ids = list(design_ids)  # [self.pose.name] +
             else:
-                raise ValueError(f"Can't perform {self.analyze_sequence_metrics_per_design.__name__} without argument "
-                                 "'design_ids' when 'sequences' isn't a dictionary")
+                raise ValueError(
+                    f"Can't perform {self.analyze_sequence_metrics_per_design.__name__} without argument "
+                    "'design_ids' when 'sequences' isn't a dictionary")
             # All sequences must be string for Biopython
             if isinstance(sequences, np.ndarray):
                 sequences = [''.join(sequence) for sequence in sequences.tolist()]  # [self.pose.sequence] +
             elif isinstance(sequences, Sequence):
-                # design_sequences = {self.pose.name: self.pose.sequence}
                 sequences = [''.join(sequence) for sequence in sequences]  # [self.pose.sequence] +
             else:
                 design_sequences = design_ids = sequences = None
-                raise ValueError(f"Can't perform {self.analyze_sequence_metrics_per_design.__name__} with argument "
-                                 f"'sequences' as a {type(sequences).__name__}. Pass 'sequences' as a Sequence[str]")
-        # print(f'Found sequences: {sequences}')
+                raise ValueError(
+                    f"Can't perform {self.analyze_sequence_metrics_per_design.__name__} with argument "
+                    f"'sequences' as a {type(sequences).__name__}. Pass 'sequences' as a Sequence[str]")
         if len(design_ids) != len(sequences):
-            raise ValueError(f"The length of the design_ids ({len(design_ids)}) != sequences ({len(sequences)})")
+            raise ValueError(
+                f"The length of the design_ids ({len(design_ids)}) != sequences ({len(sequences)})")
 
         # Create numeric sequence types
         number_of_sequences = len(sequences)
@@ -4360,9 +4364,10 @@ class PoseProtocol(PoseData):
         Returns:
             Series containing summary metrics for all designs
         """
-        raise NotImplementedError('This is in place for backward compatibility but is currently not debugged. Please'
-                                  f' consider using the module "{flags.process_rosetta_metrics}" instead, or debug '
-                                  f'{self.interface_design_analysis.__name__} from the module "{flags.analysis}"')
+        raise NotImplementedError(
+            'This is in place for backward compatibility but is currently not debugged. Please'
+            f' consider using the module "{flags.process_rosetta_metrics}" instead, or debug '
+            f'{self.interface_design_analysis.__name__} from the module "{flags.analysis}"')
         self.load_pose()
         # self.identify_interface()
 
