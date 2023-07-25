@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import os
-from typing import List, Union
+from typing import List, Union, Sequence
 
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -572,18 +572,18 @@ def get_sg_sym_op(sym_type):
     return expand_uc_matrices
 
 
-def get_all_sg_sym_ops():
+def get_all_sg_sym_ops(space_group_operation_lines: Sequence[str]):
     expand_uc_matrices = []
     sg_syms = {}
-    rot_mat, tx_mat = [], []
+    rot_mat, tx = [], []
     line_count = 0
     name = None
-    for line in sg_op_lines:
-        if "'" in line:  # we have a new sg, add the old one, then reset all variables
+    for line in space_group_operation_lines:
+        if "'" in line:  # New sg, add the old one, then reset all variables
             if name:
                 sg_syms[name] = expand_uc_matrices
             expand_uc_matrices = []
-            rot_mat, tx_mat = [], []
+            rot_mat, tx = [], []
             line_count = 0
             number, name, *_ = line.strip().replace("'", '').split()
         # if "'%s'" % sym_type in line:
@@ -591,11 +591,11 @@ def get_all_sg_sym_ops():
         if "'" not in line and ':' not in line and not line[0].isdigit():
             line_float = [float(s) for s in line.split()]
             rot_mat.append(line_float[0:3])
-            tx_mat.append(line_float[-1])
+            tx.append(line_float[-1])
             line_count += 1
             if line_count % 3 == 0:
-                expand_uc_matrices.append((rot_mat, tx_mat))
-                rot_mat, tx_mat = [], []
+                expand_uc_matrices.append((rot_mat, tx))
+                rot_mat, tx = [], []
 
     return sg_syms
 
@@ -610,25 +610,16 @@ def generate_sym_op_txtfiles():
                 f.write(str(op) + '\n')
 
 
-def generate_sym_op_pickles():
-    for group in nanohedra_space_groups:
-        # sym_op_outfile_path = os.path.join(putils.sym_op_location, f'{symmetry_group}.pkl')
-        symmetry_op = get_sg_sym_op(group)
-        pickle_object(symmetry_op, name=symmetry_group, out_path=pickled_dir)
-
-
 identity_matrix = setting_matrices[1]
 origin = np.array([0., 0., 0.])
 if __name__ == '__main__':
     print('\nRunning this script creates the symmetry operators fresh from text files. '
           'If all is correct, two prompts should appear and their corresponding file names\n')
-    # missing identity operators for most part. P1 not
+    # Missing identity operators for most part. P1 not
     sg_op_filepath = os.path.join(putils.sym_op_location, 'spacegroups_op.txt')
     with open(sg_op_filepath, "r") as f:
         sg_op_lines = f.readlines()
-    full_space_group_operator_dict = get_all_sg_sym_ops()
-    pickled_dir = os.path.join(putils.sym_op_location, 'pickled')
-    # os.makedirs(pickled_dir)
+    full_space_group_operator_dict = get_all_sg_sym_ops(sg_op_lines)
     space_group_operators = {}
     # for symmetry_group in nanohedra_space_groups:
     for symmetry_group in chiral_space_groups:
@@ -666,10 +657,8 @@ if __name__ == '__main__':
         # sys.exit()
         space_group_operators[symmetry_group] = (rotations, translations[:, None, :])
         # sym_op_outfile_path = os.path.join(putils.sym_op_location, f'{symmetry_group}.pkl')
-        # pickle_object(sym_op, name=symmetry_group, out_path=pickled_dir)
     # print('Last spacegroup found:', space_group_operators[symmetry_group])
     continue1 = input('Save these results? Yes hits "Enter". Ctrl-C is quit: ')
-    # pickle_object(space_group_operators, name='space_group_operators', out_path=pickled_dir)
     space_group_file = pickle_object(space_group_operators,
                                      out_path=putils.space_group_symmetry_operator_location)
     print(space_group_file)
@@ -698,9 +687,7 @@ if __name__ == '__main__':
 
     # print('Last pointgroup found:', point_group_operators[symmetry])
     continue2 = input('Save these results? Yes hits "Enter". Ctrl-C is quit: ')
-    # pickle_object(point_group_operators, name='point_group_operators', out_path=pickled_dir)
     point_group_file = pickle_object(point_group_operators,
                                      out_path=putils.point_group_symmetry_operator_location)
     print(point_group_file)
     # print({notation: notation.replace(' ', '') for notation in hg_notation})
-    # generate_sym_op_pickles(sg_op_filepath)

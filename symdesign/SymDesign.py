@@ -400,10 +400,10 @@ def main():
 
                 with open(poses_file, 'w') as f_out:
                     f_out.write('%s\n' % '\n'.join(str(pj) for pj in successful_pose_jobs))
-                logger.error(f'The file "{poses_file}" contains the pose identifier of every pose that passed checks'
-                             f'/filters for this job. Utilize this file to input these poses in future '
-                             f'{putils.program_name} commands such as:'
-                             f'\n\t{putils.program_command} MODULE --{flags.poses} {poses_file} ...')
+                logger.info(f'The file "{poses_file}" contains the pose identifier of every pose that passed checks'
+                            f'/filters for this job. Utilize this file to input these poses in future '
+                            f'{putils.program_name} commands such as:'
+                            f'\n\t{putils.program_command} MODULE --{flags.poses} {poses_file} ...')
 
             # Output any additional files for the module
             if job.module in [flags.select_designs, flags.select_sequences]:

@@ -3988,6 +3988,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             #     f"{self.add_ideal_helix.__name__}: length can't be greater than {maximum_extension_length}")
         elif length < 1:
             return
+        else:
+            self.log.debug(f'Adding {length} residue ideal helix to {termini}-terminus of {self.name}')
 
         alpha_helix_15_struct = Structure.from_atoms(alpha_helix_15_atoms)
 
@@ -5847,7 +5849,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                         self.__setattr__(structure_type, existing_structure_type)
                 else:
                     self.log.debug(f'In {self._copy_structure_containers.__name__}: '
-                                   f'{self} is missing the container(s) {missing_containers}. Leaving empty for now')
+                                   f'{self} is missing the container(s) {missing_containers}. Leaving empty')
             else:
                 raise NotImplementedError(
                     "Can't set up structure_containers when there are more than 1 initialized and there are missing "

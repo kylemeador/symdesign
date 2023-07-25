@@ -941,7 +941,7 @@ class Chain(SequenceProfile, Structure):
     _chain_id: str
     _disorder: dict[int, dict[str, str]]
     _entity_id: str
-    _reference_sequence: str | None
+    _reference_sequence: str
 
     def __init__(self, chain_id: str = None, name: str = None, as_mate: bool = False, **kwargs):
         super().__init__(name=name if name else chain_id, **kwargs)
@@ -1097,10 +1097,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         super().__init__(residue_indices=residue_indices, **kwargs)
         if self.is_parent():  # Todo this logic isn't correct. Could be .from_chains() without parent passed!
             # This is used when Entity.from_file() is called
-            # We must create all chains after parsing so that we can set up correctly
+            # Must create all chains after parsing so that instance can be set up correctly
             self._chains = []
             self._create_chains(as_mate=True, chain_ids=chain_ids)
-            # Set chains now that we parsed chains so we can use self.chains for mate chain functionality
+            # Set chains now that _chains is parsed so self.chains can be used for mate chain functionality
             # Todo choose most symmetrically average chain
             representative, *additional_chains = self.chains
             # residue_indices = representative.residue_indices
@@ -1137,7 +1137,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 # Todo when capable of asymmetric symmetrization
                 #  self.chains.append(chain)
             # Inherent to Entity type is a single sequence. Therefore, must be symmetric
-            self._number_of_symmetry_mates = len(chains)
+            self._number_of_symmetry_mates = len(additional_chains) + 1
             self.symmetry = f'D{int(self.number_of_symmetry_mates / 2)}' if self.is_dihedral() \
                 else f'C{self.number_of_symmetry_mates}'
         else:
@@ -5705,7 +5705,7 @@ class SymmetricModel(Model):  # Models):
         if not self.is_symmetric():
             raise SymmetryError(
                 f'Must set a global symmetry to {self._assign_pose_transformation.__name__}')
-        elif self.sym_entry.needs_cryst_record():
+        elif self.sym_entry.is_token():
             return [{} for entity in self.entities]
 
         self.log.debug(f'Searching for transformation parameters for the Pose {self.name}')

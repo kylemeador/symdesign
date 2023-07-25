@@ -716,7 +716,7 @@ def prepare_alignment_motif(model: Structure, model_start: int, motif_length: in
         motif_length: The length of the helical motif
         termini: The termini to utilize
         extension_length: How many residues should the helix be extended
-        alignment_length: The number of residues used to calculation overlap of the target to the ideal helix
+        alignment_length: The number of residues used to calculate overlap of the target to the ideal helix
     Returns:
         The original model without the selected helix and the selected helix
     """
@@ -1020,11 +1020,6 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
     # Start the alignment search
     for selected_idx1, entity1 in enumerate(selected_models1):
         logger.info(f'Target component {entity1.name}')
-        entity1 = entity1.copy()
-        if job.trim_termini:
-            # Remove any unstructured termini from the Entity to enable most successful fusion
-            entity1.delete_termini_to_helices()
-            # entity.delete_unstructured_termini()
 
         if all(remaining_entities1):
             additional_entities1 = remaining_entities1.copy()
@@ -1248,6 +1243,8 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     extension_length = job.extension_length
                     # Add the extension length to the residue window if an ideal helix was added
                     # length_of_helix_model = length_of_target_helix + extension_length
+                    logger.info(f'Adding {extension_length} residues to the target helix. This will result in a maximum'
+                                f' extension of {extension_length - alignment_length - 1 } residues')
                 else:
                     extension_length = 0
 

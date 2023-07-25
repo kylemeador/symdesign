@@ -1038,11 +1038,10 @@ aligned_chain_args = (f'--{aligned_chain}',)
 aligned_chain_kwargs = dict(help='A desired chainID of the aligned molecule')
 alignment_length_args = (f'--{alignment_length}',)  # f'--{length}',
 alignment_length_kwargs = dict(type=int, metavar='INT', help='The number of residues used to measure overlap')
-# extend_args = (f'--{extend}',)
+extend_args = (f'--{extend}',)
 # extend_kwargs = dict(action='store_true',
 #                      help='Whether to extend alignment termini with a ten residue ideal\n'
 #                           'alpha helix. All specified residues are modified accordingly\n')
-extend_args = (f'--{extend}',)
 extend_kwargs = dict(type=int, metavar='INT',  # action='store_true',
                      help='Whether to extend target termini with an ideal alpha helix\n'
                           'Argument should specify how many residues to extend')
