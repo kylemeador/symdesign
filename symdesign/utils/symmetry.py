@@ -7,7 +7,10 @@ from typing import List, Union, Sequence
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from . import path as putils, pickle_object, unpickle
+try:
+    from . import path as putils, pickle_object, unpickle
+except ImportError:
+    from symdesign.utils import path as putils, pickle_object, unpickle
 
 CRYST = 'CRYST'
 chiral_space_groups = [
@@ -652,6 +655,8 @@ if __name__ == '__main__':
                       f'because no match')
                 rotations = np.insert(rotations, 0, identity_matrix, axis=0)
                 translations = np.insert(translations, 0, origin, axis=0)
+        # Pre-transpose the rotation matrix so program operation doesn't have to
+        rotations = rotations.swapaxes(-1, -2)
         # print(rotations)
         # print(translations)
         # sys.exit()

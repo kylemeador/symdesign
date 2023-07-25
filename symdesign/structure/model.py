@@ -4562,6 +4562,7 @@ class SymmetricModel(Model):  # Models):
                     f"The expand matrix form {expand_matrices} isn't supported. Must provide a tuple of array-like "
                     'objects with the order (expand_matrix(s), expand_translation(s))')
         else:
+            # The rotation matrices are pre-transposed to avoid that operation here
             if self.dimension == 0:
                 self.expand_matrices, self.expand_translations = \
                     utils.symmetry.point_group_symmetry_operators[self.symmetry], utils.symmetry.origin
