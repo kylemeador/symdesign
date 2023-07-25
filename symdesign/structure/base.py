@@ -4514,74 +4514,30 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #     """
     #     return ''.join([protein_letters_3to1_extended.get(res.type, '-') for res in self.residues])
 
-    def delete_unstructured_termini(self):
-        """Query the Structure for unstructured termini, i.e. loops/coils and remove those residues from the structure
-
-        Uses the default secondary structure prediction program's SS_DISORDER_IDENTIFIERS (typically coil) to
-        detect disorder. Will remove any disorder segments, as well as turns that exist between disordered segments
-        """
-        secondary_structure = working_secondary_structure = self.secondary_structure
-        number_of_residues = self.number_of_residues
-        # no_nterm_disorder_ss = secondary_structure.lstrip(SS_DISORDER_IDENTIFIERS)
-        # remove_x_nterm_residues = number_of_residues - len(no_nterm_disorder_ss)
-        # no_cterm_disorder_ss = secondary_structure.rstrip(SS_DISORDER_IDENTIFIERS)
-        # remove_x_cterm_residues = number_of_residues - len(no_cterm_disorder_ss)
-        # Todo
-        #  Could remove disorder by a relative_sasa threshold. A brief investigation shows that ~0.6 could be a
-        #  reasonable threshold when combined with other ss indicators
-        # sasa = self.relative_sasa
-        # self.log.debug(f'Found n-term relative sasa {sasa[:remove_x_nterm_residues + 10]}')
-        # self.log.debug(f'Found c-term relative sasa {sasa[-(remove_x_cterm_residues + 10):]}')
-
-        remove_x_nterm_residues = remove_x_cterm_residues = 0
-        # Remove coils. Find the next coil. If only ss present is (T)urn, then remove that as well and start again
-        for idx, termini in enumerate('NC'):
-            if idx == 0:  # n-termini
-                self.log.debug(f'Starting N-term is: {working_secondary_structure[:15]}')
-                possible_secondary_structure = working_secondary_structure
-            else:  # c-termini
-                self.log.debug(f'N-term is: {working_secondary_structure[:15]}')
-                # Get the number of n-termini removed
-                remove_x_nterm_residues = number_of_residues - len(working_secondary_structure)
-                # Reverse the sequence to get the c-termini first
-                possible_secondary_structure = working_secondary_structure[::-1]
-                self.log.debug(f'Starting C-term (reversed) is: {possible_secondary_structure[:15]}')
-
-            ss_disorder_index = possible_secondary_structure.find(SS_DISORDER_IDENTIFIERS)
-            while ss_disorder_index == 0:  # Go again
-                # Remove DISORDER ss
-                working_secondary_structure = possible_secondary_structure.lstrip(SS_DISORDER_IDENTIFIERS)
-                # Next try to remove TURN ss. Only remove if it is between DISORDER segments
-                possible_secondary_structure = working_secondary_structure.lstrip(SS_TURN_IDENTIFIERS)
-                ss_disorder_index = possible_secondary_structure.find(SS_DISORDER_IDENTIFIERS)
-
-        self.log.debug(f'C-term (reversed) is: {working_secondary_structure[:15]}')
-
-        # Get the number of c-termini removed
-        remove_x_cterm_residues = number_of_residues - len(working_secondary_structure) - remove_x_nterm_residues
-        c_term_index = number_of_residues - remove_x_cterm_residues
-        # final_secondary_structure = reversed(working_secondary_structure)
-
-        self.log.debug(f'Found n-term secondary_structure {secondary_structure[:remove_x_nterm_residues + 5]}')
-        self.log.debug(f'Found c-term secondary_structure {secondary_structure[-(remove_x_cterm_residues + 5):]}')
-        self.log.info(f"Removing {remove_x_nterm_residues} n-term and {remove_x_cterm_residues} c-term "
-                      f"residues with new terminal secondary structure:\n"
-                      f"\tnew n={'-' * remove_x_nterm_residues}"
-                      f"{secondary_structure[remove_x_nterm_residues:remove_x_nterm_residues + 10]}\n"
-                      f"\told n={secondary_structure[:remove_x_nterm_residues + 10]}\n"
-                      f"\tnew c={secondary_structure[c_term_index - 10:c_term_index]}{'-' * remove_x_cterm_residues}\n"
-                      f"\told c={secondary_structure[c_term_index - 10:]}"
-                      )
-        residues = self.residues
-        self.delete_residues(residues[:remove_x_nterm_residues])
-        self.delete_residues(residues[c_term_index:])
-
-    def delete_termini_to_helices(self):
+    def delete_termini(self, how: str = 'unstructured', termini: termini_literal = None):
         """Remove Residue instances from the Structure termini that are not helices
 
         Uses the default secondary structure prediction program's SS_HELIX_IDENTIFIERS (typically 'H') to search for
         non-conforming secondary structure
+
+        Args:
+            how: How should termini be trimmed? Either 'unstructured' (default) or 'to_helices' can be used.
+                If 'unstructured',
+                    will use 'SS_DISORDER_IDENTIFIERS' (typically coil) to detect disorder. Function will then remove any
+                    disordered segments, as well as turns ('T') that exist between disordered segments
+                If 'to_helices',
+                    will use 'SS_HELIX_IDENTIFIERS' (typically 'H') to remove any non-conforming secondary structure
+                    elements until a helix is reached
+            termini: If a specific termini should be targeted, which one?
         """
+        if termini is None or termini.lower() == 'nc':
+            termini_ = 'nc'
+        elif termini in 'NnCc':  # Only one of the two
+            termini_ = termini.lower()
+        else:
+            raise ValueError(
+                f"'termini' must be one of 'n' or 'c', not '{termini}")
+
         secondary_structure = working_secondary_structure = self.secondary_structure
         number_of_residues = self.number_of_residues
         # no_nterm_disorder_ss = secondary_structure.lstrip(SS_DISORDER_IDENTIFIERS)
@@ -4595,7 +4551,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # self.log.debug(f'Found n-term relative sasa {sasa[:remove_x_nterm_residues + 10]}')
         # self.log.debug(f'Found c-term relative sasa {sasa[-(remove_x_cterm_residues + 10):]}')
 
-        remove_x_nterm_residues = remove_x_cterm_residues = 0
+        remove_x_nterm_residues = 0
         # Remove coils. Find the next coil. If only ss present is (T)urn, then remove that as well and start again
         for idx, termini in enumerate('NC'):
             if idx == 0:  # n-termini
@@ -4609,8 +4565,17 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 possible_secondary_structure = working_secondary_structure[::-1]
                 self.log.debug(f'Starting C-term (reversed) is: {possible_secondary_structure[:15]}')
 
-            ss_helix_index = possible_secondary_structure.find(SS_HELIX_IDENTIFIERS)
-            working_secondary_structure = working_secondary_structure[ss_helix_index:]
+            if how == 'to_helices':
+                ss_helix_index = possible_secondary_structure.find(SS_HELIX_IDENTIFIERS)
+                working_secondary_structure = working_secondary_structure[ss_helix_index:]
+            else:  # how == 'unstructured'
+                ss_disorder_index = possible_secondary_structure.find(SS_DISORDER_IDENTIFIERS)
+                while ss_disorder_index == 0:  # Go again
+                    # Remove DISORDER ss
+                    working_secondary_structure = possible_secondary_structure.lstrip(SS_DISORDER_IDENTIFIERS)
+                    # Next try to remove TURN ss. Only remove if it is between DISORDER segments
+                    possible_secondary_structure = working_secondary_structure.lstrip(SS_TURN_IDENTIFIERS)
+                    ss_disorder_index = possible_secondary_structure.find(SS_DISORDER_IDENTIFIERS)
 
         self.log.debug(f'C-term (reversed) is: {working_secondary_structure[:15]}')
 
@@ -4619,19 +4584,23 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         c_term_index = number_of_residues - remove_x_cterm_residues
         # final_secondary_structure = reversed(working_secondary_structure)
 
-        self.log.debug(f'Found n-term secondary_structure {secondary_structure[:remove_x_nterm_residues + 5]}')
-        self.log.debug(f'Found c-term secondary_structure {secondary_structure[-(remove_x_cterm_residues + 5):]}')
-        self.log.info(f"Removing {remove_x_nterm_residues} n-term and {remove_x_cterm_residues} c-term "
-                      f"residues with new terminal secondary structure:\n"
-                      f"\tnew n={'-' * remove_x_nterm_residues}"
-                      f"{secondary_structure[remove_x_nterm_residues:remove_x_nterm_residues + 10]}\n"
-                      f"\told n={secondary_structure[:remove_x_nterm_residues + 10]}\n"
-                      f"\tnew c={secondary_structure[c_term_index - 10:c_term_index]}{'-' * remove_x_cterm_residues}\n"
-                      f"\told c={secondary_structure[c_term_index - 10:]}"
-                      )
         residues = self.residues
-        self.delete_residues(residues[:remove_x_nterm_residues])
-        self.delete_residues(residues[c_term_index:])
+        _delete_residues = []
+        if 'n' in termini_ and remove_x_nterm_residues:
+            self.log.debug(f'Found N-term secondary_structure {secondary_structure[:remove_x_nterm_residues + 5]}')
+            self.log.info(f"Removing {remove_x_nterm_residues} N-term residues with new terminal secondary structure:\n"
+                          f"\tnew N:{'-' * remove_x_nterm_residues}"
+                          f"{secondary_structure[remove_x_nterm_residues:remove_x_nterm_residues + 10]}\n"
+                          f"\told N:{secondary_structure[:remove_x_nterm_residues + 10]}")
+            _delete_residues += residues[:remove_x_nterm_residues]
+        if 'c' in termini_ and remove_x_cterm_residues:
+            self.log.debug(f'Found C-term secondary_structure {secondary_structure[-(remove_x_cterm_residues + 5):]}')
+            self.log.info(f"Removing {remove_x_cterm_residues} C-term residues with new terminal secondary structure:\n"
+                          f"\tnew C:{secondary_structure[c_term_index - 10:c_term_index]}{'-' * remove_x_cterm_residues}\n"
+                          f"\told C:{secondary_structure[c_term_index - 10:]}")
+            _delete_residues += residues[c_term_index:]
+
+        self.delete_residues(_delete_residues)
 
     def translate(self, translation: list[float] | np.ndarray, **kwargs):
         """Perform a translation to the Structure ensuring only the Structure container of interest is translated
