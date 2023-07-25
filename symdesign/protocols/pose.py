@@ -3883,7 +3883,12 @@ class PoseProtocol(PoseData):
             if not designs:
                 return  # There is nothing to analyze
 
-            design_ids = [design.id for design in designs]
+            # Fetch data from the database
+            # Get the name/provided_name to design_id mapping
+            design_name_to_id_map = dict((design.name, design.id) for design in designs)
+            design_ids = design_name_to_id_map.values()
+            design_sequences = {design.name: design.sequence for design in designs}
+            design_paths_to_process = [design.structure_path for design in designs]
             select_stmt = select((sql.DesignData.id, sql.ResidueMetrics.index, sql.ResidueMetrics.design_residue))\
                 .join(sql.ResidueMetrics).where(sql.DesignData.id.in_(design_ids))
             index_col = sql.ResidueMetrics.index.name
@@ -3898,7 +3903,6 @@ class PoseProtocol(PoseData):
         # design_residues[:, interface_residue_indices] = 1
 
         # Score using proteinmpnn
-        design_sequences = {design.name: design.sequence for design in designs}
         design_names = list(design_sequences.keys())
         # sequences_df = self.analyze_sequence_metrics_per_design(sequences=design_sequences)
         sequences_and_scores = self.pose.score(list(design_sequences.values()),
@@ -3910,7 +3914,6 @@ class PoseProtocol(PoseData):
         entity_designs_df = self.analyze_design_entities_per_residue(mpnn_residues_df)
 
         # Process all desired files to Pose
-        design_paths_to_process = [design.structure_path for design in designs]
         pose_kwargs = self.pose_kwargs
         designs_poses = \
             [Pose.from_file(file, **pose_kwargs) for file in design_paths_to_process if file is not None]
@@ -3932,8 +3935,6 @@ class PoseProtocol(PoseData):
         #  residues_df = residues_df.join(rosetta_residues_df)
 
         # Rename all designs and clean up resulting metrics for storage
-        # Get the name/provided_name to design_id mapping
-        design_name_to_id_map = dict((design.name, design.id) for design in designs)
         # In keeping with "unit of work", only rename once all data is processed incase we run into any errors
         designs_df.index = designs_df.index.map(design_name_to_id_map)
         # Must move the entity_id to the columns for index.map to work
