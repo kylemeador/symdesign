@@ -3885,16 +3885,17 @@ class PoseProtocol(PoseData):
 
             # Fetch data from the database
             # Get the name/provided_name to design_id mapping
-            design_name_to_id_map = dict((design.name, design.id) for design in designs)
-            design_ids = design_name_to_id_map.values()
-            design_sequences = {design.name: design.sequence for design in designs}
+            design_names = [design.name for design in designs]
+            design_ids = [design.id for design in designs]
+            design_name_to_id_map = dict(zip(design_names, design_ids))
+            design_sequences = [design.sequence for design in designs]
             design_paths_to_process = [design.structure_path for design in designs]
-            select_stmt = select((sql.DesignData.id, sql.ResidueMetrics.index, sql.ResidueMetrics.design_residue))\
-                .join(sql.ResidueMetrics).where(sql.DesignData.id.in_(design_ids))
+            select_stmt = select((sql.DesignResidues.design_id, sql.DesignResidues.index, sql.DesignResidues.design_residue))\
+                .where(sql.DesignResidues.design_id.in_(design_ids))
             index_col = sql.ResidueMetrics.index.name
             design_residue_df = \
                 pd.DataFrame.from_records(session.execute(select_stmt).all(),
-                                          columns=['id', index_col, sql.ResidueMetrics.design_residue.name])
+                                          columns=['id', index_col, sql.DesignResidues.design_residue.name])
         design_residue_df = design_residue_df.set_index(['id', index_col]).unstack()
         # Use simple reporting here until that changes...
         # interface_residue_indices = [residue.index for residue in self.pose.interface_residues]
@@ -3903,9 +3904,8 @@ class PoseProtocol(PoseData):
         # design_residues[:, interface_residue_indices] = 1
 
         # Score using proteinmpnn
-        design_names = list(design_sequences.keys())
         # sequences_df = self.analyze_sequence_metrics_per_design(sequences=design_sequences)
-        sequences_and_scores = self.pose.score(list(design_sequences.values()),
+        sequences_and_scores = self.pose.score(design_sequences,
                                                model_name=self.job.design.proteinmpnn_model_name)
         sequences_and_scores['design_indices'] = design_residue_df.values
 
