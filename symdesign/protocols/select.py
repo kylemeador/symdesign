@@ -1844,11 +1844,14 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
                 results = pose_id_to_identifier.values()
 
         # Todo incorporate design_metadata_df
-        design_metadata_df = load_sql_design_metadata_dataframe(session, design_ids=selected_design_ids)
         design_metrics_df = load_sql_design_metrics_dataframe(session, design_ids=selected_design_ids)
-        # designs_df has a multiplicity of number_of_entities from DesignEntityMetrics table join
-        design_metrics_df = \
-            design_metadata_df.join(design_metrics_df.set_index(design_id), on=design_id, rsuffix='_DROP')
+        design_metadata_df = load_sql_design_metadata_dataframe(session, design_ids=selected_design_ids)
+        if design_metadata_df.empty:
+            pass
+        else:
+            # designs_df has a multiplicity of number_of_entities from DesignEntityMetrics table join
+            design_metrics_df = \
+                design_metadata_df.join(design_metrics_df.set_index(design_id), on=design_id, rsuffix='_DROP')
         # Format selected PoseJob with metrics for output
         # save_designs_df = selected_designs_df
         save_designs_df = format_save_df(session, design_metrics_df,
