@@ -1320,12 +1320,16 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         except AttributeError:
             if self._api_data is None:
                 self.retrieve_api_metadata()
-            else:  # retrieve_api_metadata() was already attempted
-                self._reference_sequence = self._retrieve_sequence_from_api()
-                if self._reference_sequence is None:
-                    self.log.info("The reference sequence couldn't be found. Using the Structure sequence instead")
-                    self._reference_sequence = self.sequence
-                return self._reference_sequence
+                try:
+                    return self._reference_sequence
+                except AttributeError:
+                    pass
+            # else:  # retrieve_api_metadata() was already attempted
+            self._reference_sequence = self._retrieve_sequence_from_api()
+            if self._reference_sequence is None:
+                self.log.info("The reference sequence couldn't be found. Using the Structure sequence instead")
+                self._reference_sequence = self.sequence
+            return self._reference_sequence
 
     # @reference_sequence.setter
     # def reference_sequence(self, sequence):
