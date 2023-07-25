@@ -1098,9 +1098,16 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
         else:  # None specified, try all
             desired_termini = ['n', 'c']
 
+        if job.trim_termini:
+            # Remove any unstructured termini from the Entity to enable most successful fusion
+            logger.info('Trimming unstructured termini to check for available helices')
+            entity1_copy = entity1.copy()
+            entity1_copy.delete_termini('unstructured')
+        else:
+            entity1_copy = entity1
         # Check for helical termini on the target building block and remove those that are not available
         for termini in reversed(desired_termini):
-            if not entity1.is_termini_helical(termini, window=alignment_length):
+            if not entity1_copy.is_termini_helical(termini, window=alignment_length):
                 logger.error(f"The specified termini '{termini}' isn't helical")
                 desired_termini.remove(termini)
 
@@ -1124,11 +1131,6 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
 
         for selected_idx2, entity2 in enumerate(selected_models2):
             logger.info(f'Aligned component {entity2.name}')
-            entity2 = entity2.copy()
-            if job.trim_termini:
-                # Remove any unstructured termini from the Entity to enable most successful fusion
-                entity2.delete_termini_to_helices()
-                # entity.delete_unstructured_termini()
 
             # Set variables for the additional entities
             if len(remaining_entities2) == model2.number_of_entities:
@@ -1196,11 +1198,19 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
             else:
                 desired_aligned_termini = None
 
+            if job.trim_termini:
+                # Remove any unstructured termini from the Entity to enable most successful fusion
+                logger.info('Trimming unstructured termini to check for available helices')
+                entity2_copy = entity2.copy()
+                entity2_copy.delete_termini('to_helices')
+            else:
+                entity2_copy = entity2
+
             termini_to_align = []
             for termini in desired_termini:
                 # Check if the desired termini in the aligned structure is available
                 align_termini = opposite_termini[termini]
-                if entity2.is_termini_helical(align_termini, window=alignment_length):
+                if entity2_copy.is_termini_helical(align_termini, window=alignment_length):
                     if desired_aligned_termini and align_termini == desired_aligned_termini:
                         # This is the correct termini
                         termini_to_align.append(termini)
@@ -1215,11 +1225,21 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 logger.info(f'Target component {entity2.name} has no termini remaining')
 
             for termini in termini_to_align:
+                align_termini = opposite_termini[termini]
+                entity1_copy = entity1.copy()
+                entity2_copy = entity2.copy()
+                if job.trim_termini:
+                    # Remove any unstructured termini from the Entity to enable most successful fusion
+                    entity1_copy.delete_termini('to_helices', termini=termini)
+                    entity2_copy.delete_termini('to_helices', termini=align_termini)
+                    # entity.delete_unstructured_termini()
+                    # entity.delete_unstructured_termini()
+
                 logger.info(f'Starting {entity1.name} {termini}-termini')
                 # Get the target_start_index the length_of_target_helix
-                logger.debug(f'Checking {termini}-termini for helices:\n\t{entity1.secondary_structure}')
+                logger.debug(f'Checking {termini}-termini for helices:\n\t{entity1_copy.secondary_structure}')
                 target_start_index, length_of_target_helix = \
-                    get_terminal_helix_start_index_and_length(entity1.secondary_structure, termini,
+                    get_terminal_helix_start_index_and_length(entity1_copy.secondary_structure, termini,
                                                               start_index=target_start_index_,
                                                               end_index=target_end_index_)
                 logger.debug(f'Found {termini}-termini start index {target_start_index} and '
@@ -1232,7 +1252,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     extension_length = 0
 
                 truncated_entity1, helix_model = prepare_alignment_motif(
-                    entity1, target_start_index, length_of_target_helix,
+                    entity1_copy, target_start_index, length_of_target_helix,
                     termini=termini, extension_length=extension_length, alignment_length=alignment_length)
                 # Rename the models to enable fusion
                 chain_id = truncated_entity1.chain_id
@@ -1246,10 +1266,9 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                 target_start_indices_sequence = range(max_target_helix_length)
 
                 # Get the aligned_start_index and length_of_aligned_helix
-                align_termini = opposite_termini[termini]
-                logger.debug(f'Checking {align_termini}-termini for helices:\n\t{entity2.secondary_structure}')
+                logger.debug(f'Checking {align_termini}-termini for helices:\n\t{entity2_copy.secondary_structure}')
                 aligned_start_index, length_of_aligned_helix = \
-                    get_terminal_helix_start_index_and_length(entity2.secondary_structure, align_termini,
+                    get_terminal_helix_start_index_and_length(entity2_copy.secondary_structure, align_termini,
                                                               start_index=aligned_start_index_,
                                                               end_index=aligned_end_index_)
                 logger.debug(f'Found {align_termini}-termini start index {aligned_start_index} and '
@@ -1290,11 +1309,11 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     aligned_idx = next(aligned_count)
                     # logger.debug(f'aligned_idx: {aligned_idx}')
                     logger.debug(f'aligned_start_index: {aligned_start_index}')
-                    # logger.debug(f'number of residues: {entity2.number_of_residues}')
+                    # logger.debug(f'number of residues: {entity2_copy.number_of_residues}')
 
                     # # Todo use full model_helix mode
                     # truncated_entity2, helix_model2 = prepare_alignment_motif(
-                    #     entity2, aligned_start_index, alignment_length, termini=align_termini)
+                    #     entity2_copy, aligned_start_index, alignment_length, termini=align_termini)
                     # # Todo? , extend_helix=extension_length)
                     # # Rename the models to enable fusion
                     # truncated_entity2.chain_id = chain_id
@@ -1302,11 +1321,11 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                     aligned_end_index = aligned_start_index + alignment_length
                     # Calculate the entity2 indices to delete after alignment position is found
                     if align_termini == 'c':
-                        delete_indices2 = list(range(aligned_end_index, entity2.c_terminal_residue.index + 1))
+                        delete_indices2 = list(range(aligned_end_index, entity2_copy.c_terminal_residue.index + 1))
                     else:
-                        delete_indices2 = list(range(entity2.n_terminal_residue.index, aligned_start_index))
+                        delete_indices2 = list(range(entity2_copy.n_terminal_residue.index, aligned_start_index))
                     # Get aligned coords
-                    coords2 = entity2.get_coords_subset(
+                    coords2 = entity2_copy.get_coords_subset(
                         indices=list(range(aligned_start_index, aligned_end_index)),
                         dtype='backbone')
 
@@ -1343,7 +1362,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             # # Use helix_model2 start index = 0 as helix_model2 is always truncated
                             # # Use transformed_entity2 mode
                             # rmsd, rot, tx = align_model_to_helix(
-                            #     entity2, aligned_start_index, helix_model, helix_start_index, alignment_length)
+                            #     entity2_copy, aligned_start_index, helix_model, helix_start_index, alignment_length)
                             rmsd, rot, tx = superposition3d(coords1, coords2)
                             # # Use full model_helix mode
                             # rmsd, rot, tx = align_model_to_helix(
@@ -1356,7 +1375,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                                         f'alignment {sampling_index} has RMSD of {rmsd:.4f}')
 
                         # Transform and copy to facilitate delete
-                        transformed_entity2 = entity2.get_transformed_copy(rotation=rot, translation=tx)
+                        transformed_entity2 = entity2_copy.get_transformed_copy(rotation=rot, translation=tx)
                         # Delete overhanging residues
                         transformed_entity2.delete_residues(indices=delete_indices2)
 
@@ -1376,8 +1395,9 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             else:  # First time this runs, it adds 0 to target_start_index
                                 entity1_first_residue_index = target_start_index + helix_end_index - extension_length
                                 extension_str = ''
-                            start_residue2 = entity1.residues[entity1_first_residue_index]
-                            end_residue2 = entity1.c_terminal_residue
+                            # Use entity1_copy due to the removed helical portion on truncated_entity1
+                            start_residue2 = entity1_copy.residues[entity1_first_residue_index]
+                            end_residue2 = entity1_copy.c_terminal_residue
                         else:  # termini == 'c'
                             ordered_entity1 = truncated_entity1
                             ordered_entity2 = transformed_entity2
@@ -1385,14 +1405,15 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                             helix_model_range = range(helix_model_start_index, helix_start_index)
 
                             # Get Residue instances that mark the boundary of the fusion
-                            start_residue1 = entity1.n_terminal_residue
+                            # Use entity1_copy due to the removed helical portion on truncated_entity1
+                            start_residue1 = entity1_copy.n_terminal_residue
                             if helix_start_index <= length_of_target_helix:  # Zero-indexed < one-indexed
                                 entity1_last_residue_index = target_start_index + helix_start_index - 1
                                 extension_str = ''
                             else:
                                 entity1_last_residue_index = target_start_index + length_of_target_helix - 1
                                 extension_str = f'-extend-{helix_start_index - length_of_target_helix}'
-                            end_residue1 = entity1.residues[entity1_last_residue_index]  # c_terminal_residue
+                            end_residue1 = entity1_copy.residues[entity1_last_residue_index]  # c_terminal_residue
                             start_residue2 = transformed_entity2.n_terminal_residue  # residues[aligned_start_index]
                             end_residue2 = transformed_entity2.c_terminal_residue
 
