@@ -632,8 +632,8 @@ class SequenceProfile(ABC):
                              f'{len(self.evolutionary_profile)}, Pose={self.number_of_residues}')
             return False
 
-        # if not rerun:
         # Check sequence from Pose and self.profile to compare identity before proceeding
+        warn = False
         incorrect_count = 0
         for residue, position_data in zip(self.residues, self.evolutionary_profile.values()):
             profile_res_type = position_data['type']
@@ -651,22 +651,26 @@ class SequenceProfile(ABC):
                                  f'\n\tResidue {residue.number}: .evolutionary_profile={profile_res_type}, '
                                  f'.sequence={pose_res_type}')
                 if position_data[pose_res_type] > 0:  # The occurrence data indicates this AA is also possible
-                    self.log.critical("The evolutionary profile must've been generated from a different file, "
-                                      'however, the evolutionary information contained is still viable. The '
-                                      'correct residue from the Pose will be substituted for the missing '
-                                      'residue in the profile')
+                    warn = True
                     incorrect_count += 1
-                    if incorrect_count > 2:
-                        self.log.critical(f'This error has occurred {incorrect_count} times and your modeling accuracy'
-                                          ' will probably suffer')
                     position_data['type'] = pose_res_type
                 else:
                     self.log.critical('The evolutionary profile must have been generated from a different file,'
                                       " and the evolutionary information contained ISN'T viable")
                     #                   'Regenerating evolutionary profile from the structure sequence instead'
-                    return False
+                    break
+        else:
+            if warn:
+                self.log.warning("The evolutionary profile must've been generated from a different file, "
+                                 'however, the evolutionary information contained is still viable. The '
+                                 'correct residue from the Pose will be substituted for the missing '
+                                 'residue in the profile')
+                if incorrect_count > 2:
+                    self.log.critical(f'This error occurred {incorrect_count} times and your modeling accuracy'
+                                      ' will probably suffer')
+            return True
 
-        return True
+        return False
 
     def add_evolutionary_profile(self, file: AnyStr = None, out_dir: AnyStr = os.getcwd(),
                                  profile_source: alignment_programs_literal = putils.hhblits, force: bool = False,
