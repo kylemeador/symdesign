@@ -830,12 +830,16 @@ class SequenceProfile(ABC):
 
         internal_sequence_characters = set(evolutionary_gaps.values()).difference(('-',))
         if internal_sequence_characters:  # There are internal insertions
-            # Insert these in reverse order to keep numbering correct, one at a time...
             existing_structure_profile_keys = list(structure_evolutionary_profile.keys())
+            null_insertion_profiles = self.create_null_entries(evolutionary_gaps.keys())
+            # Insert these in reverse order to keep numbering correct, one at a time...
+            print('existing:', existing_structure_profile_keys)
+            print('inserting:', evolutionary_gaps.keys())
             for mutation_entry in reversed(evolutionary_gaps.keys()):
+                print('mutation_entry', mutation_entry)
                 for entry_number in reversed(existing_structure_profile_keys[mutation_entry:]):
                     structure_evolutionary_profile[entry_number + 1] = structure_evolutionary_profile.pop(entry_number)
-                structure_evolutionary_profile[mutation_entry] = evolutionary_gaps[mutation_entry]
+                structure_evolutionary_profile[mutation_entry] = null_insertion_profiles[mutation_entry]
 
             evolutionary_profile_sequence = ''.join(data['type'] for data in structure_evolutionary_profile.values())
             evolutionary_gaps = \
