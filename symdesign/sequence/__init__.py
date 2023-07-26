@@ -305,8 +305,8 @@ def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = d
     try:
         alignments = aligner.align(seq1, seq2)
     except ValueError:  # sequence contains letters not in the alphabet
-        print(seq1)
-        print(seq1)
+        print(f'Sequence1: {seq1}')
+        print(f'Sequence2: {seq2}')
         raise
     first_alignment = alignments[0]
     logger.debug(f'Found alignment with score: {alignments.score}\n{first_alignment}')
