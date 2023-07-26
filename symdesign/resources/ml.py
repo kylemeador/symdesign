@@ -294,7 +294,7 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                 # except compute_failure_exceptions:
                 #     raise last_error
                 print(''.join(last_error))
-                raise RuntimeError(
+                raise utils.SymDesignException(
                     f"{func.__name__}() wasn't able to be executed. See the above traceback")
 
             return return_containers

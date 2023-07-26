@@ -3,9 +3,7 @@ from __future__ import annotations
 import csv
 import functools
 import logging
-import math
 import os
-import sys
 import traceback
 from itertools import count, repeat, combinations
 from subprocess import list2cmdline, Popen
@@ -25,11 +23,11 @@ from symdesign.resources.distribute import write_script
 from symdesign.resources.job import job_resources_factory
 from symdesign.sequence import optimize_protein_sequence, protein_letters_1to3, protein_letters_3to1, \
     read_fasta_file, write_sequences
-from symdesign.structure.model import Models, MultiModel, Model, Pose
+from symdesign.structure.model import Models, MultiModel, Pose
 from symdesign.structure.sequence import write_pssm_file, sequence_difference
-from symdesign.structure.utils import DesignError, SymmetryError
+from symdesign.structure.utils import SymmetryError
 from symdesign.utils import condensed_to_square, get_directory_file_paths, InputError, path as putils, \
-    ReportException, rosetta, starttime, sym
+    ReportException, rosetta, starttime, sym, SymDesignException
 
 logger = logging.getLogger(__name__)
 warn_missing_symmetry = \
@@ -59,7 +57,7 @@ def remove_structure_memory(func):
     return wrapped
 
 
-def handle_design_errors(errors: tuple[Type[Exception], ...] = (DesignError,)) -> Callable:
+def handle_design_errors(errors: tuple[Type[Exception], ...] = (SymDesignException,)) -> Callable:
     """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
 
     This argument is typically self and is in a class with .log attribute
@@ -83,7 +81,7 @@ def handle_design_errors(errors: tuple[Type[Exception], ...] = (DesignError,)) -
     return wrapper
 
 
-def handle_job_errors(errors: tuple[Type[Exception], ...] = (DesignError,)) -> Callable:
+def handle_job_errors(errors: tuple[Type[Exception], ...] = (SymDesignException,)) -> Callable:
     """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
 
     This argument is typically self and is in a class with .log attribute
@@ -105,7 +103,7 @@ def handle_job_errors(errors: tuple[Type[Exception], ...] = (DesignError,)) -> C
     return wrapper
 
 
-def protocol_decorator(errors: tuple[Type[Exception], ...] = (DesignError,)) -> Callable:
+def protocol_decorator(errors: tuple[Type[Exception], ...] = (SymDesignException,)) -> Callable:
     """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
 
     This argument is typically self and is in a class with .log attribute
@@ -118,6 +116,7 @@ def protocol_decorator(errors: tuple[Type[Exception], ...] = (DesignError,)) -> 
     def wrapper(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapped(job, *args, **kwargs) -> Any:
+            logger.info(f'Processing {func.__name__}({repr(job)})')
             # handle_design_errors()
             try:
                 func_return = func(job, *args, **kwargs)
@@ -288,7 +287,7 @@ def interface_metrics(job: pose.PoseJob):
                 file_paths.append(job.pose_path)
 
     if not file_paths:
-        raise DesignError(
+        raise SymDesignException(
             f'No files found for {job.job.module}')
 
     design_files = \
@@ -346,7 +345,7 @@ def check_unmodeled_clashes(job: pose.PoseJob, clashing_threshold: float = 0.75)
         job: The PoseJob for which the protocol should be performed on
         clashing_threshold: The number of Model instances which have observed clashes
     """
-    raise DesignError('This module is not working correctly at the moment')
+    raise NotImplementedError("This module currently isn't working")
     models = [Models.from_PDB(job.job.structure_db.full_models.retrieve_data(name=entity), log=job.log)
               for entity in job.entity_names]
     # models = [Models.from_file(job.job.structure_db.full_models.retrieve_data(name=entity))
@@ -365,8 +364,8 @@ def check_unmodeled_clashes(job: pose.PoseJob, clashing_threshold: float = 0.75)
         prior_clashes = clashes
 
     if clashes / float(len(multimodel)) > clashing_threshold:
-        raise DesignError(f'The frequency of clashes ({clashes / float(len(multimodel))}) exceeds the clashing '
-                          f'threshold ({clashing_threshold})')
+        raise ClashError(f'The frequency of clashes ({clashes / float(len(multimodel))}) exceeds the clashing '
+                         f'threshold ({clashing_threshold})')
 
 
 @protocol_decorator()
@@ -391,7 +390,7 @@ def rename_chains(job: pose.PoseJob):
     job.output_pose()
 
 
-@protocol_decorator(errors=(DesignError, RuntimeError))  # Todo remove RuntimeError from .orient()
+@protocol_decorator(errors=(SymDesignException,))  # Todo remove RuntimeError from .orient()
 def orient(job: pose.PoseJob, to_pose_directory: bool = True):
     """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
     job.symmetry is used to specify the orientation
@@ -516,7 +515,7 @@ def refine(job: pose.PoseJob):
                 file_paths.append(job.pose_path)
 
     if not file_paths:
-        raise DesignError(
+        raise InputError(
             f'No files found for {job.job.module}')
 
     job.refine(design_files=file_paths)  # Inherently utilized... gather_metrics=job.job.metrics)
@@ -871,7 +870,7 @@ def process_rosetta_metrics(job: pose.PoseJob):
     if os.path.exists(job.scores_file):
         job.process_rosetta_metrics()
     else:
-        raise DesignError(
+        raise InputError(
             f'No scores from Rosetta present at "{job.scores_file}"')
 
 
@@ -971,7 +970,8 @@ def select_sequences(job: pose.PoseJob, filters: dict = None, weights: dict = No
             designs.extend(designs_df[designs_df['protocol'] == protocol].index.tolist())
 
         if not designs:
-            raise DesignError(f'No designs found for protocols {protocols}!')
+            raise InputError(
+                f'No designs found for protocols {protocols}!')
     else:
         designs = designs_df.index.tolist()
 

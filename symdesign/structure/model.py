@@ -2129,7 +2129,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             except IndexError:  # No handlers attached
                 log_file = None
             log_message = f'. Check {log_file} for more information' if log_file else ''
-            raise RuntimeError(
+            raise utils.SymDesignException(
                 f"{putils.orient_exe_path} couldn't orient {file_name}{log_message}")
 
         oriented_pdb = Entity.from_file(str(orient_output), name=self.name, log=self.log)
@@ -3214,7 +3214,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             except IndexError:  # No handlers attached
                 log_file = None
             log_message = f'. Check {log_file} for more information' if log_file else ''
-            raise RuntimeError(
+            raise utils.SymDesignException(
                 f"{putils.orient_exe_path} couldn't orient {file_name}{log_message}")
 
         oriented_pdb = Model.from_file(str(orient_output), name=self.name, entities=False, log=self.log)
@@ -7008,6 +7008,9 @@ class Pose(SymmetricModel, Metrics):
             number_of_residues = self.number_of_residues
             def coord_func(coords): return coords
 
+        # Todo
+        #  Caution this doesn't move the oligomeric unit, it moves the ASU entity. "Unbound" measurements shouldn't
+        #  modify the oligomeric unit
         entity_unbound_coords = []
         for idx, entity in enumerate(self.entities, 1):
             entity_unbound_coords.append(coord_func(getattr(entity, coords_type) + unbound_transform*idx))
