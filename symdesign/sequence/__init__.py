@@ -1480,11 +1480,15 @@ class MultipleSequenceAlignment:
 
     @property
     def number_of_sequences(self) -> int:
+        """The number of sequences in the MultipleSequenceAlignment"""
         return len(self.alignment)
 
     @property
     def length(self) -> int:
+        """The number of residues in the MultipleSequenceAlignment"""
         return self.alignment.get_alignment_length()
+
+    number_of_residues = length
 
     @property
     def sequences(self) -> Generator[str, None, None]:
@@ -1725,11 +1729,11 @@ class MultipleSequenceAlignment:
         if msa_index:
             at = at
         else:
-            try:
+            try:  # To get the index 'at' for those indices that are present in the query
                 at = np.flatnonzero(self.query_indices)[at]
             except IndexError:  # This index is outside of query
                 if at >= self.query_length:
-                    # Treat as an append
+                    # Treat as append
                     at = self.length - 1
                 else:
                     raise NotImplementedError(f"Couldn't index with a negative index...")
@@ -1743,18 +1747,18 @@ class MultipleSequenceAlignment:
             [SeqRecord(new_sequence, id=id_)  # annotations={'molecule_type': 'Protein'},
              for id_ in self.sequence_identifiers])
 
-        logger.debug(f'len(new_alignment): {len(new_alignment)}')
-        begin_alignment = self.alignment[:, begin_slice]  # :at]
-        begin_alignment_len = len(begin_alignment)
-        if begin_alignment_len:
-            logger.debug(f'len(begin_alignment): {begin_alignment_len}')
-            new_alignment = begin_alignment + new_alignment
+        logger.debug(f'number of sequences in new_alignment: {len(new_alignment)}')
+        start_alignment_slice = self.alignment[:, begin_slice]
+        start_alignment_len = len(start_alignment_slice)
+        if start_alignment_len:
+            logger.debug(f'number of sequences in start_alignment_slice: {start_alignment_len}')
+            new_alignment = start_alignment_slice + new_alignment
 
-        end_alignment = self.alignment[:, end_slice]  # at:]
-        end_alignment_len = len(end_alignment)
+        end_alignment_slice = self.alignment[:, end_slice]
+        end_alignment_len = len(end_alignment_slice)
         if end_alignment_len:
-            logger.debug(f'len(end_alignment): {end_alignment_len}')
-            new_alignment = new_alignment + end_alignment
+            logger.debug(f'number of sequences in end_alignment_slice: {end_alignment_len}')
+            new_alignment = new_alignment + end_alignment_slice
 
         # Set the alignment
         self.alignment = new_alignment
@@ -1770,3 +1774,4 @@ class MultipleSequenceAlignment:
         # Todo: Need to additionally update:
         #  observations_by_position, counts_by_position, gaps_by_position
         #  which are mostly set in the __init__()
+        logger.debug(f'Inserted alignment is shape ({self.number_of_sequences}, {self.length})')
