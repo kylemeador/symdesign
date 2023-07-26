@@ -842,6 +842,8 @@ class SequenceProfile(ABC):
                 structure_evolutionary_profile[mutation_entry_number] = null_insertion_profiles[mutation_entry_number]
                 structure_evolutionary_profile[mutation_entry_number]['type'] = residue_type
 
+            structure_evolutionary_profile = {entry_number: structure_evolutionary_profile[entry_number]
+                                              for entry_number in sorted(structure_evolutionary_profile.keys())}
             evolutionary_profile_sequence = ''.join(data['type'] for data in structure_evolutionary_profile.values())
             evolutionary_gaps = \
                 generate_mutations(evolutionary_profile_sequence, self.sequence, only_gaps=True, return_to=True)
