@@ -838,17 +838,22 @@ class SequenceProfile(ABC):
                                  if residue_type != '-'}
             logger.debug("There are internal regions which aren't accounted for in the MSA, but are present in the "
                          f'structure: {evolutionary_gaps}')
-            existing_structure_profile_keys = list(structure_evolutionary_profile.keys())
+            existing_structure_profile_values = list(structure_evolutionary_profile.values())
+            # existing_structure_profile_keys = list(structure_evolutionary_profile.keys())
             null_insertion_profiles = self.create_null_entries(evolutionary_gaps.keys())
             # Insert these in reverse order to keep numbering correct, one at a time...
             for mutation_entry_number, residue_type in reversed(evolutionary_gaps.items()):
-                for entry_number in reversed(existing_structure_profile_keys[mutation_entry_number - 1:]):
-                    structure_evolutionary_profile[entry_number + 1] = structure_evolutionary_profile.pop(entry_number)
-                structure_evolutionary_profile[mutation_entry_number] = null_insertion_profiles[mutation_entry_number]
-                structure_evolutionary_profile[mutation_entry_number]['type'] = residue_type
+                # for entry_number in reversed(existing_structure_profile_keys[mutation_entry_number - 1:]):
+                #     structure_evolutionary_profile[entry_number + 1] = structure_evolutionary_profile.pop(entry_number)
 
-            structure_evolutionary_profile = {entry_number: structure_evolutionary_profile[entry_number]
-                                              for entry_number in sorted(structure_evolutionary_profile.keys())}
+                insertion_profile_entry = null_insertion_profiles[mutation_entry_number]
+                insertion_profile_entry['type'] = residue_type
+                existing_structure_profile_values.insert(mutation_entry_number - 1, insertion_profile_entry)
+
+            # structure_evolutionary_profile = {entry_number: structure_evolutionary_profile[entry_number]
+            #                                   for entry_number in sorted(structure_evolutionary_profile.keys())}
+            structure_evolutionary_profile = {
+                entry_number: entry for entry_number, entry in enumerate(existing_structure_profile_values, 1)}
 
         self.log.debug(f'structure_evolutionary_profile.keys(): {structure_evolutionary_profile.keys()}')
 
