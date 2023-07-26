@@ -825,7 +825,8 @@ class SequenceProfile(ABC):
                                                for entry_number, residue_data in self.evolutionary_profile.items()})
         structure_evolutionary_profile.update(cterm_extra_profile_entries)
 
-        if evolutionary_gaps:  # There are internal insertions
+        internal_sequence_characters = set(evolutionary_gaps.values()).difference(('-',))
+        if internal_sequence_characters:  # There are internal insertions
             # Insert these in reverse order to keep numbering correct, one at a time...
             existing_structure_profile_keys = list(structure_evolutionary_profile.keys())
             for mutation_entry in reversed(evolutionary_gaps.keys()):
@@ -896,7 +897,8 @@ class SequenceProfile(ABC):
                 mutations_structure_missing_from_msa = {
                     index + insert_length: mutation for index, mutation in mutations_structure_missing_from_msa.items()}
 
-            if mutations_structure_missing_from_msa:  # There are internal insertions
+            internal_sequence_characters = set(mutations_structure_missing_from_msa.values()).difference(('-',))
+            if internal_sequence_characters:  # There are internal insertions
                 # Insert these in reverse order to keep numbering correct, one at a time...
                 for mutation_idx in reversed(mutations_structure_missing_from_msa.keys()):
                     msa.insert(mutation_idx, mutations_structure_missing_from_msa[mutation_idx])
