@@ -302,7 +302,12 @@ def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = d
     # Create sequence alignment
     aligner = PairwiseAligner(mode=mode, substitution_matrix=matrix_,  # scoring='blastp')
                               open_gap_score=open_gap_score, extend_gap_score=extend_gap_score)
-    alignments = aligner.align(seq1, seq2)
+    try:
+        alignments = aligner.align(seq1, seq2)
+    except ValueError:  # sequence contains letters not in the alphabet
+        print(seq1)
+        print(seq1)
+        raise
     first_alignment = alignments[0]
     logger.debug(f'Found alignment with score: {alignments.score}\n{first_alignment}')
     # print("Number of alignments: %d" % len(alignments))

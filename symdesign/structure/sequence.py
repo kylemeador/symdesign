@@ -627,13 +627,13 @@ class SequenceProfile(ABC):
     def _verify_evolutionary_profile(self) -> bool:
         """Returns True if the evolutionary_profile and Structure sequences are equivalent"""
         if self.number_of_residues != len(self.evolutionary_profile):
-            self.log.warning(f'{self.name}: Profile and {self.__class__.__name__} are different lengths. Profile='
-                             f'{len(self.evolutionary_profile)}, Pose={self.number_of_residues}')
+            self.log.debug(f'{self.name}: Profile and {self.__class__.__name__} are different lengths. Profile='
+                           f'{len(self.evolutionary_profile)}, Pose={self.number_of_residues}')
             return False
 
         # Check sequence from Pose and self.profile to compare identity before proceeding
         warn = False
-        incorrect_count = 0
+        mismatch_warnings = []
         for residue, position_data in zip(self.residues, self.evolutionary_profile.values()):
             profile_res_type = position_data['type']
             pose_res_type = protein_letters_3to1[residue.type]
@@ -646,12 +646,10 @@ class SequenceProfile(ABC):
                 # Otherwise, generating evolutionary profiles from individual files will be required which
                 # don't contain a reference sequence and therefore have their own caveats. Warning the user
                 # will allow the user to understand what is happening at least
-                self.log.warning(f'{self.__class__.__name__}.evolutionary_profile and .sequence mismatched'
-                                 f'\n\tResidue {residue.number}: .evolutionary_profile={profile_res_type}, '
-                                 f'.sequence={pose_res_type}')
+                mismatch_warnings.append(f'Residue {residue.number}: .evolutionary_profile={profile_res_type}, '
+                                         f'.sequence={pose_res_type}')
                 if position_data[pose_res_type] > 0:  # The occurrence data indicates this AA is also possible
                     warn = True
-                    incorrect_count += 1
                     position_data['type'] = pose_res_type
                 else:
                     self.log.critical('The evolutionary profile must have been generated from a different file,'
@@ -664,9 +662,12 @@ class SequenceProfile(ABC):
                                  'however, the evolutionary information contained is still viable. The '
                                  'correct residue from the Pose will be substituted for the missing '
                                  'residue in the profile')
-                if incorrect_count > 2:
-                    self.log.critical(f'This error occurred {incorrect_count} times and your modeling accuracy'
-                                      ' will probably suffer')
+                mismatch_str = "\n\t".join(mismatch_warnings)
+                self.log.info(f'{self.__class__.__name__}.evolutionary_profile and .sequence mismatched:'
+                              f'{mismatch_str}')
+                if len(mismatch_warnings) > 3:
+                    self.log.critical(f'This error occurred {len(mismatch_warnings)} times. Your modeling accuracy may '
+                                      f'suffer')
             return True
 
         return False
