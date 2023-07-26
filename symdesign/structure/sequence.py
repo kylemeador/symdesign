@@ -810,7 +810,7 @@ class SequenceProfile(ABC):
             number_of_nterm_entries = len(nterm_extra_structure_sequence)
             nterm_extra_profile_entries = self.create_null_entries(range(first_index,
                                                                          first_index + number_of_nterm_entries))
-            for entry_number, residue_data in nterm_extra_profile_entries.items():
+            for entry_number, residue_data in zip(nterm_extra_structure_sequence, nterm_extra_profile_entries.values()):
                 residue_data['type'] = evolutionary_gaps.pop(entry_number)
 
             # nterm_extra_profile_entries = {next(new_residue_number): residue_data
