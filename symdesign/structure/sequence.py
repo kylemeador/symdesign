@@ -904,15 +904,13 @@ class SequenceProfile(ABC):
                 mutations_structure_missing_from_msa = {
                     index + insert_length: mutation for index, mutation in mutations_structure_missing_from_msa.items()}
 
-            internal_sequence_characters = set(mutations_structure_missing_from_msa.values()).difference(('-',))
-            if internal_sequence_characters:
+            if mutations_structure_missing_from_msa:  # There are internal insertions
                 # Insert these in reverse order to keep numbering correct, one at a time...
-                for mutation_idx in reversed(mutations_structure_missing_from_msa.items()):
+                for mutation_idx in reversed(mutations_structure_missing_from_msa.keys()):
                     msa.insert(mutation_idx, mutations_structure_missing_from_msa[mutation_idx])
 
                 mutations_structure_missing_from_msa = \
                     generate_mutations(msa.query, self.sequence, only_gaps=True, return_to=True, zero_index=True)
-                print('Final check results in the gaps:', mutations_structure_missing_from_msa)
                 raise NotImplementedError(
                 # logger.debug(
                     "There are internal regions which aren't accounted for in the MSA, but are present in the structure"
