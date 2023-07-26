@@ -790,55 +790,68 @@ class SequenceProfile(ABC):
             generate_mutations(evolutionary_profile_sequence, self.sequence, only_gaps=True, return_to=True)
         self.log.debug(f'evolutionary_gaps: {evolutionary_gaps}')
 
+        # Insert c-terminal structure residues
+        last_profile_number = len(evolutionary_profile_sequence)
+        cterm_extra_structure_sequence = [entry for entry in evolutionary_gaps if entry > last_profile_number]
+        if cterm_extra_structure_sequence:
+            cterm_extra_profile_entries = self.create_null_entries(cterm_extra_structure_sequence)
+            for entry_number, residue_data in cterm_extra_profile_entries.items():
+                residue_data['type'] = evolutionary_gaps.pop(entry_number)
+            self.log.debug(f'structure_evolutionary_profile c-term entries: {cterm_extra_profile_entries.keys()}')
+            # # Update c-terminal residues at the end
+            # structure_evolutionary_profile.update(cterm_extra_profile_entries)
+        else:
+            cterm_extra_profile_entries = {}
+
         # Insert n-terminal residues
-        nterm_extra_structure_sequence = [entry for entry in evolutionary_gaps if entry < zero_offset]
+        first_index = zero_offset
+        nterm_extra_structure_sequence = [entry for entry in evolutionary_gaps if entry < first_index]
         if nterm_extra_structure_sequence:
             number_of_nterm_entries = len(nterm_extra_structure_sequence)
-            extra_profile_entries = self.create_null_entries(range(1, 1 + number_of_nterm_entries))
-            for mutation_res_num, residue_data in zip(nterm_extra_structure_sequence, extra_profile_entries.values()):
-                residue_data['type'] = evolutionary_gaps[mutation_res_num]
+            nterm_extra_profile_entries = self.create_null_entries(range(first_index,
+                                                                         first_index + number_of_nterm_entries))
+            for entry_number, residue_data in nterm_extra_profile_entries.items():
+                residue_data['type'] = evolutionary_gaps.pop(entry_number)
 
-            # Renumber the structure_evolutionary_profile to offset all to 1
-            new_residue_number = count(1)
-            nterm_extra_profile_entries = {next(new_residue_number): residue_data
-                                           for residue_data in extra_profile_entries.values()}
+            # nterm_extra_profile_entries = {next(new_residue_number): residue_data
+            #                                for residue_data in extra_profile_entries.values()}
             self.log.debug(f'structure_evolutionary_profile n-term entries: {nterm_extra_profile_entries.keys()}')
+            # Offset any remaining gaps by the number added
+            evolutionary_gaps = {entry_number + number_of_nterm_entries: residue_data
+                                 for entry_number, residue_data in evolutionary_gaps.items()}
         else:
             number_of_nterm_entries = 1
-            new_residue_number = count(number_of_nterm_entries)
             nterm_extra_profile_entries = {}
 
-        # With the current inability to detect an internal structure insertion compared to the evolutionary profile,
-        # this last_profile_number is sufficient. If there is need to get internal mutations, those could be solved
-        # before the c-term segments and the number of n-term and internal segments could be added to find the ground
-        # truth last_profile_number
-        last_profile_number = len(evolutionary_profile_sequence)
-        # This code also suffers from the above logic...
+        # Renumber the structure_evolutionary_profile to offset all to 1
+        new_residue_number = count(number_of_nterm_entries)
         structure_evolutionary_profile = {
             **nterm_extra_profile_entries,
             **{next(new_residue_number): residue_data for entry, residue_data in self.evolutionary_profile.items()
-               if entry not in evolutionary_gaps}
+               if entry not in evolutionary_gaps},
+            **cterm_extra_profile_entries,
         }
-        cterm_extra_structure_sequence = [entry for entry in evolutionary_gaps if entry > last_profile_number]
-        if cterm_extra_structure_sequence:
-            extra_profile_entries = self.create_null_entries(cterm_extra_structure_sequence)
-            for residue_number, residue_data in extra_profile_entries.items():
-                residue_data['type'] = evolutionary_gaps[residue_number]
-            self.log.debug(f'structure_evolutionary_profile c-term entries: {extra_profile_entries.keys()}')
-            # Update cterminal residues at the end
-            structure_evolutionary_profile.update(extra_profile_entries)
 
         self.log.debug(f'structure_evolutionary_profile.keys(): {structure_evolutionary_profile.keys()}')
 
-        terminal_entries = nterm_extra_structure_sequence + cterm_extra_structure_sequence
-        for entry in terminal_entries:
-            evolutionary_gaps.pop(entry)
-        internal_sequence_characters = set(evolutionary_gaps.values()).difference(('-',))
-        if internal_sequence_characters:  # != {'-'}:
-            # Todo Internal insertions?
+        if evolutionary_gaps:  # There are internal insertions
+            # Insert these in reverse order to keep numbering correct, one at a time...
+            existing_structure_profile_keys = list(structure_evolutionary_profile.keys())
+            for mutation_entry in reversed(evolutionary_gaps.keys()):
+                for entry_number in reversed(existing_structure_profile_keys[mutation_entry:]):
+                    structure_evolutionary_profile[entry_number + 1] = structure_evolutionary_profile.pop(entry_number)
+                structure_evolutionary_profile[mutation_entry] = evolutionary_gaps[mutation_entry]
+
+            evolutionary_gaps = \
+                generate_mutations(evolutionary_profile_sequence, self.sequence, only_gaps=True, return_to=True)
             raise NotImplementedError(
-                "There are internal regions which aren't accounted for in the evolutionary_profile, but are present in "
-                f'the structure: {evolutionary_gaps}')
+                # logger.debug(
+                "There are internal regions which aren't accounted for in the MSA, but are present in the structure"
+                f': {evolutionary_gaps}'
+                f'\nAttempted a fix for these. '
+                f'Check that the output is correct (should be no gaps) and remove this check and '
+                f'NotImplementedError if it is implemented correctly')
+            # Then reinstate the debug above
 
         self.log.debug(f'{self._fit_evolutionary_profile_to_structure.__name__}:\n\tOld:\n'
                        # f'{"".join(res["type"] for res in self.evolutionary_profile.values())}\n\tNew:\n'
