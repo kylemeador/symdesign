@@ -1734,7 +1734,7 @@ class MultipleSequenceAlignment:
             except IndexError:  # This index is outside of query
                 if at >= self.query_length:
                     # Treat as append
-                    at = self.length - 1
+                    at = self.length
                 else:
                     raise NotImplementedError(f"Couldn't index with a negative index...")
         begin_slice = slice(at)
