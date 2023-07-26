@@ -862,54 +862,51 @@ class SequenceProfile(ABC):
         if mutations_structure_missing_from_msa:  # Two sequences don't align
             self.log.debug(f'mutations_structure_missing_from_msa: {mutations_structure_missing_from_msa}')
 
-            # # Get any mutations that are present in the structure but not the msa
-            # ^ Todo make sure internal insertions are handled
+            # Get any mutations that are present in the structure but not the msa
+            # Perform insertions in (almost) reverse order
+            last_msa_number = msa.query_length
+            cterm_extra_structure_numbers = [index for index in mutations_structure_missing_from_msa
+                                             if index >= last_msa_number]
+            if cterm_extra_structure_numbers:
+                self.log.debug(f'c-term msa insertion indices: {cterm_extra_structure_numbers}')
+                # cterm_sequence = ''.join(mutations_structure_missing_from_msa[idx]
+                cterm_sequence = ''.join(mutations_structure_missing_from_msa.pop(idx)
+                                         for idx in cterm_extra_structure_numbers)
+                self.log.debug(f'c-term insertion sequence: {cterm_sequence}')
+                msa.insert(last_msa_number, cterm_sequence)
 
-            # Solve for mutations that are n- or c-terminal to the MSA
             msa_start_index = 0
             nterm_extra_structure_numbers = [index for index in mutations_structure_missing_from_msa
                                              if index < msa_start_index]
             if nterm_extra_structure_numbers:
                 self.log.debug(f'n-term msa insertion indices: {nterm_extra_structure_numbers}')
-                nterm_sequence = ''.join(mutations_structure_missing_from_msa[idx]
+                # for idx in nterm_extra_structure_numbers:
+                #     mutations_structure_missing_from_msa.pop(idx)
+                # nterm_sequence = ''.join(mutations_structure_missing_from_msa[idx]
+                nterm_sequence = ''.join(mutations_structure_missing_from_msa.pop(idx)
                                          for idx in nterm_extra_structure_numbers)
                 insert_length = len(nterm_sequence)
                 self.log.debug(f'Inserting {insert_length} residues on the n-term with sequence: {nterm_sequence}')
                 msa.insert(msa_start_index, nterm_sequence)
-                # nterm_extra_structure_indices = list(range(len(nterm_extra_structure_numbers)))
                 mutations_structure_missing_from_msa = {
                     index + insert_length: mutation for index, mutation in mutations_structure_missing_from_msa.items()}
 
-            # This call reflects a fresh query_length from inserts
-            last_msa_number = msa.query_length  # + len(nterm_sequence)
-            # input(f'last_msa_number: {last_msa_number}')
-            cterm_extra_structure_numbers = [index for index in mutations_structure_missing_from_msa
-                                             if index >= last_msa_number]
-            if cterm_extra_structure_numbers:
-                # Todo this hasn't been debugged yet
-                self.log.debug(f'c-term msa insertion indices: {cterm_extra_structure_numbers}')
-                cterm_sequence = ''.join(mutations_structure_missing_from_msa[idx]
-                                         for idx in cterm_extra_structure_numbers)
-                self.log.debug(f'c-term insertion sequence: {cterm_sequence}')
-                msa.insert(last_msa_number, cterm_sequence)
-                # cterm_extra_structure_indices = [last_msa_number + i for i in range(len(cterm_extra_structure_numbers))]
-
-            terminal_indices = nterm_extra_structure_numbers + cterm_extra_structure_numbers
-            for idx in terminal_indices:
-                mutations_structure_missing_from_msa.pop(idx)
             internal_sequence_characters = set(mutations_structure_missing_from_msa.values()).difference(('-',))
             if internal_sequence_characters:
-                # Insert these inreverse order to keep numbering correct, one at a time...
-                for internal_sequence_character in reversed(internal_sequence_characters):
-                    msa.insert(internal_sequence_character,
-                               mutations_structure_missing_from_msa[internal_sequence_character])
-                # Todo Internal insertions?
+                # Insert these in reverse order to keep numbering correct, one at a time...
+                for mutation_idx in reversed(mutations_structure_missing_from_msa.items()):
+                    msa.insert(mutation_idx, mutations_structure_missing_from_msa[mutation_idx])
+
+                mutations_structure_missing_from_msa = \
+                    generate_mutations(msa.query, self.sequence, only_gaps=True, return_to=True, zero_index=True)
+                print('Final check results in the gaps:', mutations_structure_missing_from_msa)
                 raise NotImplementedError(
                 # logger.debug(
                     "There are internal regions which aren't accounted for in the MSA, but are present in the structure"
                     f': {mutations_structure_missing_from_msa}'
                     f'\nAttempted a fix for these. '
-                    f'Check that the output is correct and remove this NotImplementedError if it is indeed implemented')
+                    f'Check that the output is correct (should be no gaps) and remove this check and '
+                    f'NotImplementedError if it is implemented correctly')
                 # Then reinstate the debug above
 
         # Get the sequence_indices now that we have insertions
