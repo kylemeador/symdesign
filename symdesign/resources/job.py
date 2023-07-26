@@ -509,13 +509,14 @@ class JobResources:
         self.interface_only = kwargs.get('interface_only')
         self.oligomeric_interfaces = kwargs.get('oligomeric_interfaces')
         self.use_evolution = kwargs.get('use_evolution')
-        # # Explicitly set to false if not designing or predicting
-        if self.use_evolution and (flags.nanohedra not in self.modules and flags.predict_structure not in self.modules
-                                   and flags.initialize_building_blocks not in self.modules
-                                   and flags.refine not in self.modules
-                                   and flags.interface_metrics not in self.modules):
-            logger.debug(f'Setting {flags.format_args(flags.use_evolution_args)} to False as no module '
-                         'requesting evolutionary information is utilized')
+        # Explicitly set to false if not designing or predicting
+        use_evolution_modules = [
+            flags.nanohedra, flags.initialize_building_blocks, flags.refine, flags.interface_metrics,
+            flags.process_rosetta_metrics, flags.analysis, flags.predict_structure, flags.design
+        ]
+        if self.use_evolution and not any([module in use_evolution_modules for module in self.modules]):
+            logger.info(f'Setting {flags.format_args(flags.use_evolution_args)} to False as no module '
+                        'requesting evolutionary information is utilized')
             self.use_evolution = False
 
         # Design flags
