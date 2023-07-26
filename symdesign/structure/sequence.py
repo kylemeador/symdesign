@@ -846,6 +846,15 @@ class SequenceProfile(ABC):
             # Then reinstate the debug above
         self.log.debug(f'structure_evolutionary_profile.keys(): {structure_evolutionary_profile.keys()}')
 
+        evolutionary_profile_sequence = ''.join(data['type'] for data in structure_evolutionary_profile.values())
+
+        query_align_indices, reference_align_indices = \
+            get_equivalent_indices(evolutionary_profile_sequence, self.sequence, mutation_allowed=True)
+
+        for idx, entry in enumerate(list(structure_evolutionary_profile.keys())):
+            if idx not in query_align_indices:
+                structure_evolutionary_profile.pop(entry)
+
         self.log.debug(f'{self._fit_evolutionary_profile_to_structure.__name__}:\n\tOld:\n'
                        # f'{"".join(res["type"] for res in self.evolutionary_profile.values())}\n\tNew:\n'
                        f'{evolutionary_profile_sequence}\n\tNew:\n'
