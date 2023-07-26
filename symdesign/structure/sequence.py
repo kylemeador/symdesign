@@ -837,8 +837,9 @@ class SequenceProfile(ABC):
                     structure_evolutionary_profile[entry_number + 1] = structure_evolutionary_profile.pop(entry_number)
                 structure_evolutionary_profile[mutation_entry] = evolutionary_gaps[mutation_entry]
 
+            evolutionary_profile_sequence = ''.join(data['type'] for data in structure_evolutionary_profile.values())
             evolutionary_gaps = \
-                generate_mutations(structure_evolutionary_profile, self.sequence, only_gaps=True, return_to=True)
+                generate_mutations(evolutionary_profile_sequence, self.sequence, only_gaps=True, return_to=True)
             raise NotImplementedError(
                 # logger.debug(
                 "There are internal regions which aren't accounted for in the MSA, but are present in the structure"
