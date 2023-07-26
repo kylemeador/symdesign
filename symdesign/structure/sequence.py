@@ -791,47 +791,37 @@ class SequenceProfile(ABC):
         self.log.debug(f'evolutionary_gaps: {evolutionary_gaps}')
 
         # Insert c-terminal structure residues
+        first_index = zero_offset
         last_profile_number = len(evolutionary_profile_sequence)
+        nterm_extra_structure_sequence = [entry for entry in evolutionary_gaps if entry <= first_index]
+        # Renumber the structure_evolutionary_profile to offset all to 1
+        number_of_nterm_entries = len(nterm_extra_structure_sequence)
+        new_entry_number = count(number_of_nterm_entries + 1)
+        structure_evolutionary_profile = {next(new_entry_number): residue_data
+                                          for entry_number, residue_data in self.evolutionary_profile.items()}
         cterm_extra_structure_sequence = [entry for entry in evolutionary_gaps if entry > last_profile_number]
         if cterm_extra_structure_sequence:
             cterm_extra_profile_entries = self.create_null_entries(cterm_extra_structure_sequence)
             for entry_number, residue_data in cterm_extra_profile_entries.items():
                 residue_data['type'] = evolutionary_gaps.pop(entry_number)
-            self.log.debug(f'structure_evolutionary_profile c-term entries: {cterm_extra_profile_entries}')
-            # # Update c-terminal residues at the end
-            # structure_evolutionary_profile.update(cterm_extra_profile_entries)
-        else:
-            cterm_extra_profile_entries = {}
-
-        # Insert n-terminal residues
-        first_index = zero_offset
-        nterm_extra_structure_sequence = [entry for entry in evolutionary_gaps if entry <= first_index]
-        if nterm_extra_structure_sequence:
-            number_of_nterm_entries = len(nterm_extra_structure_sequence)
-            nterm_extra_profile_entries = self.create_null_entries(range(first_index,
-                                                                         first_index + number_of_nterm_entries))
-            for entry_number, residue_data in zip(nterm_extra_structure_sequence, nterm_extra_profile_entries.values()):
-                residue_data['type'] = evolutionary_gaps.pop(entry_number)
-
-            # nterm_extra_profile_entries = {next(new_residue_number): residue_data
-            #                                for residue_data in extra_profile_entries.values()}
-            self.log.debug(f'structure_evolutionary_profile n-term entries: {nterm_extra_profile_entries.keys()}')
             # Offset any remaining gaps by the number added
             cterm_extra_profile_entries = {entry_number + number_of_nterm_entries: residue_data
                                            for entry_number, residue_data in cterm_extra_profile_entries.items()}
+            self.log.debug(f'structure_evolutionary_profile c-term entries: {cterm_extra_profile_entries.keys()}')
+            structure_evolutionary_profile.update(cterm_extra_profile_entries)
+
+        # Insert n-terminal residues
+        if nterm_extra_structure_sequence:
+            nterm_extra_profile_entries = self.create_null_entries(
+                range(first_index, first_index + number_of_nterm_entries))
+            for entry_number, residue_data in zip(nterm_extra_structure_sequence, nterm_extra_profile_entries.values()):
+                residue_data['type'] = evolutionary_gaps.pop(entry_number)
+
+            self.log.debug(f'structure_evolutionary_profile n-term entries: {nterm_extra_profile_entries.keys()}')
+            # Offset any remaining gaps by the number added
             evolutionary_gaps = {entry_number + number_of_nterm_entries: residue_data
                                  for entry_number, residue_data in evolutionary_gaps.items()}
-        else:
-            number_of_nterm_entries = 1
-            nterm_extra_profile_entries = {}
-
-        # Renumber the structure_evolutionary_profile to offset all to 1
-        new_entry_number = count(number_of_nterm_entries)
-        structure_evolutionary_profile = {
-            **nterm_extra_profile_entries,
-            **{next(new_entry_number): residue_data for entry_number, residue_data in self.evolutionary_profile.items()},
-            **cterm_extra_profile_entries,
-        }
+            structure_evolutionary_profile.update(nterm_extra_profile_entries)
 
         self.log.debug(f'structure_evolutionary_profile.keys(): {structure_evolutionary_profile.keys()}')
 
