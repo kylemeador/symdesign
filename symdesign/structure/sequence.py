@@ -18,7 +18,6 @@ from Bio.Align import MultipleSeqAlignment, substitution_matrices
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-from . import utils
 from .fragment import info
 from .fragment.db import alignment_types_literal, alignment_types, fragment_info_type
 from symdesign import metrics, utils as sdutils
@@ -839,7 +838,7 @@ class SequenceProfile(ABC):
                 structure_evolutionary_profile[mutation_entry] = evolutionary_gaps[mutation_entry]
 
             evolutionary_gaps = \
-                generate_mutations(evolutionary_profile_sequence, self.sequence, only_gaps=True, return_to=True)
+                generate_mutations(structure_evolutionary_profile, self.sequence, only_gaps=True, return_to=True)
             raise NotImplementedError(
                 # logger.debug(
                 "There are internal regions which aren't accounted for in the MSA, but are present in the structure"
