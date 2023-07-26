@@ -836,16 +836,16 @@ class SequenceProfile(ABC):
         if internal_sequence_characters:  # There are internal insertions
             evolutionary_gaps = {entry_number: residue_type for entry_number, residue_type in evolutionary_gaps.items()
                                  if residue_type != '-'}
-            logger.debug("There are internal regions which aren't accounted for in the MSA, but are present in the "
-                         f'structure: {evolutionary_gaps}')
+            logger.debug("There are internal regions which aren't accounted for in the evolutionary_profile, but are "
+                         f'present in the structure: {evolutionary_gaps}')
             existing_structure_profile_values = list(structure_evolutionary_profile.values())
             # existing_structure_profile_keys = list(structure_evolutionary_profile.keys())
             null_insertion_profiles = self.create_null_entries(evolutionary_gaps.keys())
             # Insert these in reverse order to keep numbering correct, one at a time...
-            for mutation_entry_number, residue_type in reversed(evolutionary_gaps.items()):
+            # for mutation_entry_number, residue_type in reversed(evolutionary_gaps.items()):
+            for mutation_entry_number, residue_type in evolutionary_gaps.items():
                 # for entry_number in reversed(existing_structure_profile_keys[mutation_entry_number - 1:]):
                 #     structure_evolutionary_profile[entry_number + 1] = structure_evolutionary_profile.pop(entry_number)
-
                 insertion_profile_entry = null_insertion_profiles[mutation_entry_number]
                 insertion_profile_entry['type'] = residue_type
                 existing_structure_profile_values.insert(mutation_entry_number - 1, insertion_profile_entry)
@@ -923,7 +923,8 @@ class SequenceProfile(ABC):
                 logger.debug("There are internal regions which aren't accounted for in the MSA, but are present in the "
                              f'structure: {mutations_structure_missing_from_msa}')
                 # Insert these in reverse order to keep numbering correct, one at a time...
-                for mutation_idx in reversed(mutations_structure_missing_from_msa.keys()):
+                # for mutation_idx in reversed(mutations_structure_missing_from_msa.keys()):
+                for mutation_idx in mutations_structure_missing_from_msa.keys():
                     msa.insert(mutation_idx, mutations_structure_missing_from_msa[mutation_idx])
 
         # Get the sequence_indices now that insertions are handled
