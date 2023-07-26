@@ -837,7 +837,7 @@ class SequenceProfile(ABC):
             print('inserting:', evolutionary_gaps.keys())
             for mutation_entry_number, residue_type in reversed(evolutionary_gaps.items()):
                 print('mutation_entry', mutation_entry_number)
-                for entry_number in reversed(existing_structure_profile_keys[mutation_entry_number:]):
+                for entry_number in reversed(existing_structure_profile_keys[mutation_entry_number - 1:]):
                     structure_evolutionary_profile[entry_number + 1] = structure_evolutionary_profile.pop(entry_number)
                 structure_evolutionary_profile[mutation_entry_number] = null_insertion_profiles[mutation_entry_number]
                 structure_evolutionary_profile[mutation_entry_number]['type'] = residue_type
