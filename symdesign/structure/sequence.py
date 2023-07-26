@@ -830,13 +830,12 @@ class SequenceProfile(ABC):
 
         internal_sequence_characters = set(evolutionary_gaps.values()).difference(('-',))
         if internal_sequence_characters:  # There are internal insertions
+            logger.debug("There are internal regions which aren't accounted for in the MSA, but are present in the "
+                         f'structure: {evolutionary_gaps}')
             existing_structure_profile_keys = list(structure_evolutionary_profile.keys())
             null_insertion_profiles = self.create_null_entries(evolutionary_gaps.keys())
             # Insert these in reverse order to keep numbering correct, one at a time...
-            # print('existing:', existing_structure_profile_keys)
-            # print('inserting:', evolutionary_gaps.keys())
             for mutation_entry_number, residue_type in reversed(evolutionary_gaps.items()):
-                # print('mutation_entry', mutation_entry_number)
                 for entry_number in reversed(existing_structure_profile_keys[mutation_entry_number - 1:]):
                     structure_evolutionary_profile[entry_number + 1] = structure_evolutionary_profile.pop(entry_number)
                 structure_evolutionary_profile[mutation_entry_number] = null_insertion_profiles[mutation_entry_number]
@@ -844,16 +843,7 @@ class SequenceProfile(ABC):
 
             structure_evolutionary_profile = {entry_number: structure_evolutionary_profile[entry_number]
                                               for entry_number in sorted(structure_evolutionary_profile.keys())}
-            evolutionary_profile_sequence = ''.join(data['type'] for data in structure_evolutionary_profile.values())
-            # evolutionary_gaps = \
-            #     generate_mutations(evolutionary_profile_sequence, self.sequence, only_gaps=True, return_to=True)
-            # raise NotImplementedError(
-            logger.debug(
-                "There are internal regions which aren't accounted for in the MSA, but are present in the structure"
-                f': {evolutionary_gaps}')
-                # f'\nAttempted a fix for these. '
-                # f'Check that the output is correct (should be no gaps) and remove this check and '
-                # f'NotImplementedError if it is implemented correctly')
+
         self.log.debug(f'structure_evolutionary_profile.keys(): {structure_evolutionary_profile.keys()}')
 
         evolutionary_profile_sequence = ''.join(data['type'] for data in structure_evolutionary_profile.values())
@@ -918,20 +908,14 @@ class SequenceProfile(ABC):
 
             internal_sequence_characters = set(mutations_structure_missing_from_msa.values()).difference(('-',))
             if internal_sequence_characters:  # There are internal insertions
+                logger.debug("There are internal regions which aren't accounted for in the MSA, but are present in the "
+                             f'structure: {mutations_structure_missing_from_msa}')
                 # Insert these in reverse order to keep numbering correct, one at a time...
                 for mutation_idx in reversed(mutations_structure_missing_from_msa.keys()):
                     msa.insert(mutation_idx, mutations_structure_missing_from_msa[mutation_idx])
 
                 mutations_structure_missing_from_msa = \
                     generate_mutations(msa.query, self.sequence, only_gaps=True, return_to=True, zero_index=True)
-                raise NotImplementedError(
-                # logger.debug(
-                    "There are internal regions which aren't accounted for in the MSA, but are present in the structure"
-                    f': {mutations_structure_missing_from_msa}'
-                    f'\nAttempted a fix for these. '
-                    f'Check that the output is correct (should be no gaps) and remove this check and '
-                    f'NotImplementedError if it is implemented correctly')
-                # Then reinstate the debug above
 
         # Get the sequence_indices now that we have insertions
         sequence_indices = msa.sequence_indices
