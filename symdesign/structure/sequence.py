@@ -794,36 +794,36 @@ class SequenceProfile(ABC):
         first_index = zero_offset
         last_profile_number = len(evolutionary_profile_sequence)
         nterm_extra_structure_sequence = [entry for entry in evolutionary_gaps if entry <= first_index]
-        # Renumber the structure_evolutionary_profile to offset all to 1
         number_of_nterm_entries = len(nterm_extra_structure_sequence)
-        new_entry_number = count(number_of_nterm_entries + 1)
-        structure_evolutionary_profile = {next(new_entry_number): residue_data
-                                          for entry_number, residue_data in self.evolutionary_profile.items()}
-        cterm_extra_structure_sequence = [entry for entry in evolutionary_gaps if entry > last_profile_number]
-        if cterm_extra_structure_sequence:
-            cterm_extra_profile_entries = self.create_null_entries(cterm_extra_structure_sequence)
+        cterm_extra_profile_entries = self.create_null_entries(
+            [entry for entry in evolutionary_gaps if entry > last_profile_number])
+        if cterm_extra_profile_entries:
             for entry_number, residue_data in cterm_extra_profile_entries.items():
                 residue_data['type'] = evolutionary_gaps.pop(entry_number)
-            # Offset any remaining gaps by the number added
+            # Offset any remaining gaps by the number of n-termini added
             cterm_extra_profile_entries = {entry_number + number_of_nterm_entries: residue_data
                                            for entry_number, residue_data in cterm_extra_profile_entries.items()}
             self.log.debug(f'structure_evolutionary_profile c-term entries: {cterm_extra_profile_entries.keys()}')
-            structure_evolutionary_profile.update(cterm_extra_profile_entries)
 
         # Insert n-terminal residues
         if nterm_extra_structure_sequence:
-            nterm_extra_profile_entries = self.create_null_entries(
+            structure_evolutionary_profile = self.create_null_entries(
                 range(first_index, first_index + number_of_nterm_entries))
-            for entry_number, residue_data in zip(nterm_extra_structure_sequence, nterm_extra_profile_entries.values()):
+            for entry_number, residue_data in zip(nterm_extra_structure_sequence, structure_evolutionary_profile.values()):
                 residue_data['type'] = evolutionary_gaps.pop(entry_number)
 
-            self.log.debug(f'structure_evolutionary_profile n-term entries: {nterm_extra_profile_entries.keys()}')
+            self.log.debug(f'structure_evolutionary_profile n-term entries: {structure_evolutionary_profile.keys()}')
             # Offset any remaining gaps by the number added
             evolutionary_gaps = {entry_number + number_of_nterm_entries: residue_data
                                  for entry_number, residue_data in evolutionary_gaps.items()}
-            structure_evolutionary_profile.update(nterm_extra_profile_entries)
+        else:
+            structure_evolutionary_profile = {}
 
-        self.log.debug(f'structure_evolutionary_profile.keys(): {structure_evolutionary_profile.keys()}')
+        # Renumber the structure_evolutionary_profile to offset all to 1
+        new_entry_number = count(number_of_nterm_entries + 1)
+        structure_evolutionary_profile.update({next(new_entry_number): residue_data
+                                               for entry_number, residue_data in self.evolutionary_profile.items()})
+        structure_evolutionary_profile.update(cterm_extra_profile_entries)
 
         if evolutionary_gaps:  # There are internal insertions
             # Insert these in reverse order to keep numbering correct, one at a time...
@@ -843,6 +843,7 @@ class SequenceProfile(ABC):
                 f'Check that the output is correct (should be no gaps) and remove this check and '
                 f'NotImplementedError if it is implemented correctly')
             # Then reinstate the debug above
+        self.log.debug(f'structure_evolutionary_profile.keys(): {structure_evolutionary_profile.keys()}')
 
         self.log.debug(f'{self._fit_evolutionary_profile_to_structure.__name__}:\n\tOld:\n'
                        # f'{"".join(res["type"] for res in self.evolutionary_profile.values())}\n\tNew:\n'
