@@ -793,7 +793,7 @@ class SequenceProfile(ABC):
         # Insert c-terminal structure residues
         first_index = zero_offset
         last_profile_number = len(evolutionary_profile_sequence)
-        nterm_extra_structure_sequence = [entry for entry in evolutionary_gaps if entry <= first_index]
+        nterm_extra_structure_sequence = [entry for entry in evolutionary_gaps if entry < first_index]
         number_of_nterm_entries = len(nterm_extra_structure_sequence)
         cterm_extra_profile_entries = self.create_null_entries(
             [entry for entry in evolutionary_gaps if entry > last_profile_number])
