@@ -5,11 +5,11 @@ from pymol import cmd, stored
 import symdesign.utils.symmetry as symutils
 
 
-def generate_symmetry_mates_pymol(name, expand_matrices):  # name: str, expand_matrices: list[list[float]]):
+def generate_symmetry_mates_pymol(name, rotation_matrices):  # name: str, rotation_matrices: list[list[float]]):
     prefix = name
     chains = cmd.get_chains(name)
     tx = [0, 0, 0]
-    for sym_idx, rotation in enumerate(expand_matrices, 1):
+    for sym_idx, rotation in enumerate(rotation_matrices, 1):
         matrix = []
         for idx, rot_vec in enumerate(rotation):
             matrix.extend(rot_vec + [tx[idx]])  # incase we want to use these for real one day
@@ -25,9 +25,9 @@ def generate_symmetry_mates_pymol(name, expand_matrices):  # name: str, expand_m
 def expand(name: str = None, symmetry: str = None):
     symmetry_result = symutils.possible_symmetries.get(symmetry)
     if symmetry_result:
-        expand_matrices = symutils.point_group_symmetry_operators[symmetry_result].tolist()
+        rotation_matrices = symutils.point_group_symmetry_operatorsT[symmetry_result].tolist()
         # Todo
-        #  expand_matrices = space_group_symmetry_operators[symmetry_result]
+        #  rotation_matrices = space_group_symmetry_operators[symmetry_result]
     else:
         print(f'No symmetry "{symmetry}" was found in the possible symmetries. Must be one of the following:\n%s'
               % ', '.join(sorted(set(symutils.possible_symmetries.keys()))))
@@ -35,12 +35,12 @@ def expand(name: str = None, symmetry: str = None):
 
     if name == 'all':
         for object_name in cmd.get_object_list():
-            generate_symmetry_mates_pymol(object_name, expand_matrices)
+            generate_symmetry_mates_pymol(object_name, rotation_matrices)
         return
     elif not name:
         name = cmd.get_object_list()[0]
 
-    generate_symmetry_mates_pymol(name, expand_matrices)
+    generate_symmetry_mates_pymol(name, rotation_matrices)
 
 
 def save_group(group='all', one_file=True, out_dir=os.getcwd()):

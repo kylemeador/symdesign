@@ -337,34 +337,33 @@ def get_ptgrp_sym_op(sym_type: str,
 
     Args:
         sym_type: The name of the symmetry
-        expand_matrix_dir: Where are the expand matrices saved to disk
+        expand_matrix_dir: The disk location of a directory with symmetry name labeled expand matrices
     Returns:
         The rotation matrices to perform point group expansion
     """
-    expand_matrix_filepath = os.path.join(expand_matrix_dir, '%s.txt' % sym_type)
+    expand_matrix_filepath = os.path.join(expand_matrix_dir, f'{sym_type}.txt')
     with open(expand_matrix_filepath, 'r') as f:
         line_count = 0
-        expand_matrices = []
+        rotation_matrices = []
         mat = []
         for line in f.readlines():
             line = line.split()
             if len(line) == 3:
-                line_float = [float(s) for s in line]
-                mat.append(line_float)
+                mat.append([float(s) for s in line])
                 line_count += 1
                 if line_count % 3 == 0:
-                    expand_matrices.append(mat)
+                    rotation_matrices.append(mat)
                     mat = []
 
-        return expand_matrices
+        return rotation_matrices
 
 
-# def get_expanded_ptgrp_pdb(pdb_asu, expand_matrices):
+# def get_expanded_ptgrp_pdb(pdb_asu, rotation_matrices):
 #     """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
 #     asu_symm_mates = []
 #     # asu_coords = pdb_asu.extract_coords()
 #     # asu_coords = pdb_asu.extract_all_coords()
-#     for r in expand_matrices:
+#     for r in rotation_matrices:
 #         # r_asu_coords = np.matmul(asu_coords, np.transpose(np.array(r)))
 #         asu_sym_mate_pdb = pdb_asu.get_transformed_copy(rotation=np.array(r))
 #         # asu_sym_mate_pdb = PDB()
@@ -403,7 +402,7 @@ def get_ptgrp_sym_op(sym_type: str,
 #     return sg_sym_op
 
 
-# def get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions):
+# def get_unit_cell_sym_mates(pdb_asu, rotation_matrices, uc_dimensions):
 #     """Return all symmetry mates as a list of PDB objects. Chain names will match the ASU"""
 #     unit_cell_sym_mates = [pdb_asu]
 #
@@ -411,7 +410,7 @@ def get_ptgrp_sym_op(sym_type: str,
 #     # asu_cart_coords = pdb_asu.extract_all_coords()
 #     asu_frac_coords = cart_to_frac(asu_cart_coords, uc_dimensions)
 #
-#     for rot, tx in expand_matrices:
+#     for rot, tx in rotation_matrices:
 #         copy_pdb_asu = copy.copy(pdb_asu)
 #         t_vec = np.array(tx)
 #         tr_asu_frac_coords = np.matmul(asu_frac_coords, np.transpose(rot)) + t_vec
@@ -519,8 +518,8 @@ def get_ptgrp_sym_op(sym_type: str,
 #         (list(PDB)): Expanded to entire point group, 3x3 layer group, or 3x3x3 space group
 #     """
 #     if symmetry.upper() in cubic_point_groups:
-#         expand_matrices = point_group_symmetry_operators[symmetry.upper()]
-#         return get_expanded_ptgrp_pdb(asu, expand_matrices)
+#         rotation_matrices = point_group_symmetry_operators[symmetry.upper()]
+#         return get_expanded_ptgrp_pdb(asu, rotation_matrices)
 #     else:
 #         if symmetry in layer_group_cryst1_fmt_dict:
 #             dimension = 2
@@ -528,18 +527,18 @@ def get_ptgrp_sym_op(sym_type: str,
 #             dimension = 3
 #         else:
 #             return
-#         expand_matrices = space_group_symmetry_operators[symmetry.upper()]
+#         rotation_matrices = space_group_symmetry_operators[symmetry.upper()]
 #
-#         return expand_uc(asu, expand_matrices, uc_dimensions, dimension, return_side_chains=return_side_chains)
+#         return expand_uc(asu, rotation_matrices, uc_dimensions, dimension, return_side_chains=return_side_chains)
 
 
-# def expand_uc(pdb_asu, expand_matrices, uc_dimensions, dimension, return_side_chains=False):
+# def expand_uc(pdb_asu, rotation_matrices, uc_dimensions, dimension, return_side_chains=False):
 #     """Return the backbone coordinates for every symmetric copy within the unit cells surrounding a central cell
 #
 #     Returns
 #         (list(list(PDB))):
 #     """
-#     unit_cell_pdbs = get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions)
+#     unit_cell_pdbs = get_unit_cell_sym_mates(pdb_asu, rotation_matrices, uc_dimensions)
 #     if dimension in [2, 3]:
 #         dummy = True
 #         # all_surrounding_unit_cells = get_surrounding_unit_cells(unit_cell_pdbs, uc_dimensions, dimension=dimension, return_side_chains=return_side_chains)
@@ -690,7 +689,6 @@ if __name__ == '__main__':
         rotations = np.array(get_ptgrp_sym_op(symmetry))
         point_group_operators[symmetry] = rotations
 
-    # print('Last pointgroup found:', point_group_operators[symmetry])
     continue2 = input('Save these results? Yes hits "Enter". Ctrl-C is quit: ')
     point_group_file = pickle_object(point_group_operators,
                                      out_path=putils.point_group_symmetry_operator_location)

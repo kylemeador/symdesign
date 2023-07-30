@@ -86,9 +86,9 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
         # profile = api_db.hhblits_profiles.retrieve_data(name=entity.name)
         if len(entity.uniprot_ids) > 1:
             # Todo make this possible by combining multiple profiles along the chimeric identifiers
-            raise DesignError(
-                f"Can't set the profile for an {entity.__class__.__name__} with number of UniProtIDs,"
-                f"{len(entity.uniprot_ids)} > 1. Please remove this or update the code")
+            raise SymDesignException(
+                f"Can't set the profile for an {entity.__class__.__name__} with number of UniProtIDs "
+                f"({len(entity.uniprot_ids)}) > 1. Please remove this or update the code")
         # for idx, uniprot_id in enumerate(entity.uniprot_ids):
         for uniprot_id in entity.uniprot_ids:
             profile = api_db.hhblits_profiles.retrieve_data(name=uniprot_id)

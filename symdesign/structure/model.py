@@ -1586,17 +1586,16 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     def _make_captain(self):
         """Turn the Entity into a "captain" Entity if it isn't already"""
         if not self._is_captain:
-            # self.log.debug(f'Promoting mate Entity {self.chain_id} to a captain')
             # Todo handle superposition with imperfect symmetry
+            # self.log.debug(f'Promoting mate Entity {self.chain_id} to a captain')
             # Find and save the transforms between the self.coords and the prior captains mate chains
             current_ca_coords = self.ca_coords
             self._chain_transforms = []
-            # for idx, chain in enumerate(self._captain.chains, 1):
             for chain in self._captain.chains:
                 # Find the transform from current coords and the new mate chain coords
                 _, rot, tx = superposition3d(chain.ca_coords, current_ca_coords)
                 if np.allclose(utils.symmetry.identity_matrix, rot):
-                    # This "chain" is the instance of the self, we don't need the identity
+                    # This "chain" is the self instance and the identity transform is skipped
                     # self.log.debug(f'Skipping identity transform')
                     continue
                 # self.log.debug(f'Adding transform between self._captain.chain idx {idx} and the new captain')
@@ -1741,11 +1740,11 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         new_structure = self.copy()
         new_structure._make_mate(self)
-        # _make_mate executes the following
-        # self._captain = self
-        # self._is_captain = False
-        # self._chain_ids = [self.chain_id]
-        # self._chain_transforms.clear()
+        # _make_mate executes the following:
+        #  self._captain = self
+        #  self._is_captain = False
+        #  self._chain_ids = [self.chain_id]
+        #  self._chain_transforms.clear()
         new_structure.coords = new_coords
 
         return new_structure
@@ -3075,20 +3074,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     # def number_of_residues_per_entity(self) -> list[int]:  # UNUSED
     #     return [structure.number_of_residues for structure in self.entities]
 
-    def format_header(self, **kwargs) -> str:  # Todo move near format_seqres
-        """Return the BIOMT and the SEQRES records based on the Model
-
-        Returns:
-            The header with PDB file formatting
-        """
-        if isinstance(self.cryst_record, str):
-            _header = self.cryst_record
-        else:
-            _header = ''
-
-        return super().format_header() + self.format_seqres(**kwargs) + _header
-        # return super().format_header() + self.format_biomt(**kwargs) + self.format_seqres(**kwargs) + _header
-
     @property
     def number_of_entities(self) -> int:
         """Return the number of Entity instances in the Structure"""
@@ -3135,6 +3120,20 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                         f'{formatted_sequence[seq_res_len * (line_number-1):seq_res_len * line_number]}         '
                         for chain_id, formatted_sequence in formatted_reference_sequence.items()
                         for line_number in range(1, 1 + math.ceil(len(formatted_sequence)/seq_res_len)))
+
+    def format_header(self, **kwargs) -> str:
+        """Return the BIOMT and the SEQRES records based on the Model
+
+        Returns:
+            The header with PDB file formatting
+        """
+        if isinstance(self.cryst_record, str):
+            _header = self.cryst_record
+        else:
+            _header = ''
+
+        return super().format_header() + self.format_seqres(**kwargs) + _header
+        # return super().format_header() + self.format_biomt(**kwargs) + self.format_seqres(**kwargs) + _header
 
     def orient(self, symmetry: str = None):  # Similar function in Entity
         """Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
@@ -4445,7 +4444,7 @@ class SymmetricModel(Model):  # Models):
 
     def __init__(self, sym_entry: utils.SymEntry.SymEntry | int = None, symmetry: str = None,
                  transformations: list[types.TransformationMapping] = None, uc_dimensions: list[float] = None,
-                 expand_matrices: np.ndarray | list = None, surrounding_uc: bool = True, **kwargs):
+                 symmetry_operators: np.ndarray | list = None, surrounding_uc: bool = True, **kwargs):
         """
 
         Args:
@@ -4453,7 +4452,7 @@ class SymmetricModel(Model):  # Models):
             symmetry: The name of a symmetry to be searched against compatible symmetries
             transformations: Transformation operations that reproduce the oligomeric state for each Entity
             uc_dimensions: The unit cell dimensions for the crystalline symmetry
-            expand_matrices: A set of custom expansion matrices
+            symmetry_operators: A set of custom expansion matrices
             surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
         #     generate_assembly_coords: Whether the symmetric coords should be generated from the ASU coords
@@ -4464,11 +4463,11 @@ class SymmetricModel(Model):  # Models):
         self.expand_matrices = self.expand_translations = None
         # self.uc_dimensions = None  # uc_dimensions
         self.set_symmetry(sym_entry=sym_entry, symmetry=symmetry, uc_dimensions=uc_dimensions,
-                          expand_matrices=expand_matrices,
+                          operators=symmetry_operators,
                           transformations=transformations, surrounding_uc=surrounding_uc)
 
     def set_symmetry(self, sym_entry: utils.SymEntry.SymEntry | int = None, symmetry: str = None,
-                     uc_dimensions: list[float] = None, expand_matrices: np.ndarray | list = None,
+                     uc_dimensions: list[float] = None, operators: np.ndarray | list = None,
                      transformations: list[types.TransformationMapping] = None, surrounding_uc: bool = True,
                      **kwargs):
         """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann-Mauguin symmetry
@@ -4479,7 +4478,7 @@ class SymmetricModel(Model):  # Models):
             sym_entry: The SymEntry which specifies all symmetry parameters
             symmetry: The name of a symmetry to be searched against compatible symmetries
             uc_dimensions: The unit cell dimensions for the crystalline symmetry
-            expand_matrices: A set of custom expansion matrices
+            operators: A set of custom expansion matrices
             transformations: Transformation operations that reproduce the oligomeric state for each Entity
             surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
@@ -4544,25 +4543,42 @@ class SymmetricModel(Model):  # Models):
             #                           'symmetry upon class initialization by passing symmetry=, or sym_entry=')
             return
 
-        if expand_matrices is not None:  # Perhaps these would be from a fiber or some sort of BIOMT?
-            if isinstance(expand_matrices, tuple) and len(expand_matrices) == 2:
-                self.log.critical('Providing expansion matrices may result in program crash if you '
-                                  "don't work on the SymmetricModel class! Proceed with caution")
-                expand_matrices, expand_translations = expand_matrices
-                self.expand_translations = \
-                    np.ndarray(expand_translations) if not isinstance(expand_translations, np.ndarray) \
-                    else expand_translations
-                # Let's assume expand_matrices were provided in a standard orientation and transpose
+        if operators is not None:  # Perhaps these would be from a fiber or some sort of BIOMT?
+            if isinstance(operators, tuple) and len(operators) == 2:
+                self.log.warning("Providing custom symmetry 'operators' may result in improper symmetric configuration."
+                                 ' Proceed with caution')
+                matrices, translations = operators
+                if not isinstance(matrices, np.ndarray):
+                    matrices = np.ndarray(matrices)
+
+                # Assume operators were provided in a standard orientation and transpose for subsequent efficiency
                 # Using .swapaxes(-2, -1) call here instead of .transpose() for safety
-                self.expand_matrices = \
-                    np.ndarray(expand_matrices).swapaxes(-2, -1) if not isinstance(expand_matrices, np.ndarray) \
-                    else expand_matrices
+                if matrices.ndim == 3:
+                    self.expand_matrices = matrices.swapaxes(-2, -1)
+                else:
+                    raise SymmetryError(
+                        f"Expected 'operators' rotation matrices with 3 dimensions, not {matrices.ndim} dimensions. "
+                        "Ensure the passed rotation matrices have a shape of (N symmetry operations, 3, 3)"
+                    )
+                if not isinstance(translations, np.ndarray):
+                    translations = np.ndarray(translations)
+                if translations.ndim == 2:
+                    self.expand_translations = translations
+                else:
+                    raise SymmetryError(
+                        f"Expected 'operators' translation vectors with 2 dimensions, not {translations.ndim} "
+                        "dimensions. Ensure the passed translations have a shape of (N symmetry operations, 3)"
+                    )
             else:
+                # Todo
+                #  Parse from a single input of 3 row by 4 column style
+                #  OR
+                #  Parse from a sinlg input of 3 row by 3 column style, i.e. no translation from point groups
                 raise SymmetryError(
-                    f"The expand matrix form {expand_matrices} isn't supported. Must provide a tuple of array-like "
-                    'objects with the order (expand_matrix(s), expand_translation(s))')
+                    f"The 'operators' form {repr(operators)} isn't supported. Must provide a tuple of "
+                    'array-like objects with the order (rotation matrices, translation vectors)')
         else:
-            # The rotation matrices are pre-transposed to avoid that operation here
+            # The rotation matrices are pre-transposed to avoid repetitive operations
             if self.dimension == 0:
                 self.expand_matrices, self.expand_translations = \
                     utils.symmetry.point_group_symmetry_operators[self.symmetry], utils.symmetry.origin
@@ -4587,7 +4603,6 @@ class SymmetricModel(Model):  # Models):
             if number_of_entities != self.number_of_chains:
                 self.set_contacting_asu()
             if self.symmetric_coords is None:
-                # Also need to generate the symmetric coords
                 self.log.debug('Generating symmetric coords')
                 self.generate_symmetric_coords(surrounding_uc=surrounding_uc)
 
@@ -4695,46 +4710,6 @@ class SymmetricModel(Model):  # Models):
         except AttributeError:
             return None
 
-    # @uc_dimensions.setter
-    # def uc_dimensions(self, uc_dimensions: tuple[float, float, float, float, float, float]):
-    #     """Set the unit cell dimensions according to the lengths a, b, and c, and angles alpha, beta, and gamma
-    #
-    #     From http://www.ruppweb.org/Xray/tutorial/Coordinate%20system%20transformation.htm
-    #     """
-    #     try:
-    #         a, b, c, alpha, beta, gamma = self._uc_dimensions = uc_dimensions
-    #     except (TypeError, ValueError):  # Unpacking didn't work
-    #         return
-    #
-    #     degree_to_radians = math.pi / 180.
-    #     gamma *= degree_to_radians
-    #
-    #     # unit cell volume
-    #     a_cos = math.cos(alpha * degree_to_radians)
-    #     b_cos = math.cos(beta * degree_to_radians)
-    #     g_cos = math.cos(gamma)
-    #     g_sin = float(math.sin(gamma))
-    #     self.uc_volume = float(a * b * c * math.sqrt(1 - a_cos**2 - b_cos**2 - g_cos**2 + 2*a_cos*b_cos*g_cos))
-    #
-    #     # deorthogonalization matrix m
-    #     # m0 = [1./a, -g_cos / (a*g_sin),
-    #     #       ((b*g_cos*c*(a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/self.uc_volume)]
-    #     # m1 = [0., 1./b*g_sin, -(a*c*(a_cos - b_cos*g_cos) / (self.uc_volume*g_sin))]
-    #     # m2 = [0., 0., a*b*g_sin/self.uc_volume]
-    #     self.deorthogonalization_matrix = np.array(
-    #         [[1. / a, -g_cos / (a*g_sin),
-    #           ((b * g_cos * c * (a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/self.uc_volume)],
-    #          [0., 1. / (b*g_sin), -(a * c * (a_cos-b_cos*g_cos) / (uc_volume*g_sin))],
-    #          [0., 0., a * b * g_sin / self.uc_volume]])
-    #
-    #     # orthogonalization matrix m_inv
-    #     # m_inv_0 = [a, b*g_cos, c*b_cos]
-    #     # m_inv_1 = [0., b*g_sin, (c*(a_cos - b_cos*g_cos))/g_sin]
-    #     # m_inv_2 = [0., 0., self.uc_volume/(a*b*g_sin)]
-    #     self.orthogonalization_matrix = np.array([[a, b * g_cos, c * b_cos],
-    #                                              [0., b * g_sin, (c * (a_cos - b_cos*g_cos)) / g_sin],
-    #                                              [0., 0., self.uc_volume / (a*b*g_sin)]])
-
     @property
     def cryst_record(self) -> str | None:
         """Return the symmetry parameters as a CRYST1 entry"""
@@ -4813,8 +4788,8 @@ class SymmetricModel(Model):  # Models):
     def coords(self, coords: np.ndarray | list[list[float]]):
         # self.coords = coords
         self.log.debug(f'Setting {self.__class__.__name__} coords')
-        super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as this mechanism could change
-        # self._coords.replace(self._atom_indices, coords)
+        super(Structure, Structure).coords.fset(self, coords)
+
         if self.is_symmetric():  # Set the symmetric coords according to the ASU
             self.log.debug(f'Updating symmetric coords')
             self.generate_symmetric_coords(surrounding_uc=self.is_surrounding_uc())
@@ -4834,6 +4809,7 @@ class SymmetricModel(Model):  # Models):
             return self._asu_indices
         except AttributeError:
             self._asu_indices = self.get_asu_atom_indices(as_slice=True)
+
             return self._asu_indices
 
     @property
@@ -4862,7 +4838,7 @@ class SymmetricModel(Model):  # Models):
             return self._symmetric_coords_split
         except AttributeError:
             self._symmetric_coords_split = np.split(self.symmetric_coords, self.number_of_symmetry_mates)
-            #                     np.array()  # seems costly
+
             return self._symmetric_coords_split
 
     @property
@@ -4963,7 +4939,7 @@ class SymmetricModel(Model):  # Models):
 
         Args:
             minimal: Whether to create the minimally contacting assembly model. This is advantageous in crystalline
-                symmetries to minimized the size of the "assembly"
+                symmetries to minimize the size of the "assembly"
             surrounding_uc: Whether to generate the surrounding unit cells as part of the assembly models
         Returns:
             A Model instance for each of the symmetric mates. These are transformed copies of the SymmetricModel
@@ -5011,7 +4987,7 @@ class SymmetricModel(Model):  # Models):
         return Models(models, name=name)
 
     def _generate_assembly(self, minimal: bool = False, surrounding_uc: bool = False) -> Model:
-        """"""
+        """Creates the Model with all chains from the SymmetricModel"""
         if minimal is None:
             # When the Pose is asymmetric
             return self.copy()
@@ -5087,11 +5063,8 @@ class SymmetricModel(Model):  # Models):
             #     self.log.debug(f"The specified symmetry {self.symmetry} dimension ({self.dimension}) isn't "
             #                    f"crystalline")
 
-        symmetric_coords = self.return_symmetric_coords(self.coords)
         # Set the self.symmetric_coords property
-        self._symmetric_coords = Coords(symmetric_coords)
-        # Tod0 remove
-        # self.report_symmetric_coords_issue(self.generate_symmetric_coords.__name__)
+        self._symmetric_coords = Coords(self.return_symmetric_coords(self.coords))
 
     def cart_to_frac(self, cart_coords: np.ndarray | Iterable | int | float) -> np.ndarray:
         """Return fractional coordinates from cartesian coordinates

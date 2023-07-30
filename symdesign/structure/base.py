@@ -731,13 +731,12 @@ class StructureBase(SymmetryMixin, ABC):
 
     @coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
-        # self.log.critical(f'Setting {self.name} coords')
-        # # Setting this first to ensure proper size of later manipulations
+        # self.log.debug(f'Setting {self.name} coords')
+        # # NOT Setting this first to ensure proper size of later manipulations
         # # Update the whole Coords.coords as symmetry is not everywhere
         # self._coords.replace(self._atom_indices, coords)
+
         # Check for coordinate update requirements
-        # if self.is_parent() and self.is_symmetric() \
-        #         and self.has_symmetric_dependents() and not self._dependent_is_updating:
         if self.is_parent() and self.has_symmetric_dependents() and not self._dependent_is_updating:
             # This Structure is a parent with symmetric dependents, update dependent coords to update the parent
             self.log.debug(f'Updating symmetric dependent coords')
@@ -1773,8 +1772,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     #     # if self.i_type:  # Fragment has been assigned. Transform the guide_coords according to the new coords
     #     #     _, self.rotation, self.translation = superposition3d(coords, self.coords)
     #     #     # self.guide_coords = np.matmul(self.guide_coords, np.transpose(self.rotation)) + self.translation
-    #     super(Residue, Residue).coords.fset(self, coords)  # prefer this over below, as this mechanism could change
-    #     # self._coords.replace(self._atom_indices, coords)
+    #     super(Residue, Residue).coords.fset(self, coords)
 
     def is_residue_valid(self) -> bool:
         """Returns True if the Residue is constructed properly otherwise raises an error

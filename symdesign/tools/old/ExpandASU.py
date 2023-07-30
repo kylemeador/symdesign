@@ -6,12 +6,12 @@ from symdesign.structure.model import Model
 from symdesign import utils
 
 
-def get_expanded_ptgrp_pdb(pdb_asu, expand_matrices):
+def get_expanded_ptgrp_pdb(pdb_asu, rotation_matrices):
     """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
     asu_symm_mates = []
     # asu_coords = pdb_asu.extract_coords()
     # asu_coords = pdb_asu.extract_all_coords()
-    for r in expand_matrices:
+    for r in rotation_matrices:
         asu_sym_mate_pdb = pdb_asu.get_transformed_copy(rotation=r.T)
         asu_symm_mates.append(asu_sym_mate_pdb)
 
@@ -37,8 +37,8 @@ def expand_asu(file, symmetry, out_path=None) -> Union[str, bytes]:
         path_name = '%s_%s.pdb' % (os.path.splitext(file)[0], 'expanded')
 
     asu_pdb = Model.from_file(file)
-    expand_matrices = utils.symmetry.point_group_symmetry_operators[symmetry.upper()]
-    expanded_pdb = get_expanded_ptgrp_pdb(asu_pdb, expand_matrices)
+    rotation_matrices = utils.symmetry.point_group_symmetry_operators[symmetry.upper()]
+    expanded_pdb = get_expanded_ptgrp_pdb(asu_pdb, rotation_matrices)
     write_expanded_ptgrp(expanded_pdb, path_name)
 
     return path_name

@@ -1554,7 +1554,9 @@ expand_asu_help = 'For given poses, expand the asymmetric unit to the full symme
                   'assembly and write the result'
 parser_expand_asu = {expand_asu: dict(description=expand_asu_help, help=expand_asu_help)}
 # ---------------------------------------------------
-generate_fragments_help = 'Generate fragment overlap for interfaces of interest and write fragments'
+generate_fragments_help = 'Generate fragment potentials for secondary structure groups\n' \
+                          'divisions of interest and write found fragment representative\n' \
+                          'out. Default potential search is for intra-chain motifs'
 parser_generate_fragments = \
     {generate_fragments: dict(description=generate_fragments_help, help=generate_fragments_help)}
 generate_fragments_arguments = {

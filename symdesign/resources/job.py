@@ -1206,7 +1206,7 @@ class JobResources:
                                                 out_dir=self.profiles, threads=self.threads,
                                                 return_command=True))
                     all_entity_ids.append(uniprot_entity.id)
-                # TODO reinstate
+                # Todo reinstate
                 #  Solve .h_fields/.j_couplings
                 # # Before this is run, hhblits must be run and the file located at profiles/entity-name.fasta contains
                 # # the multiple sequence alignment in .fasta format
@@ -1220,7 +1220,7 @@ class JobResources:
                     entity.write_sequence_to_fasta('reference', out_dir=self.sequences)
                 else:
                     entity.evolutionary_profile = self.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-                    # TODO reinstate
+                    # Todo reinstate
                     #  entity.h_fields = self.api_db.bmdca_fields.retrieve_data(name=entity.name)
                     #  entity.j_couplings = self.api_db.bmdca_couplings.retrieve_data(name=entity.name)
                 if not entity.evolutionary_profile:
@@ -1229,12 +1229,12 @@ class JobResources:
                     # To generate in a sbatch script
                     hhblits_cmds.append(entity.hhblits(out_dir=self.profiles, return_command=True))
                     all_entity_ids.append(entity.name)
-                # TODO reinstate
+                # Todo reinstate
                 # # Before this is run, hhblits must be run and the file located at profiles/entity-name.fasta contains
                 # # the multiple sequence alignment in .fasta format
                 #  if not entity.j_couplings:
-                #    bmdca_cmds.append([putils.bmdca_exe_path, '-i', os.path.join(self.profiles, f'{entity.name}.fasta'),
-                #                       '-d', os.path.join(self.profiles, f'{entity.name}_bmDCA')])
+                #   bmdca_cmds.append([putils.bmdca_exe_path, '-i', os.path.join(self.profiles, f'{entity.name}.fasta'),
+                #                      '-d', os.path.join(self.profiles, f'{entity.name}_bmDCA')])
 
         if hhblits_cmds:
             if not os.access(putils.hhblits_exe, os.X_OK):
