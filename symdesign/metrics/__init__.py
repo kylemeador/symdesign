@@ -39,7 +39,12 @@ collapse_metrics = ['collapse_new_positions', 'collapse_new_position_significanc
                     'collapse_significance_by_contact_order_z', 'collapse_increase_significance_by_contact_order_z',
                     'collapse_increased_z', 'collapse_deviation_magnitude', 'collapse_sequential_peaks_z',
                     'collapse_sequential_z']
-zero_probability_frag_value = -20
+log_pseudovalue0p1 = -9.9657
+log_pseudovalue0p01 = -13.2877
+log_pseudovalue0p001 = -16.6096
+log_pseudovalue0p0001 = -19.9315
+zero_probability_frag_value = log_pseudovalue0p001  # Was -20, a pseudovalue of ~0.001% (0.000953%)
+zero_probability_evol_value = log_pseudovalue0p001  # Targets a pseudovalue of 0.001%
 proteinmpnn_scores = ['sequences', 'proteinmpnn_loss_complex', 'proteinmpnn_loss_unbound', 'design_indices']
 # Only slice the final 3 values
 sasa_metrics_rename_mapping = dict([*zip(per_residue_interface_states, interface_sasa_metric_names),

@@ -4190,7 +4190,13 @@ class PoseProtocol(PoseData):
             profile_background['evolution'] = evolutionary_profile_array = \
                 pssm_as_array(self.pose.evolutionary_profile)
             batch_evolutionary_profile = np.tile(evolutionary_profile_array, (number_of_sequences, 1, 1))
-            torch_log_evolutionary_profile = torch.from_numpy(np.log(batch_evolutionary_profile))
+            # torch_log_evolutionary_profile = torch.from_numpy(np.log(batch_evolutionary_profile))
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', category=RuntimeWarning)
+                # np.log causes -inf at 0, so they are corrected to a 'large' number
+                corrected_evol_array = np.nan_to_num(np.log(batch_evolutionary_profile), copy=False,
+                                                     nan=np.nan, neginf=metrics.zero_probability_evol_value)
+            torch_log_evolutionary_profile = torch.from_numpy(corrected_evol_array)
             per_residue_evolutionary_profile_loss = \
                 resources.ml.sequence_nllloss(torch_numeric_sequences, torch_log_evolutionary_profile)
         else:
@@ -4228,7 +4234,7 @@ class PoseProtocol(PoseData):
                 warnings.simplefilter('ignore', category=RuntimeWarning)
                 # np.log causes -inf at 0, so they are corrected to a 'large' number
                 corrected_design_array = np.nan_to_num(np.log(batch_design_profile), copy=False,
-                                                       nan=np.nan, neginf=metrics.zero_probability_frag_value)
+                                                       nan=np.nan, neginf=metrics.zero_probability_evol_value)
                 torch_log_design_profile = torch.from_numpy(corrected_design_array)
         else:
             torch_log_design_profile = torch.from_numpy(np.log(batch_design_profile))

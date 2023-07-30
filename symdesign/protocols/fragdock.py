@@ -2169,13 +2169,19 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         measure_evolution, measure_alignment = load_evolutionary_profile(job.api_db, pose)
 
         evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
+        with catch_warnings():
+            simplefilter('ignore', category=RuntimeWarning)
+            # Divide by zero encountered in log
+            corrected_log_evolutionary_profile = np.nan_to_num(
+                np.log(evolutionary_profile_array), copy=False, nan=np.nan,
+                neginf=metrics.zero_probability_evol_value)
         batch_evolutionary_profile = \
             torch.from_numpy(np.tile(evolutionary_profile_array, (batch_length, 1, 1)))
     else:  # Make an empty collapse_profile
         # pose.add_profile(null=True) ACTUALLY, don't use, keep pose.evolutionary_profile == {}
         measure_evolution = measure_alignment = False
         collapse_profile = np.empty(0)
-        evolutionary_profile_array = None
+        evolutionary_profile_array = corrected_log_evolutionary_profile = None
 
     # Calculate hydrophobic collapse for each dock using the collapse_profile if it was calculated
     if measure_evolution:
@@ -2279,10 +2285,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         if evolutionary_profile_array is None:
             profile_loss = {}
         else:
-            with catch_warnings():
-                simplefilter('ignore', category=RuntimeWarning)
-                # divide by zero encountered in log
-                torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
+            torch_log_evolutionary_profile = torch.from_numpy(corrected_log_evolutionary_profile)
             per_residue_evolutionary_profile_loss = \
                 resources.ml.sequence_nllloss(torch_numeric_sequence, torch_log_evolutionary_profile)
             profile_loss = {
@@ -2484,9 +2487,13 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
 
                 if pose.profile:
                     # Process the design_profiles into an array for cross entropy
-                    # Todo 1
-                    #  need to make scipy.softmax(design_profiles) so scaling matches
-                    batch_design_profile = torch.from_numpy(np.array(design_profiles))
+                    with catch_warnings():
+                        # Divide by zero encountered in log
+                        simplefilter('ignore', category=RuntimeWarning)
+                        corrected_log_design_profile = np.nan_to_num(
+                            np.log(np.array(design_profiles)), copy=False, nan=np.nan,
+                            neginf=metrics.zero_probability_evol_value)
+                    batch_design_profile = torch.from_numpy(corrected_log_design_profile)
                     per_residue_design_cross_entropy = \
                         metrics.cross_entropy(asu_unconditional_softmax_seq,
                                               batch_design_profile,
