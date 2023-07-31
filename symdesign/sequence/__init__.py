@@ -269,6 +269,24 @@ default_substitution_matrix_array = np.array(default_substitution_matrix_)
 #
 #     return align[0] if top_alignment else align
 
+# Set these the default from blastp
+blastp_open_gap_score = -12.  # gap_penalty
+blastp_extend_gap_score = -1.  # gap_ext_penalty
+protein_alignment_variables = dict(
+    target_left_open_gap_score=0,
+    target_left_extend_gap_score=0,
+    target_right_open_gap_score=0,
+    target_right_extend_gap_score=0,
+    query_internal_open_gap_score=blastp_open_gap_score,
+    target_internal_open_gap_score=blastp_open_gap_score,
+    query_internal_extend_gap_score=blastp_extend_gap_score,
+    target_internal_extend_gap_score=blastp_extend_gap_score,
+    query_left_open_gap_score=0,
+    query_left_extend_gap_score=0,
+    query_right_open_gap_score=0,
+    query_right_extend_gap_score=0,
+)
+
 
 def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = default_substitution_matrix_name,
                        local: bool = False, top_alignment: bool = True) -> Alignment | PairwiseAlignments:
@@ -296,12 +314,8 @@ def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = d
         mode = 'global'
 
     # logger.debug(f'Generating sequence alignment between:\n{seq1}\n\tAND:\n{seq2}')
-    # Set these the default from blastp
-    open_gap_score = -12.  # gap_penalty
-    extend_gap_score = -1.  # gap_ext_penalty
     # Create sequence alignment
-    aligner = PairwiseAligner(mode=mode, substitution_matrix=matrix_,  # scoring='blastp')
-                              open_gap_score=open_gap_score, extend_gap_score=extend_gap_score)
+    aligner = PairwiseAligner(mode=mode, substitution_matrix=matrix_, **protein_alignment_variables)
     try:
         alignments = aligner.align(seq1, seq2)
     except ValueError:  # sequence contains letters not in the alphabet
