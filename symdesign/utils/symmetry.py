@@ -74,11 +74,15 @@ space_group_number_operations = \
 cubic_point_groups = ['T', 'O', 'I']
 point_group_symmetry_operators: dict[str, np.ndarray] = \
     unpickle(putils.point_group_symmetry_operator_location)
+point_group_symmetry_operatorsT: dict[str, np.ndarray] = \
+    unpickle(putils.point_group_symmetry_operatorT_location)
 """A mapping of the point group name (in Hermann-Mauguin notation) to the corresponding symmetry operators
 Formatted as {'symmetry': rotations[N, 3, 3], ...} where the rotations are pre-transposed to match requirements of 
 np.matmul(coords, rotation)"""
 space_group_symmetry_operators: dict[str, np.ndarray] = \
     unpickle(putils.space_group_symmetry_operator_location)
+space_group_symmetry_operatorsT: dict[str, np.ndarray] = \
+    unpickle(putils.space_group_symmetry_operatorT_location)
 """A mapping of the space group name (in Hermann-Mauguin notation) to the corresponding symmetry operators
 Formatted as {'symmetry': (rotations[N, 3, 3], translations[N, 1, 3]), ...} where the rotations are pre-transposed to 
 match requirements of np.matmul(coords, rotation)"""
@@ -110,12 +114,7 @@ all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': 200
                       'O': {'C2': {'C3': 7, 'C4': 13}, 'C3': {'C2': 7, 'C4': 56}, 'C4': {'C2': 13, 'C3': 56}, 'O': 210},
                       'I': {'C2': {'C3': 9, 'C5': 16}, 'C3': {'C2': 9, 'C5': 58}, 'C5': {'C2': 16, 'C3': 58}, 'I': 220}}
 MAX_SYMMETRY = 6
-rotation_range = {}
-for i in map(float, range(1, MAX_SYMMETRY + 1)):
-    name = f'C{int(i)}'
-    _range = 360 / i
-    rotation_range[name] = _range
-    # Todo SymmetryGroup(name=name, rotation=_range)
+rotation_range = {f'C{int(i)}': 360 / i for i in map(float, range(1, MAX_SYMMETRY + 1))}
 
 # All rotational comments below are described according to a vector emanating from the origin on the specified axis
 # The dihedral angles (in radians) are sourced from https://en.wikipedia.org/wiki/Table_of_polyhedron_dihedral_angles
@@ -128,7 +127,7 @@ setting_matrices = {
     # 3: Rotation.from_euler('y', -math.pi/2),  # Todo test
     # 45 degrees CW on Y, which is 2-fold axis in O
     # 4: np.array([[0.707107, 0.408248, 0.577350], [-0.707107, 0.408248, 0.577350], [0.0, -0.816497, 0.577350]]),
-    4: Rotation.from_euler('xz', (-math.acos(-1/3)/2, -math.pi/4)).as_matrix(),
+    4: Rotation.from_euler('xz', (-math.acos(-1/3) / 2, -math.pi / 4)).as_matrix(),
     # ~54.73 degrees CCW on X, 45 degrees CCW on Z, which is X,Y,Z body diagonal or 3-fold axis in T, O
     5: np.array([[.707107, .707107, 0.], [-.707107, .707107, 0.0], [0., 0., 1.]]),
     # 5: Rotation.from_euler('z', -math.pi/4),  # Todo test
@@ -150,7 +149,7 @@ setting_matrices = {
     11: np.array([[0., -1., 0.], [1., 0., 0.], [0., 0., 1.]]),
     # 90 degrees CCW on Z
     # 12: np.array([[0.707107, -0.408248, 0.577350], [0.707107, 0.408248, -0.577350], [0.0, 0.816497, 0.577350]]),
-    12: Rotation.from_euler('xz', (math.acos(-1 / 3) / 2, math.pi / 4)).as_matrix(),
+    12: Rotation.from_euler('xz', (math.acos(-1/3) / 2, math.pi / 4)).as_matrix(),
     # ~54.73 degrees CW on X, 45 degrees CW on Z, which is X,-Y,Z body diagonal or opposite 3-fold in T, O
     13: np.array([[.5, -.866025, 0.], [.866025, .5, 0.], [0., 0., 1.]])
     # 13: Rotation.from_euler('z', math.pi/3),  # Todo test
@@ -191,15 +190,9 @@ valid_subunit_number = {'C1': 1, 'C2': 2, 'C3': 3, 'C4': 4, 'C5': 5, 'C6': 6,
 valid_symmetries = list(valid_subunit_number.keys())
 multicomponent_valid_subunit_number = \
     {sym: multicomponent_by_number(copy_number) for sym, copy_number in valid_subunit_number.items()}
-# multicomponent_valid_subunit_number = \
-#     {'C2': multicomponent_by_number(2), 'C3': multicomponent_by_number(3), 'C4': multicomponent_by_number(4),
-#      'C5': multicomponent_by_number(5), 'C6': multicomponent_by_number(6), 'D2': multicomponent_by_number(4),
-#      'D3': multicomponent_by_number(6), 'D4': multicomponent_by_number(8), 'D5': multicomponent_by_number(10),
-#      'D6': multicomponent_by_number(12), 'T': multicomponent_by_number(12), 'O': multicomponent_by_number(24),
-#      'I': multicomponent_by_number(60)}
 
 
-def generate_cryst1_record(dimensions: Sequence[float], space_group: str) -> str:
+def generate_cryst1_record(dimensions: list[float], space_group: str) -> str:
     """Format the CRYST1 record from specified unit cell dimensions and space group for a .pdb file
 
     Args:
@@ -223,67 +216,8 @@ def generate_cryst1_record(dimensions: Sequence[float], space_group: str) -> str
         return 'CRYST1{dim[0]:9.3f}{dim[1]:9.3f}{dim[2]:9.3f}{dim[3]:7.2f}{dim[4]:7.2f}{dim[5]:7.2f} {sg:<11s}{z:4d}\n'\
             .format(dim=dimensions, sg=formatted_space_group, z=space_group_number_operations[space_group])
     except TypeError:  # NoneType was passed
-        raise ValueError(f"Can't {generate_cryst1_record.__name__} without passing 'dimensions'")
-
-
-def cart_to_frac(cart_coords, dimensions):
-    # http://www.ruppweb.org/Xray/tutorial/Coordinate%20system%20transformation.htm
-    if len(dimensions) == 6:
-        a2r = np.pi / 180.0
-        a, b, c, alpha, beta, gamma = dimensions
-        alpha *= a2r
-        beta *= a2r
-        gamma *= a2r
-
-        # volume
-        v = a * b * c * np.sqrt((1 - np.cos(alpha) ** 2 - np.cos(beta) ** 2 - np.cos(gamma) ** 2 + 2 * (
-                    np.cos(alpha) * np.cos(beta) * np.cos(gamma))))
-
-        # deorthogonalization matrix M
-        M_0 = [1 / a, -(np.cos(gamma) / float(a * np.sin(gamma))), (((b * np.cos(gamma) * c * (
-                    np.cos(alpha) - (np.cos(beta) * np.cos(gamma)))) / float(np.sin(gamma))) - (
-                                                                                b * c * np.cos(beta) * np.sin(
-                                                                            gamma))) * (1 / float(v))]
-        M_1 = [0, 1 / (b * np.sin(gamma)),
-               -((a * c * (np.cos(alpha) - (np.cos(beta) * np.cos(gamma)))) / float(v * np.sin(gamma)))]
-        M_2 = [0, 0, (a * b * np.sin(gamma)) / float(v)]
-        M = np.array([M_0, M_1, M_2])
-
-        frac_coords = np.matmul(np.array(cart_coords), np.transpose(M))
-
-        return frac_coords
-
-    else:
         raise ValueError(
-            "UNIT CELL DIMENSIONS INCORRECTLY SPECIFIED. CORRECT FORMAT IS: [a, b, c,  alpha, beta, gamma]")
-
-
-def frac_to_cart(frac_coords, dimensions):
-    # http://www.ruppweb.org/Xray/tutorial/Coordinate%20system%20transformation.htm
-    if len(dimensions) == 6:
-        a2r = np.pi / 180.0
-        a, b, c, alpha, beta, gamma = dimensions
-        alpha *= a2r
-        beta *= a2r
-        gamma *= a2r
-
-        # volume
-        v = a * b * c * np.sqrt((1 - np.cos(alpha) ** 2 - np.cos(beta) ** 2 - np.cos(gamma) ** 2 + 2 * (
-                    np.cos(alpha) * np.cos(beta) * np.cos(gamma))))
-
-        # orthogonalization matrix M_inv
-        M_inv_0 = [a, b * np.cos(gamma), c * np.cos(beta)]
-        M_inv_1 = [0, b * np.sin(gamma), (c * (np.cos(alpha) - (np.cos(beta) * np.cos(gamma)))) / float(np.sin(gamma))]
-        M_inv_2 = [0, 0, v / float(a * b * np.sin(gamma))]
-        M_inv = np.array([M_inv_0, M_inv_1, M_inv_2])
-
-        cart_coords = np.matmul(np.array(frac_coords), np.transpose(M_inv))
-
-        return cart_coords
-
-    else:
-        raise ValueError(
-            "UNIT CELL DIMENSIONS INCORRECTLY SPECIFIED. CORRECT FORMAT IS: [a, b, c, alpha, beta, gamma]")
+            f"Can't {generate_cryst1_record.__name__} without passing 'dimensions'")
 
 
 def get_central_asu(pdb, uc_dimensions, design_dimension):  # Todo remove from FragDock then Depreciate
@@ -358,37 +292,6 @@ def get_ptgrp_sym_op(sym_type: str,
         return rotation_matrices
 
 
-# def get_expanded_ptgrp_pdb(pdb_asu, rotation_matrices):
-#     """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
-#     asu_symm_mates = []
-#     # asu_coords = pdb_asu.extract_coords()
-#     # asu_coords = pdb_asu.extract_all_coords()
-#     for r in rotation_matrices:
-#         # r_asu_coords = np.matmul(asu_coords, np.transpose(np.array(r)))
-#         asu_sym_mate_pdb = pdb_asu.get_transformed_copy(rotation=np.array(r))
-#         # asu_sym_mate_pdb = PDB()
-#         # asu_sym_mate_pdb_atom_list = []
-#         # atom_count = 0
-#         # for atom in pdb_asu.atoms:
-#         #     x_transformed = r_asu_coords[atom_count][0]
-#         #     y_transformed = r_asu_coords[atom_count][1]
-#         #     z_transformed = r_asu_coords[atom_count][2]
-#         #     atom_transformed = Atom(atom_count, atom.get_type(), atom.get_alt_location(),
-#         #                             atom.get_residue_type(), atom.get_chain(),
-#         #                             atom.get_residue_number(),
-#         #                             atom.get_code_for_insertion(), x_transformed, y_transformed,
-#         #                             z_transformed,
-#         #                             atom.get_occ(), atom.get_temp_fact(), atom.get_element_symbol(),
-#         #                             atom.get_atom_charge())
-#         #     atom_count += 1
-#         #     asu_sym_mate_pdb_atom_list.append(atom_transformed)
-#
-#         # asu_sym_mate_pdb.set_all_atoms(asu_sym_mate_pdb_atom_list)
-#         asu_symm_mates.append(asu_sym_mate_pdb)
-#
-#     return asu_symm_mates
-
-
 # def get_sg_sym_op(sym_type, space_group_operator_dir=os.path.join(putils.sym_op_location,
 #                                                                   "SPACE_GROUP_SYMM_OPERATORS")):
 #     """Get the symmetry operations for a specified space group oriented in the canonical orientation
@@ -402,163 +305,13 @@ def get_ptgrp_sym_op(sym_type: str,
 #     return sg_sym_op
 
 
-# def get_unit_cell_sym_mates(pdb_asu, rotation_matrices, uc_dimensions):
-#     """Return all symmetry mates as a list of PDB objects. Chain names will match the ASU"""
-#     unit_cell_sym_mates = [pdb_asu]
-#
-#     asu_cart_coords = pdb_asu.extract_coords()
-#     # asu_cart_coords = pdb_asu.extract_all_coords()
-#     asu_frac_coords = cart_to_frac(asu_cart_coords, uc_dimensions)
-#
-#     for rot, tx in rotation_matrices:
-#         copy_pdb_asu = copy.copy(pdb_asu)
-#         t_vec = np.array(tx)
-#         tr_asu_frac_coords = np.matmul(asu_frac_coords, np.transpose(rot)) + t_vec
-#
-#         tr_asu_cart_coords = frac_to_cart(tr_asu_frac_coords, uc_dimensions).tolist()
-#         # asu_sym_mate_pdb = pdb_asu.get_transformed_copy(rotation=np.array(r), translation=tx)
-#         unit_cell_sym_mate_pdb = copy_pdb_asu.replace_coords(tr_asu_cart_coords)
-#
-#         # unit_cell_sym_mate_pdb = PDB()
-#         # unit_cell_sym_mate_pdb_atom_list = []
-#         # atom_count = 0
-#         # for atom in pdb_asu.atoms():
-#         #     x_transformed = tr_asu_cart_coords[atom_count][0]
-#         #     y_transformed = tr_asu_cart_coords[atom_count][1]
-#         #     z_transformed = tr_asu_cart_coords[atom_count][2]
-#         #     atom_transformed = Atom(atom_count, atom.get_type(), atom.get_alt_location(),
-#         #                             atom.get_residue_type(), atom.get_chain(),
-#         #                             atom.get_residue_number(),
-#         #                             atom.get_code_for_insertion(), x_transformed, y_transformed,
-#         #                             z_transformed,
-#         #                             atom.get_occ(), atom.get_temp_fact(), atom.get_element_symbol(),
-#         #                             atom.get_atom_charge())
-#         #     atom_count += 1
-#         #     unit_cell_sym_mate_pdb_atom_list.append(atom_transformed)
-#
-#         # unit_cell_sym_mate_pdb.set_all_atoms(unit_cell_sym_mate_pdb_atom_list)
-#         unit_cell_sym_mates.append(unit_cell_sym_mate_pdb)
-#
-#     return unit_cell_sym_mates
-
-
-# def get_surrounding_unit_cells(unit_cell_sym_mates, uc_dimensions, dimension=None, return_side_chains=False):
-#     """Returns a grid of unit cells for a symmetry group. Each unit cell is a list of ASU's in total grid list"""
-#     if dimension == 3:
-#         z_shifts, uc_copy_number = [-1, 0, 1], 8
-#     elif dimension == 2:
-#         z_shifts, uc_copy_number = [0], 26
-#     else:
-#         return None
-#
-#     if return_side_chains:  # get different function calls depending on the return type
-#         extract_pdb_atoms = getattr(PDB, 'atoms')
-#         extract_pdb_coords = getattr(PDB, 'coords')
-#     else:
-#         extract_pdb_atoms = getattr(PDB, 'backbone_atoms')
-#         extract_pdb_coords = getattr(PDB, 'backbone_coords')
-#
-#     asu_atom_template = extract_pdb_atoms(unit_cell_sym_mates[0])
-#     # asu_bb_atom_template = unit_cell_sym_mates[0].backbone_atoms
-#
-#     central_uc_cart_coords = []
-#     for unit_cell_sym_mate_pdb in unit_cell_sym_mates:
-#         central_uc_cart_coords.extend(extract_pdb_coords(unit_cell_sym_mate_pdb))
-#         # central_uc_bb_cart_coords.extend(unit_cell_sym_mate_pdb.extract_backbone_coords())
-#     central_uc_frac_coords = cart_to_frac(central_uc_cart_coords, uc_dimensions)
-#
-#     all_surrounding_uc_frac_coords = []
-#     for x_shift in [-1, 0, 1]:
-#         for y_shift in [-1, 0, 1]:
-#             for z_shift in z_shifts:
-#                 if [x_shift, y_shift, z_shift] != [0, 0, 0]:
-#                     shifted_uc_frac_coords = central_uc_frac_coords + [x_shift, y_shift, z_shift]
-#                     all_surrounding_uc_frac_coords.extend(shifted_uc_frac_coords)
-#
-#     all_surrounding_uc_cart_coords = frac_to_cart(all_surrounding_uc_frac_coords, uc_dimensions)
-#     all_surrounding_uc_cart_coords = np.split(all_surrounding_uc_cart_coords, uc_copy_number)
-#
-#     all_surrounding_unit_cells = []
-#     for surrounding_uc_cart_coords in all_surrounding_uc_cart_coords:
-#         all_uc_sym_mates_cart_coords = np.split(surrounding_uc_cart_coords, len(unit_cell_sym_mates))
-#         one_surrounding_unit_cell = []
-#         for uc_sym_mate_cart_coords in all_uc_sym_mates_cart_coords:
-#             uc_sym_mate_atoms = []
-#             for atom_count, atom in enumerate(asu_atom_template):
-#                 x_transformed = uc_sym_mate_cart_coords[atom_count][0]
-#                 y_transformed = uc_sym_mate_cart_coords[atom_count][1]
-#                 z_transformed = uc_sym_mate_cart_coords[atom_count][2]
-#                 atom_transformed = Atom(atom.get_number(), atom.get_type(), atom.get_alt_location(),
-#                                         atom.get_residue_type(), atom.get_chain(),
-#                                         atom.get_residue_number(),
-#                                         atom.get_code_for_insertion(), x_transformed, y_transformed,
-#                                         z_transformed,
-#                                         atom.get_occ(), atom.get_temp_fact(), atom.get_element_symbol(),
-#                                         atom.get_atom_charge())
-#                 uc_sym_mate_atoms.append(atom_transformed)
-#
-#             uc_sym_mate_pdb = PDB(atoms=uc_sym_mate_atoms)
-#             one_surrounding_unit_cell.append(uc_sym_mate_pdb)
-#
-#         all_surrounding_unit_cells.append(one_surrounding_unit_cell)
-#
-#     return all_surrounding_unit_cells
-
-
-# def expand_asu(asu, symmetry, uc_dimensions=None, return_side_chains=False):  # unused
-#     """Return the expanded material from the input ASU, symmetry specification, and unit cell dimensions
-#
-#     Args:
-#         asu (PDB): PDB object that contains the minimal protein for the specified material
-#         symmetry (str): The Hermann-Mauguin symmetry nomenclature of the symmetric group, ex: P432, F23, I, etc.
-#     Keyword Args:
-#         uc_dimensions=None (list): [57, 57, 57, 90, 90, 90] lengths a, b, and c, then angles
-#         return_side_chains=False (bool): Whether to return all side chain atoms
-#     Returns:
-#         (list(PDB)): Expanded to entire point group, 3x3 layer group, or 3x3x3 space group
-#     """
-#     if symmetry.upper() in cubic_point_groups:
-#         rotation_matrices = point_group_symmetry_operators[symmetry.upper()]
-#         return get_expanded_ptgrp_pdb(asu, rotation_matrices)
-#     else:
-#         if symmetry in layer_group_cryst1_fmt_dict:
-#             dimension = 2
-#         elif symmetry in space_group_cryst1_fmt_dict:
-#             dimension = 3
-#         else:
-#             return
-#         rotation_matrices = space_group_symmetry_operators[symmetry.upper()]
-#
-#         return expand_uc(asu, rotation_matrices, uc_dimensions, dimension, return_side_chains=return_side_chains)
-
-
-# def expand_uc(pdb_asu, rotation_matrices, uc_dimensions, dimension, return_side_chains=False):
-#     """Return the backbone coordinates for every symmetric copy within the unit cells surrounding a central cell
-#
-#     Returns
-#         (list(list(PDB))):
-#     """
-#     unit_cell_pdbs = get_unit_cell_sym_mates(pdb_asu, rotation_matrices, uc_dimensions)
-#     if dimension in [2, 3]:
-#         dummy = True
-#         # all_surrounding_unit_cells = get_surrounding_unit_cells(unit_cell_pdbs, uc_dimensions, dimension=dimension, return_side_chains=return_side_chains)
-#         # all_surrounding_unit_cells = get_surrounding_unit_cells_2d(unit_cell_pdbs, uc_dimensions)
-#     # elif dimension == 3:
-#     #     all_surrounding_unit_cells = get_surrounding_unit_cells_3d(unit_cell_pdbs, uc_dimensions)
-#     else:
-#         return None
-#
-#     return unit_cell_pdbs
-    # return all_surrounding_unit_cells
-
-
 def get_sg_sym_op(sym_type):
     is_sg = False
     expand_uc_matrices = []
     rot_mat, tx_mat = [], []
     line_count = 0
     for line in sg_op_lines:
-        if "'" in line:  # ensure only sg lines are parsed either before or after sg
+        if "'" in line:  # Ensure only sg lines are parsed either before or after sg
             is_sg = False
         if "'%s'" % sym_type in line:
             is_sg = True
@@ -622,16 +375,14 @@ if __name__ == '__main__':
     with open(sg_op_filepath, "r") as f:
         sg_op_lines = f.readlines()
     full_space_group_operator_dict = get_all_sg_sym_ops(sg_op_lines)
+
     space_group_operators = {}
-    # for symmetry_group in nanohedra_space_groups:
     for symmetry_group in chiral_space_groups:
-        # sym_op_in_path = os.path.join(putils.sym_op_location, 'SPACE_GROUP_SYMM_OPERATORS',
-        #                               f'{symmetry_group}.pkl')
-        # sym_op = unpickle(sym_op_in_path)
         if 'R' in symmetry_group:
-            _symmetry_group = symmetry_group + ':H'  # have to add hexagonal notation found in spacegroup_op.txt
+            _symmetry_group = symmetry_group + ':H'  # Have to add hexagonal notation found in spacegroup_op.txt
         else:
             _symmetry_group = symmetry_group
+
         sym_op = full_space_group_operator_dict[_symmetry_group]
         rotations, translations = zip(*sym_op)
         rotations = np.array(rotations)
@@ -642,10 +393,10 @@ if __name__ == '__main__':
             if number_of_operators != number_of_rotations:  # insert the idenity matrix in the front
                 rotations = np.insert(rotations, 0, identity_matrix, axis=0)
                 translations = np.insert(translations, 0, origin, axis=0)
-                # print('%s incorrect number of operators. Adding identity' % symmetry_group)
+                # print(f'{symmetry_group} incorrect number of operators. Adding identity')
             else:
                 pass
-                # print('%s found the correct number of operators' % symmetry_group)
+                # print(f'{symmetry_group} found the correct number of operators')
         else:
             if np.all(rotations[0] == identity_matrix):
                 print(f'"{symmetry_group}": {number_of_rotations} | NO operator number found. Found IDENTITY')
@@ -654,21 +405,23 @@ if __name__ == '__main__':
                       f'because no match')
                 rotations = np.insert(rotations, 0, identity_matrix, axis=0)
                 translations = np.insert(translations, 0, origin, axis=0)
-        # Pre-transpose the rotation matrix so program operation doesn't have to
-        rotations = rotations.swapaxes(-1, -2)
-        # print(rotations)
-        # print(translations)
-        # sys.exit()
-        space_group_operators[symmetry_group] = (rotations, translations[:, None, :])
-        # sym_op_outfile_path = os.path.join(putils.sym_op_location, f'{symmetry_group}.pkl')
-    # print('Last spacegroup found:', space_group_operators[symmetry_group])
+
+        space_group_operators[symmetry_group] = (rotations, translations)
+
     continue1 = input('Save these results? Yes hits "Enter". Ctrl-C is quit: ')
     space_group_file = pickle_object(space_group_operators,
                                      out_path=putils.space_group_symmetry_operator_location)
     print(space_group_file)
-    # sym_op_outfile = open(sym_op_outfile_path, "w")
-    # pickle.dump(sym_op, sym_op_outfile)
-    # sym_op_outfile.close()
+    # Pre-transpose the rotation matrix so program operation doesn't have to
+    space_group_operators_t = {}
+    for symmetry_group, operators in space_group_operators.items():
+        rotations, translations = operators
+        rotations = rotations.swapaxes(-1, -2)
+        space_group_operators_t[symmetry_group] = (rotations, translations[:, None, :])
+
+    space_group_file_t = pickle_object(space_group_operators_t,
+                                       out_path=putils.space_group_symmetry_operatorT_location)
+    print(space_group_file_t)
 
     pg_symmetry_groups = ['C2', 'C3', 'C4', 'C5', 'C6', 'D2', 'D3', 'D4', 'D5', 'D6', 'T', 'O', 'I']
     # Todo for cyclic and dihedral use
@@ -682,15 +435,23 @@ if __name__ == '__main__':
     #      elif symmetry.startswith('D'):
     #          pass
     #      else:
-    #          rotations = np.array(get_ptgrp_sym_op(symmetry))  # todo generate from rotations...
+    #          rotations = np.array(get_ptgrp_sym_op(symmetry))  # Todo generate from rotations...
     #          point_group_operators[symmetry] = rotations
-    point_group_operators = {'C1': identity_matrix[None, :, :]}  # expand to shape (1, 3, 3)
+    # Each rotation operations will have the shape (N, 3, 3)
+    point_group_operators = {'C1': identity_matrix[None, :, :]}  # Expand to shape (1, 3, 3)
     for symmetry in pg_symmetry_groups:
+        # These are pretransposed in their files...
         rotations = np.array(get_ptgrp_sym_op(symmetry))
         point_group_operators[symmetry] = rotations
 
     continue2 = input('Save these results? Yes hits "Enter". Ctrl-C is quit: ')
     point_group_file = pickle_object(point_group_operators,
-                                     out_path=putils.point_group_symmetry_operator_location)
+                                     out_path=putils.point_group_symmetry_operatorT_location)
     print(point_group_file)
-    # print({notation: notation.replace(' ', '') for notation in hg_notation})
+    # Pre-transpose the rotation matrix so routine program operation doesn't have to
+    point_group_operators_t = {}
+    for symmetry_group, rotations in point_group_operators.items():
+        point_group_operators_t[symmetry_group] = rotations.swapaxes(-1, -2)
+    point_group_file_t = pickle_object(point_group_operators_t,
+                                       out_path=putils.point_group_symmetry_operator_location)
+    print(point_group_file_t)
