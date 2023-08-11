@@ -2177,7 +2177,6 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         self.log.debug(f'Reference chain is {self.chain_id}')
         ca_coords = self.ca_coords
         for chain in self.chains[1:]:
-            # System must be transformed to the origin
             rmsd, quat, tx = superposition3d_quat(ca_coords, chain.ca_coords)
             # rmsd, quat, tx = superposition3d_quat(cb_coords-center_of_mass, chain.cb_coords-center_of_mass)
             self.log.debug(f'rmsd={rmsd} quaternion={quat} translation={tx}')
@@ -2972,6 +2971,10 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         # if metadata and isinstance(metadata, PDB):
         #     self.copy_metadata(metadata)
+        if not self.atoms:
+            raise ValueError(
+                f"{self.__class__.__name__} received no valid structure instances"
+            )
 
     # Todo, rework for all Structure
     #  copy full attribute dict without selected elements
@@ -3689,7 +3692,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             tolerance = .2  # .3 <- Some ProteinMPNN sequences failed this bar
             # Because the reference sequence could be much longer than the chain sequence,
             # find an 'expected' length proportion
-            length_proportion = (max_reference_sequence-min_chain_sequence) / max_reference_sequence
+            # length_proportion = (max_reference_sequence-min_chain_sequence) / max_reference_sequence
+            length_proportion = min_chain_sequence / max_reference_sequence
             self._get_entity_info_from_atoms(tolerance=tolerance, length_difference=length_proportion, **kwargs)
         else:
             entity_api_entry = {}
@@ -7415,7 +7419,7 @@ class Pose(SymmetricModel, Metrics):
         Args:
             profile_type: The type of profile to use to calculate the hydrophobic collapse profile
         Keyword Args:
-            hydrophobicity: int = 'standard' – The hydrophobicity scale to consider. Either 'standard' (FILV),
+            hydrophobicity: str = 'standard' – The hydrophobicity scale to consider. Either 'standard' (FILV),
                 'expanded' (FMILYVW), or provide one with 'custom' keyword argument
             custom: mapping[str, float | int] = None – A user defined mapping of amino acid type, hydrophobicity value
                 pairs
@@ -8059,7 +8063,7 @@ class Pose(SymmetricModel, Metrics):
         return entity1_residues, entity2_residues
 
     def _find_interface_atom_pairs(self, entity1: Entity = None, entity2: Entity = None, distance: float = 4.68,
-                                   **kwargs) -> list[tuple[int, int]] | None:
+                                   residue_distance: float = None, **kwargs) -> list[tuple[int, int]] | None:
         """Get pairs of heavy atom indices that are within a distance at the interface between two Entities
 
         Caution: Pose must have Coords representing all atoms! Residue pairs are found using CB indices from all atoms
@@ -8069,7 +8073,8 @@ class Pose(SymmetricModel, Metrics):
         Args:
             entity1: First Entity to measure interface between
             entity2: Second Entity to measure interface between
-            distance: The distance to measure contacts between atoms. Default = CB radius + 2.8 H2O probe. Was 3.28
+            distance: The distance to measure contacts between atoms. Default = CB diameter + 2.8 H2O probe. Was 3.28
+            residue_distance: The distance to residue contacts in the interface. Uses the default if None
         Keyword Args:
             oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
         Sets:
@@ -8078,17 +8083,19 @@ class Pose(SymmetricModel, Metrics):
         Returns:
             The Atom indices for the interface
         """
+        if residue_distance is not None:
+            # Force interface residue identification
+            self.interface_residues_by_entity_pair[(entity1, entity2)] = \
+                self.get_interface_residues(entity1=entity1, entity2=entity2, distance=residue_distance, **kwargs)
+
         try:
             residues1, residues2 = self.interface_residues_by_entity_pair[(entity1, entity2)]
         except KeyError:  # When interface_residues haven't been set
             self.interface_residues_by_entity_pair[(entity1, entity2)] = \
                 self.get_interface_residues(entity1=entity1, entity2=entity2, **kwargs)
-            try:
-                residues1, residues2 = self.interface_residues_by_entity_pair[(entity1, entity2)]
-            except KeyError:
-                raise DesignError(
-                    f"{self._find_interface_atom_pairs.__name__} can't access interface_residues as the Entity pair "
-                    f"{entity1.name}, {entity2.name} hasn't located interface_residues")
+            raise DesignError(
+                f"{self._find_interface_atom_pairs.__name__} can't access interface_residues as the Entity pair "
+                f"{entity1.name}, {entity2.name} hasn't located interface_residues")
 
         if not residues1:
             return
@@ -8149,7 +8156,7 @@ class Pose(SymmetricModel, Metrics):
         return interface_counts.mean()
 
     def query_interface_for_fragments(self, entity1: Entity = None, entity2: Entity = None,
-                                      oligomeric_interfaces: bool = False):
+                                      oligomeric_interfaces: bool = False, **kwargs):
         """For all found interface residues in an Entity/Entity interface, search for corresponding fragment pairs
 
         Args:
@@ -8805,7 +8812,7 @@ class Pose(SymmetricModel, Metrics):
 
         return parsed_design_residues
 
-    def rosetta_residue_processing(self, design_scores: dict[str, dict[str, float | str]]) -> \
+    def process_rosetta_residue_scores(self, design_scores: dict[str, dict[str, float | str]]) -> \
             dict[str, dict[int, dict[str, float | list]]]:
         """Process Residue Metrics from Rosetta score dictionary (One-indexed residues) accounting for symmetric energy
 
@@ -8946,7 +8953,7 @@ class Pose(SymmetricModel, Metrics):
                 meta_data = column.split('_')  # ['hbonds', 'res', 'selection', 'complex/interface_number', '[unbound]']
                 # Offset rosetta numbering to python index and make asu index using the modulus
                 parsed_hbond_indices = set((int(hbond)-1) % pose_length
-                                           for hbond in value.split(',') if hbond != '')  # '' in case theres no hbonds
+                                           for hbond in value.split(',') if hbond != '')  # '' in case no hbonds
                 # if meta_data[-1] == 'bound' and offset:  # find offset according to chain
                 #     res_offset = offset[meta_data[-2]]
                 #     parsed_hbonds = set(residue + res_offset for residue in parsed_hbonds)

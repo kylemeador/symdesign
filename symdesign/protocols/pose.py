@@ -3029,7 +3029,7 @@ class PoseProtocol(PoseData):
 
         # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
         # residue_info.update(self.pose.rosetta_residue_processing(structure_design_scores))
-        residue_info = self.pose.rosetta_residue_processing(scores)
+        residue_info = self.pose.process_rosetta_residue_scores(scores)
         # Can't use residue_processing (clean) ^ in the case there is a design without metrics... columns not found!
         residue_info = metrics.process_residue_info(residue_info, hbonds=self.pose.rosetta_hbond_processing(scores))
 
@@ -4498,7 +4498,7 @@ class PoseProtocol(PoseData):
             # Todo remove dirty when columns are correct (after P432)
             #  and column tabulation precedes residue/hbond_processing
             # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
-            residue_info.update(self.pose.rosetta_residue_processing(structure_design_scores))
+            residue_info.update(self.pose.process_rosetta_residue_scores(structure_design_scores))
             # Can't use residue_processing (clean) ^ in the case there is a design without metrics... columns not found!
             residue_info = metrics.process_residue_info(residue_info,
                                                         hbonds=self.pose.rosetta_hbond_processing(structure_design_scores))

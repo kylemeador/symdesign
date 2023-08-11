@@ -187,6 +187,7 @@ def multicomponent_by_number(number):
 valid_subunit_number = {'C1': 1, 'C2': 2, 'C3': 3, 'C4': 4, 'C5': 5, 'C6': 6,
                         'D2': 4, 'D3': 6, 'D4': 8, 'D5': 10, 'D6': 12,
                         'T': 12, 'O': 24, 'I': 60}
+subunit_number_to_symmetry = dict(zip(valid_subunit_number.values(), valid_subunit_number.keys()))
 valid_symmetries = list(valid_subunit_number.keys())
 multicomponent_valid_subunit_number = \
     {sym: multicomponent_by_number(copy_number) for sym, copy_number in valid_subunit_number.items()}

@@ -611,7 +611,7 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
         residue_contact_order_z: The per-residue contact order z score from a reference structure
         reference_collapse: The per-residue hydrophobic collapse values measured from a reference sequence
     Keyword Args:
-        hydrophobicity: int = 'standard' – The hydrophobicity scale to consider. Either 'standard' (FILV),
+        hydrophobicity: str = 'standard' – The hydrophobicity scale to consider. Either 'standard' (FILV),
             'expanded' (FMILYVW), or provide one with 'custom' keyword argument
         custom: mapping[str, float | int] = None – A user defined mapping of amino acid type, hydrophobicity value pairs
         alphabet_type: alphabet_types = None – The amino acid alphabet if the sequence consists of integer characters

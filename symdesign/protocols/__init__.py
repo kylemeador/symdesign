@@ -351,21 +351,22 @@ def check_unmodeled_clashes(job: pose.PoseJob, clashing_threshold: float = 0.75)
     # models = [Models.from_file(job.job.structure_db.full_models.retrieve_data(name=entity))
     #           for entity in job.entity_names]
 
-    # for each model, transform to the correct space
+    # For each model, transform to the correct space
     models = job.transform_structures_to_pose(models)
     multimodel = MultiModel.from_models(models, independent=True, log=job.log)
 
-    clashes = 0
-    prior_clashes = 0
+    clashes = prior_clashes = 0
     for idx, state in enumerate(multimodel, 1):
-        clashes += (1 if state.is_clash() else 0)
+        clashes += (1 if state.is_clash(measure=job.job.design.clash_criteria,
+                                        distance=job.job.design.clash_distance) else 0)
         state.write(out_path=os.path.join(job.path, f'state_{idx}.pdb'))
-        print(f'State {idx} - Clashes: {"YES" if clashes > prior_clashes else "NO"}')
+        logger.info(f'State {idx} - Clashes: {"YES" if clashes > prior_clashes else "NO"}')
         prior_clashes = clashes
 
     if clashes / float(len(multimodel)) > clashing_threshold:
-        raise ClashError(f'The frequency of clashes ({clashes / float(len(multimodel))}) exceeds the clashing '
-                         f'threshold ({clashing_threshold})')
+        raise ClashError(
+            f'The frequency of clashes ({clashes / float(len(multimodel))}) exceeds the clashing '
+            f'threshold ({clashing_threshold})')
 
 
 @protocol_decorator()
@@ -417,10 +418,9 @@ def orient(job: pose.PoseJob, to_pose_directory: bool = True):
         job.log.info(f'The oriented file was saved to {orient_file}')
         for entity in job.initial_model.entities:
             entity.remove_mate_chains()
-            # job.entity_names.append(entity.name)
 
         # Load the pose and save the asu
-        job.load_pose()  # entities=model.entities)
+        job.load_pose()
     else:
         raise SymmetryError(warn_missing_symmetry % orient.__name__)
 

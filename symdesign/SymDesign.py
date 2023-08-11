@@ -1459,14 +1459,30 @@ def main():
                                 # There could be an issue here where the same entity.entity_id could be used for
                                 # different entity.uniprot_ids and sql.initialize_metadata() would overwrite the first
                                 # entity_id upon seeing the second.
+                                error_str = f"Couldn't set up the {repr(pose_job)} {repr(entity)} with a " \
+                                            f"corresponding {sql.ProteinMetadata.__name__} entry. Found " \
+                                            f"{repr(entity)} features: .entity_id={entity.entity_id} " \
+                                            f".uniprot_ids={entity.uniprot_ids}"
                                 available_entity_ids = \
                                     [data.entity_id for data in all_uniprot_id_to_prot_data[entity.uniprot_ids]]
-                                raise utils.InputError(
-                                    f"Couldn't set up the {repr(pose_job)} {repr(entity)} with a corresponding "
-                                    f"{sql.ProteinMetadata.__name__} entry. Found {repr(entity)} features:"
-                                    f" .entity_id={entity.entity_id} .uniprot_ids={entity.uniprot_ids} and "
-                                    f"corresponding {sql.ProteinMetadata.__name__} entries:"
-                                    f"{', '.join(available_entity_ids)}")
+                                if available_entity_ids:
+                                    raise utils.InputError(
+                                        f"{error_str} and corresponding {sql.ProteinMetadata.__name__} entries:"
+                                        f"{', '.join(available_entity_ids)}")
+
+                                # Otherwise, this is likely a random_accession like format "Rid" that doesn't match an
+                                # entity_id already imported
+                                _found = False
+                                for protein_metadatas in all_uniprot_id_to_prot_data.values():
+                                    for protein_metadata in protein_metadatas:
+                                        if protein_metadata.entity_id == entity.entity_id:
+                                            entity_data.append(sql.EntityData(meta=protein_metadata))
+                                            _found = True
+                                            break
+                                    if _found:
+                                        break
+                                else:
+                                    raise utils.InputError(error_str)
                         pose_job.entity_data = entity_data
 
                         # Todo this could be useful if optimizing database access with concurrency
