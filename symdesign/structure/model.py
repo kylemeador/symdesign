@@ -24,7 +24,8 @@ from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementatio
 # from sqlalchemy.ext.hybrid import hybrid_property
 
 from . import fragment
-from .base import Structure, Structures, Residue, StructureBase, atom_or_residue_literal, sasa_burial_threshold
+from .base import Structure, Structures, Residue, StructureBase, atom_or_residue_literal, sasa_burial_threshold, \
+    default_clash_distance, coords_type_literal, default_clash_criteria
 from .coords import Coords, superposition3d, superposition3d_quat, transform_coordinate_sets
 from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type
 from .sequence import SequenceProfile, Profile, pssm_as_array, default_fragment_contribution, sequence_to_numeric, \
@@ -4547,9 +4548,6 @@ class SymmetricModel(Model):  # Models):
                 else:
                     self.sym_entry = sym_entry  # Attach as this is set up properly
             else:  # Try to solve using sym_entry as integer and any info in symmetry.
-                # Fails upon non-Nanohedra, chiral space-groups...
-                if not symmetry:
-                    symmetry = crystal_symmetry
                 self.sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(
                     sym_entry_number=sym_entry, symmetry=symmetry)
         elif symmetry:  # Provided without uc_dimensions, crystal=True, or cryst_record. Assuming point group
@@ -6221,21 +6219,22 @@ class SymmetricModel(Model):  # Models):
             else:
                 self.log.debug(f'Entity {entity} is already the correct oligomer, skipping make_oligomer()')
 
-    def symmetric_assembly_is_clash(self, distance: float = 2.1, warn: bool = False) -> bool:  # Todo design_selector
-        """Returns True if the SymmetricModel presents any clashes. Checks only backbone and CB atoms
+    def symmetric_assembly_is_clash(self, measure: coords_type_literal = default_clash_criteria,
+                                    distance: float = default_clash_distance, warn: bool = False) -> bool:
+        """Returns True if the SymmetricModel presents any clashes at the specified distance
 
         Args:
-            distance: The cutoff distance for the coordinate overlap
+            measure: The atom type to measure clashing by
+            distance: The distance which clashes should be checked
             warn: Whether to emit warnings about identified clashes
         Returns:
             True if the symmetric assembly clashes with the asu, False otherwise
         """
         if not self.is_symmetric():
-            # raise SymmetryError(
             self.log.warning("Can't check if the assembly is clashing as it has no symmetry")
             return False
-
-        clashes = self.assembly_tree.two_point_correlation(self.coords[self.backbone_and_cb_indices], [distance])
+        indices = self.__getattribute__(f'{measure}_indices')
+        clashes = self.assembly_tree.two_point_correlation(self.coords[indices], [distance])
         if clashes[0] > 0:
             if warn:
                 self.log.warning(

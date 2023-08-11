@@ -929,11 +929,13 @@ def helix_bending(job: pose.PoseJob):
     for bent_idx, coords in enumerate(bent_coords, 1):
         job.pose.coords = coords
         # Check for clashes
-        if job.pose.is_clash(silence_exceptions=True):
+        if job.pose.is_clash(measure=job.design.clash_criteria,
+                             distance=job.design.clash_distance, silence_exceptions=True):
             logger.info(f'Bend index {bent_idx} clashes')
             continue
         if job.pose.is_symmetric() and not job.design.ignore_symmetric_clashes and \
-                job.pose.symmetric_assembly_is_clash():
+                job.pose.symmetric_assembly_is_clash(measure=job.design.clash_criteria,
+                                                     distance=job.design.clash_distance):
             logger.info(f'Bend index {bent_idx} has symmetric clashes')
             continue
 

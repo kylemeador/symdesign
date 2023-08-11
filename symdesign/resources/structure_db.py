@@ -442,7 +442,8 @@ class StructureDatabase(Database):
                 if structure_identifier in orient_asu_names:  # orient_asu file exists, just load
                     orient_asu_file = self.oriented_asu.retrieve_file(name=structure_identifier)
                     pose = Pose.from_file(orient_asu_file, name=structure_identifier, **pose_kwargs)
-                    if pose.symmetric_assembly_is_clash(warn=True):
+                    if pose.symmetric_assembly_is_clash(measure=self.job.design.clash_criteria,
+                                                        distance=self.job.design.clash_distance, warn=True):
                         logger.critical(f"The '{structure_identifier}' Model isn't a viable symmetric assembly in the "
                                         f"symmetry {resulting_symmetry}. Couldn't initialize")
                         continue
@@ -458,7 +459,8 @@ class StructureDatabase(Database):
                     orient_file = self.oriented.retrieve_file(name=structure_identifier)
                     # These name=structure_identifier should be the default parsing method anyway...
                     pose = Pose.from_file(orient_file, name=structure_identifier, **pose_kwargs)
-                    if pose.symmetric_assembly_is_clash(warn=True):
+                    if pose.symmetric_assembly_is_clash(measure=self.job.design.clash_criteria,
+                                                        distance=self.job.design.clash_distance, warn=True):
                         logger.critical(f"The '{structure_identifier}' Model isn't a viable symmetric assembly in the "
                                         f"symmetry {resulting_symmetry}. Couldn't initialize")
                         continue

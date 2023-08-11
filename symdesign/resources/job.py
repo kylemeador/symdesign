@@ -505,6 +505,7 @@ class JobResources:
 
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
 
+        self.interface_distance = kwargs.get('interface_distance')
         self.interface = kwargs.get('interface')
         self.interface_only = kwargs.get('interface_only')
         self.oligomeric_interfaces = kwargs.get('oligomeric_interfaces')

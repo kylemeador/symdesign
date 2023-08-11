@@ -63,6 +63,9 @@ SS_HELIX_IDENTIFIERS = 'H'  # Todo is 310 helix desired?
 SS_TURN_IDENTIFIERS = 'T'
 SS_DISORDER_IDENTIFIERS = 'C'
 coords_type_literal = Literal['all', 'backbone', 'backbone_and_cb', 'ca', 'cb', 'heavy']
+coords_types: tuple[coords_type_literal, ...] = get_args(coords_type_literal)
+default_clash_criteria = 'backbone_and_cb'
+default_clash_distance = 2.1
 directives = Literal['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding',
                      'branched']
 mutation_directives: tuple[directives, ...] = get_args(directives)
@@ -4742,7 +4745,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         return [residue.local_density for residue in self.residues]
 
-    def is_clash(self, measure: coords_type_literal = 'backbone_and_cb', distance: float = 2.1,
+    def is_clash(self, measure: coords_type_literal = default_clash_criteria, distance: float = default_clash_distance,
                  warn: bool = False, silence_exceptions: bool = False,
                  report_hydrogen: bool = False) -> bool:
         """Check if the Structure contains any self clashes. If clashes occur with the Backbone, return True. Reports

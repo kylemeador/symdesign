@@ -1298,7 +1298,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             self.pose = Pose.from_file(self.structure_source, name=self.name, **self.pose_kwargs)
 
         try:
-            self.pose.is_clash(warn=not self.job.design.ignore_clashes)
+            self.pose.is_clash(measure=self.job.design.clash_criteria,
+                               distance=self.job.design.clash_distance,
+                               warn=not self.job.design.ignore_clashes)
         except ClashError:  # as error:
             if self.job.design.ignore_pose_clashes:
                 self.format_error_for_log()
@@ -1310,7 +1312,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 #      f'{flags.format_args(flags.ignore_pose_clashes_args)}'
                 raise
         if self.pose.is_symmetric():
-            if self.pose.symmetric_assembly_is_clash():
+            if self.pose.symmetric_assembly_is_clash(measure=self.job.design.clash_criteria,
+                                                     distance=self.job.design.clash_distance):
                 if self.job.design.ignore_symmetric_clashes:
                     # self.format_error_for_log()
                     self.log.warning(f"The Pose symmetric assembly from '{self.structure_source}' contains clashes. ")
@@ -1475,9 +1478,12 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             entities: Whether to perform fragment generation on each Entity
         """
         if interface:
-            self.pose.generate_interface_fragments(oligomeric_interfaces=oligomeric_interfaces)
+            self.pose.generate_interface_fragments(oligomeric_interfaces=oligomeric_interfaces,
+                                                   distance=self.job.interface_distance)
+
         if entities:
-            self.pose.generate_fragments(oligomeric_interfaces=oligomeric_interfaces)
+            self.pose.generate_fragments(oligomeric_interfaces=oligomeric_interfaces,
+                                         distance=self.job.interface_distance)
 
         if self.job.output_fragments:
             putils.make_path(self.frags_path)

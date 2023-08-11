@@ -1536,7 +1536,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
                 cluster_map = utils.unpickle(job.cluster.map)
             else:
                 raise FileNotFoundError(
-                    f'No {flags.format_args(flags.cluster_map_args)} "{job.cluster.map}" file was found')
+                    f'No "{job.cluster.map}" file was found')
 
             final_pose_indices = select_from_cluster_map(pose_jobs, cluster_map, number=job.cluster.number)
             final_poses = [pose_jobs[idx] for idx in final_pose_indices]
@@ -1726,7 +1726,7 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
                 cluster_map = utils.unpickle(job.cluster.map)
             else:
                 raise FileNotFoundError(
-                    f'No {flags.format_args(flags.cluster_map_args)} "{job.cluster.map}" file was found')
+                    f'No "{job.cluster.map}" file was found')
 
             final_pose_indices = select_from_cluster_map(pose_jobs, cluster_map, number=job.cluster.number)
             final_poses = [pose_jobs[idx] for idx in final_pose_indices]

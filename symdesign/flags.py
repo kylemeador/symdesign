@@ -15,7 +15,7 @@ from symdesign.sequence import constants, optimization_species_literal
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
-from symdesign.structure.base import termini_literal
+from symdesign.structure.base import termini_literal, default_clash_criteria, default_clash_distance, coords_types
 from symdesign.utils import handle_errors, InputError, log_level, remove_digit_table, path as putils, \
     pretty_format_table, to_iterable, logging_levels
 from symdesign.utils.SymEntry import query_mode_args
@@ -56,6 +56,7 @@ min_matched = 'min_matched'
 minimum_matched = 'minimum_matched'
 match_value = 'match_value'
 initial_z_value = 'initial_z_value'
+interface_distance = 'interface_distance'
 only_write_frag_info = 'only_write_frag_info'
 proteinmpnn_score = 'proteinmpnn_score'
 contiguous_ghosts = 'contiguous_ghosts'
@@ -68,6 +69,8 @@ dock_filter = 'dock_filter'
 dock_filter_file = 'dock_filter_file'
 dock_weight = 'dock_weight'
 dock_weight_file = 'dock_weight_file'
+clash_distance = 'clash_distance'
+clash_criteria = 'clash_criteria'
 cluster_map = 'cluster_map'
 cluster_mode = 'cluster_mode'
 cluster_number = 'cluster_number'
@@ -110,6 +113,8 @@ pre_loop_modeled = 'pre_loop_modeled'
 pre_refined = 'pre_refined'
 initialize_building_blocks = 'initialize_building_blocks'
 background_profile = 'background_profile'
+pdb_code1 = 'pdb_code1'
+pdb_code2 = 'pdb_code2'
 pdb_codes1 = 'pdb_codes1'
 pdb_codes2 = 'pdb_codes2'
 update_metadata = 'update_metadata'
@@ -151,8 +156,8 @@ cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
 }
 design_namespace = {
-    consensus, ca_only, design_method, design_number, evolution_constraint, hbnet, ignore_clashes, ignore_clashes,
-    ignore_pose_clashes, ignore_symmetric_clashes, interface, neighbors, proteinmpnn_model_name, scout,
+    consensus, ca_only, clash_distance, clash_criteria, design_method, design_number, evolution_constraint, hbnet,
+    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, interface, neighbors, proteinmpnn_model_name, scout,
     sequences, structure_background, structures, term_constraint, temperatures
 }
 dock_namespace = {
@@ -268,6 +273,7 @@ min_matched = format_for_cmdline(min_matched)
 minimum_matched = format_for_cmdline(minimum_matched)
 match_value = format_for_cmdline(match_value)
 initial_z_value = format_for_cmdline(initial_z_value)
+interface_distance = format_for_cmdline(interface_distance)
 only_write_frag_info = format_for_cmdline(only_write_frag_info)
 proteinmpnn_score = format_for_cmdline(proteinmpnn_score)
 contiguous_ghosts = format_for_cmdline(contiguous_ghosts)
@@ -294,6 +300,8 @@ output_directory = format_for_cmdline(output_directory)
 output_file = format_for_cmdline(output_file)
 output_surrounding_uc = format_for_cmdline(output_surrounding_uc)
 output_interface = format_for_cmdline(output_interface)
+clash_distance = format_for_cmdline(clash_distance)
+clash_criteria = format_for_cmdline(clash_criteria)
 ignore_clashes = format_for_cmdline(ignore_clashes)
 ignore_pose_clashes = format_for_cmdline(ignore_pose_clashes)
 ignore_symmetric_clashes = format_for_cmdline(ignore_symmetric_clashes)
@@ -324,6 +332,8 @@ pre_loop_modeled = format_for_cmdline(pre_loop_modeled)
 pre_refined = format_for_cmdline(pre_refined)
 initialize_building_blocks = format_for_cmdline(initialize_building_blocks)
 background_profile = format_for_cmdline(background_profile)
+pdb_code1 = format_for_cmdline(pdb_code1)
+pdb_code2 = format_for_cmdline(pdb_code2)
 pdb_codes1 = format_for_cmdline(pdb_codes1)
 pdb_codes2 = format_for_cmdline(pdb_codes2)
 update_metadata = format_for_cmdline(update_metadata)
@@ -791,6 +801,8 @@ guide_kwargs = dict(action='store_true', help=f'Display guides for the full {pro
 help_args = ('-h', '-help', '--help')
 help_kwargs = dict(action='store_true', help=f'Display argument help\nEx:'
                                              f" '{program_command} --help'")
+clash_distance_args = (f'--{clash_distance}',)
+clash_criteria_args = (f'--{clash_criteria}',)
 ignore_clashes_args = ('-ic', f'--{ignore_clashes}')
 ignore_pose_clashes_args = ('-ipc', f'--{ignore_pose_clashes}')
 ignore_symmetric_clashes_args = ('-isc', f'--{ignore_symmetric_clashes}')
@@ -874,10 +886,19 @@ options_arguments = {
                                'computational resources? This is useful on a cluster\nDefault=%(default)s'),
     ('-F', f'--{force}'): dict(action='store_true', help='Force generation of new files for existing projects'),
     guide_args: guide_kwargs,
+    (f'--{interface_distance}',): dict(type=float, default=9.0, metavar='FLOAT',
+                                       help='The default value to use for querying Cb-Cb\n'
+                                            'residue contacts across and interface'),
     ('-i', f'--{fragment_database}'): dict(type=str.lower, choices=fragment_dbs, default=biological_interfaces,
                                            metavar='',
                                            help='Database to match fragments for interface specific scoring matrices'
                                                 '\nChoices=%(choices)s\nDefault=%(default)s'),
+    clash_distance_args:
+        dict(type=float, default=default_clash_distance, metavar='FLOAT',
+             help='What distance should be used for clash checking?\nDefault=%(default)s'),
+    clash_criteria_args:
+        dict(default=default_clash_criteria, choices=coords_types,
+             help='What type of atom should be used for clash checking?'),
     ignore_clashes_args:
         dict(action='store_true', help='Ignore ANY backbone/Cb clashes found during clash checks'),
     ignore_pose_clashes_args:
@@ -1074,8 +1095,8 @@ component1_args = ('-c1', f'--{component1}')
 component2_args = ('-c2', f'--{component2}')
 component_kwargs = dict(type=os.path.abspath, metavar=ex_path('[file.ext,directory]'),
                         help=f'Path to component file(s), either directories or single file')
-pdb_codes1_args = ('-C1', f'--{pdb_codes1}')
-pdb_codes2_args = ('-C2', f'--{pdb_codes2}')
+pdb_codes1_args = ('-C1', f'--{pdb_code1}', f'--{pdb_codes1}')
+pdb_codes2_args = ('-C2', f'--{pdb_code2}', f'--{pdb_codes2}')
 pdb_codes_kwargs = dict(nargs='*',  default=tuple(),  # default=None,
                         help='Input code(s), and/or file(s) with codes where each code\n'
                              'is a PDB EntryID/EntityID/AssemblyID')
@@ -1124,8 +1145,6 @@ nanohedra_arguments = {
     (f'--{contiguous_ghosts}',): dict(action='store_true',  # argparse.BooleanOptionalAction, default=False,
                                       help='Whether to prioritize docking with ghost fragments that form continuous'
                                            '\nsegments on a single component\nDefault=%(default)s'),
-    # (f'--{dock_only}',): dict(action=argparse.BooleanOptionalAction, default=False,
-    #                           help='Whether docking should be performed without sequence design'),
     dock_filter_args: dock_filter_kwargs,
     dock_filter_file_args: dock_filter_file_kwargs,
     dock_weight_args: dock_weight_kwargs,
@@ -1141,8 +1160,6 @@ nanohedra_arguments = {
     (f'--{minimum_matched}', f'--{min_matched}'):
         dict(type=int, metavar='INT', default=3,
              help='How many high quality fragment pairs are required for a Pose to pass?\nDefault=%(default)s'),
-    # (f'--{score}',): dict(type=str, choices={'nanohedra', 'proteinmpnn'}, metavar='',  # default='nanohedra'
-    #                       help='Which metric should be used to rank output poses?\nDefault=%(default)s'),
     (f'--{only_write_frag_info}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                          help='Used to write fragment information to a directory for C1 based docking'),
     output_directory_args:
@@ -1179,7 +1196,7 @@ nanohedra_arguments = {
                                               'degrees of freedom search\nDefault=%(default)s'),
     trim_termini_args: trim_termini_kwargs,
 }
-# parser_nanohedra_run_type_mutual_group = dict()  # required=True <- adding below to different parsers depending on need
+# parser_nanohedra_run_type_mutual_group = dict()  # required=True <- adding to parsers depending on need below
 # nanohedra_run_type_mutual_arguments = {
 #     sym_entry_args: sym_entry_kwargs,
 # }
@@ -1195,11 +1212,11 @@ initialize_building_blocks_arguments = {
                                          'particular value in the database'),
 }
 # ---------------------------------------------------
-cluster_map_args = ('-c', f'--{cluster_map}')
-cluster_map_kwargs = dict(type=os.path.abspath,
-                          metavar=ex_path(default_clustered_pose_file.format('TIMESTAMP', 'LOCATION')),
-                          help='The location of a serialized file containing spatially\nor interfacial '
-                               'clustered poses')
+# cluster_map_args = ('-c', f'--{cluster_map}')
+# cluster_map_kwargs = dict(type=os.path.abspath,
+#                           metavar=ex_path(default_clustered_pose_file.format('TIMESTAMP', 'LOCATION')),
+#                           help='The location of a serialized file containing spatially\nor interfacial '
+#                                'clustered poses')
 cluster_selection_args = ('-Cs', f'--{cluster_selection}')
 cluster_selection_kwargs = dict(action='store_true',
                                 help='Whether clustering should be performed using select-* results')
@@ -1419,7 +1436,6 @@ weight_function_kwargs = dict(type=str.lower, choices=config.metric_weight_funct
                                    '\nChoices=%(choices)s\nDefault=%(default)s')
 # ---------------------------------------------------
 select_arguments = {
-    # cluster_map_args: cluster_map_kwargs,
     cluster_selection_args: cluster_selection_kwargs,
     filter_args: filter_kwargs,
     filter_file_args: filter_file_kwargs,
@@ -1541,8 +1557,6 @@ update_db_arguments = {}
 #     output_file_args: dict(required=True, help='The location to write the commands')
 # }
 # ---------------------------------------------------
-# parser_asu = subparsers.add_parser('find_asu', description='From a symmetric assembly, locate an ASU and save the result.')
-# ---------------------------------------------------
 check_clashes_help = 'Check for any clashes in the input poses.\n' \
                      'This is always performed by default at Pose load and will \n' \
                      'raise a ClashError if clashes are found'
@@ -1598,10 +1612,24 @@ parser_input = {input_: dict(description=input_help)}  # , help=input_help
 parser_input_group = dict(title=f'{"_" * len(input_title)}\n{input_title}',
                           description=f'\n{input_help}')
 input_arguments = {
-    cluster_map_args: cluster_map_kwargs,
-    ('-df', f'--{dataframe}'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
-                                    help=f'A DataFrame created by {program_name} analysis containing\n'
-                                         'pose metrics. File is output in .csv format'),
+    poses_args: dict(type=os.path.abspath, nargs='*', default=tuple(),
+                     metavar=ex_path(default_path_file.format('TIMESTAMP', 'MODULE', 'LOCATION')),
+                     help=f'For each run of {program_name}, a file will be created that\n'
+                          f'specifies the specific poses used during that module. Use\n'
+                          f'these files to interact with those poses in subsequent commands'),
+    #                       'If pose identifiers are specified in a file, say as the result of\n'
+    #                       f'{select_poses} or {select_designs}'),
+    specification_file_args:
+        dict(type=os.path.abspath, nargs='*', default=tuple(), metavar=ex_path('pose_design_specifications.csv'),
+             help='Name of comma separated file with each line formatted:\n'
+             # 'poseID, [designID], [1:directive 2-9:directive ...]\n'
+                  '"pose_identifier, [design_name], [1:directive 2-9:directive ...]"\n'
+                  'where [] indicate optional arguments. Both individual residue\n'
+                  'numbers and ranges (specified with "-") are possible indicators'),
+    # cluster_map_args: cluster_map_kwargs,
+    # ('-df', f'--{dataframe}'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
+    #                                 help=f'A DataFrame created by {program_name} analysis containing\n'
+    #                                      'pose metrics. File is output in .csv format'),
     fuse_chains_args: dict(nargs='*', default=tuple(), metavar='A:B C:D',
                            help='The name of a pair of chains to fuse during design. Paired\n'
                                 'chains should be separated by a colon, with the n-terminal\n'
@@ -1611,13 +1639,6 @@ input_arguments = {
     load_to_db_args: load_to_db_kwargs,
     # ('-N', f'--{nanohedra}V1-output'): dict(action='store_true', dest=nanohedra_output,
     #                                         help='Is the input a Nanohedra wersion 1 docking output?'),
-    poses_args: dict(type=os.path.abspath, nargs='*', default=tuple(),
-                     metavar=ex_path(default_path_file.format('TIMESTAMP', 'MODULE', 'LOCATION')),
-                     help=f'For each run of {program_name}, a file will be created that\n'
-                          f'specifies the specific poses used during that module. Use\n'
-                          f'these files to interact with those poses in subsequent commands'),
-    #                       'If pose identifiers are specified in a file, say as the result of\n'
-    #                       f'{select_poses} or {select_designs}'),
     # ('-P', f'--{preprocessed}'): dict(action='store_true',
     #                                   help='Whether the designs of interest have been preprocessed for the '
     #                                        f'{current_energy_function}\nenergy function and/or missing loops'),
@@ -1637,13 +1658,6 @@ input_arguments = {
                           'Specify a %% between 0 and 100, separating the range by "-"\n'
                           # Required ^ for formatting
                           'Ex: 0-25'),
-    specification_file_args:
-        dict(type=os.path.abspath, nargs='*', default=tuple(), metavar=ex_path('pose_design_specifications.csv'),
-             help='Name of comma separated file with each line formatted:\n'
-                  # 'poseID, [designID], [1:directive 2-9:directive ...]\n'
-                  '"pose_identifier, [design_name], [1:directive 2-9:directive ...]"\n'
-                  'where [] indicate optional arguments. Both individual residue\n'
-                  'numbers and ranges (specified with "-") are possible indicators'),
     (f'--{specify_entities}',): dict(action='store_true', help='Whether to initialize input Poses with user specified\n'
                                                                'identities of each constituent Entity')
 }
@@ -1660,7 +1674,8 @@ parser_input_mutual_group = dict()  # required=True <- adding kwarg below to dif
 input_mutual_arguments = {
     directory_args: directory_kwargs,
     file_args: file_kwargs,
-    project_args: dict(type=os.path.abspath, nargs='*', default=tuple(), metavar=ex_path(program_output, projects, 'yourProject'),
+    project_args: dict(type=os.path.abspath, nargs='*', default=tuple(),
+                       metavar=ex_path(program_output, projects, 'yourProject'),
                        help='Operate on designs specified within a project(s)'),
     single_args: dict(type=os.path.abspath, nargs='*', default=tuple(),
                       metavar=ex_path(program_output, projects, 'yourProject', 'single_pose[.pdb]'),
@@ -1720,16 +1735,17 @@ output_parser_groups = dict(output=parser_output_group)
 option_parser_groups = dict(options=parser_options_group)
 symmetry_parser_groups = dict(symmetry=parser_symmetry_group)
 residue_selector_parser_groups = {residue_selector: parser_residue_selector_group}
+mutual_keyword = '_mutual'
 module_parser_groups = {
     orient: parser_orient,
+    f'{align_helices}{mutual_keyword}1': parser_component_mutual1_group,
+    f'{align_helices}{mutual_keyword}2': parser_component_mutual2_group,
     align_helices: parser_align_helices,
-    f'{align_helices}_mutual1': parser_component_mutual1_group,
-    f'{align_helices}_mutual2': parser_component_mutual2_group,
     helix_bending: parser_helix_bending,
     refine: parser_refine,
+    f'{nanohedra}{mutual_keyword}1': parser_component_mutual1_group,
+    f'{nanohedra}{mutual_keyword}2': parser_component_mutual2_group,
     nanohedra: parser_nanohedra,
-    f'{nanohedra}_mutual1': parser_component_mutual1_group,
-    f'{nanohedra}_mutual2': parser_component_mutual2_group,
     # f'{nanohedra}_mutual_run_type': parser_nanohedra_run_type_mutual_group,
     cluster_poses: parser_cluster,
     design: parser_design,
@@ -1754,8 +1770,8 @@ module_parser_groups = {
     # distribute: parser_distribute,
     # These are decoy modules to help with argument parsing
     all_flags: parser_all_flags,
+    f'input{mutual_keyword}': parser_input_mutual_group,
     input_: parser_input,
-    'input_mutual': parser_input_mutual_group,
     options: parser_options,
     output: parser_output,
     residue_selector: parser_residue_selector,
@@ -1769,18 +1785,18 @@ module_parser_groups = {
 #  {module: dict(flags=getattr(globals(), f'{module}_arguments'),
 #                groups=getattr(globals(), f'parser_{module}_group'))
 #  }
-module_required = [f'{nanohedra}_mutual1']
+module_required = [f'{nanohedra}{mutual_keyword}1']
 parser_arguments = {
     orient: orient_arguments,
+    f'{align_helices}{mutual_keyword}1': component_mutual1_arguments,  # mutually_exclusive_group
+    f'{align_helices}{mutual_keyword}2': component_mutual2_arguments,  # mutually_exclusive_group
     align_helices: align_helices_arguments,
-    f'{align_helices}_mutual1': component_mutual1_arguments,  # mutually_exclusive_group
-    f'{align_helices}_mutual2': component_mutual2_arguments,  # mutually_exclusive_group
     helix_bending: helix_bending_arguments,
     refine: refine_arguments,
+    f'{nanohedra}{mutual_keyword}1': component_mutual1_arguments,  # mutually_exclusive_group
+    f'{nanohedra}{mutual_keyword}2': component_mutual2_arguments,  # mutually_exclusive_group
     nanohedra: nanohedra_arguments,
-    f'{nanohedra}_mutual1': component_mutual1_arguments,  # mutually_exclusive_group
-    f'{nanohedra}_mutual2': component_mutual2_arguments,  # mutually_exclusive_group
-    # f'{nanohedra}_mutual_run_type': nanohedra_run_type_mutual_arguments,  # mutually_exclusive
+    # f'{nanohedra}{mutual_keyword}_run_type': nanohedra_run_type_mutual_arguments,  # mutually_exclusive
     cluster_poses: cluster_poses_arguments,
     design: design_arguments,
     interface_design: interface_design_arguments,
@@ -1801,8 +1817,8 @@ parser_arguments = {
     # distribute: distribute_arguments,
     # These are decoy modules to help with argument parsing
     all_flags: all_flags_arguments,
+    f'input{mutual_keyword}': input_mutual_arguments,  # add_mutually_exclusive_group
     input_: input_arguments,
-    'input_mutual': input_mutual_arguments,  # add_mutually_exclusive_group
     options: options_arguments,
     output: output_arguments,
     residue_selector: residue_selector_arguments,
@@ -1847,9 +1863,9 @@ module_suparsers: dict[str, argparse.ArgumentParser] = {}
 for parser_name, parser_kwargs in module_parser_groups.items():
     flags_kwargs = parser_arguments.get(parser_name, {})
     """flags_kwargs has args (flag names) as key and keyword args (flag params) as values"""
-    if 'mutual' in parser_name:  # We must create a mutually_exclusive_group from already formed subparser
-        # Remove indication to "mutual" of the argparse group by removing any characters after "_mutual"
-        exclusive_parser = module_suparsers[parser_name[:parser_name.find('_mutual')]].\
+    if mutual_keyword in parser_name:  # Create a mutually_exclusive_group from already formed subparser
+        # Remove indication to "mutual" of the argparse group by removing any characters after mutual_keyword
+        exclusive_parser = module_suparsers[parser_name[:parser_name.find(mutual_keyword)]].\
             add_mutually_exclusive_group(**parser_kwargs, **(dict(required=True) if parser_name in module_required
                                                              else {}))
         # Add the key word argument "required" to mutual parsers that use it ^
@@ -1878,12 +1894,17 @@ def set_up_parser_with_groups(parser: argparse.ArgumentParser, parser_groups: di
     for parser_name, parser_kwargs in parser_groups.items():
         flags_kwargs = parser_arguments.get(parser_name, {})
         """flags_kwargs has args (flag names) as key and keyword args (flag params) as values"""
-        if 'mutual' in parser_name:  # Only has a dictionary as parser_arguments
+        if mutual_keyword in parser_name:  # Only has a dictionary as parser_arguments
+            if group is None:
+                # Remove indication to "mutual" of the argparse group by removing any characters after mutual_keyword
+                group_parser_kwargs = parser_groups[parser_name[:parser_name.find(mutual_keyword)]]
+                group = parser.add_argument_group(**group_parser_kwargs)
             exclusive_parser = group.add_mutually_exclusive_group(required=required, **parser_kwargs)
             for flags_, kwargs in flags_kwargs.items():
                 exclusive_parser.add_argument(*flags_, **kwargs)
         else:
-            group = parser.add_argument_group(**parser_kwargs)
+            if group is None:
+                group = parser.add_argument_group(**parser_kwargs)
             for flags_, kwargs in flags_kwargs.items():
                 group.add_argument(*flags_, **kwargs)
 
@@ -1923,27 +1944,6 @@ entire_parser = argparse.ArgumentParser(**entire_argparser)
 set_up_parser_with_groups(entire_parser, input_parser_groups)
 
 # # can't set up module_parser via a parent due to mutually_exclusive groups formatting messed up in help, repeat above
-# # Set up entire ArgumentParser with module arguments
-# subparsers = parser.add_subparsers(**module_subargparser)
-# entire_module_suparsers: dict[str, argparse.ArgumentParser] = {}
-# for parser_name, parser_kwargs in module_parser_groups.items():
-#     arguments = parser_arguments.get(parser_name, {})
-#     """arguments has args (flag names) as key and keyword args (flag params) as values"""
-#     if 'mutual' in parser_name:  # Create a mutually_exclusive_group from already formed subparser
-#         # remove any indication to "mutual" of the argparse group v
-#         exclusive_parser = \
-#             entire_module_suparsers['_'.join(parser_name.split('_')[:-1])].add_mutually_exclusive_group(**parser_kwargs)
-#         for args, kwargs in arguments.items():
-#             exclusive_parser.add_argument(*args, **kwargs)
-#     else:  # Save the subparser in a dictionary to access with mutual groups
-#         entire_module_suparsers[parser_name] = subparsers.add_parser(prog=module_usage_str.format(parser_name),
-#                                                                      # prog=f'python SymDesign.py %(name) '
-#                                                                      #      f'[input_arguments] [optional_arguments]',
-#                                                                      formatter_class=Formatter, allow_abbrev=False,
-#                                                                      name=parser_name, **parser_kwargs[parser_name])
-#         for args, kwargs in arguments.items():
-#             entire_module_suparsers[parser_name].add_argument(*args, **kwargs)
-
 # Separate the provided arguments for modules or overall program arguments to into flags namespaces
 cluster_defaults = dict(namespace='cluster')
 """Contains all the arguments and their default parameters used in clustering Poses"""

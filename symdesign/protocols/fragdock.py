@@ -2052,7 +2052,8 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         for result_idx, transform_idx in enumerate(viable_pose_indices):
             # Find the pose
             update_pose_coords(transform_idx)
-            if not pose.symmetric_assembly_is_clash():
+            if not pose.symmetric_assembly_is_clash(measure=job.design.clash_criteria,
+                                                    distance=job.design.clash_distance):
                 _passing_symmetric_clashes[result_idx] = 1
 
         return np.flatnonzero(_passing_symmetric_clashes)
