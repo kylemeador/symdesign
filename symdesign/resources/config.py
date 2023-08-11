@@ -20,7 +20,8 @@ default_weight_parameter: dict[str, str] = {
 }
 metric_weight_functions: tuple[weight_functions_literal, ...] = get_args(weight_functions_literal)
 default_pca_variance = 0.8  # P432 designs used 0.8 percent of the variance
-
+ANGSTROM = r'$\AA$'  # Å
+DELTA = '\u0394'  # Δ
 metrics = {
     'rotation': dict(description='The rotation transformation parameter',
                      direction=None, function=None, filter=True),
@@ -68,7 +69,7 @@ metrics = {
     #     dict(description='Total buried unsaturated H-bonds in the design',
     #      direction=min_, function=rank, filter=True),
     'buried_unsatisfied_hbond_density':
-        dict(description='Buried unsatisfied H-bonds per Angstrom^2 of interface',
+        dict(description=f'Buried unsatisfied H-bonds per {ANGSTROM}\N{SUPERSCRIPT TWO} of interface',
              direction=min_, function=normalize, filter=True),
     'buried_unsatisfied_hbonds':
         dict(description='Total buried unsatisfied H-bonds in the design interface',
@@ -95,55 +96,67 @@ metrics = {
         dict(description='Whether ghost fragments were filtered for contiguous occurrences during docking',
              direction=None, function=boolean, filter=True),
     'collapse_deviation_magnitude':
-        dict(description='The total deviation in the hydrophobic collapse. Either more or less collapse prone',
+        dict(description='The total deviation in the hydrophobic collapse. Either more or less collapse prone. '
+                         'Derived from PMID:28507157',
              direction=min_, function=rank, filter=True),
     'collapse_increase_significance_by_contact_order_z':
         dict(description='Summation of positions with increased collapse from reference scaled by the inverse contact '
                          'order z-score. Where positive is more isolated collapse, and negative indicates collapse '
-                         'occurs in higher contact order sites. More significant collapse is more positive',
+                         'occurs in higher contact order sites. More significant collapse is more positive. '
+                         'Derived from PMID:28507157',
              direction=min_, function=rank, filter=True),
     'collapse_increased_z':
         dict(description='The sum of all sequence regions z-scores experiencing increased collapse. Measures the '
-                         'normalized magnitude of additional hydrophobic collapse',
+                         'magnitude of additional hydrophobic collapse. '
+                         'Derived from PMID:28507157',
              direction=min_, function=rank, filter=True),
     'collapse_increased_z_mean':
-        dict(description='Mean of the collapse_increased_z per-position experiencing increased collapse',
+        dict(description='Mean of the collapse_increased_z per-position experiencing increased collapse, i.e. '
+                         'normalized per the number of positions experiencing additional collapse. '
+                         'Derived from PMID:28507157',
              direction=min_, function=rank, filter=True),
     'collapse_new_position_significance':
         dict(description='The magnitude of the collapse_significance_by_contact_order_z (abs(deviation)) for identified'
-                         ' new collapse positions',
+                         ' new collapse positions. Derived from PMID:28507157',
              direction=min_, function=rank, filter=True),
     'collapse_new_positions':
-        dict(description='The number of new collapse positions found',
+        dict(description='The number of new collapse positions found. Derived from PMID:28507157',
              direction=min_, function=rank, filter=True),
     'collapse_sequential_peaks_z':
         dict(description='Summation of the collapse z-score for each residue scaled sequentially by the number of '
-                         'previously observed collapsable locations',
+                         'previously observed collapsable locations. Derived from PMID:28507157',
              direction=min_, function=rank, filter=True),
     'collapse_sequential_peaks_z_mean':
-        dict(description='Mean of the collapse_sequential_peaks_z per-position experiencing increased collapse',
+        dict(description='Mean of the collapse_sequential_peaks_z per-position experiencing increased collapse. '
+                         'Derived from PMID:28507157',
              direction=min_, function=rank, filter=True),
     'collapse_sequential_z':
-        dict(description='Summation of the collapse z-score for each residue scaled by the proximity to sequence start',
+        dict(description='Summation of the collapse z-score for each residue scaled by the proximity to sequence start.'
+                         ' Derived from PMID:28507157',
              direction=min_, function=rank, filter=True),
     'collapse_sequential_z_mean':
-        dict(description='Mean of the collapse_sequential_z per-position experiencing increased collapse',
+        dict(description='Mean of the collapse_sequential_z per-position experiencing increased collapse. '
+                         'Derived from PMID:28507157',
              direction=min_, function=rank, filter=True),
     'collapse_significance_by_contact_order_z':
         dict(description='Summed significance. Takes the product of collapse z-score at collapsing positions and '
                          'contact order per residue. Resulting values are positive when collapse occurs in areas with '
                          'low contact order, and negative when collapse occurs in high contact order positions. A '
                          'protein fold with high contact order may tolerate collapse differently than low contact order'
-                         ", where the segment would rely on it's collapse to fold",
+                         ", where the segment would rely on it's collapse to fold. "
+                         'Derived from PMID:28507157',
              direction=min_, function=rank, filter=True),
     'collapse_significance_by_contact_order_z_mean':
-        dict(description='Mean of the collapse_significance_by_contact_order_z per-position experiencing collapse',
+        dict(description='Mean of the collapse_significance_by_contact_order_z per-position experiencing collapse. '
+                         'Derived from PMID:28507157',
              direction=min_, function=rank, filter=True),
     'collapse_variance':
-        dict(description='The average/expected deviation of the hydrophobic collapse from a reference collapse',
+        dict(description='The average/expected deviation of the hydrophobic collapse from a reference collapse. '
+                         'Derived from PMID:28507157',
              direction=min_, function=rank, filter=True),
     'collapse_violation':
-        dict(description='Whether there are collapse_new_positions and the collapse profile is altered',
+        dict(description='Whether there are collapse_new_positions and the collapse profile is altered. '
+                         'Derived from PMID:28507157',
              direction=min_, function=rank, filter=True),  # Boolean
     'core':
         dict(description='The number of "core" residues as classified by E. Levy 2010',
@@ -216,8 +229,8 @@ metrics = {
         dict(description='Whether there are dock_collapse_new_positions and the collapse profile is altered',
              direction=min_, function=rank, filter=True),  # Boolean
     'dock_hydrophobicity':
-        dict(description='Whether there are dock_collapse_new_positions and the collapse profile is altered',
-             direction=min_, function=rank, filter=True),  # Boolean
+        dict(description='The sum of all hydrophobicity values calculated from the docking collapse profile',
+             direction=min_, function=rank, filter=True),
     'divergence_design_per_residue':
         dict(description='The Jensen-Shannon divergence of interface residues from the position specific '
                          'design profile values. Includes fragment & evolution if both are True, otherwise '
@@ -384,17 +397,21 @@ metrics = {
         dict(description='Total weight of sequence constraints used to favor certain amino acids in design. '
                          'Only protocols with a favored profile have values',
              direction=max_, function=normalize, filter=True),
+    'hydrophobicity':
+        dict(description='The sum of all hydrophobicity values calculated from the collapse profile. See PMID:28507157',
+             direction=min_, function=rank, filter=True),
     'initial_z_value':
         dict(description='The z-value of the observed fragment pair root mean squared deviation (RMSD) compared to the '
                          'fragment cluster RMSD that is required for an initial fragment match during docking',
              direction=min_, function=normalize, filter=True),
+    # Todo this metric seems wrong given the calculation of Bale 2016 versus others.
+    #  Hypothesis that the multiplicity isn't correct given the symmetry based skew
     'interaction_energy_complex':
-        dict(description='The two-body (residue-pair) energy of the complexed interface. No solvation '
-                         'energies',
+        dict(description='The two-body (residue-pair) energy of the complex. No solvation energies',
              direction=min_, function=rank, filter=True),
     'interaction_energy_per_residue':
-        dict(description='The two-body (residue-pair) energy of the complexed interface on a per-residue basis. No '
-                         'solvation energies',
+        dict(description='The two-body (residue-pair) energy of the complex on a per-residue basis. '
+                         'No solvation energies',
              direction=min_, function=rank, filter=True),
     'interface':
         dict(description='True if only interface residues were designed',
@@ -435,7 +452,8 @@ metrics = {
         dict(description='Total interface residue energy summed in the complexed state',
              direction=min_, function=rank, filter=True),
     'interface_energy_density':
-        dict(description='Interface energy per interface area^2. How much energy is achieved within the given space?',
+        dict(description=f'Interface energy per interface {ANGSTROM}\N{SUPERSCRIPT TWO}. '
+                         f'How much energy is achieved as a function of the given space?',
              direction=min_, function=rank, filter=True),
     'interface_energy_unbound':
         dict(description='Total interface residue energy summed in the unbound state',
@@ -468,30 +486,30 @@ metrics = {
         dict(description='A measure of the average number of atom neighbors for each atom in the interface',
              direction=max_, function=rank, filter=True),
     'interface_solvation_energy':  # free_energy of desolvation is positive for bound interfaces. unbound - complex
-        dict(description='The free energy resulting from hydration of the separated interface surfaces. '
-                         'Positive values indicate poorly soluble surfaces upon dissociation',
+        dict(description='The change in free energy resulting from hydration of the separated interface surfaces. '
+                         'Positive values indicate work is required to solvate surfaces upon dissociation',
              direction=min_, function=rank, filter=True),
     'interface_solvation_energy_activation':  # unbound - bound
-        dict(description='The free energy of solvation resulting from packing the bound, uncomplexed state to '
-                         'an unbound, uncomplexed state. Positive values indicate a tendency towards the bound'
-                         ' configuration',
+        dict(description='The change in solvation free energy resulting from minimizing the bound atomic configuration '
+                         'from the complex state, in the uncomplexed state. Positive values indicate work is required '
+                         'for solvating the minimized configuration',
              direction=min_, function=rank, filter=True),
     'interface_solvation_energy_bound':
-        dict(description='The desolvation free energy of the separated interface surfaces. Positive values '
-                         'indicate energy is required to desolvate',
+        dict(description='The free energy of solvation terms in the separated interface surfaces. Positive values '
+                         'indicate unfavorable solvation energy terms from the atoms in the interface',
              direction=min_, function=rank, filter=True),
     'interface_solvation_energy_complex':
-        dict(description='The desolvation free energy of the complexed interface. Positive values indicate '
-                         'energy is required to desolvate',
+        dict(description='The free energy of solvation terms in the interface complex. Positive values indicate '
+                         'energy is required to solvate upon dissociation',
              direction=min_, function=rank, filter=True),
     'interface_solvation_energy_density':
-        dict(description='The free energy resulting from hydration of the separated interface surfaces on a '
-                         'per-interface residue basis. Positive values indicate poorly soluble surfaces upon '
-                         'dissociation',
+        dict(description='The free energy resulting from hydration of the separated interface surfaces on a per '
+                         f'{ANGSTROM}\N{SUPERSCRIPT TWO} basis. Positive values indicate energy is required to solvate'
+                         ' upon dissociation',
              direction=max_, function=rank, filter=True),
     'interface_solvation_energy_unbound':
-        dict(description='The desolvation free energy of the separated, repacked, interface surfaces. Positive'
-                         ' values indicate energy is required to desolvate',
+        dict(description='The free energy of solvation terms in the separate, repacked, interface surfaces. Positive'
+                         ' values indicate energy is required to solvate',
              direction=min_, function=rank, filter=True),
     'match_value':
         dict(description='The value that is required for a high quality fragment match during docking',
@@ -672,7 +690,7 @@ metrics = {
         dict(description='The name of the model used to perform predict-structures',
              direction=None, function='equals', filter=True),
     'proteinmpnn_dock_cross_entropy_loss':
-        dict(description='The total loss between ProteinMPNN probabilities in the unbound and complexed states',
+        dict(description='The total loss between ProteinMPNN probabilities in the unbound and complex states',
              direction=max_, function=normalize, filter=True),
     'proteinmpnn_dock_cross_entropy_per_residue':
         dict(description='The per-docked interface residue loss between ProteinMPNN probabilities in the unbound and '
@@ -703,36 +721,36 @@ metrics = {
                          'and the fragment profile probabilities',
              direction=min_, function=normalize, filter=True),
     'proteinmpnn_score_complex':
-        dict(description='The per-residue average complexed ProteinMPNN score',
+        dict(description='The per-residue average complex ProteinMPNN score',
              direction=min_, function=normalize, filter=True),
     'proteinmpnn_score_complex_per_designed_residue':
-        dict(description='The average complexed proteinmpnn score for designed residues',
+        dict(description='The average complex ProteinMPNN score for designed residues',
              direction=min_, function=normalize, filter=True),
     'proteinmpnn_score_complex_per_interface_residue':
-        dict(description='The average complexed proteinmpnn score for interface residues',
+        dict(description='The average complex ProteinMPNN score for interface residues',
              direction=min_, function=normalize, filter=True),
     'proteinmpnn_score_delta':
         dict(description='The per-residue average complex-unbound ProteinMPNN score',
              direction=min_, function=normalize, filter=True),
     'proteinmpnn_score_delta_per_designed_residue':
-        dict(description='The difference between the average complexed and unbound proteinmpnn score for designed '
+        dict(description='The difference between the average complex and unbound ProteinMPNN score for designed '
                          'residues',
              direction=min_, function=normalize, filter=True),
     'proteinmpnn_score_delta_per_interface_residue':
-        dict(description='The difference between the average complexed and unbound proteinmpnn score for interface '
+        dict(description='The difference between the average complex and unbound ProteinMPNN score for interface '
                          'residues',
              direction=min_, function=normalize, filter=True),
     'proteinmpnn_score_unbound':
         dict(description='The per-residue average unbound ProteinMPNN score',
              direction=min_, function=normalize, filter=True),
     'proteinmpnn_score_unbound_per_designed_residue':
-        dict(description='The average unbound proteinmpnn score for designed residues',
+        dict(description='The average unbound ProteinMPNN score for designed residues',
              direction=min_, function=normalize, filter=True),
     'proteinmpnn_score_unbound_per_interface_residue':
-        dict(description='The average unbound proteinmpnn score for interface residues',
+        dict(description='The average unbound ProteinMPNN score for interface residues',
              direction=min_, function=normalize, filter=True),
     'proteinmpnn_loss_complex':
-        dict(description='The magnitude of information missing from the sequence in the complexed state',
+        dict(description='The magnitude of information missing from the sequence in the complex state',
              direction=min_, function=normalize, filter=True),
     'proteinmpnn_loss_unbound':
         dict(description='The magnitude of information missing from the sequence in the unbound state',

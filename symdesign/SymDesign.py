@@ -1572,7 +1572,7 @@ def main():
                 else:
                     results_ = [protocol(pose_job) for pose_job in pose_jobs]
             else:  # Collection of pose_jobs
-                results_ = protocol(pose_jobs)
+                results_ = [protocol(pose_job) for pose_job in pose_jobs]
 
             # Handle any returns that require particular treatment
             if job.module in protocols.config.returns_pose_jobs:

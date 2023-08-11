@@ -574,7 +574,7 @@ def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[s
            '-v', '1', '-cpu', str(threads)]
 
     if return_command:
-        return cmd  # subprocess.list2cmdline(cmd)
+        return cmd
 
     logger.debug(f'{name} Profile Command: {subprocess.list2cmdline(cmd)}')
     p = subprocess.Popen(cmd)
@@ -585,9 +585,8 @@ def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[s
         temp_file.unlink(missing_ok=True)
         # if os.path.exists(temp_file):  # remove hold file blocking progress
         #     os.remove(temp_file)
-        raise RuntimeError(f'Profile generation for {name} got stuck')  #
-        # raise DesignError(f'Profile generation for {self.name} got stuck. See the error for details -> {p.stderr} '
-        #                   f'output -> {p.stdout}')  #
+        raise RuntimeError(
+            f'Profile generation for {name} got stuck. Found return code {p.returncode}')  #
 
     # Preferred alignment type
     msa_file = os.path.join(out_dir, f'{name}.sto')
@@ -596,7 +595,7 @@ def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[s
     fasta_msa = os.path.join(out_dir, f'{name}.fasta')
     p = subprocess.Popen([putils.reformat_msa_exe_path, a3m_file, fasta_msa, '-M', 'first', '-r'])
     p.communicate()
-    # os.system('rm %s' % self.a3m_file)
+
     return None
 
 

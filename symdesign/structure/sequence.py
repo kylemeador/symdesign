@@ -594,10 +594,9 @@ class SequenceProfile(ABC):
             while not self._verify_evolutionary_profile():
                 if first:
                     self.log.info(f'Generating a new profile for {self.name}')
-                    self.add_evolutionary_profile(force=True)
+                    self.add_evolutionary_profile(force=True, **kwargs)
                     first = False
                 else:
-                    # Todo RuntimeError()
                     raise RuntimeError('evolutionary_profile generation got stuck')
         else:  # Set the evolutionary_profile to null
             self.evolutionary_profile = self.create_null_profile()
@@ -607,9 +606,10 @@ class SequenceProfile(ABC):
             self.simplify_fragment_profile()
         elif fragments:  # If was passed as True
             if not self.alpha:
-                raise AttributeError('Fragments were specified but have not been added to the SequenceProfile! '
-                                     f'Call {self.add_fragments_to_profile.__name__} with fragment information or pass'
-                                     f' fragments and alignment_type to {self.add_profile.__name__}')
+                raise AttributeError(
+                    'Fragments were specified but have not been added to the SequenceProfile. '
+                    f'Call {self.add_fragments_to_profile.__name__} with fragment information or pass'
+                    f' fragments and alignment_type to {self.add_profile.__name__}')
             # # Fragments have already been added, connect DB info
             # elif self.fragment_db:
             #     retrieve_fragments = [fragment['cluster'] for idx_d in self.fragment_map.values()
@@ -712,7 +712,7 @@ class SequenceProfile(ABC):
                         self.log.info(f'Fetching "{self.name}" sequence data')
 
                     self.log.info(f'Generating Evolutionary Profile for {self.name}')
-                    getattr(self, profile_source)(out_path=out_dir)
+                    getattr(self, profile_source)(out_dir=out_dir)
                     temp_file.unlink(missing_ok=True)
                     # if os.path.exists(temp_file):
                     #     os.remove(temp_file)
