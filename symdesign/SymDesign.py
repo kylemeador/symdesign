@@ -835,8 +835,8 @@ def main():
         # symmetry = job.sym_entry.group1
         sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=job.sym_entry.group1)
         _, possibly_new_uniprot_to_prot_metadata = \
-            initialize_structures(job, sym_entry=sym_entry, paths=args.component1,
-                                  pdb_codes=job.pdb_codes1, query_codes=args.query_codes1)
+            initialize_structures(job, sym_entry=sym_entry, paths=job.component1,
+                                  pdb_codes=job.pdb_code1, query_codes=job.query_codes1)
 
         # Make a copy of the new ProteinMetadata if they were already loaded without a .model_source attribute
         possibly_new_uniprot_to_prot_metadata_copy = possibly_new_uniprot_to_prot_metadata.copy()
@@ -922,10 +922,10 @@ def main():
             grouped_structures_entity_ids.append(poses)
         else:
             logger.critical(f'Ensuring provided building blocks are oriented for {job.module}')
-            # structures1 = initialize_structures(job, paths=args.component1, pdb_codes=job.pdb_codes1,
+            # structures1 = initialize_structures(job, paths=job.component1, pdb_codes=job.pdb_code1,
             structure_id_to_entity_ids, possibly_new_uni_to_prot_metadata = \
-                initialize_structures(job, paths=args.component1, pdb_codes=job.pdb_codes1,
-                                      query_codes=args.query_codes1, sym_entry=sym_entry1)
+                initialize_structures(job, paths=job.component1, pdb_codes=job.pdb_code1,
+                                      query_codes=job.query_codes1, sym_entry=sym_entry1)
             possibly_new_uniprot_to_prot_metadata.update(possibly_new_uni_to_prot_metadata)
             grouped_structures_entity_ids.append(structure_id_to_entity_ids)
 
@@ -940,11 +940,11 @@ def main():
                 f"Can't set up component building blocks for {job.module}")
 
         # See if they are the same input
-        if args.component1 != args.component2 or job.pdb_codes1 != job.pdb_codes2 or args.query_codes2:
-            # structures2 = initialize_structures(job, sym_entry=sym_entry2, paths=args.component2,
+        if job.component1 != job.component2 or job.pdb_code1 != job.pdb_code2 or job.query_codes2:
+            # structures2 = initialize_structures(job, sym_entry=sym_entry2, paths=job.component2,
             structure_id_to_entity_ids, possibly_new_uni_to_prot_metadata = \
-                initialize_structures(job, paths=args.component2, pdb_codes=job.pdb_codes2,
-                                      query_codes=args.query_codes2, sym_entry=sym_entry2)
+                initialize_structures(job, paths=job.component2, pdb_codes=job.pdb_code2,
+                                      query_codes=job.query_codes2, sym_entry=sym_entry2)
             # Update the dictionary without overwriting prior entries
             for uniprot_ids, protein_metadatas in possibly_new_uni_to_prot_metadata.items():
                 possibly_new_uniprot_to_prot_metadata[uniprot_ids].extend(protein_metadatas)
