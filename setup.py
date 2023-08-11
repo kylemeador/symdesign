@@ -12,7 +12,7 @@ from pathlib import Path
 from symdesign import utils, flags
 from symdesign.utils import path as putils, input_string
 
-logger = utils.start_log()
+logger = utils.start_log(name=__name__)
 # logger = logging.getLogger(__name__)
 rosetta_url = 'https://www.rosettacommons.org/software/license-and-download'
 rosetta_compile_url = 'https://www.rosettacommons.org/docs/latest/build_documentation/Build-Documentation'
@@ -446,10 +446,10 @@ def setup(args):
             f" This will automatically be downloaded in the directory '{putils.hhsuite_db_dir}' if you consent.",
             ['Y', 'n'])
     else:
-        _input = 'y'
+        _input = 'n'
     if _input == 'n':
         pass
-    else:  # _input = 'y'
+    else:
         config['uniclust_db'] = download_hhblits_latest_database(dry_run=dry_run)
 
     # Get alphafold database. 5.3 is for params only
@@ -459,11 +459,11 @@ def setup(args):
             'take 5.3 GB of hard drive space. This will automatically be downloaded in the directory '
             f"'{putils.alphafold_db_dir}' if you consent.", ['Y', 'n'])
     else:
-        _input = 'y'
+        _input = 'n'
 
     if _input == 'n':
         pass
-    else:  # _input = 'y'
+    else:
         config['af_params'] = download_alphafold_latest_params(dry_run=dry_run)
 
     # Write the config file

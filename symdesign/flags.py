@@ -1034,10 +1034,10 @@ helix_bending_arguments = {
     sample_number_args: sample_number_kwargs
 }
 # ---------------------------------------------------
-align_helices_help = 'Align, then fuse, the helices of one protein with another. The aligned\n' \
-                     'molecule is transformed to the reference frame of the target molecule.\n' \
-                     'Submit arguments with target as component1. All symmetry reflects the target\n' \
-                     'while the aligned component must be asymmetric'
+align_helices_help = 'Align, then fuse, the helices of two protein systems. The aligned\n' \
+                     'molecule is transformed to the reference frame of the target\n' \
+                     'molecule. All symmetry reflects the target while the aligned\n' \
+                     'component must be asymmetric'
 # To align helices where both components are symmetric, run Nanohedra to perform helical alignment in the available
 # Nanohedra symmetry combination materials (SCM)
 parser_align_helices = dict(description=align_helices_help, help=align_helices_help)
