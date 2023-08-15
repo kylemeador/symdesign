@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import json
 import logging
 import os
@@ -34,11 +33,18 @@ additional_input_string = f'\nWould you like to add another%s? [y/n]{input_strin
 instance_d = {'string': str, 'integer': int, 'number': float, 'date': str}
 
 # Websites
-# pdb_query_url = 'https://search.rcsb.org/rcsbsearch/v1/query'
 pdb_query_url = 'https://search.rcsb.org/rcsbsearch/v2/query'  # Use started 8/25/22
-# v TODO use inspect webpage to pull the entire dictionary of possibilities
+# v Todo use inspect webpage to pull the entire dictionary of possibilities
 pdb_advanced_search_url = 'http://www.rcsb.org/search/advanced'
-pdb_rest_url = 'http://data.rcsb.org/rest/v1/core/'  # uniprot/  # 1AB3/1'
+pdb_rest_url = 'http://data.rcsb.org/rest/v1/core'  # uniprot/  # 1AB3/1'
+# Ex. entry = '4atz'
+# url = https://data.rcsb.org/rest/v1/core/entry/4atz
+# ex. assembly = 1
+# url = https://data.rcsb.org/rest/v1/core/assembly/4atz/1
+# ex. entity = 1
+# url = https://data.rcsb.org/rest/v1/core/polymer_entity/4atz/1
+# ex. chain = A
+# url = https://data.rcsb.org/rest/v1/core/polymer_entity_instance/4atz/A
 attribute_url = 'https://search.rcsb.org/search-attributes.html'
 attribute_metadata_schema_json = 'https://search.rcsb.org/rcsbsearch/v2/metadata/schema'
 # additional resources for formatting the schema may be found here - https://data.rcsb.org/#data-schema
@@ -375,8 +381,9 @@ def generate_query(search: dict, return_id: return_types_literal = 'entry', clus
         The formatted query to be sent via HTTP GET
     """
     if return_id not in return_type_args:
-        raise KeyError(f"The specified return type '{return_id}' isn't supported. Viable types include "
-                       f"{', '.join(return_type_args)}")
+        raise KeyError(
+            f"The specified return type '{return_id}' isn't supported. Viable types include "
+            f"{', '.join(return_type_args)}")
 
     query_d = {'query': search, 'return_type': return_id}
     request_options = {'results_content_type': ['experimental'],  # "computational" for Alphafold
@@ -596,7 +603,7 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
         # terminal_group_queries = {}
         increment = 1
         while True:
-            # TODO only text search is available now
+            # Todo only text search is available now
             # query_builder_service_string = '\nWhat type of search method would you like to use?%s%s' % \
             #                                (user_input_format % '\n'.join(format_string % item
             #                                                               for item in services.items()), input_string)
@@ -614,7 +621,7 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
             while True:  # start the query builder routine
                 while True:
                     # service = input(query_builder_service_string)
-                    service = 'text'  # TODO
+                    service = 'text'  # Todo
                     if service in services:
                         break
                     else:
@@ -830,8 +837,9 @@ def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: i
                         logger.debug(f'Querying PDB API with {entry}_{integer}')
                         return _get_entity_info(entry=entry, entity_integer=integer)
                     else:
-                        raise KeyError(f'No chain "{chain}" found in PDB ID {entry}. Possible chains '
-                                       f'{", ".join(ch for chns in data.get("entity", {}).items() for ch in chns)}')
+                        raise KeyError(
+                            f"No chainID '{chain}' found in PDB ID {entry}. Possible chains "
+                            f'{", ".join(ch for chns in data.get("entity", {}).items() for ch in chns)}')
                 else:
                     return data
         else:
@@ -852,18 +860,9 @@ def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: i
 
         logger.debug(f"EntityID '{entity_id}' isn't the required format and will not be found with the PDB API")
     else:
-        raise RuntimeError(f'No valid arguments passed to {query_pdb_by.__name__}. Valid arguments include: '
-                           f'entry, assembly_id, assembly_integer, entity_id, entity_integer, chain')
-
-
-# def _query_*_id(*_id: str = None, entry: str = None, *_integer: str | int = None) -> dict[str, Any] | None:
-# Ex. entry = '4atz'
-# ex. assembly = 1
-# url = https://data.rcsb.org/rest/v1/core/assembly/4atz/1
-# ex. entity
-# url = https://data.rcsb.org/rest/v1/core/polymer_entity/4atz/1
-# ex. chain
-# url = https://data.rcsb.org/rest/v1/core/polymer_entity_instance/4atz/A
+        raise RuntimeError(
+            f'No valid arguments passed to {query_pdb_by.__name__}. Valid arguments include: '
+            f'entry, assembly_id, assembly_integer, entity_id, entity_integer, chain')
 
 
 def query_assembly_id(assembly_id: str = None, entry: str = None, assembly_integer: str | int = None) -> \
@@ -890,7 +889,7 @@ def query_assembly_id(assembly_id: str = None, entry: str = None, assembly_integ
         entry, assembly_integer, *_ = assembly_id.split('-')  # assume that this was passed correctly
 
     if entry and assembly_integer:
-        return connection_exception_handler(f'http://data.rcsb.org/rest/v1/core/assembly/{entry}/{assembly_integer}')
+        return connection_exception_handler(f'{pdb_rest_url}/assembly/{entry}/{assembly_integer}')
 
 
 def _get_assembly_info(entry: str = None, assembly_integer: int = None, assembly_id: str = None) -> \
@@ -925,7 +924,6 @@ def parse_assembly_json(assembly_json: dict[str, Any]) -> list[list[str]]:
         return entity_clustered_chains
 
     for symmetry in assembly_json['rcsb_struct_symmetry']:
-        # for symmetry in symmetries:  # [{}, ...]
         # symmetry contains:
         # {symbol: "O", type: 'Octahedral, stoichiometry: [], oligomeric_state: "Homo 24-mer", clusters: [],
         #  rotation_axes: [], kind: "Global Symmetry"}
@@ -933,11 +931,6 @@ def parse_assembly_json(assembly_json: dict[str, Any]) -> list[list[str]]:
             # CLUSTER_IDX is not a mapping to entity index...
             # cluster contains:
             # {members: [], avg_rmsd: 5.219512137974998e-14} which indicates how similar each member in the cluster is
-            # cluster_members = []
-            # for member in cluster['members']:  # [{}, ...]
-            #     # member contains:
-            #     # {asym_id: "A", pdbx_struct_oper_list_ids: []}
-            #     cluster_members.append(member.get('asym_id'))
             entity_clustered_chains.append([member.get('asym_id') for member in cluster['members']])
 
     return entity_clustered_chains
@@ -989,7 +982,7 @@ def query_entry_id(entry: str = None) -> requests.Response | None:
         The entry information according to the PDB
     """
     if entry:
-        return connection_exception_handler(f'http://data.rcsb.org/rest/v1/core/entry/{entry}')
+        return connection_exception_handler(f'{pdb_rest_url}/entry/{entry}')
 
 
 def _get_entry_info(entry: str = None, **kwargs) -> dict[str, Any] | None:
@@ -1036,8 +1029,6 @@ def parse_entry_json(entry_json: dict[str, Any]) -> dict[str, dict]:
          'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
          }
     """
-    # entry_json = entry_request.json()
-    # if 'method' in entry_json['exptl'][0]:
     experimental_method = entry_json['rcsb_entry_info'].get('experimental_method')
     if experimental_method:
         # Todo make ray, diffraction
@@ -1219,50 +1210,6 @@ cyclic_symmetry_limiting_group = \
       ]
     }
     """
-# {
-#       "type": "group",
-#       "logical_operator": "and",
-#       "nodes": [
-#         {
-#           "type": "terminal",
-#           "service": "text",
-#           "parameters": {
-#             "attribute": "rcsb_struct_symmetry.kind",
-#             "operator": "exact_match",
-#             "value": "Global Symmetry"
-#           }
-#         },
-#         {
-#           "type": "terminal",
-#           "service": "text",
-#           "parameters": {
-#             "attribute": "rcsb_struct_symmetry.symbol",
-#             "operator": "exact_match",
-#             "value": "%s",
-#             "negation": false
-#           }
-#         },
-#         {
-#           "type": "terminal",
-#           "service": "text",
-#           "parameters": {
-#             "attribute": "rcsb_struct_symmetry.type",
-#             "value": "Cyclic",
-#             "operator": "exact_match"
-#           }
-#         },
-#         {
-#           "type": "terminal",
-#           "service": "text",
-#           "parameters": {
-#             "attribute": "rcsb_struct_symmetry.type",
-#             "operator": "exact_match",
-#             "value": "Dihedral",
-#             "negation": true
-#           }
-#         }
-#       ]
-#     }
 dihedral_symmetry_limiting_group = \
         """
     {
@@ -1405,7 +1352,7 @@ def format_symmetry_group(symmetry: str, homomeric_number: int = 1, heteromeric_
     else:  # if homomer:
         symmetry_query += ',' + homomer_termini % symmetry_number * homomeric_number
     # else:
-    #     raise ValueError('Must provide either "homomeric_number" or "heteromeric_number"')
+    #     raise ValueError("Must provide either 'homomeric_number' or 'heteromeric_number'")
 
     return symmetry_query
 
@@ -1507,70 +1454,6 @@ no_membrane_group = \
       ]
     }
     """
-# """
-# {
-#   "type": "group",
-#   "logical_operator": "and",
-#   "nodes": [
-#     {
-#       "type": "group",
-#       "logical_operator": "or",
-#       "nodes": [
-#         {
-#           "type": "terminal",
-#           "service": "text",
-#           "parameters": {
-#             "attribute": "rcsb_polymer_entity_annotation.type",
-#             "value": "PDBTM",
-#             "operator": "exact_match",
-#             "negation": true
-#           }
-#         },
-#         {
-#           "type": "terminal",
-#           "service": "text",
-#           "parameters": {
-#             "attribute": "rcsb_polymer_entity_annotation.type",
-#             "value": "OPM",
-#             "operator": "exact_match",
-#             "negation": true
-#           }
-#         },
-#         {
-#           "type": "terminal",
-#           "service": "text",
-#           "parameters": {
-#             "attribute": "rcsb_polymer_entity_annotation.type",
-#             "value": "MemProtMD",
-#             "operator": "exact_match",
-#             "negation": true
-#           }
-#         },
-#         {
-#           "type": "terminal",
-#           "service": "text",
-#           "parameters": {
-#             "attribute": "rcsb_polymer_entity_annotation.type",
-#             "value": "mpstruc",
-#             "operator": "exact_match",
-#             "negation": true
-#           }
-#         }
-#       ]
-#     },
-#     {
-#       "type": "terminal",
-#       "service": "text",
-#       "parameters": {
-#         "attribute": "struct_keywords.pdbx_keywords",
-#         "operator": "contains_phrase",
-#         "negation": true,
-#         "value": "MEMBRANE PROTEIN"
-#       }
-#     }
-#   ]
-# }
-# """
 expression_group = \
     """
     {
@@ -1636,33 +1519,6 @@ length_group = \
       ]
     }
     """
-# length_group = \
-#     {
-#       "type": "group",
-#       "logical_operator": "and",
-#       "nodes": [
-#         {
-#           "type": "terminal",
-#           "service": "text",
-#           "parameters": {
-#             "attribute": "entity_poly.rcsb_sample_sequence_length",
-#             "operator": "greater",
-#             "negation": False,
-#             "value": %d
-#           }
-#         },
-#         {
-#           "type": "terminal",
-#           "service": "text",
-#           "parameters": {
-#             "attribute": "entity_poly.rcsb_sample_sequence_length",
-#             "operator": "less",
-#             "negation": False,
-#             "value": %d
-#           }
-#         }
-#       ]
-#     }
 
 
 def format_length_group(lower: int, upper: int) -> str:
@@ -1756,7 +1612,6 @@ def nanohedra_building_blocks_query(symmetry: str, lower: int = None, upper: int
 
     return query_pdb(generate_query(formatted_query, return_id='polymer_entity',
                                     cluster_sequence=True, return_groups=groups, all_matching=True))
-    # return query_pdb(query_formatted_with_return_options, json_formatted=True)
 
 
 assembly_author_defined = \
@@ -1849,8 +1704,8 @@ def solve_confirmed_assemblies(params: QueryParams, grouped_entity_ids: dict[str
                 remove_group_ids.append(group_id)
                 remove_group_indices.append(group_idx)
                 # removed_group_id = thermophilic_group_ids.pop(group_idx)
-                # print(f"Removed group id as there isn't a matching QSbio or PDB author defined assembly:"
-                #       f' {removed_group_id}')
+                # logger.debug(f"Removed group id as there isn't a matching QSbio or PDB author defined assembly:"
+                #              f' {removed_group_id}')
     for group_idx in reversed(remove_group_indices):
         top_entity_ids.pop(group_idx)
 
@@ -1873,12 +1728,6 @@ def entity_thermophilicity(entry: str = None, entity_integer: int | str = None, 
 
     return thermophilicity_from_entity_json(entity_request.json())
 
-
-# def thermophilicity_from_entity_json(entity_json: dict[str, Any]) -> bool:
-#     lineage_keywords = [line.get('name', '').lower()
-#                         for organism in entity_json.get('rcsb_entity_source_organism', {})
-#                         for line in organism.get('taxonomy_lineage', [])]
-#     return True if 'thermo' in lineage_keywords else False
 
 
 def thermophilicity_from_entity_json(entity_json: dict[str, Any]) -> float:
@@ -1941,8 +1790,8 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
             #  ]
             if len(uniprot_ids) > 1:
                 logger.warning(f'For Entity {entity_ids_json["rcsb_id"]}, found multiple UniProt Entries: '
-                               f'{", ".join(uniprot_ids)}')  # . Using the first')
-            db_d = dict(zip(database_keys, (UKB, tuple(uniprot_ids))))  # uniprot_ids[0])))
+                               f'{", ".join(uniprot_ids)}')
+            db_d = dict(zip(database_keys, (UKB, tuple(uniprot_ids))))
         except KeyError:  # No 'uniprot_ids'
             # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
             # Norine = NOR, which is small peptide structures, sometimes bound to proteins...
@@ -1953,48 +1802,39 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
                 return {}
             if identifiers:
                 if len(identifiers) == 1:  # Only one solution
-                    # db_d = dict(zip(database_keys, identifiers[0]))
                     db_d = identifiers[0]
-                else:  # find the most ideal accession_database UniProt > GenBank > Norine > ???
+                else:  # Find the most ideal accession_database UniProt > GenBank > Norine > ???
                     whatever_else = 0
                     priority_l = [[] for _ in range(len(identifiers))]
                     for idx, (database, accession) in enumerate(identifiers):
                         if database == UKB:
                             priority_l[0].append(idx)
-                            # identifiers[idx][0] = uniprot  # rename the database_name
+                        elif database == GB:
+                            # Two elements are required from above len check, never have IndexError
+                            priority_l[1].append(idx)
                         # elif database == NOR:
                         #     priority_l[2].append(idx)
-                        elif database == GB:
-                            priority_l[1].append(idx)  # Two elements are required from above len check, never IndexError
-                            # identifiers[idx][0] = 'GB'  # rename the database_name
-                        elif not whatever_else:  # only sets the first time an unknown identifier is seen
+                        elif not whatever_else:
+                            # Only set the first time an unknown identifier is seen
                             whatever_else = idx
+
                     # Loop through the list of prioritized identifiers
                     for identifier_idx in priority_l:
                         if identifier_idx:  # we have found a priority database, choose the corresponding identifier idx
-                            # make the db_d with the db name as first arg and all the identifiers as the second arg
+                            # Make the db_d with the db name as first arg and all the identifiers as the second arg
                             db_d = dict(zip(database_keys,
                                             (identifiers[identifier_idx[0]]['db'], [identifiers[idx]['accession']
                                                                                     for idx in identifier_idx])))
                             break
                     else:  # if no solution from priority but something else, choose the other
-                        # db_d = dict(zip(database_keys, identifiers[whatever_else]))
                         db_d = identifiers[whatever_else]
             else:
                 db_d = {}
 
         return db_d
 
-    # entity_chain_d, ref_d = {}, {}
     entity_info = {}
-    # I can use 'polymer_entity_count_protein' to further identify the entities in a protein, which gives me the chains
-    # for entity_idx in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
     for entity_idx, entity_json in enumerate(entity_jsons, 1):
-        # entity_ref_d = _get_entity_info(entry=entry, entity_integer=entity_idx)
-        # entity_id = entity_json['rcsb_polymer_entity_container_identifiers']['rcsb_id']
-        # entity_ref_d = parse_entity_json(entity_json)
-        # ref_d.update(entity_ref_d)
-        # entity_chain_d[entity_idx] = list(entity_ref_d.keys())  # these are the chains
         if entity_json is None:
             continue
         entity_json_ids = entity_json.get('rcsb_polymer_entity_container_identifiers')
@@ -2005,11 +1845,7 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
                 reference_sequence=entity_json['entity_poly']['pdbx_seq_one_letter_code_can'],
                 thermophilicity=thermophilicity_from_entity_json(entity_json),
             )
-        # dbref = {chain: {'db': db, 'accession': db_accession_id}}
-    # OR dbref = {entity: {'db': db, 'accession': db_accession_id}}
-    # cryst = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
 
-    # return {'entity': entity_chain_d, 'dbref': ref_d, 'reference_sequence': ref_seq}
     return entity_info
 
 
@@ -2061,8 +1897,7 @@ def query_entity_id(entry: str = None, entity_integer: str | int = None, entity_
         entry, entity_integer, *_ = entity_id.split('_')  # Assume that this was passed correctly
 
     if entry and entity_integer:
-        return connection_exception_handler(
-            f'http://data.rcsb.org/rest/v1/core/polymer_entity/{entry}/{entity_integer}')
+        return connection_exception_handler(f'{pdb_rest_url}/polymer_entity/{entry}/{entity_integer}')
 
 
 # Todo not completely useful in this module
