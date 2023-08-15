@@ -1091,11 +1091,11 @@ query_codes_kwargs = dict(action='store_true', help='Query the PDB API for corre
 # parser_component_mutual1 = parser_dock.add_mutually_exclusive_group(required=True)
 component1_args = ('-c1', f'--{component1}')
 component2_args = ('-c2', f'--{component2}')
-align_component1_args = ('-c1', f'--target')
-align_component2_args = ('-c2', f'--aligned')
+align_component1_args = ('-c1', f'--{component1}', f'--target')
+align_component2_args = ('-c2', f'--{component2}', f'--aligned')
 # Todo make multiple files?
 component_kwargs = dict(type=os.path.abspath, metavar=ex_path('[file.ext,directory]'),
-                        help=f'Path to component file(s), either directories or single file')
+                        help=f'Path to component file, either directory or single file')
 pdb_codes1_args = ('-C1', f'--{pdb_code}1', f'--{pdb_code}s1')
 pdb_codes2_args = ('-C2', f'--{pdb_code}2', f'--{pdb_code}s2')
 align_pdb_codes1_args = ('-C1', f'--target-{pdb_code}', f'--target-{pdb_code}s')
