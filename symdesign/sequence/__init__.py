@@ -1817,6 +1817,72 @@ class MultipleSequenceAlignment:
         # observed = {profile: np.where(np.take_along_axis(background, transposed_alignment, axis=1) > 0, 1, 0).T
         #             for profile, background in backgrounds.items()}
 
+    # def weight_gaps(divergence, representation, alignment_length):  # UNUSED
+    #     for i in range(len(divergence)):
+    #         divergence[i] = divergence[i] * representation[i] / alignment_length
+    #
+    #     return divergence
+    #
+    # def window_score(score_dict, window_len: int,
+    #                  score_lambda: float = 0.5):  # UNUSED  incorporate into MultipleSequenceAlignment
+    #     """Takes a MSA score dict and transforms so that each position is a weighted average of the surrounding positions.
+    #     Positions with scores less than zero are not changed and are ignored calculation
+    #
+    #     Modified from Capra and Singh 2007 code
+    #     Args:
+    #         score_dict (dict):
+    #         window_len (int): Number of residues on either side of the current residue
+    #     Keyword Args:
+    #         lamda=0.5 (float): Float between 0 and 1
+    #     Returns:
+    #         (dict):
+    #     """
+    #     if window_len == 0:
+    #         return score_dict
+    #     else:
+    #         window_scores = {}
+    #         for i in range(len(score_dict) + zero_offset):
+    #             s, number_terms = 0, 0
+    #             if i <= window_len:
+    #                 for j in range(1, i + window_len + zero_offset):
+    #                     if i != j:
+    #                         number_terms += 1
+    #                         s += score_dict[j]
+    #             elif i + window_len > len(score_dict):
+    #                 for j in range(i - window_len, len(score_dict) + zero_offset):
+    #                     if i != j:
+    #                         number_terms += 1
+    #                         s += score_dict[j]
+    #             else:
+    #                 for j in range(i - window_len, i + window_len + zero_offset):
+    #                     if i != j:
+    #                         number_terms += 1
+    #                         s += score_dict[j]
+    #             window_scores[i] = (1 - score_lambda) * (s / number_terms) + score_lambda * score_dict[i]
+    #
+    #         return window_scores
+    #
+    # def rank_possibilities(probability_dict):  # UNUSED  incorporate into MultipleSequenceAlignment
+    #     """Gather alternative residues and sort them by probability.
+    #
+    #     Args:
+    #         probability_dict (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
+    #     Returns:
+    #          sorted_alternates_dict (dict): {15: ['S', 'A', 'T'], ... }
+    #     """
+    #     sorted_alternates_dict = {}
+    #     for residue in probability_dict:
+    #         residue_probability_list = []
+    #         for aa in probability_dict[residue]:
+    #             if probability_dict[residue][aa] > 0:
+    #                 residue_probability_list.append(
+    #                     (aa, round(probability_dict[residue][aa], 5)))  # tuple instead of list
+    #         residue_probability_list.sort(key=lambda tup: tup[1], reverse=True)
+    #         # [('S', 0.13190), ('A', 0.0500), ...]
+    #         sorted_alternates_dict[residue] = [aa[0] for aa in residue_probability_list]
+    #
+    #     return sorted_alternates_dict
+
     def insert(self, at: int, sequence: str, msa_index: bool = False):
         """Insert new sequence in the MultipleSequenceAlignment where the added sequence is added to all columns
 

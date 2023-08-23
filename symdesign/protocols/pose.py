@@ -4211,13 +4211,10 @@ class PoseProtocol(PoseData):
             per_residue_collapse_df,
             mutation_df])
 
-        # entity_alignment = multi_chain_alignment(entity_sequences)
         # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
         # entity_alignments = \
         #     {idx: MultipleSequenceAlignment.from_dictionary(designed_sequences)
         #      for idx, designed_sequences in entity_sequences.items()}
-        # entity_alignments = \
-        #     {idx: msa_from_dictionary(designed_sequences) for idx, designed_sequences in entity_sequences.items()}
         # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
         dca_design_residues_concat = []
         dca_succeed = True
@@ -4231,7 +4228,6 @@ class PoseProtocol(PoseData):
                 # Todo INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
                 entity_alignment = \
                     MultipleSequenceAlignment.from_dictionary(dict(zip(design_names, entity_sequences)))
-                # entity_alignment = msa_from_dictionary(entity_sequences[idx])
                 entity.msa = entity_alignment
                 dca_design_residue_energies = entity.direct_coupling_analysis()
                 dca_design_residues_concat.append(dca_design_residue_energies)
@@ -4684,13 +4680,10 @@ class PoseProtocol(PoseData):
 
             divergence_s = pd.concat([protocol_divergence_s, pose_divergence_s])
 
-        # entity_alignment = multi_chain_alignment(entity_sequences)
         # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
         # entity_alignments = \
         #     {idx: MultipleSequenceAlignment.from_dictionary(designed_sequences)
         #      for idx, designed_sequences in entity_sequences.items()}
-        # entity_alignments = \
-        #     {idx: msa_from_dictionary(designed_sequences) for idx, designed_sequences in entity_sequences.items()}
         # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
         dca_design_residues_concat = []
         dca_succeed = True
@@ -4704,7 +4697,6 @@ class PoseProtocol(PoseData):
                 # Todo
                 #  Instead of below, split Pose.MultipleSequenceAlignment at entity.chain_break...
                 entity_alignment = MultipleSequenceAlignment.from_dictionary(entity_sequences[idx])
-                # entity_alignment = msa_from_dictionary(entity_sequences[idx])
                 entity.msa = entity_alignment
                 dca_design_residue_energies = entity.direct_coupling_analysis()
                 dca_design_residues_concat.append(dca_design_residue_energies)
