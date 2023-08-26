@@ -2414,7 +2414,7 @@ def sql_sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
     sequence_metrics = {}
     for pose_job, designs_sequences in metrics_sequences.items():
         pose_job.load_pose()
-        pose_radius_of_gyration = pose_job.pose.radius_of_gyration
+        pose_radius_of_gyration = pose_job.pose.assembly.radius_of_gyration
         for design, design_sequences in zip(pose_job.current_designs, designs_sequences):
             # Iterate over each Entity
             pose_sequence = ''
