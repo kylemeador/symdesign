@@ -220,7 +220,7 @@ def distribute(file: AnyStr, scale: protocols_literal, number_of_commands: int, 
                success_file: AnyStr = None, failure_file: AnyStr = None, log_file: AnyStr = None, max_jobs: int = 80,
                mpi: int = None,
                finishing_commands: Iterable[str] = None, batch: bool = is_sbatch_available(), **kwargs) -> str:
-    """Take a file of commands formatted for execution in the SLURM environment and process into a sbatch script
+    """Take a file of commands formatted for execution in the SLURM environment and process into a script
 
     Args:
         file: The location of the file which contains your commands to distribute through a sbatch array
@@ -266,8 +266,13 @@ def distribute(file: AnyStr, scale: protocols_literal, number_of_commands: int, 
             # array = f'array=1-{int(number_of_commands/process_scale[scale] + 0.5)}%{max_jobs}'
             array = f'array=1-{number_of_commands}%{max_jobs}'
             new_f.write(f'{sb_flag}{array}\n\n')
-        new_f.write(f'python {putils.distributer_tool} {f"--log-file {log_file} " if log_file else ""}'
-                    f'--success-file {success_file} --failure-file {failure_file} --command-file {file}')
+            distributer_command = f'python {putils.distributer_tool} {f"--log-file {log_file} " if log_file else ""}' \
+                                  f'--success-file {success_file} --failure-file {failure_file} --command-file {file}'
+        else:
+            distributer_command = f'python {putils.distributer_tool} {f"--log-file {log_file} " if log_file else ""}' \
+                                  f'--success-file {success_file} --failure-file {failure_file} --command-file {file}' \
+                                  f' --number-of-processes {max_jobs}'
+        new_f.write(distributer_command)
         if finishing_commands:
             if batch:
                 new_f.write('\n# Wait for all to complete\n'

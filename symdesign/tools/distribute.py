@@ -142,7 +142,7 @@ if __name__ == '__main__':
     # number_of_commands is different from process scale and could reflect edge cases
     number_of_commands = len(specific_commands)
     if number_of_commands > 1:
-        number_of_mp_processes = calculate_mp_cores(cores=number_of_commands, jobs=args.jobs)
+        number_of_mp_processes = calculate_mp_cores(cores=number_of_processes, jobs=args.jobs)
         if number_of_mp_processes > 1:
             results = mp_starmap(run, zipped_commands, processes=number_of_mp_processes)
         else:
