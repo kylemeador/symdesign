@@ -2173,7 +2173,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         # Find the superposition from the Entity to every mate chain
         # center_of_mass = self.center_of_mass
         # symmetric_center_of_mass = self.center_of_mass_symmetric
-        # print('symmetric_center_of_mass', symmetric_center_of_mass)
+        # self.log.debug(f'symmetric_center_of_mass={symmetric_center_of_mass}')
         self.log.debug(f'Reference chain is {self.chain_id}')
         ca_coords = self.ca_coords
         for chain in self.chains[1:]:

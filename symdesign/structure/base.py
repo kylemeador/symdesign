@@ -635,6 +635,8 @@ class StructureBase(SymmetryMixin, ABC):
                     self._log = log
                 elif isinstance(log, Logger):  # logging.Logger object
                     self._log = Log(log)
+                elif isinstance(log, str):
+                    self._log = Log(utils.start_log(name=f'{__name__}.{self.name}', level=log))
                 else:  # log is True or some other type:  # Use the module logger
                     self._log = Log(logger)
                 # else:
@@ -708,7 +710,7 @@ class StructureBase(SymmetryMixin, ABC):
             self._log.log = log.log
         else:
             raise TypeError(
-                f"Can't set Log to {type(log).__name__}. Must be type logging.Logger")
+                f"Can't set {Log.__class__.__name__} to {type(log).__name__}. Must be type logging.Logger")
 
     @property  # Todo return StructureIndex
     def atom_indices(self) -> list[int] | None:

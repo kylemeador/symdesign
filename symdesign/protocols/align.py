@@ -1214,7 +1214,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
                         termini_to_align.append(termini)
                 else:
                     logger.info(f"{align_helices.__name__} isn't possible for target {termini} to aligned "
-                                f'{align_termini} since {model2.name} is missing a helical {align_termini}-termini')
+                                f'{align_termini} since {entity2.name} is missing a helical {align_termini}-termini')
 
             if not termini_to_align:
                 logger.info(f'Target component {entity2.name} has no termini remaining')

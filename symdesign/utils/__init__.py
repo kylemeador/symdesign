@@ -184,6 +184,14 @@ def start_log(name: str = '', handler: int = 1, level: logging_level_literal = 2
         # Remove any coloring from the log
         message_fmt = message_fmt.replace('\033[38;5;208m', '').replace('\033[38;5;93m', '').replace('\033[0;0m', '')
     else:
+        # Check if a StreamHandler already exists
+        remove_streams = []
+        for idx, handler in enumerate(_logger.handlers):
+            if getattr(handler, 'stream', None):
+                remove_streams.append(idx)
+        for stream_idx in reversed(remove_streams):
+            _logger.handlers.pop(stream_idx)
+
         lh = _handler()
 
     if handler_level is not None:
