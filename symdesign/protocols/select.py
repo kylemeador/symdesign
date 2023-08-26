@@ -1458,6 +1458,10 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
     with job.db.session(expire_on_commit=False) as session:
         # Figure out designs from dataframe, filters, and weights
         total_df = load_sql_poses_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
+        if total_df.empty:
+            raise utils.MetricsError(
+                f"For the input PoseJobs, there aren't metrics collected. Use the '{flags.analysis}' module or perform "
+                "some design module before selection")
         # # Todo
         # job_metadata_df = load_sql_pose_job_metadata_dataframe(session, pose_ids=pose_ids)
         pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
@@ -1468,10 +1472,7 @@ def sql_poses(pose_jobs: Iterable[PoseJob]) -> list[PoseJob]:
             total_df.join(entity_metadata_df.set_index([pose_id, entity_id]), on=[pose_id, entity_id], rsuffix='_DROP')
         total_df.drop(total_df.filter(regex='_DROP$').columns.tolist(), axis=1, inplace=True)
         # logger.debug(f'total_df: {total_df.columns.tolist()}')
-        if total_df.empty:
-            raise utils.MetricsError(
-                f"For the input PoseJobs, there aren't metrics collected. Use the '{flags.analysis}' module or perform "
-                "some design module before selection")
+
         designs_df = load_sql_design_metrics_dataframe(session, pose_ids=pose_ids)  # , design_ids=design_ids)
         if designs_df.empty:
             pose_designs_mean_df = pd.DataFrame()
@@ -1675,7 +1676,13 @@ def sql_designs(pose_jobs: Iterable[PoseJob], return_pose_jobs: bool = False) ->
         pose_metadata_df = load_sql_pose_metadata_dataframe(session, pose_ids=pose_ids)
         entity_metadata_df = load_sql_entity_metadata_dataframe(session, pose_ids=pose_ids)
         logger.debug(f'entity_metadata_df:\n{entity_metadata_df}')
-        design_ids = total_df[design_id].unique().tolist()
+        try:
+            design_ids = total_df[design_id].unique().tolist()
+        except KeyError:  # No design_id key, probably no design_id present
+            # logger.critical(f"Couldn't find any '{design_id}' from the selection. "
+            raise utils.InputError(
+                f"Couldn't find any '{design_id}' from the selection. "
+                f"Make sure designs are produced before {flags.select_designs} is used")
         design_metadata_df = load_sql_design_metadata_dataframe(session, design_ids=design_ids)
         # logger.info(f'design_metadata_df:\n{design_metadata_df}')
         # logger.info(f'columns:\n{sorted(design_metadata_df.columns.tolist())}')
