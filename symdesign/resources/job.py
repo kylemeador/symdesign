@@ -1185,6 +1185,11 @@ class JobResources:
             return False
         return True
 
+    @staticmethod
+    def evolutionary_profile_processes() -> int:
+        """Return the number of evolutionary profile processes that can be run given the available memory"""
+        return int(psutil.virtual_memory().available <= distribute.hhblits_memory_threshold)
+
     def process_evolutionary_info(self, uniprot_entities: Iterable[wrapapi.UniProtEntity] = None,
                                   entities: Iterable[structure.sequence.SequenceProfile] = None,
                                   batch_commands: bool = False) -> list[str]:
@@ -1198,9 +1203,9 @@ class JobResources:
             A list evolutionary setup instructions
         """
         info_messages = []
-        hhblits_cmds, bmdca_cmds = [], []
+        hhblits_cmds, bmdca_cmds, msa_cmds = [], [], []
         # Set up sequence data using hhblits and profile bmDCA for each input entity
-        all_entity_ids = []
+        # all_entity_ids = []
         putils.make_path(self.sequences)
         if uniprot_entities is not None:
             for uniprot_entity in uniprot_entities:
@@ -1210,7 +1215,21 @@ class JobResources:
                                                 sequence=uniprot_entity.reference_sequence,
                                                 out_dir=self.profiles, threads=self.threads,
                                                 return_command=True))
-                    all_entity_ids.append(uniprot_entity.id)
+                    # all_entity_ids.append(uniprot_entity.id)
+                    msa = None
+                else:
+                    msa = self.api_db.alignments.retrieve_data(name=uniprot_entity.id)
+
+                if not msa:
+                    sto_cmd = [
+                        putils.reformat_msa_exe_path, 'a3m', 'sto',
+                        f"{os.path.join(self.profiles, f'{uniprot_entity.id}.a3m')}", '.sto', '-num', '-uc']
+                    fasta_cmd = [
+                        putils.reformat_msa_exe_path, 'a3m', 'fas',
+                        f"{os.path.join(self.profiles, f'{uniprot_entity.id}.a3m')}", '.fasta', '-M', 'first', '-r']
+                    msa_cmds.extend([sto_cmd, fasta_cmd])
+                    # all_entity_ids.append(uniprot_entity.id)
+
                 # Todo reinstate
                 #  Solve .h_fields/.j_couplings
                 # # Before this is run, hhblits must be run and the file located at profiles/entity-name.fasta contains
@@ -1219,6 +1238,10 @@ class JobResources:
                 #                    '-i', os.path.join(self.profiles, f'{uniprot_entity.id}.fasta'),
                 #                    '-d', os.path.join(self.profiles, f'{uniprot_entity.id}_bmDCA')])
         elif entities is not None:
+            raise NotImplementedError(
+                f'Currently must use {wrapapi.UniProtEntity.__class__.__name__} in '
+                f'{self.process_evolutionary_info.__name__}'
+            )
             for entity in entities:
                 entity.sequence_file = self.api_db.sequences.retrieve_file(name=entity.name)
                 if not entity.sequence_file:
@@ -1233,13 +1256,10 @@ class JobResources:
                     # entity.add_evolutionary_profile(out_dir=self.api_db.hhblits_profiles.location)
                     # To generate in a sbatch script
                     hhblits_cmds.append(entity.hhblits(out_dir=self.profiles, return_command=True))
-                    all_entity_ids.append(entity.name)
-                # Todo reinstate
-                # # Before this is run, hhblits must be run and the file located at profiles/entity-name.fasta contains
-                # # the multiple sequence alignment in .fasta format
-                #  if not entity.j_couplings:
-                #   bmdca_cmds.append([putils.bmdca_exe_path, '-i', os.path.join(self.profiles, f'{entity.name}.fasta'),
-                #                      '-d', os.path.join(self.profiles, f'{entity.name}_bmDCA')])
+                    # all_entity_ids.append(entity.name)
+                # Todo
+                #  Implement the .h_fields/.j_couplings from above
+                #  Implement the msa command mechanism from above
 
         if hhblits_cmds:
             if not os.access(putils.hhblits_exe, os.X_OK):
@@ -1248,22 +1268,10 @@ class JobResources:
                     f"'{putils.hhblits_exe}' exists then try your job again. Otherwise, use the argument "
                     f'--no-{flags.use_evolution} OR set up hhblits to run.{guide.hhblits_setup_instructions}')
 
-            reformat_cmds1 = []
-            reformat_cmds2 = []
-            if not os.access(putils.reformat_msa_exe_path, os.X_OK):
-                logger.error(f"Couldn't execute multiple sequence alignment reformatting script")
-            else:
-                for name in all_entity_ids:
-                    reformat_cmds1.append([
-                        putils.reformat_msa_exe_path, 'a3m', 'sto', f"{os.path.join(self.profiles, f'{name}.a3m')}",
-                        '.sto', '-num', '-uc'])
-                    reformat_cmds2.append([
-                        putils.reformat_msa_exe_path, 'a3m', 'fas', f"{os.path.join(self.profiles, f'{name}.a3m')}",
-                        '.fasta', '-M', 'first', '-r'])
-
             putils.make_path(self.profiles)
             putils.make_path(self.sbatch_scripts)
             hhblits_log_file = os.path.join(self.profiles, 'generate_profiles.log')
+
             # Run hhblits commands
             if not batch_commands and self.can_process_evolutionary_profiles():
                 logger.info(f'Writing {putils.hhblits} results to file: {hhblits_log_file}')
@@ -1282,10 +1290,8 @@ class JobResources:
 
                 # Format .a3m multiple sequence alignments to .sto/.fasta
                 with open(hhblits_log_file, 'w') as f:
-                    for idx in range(len(reformat_cmds1)):
-                        p = subprocess.Popen(reformat_cmds1[idx], stdout=f, stderr=f)
-                        p.communicate()
-                        p = subprocess.Popen(reformat_cmds2[idx], stdout=f, stderr=f)
+                    for cmd in msa_cmds:
+                        p = subprocess.Popen(cmd, stdout=f, stderr=f)
                         p.communicate()
                 # Todo this would be more preferable
                 # for cmd in hhblits_cmds:
@@ -1294,22 +1300,22 @@ class JobResources:
                 #     if stdout or stderr:
                 #         logger.info()
             else:  # Convert each command to a string and write to distribute
-                if distribute.is_sbatch_available():
-                    shell = distribute.sbatch
-                else:
-                    shell = distribute.default_shell
-
                 hhblits_cmds = [subprocess.list2cmdline(cmd) for cmd in hhblits_cmds]
-                reformat_cmds1 = [subprocess.list2cmdline(cmd) for cmd in reformat_cmds1]
-                reformat_cmds2 = [subprocess.list2cmdline(cmd) for cmd in reformat_cmds2]
-                all_evolutionary_commands = hhblits_cmds + reformat_cmds1 + reformat_cmds2
+                msa_cmds = [subprocess.list2cmdline(cmd) for cmd in msa_cmds]
+                all_evolutionary_commands = hhblits_cmds + msa_cmds
                 evolutionary_cmds_file = distribute.write_commands(
                     all_evolutionary_commands, name=f'{utils.starttime}-{putils.hhblits}', out_path=self.profiles)
-                # reformat_msa_cmd_file = distribute.write_commands(
-                #     reformat_cmds1 + reformat_cmds2, name=f'{utils.starttime}-reformat-msas', out_path=self.profiles)
                 number_of_hhblits_cmds = len(all_evolutionary_commands)
+
+                if distribute.is_sbatch_available():
+                    shell = distribute.sbatch
+                    max_jobs = number_of_hhblits_cmds
+                else:
+                    shell = distribute.default_shell
+                    max_jobs = self.evolutionary_profile_processes()
+
                 hhblits_kwargs = dict(out_path=self.sbatch_scripts, scale=putils.hhblits,
-                                      max_jobs=number_of_hhblits_cmds, number_of_commands=number_of_hhblits_cmds,
+                                      max_jobs=max_jobs, number_of_commands=number_of_hhblits_cmds,
                                       log_file=hhblits_log_file)
                 # reformat_msa_cmds_script = distribute.distribute(file=reformat_msa_cmd_file, **hhblits_kwargs)
                 hhblits_script = distribute.distribute(file=evolutionary_cmds_file, **hhblits_kwargs)
@@ -1320,6 +1326,25 @@ class JobResources:
                     f'Enter the following to distribute {putils.hhblits} jobs:\n\t'
                 hhblits_job_info_message += f'{shell} {hhblits_script}'
                 info_messages.append(hhblits_job_info_message)
+        elif msa_cmds:  # These may still be missing
+            putils.make_path(self.profiles)
+            hhblits_log_file = os.path.join(self.profiles, 'generate_profiles.log')
+
+            if not os.access(putils.reformat_msa_exe_path, os.X_OK):
+                logger.error(f"Couldn't execute multiple sequence alignment reformatting script")
+
+            # Format .a3m multiple sequence alignments to .sto/.fasta
+            with open(hhblits_log_file, 'w') as f:
+                for cmd in msa_cmds:
+                    p = subprocess.Popen(cmd, stdout=f, stderr=f)
+                    p.communicate()
+
+            # Todo this would be more preferable
+            # for cmd in hhblits_cmds:
+            #     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            #     stdout, stderr = p.communicate()
+            #     if stdout or stderr:
+            #         logger.info()
 
         if bmdca_cmds:
             putils.make_path(self.profiles)
