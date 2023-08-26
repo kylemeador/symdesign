@@ -18,7 +18,6 @@ from typing import IO, Sequence, Container, Literal, get_args, Callable, Any, An
 import numpy as np
 from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 
-# from ..structure import coords, fragment, utils
 from .coords import Coords, superposition3d
 from . import fragment, utils as stutils
 from symdesign.sequence import protein_letters3_alph1, protein_letters_alph1, protein_letters_1to3, \
@@ -619,10 +618,12 @@ class StructureBase(SymmetryMixin, ABC):
     state_attributes: set[str] = set()
 
     def __init__(self, parent: StructureBase = None, log: Log | Logger | bool = True, coords: np.ndarray | Coords = None
-                 , biological_assembly=None, cryst_record=None, entities=None, entity_info=None, entity_names=None,
-                 file_path=None, header=None, metadata=None, multimodel=None, pose_format=None, query_by_sequence=True,
-                 rename_chains=None, resolution=None, reference_sequence=None, sequence=None, **kwargs):
+                 , name: str = None, biological_assembly=None, cryst_record=None, entities=None, entity_info=None,
+                 entity_names=None, file_path=None, header=None, metadata=None, multimodel=None, pose_format=None,
+                 query_by_sequence=True, rename_chains=None, resolution=None, reference_sequence=None, sequence=None,
+                 **kwargs):
         self._copier = False
+        self.name = name if name not in [None, False] else f'nameless_{self.__class__.__name__}'
         if parent:  # Initialize StructureBase from parent
             self._parent = parent
             self._parent_is_updating = False
@@ -2952,8 +2953,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         | {'_sequence', '_helix_cb_indices', '_secondary_structure'}
 
     def __init__(self, atoms: list[Atom] | Atoms = None,
-                 residues: list[Residue] | Residues = None, residue_indices: list[int] = None,
-                 name: str = None, file_path: AnyStr = None,
+                 residues: list[Residue] | Residues = None, residue_indices: list[int] = None, file_path: AnyStr = None,
                  biological_assembly: str | int = None, biomt: list = None, biomt_header: str = None, **kwargs):
         """ Todo Docstring
 
@@ -2982,7 +2982,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self.biomt = biomt if biomt else []  # list of vectors to format
         self.biomt_header = biomt_header if biomt_header else ''  # str with already formatted header
         self.file_path = file_path
-        self.name = name if name not in [None, False] else f'nameless_{self.__class__.__name__}'
         self.nucleotides_present = False
         self.secondary_structure = None
         self.sasa = None
