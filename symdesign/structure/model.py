@@ -1043,9 +1043,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
     # """Whether the uniprot_id has been queried"""
     _api_data: dict[str, dict[str, str]] | None
     dihedral_chain: str | None
-    max_symmetry: int | None
-    max_symmetry_chain: str | None
-    rotation_d: dict[str, dict[str, int | np.ndarray]] | dict
+    _max_symmetry: int | None
+    _max_symmetry_chain_idx: int | None
+    mate_rotation_axes: list[dict[str, int | np.ndarray]] | list
     """Maps mate entities to their rotation matrix"""
     # symmetry: str | None
     _uniprot_ids: tuple[str | None, ...]
@@ -1082,9 +1082,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         self._is_captain = True
         self._api_data = None  # {chain: {'accession': 'Q96DC8', 'db': 'UniProt'}, ...}
         self.dihedral_chain = None
-        self.max_symmetry = None
-        self.max_symmetry_chain = None
-        self.rotation_d = {}  # Maps mate entities to their rotation matrix
+        self.mate_rotation_axes = []
 
         # Set up chain information if Chain instances provided for Structure.__init__()
         if chains:  # Instance was initialized with .from_chains()
@@ -1144,7 +1142,12 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             elif self.is_cyclic():
                 self.symmetry = f'C{self.number_of_symmetry_mates}'
             else:  # Higher than D, probably T, O, I
-                self.symmetry = utils.symmetry.subunit_number_to_symmetry[self.number_of_symmetry_mates]
+                try:
+                    self.symmetry = utils.symmetry.subunit_number_to_symmetry[self.number_of_symmetry_mates]
+                except KeyError:
+                    self.log.warning(f"Couldn't find a compatible symmetry for the Entity with "
+                                     f"{self.number_of_symmetry_mates} chain copies")
+                    self.symmetry = None
         else:
             self.symmetry = None
 
@@ -2165,8 +2168,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         Requirements - all chains are the same length
 
         Sets:
-            self.rotation_d (dict[Entity, dict[str, int | np.ndarray]])
-            self.max_symmetry_chain (str)
+            self.mate_rotation_axes (list[dict[str, int | np.ndarray]])
+            self._max_symmetry (int)
+            self.max_symmetry_chain_idx (int)
         Returns:
             The name of the file written for symmetry definition file creation
         """
@@ -2180,65 +2184,60 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             rmsd, quat, tx = superposition3d_quat(ca_coords, chain.ca_coords)
             # rmsd, quat, tx = superposition3d_quat(cb_coords-center_of_mass, chain.cb_coords-center_of_mass)
             self.log.debug(f'rmsd={rmsd} quaternion={quat} translation={tx}')
-            # python pseudo
             w = abs(quat[3])
             omega = math.acos(w)
             try:
                 symmetry_order = int(math.pi/omega + .5)  # Round to the nearest integer
             except ZeroDivisionError:  # w is 1, omega is 0
                 # No axis of symmetry here
-                self.log.warning(f"Couldn't find any symmetry order for {self.name} mate Chain {chain.chain_id}. "
-                                 f"Setting symmetry_order=1")
                 symmetry_order = 1
+                self.log.warning(f"Couldn't find any symmetry order for {self.name} mate Chain {chain.chain_id}. "
+                                 f'Setting symmetry_order={symmetry_order}')
             self.log.debug(f'{chain.chain_id}:{symmetry_order}-fold axis')
-            self.rotation_d[chain.chain_id] = {'sym': symmetry_order, 'axis': quat[:3]}
-
-        # if not struct_file:
-        #     struct_file = self.write_oligomer(out_path=f'make_sdf_input-{self.name}-{random() * 100000:.0f}.pdb')
-        #
-        # This script translates the center of mass to the origin then uses quaternion geometry to solve for the
-        # rotations which superimpose chains provided by -i onto a designated chain (usually A). It returns the order of
-        # the rotation as well as the axis along which the rotation must take place. The axis of the rotation only needs
-        # to be translated to the center of mass to recapitulate the specific symmetry operation.
-        #
-        #  perl symdesign/dependencies/rosetta/sdf/scout_symmdef_file.pl -p 1ho1_tx_4.pdb -i B C D E F G H
-        #  >B:3-fold axis: -0.00800197 -0.01160998 0.99990058
-        #  >C:3-fold axis: 0.00000136 -0.00000509 1.00000000
-        #
-        # start_chain, *rest = self.chain_ids
-        # scout_cmd = ['perl', scout_symmdef, '-p', struct_file, '-a', start_chain, '-i'] + rest
-        # self.log.debug(f'Scouting chain symmetry: {subprocess.list2cmdline(scout_cmd)}')
-        # p = subprocess.Popen(scout_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        # out, err = p.communicate()
-        # self.log.debug(out.decode('utf-8').strip().split('\n'))
-        #
-        # for line in out.decode('utf-8').strip().split('\n'):
-        #     chain, symmetry, axis = line.split(':')
-        #     self.rotation_d[chain] = \
-        #         {'sym': int(symmetry[:6].rstrip('-fold')), 'axis': np.array(list(map(float, axis.strip().split())))}
-        #     # the returned axis is from a center of mass at the origin as Structure has been translated there
-        #
-        # return struct_file
+            self.mate_rotation_axes.append({'sym': symmetry_order, 'axis': quat[:3]})
 
         # Find the highest order symmetry in the Structure
-        max_sym, max_chain_id = 0, None
-        for chain, data in self.rotation_d.items():
+        max_sym, max_chain_idx = 0, None
+        for chain_idx, data in enumerate(self.mate_rotation_axes):
             if data['sym'] > max_sym:
                 max_sym = data['sym']
-                max_chain_id = chain
+                max_chain_idx = chain_idx
 
-        self.max_symmetry = max_sym
-        self.max_symmetry_chain = max_chain_id
+        self._max_symmetry = max_sym
+        self._max_symmetry_chain_idx = max_chain_idx
+
+    @property
+    def max_symmetry_chain_idx(self) -> int:
+        """The maximum symmetry order present"""
+        try:
+            return self._max_symmetry_chain_idx
+        except AttributeError:
+            self.find_chain_symmetry()
+            return self._max_symmetry_chain_idx
+
+    # @max_symmetry_chain_idx.setter
+    # def max_symmetry_chain_idx(self, max_symmetry_chain_idx):
+    #     self._max_symmetry_chain_idx = max_symmetry_chain_idx
+
+    @property
+    def max_symmetry(self) -> int:
+        """The maximum symmetry order present"""
+        try:
+            return self._max_symmetry
+        except AttributeError:
+            self.find_chain_symmetry()
+            return self._max_symmetry
+
+    # @max_symmetry.setter
+    # def max_symmetry(self, max_symmetry):
+    #     self._max_symmetry = max_symmetry
 
     def is_cyclic(self) -> bool:
-        """Report whether the symmetry is dihedral
+        """Report whether the symmetry is cyclic
 
         Returns:
-            True if the Structure is dihedral, False if not
+            True if the Structure is cyclic, False if not
         """
-        if self.max_symmetry_chain is None:
-            self.find_chain_symmetry()
-
         return self.number_of_symmetry_mates == self.max_symmetry
 
     def is_dihedral(self) -> bool:
@@ -2247,16 +2246,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         Returns:
             True if the Structure is dihedral, False if not
         """
-        if self.max_symmetry_chain is None:
-            self.find_chain_symmetry()
-
-        # if 1 < self.number_of_symmetry_mates/self.max_symmetry < 2:
-        #     self.log.critical(f'{self.name} symmetry is malformed! Highest symmetry ({max_symmetry_data["sym"]}-fold)'
-        #                       f' is less than 2x greater than the number ({self.number_of_symmetry_mates}) of chains')
-
         return self.number_of_symmetry_mates / self.max_symmetry == 2
 
-    def find_dihedral_chain(self) -> str | None:
+    def find_dihedral_chain(self) -> int | None:
         """From the symmetric system, find a dihedral chain and return the instance
 
         Returns:
@@ -2266,17 +2258,18 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             return None
 
         # Ensure if the structure is dihedral a selected dihedral_chain is orthogonal to the maximum symmetry axis
-        max_symmetry_data = self.rotation_d[self.max_symmetry_chain]
-        for chain, data in self.rotation_d.items():
+        max_symmetry_axis = self.mate_rotation_axes[self.max_symmetry_chain_idx]['axis']
+        for chain_idx, data in enumerate(self.mate_rotation_axes):
+            this_chain_axis = data['axis']
             if data['sym'] == 2:
-                axis_dot_product = np.dot(max_symmetry_data['axis'], data['axis'])
+                axis_dot_product = np.dot(max_symmetry_axis, this_chain_axis)
                 if axis_dot_product < 0.01:
-                    if np.allclose(data['axis'], [1, 0, 0]):
-                        self.log.debug(f'The relation between {self.max_symmetry_chain} and {chain} would result in a '
-                                       f'malformed .sdf file')
+                    if np.allclose(this_chain_axis, [1, 0, 0]):
+                        self.log.debug(f'The relation between {self.max_symmetry_chain_idx} and {chain_idx} would '
+                                       'result in a malformed .sdf file')
                         pass  # This won't work in the make_symmdef.pl script, should choose orthogonal y-axis
                     else:
-                        return chain
+                        return chain_idx
 
         return None
 
@@ -2317,11 +2310,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             # struct_file = self.scout_symmetry(struct_file=struct_file)
             struct_file = self.write(oligomer=True, out_path=f'make_sdf_input-{self.name}-{random() * 100000:.0f}.pdb')
 
+        chains = [self.chain_ids[self.max_symmetry_chain_idx]]
         if self.is_dihedral():
-            dihedral_chain = self.find_dihedral_chain()
-            chains = [self.max_symmetry_chain, dihedral_chain]
-        else:
-            chains = [self.max_symmetry_chain]
+            chains.append(self.find_dihedral_chain())
 
         sdf_cmd = ['perl', putils.make_symmdef, '-m', sdf_mode, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i']\
             + chains
@@ -2992,7 +2983,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     #          # 'reference_aa': other.__dict__['reference_aa'],
     #          'resolution': other.__dict__['resolution'],
     #          'rotation_d': other.__dict__['rotation_d'],
-    #          'max_symmetry_chain': other.__dict__['max_symmetry_chain'],
+    #          'max_symmetry_chain_idx': other.__dict__['max_symmetry_chain_idx'],
     #          'dihedral_chain': other.__dict__['dihedral_chain'],
     #          }
     #     # temp_metadata = other.__dict__.copy()
@@ -4556,7 +4547,8 @@ class SymmetricModel(Model):  # Models):
                     sym_entry_number=sym_entry, symmetry=symmetry)
         elif symmetry:  # Provided without uc_dimensions, crystal=True, or cryst_record. Assuming point group
             self.sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(
-                symmetry=symmetry, sym_map=[entity.symmetry for entity in self.entities])
+                # symmetry=symmetry,
+                sym_map=[symmetry] + [entity.symmetry for entity in self.entities])
         else:  # No symmetry was provided
             # Since this is subclassed by Pose, ignore this error since self.symmetry can be explicitly False
             # raise utils.SymmetryError('A SymmetricModel was initiated without any symmetry! Ensure you specify the
