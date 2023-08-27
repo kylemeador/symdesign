@@ -54,16 +54,21 @@
 		<SymmetricalResidue name="fragment_residues_sym" selector="fragment_residues"/>
 		<Index name="core_residues" resnums="%%core_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="core_residues_sym" selector="core_residues"/>
-		<And name="fragment_residues1_neighbors_logic" selectors="fragment_residues,interface1,not_virtual_residues"/>
-		<Neighborhood name="fragment_residues1_neighbors" selector="fragment_residues1_neighbors_logic" distance="12.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
-		<And name="core_residues_neighbors1_logic" selectors="core_residues,interface1,not_virtual_residues"/>
-		<Neighborhood name="core_residues1_neighbors" selector="core_residues_neighbors1_logic" distance="12.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
 		<And name="fragment_interface1" selectors="fragment_residues,interface1"/>
-		<And name="fragment_interface2_sc" selectors="fragment_residues1_neighbors,fragment_residues_sym"/>
+		<And name="fragment_interface1_neighbors_logic" selectors="fragment_interface1,not_virtual_residues"/>
+		<Neighborhood name="fragment_interface1_neighbors" selector="fragment_interface1_neighbors_logic" distance="12.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
+		<And name="core_interface_neighbors1_logic" selectors="core_residues,interface1,not_virtual_residues"/>
+		<Neighborhood name="core_interface1_neighbors" selector="core_interface_neighbors1_logic" distance="12.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
+<!--		<And name="core_interface2_sc" selectors="core_interface1_neighbors,core_residues_sym"/>-->
+		<And name="fragment_interface2_sc" selectors="fragment_interface1_neighbors,fragment_residues_sym"/>
 		<And name="core_interface1" selectors="core_residues,interface1"/>
-		<And name="core_interface2_sc" selectors="core_residues1_neighbors,core_residues_sym"/>
+		<CloseContact name="core_interface1_contacts" residue_selector="core_interface1"/>  # contact_threshold=(4.5%float)
+		<And name="core_interface1_contacts2" selectors="interface2_sym,core_interface1_contacts"/>
+		<And name="core_interface2_sc" selectors="core_interface1_contacts2,core_residues_sym"/>
 		<And name="interface1_sc" selectors="interface2_neighbors,tot_interface_sym"/>
-		<And name="interface2_sc" selectors="interface1_neighbors,tot_interface_sym"/>
+		<CloseContact name="interface1_contacts" residue_selector="interface1"/>  # contact_threshold=(4.5%float)
+		<And name="interface2_sc" selectors="interface2_sym,interface1_contacts"/>
+<!--		<And name="interface2_sc" selectors="interface1_neighbors,tot_interface_sym"/>-->
 		<Or name="tot_interface_and_neighbor" selectors="interface_or_neighbors1,interface_or_neighbors2"/>
 		<SymmetricalResidue name="tot_interface_and_neighbor_sym" selector="tot_interface_and_neighbor"/>
 		<Not name="not_interface_or_neighbor_sym" selector="tot_interface_and_neighbor_sym"/>
