@@ -24,8 +24,7 @@ from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementatio
 # from sqlalchemy.ext.hybrid import hybrid_property
 
 from . import fragment
-from .base import Structure, Structures, Residue, StructureBase, atom_or_residue_literal, sasa_burial_threshold, \
-    default_clash_distance, coords_type_literal, default_clash_criteria
+from .base import Structure, Structures, Residue, StructureBase, atom_or_residue_literal, default_clash_distance, coords_type_literal, default_clash_criteria
 from .coords import Coords, superposition3d, superposition3d_quat, transform_coordinate_sets
 from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type
 from .sequence import SequenceProfile, Profile, pssm_as_array, default_fragment_contribution, sequence_to_numeric, \
@@ -7360,11 +7359,11 @@ class Pose(SymmetricModel, Metrics):
                         f"Can't measure {entity.name} reference as it wasn't found in the {self.__class__.__name__}")
 
         if entity.termini_proximity_from_reference(reference=entity_reference) == 1:  # if outward
-            if entity_chain.n_terminal_residue.relative_sasa > sasa_burial_threshold:
+            if entity_chain.n_terminal_residue.relative_sasa > metrics.default_sasa_burial_threshold:
                 n_term = True
 
         if entity.termini_proximity_from_reference(termini='c', reference=entity_reference) == 1:  # if outward
-            if entity_chain.c_terminal_residue.relative_sasa > sasa_burial_threshold:
+            if entity_chain.c_terminal_residue.relative_sasa > metrics.default_sasa_burial_threshold:
                 c_term = True
 
         if report_if_helix:
@@ -9049,9 +9048,3 @@ class Pose(SymmetricModel, Metrics):
         self.log.critical(f'Wrote debugging Pose to: {debug_path}')
         self.write(assembly=True, out_path=assembly_debug_path)
         self.log.critical(f'Wrote debugging Pose assembly to: {assembly_debug_path}')
-
-    # def get_interface_surface_area(self):
-    #     # pdb1_interface_sa = entity1.get_surface_area_residues(self.split_residue_numbers[1])
-    #     # pdb2_interface_sa = entity2.get_surface_area_residues(self.split_residue_numbers[2])
-    #     # interface_buried_sa = pdb1_interface_sa + pdb2_interface_sa
-    #     return

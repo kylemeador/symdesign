@@ -23,6 +23,7 @@ from . import fragment, utils as stutils
 from symdesign.sequence import protein_letters3_alph1, protein_letters_alph1, protein_letters_1to3, \
     protein_letters_3to1_extended
 from symdesign import utils
+from symdesign.metrics import default_sasa_burial_threshold
 # from symdesign.third_party.pdbecif.src.pdbecif.mmcif_io import CifFileReader
 # Before use, need to fix the issue with pdbecif not referring to itself within symdesign.third_party....
 #   File "/home/kmeador/symdesign/symdesign/third_party/pdbecif/src/pdbecif/mmcif_io.py", line 7, in <module>
@@ -3812,7 +3813,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         Args:
             numbers: Residue numbers of interest
-            indices: Residue indices of interest
+            indices: Residue indices of interest for the Structure
             pdb: Whether to search for numbers as they were parsed
         Returns:
             The requested Residue instances, sorted in the order they appear in the Structure
@@ -4979,12 +4980,12 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         return [residue.sasa_polar for residue in self.residues]
 
     @property
-    def surface_residues(self, relative_sasa_thresh: float = sasa_burial_threshold, **kwargs) -> list[Residue]:
+    def surface_residues(self, relative_sasa_thresh: float = default_sasa_burial_threshold, **kwargs) -> list[Residue]:
         """Get the Residue instances that reside on the surface of the molecule
 
         Args:
-            relative_sasa_thresh: The area threshold that the Residue should have before it is considered "surface"
-                Default cutoff percent is based on Levy, E. 2010
+            relative_sasa_thresh: The relative area threshold that the Residue should have before it is considered
+                'surface'. Default cutoff is based on Levy, E. 2010
         Keyword Args:
             atom: bool = True - Whether the output should be generated for each atom.
                 If False, will be generated for each Residue
@@ -4995,27 +4996,25 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         if not self.sasa:
             self.get_sasa(**kwargs)
 
-        # return [residue.number for residue in self.residues if residue.sasa > sasa_thresh]
         return [residue for residue in self.residues if residue.relative_sasa >= relative_sasa_thresh]
 
     @property
-    def core_residues(self, relative_sasa_thresh: float = sasa_burial_threshold, **kwargs) -> list[Residue]:
-        """Get the Residue instances that reside in the core of the molecule
+    def interior_residues(self, relative_sasa_thresh: float = default_sasa_burial_threshold, **kwargs) -> list[Residue]:
+        """Get the Residue instances that reside in the interior of the molecule
 
         Args:
-            relative_sasa_thresh: The area threshold that the Residue should fall below before it is considered "core"
-                Default cutoff percent is based on Levy, E. 2010
+            relative_sasa_thresh: The relative area threshold that the Residue should fall below before it is considered
+                'interior'. Default cutoff is based on Levy, E. 2010
         Keyword Args:
             atom: bool = True - Whether the output should be generated for each atom.
                 If False, will be generated for each Residue
             probe_radius: float = 1.4 - The radius which surface area should be generated
         Returns:
-            The core Residue instances
+            The interior Residue instances
         """
         if not self.sasa:
             self.get_sasa(**kwargs)
 
-        # return [residue.number for residue in self.residues if residue.sasa > sasa_thresh]
         return [residue for residue in self.residues if residue.relative_sasa < relative_sasa_thresh]
 
     # def get_residue_surface_area(self, residue_number, probe_radius=2.2):
@@ -5593,7 +5592,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         query = tree.query_radius(heavy_coords, distance)
 
         residues = self.residues
-        # In case this was already called, we should set all to 0.0
+        # In case this was already called, all should be set to 0.0
         for residue in residues:
             residue.spatial_aggregation_propensity = 0.
             # Set the hydrophobicity_ attribute in a first pass to reduce repetitive lookups

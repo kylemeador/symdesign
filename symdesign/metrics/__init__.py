@@ -17,7 +17,6 @@ import torch
 from . import pose, sql
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, validate_type, verify_choice, header_string
-from symdesign.structure.utils import DesignError
 from symdesign import flags, sequence, utils
 putils = utils.path
 
@@ -836,14 +835,25 @@ def per_res_metric(sequence_metrics: dict[Any, float] | dict[Any, dict[str, floa
         return s / total
 
 
-def calculate_residue_surface_area(per_residue_df: pd.DataFrame) -> pd.DataFrame:
-    #  index_residues: list[int] = slice(None, None)
-    """From a DataFrame with per residue values, tabulate the values relating to interfacial surface area
+def calculate_residue_buried_surface_area(per_residue_df: pd.DataFrame) -> pd.DataFrame:
+    """From a DataFrame with per-residue values, calculate values relating to interface surface area
 
     Args:
-        per_residue_df: The DataFrame with MultiIndex columns where level1=residue_numbers, level0=residue_metric
+        per_residue_df: The DataFrame with MultiIndex columns where level1=residue_numbers, level0=residue_metric and
+            containing the metrics [
+                'sasa_hydrophobic_bound',
+                'sasa_polar_bound',
+                'sasa_hydrophobic_complex',
+                'sasa_polar_complex'
+            ]
     Returns:
-        The same dataframe with added columns
+        The same dataframe with added columns [
+            'bsa_hydrophobic',
+            'bsa_polar',
+            'bsa_total',
+            'sasa_total_bound',
+            'sasa_total_complex'
+        ]
     """
     # Make buried surface area (bsa) columns
     bound_hydro = per_residue_df.loc[:, idx_slice[:, 'sasa_hydrophobic_bound']]
@@ -864,14 +874,35 @@ def calculate_residue_surface_area(per_residue_df: pd.DataFrame) -> pd.DataFrame
     complex_total = (complex_hydro.rename(columns={'sasa_hydrophobic_complex': 'sasa_total_complex'})
                      + complex_polar.rename(columns={'sasa_polar_complex': 'sasa_total_complex'}))
 
+    return per_residue_df.join([bsa_hydrophobic, bsa_polar, bsa_total, bound_total, complex_total])
+
+
+default_sasa_burial_threshold = 0.25  # Default relative_sasa amount from Levy 2010
+
+
+def classify_interface_residues(per_residue_df: pd.DataFrame,
+                                relative_sasa_thresh: float = default_sasa_burial_threshold) -> pd.DataFrame:
+    """From a DataFrame with per-residue values, calculate the classification of residues by interface surface area
+
+    Args:
+        per_residue_df: The DataFrame with MultiIndex columns where level1=residue_numbers, level0=residue_metric
+            containing the metrics ['bsa_total', 'sasa_relative_complex', 'sasa_relative_bound']
+        relative_sasa_thresh: The area threshold that the Residue should fall below before it is considered 'core'
+            Default cutoff percent is based on Levy, E. 2010
+    Returns:
+        The same dataframe with added columns ['core', 'interior', 'rim', 'support', 'surface']
+    """
     # Find the relative sasa of the complex and the unbound fraction
-    rim_core_support = (bsa_total > bsa_tolerance).to_numpy()
+    rim_core_support = (per_residue_df.loc[:, idx_slice[:, 'bsa_total']] > bsa_tolerance).to_numpy()
     interior_surface = ~rim_core_support
-    # surface_or_rim = per_residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_complex']] > 0.25
+    # surface_or_rim = \
+    #     per_residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_complex']] > relative_sasa_thresh
     # v These could also be support
-    core_or_support_or_interior = per_residue_df.loc[:, idx_slice[:, 'sasa_relative_complex']] < 0.25
+    core_or_support_or_interior = \
+        per_residue_df.loc[:, idx_slice[:, 'sasa_relative_complex']] < relative_sasa_thresh
     surface_or_rim = ~core_or_support_or_interior
-    support_or_interior_not_core_or_rim = per_residue_df.loc[:, idx_slice[:, 'sasa_relative_bound']] < 0.25
+    support_or_interior_not_core_or_rim = \
+        per_residue_df.loc[:, idx_slice[:, 'sasa_relative_bound']] < relative_sasa_thresh
     # ^ These could be interior too
     # core_sufficient = np.logical_and(core_or_support_or_interior, rim_core_support).to_numpy()
     interior_residues = np.logical_and(core_or_support_or_interior, interior_surface).rename(
@@ -887,14 +918,12 @@ def calculate_residue_surface_area(per_residue_df: pd.DataFrame) -> pd.DataFrame
                                    np.logical_and(core_or_support_or_interior, rim_core_support).to_numpy()).rename(
         columns={'support': 'core'})
 
-    per_residue_df = per_residue_df.join([bsa_hydrophobic, bsa_polar, bsa_total, bound_total, complex_total,
-                                          core_residues, interior_residues, support_residues, rim_residues,
+    per_residue_df = per_residue_df.join([core_residues, interior_residues, support_residues, rim_residues,
                                           surface_residues
                                           ])
-    # Perhaps I need to drop
+    # Drop intermediate columns
     per_residue_df.drop(relative_sasa_states, axis=1, level=-1, errors='ignore', inplace=True)
-    # per_residue_df = pd.concat([per_residue_df, core_residues, interior_residues, support_residues, rim_residues,
-    #                             surface_residues], axis=1)
+
     return per_residue_df
 
 
@@ -1441,7 +1470,7 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filters: dict | bool = 
         final_indices = index_intersection(filtered_indices.values())
         number_final_indices = len(final_indices)
         if number_final_indices == 0:
-            raise DesignError('There are no poses left after filtering. Try choosing less stringent values')
+            raise utils.MetricsError('There are no poses left after filtering. Try choosing less stringent values')
         logger.info(f'Number of designs passing all filters: {number_final_indices}')
         simple_df = simple_df.loc[final_indices, :]
 

@@ -3458,7 +3458,8 @@ class PoseProtocol(PoseData):
                                                                                 ['interface_residue'])))
         residues_df = residues_df.join(interface_residue_df)
         # Make buried surface area (bsa) columns, and residue classification
-        residues_df = metrics.calculate_residue_surface_area(residues_df)
+        residues_df = metrics.calculate_residue_buried_surface_area(residues_df)
+        residues_df = metrics.classify_interface_residues(residues_df)
         # Todo same to here
 
         designs_df = self.analyze_design_metrics_per_design(residues_df, designs)
@@ -4134,7 +4135,8 @@ class PoseProtocol(PoseData):
                                                                                 ['interface_residue'])))
         residues_df = residues_df.join(interface_residue_df)
         # Make buried surface area (bsa) columns, and classify residue types
-        return metrics.calculate_residue_surface_area(residues_df)
+        residues_df = metrics.calculate_residue_buried_surface_area(residues_df)
+        return metrics.classify_interface_residues(residues_df)
 
     def analyze_sequence_metrics_per_design(self, sequences: dict[str, Sequence[str]] | Sequence[Sequence[str]] = None,
                                             design_ids: Sequence[str] = None) -> pd.DataFrame:
@@ -4841,7 +4843,8 @@ class PoseProtocol(PoseData):
             residues_df = pd.merge(residues_df, dca_concatenated_df, left_index=True, right_index=True)
 
         # Make buried surface area (bsa) columns, and residue classification
-        residues_df = metrics.calculate_residue_surface_area(residues_df)
+        residues_df = metrics.calculate_residue_buried_surface_area(residues_df)
+        residues_df = metrics.classify_interface_residues(residues_df)
 
         # Calculate new metrics from combinations of other metrics
         # Add design residue information to scores_df such as how many core, rim, and support residues were measured
