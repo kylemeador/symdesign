@@ -8675,7 +8675,8 @@ class Pose(SymmetricModel, Metrics):
         for interface_number, entity_residues in enumerate((first_interface_side, second_interface_side), 1):
             all_residues = [residue for entity, residues in entity_residues.items() for residue in residues]
             self.interface_residues_by_interface[interface_number] = \
-                sorted(all_residues, key=lambda residue: residue.index)
+                sorted(set(all_residues), key=lambda residue: residue.index)
+
         if any(symmetric_dimer.values()):
             # For each entity, find the maximum residue observations on each interface side
             entity_observations = {entity: [0, 0] for entity, dimer in symmetric_dimer.items() if dimer}
@@ -8702,7 +8703,7 @@ class Pose(SymmetricModel, Metrics):
             for interface_number, entity_residues in enumerate((first_interface_side, second_interface_side), 1):
                 all_residues = [residue for entity, residues in entity_residues.items() for residue in residues]
                 self.interface_residues_by_interface_unique[interface_number] = \
-                    sorted(all_residues, key=lambda residue: residue.index)
+                    sorted(set(all_residues), key=lambda residue: residue.index)
 
             self.log.debug('The unique interface (no dimeric duplication) is split as:'
                            '\n\tInterface 1: %s\n\tInterface 2: %s'
