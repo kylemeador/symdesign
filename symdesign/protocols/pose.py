@@ -1534,7 +1534,13 @@ class PoseProtocol(PoseData):
         """Find the interface(s) between each Entity in the Pose. Handles symmetric clash testing, writing the assembly
         """
         self.load_pose()
-        self.pose.find_and_split_interface()
+        # Measure the interface by_distance if the pose is the result of known docking inputs and
+        # the associated sequence is non-sense
+        self.pose.find_and_split_interface(by_distance=(self.protocol == putils.nanohedra
+                                                        or self.protocol == putils.fragment_docking),
+                                           distance=self.job.interface_distance)
+        # Todo
+        #                                    oligomeric_interfaces=self.job.oligomeric_interfaces)
 
     def prepare_rosetta_flags(self, symmetry_protocol: str = None, sym_def_file: str = None, pdb_out_path: str = None,
                               out_dir: AnyStr = os.getcwd()) -> str:

@@ -2128,7 +2128,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         # First, clear any pose information and force identification of the interface
         # del pose._interface_residues
         pose.interface_residues_by_interface = {}
-        pose.find_and_split_interface(distance=cb_distance)
+        pose.find_and_split_interface(by_distance=True, distance=cb_distance)
 
         # # Next, set the interface fragment info for gathering of interface metrics
         # if overlap_ghosts is None or overlap_surf is None or sorted_z_scores is None:

@@ -51,6 +51,8 @@ putils = utils.path
 logger = logging.getLogger(__name__)
 zero_offset = 1
 seq_res_len = 52
+default_atom_contact_distance = 4.68
+idx_slice = pd.IndexSlice
 
 
 def softmax(x: np.ndarray) -> np.ndarray:
@@ -6525,6 +6527,11 @@ class Pose(SymmetricModel, Metrics):
             return self._interface_residues
         except AttributeError:
             if not self.interface_residues_by_interface:
+                # raise AttributeError(
+                #     f"Couldn't find '.interface_residues' as they haven't been generated yet. Call "
+                #     f"{self.__class__.__name__}.{self.find_and_split_interface.__name__}() before accessing "
+                #     "'.interface_residues'"
+                # )
                 self.find_and_split_interface()
 
             _interface_residues = []
@@ -7656,6 +7663,107 @@ class Pose(SymmetricModel, Metrics):
 
         return per_residue_data
 
+    def _find_interface_residues_by_buried_surface_area(self):
+        """Find interface_residues_by_entity_pair using buried surface area
+
+        """
+        per_residue_bsa = self.per_residue_buried_surface_area()
+        atom_contact_distance = default_atom_contact_distance
+        interface_residue_bool = per_residue_bsa > metrics.bsa_tolerance
+        entity_residue_coords = []
+        coords_indexed_residues_by_entity = []
+        entities = self.entities
+        for entity in entities:
+            entity_offset = entity.offset_index
+            interface_residue_indices = np.flatnonzero(
+                interface_residue_bool[entity_offset:entity_offset + entity.number_of_residues])
+            interface_residues = entity.get_residues(indices=interface_residue_indices)
+            # interface_coords = []
+            # for residue in interface_residues:
+            #     interface_coords.extend(residue.coords)
+            interface_coords = np.concatenate([residue.coords for residue in interface_residues])
+            entity_residue_coords.append(interface_coords)
+            coords_indexed_interface_residues = [residue for residue in interface_residues for _ in residue.range]
+            coords_indexed_residues_by_entity.append(coords_indexed_interface_residues)
+
+        if self.is_symmetric():
+            query_entity_residue_coords = [self.return_symmetric_coords(entity_interface_coords)
+                                           for entity_interface_coords in entity_residue_coords]
+        else:
+            query_entity_residue_coords = entity_residue_coords
+
+        found_entity_pairs = []
+        for entity_idx, coords in enumerate(entity_residue_coords):
+            number_of_coords = len(coords)
+            interface_tree = BallTree(coords)
+            for query_idx, entity_interface_coords in enumerate(query_entity_residue_coords):
+                this_entity_index_pair = (entity_idx, query_idx)
+                if this_entity_index_pair in found_entity_pairs:
+                    continue
+                else:  # Add both forward and reverse index versions
+                    found_entity_pairs.extend((this_entity_index_pair, (query_idx, entity_idx)))
+
+                entity2 = entities[query_idx]
+                exclude_oligomeric_coord_indices = []
+                if entity_idx == query_idx:
+                    if not self.is_symmetric():
+                        # Don't measure coords with itself if not symmetric
+                        continue
+
+                    if entity2.is_symmetric():  # and not oligomeric_interfaces:
+                        # Remove oligomeric protomers (contains asu)
+                        for model_number in self.oligomeric_model_indices.get(entity2):
+                            exclude_oligomeric_coord_indices.extend(range(number_of_coords * model_number,
+                                                                          number_of_coords * (model_number+1)))
+                    else:  # Just remove the asu
+                        exclude_oligomeric_coord_indices.extend(range(number_of_coords))
+                # Create a mask for only coords of interest
+                use_query_coords = np.ones(len(entity_interface_coords), dtype=bool)
+                use_query_coords[exclude_oligomeric_coord_indices] = 0
+
+                entity_coords_indexed_residues = coords_indexed_residues_by_entity[entity_idx]
+                query_coords_indexed_residues = coords_indexed_residues_by_entity[query_idx]
+                number_of_query_coords = len(query_coords_indexed_residues)
+                interface_query = interface_tree.query_radius(
+                    entity_interface_coords[use_query_coords], atom_contact_distance)
+                # Divide by the asymmetric number of coords for the query to find the correct Residue instance
+                contacting_pairs = [(entity_coords_indexed_residues[_entity_idx],
+                                     query_coords_indexed_residues[query_idx % number_of_query_coords])
+                                    for query_idx, entity_contacts in enumerate(interface_query.tolist())
+                                    for _entity_idx in entity_contacts.tolist()]
+                if entity_idx == query_idx:
+                    asymmetric_contacting_pairs, found_pairs = [], set()
+                    for pair1, pair2 in contacting_pairs:
+                        # Only add to contacting pair if pair has never been observed
+                        if (pair1, pair2) not in found_pairs:
+                            asymmetric_contacting_pairs.append((pair1, pair2))
+                        # Add both pair orientations, (1, 2) and (2, 1), regardless
+                        found_pairs.update([(pair1, pair2), (pair2, pair1)])
+
+                    contacting_pairs = asymmetric_contacting_pairs
+
+                entity1_residues, entity2_residues = split_residue_pairs(contacting_pairs)
+
+                if entity_idx == query_idx:
+                    # Is the interface across a dimeric interface?
+                    for residue in entity2_residues:  # entity2 usually has fewer residues, this might be quickest
+                        if residue in entity1_residues:  # The interface is dimeric
+                            # Include all residues found to only one side and move on
+                            entity1_residues = sorted(set(entity1_residues).union(entity2_residues),
+                                                      key=lambda res: res.number)
+                            entity2_residues = []
+                            break
+
+                entity1 = entities[entity_idx]
+                self.log.info(f'At Entity {entity1.name} | Entity {entity2.name} interface:'
+                              f'\n\t{entity1.name} found residue numbers: '
+                              f'{", ".join(str(r.number) for r in entity1_residues)}'
+                              f'\n\t{entity2.name} found residue numbers: '
+                              f'{", ".join(str(r.number) for r in entity2_residues)}')
+
+                self.interface_residues_by_entity_pair[(entities[entity_idx], entities[query_idx])] = \
+                    (entity1_residues, entity2_residues)
+
     def per_residue_interface_surface_area(self) -> dict[str, list[float]]:
         """Return per-residue metrics for the interface surface area
 
@@ -8166,8 +8274,9 @@ class Pose(SymmetricModel, Metrics):
 
         return entity1_residues, entity2_residues
 
-    def _find_interface_atom_pairs(self, entity1: Entity = None, entity2: Entity = None, distance: float = 4.68,
-                                   residue_distance: float = None, **kwargs) -> list[tuple[int, int]] | None:
+    def _find_interface_atom_pairs(self, entity1: Entity = None, entity2: Entity = None,
+                                   distance: float = default_atom_contact_distance, residue_distance: float = None,
+                                   **kwargs) -> list[tuple[int, int]] | None:
         """Get pairs of heavy atom indices that are within a distance at the interface between two Entities
 
         Caution: Pose must have Coords representing all atoms! Residue pairs are found using CB indices from all atoms
@@ -8177,9 +8286,10 @@ class Pose(SymmetricModel, Metrics):
         Args:
             entity1: First Entity to measure interface between
             entity2: Second Entity to measure interface between
-            distance: The distance to measure contacts between atoms. Default = CB diameter + 2.8 H2O probe. Was 3.28
-            residue_distance: The distance to residue contacts in the interface. Uses the default if None
+            distance: The distance to measure contacts between atoms
         Keyword Args:
+            by_distance: bool = False - Whether interface Residue instances should be found by inter-residue Cb distance
+            residue_distance: float = 8. - The distance to measure Residues across an interface
             oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
         Sets:
             self.interface_residues_by_entity_pair (dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]):
@@ -8187,19 +8297,22 @@ class Pose(SymmetricModel, Metrics):
         Returns:
             The Atom indices for the interface
         """
-        if residue_distance is not None:
-            # Force interface residue identification
-            self.interface_residues_by_entity_pair[(entity1, entity2)] = \
-                self.get_interface_residues(entity1=entity1, entity2=entity2, distance=residue_distance, **kwargs)
-
+        # if residue_distance is not None:
+        #     # Force interface residue identification using residue distance
+        #     self.interface_residues_by_entity_pair[(entity1, entity2)] = \
+        #         self.get_interface_residues(entity1=entity1, entity2=entity2, distance=residue_distance, **kwargs)
         try:
             residues1, residues2 = self.interface_residues_by_entity_pair[(entity1, entity2)]
         except KeyError:  # When interface_residues haven't been set
-            self.interface_residues_by_entity_pair[(entity1, entity2)] = \
-                self.get_interface_residues(entity1=entity1, entity2=entity2, **kwargs)
-            raise DesignError(
-                f"{self._find_interface_atom_pairs.__name__} can't access interface_residues as the Entity pair "
-                f"{entity1.name}, {entity2.name} hasn't located interface_residues")
+            if residue_distance is not None:
+                kwargs['distance'] = residue_distance
+            self.find_and_split_interface(**kwargs)
+            try:
+                residues1, residues2 = self.interface_residues_by_entity_pair[(entity1, entity2)]
+            except KeyError:
+                raise DesignError(
+                    f"{self._find_interface_atom_pairs.__name__} can't access 'interface_residues' as the Entity pair "
+                    f"{entity1.name}, {entity2.name} hasn't located any 'interface_residues'")
 
         if not residues1:
             return
@@ -8229,18 +8342,25 @@ class Pose(SymmetricModel, Metrics):
                             for entity1_idx in entity1_contacts.tolist()]
         return contacting_pairs
 
-    def local_density_interface(self, distance: float = 12.) -> float:
+    def local_density_interface(self, distance: float = 12., atom_distance: float = None, **kwargs) -> float:
         """Returns the density of heavy Atoms neighbors within 'distance' Angstroms to Atoms in the Pose interface
 
         Args:
             distance: The cutoff distance with which Atoms should be included in local density
+        Keyword Args:
+            atom_distance: float = default_atom_count_distance -  The distance to measure contacts between atoms
+            residue_distance: float = 8. - The distance to residue contacts in the interface. Uses the default if None
+            oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
         Returns:
             The local atom density around the interface
         """
+        if atom_distance:
+            kwargs['distance'] = atom_distance
+
         interface_indices1, interface_indices2 = [], []
         for entity1, entity2 in self.interface_residues_by_entity_pair:
             atoms_indices1, atoms_indices2 = \
-                split_number_pairs_and_sort(self._find_interface_atom_pairs(entity1=entity1, entity2=entity2))
+                split_number_pairs_and_sort(self._find_interface_atom_pairs(entity1=entity1, entity2=entity2, **kwargs))
             interface_indices1.extend(atoms_indices1)
             interface_indices2.extend(atoms_indices2)
 
@@ -8267,6 +8387,9 @@ class Pose(SymmetricModel, Metrics):
             entity1: The first Entity to measure for interface fragments
             entity2: The second Entity to measure for interface fragments
             oligomeric_interfaces: Whether to query oligomeric interfaces
+        Keyword Args:
+            by_distance: bool = False - Whether interface Residue instances should be found by inter-residue Cb distance
+            distance: float = 8. - The distance to measure Residues across an interface
         Sets:
             self.fragment_queries (dict[tuple[Entity, Entity], list[fragment_info_type]])
             self.fragment_pairs (list[tuple[GhostFragment, Fragment, float]])
@@ -8274,7 +8397,20 @@ class Pose(SymmetricModel, Metrics):
         if (entity1, entity2) in self.fragment_queries:  # Due to asymmetry in fragment generation, (2, 1) isn't checked
             return
 
-        entity1_residues, entity2_residues = self.interface_residues_by_entity_pair.get((entity1, entity2))
+        # Todo
+        #  This pattern is common to self._find_interface_atom_pairs() as well
+        #  lazy load of interface_residues when none are available
+        try:
+            residues1, residues2 = self.interface_residues_by_entity_pair[(entity1, entity2)]
+        except KeyError:  # When interface_residues haven't been set
+            self.find_and_split_interface(**kwargs)
+            try:
+                residues1, residues2 = self.interface_residues_by_entity_pair[(entity1, entity2)]
+            except KeyError:
+                raise DesignError(
+                    f"{self._find_interface_atom_pairs.__name__} can't access 'interface_residues' as the Entity pair "
+                    f"{entity1.name}, {entity2.name} hasn't located any 'interface_residues'")
+
         # Because of the way self.interface_residues_by_entity_pair is set, when there isn't an interface, a check on
         # residues1 is sufficient, however residues2 is empty with an interface present across a
         # non-oligomeric dimeric 2-fold
@@ -8374,29 +8510,11 @@ class Pose(SymmetricModel, Metrics):
     def interface_fragment_residue_indices(self, indices: Iterable[int]):
         self._interface_fragment_residue_indices = sorted(indices)
 
-    def score_interface(self, entity1: Entity = None, entity2: Entity = None, **kwargs) -> dict:
-        """Generate the fragment metrics for a specified interface between two entities
-
-        Keyword Args:
-            distance: float = 8. - The distance to measure Residues across an interface
-            oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
-        Sets:
-            self.interface_residues_by_entity_pair (dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]):
-                The Entity1/Entity2 interface mapped to the interface Residues
-        Returns:
-            Fragment metrics and measurements as key, value pairs
-        """
-        # Check for either orientation as the final interface score will be the same
-        if (entity1, entity2) not in self.fragment_queries or (entity2, entity1) not in self.fragment_queries:
-            self.interface_residues_by_entity_pair[(entity1, entity2)] = \
-                self.get_interface_residues(entity1=entity1, entity2=entity2, **kwargs)
-            self.query_interface_for_fragments(entity1=entity1, entity2=entity2, **kwargs)
-
-        return self.get_fragment_metrics(by_entity=True, entity1=entity1, entity2=entity2)
-
-    def find_and_split_interface(self, **kwargs):
+    def find_and_split_interface(self, by_distance: bool = False, **kwargs):
         """Locate interfaces regions for the designable entities and split into two contiguous interface residues sets
 
+        Args:
+            by_distance: Whether interface Residue instances should be found by inter-residue Cb distance
         Keyword Args:
             distance: float = 8. - The distance to measure Residues across an interface
             oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
@@ -8421,9 +8539,12 @@ class Pose(SymmetricModel, Metrics):
         else:
             entity_combinations = combinations(self.active_entities, 2)
 
-        entity_pair: tuple[Entity, Entity]
-        for entity_pair in entity_combinations:
-            self.interface_residues_by_entity_pair[entity_pair] = self.get_interface_residues(*entity_pair, **kwargs)
+        if by_distance:
+            entity_pair: tuple[Entity, Entity]
+            for entity_pair in entity_combinations:
+                self.interface_residues_by_entity_pair[entity_pair] = self.get_interface_residues(*entity_pair, **kwargs)
+        else:
+            self._find_interface_residues_by_buried_surface_area()
 
         self.check_interface_topology()
 
@@ -9085,6 +9206,7 @@ class Pose(SymmetricModel, Metrics):
         Args:
             oligomeric_interfaces: Whether to query oligomeric interfaces
         Keyword Args:
+            by_distance: bool = False - Whether interface Residue instances should be found by inter-residue Cb distance
             distance: float = 8. - The distance to measure Residues across an interface
         """
         if not self.interface_residues_by_entity_pair:
