@@ -1,3 +1,5 @@
+figure.titlesize : 7
+figure.labelsize : 7
 axes.titlesize : 7
 axes.labelsize : 7
 axes.linewidth      : 1        # edge linewidth
@@ -17,8 +19,13 @@ font.sans-serif : Arial
 legend.fancybox      : True
 legend.fontsize      : 6
 lines.antialiased : True
-lines.linewidth : 2
-lines.markersize : 2
+lines.linewidth : 1  # 1 For plot() lines
+# lines.linewidth : 0.25  # For scatter()
+lines.markersize : 4
+lines.markeredgewidth : 0.1
+lines.markeredgecolor : black
+savefig.dpi : 600
+scatter.edgecolors : 0  # 000000
 xtick.labelsize : 6
 ytick.labelsize : 6
 
