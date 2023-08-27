@@ -4547,8 +4547,10 @@ class SymmetricModel(Model):  # Models):
                     sym_entry_number=sym_entry, symmetry=symmetry)
         elif symmetry:  # Provided without uc_dimensions, crystal=True, or cryst_record. Assuming point group
             self.sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(
-                # symmetry=symmetry,
-                sym_map=[symmetry] + [entity.symmetry for entity in self.entities])
+                symmetry=symmetry,
+                # The below fails as most of the time entity.symmetry isn't set up at this point
+                # sym_map=[symmetry] + [entity.symmetry for entity in self.entities]
+            )
         else:  # No symmetry was provided
             # Since this is subclassed by Pose, ignore this error since self.symmetry can be explicitly False
             # raise utils.SymmetryError('A SymmetricModel was initiated without any symmetry! Ensure you specify the
