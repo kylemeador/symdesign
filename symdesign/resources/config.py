@@ -462,8 +462,10 @@ metrics = {
         dict(description='Median distance between all atom points on each side of the interface',
              direction=min_, function=normalize, filter=True),
     'interface_separation_core':
-        dict(description='Median distance between all atom points on each side of the interface core fragment '
-                         'positions',
+        dict(description='Median distance between all atom points on each side of the interface core positions',
+             direction=min_, function=normalize, filter=True),
+    'interface_separation_fragment':
+        dict(description='Median distance between all atom points on each side of the interface fragment positions',
              direction=min_, function=normalize, filter=True),
     'interface_secondary_structure_count':
         dict(description='The number of unique secondary structures in the interface',
@@ -823,11 +825,13 @@ metrics = {
         dict(description='The amino acid sequence of the design',
              direction=None, function='equals', filter=False),
     'shape_complementarity':
-        dict(description='Measure of fit between two surfaces from Lawrence and Colman 1993',
+        dict(description='Measure of fit between two surfaces. See PMID:8263940',
              direction=max_, function=normalize, filter=True),
     'shape_complementarity_core':
-        dict(description='Measure of fit between two surfaces from Lawrence and Colman 1993 at interface core '
-                         'fragment positions',
+        dict(description='Measure of fit between two surfaces at interface core positions',
+             direction=max_, function=normalize, filter=True),
+    'shape_complementarity_fragment':
+        dict(description='Measure of fit between two surfaces at interface fragment positions',
              direction=max_, function=normalize, filter=True),
     'spatial_aggregation_propensity':
         dict(description='A measure of the aggregation propensity of exposed hydrophobic surface patches in the '

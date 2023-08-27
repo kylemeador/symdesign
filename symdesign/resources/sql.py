@@ -776,9 +776,13 @@ class DesignMetrics(Base):
     interface_solvation_energy_density = Column(Float)
     interaction_energy_per_residue = Column(Float)
     interface_separation = Column(Float)
+    interface_separation_core = Column(Float)
+    interface_separation_fragment = Column(Float)
     rmsd_complex = Column(Float)
     rosetta_reference_energy = Column(Float)
     shape_complementarity = Column(Float)
+    shape_complementarity_core = Column(Float)
+    shape_complementarity_fragment = Column(Float)
     # solvation_energy = Column(Float)
     # solvation_energy_complex = Column(Float)
     # Summed ResidueMetrics metrics

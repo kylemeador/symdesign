@@ -22,7 +22,7 @@
 		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface1_sym" selector="interface1"/>
 		<And name="interface1_neighbors_logic" selectors="interface1,not_virtual_residues"/>
-		<Neighborhood name="interface1_neighbors" selector="interface1_neighbors_logic" distance="8.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
+		<Neighborhood name="interface1_neighbors" selector="interface1_neighbors_logic" distance="12.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
 		<Not name="full_pose_without_interface1" selector="interface1"/>
 		<And name="interface1_sym_only" selectors="interface1_sym,full_pose_without_interface1"/>
 		<And name="interface1_sym_only_interface1_neighbors" selectors="interface1_sym_only,interface1_neighbors"/>
@@ -32,7 +32,7 @@
 		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface2_sym" selector="interface2"/>
 		<And name="interface2_neighbors_logic" selectors="interface2,not_virtual_residues"/>
-		<Neighborhood name="interface2_neighbors" selector="interface2_neighbors_logic" distance="8.0" include_focus_in_subset="false"/>
+		<Neighborhood name="interface2_neighbors" selector="interface2_neighbors_logic" distance="12.0" include_focus_in_subset="false"/>
 		<Not name="full_pose_without_interface2" selector="interface2"/>
 		<And name="interface2_sym_only" selectors="interface2_sym,full_pose_without_interface2"/>
 		<And name="interface2_sym_only_interface2_neighbors" selectors="interface2_sym_only,interface2_neighbors"/>
@@ -49,6 +49,19 @@
 		# the negation of all interface residues
 		<Not name="not_interface" selector="tot_interface"/>
 		<Not name="not_interface_sym" selector="tot_interface_sym"/>
+		# using fragment and core residues, find necessary selections for shape complementarity
+		<Index name="fragment_residues" resnums="%%fragment_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<SymmetricalResidue name="fragment_residues_sym" selector="fragment_residues"/>
+		<Index name="core_residues" resnums="%%core_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<SymmetricalResidue name="core_residues_sym" selector="core_residues"/>
+		<And name="fragment_residues1_neighbors_logic" selectors="fragment_residues,interface1,not_virtual_residues"/>
+		<Neighborhood name="fragment_residues1_neighbors" selector="fragment_residues1_neighbors_logic" distance="12.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
+		<And name="core_residues_neighbors1_logic" selectors="core_residues,interface1,not_virtual_residues"/>
+		<Neighborhood name="core_residues1_neighbors" selector="core_residues_neighbors1_logic" distance="12.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
+		<And name="fragment_interface1" selectors="fragment_residues_sym,interface1_sym"/>
+		<And name="fragment_interface2_sc" selectors="fragment_residues1_neighbors,fragment_residues_sym"/>
+		<And name="core_interface1" selectors="core_interface1_sym,interface2_neighbors"/>
+		<And name="core_interface2_sc" selectors="core_residues1_neighbors,core_residues_sym"/>
 		<And name="interface1_sc" selectors="interface2_neighbors,tot_interface_sym"/>
 		<And name="interface2_sc" selectors="interface1_neighbors,tot_interface_sym"/>
 		<Or name="tot_interface_and_neighbor" selectors="interface_or_neighbors1,interface_or_neighbors2"/>
@@ -127,6 +140,8 @@
 		## Interface Metric Filters
 		# find the number of carbon carbon contacts with specified residues
 		<AtomicContactCount name="contact_count" partition="none" taskA="design_around1,init,vrt,not_interface_or_neighbor_sym_no_repack" taskB="design_around2,init,vrt,not_interface_or_neighbor_sym_no_repack" distance="5.0" normalize_by_carbon_count="1"/>
+		<ShapeComplementarity name="shape_complementarity_fragment" min_sc="0.1" min_interface="0" residue_selector1="fragment_interface1" residue_selector2="fragment_interface2_sc" write_median_dist="1" max_median_dist="0"/> # Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
+		<ShapeComplementarity name="shape_complementarity_core" min_sc="0.1" min_interface="0" residue_selector1="core_interface1" residue_selector2="core_interface2_sc" write_median_dist="1" max_median_dist="0"/> # Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
 		<ShapeComplementarity name="shape_complementarity" min_sc="0.1" min_interface="0" residue_selector1="interface1" residue_selector2="interface2_sc" write_median_dist="1" max_median_dist="0"/> # Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
 <!--		<SimpleMetricFilter name="S_interaction_energy_filter" metric="S_M_interaction_energy" use_cached_data="true" cache_suffix="_complex" comparison_type="lt" cutoff="0" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
 		<SimpleMetricFilter name="interaction_energy_filter" metric="M_interaction_energy" use_cached_data="true" cache_suffix="_complex" comparison_type="lt" cutoff="0" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
@@ -152,6 +167,8 @@
 		<Report name="R_favor_residue_energy" 				filter="favor_residue_energy"/>
 		<Report name="R_coordinate_constraint" 				filter="coordinate_constraint"/>
 		<Report name="R_interaction_energy_per_residue"		filter="interaction_energy_per_residue"/>
+		<Report name="R_shape_complementarity_fragment"		filter="shape_complementarity_fragment"/>
+		<Report name="R_shape_complementarity_core"		 	filter="shape_complementarity_core"/>
 		<Report name="R_shape_complementarity" 				filter="shape_complementarity"/>
 		<Report name="R_contact_count" 						filter="contact_count"/>
 		<Report name="R_buried_unsatisfied_hbonds_complex" 	filter="buried_unsatisfied_hbonds_complex"/>
@@ -169,6 +186,8 @@
 	</MOVERS>
 
 	<PROTOCOLS>
+		<Add filter_name="R_shape_complementarity_fragment"/>
+		<Add filter_name="R_shape_complementarity_core"/>
 		<Add filter_name="R_shape_complementarity"/>
 		<Add filter_name="R_contact_count"/>
 		<Add mover_name="metrics"/>

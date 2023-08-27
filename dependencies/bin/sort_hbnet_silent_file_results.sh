@@ -10,13 +10,13 @@ grep "^SCORE" $1 > $hbnet_scores
 
 # find the column number from the scores file
 decoy=$(awk -v field=description 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
-hbnet_sc=$(awk -v field=R_shape_complementarity_hbnet_core 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
+hbnet_sc=$(awk -v field=R_shape_complementarity_hbnet_fragment 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
 hbnet_density=$(awk -v field=R_interaction_energy_density 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
-hbnet_res_count=$(awk -v field=R_core_design_residue_count 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
+hbnet_res_count=$(awk -v field=R_fragment_design_residue_count 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
 # Symmetrized descriptors
-# hbnet_sc=$(awk -v field=sc_hbnet_core 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
-# hbnet_density=$(awk -v field=ie_density_hbnet_core 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
-# hbnet_res_count=$(awk -v field=residue_count_hbnet_core 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
+# hbnet_sc=$(awk -v field=sc_hbnet_fragment 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
+# hbnet_density=$(awk -v field=ie_density_hbnet_fragment 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
+# hbnet_res_count=$(awk -v field=residue_count_hbnet_fragment 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
 # hbnet_density=$(awk -v field=score 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)								# test
 # hbnet_res_count=$(awk -v field=fa_rep 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)								# test
 

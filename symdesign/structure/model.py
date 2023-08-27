@@ -7708,6 +7708,134 @@ class Pose(SymmetricModel, Metrics):
 
         return per_residue_data
 
+    def _per_residue_interface_classification(
+            self, relative_sasa_thresh: float = metrics.default_sasa_burial_threshold, **kwargs) -> pd.DataFrame:
+        """Perform residue classification on the interface residues
+
+        Args:
+            relative_sasa_thresh: The relative area threshold that the Residue should fall below before it is considered
+                'support'. Default cutoff percent is based on Levy, E. 2010
+        Keyword Args:
+            atom: bool = True - Whether the output should be generated for each atom.
+                If False, will be generated for each Residue
+            probe_radius: float = 1.4 - The radius which surface area should be generated
+        Returns:
+            The per-residue DataFrame with columns containing residue indices in level=0 and metrics in level=1
+        """
+        if not self.sasa:
+            self.get_sasa(**kwargs)
+        residue_bsa_df = {
+            'bsa_total': self.per_residue_buried_surface_area(),
+            **self.per_residue_relative_surface_area()
+        }
+        per_residue_df = pd.DataFrame(residue_bsa_df, index=pd.RangeIndex(self.number_of_residues)) \
+            .unstack().to_frame().T.swaplevel(0, 1, axis=1)
+        # Format ^ for classify_interface_residues
+        return metrics.classify_interface_residues(per_residue_df, relative_sasa_thresh=relative_sasa_thresh)
+
+    @property
+    def core_residues(self, relative_sasa_thresh: float = metrics.default_sasa_burial_threshold, **kwargs) \
+            -> list[Residue]:
+        """Get the Residue instances that reside in the core of the interfaces
+
+        Args:
+            relative_sasa_thresh: The relative area threshold that the Residue should fall below before it is considered
+                'core'. Default cutoff percent is based on Levy, E. 2010
+        Keyword Args:
+            atom: bool = True - Whether the output should be generated for each atom.
+                If False, will be generated for each Residue
+            probe_radius: float = 1.4 - The radius which surface area should be generated
+        Returns:
+            The core Residue instances
+        """
+        per_residue_df = self._per_residue_interface_classification(relative_sasa_thresh=relative_sasa_thresh, **kwargs)
+        _residue_df = per_residue_df.loc[:, idx_slice[:, 'core']]
+
+        return self.get_residues(indices=np.flatnonzero(_residue_df.values))
+
+    @property
+    def rim_residues(self, relative_sasa_thresh: float = metrics.default_sasa_burial_threshold, **kwargs) \
+            -> list[Residue]:
+        """Get the Residue instances that reside in the rim of the interface
+
+        Args:
+            relative_sasa_thresh: The relative area threshold that the Residue should fall below before it is considered
+                'rim'. Default cutoff percent is based on Levy, E. 2010
+        Keyword Args:
+            atom: bool = True - Whether the output should be generated for each atom.
+                If False, will be generated for each Residue
+            probe_radius: float = 1.4 - The radius which surface area should be generated
+        Returns:
+            The rim Residue instances
+        """
+        per_residue_df = self._per_residue_interface_classification(relative_sasa_thresh=relative_sasa_thresh, **kwargs)
+        _residue_df = per_residue_df.loc[:, idx_slice[:, 'rim']]
+
+        return self.get_residues(indices=np.flatnonzero(_residue_df.values))
+
+    @property
+    def support_residues(self, relative_sasa_thresh: float = metrics.default_sasa_burial_threshold, **kwargs) \
+            -> list[Residue]:
+        """Get the Residue instances that support the interface
+
+        Args:
+            relative_sasa_thresh: The relative area threshold that the Residue should fall below before it is considered
+                'support'. Default cutoff percent is based on Levy, E. 2010
+        Keyword Args:
+            atom: bool = True - Whether the output should be generated for each atom.
+                If False, will be generated for each Residue
+            probe_radius: float = 1.4 - The radius which surface area should be generated
+        Returns:
+            The support Residue instances
+        """
+        per_residue_df = self._per_residue_interface_classification(relative_sasa_thresh=relative_sasa_thresh, **kwargs)
+        _residue_df = per_residue_df.loc[:, idx_slice[:, 'support']]
+
+        return self.get_residues(indices=np.flatnonzero(_residue_df.values))
+
+    def per_residue_relative_surface_area(self) -> dict[str, np.ndarray]:
+        """"""
+        pose_length = self.number_of_residues
+        assembly_minimally_contacting = self.assembly_minimally_contacting
+
+        # Perform SASA measurements
+        if not assembly_minimally_contacting.sasa:
+            assembly_minimally_contacting.get_sasa()
+        assembly_asu_residues = assembly_minimally_contacting.residues[:pose_length]
+        per_residue_relative_sasa_complex = np.array([residue.relative_sasa for residue in assembly_asu_residues])
+        per_residue_relative_sasa_unbound = []
+        for entity in self.entities:
+            if not entity.oligomer.sasa:
+                entity.oligomer.get_sasa()
+            oligomer_asu_residues = entity.oligomer.residues[:entity.number_of_residues]
+            per_residue_relative_sasa_unbound.extend([residue.relative_sasa for residue in oligomer_asu_residues])
+
+        per_residue_relative_sasa_unbound = np.array(per_residue_relative_sasa_unbound)
+
+        return {'sasa_relative_complex': per_residue_relative_sasa_complex,
+                'sasa_relative_bound': per_residue_relative_sasa_unbound}
+
+    def per_residue_buried_surface_area(self) -> np.ndarray:
+        """"""
+        pose_length = self.number_of_residues
+        assembly_minimally_contacting = self.assembly_minimally_contacting
+
+        # Perform SASA measurements
+        if not assembly_minimally_contacting.sasa:
+            assembly_minimally_contacting.get_sasa()
+        assembly_asu_residues = assembly_minimally_contacting.residues[:pose_length]
+        per_residue_sasa_complex = np.array([residue.sasa for residue in assembly_asu_residues])
+        per_residue_sasa_unbound = []
+        for entity in self.entities:
+            if not entity.oligomer.sasa:
+                entity.oligomer.get_sasa()
+            oligomer_asu_residues = entity.oligomer.residues[:entity.number_of_residues]
+            per_residue_sasa_unbound.extend([residue.sasa for residue in oligomer_asu_residues])
+
+        per_residue_sasa_unbound = np.array(per_residue_sasa_unbound)
+
+        return per_residue_sasa_unbound - per_residue_sasa_complex
+
     def per_residue_spatial_aggregation_propensity(self, distance: float = 5.0) -> dict[str, list[float]]:
         """Return per-residue spatial_aggregation for the complexed and unbound states. Positive values are more
         aggregation prone, while negative values are less prone

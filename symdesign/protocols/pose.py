@@ -1608,16 +1608,22 @@ class PoseProtocol(PoseData):
 
         # Assign any additional designable residues
         if self.pose.required_residues:
-            variables.extend([('required_residues', ','.join(f'{res.number}{res.chain_id}'
-                                                             for res in self.pose.required_residues))])
+            variables.extend([('required_residues',
+                               ','.join(f'{res.number}{res.chain_id}' for res in self.pose.required_residues))])
         else:  # Get an out-of-bounds index
             variables.extend([('required_residues', out_of_bounds_residue)])
 
         # Allocate any "core" residues based on central fragment information
         residues = self.pose.residues
-        center_residues = [residues[index] for index in self.pose.interface_fragment_residue_indices]
-        if center_residues:
-            variables.extend([('core_residues', ','.join([f'{res.number}{res.chain_id}' for res in center_residues]))])
+        fragment_residues = [residues[index] for index in self.pose.interface_fragment_residue_indices]
+        if fragment_residues:
+            variables.extend([('fragment_residues',
+                               ','.join([f'{res.number}{res.chain_id}' for res in fragment_residues]))])
+        else:  # Get an out-of-bounds index
+            variables.extend([('fragment_residues', out_of_bounds_residue)])
+        core_residues = self.pose.core_residues
+        if core_residues:
+            variables.extend([('core_residues', ','.join([f'{res.number}{res.chain_id}' for res in core_residues]))])
         else:  # Get an out-of-bounds index
             variables.extend([('core_residues', out_of_bounds_residue)])
 

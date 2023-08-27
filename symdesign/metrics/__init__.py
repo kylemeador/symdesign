@@ -190,6 +190,7 @@ rosetta_required = {
 }
 columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation',
                      'shape_complementarity_core_median_dist': 'interface_core_separation',
+                     'shape_complementarity_fragment_median_dist': 'interface_fragment_separation',
                      'ref': 'rosetta_reference_energy',
                      'interaction_energy_density_filter': 'interaction_energy_per_residue'
                      # 'relax_switch': protocol, 'no_constraint_switch': protocol, 'limit_to_profile_switch': protocol,
@@ -259,7 +260,8 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
                # 'buns_asu', 'buns_asu_hpol', 'buns_nano', 'buns_nano_hpol', 'buns_total',
                'angle_constraint', 'atom_pair_constraint', 'chainbreak', 'coordinate_constraint', 'dihedral_constraint',
                'metalbinding_constraint', 'rmsd', 'repack_switch', 'sym_status',
-               'core_design_residue_count', 'shape_complementarity_core', 'interface_core_separation',
+               'core_design_residue_count',
+               # 'shape_complementarity_core', 'interface_core_separation',
                'interaction_energy_density_filter', 'interaction_energy_density', 'shape_complementarity_hbnet_core',
                'maxsub', 'rms', 'score']
 #                'repacking',

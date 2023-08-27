@@ -9,8 +9,8 @@
 	<RESIDUE_SELECTORS>
 		<ResiduePropertySelector name="virtual_residues" properties="VIRTUAL_RESIDUE" logic="and_logic"/>
 		<Not name="not_virtual_residues" selector="virtual_residues"/>
-		<Index name="core_residues" resnums="%%core_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
-		<SymmetricalResidue name="core_residues_sym" selector="core_residues" />
+		<Index name="fragment_residues" resnums="%%fragment_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<SymmetricalResidue name="fragment_residues_sym" selector="fragment_residues" />
 		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
 		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface1_sym" selector="interface1" />
@@ -26,22 +26,22 @@
 		<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		# all designable residues
 		<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>
-		<And name="core_interface1_sym" selectors="core_residues_sym,interface1_sym"/>
-		<And name="core_interface2_sym" selectors="core_residues_sym,interface2_sym"/>
+		<And name="fragment_interface1_sym" selectors="fragment_residues_sym,interface1_sym"/>
+		<And name="fragment_interface2_sym" selectors="fragment_residues_sym,interface2_sym"/>
 		# the negation of all designable residues
 		<Not name="not_designable" selector="all_designable"/>
-		<Not name="not_core_residues" selector="core_residues"/>
+		<Not name="not_fragment_residues" selector="fragment_residues"/>
 		# all residues
 		<True name="full_pose"/>
 		<ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet"/>
 		<SymmetricalResidue name="hbnet_residues_sym" selector="hbnet_residues"/>
 		<And name="hbnet_sym_neighbors_logic" selectors="hbnet_residues_sym,not_virtual_residues"/>
 		<Neighborhood name="hbnet_sym_neighbors" selector="hbnet_sym_neighbors_logic" include_focus_in_subset="false" distance="8"/> # Cb neighbors
-		<Or name="hbnet_sym_neighbors_or_core" selectors="hbnet_sym_neighbors,core_residues"/>
-		<Not name="not_hbnet_sym_or_core_neighbors" selector="hbnet_sym_neighbors_or_core"/>
+		<Or name="hbnet_sym_neighbors_or_fragment" selectors="hbnet_sym_neighbors,fragment_residues"/>
+		<Not name="not_hbnet_sym_or_fragment_neighbors" selector="hbnet_sym_neighbors_or_fragment"/>
 		<And name="hbnet_interface_neighbors" selectors="hbnet_sym_neighbors,tot_interface"/>
-		<Or name="hbnet_interface_neighbors_or_core" selectors="hbnet_interface_neighbors,core_residues"/>
-		<Not name="not_hbnet_interface_neighbors_or_core" selector="hbnet_interface_neighbors_or_core"/>
+		<Or name="hbnet_interface_neighbors_or_fragment" selectors="hbnet_interface_neighbors,fragment_residues"/>
+		<Not name="not_hbnet_interface_neighbors_or_fragment" selector="hbnet_interface_neighbors_or_fragment"/>
 	</RESIDUE_SELECTORS>
 
 	<TASKOPERATIONS>
@@ -55,7 +55,7 @@
 		<DesignRestrictions name="design_start"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>
 		# restrict all non-interface residues to no repacking and no design
 		<OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>
-		<OperateOnResidueSubset name="not_core_no_repack" selector="not_core_residues"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+		<OperateOnResidueSubset name="not_fragment_no_repack" selector="not_fragment_residues"> <PreventRepackingRLT/> </OperateOnResidueSubset>
 		<OperateOnResidueSubset name="hbnet_rtr" selector="hbnet_residues"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
 		<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="true" resnums_allow_design="true" repack_shell="8.0"/>
 		# only use residues included in a %%design_profile%%. options specify how to treat the profile and which rotamers to include for design
