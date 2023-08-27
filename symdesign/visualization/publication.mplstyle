@@ -5,6 +5,7 @@ axes.labelsize : 7
 axes.linewidth      : 1        # edge linewidth
 axes.labelpad : 3     # space between label and axis
 axes.prop_cycle : cycler('color', ['49006a', '7a0177', 'ae017e', 'dd3497', 'f768a1', 'fa9fb5', 'fcc5c0', 'fde0dd', 'fff7f3'])
+# axes.prop_cycle : cycler('color', ['1f77b4', 'ff7f0e', '2ca02c', 'd62728', '9467bd', '8c564b', 'e377c2', '7f7f7f', 'bcbd22', '17becf'])
 axes.grid           : False
 axes.axisbelow      : True     # whether axis gridlines and ticks are below the axes elements (lines, text, etc)
 axes.facecolor      : whitesmoke  # eeeeee   # axes background color
