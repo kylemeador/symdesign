@@ -58,9 +58,9 @@
 		<Neighborhood name="fragment_residues1_neighbors" selector="fragment_residues1_neighbors_logic" distance="12.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
 		<And name="core_residues_neighbors1_logic" selectors="core_residues,interface1,not_virtual_residues"/>
 		<Neighborhood name="core_residues1_neighbors" selector="core_residues_neighbors1_logic" distance="12.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
-		<And name="fragment_interface1" selectors="fragment_residues_sym,interface1_sym"/>
+		<And name="fragment_interface1" selectors="fragment_residues,interface1"/>
 		<And name="fragment_interface2_sc" selectors="fragment_residues1_neighbors,fragment_residues_sym"/>
-		<And name="core_interface1" selectors="core_interface1_sym,interface2_neighbors"/>
+		<And name="core_interface1" selectors="core_residues,interface1"/>
 		<And name="core_interface2_sc" selectors="core_residues1_neighbors,core_residues_sym"/>
 		<And name="interface1_sc" selectors="interface2_neighbors,tot_interface_sym"/>
 		<And name="interface2_sc" selectors="interface1_neighbors,tot_interface_sym"/>
