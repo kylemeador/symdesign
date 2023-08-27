@@ -1417,7 +1417,7 @@ def parse_symmetry_to_sym_entry(sym_entry_number: int = None, symmetry: str = No
                 if ':{' in symmetry:  # Symmetry specification of typical type result:{subsymmetry}{}...
                     sym_map = parse_symmetry_specification(symmetry)
                 elif CRYST in symmetry.upper():  # This is crystal specification
-                    return None  # Have to set this up after parsing cryst records
+                    return None  # Have to set SymEntry up after parsing cryst records
                 else:  # This is some Rosetta based symmetry?
                     sym_str1, sym_str2, sym_str3, *_ = symmetry
                     sym_map = f'{sym_str1} C{sym_str2} C{sym_str3}'.split()

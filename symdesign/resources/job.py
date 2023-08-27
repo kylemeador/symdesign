@@ -9,7 +9,6 @@ import subprocess
 import sys
 from copy import deepcopy
 from itertools import repeat
-from subprocess import list2cmdline
 from typing import Annotated, AnyStr, Any, Iterable, Sequence
 
 import jax
@@ -23,7 +22,7 @@ from . import config, distribute, query, sql, structure_db, wrapapi
 from symdesign import flags, sequence, structure, utils
 from symdesign.sequence import hhblits
 from symdesign.structure.fragment import db
-from symdesign.utils import guide, SymEntry, InputError, path as putils
+from symdesign.utils import SymEntry, path as putils
 
 logger = logging.getLogger(__name__)
 gb_divisior = 1e9  # 1000000000
@@ -355,7 +354,7 @@ class JobResources:
                 with open(self.db_config, 'r') as f:
                     db_cfg = json.load(f)
                 if database_url is not None:
-                    raise InputError(
+                    raise utils.InputError(
                         f"The --database-url '{database_url}' can't be used as this {putils.program_output} "
                         f"was already initialized with the url='{db_cfg['url']}")
                 else:
@@ -568,7 +567,7 @@ class JobResources:
         if sym_entry_number is None and symmetry is None:
             self.sym_entry: SymEntry.SymEntry | str | None = None
         else:
-            if symmetry and 'cryst' in symmetry.lower():
+            if symmetry and utils.symmetry.CRYST in symmetry.upper():
                 # Later, symmetry information will be retrieved from the file header
                 self.sym_entry = SymEntry.CrystRecord  # Input was provided as 'cryst'
             else:
@@ -812,7 +811,7 @@ class JobResources:
             elif len(job_protocol_result) > 1:
                 for result in job_protocol_result:
                     print(result)
-                raise InputError(
+                raise utils.InputError(
                     f"sqlalchemy.IntegrityError should've been raised. "
                     f"Can't have more than one matching {sql.JobProtocol.__name__}")
             else:
@@ -1025,13 +1024,13 @@ class JobResources:
         for idx, module in enumerate(self.modules, 1):
             if module == flags.nanohedra:
                 if idx > 1:
-                    raise InputError(
+                    raise utils.InputError(
                         f"For {flags.protocol} module, {module} can only be run in --modules position #1")
                 nanohedra_prior = True
                 continue
             elif module in flags.select_modules and self.protocol_module:
                 if idx != self.number_of_modules:
-                    raise InputError(
+                    raise utils.InputError(
                         f"For {flags.protocol} module, {module} can only be run in --modules position N i.e. #1,2,...N")
 
             elif module == flags.predict_structure:
@@ -1078,12 +1077,12 @@ class JobResources:
                     not_recognized_modules.append(module)
 
         if not_recognized_modules:
-            raise InputError(
+            raise utils.InputError(
                 f"For {flags.protocol} module, the --{flags.modules} {', '.join(not_recognized_modules)} aren't "
                 f'recognized modules. See"{putils.program_help}" for available module names')
 
         if problematic_modules:
-            raise InputError(
+            raise utils.InputError(
                 f"For {flags.protocol} module, the --{flags.modules} {', '.join(problematic_modules)} aren't possible "
                 f'modules\n\nAllowed modules are {", ".join(protocol_module_allowed_modules)}')
 
@@ -1266,7 +1265,7 @@ class JobResources:
                 raise RuntimeError(
                     f"Couldn't locate the {putils.hhblits} executable. Ensure the executable file referenced by "
                     f"'{putils.hhblits_exe}' exists then try your job again. Otherwise, use the argument "
-                    f'--no-{flags.use_evolution} OR set up hhblits to run.{guide.hhblits_setup_instructions}')
+                    f'--no-{flags.use_evolution} OR set up hhblits to run.{utils.guide.hhblits_setup_instructions}')
 
             putils.make_path(self.profiles)
             putils.make_path(self.sbatch_scripts)

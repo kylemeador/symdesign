@@ -22,7 +22,7 @@ from symdesign.structure.coords import superposition3d
 from symdesign.structure.model import Chain, Entity, Model, Pose
 from symdesign.structure.utils import chain_id_generator, DesignError
 from symdesign.utils import types
-from symdesign.utils.SymEntry import SymEntry, parse_symmetry_to_sym_entry
+from symdesign.utils.SymEntry import SymEntry
 putils = utils.path
 logger = logging.getLogger(__name__)
 
@@ -913,11 +913,9 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
     # Create the corresponding SymEntry from the original SymEntry and the fusion
     if sym_entry:
         model1.set_symmetry(sym_entry=sym_entry)
-        # # Todo
-        # #  Currently only C1 can be fused. Remove hard coding when changed
-        # # Use the model1.sym_entry as this could be crystalline
-        # symmetry = model1.sym_entry.specification + '{C1}' * model2_entities_after_fusion
-        # sym_entry_chimera = parse_symmetry_to_sym_entry(symmetry=symmetry)
+        # Todo
+        #  Currently only C1 can be fused. Remove hard coding when changed
+        # Use the model1.sym_entry as this could be crystalline
         sym_entry_chimera = model1.sym_entry
         for _ in range(model2_entities_after_fusion):
             sym_entry_chimera.append_group('C1')
@@ -955,7 +953,7 @@ def align_helices(models: Iterable[Structure]) -> list[PoseJob] | list:
         model1_entity_transformations.append(entity_transform)
     model2_entity_transformations = [{} for _ in range(model2_entities_after_fusion)]
 
-    def output_pose(name: str):
+    def output_pose(name: str) -> None:
         """Handle output of the identified pose
 
         Args:

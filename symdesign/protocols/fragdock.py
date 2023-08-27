@@ -525,9 +525,9 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
     sym_entry: SymEntry = job.sym_entry
     """The SymmetryEntry object describing the material"""
     if sym_entry:
-        protocol_name = 'nanohedra'
+        protocol_name = putils.nanohedra
     else:
-        protocol_name = 'fragment_docking'
+        protocol_name = putils.fragment_docking
     #
     # protocol = Protocol(name=protocol_name)
 

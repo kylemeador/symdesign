@@ -2206,11 +2206,12 @@ class PoseProtocol(PoseData):
                 #     entity_cb_coords = entity.cb_coords
 
                 # model_features = {'prev_pos': jnp.asarray(entity.oligomer.alphafold_coords)}
-                entity_interface_indices = \
-                    self.pose.get_interface_residues(entity1=entity, entity2=entity, oligomeric_interfaces=True)
+                entity_interface_residues = \
+                    self.pose.get_interface_residues(entity1=entity, entity2=entity,
+                                                     distance=self.job.interface_distance, oligomeric_interfaces=True)
                 offset_index = entity.offset_index
                 entity_interface_indices = tuple([residue.index - offset_index for residue in residues]
-                                                 for residues in entity_interface_indices)
+                                                 for residues in entity_interface_residues)
                 entity_name = entity.name
                 this_entity_info = {entity_name: self.pose.entity_info[entity_name]}
                 entity_model_kwargs = dict(name=entity_name, entity_info=this_entity_info)

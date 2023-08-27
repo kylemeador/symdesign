@@ -183,7 +183,7 @@ def get_multi_chain_interface_fragment_residue_numbers(pdb1, pdb2, interacting_p
 
 
 def split_residue_pairs(interface_pairs: list[tuple[Residue, Residue]]) -> tuple[list[Residue], list[Residue]]:
-    """Used to split Residue pairs, sort by Residue.number, and return pairs separated by index"""
+    """Used to split Residue pairs, take the set, then sort by Residue.number, and return pairs separated by index"""
     if interface_pairs:
         residues1, residues2 = zip(*interface_pairs)
         return sorted(set(residues1), key=lambda residue: residue.number), \
@@ -1538,13 +1538,13 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         return 1
 
     @property
-    def chains(self) -> list[Entity]:  # Structures
+    def chains(self) -> list[Entity]:  # Todo python3.11 -> list[Self] Structures
         """Returns transformed copies of the Entity"""
         # Set in __init__() -> self._chains = [self]
         if len(self._chains) == 1 and self._chain_transforms and self._is_captain:
             # populate ._chains with Entity mates
             # These mates will be their own "parent", and will be under the control of this instance, ie. the captain
-            self.log.debug('Generating Entity mate instances in "chains" attribute')
+            self.log.debug(f"Generating {self.__class__.__name__} mate instances in '.chains' attribute")
             mate_entities = [self.get_transformed_mate(**transform) for transform in self._chain_transforms]
 
             # Set entity.chain_id which sets all residues
@@ -3295,15 +3295,15 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         return delete_indices
 
-    # def reset_state(self):  # Todo this seems to introduce errors during Pose.get_interface_residues()
-    #     """Remove StructureBase attributes that are invalid for the current state for each member Structure instance
-    #
-    #     This is useful for transfer of ownership, or changes in the Model state that should be overwritten
-    #     """
-    #     for structure_type in self.structure_containers:
-    #         # Iterate over each Structure in each structure_container
-    #         for structure in self.__getattribute__(structure_type):
-    #             structure.reset_state()
+    # Todo this seems to introduce errors during Pose.get_interface_residues()
+    #  def reset_state(self):
+    #      """Remove StructureBase attributes that are invalid for the current state for each member Structure instance
+    #      This is useful for transfer of ownership, or changes in the Model state that should be overwritten
+    #      """
+    #      for structure_type in self.structure_containers:
+    #          # Iterate over each Structure in each structure_container
+    #          for structure in self.__getattribute__(structure_type):
+    #              structure.reset_state()
 
     def delete_residues(self, **kwargs) -> list[Residue] | list:
         """Delete Residue instances from the Structure
@@ -4408,7 +4408,8 @@ class Models(UserList):  # (Model):
 class SymmetricModel(Model):  # Models):
     _assembly: Model
     _assembly_minimally_contacting: Model
-    _assembly_tree: BinaryTree  # stores a sklearn tree for coordinate searching
+    _assembly_tree: BinaryTree
+    """Stores a sklearn tree for coordinate searching"""
     _asu_indices: slice  # list[int]
     _asu_model_idx: int
     _center_of_mass_symmetric_entities: list[list[np.ndarray]]  # list[np.ndarray]
@@ -4427,10 +4428,8 @@ class SymmetricModel(Model):  # Models):
     _symmetric_coords_split_by_entity: list[list[np.ndarray]]
     _transformation: list[types.TransformationMapping] | list[dict]
     _uc_dimensions: tuple[float, float, float, float, float, float] | None
-    # deorthogonalization_matrix: np.ndarray
     _expand_matrices: np.ndarray | list[list[float]] | None
     _expand_translations: np.ndarray | list[float] | None
-    # orthogonalization_matrix: np.ndarray
     state_attributes = Model.state_attributes \
         | {'_assembly', '_assembly_minimally_contacting', '_assembly_tree', '_asu_indices', '_asu_model_idx',
            '_center_of_mass_symmetric_entities', '_center_of_mass_symmetric_models',
@@ -5057,13 +5056,6 @@ class SymmetricModel(Model):  # Models):
             return Model.from_chains(chains, name=name, log=self.log, biomt_header=self.format_biomt(),
                                      cryst_record=self.cryst_record, entity_info=self.entity_info)  # entities=False)
 
-    # def report_symmetric_coords_issue(self, func_name: str):
-    #     """Debug the symmetric coords for equallity across instances"""
-    #     self.log.debug(f'In {func_name}, coords and symmetric_coords (ASU) equal: '
-    #                    f'{self.coords == self.symmetric_coords[:self.number_of_atoms]}\n'
-    #                    f'coords {np.array_str(self.coords[:2], precision=2)}\n'
-    #                    f'symmetric_coords {np.array_str(self.symmetric_coords[:2], precision=2)}')
-
     def generate_symmetric_coords(self, surrounding_uc: bool = True):
         """Expand the asu using self.symmetry for the symmetry specification, and optional unit cell dimensions if
         self.dimension > 0. Expands assembly to complete point group, unit cell, or surrounding unit cells
@@ -5324,34 +5316,25 @@ class SymmetricModel(Model):  # Models):
             The indices of the models that contact the asu
         """
         if calculate_contacts:
-            # Select only coords that are BB or CB from the model coords
-            # bb_cb_indices = None if self.coords_type == 'bb_cb' else self.backbone_and_cb_indices
-            # asu_bb_cb_indices = self.backbone_and_cb_indices
-            # self.generate_assembly_tree()
-            # Tod0 remove
-            # self.report_symmetric_coords_issue(self.get_asu_interaction_model_indices.__name__)
-
+            # DEBUG self.report_symmetric_coords(self.get_asu_interaction_model_indices.__name__)
             asu_query = self.assembly_tree.query_radius(self.coords[self.backbone_and_cb_indices], distance)
-            # coords_length = len(bb_cb_indices)
-            # contacting_model_indices = [assembly_idx // coords_length
-            #                             for asu_idx, assembly_contacts in enumerate(asu_query)
-            #                             for assembly_idx in assembly_contacts]
-            # interacting_models = sorted(set(contacting_model_indices))
             # Combine each subarray of the asu_query and divide by the assembly_tree interval length -> len(asu_query)
-            interacting_models = \
-                ((np.array(list({asu_idx for asu_contacts in asu_query.tolist()
-                                 for asu_idx in asu_contacts.tolist()}))//len(asu_query)) + 1).tolist()
-            interacting_models = sorted(set(interacting_models))
-            # The asu is missing from assembly_tree so add 1 to get the correct model index ^
+            interacting_models = (
+                np.array(list({asu_idx for asu_contacts in asu_query.tolist()
+                               for asu_idx in asu_contacts.tolist()})
+                         )
+                // len(asu_query)) + 1
+            # The asu is missing from assembly_tree so add 1 to get the
+            # correct model index ^
+            interacting_models = sorted(set(interacting_models.tolist()))
         else:
-            # distance = self.asu.radius * 2  # value too large self.radius * 2
-            # The furthest point from the ASU COM + the max individual Entity radius
-            distance = self.radius + max([entity.radius for entity in self.entities])  # all the radii
-            self.log.debug(f'Using the distance {distance} for ASU neighbor query')
+            # The furthest point from the asu COM + the max individual Entity radius
+            distance = self.radius + max([entity.radius for entity in self.entities])
+            self.log.debug(f'For ASU neighbor query, using the distance={distance}')
             center_of_mass = self.center_of_mass
             interacting_models = [idx for idx, sym_model_com in enumerate(self.center_of_mass_symmetric_models)
                                   if np.linalg.norm(center_of_mass - sym_model_com) <= distance]
-            # Remove the first index from the interacting_models due to convention above
+            # Remove the first index from the interacting_models due to exclusion of asu from convention above
             interacting_models.pop(0)
 
         return interacting_models
@@ -5383,8 +5366,6 @@ class SymmetricModel(Model):  # Models):
         number_of_atoms = self.number_of_atoms
         oligomeric_atom_indices = []
         for model_number in self.oligomeric_model_indices.get(entity):
-            # start_idx = number_of_atoms * model_number
-            # end_idx = number_of_atoms * (model_number + 1)
             oligomeric_atom_indices.extend(range(number_of_atoms * model_number,
                                                  number_of_atoms * (model_number + 1)))
         return oligomeric_atom_indices
@@ -5407,7 +5388,7 @@ class SymmetricModel(Model):  # Models):
 
         return interacting_indices
 
-    def make_indices_symmetric(self, indices: list[int], dtype: atom_or_residue_literal = 'atom') -> list[int]:
+    def make_indices_symmetric(self, indices: Iterable[int], dtype: atom_or_residue_literal = 'atom') -> list[int]:
         """Extend asymmetric indices using the symmetry state across atom or residue indices
 
         Args:
@@ -5421,7 +5402,7 @@ class SymmetricModel(Model):  # Models):
         except AttributeError:
             raise AttributeError(
                 f"The dtype 'number_of_{dtype}' wasn't found in the {self.__class__.__name__} object. "
-                "'Possible values of dtype are 'atom' or 'residue''")
+                "'Possible values of dtype are 'atom' or 'residue'")
 
         model_jumps = [jump_size * model_num for model_num in range(self.number_of_symmetry_mates)]
         return [idx + model_jump for model_jump in model_jumps for idx in indices]
@@ -6240,13 +6221,14 @@ class SymmetricModel(Model):  # Models):
 
     @property
     def assembly_tree(self) -> BinaryTree:
-        """Holds the tree structure of the symmetric_coords not including the asu coords"""
+        """Holds the tree structure of the backbone and cb symmetric_coords not including the asu coords"""
         try:
             return self._assembly_tree
         except AttributeError:
-            # We have all the BB/CB indices from ASU, must multiply these int's in self.number_of_symmetry_mates
-            # to get every BB/CB coord in the model
-            asu_bb_cb_indices = self.backbone_and_cb_indices
+            # Select coords of interest from the model coords
+            measure = 'backbone_and_cb'
+            asu_bb_cb_indices = getattr(self, f'{measure}_indices')
+            # All the indices from ASU must be multiplied by self.number_of_symmetry_mates to get all symmetric coords
             self._assembly_tree = \
                 BallTree(self.symmetric_coords[
                              self.make_indices_symmetric(asu_bb_cb_indices, dtype='atom')[len(asu_bb_cb_indices):]])
@@ -8059,8 +8041,10 @@ class Pose(SymmetricModel, Metrics):
         if self.is_symmetric():  # Get the symmetric indices of interest
             entity2_indices = self.make_indices_symmetric(entity2_indices)
             # Solve for entity2_indices to query
-            if entity1 == entity2:  # We don't want symmetry interactions with the asu model or intra-oligomeric models
-                if entity1.is_symmetric() and not oligomeric_interfaces:  # Remove oligomeric protomers (contains asu)
+            if entity1 == entity2:
+                # Remove interactions with the asu model or intra-oligomeric models
+                if entity1.is_symmetric() and not oligomeric_interfaces:
+                    # Remove oligomeric protomers (contains asu)
                     remove_indices = self.get_oligomeric_atom_indices(entity1)
                     self.log.debug(f'Removing {len(remove_indices)} indices from symmetric query due to oligomer')
                 else:  # Just remove asu
@@ -8081,18 +8065,19 @@ class Pose(SymmetricModel, Metrics):
                 f"These entities shouldn't necessarily be equal. Did you mean to have symmetry={self.symmetry}? "
                 f'If so, this issue needs to be addressed by expanding the __eq__ method of Entity to more accurately '
                 f'reflect what a Structure object represents programmatically')
-            # return
         else:
             sym_string = ''
             entity2_coords = self.coords[entity2_indices]  # Only get the coordinate indices we want
+
+        # Ensure the array is not empty
+        if len(entity2_coords) == 0:
+            return None
 
         # Construct CB tree for entity1 and query entity2 CBs for a distance less than a threshold
         entity1_coords = self.coords[entity1_indices]  # Only get the coordinates we specified
         entity1_tree = BallTree(entity1_coords)
         # Todo
-        # entity1_tree = entity1.balltree(atom_type='cb').query_radius(entity2_coords, distance)
-        if len(entity2_coords) == 0:  # Ensure the array is not empty
-            return None
+        #  entity1_tree = entity1.balltree(atom_type='cb').query_radius(entity2_coords, distance)
 
         self.log.debug(f'Querying {len(entity1_indices)} CB residues in Entity {entity1.name} versus, '
                        f'{len(entity2_indices)} CB residues in {sym_string}Entity {entity2.name}')
@@ -8133,10 +8118,10 @@ class Pose(SymmetricModel, Metrics):
         if entity1 == entity2:  # Solve symmetric results for asymmetric contacts
             asymmetric_contacting_pairs, found_pairs = [], set()
             for pair1, pair2 in contacting_pairs:
-                # Only add to contacting pair if we have never observed either
-                if (pair1, pair2) not in found_pairs:  # or (pair2, pair1) not in found_pairs:
+                # Only add to contacting pair if pair has never been observed
+                if (pair1, pair2) not in found_pairs:
                     asymmetric_contacting_pairs.append((pair1, pair2))
-                # Add both pair orientations (1, 2) and (2, 1) regardless
+                # Add both pair orientations, (1, 2) and (2, 1), regardless
                 found_pairs.update([(pair1, pair2), (pair2, pair1)])
 
             return asymmetric_contacting_pairs
@@ -8168,7 +8153,7 @@ class Pose(SymmetricModel, Metrics):
             return [], []
 
         if entity1 == entity2:  # If symmetric query
-            # Is the interface is across a dimeric interface?
+            # Is the interface across a dimeric interface?
             for residue in entity2_residues:  # entity2 usually has fewer residues, this might be quickest
                 if residue in entity1_residues:  # The interface is dimeric
                     # Include all residues found to only one side and move on
@@ -8218,28 +8203,28 @@ class Pose(SymmetricModel, Metrics):
 
         if not residues1:
             return
-        entity1_indices: list[int] = []
+        entity1_atom_indices: list[int] = []
         for residue in residues1:
-            entity1_indices.extend(residue.heavy_indices)
+            entity1_atom_indices.extend(residue.heavy_indices)
 
         if not residues2:  # check if the interface is a symmetric self dimer and all residues are in residues1
             # residues2 = residues1
-            entity2_indices = entity1_indices
+            entity2_atom_indices = entity1_atom_indices
         else:
-            entity2_indices: list[int] = []
+            entity2_atom_indices: list[int] = []
             for residue in residues2:
-                entity2_indices.extend(residue.heavy_indices)
+                entity2_atom_indices.extend(residue.heavy_indices)
 
         if self.is_symmetric():  # get all symmetric indices for entity2
-            entity2_indices = self.make_indices_symmetric(entity2_indices)
+            entity2_atom_indices = self.make_indices_symmetric(entity2_atom_indices)
             # No need to remove oligomeric indices as this procedure was done for residues
-            query_coords = self.symmetric_coords[entity2_indices]
+            query_coords = self.symmetric_coords[entity2_atom_indices]
         else:
-            query_coords = self.coords[entity2_indices]
+            query_coords = self.coords[entity2_atom_indices]
 
-        interface_atom_tree = BallTree(self.coords[entity1_indices])
+        interface_atom_tree = BallTree(self.coords[entity1_atom_indices])
         atom_query = interface_atom_tree.query_radius(query_coords, distance)
-        contacting_pairs = [(entity1_indices[entity1_idx], entity2_indices[entity2_idx])
+        contacting_pairs = [(entity1_atom_indices[entity1_idx], entity2_atom_indices[entity2_idx])
                             for entity2_idx, entity1_contacts in enumerate(atom_query.tolist())
                             for entity1_idx in entity1_contacts.tolist()]
         return contacting_pairs
@@ -8291,29 +8276,29 @@ class Pose(SymmetricModel, Metrics):
 
         entity1_residues, entity2_residues = self.interface_residues_by_entity_pair.get((entity1, entity2))
         # Because of the way self.interface_residues_by_entity_pair is set, when there isn't an interface, a check on
-        # entity1_residues is sufficient, however entity2_residues is empty with an interface present across a
+        # residues1 is sufficient, however residues2 is empty with an interface present across a
         # non-oligomeric dimeric 2-fold
-        if not entity1_residues:  # or not entity2_residues:
+        if not residues1:  # or not residues2:
             self.log.debug(f'No residues at the {entity1.name} | {entity2.name} interface. Fragments not available')
             self.fragment_queries[(entity1, entity2)] = []
             return
 
-        # residue_numbers1 = sorted(residue.number for residue in entity1_residues)
+        # residue_numbers1 = sorted(residue.number for residue in residues1)
         # surface_frags1 = entity1.get_fragments(residue_numbers=residue_numbers1,
         #                                        fragment_db=self.fragment_db)
         frag_residues1 = \
-            entity1.get_fragment_residues(residues=entity1_residues, fragment_db=self.fragment_db)
-        if not entity2_residues:  # entity1 == entity2 and not entity2_residues:
-            # entity1_residues = set(entity1_residues + entity2_residues)
-            # entity2_residues = entity1_residues
+            entity1.get_fragment_residues(residues=residues1, fragment_db=self.fragment_db)
+        if not residues2:  # entity1 == entity2 and not residues2:
+            # residues1 = set(residues1 + residues2)
+            # residues2 = residues1
             frag_residues2 = frag_residues1.copy()
             # residue_numbers2 = residue_numbers1
         else:
-            # residue_numbers2 = sorted(residue.number for residue in entity2_residues)
+            # residue_numbers2 = sorted(residue.number for residue in residues2)
             # surface_frags2 = entity2.get_fragments(residue_numbers=residue_numbers2,
             #                                        fragment_db=self.fragment_db)
             frag_residues2 = \
-                entity2.get_fragment_residues(residues=entity2_residues, fragment_db=self.fragment_db)
+                entity2.get_fragment_residues(residues=residues2, fragment_db=self.fragment_db)
 
         # self.log.debug(f'At Entity {entity1.name} | Entity {entity2.name} interface, searching for fragments at the '
         #                f'surface of:\n\tEntity {entity1.name}: Residues {", ".join(map(str, residue_numbers1))}'
@@ -8600,7 +8585,7 @@ class Pose(SymmetricModel, Metrics):
                            '\n\tInterface 1: %s\n\tInterface 2: %s'
                            % tuple(','.join(f'{residue.number}{residue.chain_id}' for residue in residues)
                                    for residues in self.interface_residues_by_interface_unique.values()))
-        else:  # Just make a copy of the internal list... Avoid unforseen issues if these are ever modified
+        else:  # Just make a copy of the internal list... Avoids unforeseen issues if these are ever modified
             self.interface_residues_by_interface_unique = \
                 {number: residues.copy() for number, residues in self.interface_residues_by_interface.items()}
 
@@ -8721,7 +8706,7 @@ class Pose(SymmetricModel, Metrics):
     # Todo Add all fragment instances (not just interface) to the metrics
     def get_fragment_metrics(self, fragments: list[fragment_info_type] = None, total_interface: bool = True,
                              by_interface: bool = False, by_entity: bool = False,
-                             entity1: Structure = None, entity2: Structure = None) -> dict:
+                             entity1: Structure = None, entity2: Structure = None, **kwargs) -> dict:
         """Return fragment metrics from the Pose. Returns the entire Pose unless by_interface or by_entity is True
 
         Uses data from self.fragment_queries unless fragments are passed
@@ -8733,6 +8718,9 @@ class Pose(SymmetricModel, Metrics):
             by_entity: Return fragment metrics for each Entity found in the Pose
             entity1: The first Entity object to identify the interface if per_interface=True
             entity2: The second Entity object to identify the interface if per_interface=True
+        Keyword Args:
+            distance: float = 8. - The distance to measure Residues across an interface
+            oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
         Returns:
             A mapping of the following metrics for the requested structural region -
                 {'center_indices',
@@ -8764,18 +8752,22 @@ class Pose(SymmetricModel, Metrics):
                 self.fragment_metrics[query_pair] = self.fragment_db.calculate_match_metrics(fragment_matches)
 
         if by_interface:
+            # Check for either orientation as the final interface score will be the same
+            if (entity1, entity2) not in self.fragment_queries or (entity2, entity1) not in self.fragment_queries:
+                self.query_interface_for_fragments(entity1=entity1, entity2=entity2, **kwargs)
+
+            # if entity1 is None or entity2 is None:
+            #     self.log.error(f"{self.get_fragment_metrics.__name__}: 'entity1' and 'entity2' can't be None")
+            # else:
             metric_d = deepcopy(fragment.metrics.fragment_metric_template)
-            if entity1 is None or entity2 is None:
-                self.log.error(f"{self.get_fragment_metrics.__name__}: 'entity1' and 'entity2' can't be None")
+            for query_pair, _metrics in self.fragment_metrics.items():
+                # Check either orientation as the function query could vary from self.fragment_metrics
+                if (entity1, entity2) in query_pair or (entity2, entity1) in query_pair:
+                    if _metrics:
+                        metric_d = self.fragment_db.format_fragment_metrics(_metrics)
+                        break
             else:
-                for query_pair, _metrics in self.fragment_metrics.items():
-                    # Check either orientation as the function query could vary from self.fragment_metrics
-                    if (entity1, entity2) in query_pair or (entity2, entity1) in query_pair:
-                        if _metrics:
-                            metric_d = self.fragment_db.format_fragment_metrics(_metrics)
-                            break
-                else:
-                    self.log.warning(f"Couldn't locate query metrics for Entity pair {entity1.name}, {entity2.name}")
+                self.log.warning(f"Couldn't locate query metrics for Entity pair {entity1.name}, {entity2.name}")
         elif by_entity:
             metric_d = {}
             for query_pair, _metrics in self.fragment_metrics.items():
@@ -9098,16 +9090,16 @@ class Pose(SymmetricModel, Metrics):
         if not self.interface_residues_by_entity_pair:
             self.find_and_split_interface(oligomeric_interfaces=oligomeric_interfaces, **kwargs)
 
+        if self.is_symmetric():
+            entity_combinations = combinations_with_replacement(self.active_entities, 2)
+        else:
+            entity_combinations = combinations(self.active_entities, 2)
+
         entity_pair: Iterable[Entity]
-        for entity_pair in combinations_with_replacement(self.active_entities, 2):
+        for entity_pair in entity_combinations:
             self.log.debug(f'Querying Entity pair: {", ".join(entity.name for entity in entity_pair)} '
                            f'for interface fragments')
             self.query_interface_for_fragments(*entity_pair, oligomeric_interfaces=oligomeric_interfaces, **kwargs)
-
-        # if oligomeric_interfaces:
-        #     # Todo this isn't doing anything...
-        #     # Query again, only using extra oligomeric Entity interfaces
-        #     self.find_and_split_interface(oligomeric_interfaces=oligomeric_interfaces, **kwargs)
 
     def generate_fragments(self, **kwargs):
         """Generate fragments pairs between every possible Residue instance in the Pose
@@ -9176,3 +9168,10 @@ class Pose(SymmetricModel, Metrics):
         self.log.critical(f'Wrote debugging Pose to: {debug_path}')
         self.write(assembly=True, out_path=assembly_debug_path)
         self.log.critical(f'Wrote debugging Pose assembly to: {assembly_debug_path}')
+
+    # def report_symmetric_coords(self, func_name: str):
+    #     """Debug the symmetric coords for equallity across instances"""
+    #     self.log.debug(f'In {func_name}, coords and symmetric_coords (ASU) equal: '
+    #                    f'{self.coords == self.symmetric_coords[:self.number_of_atoms]}\n'
+    #                    f'coords {np.array_str(self.coords[:2], precision=2)}\n'
+    #                    f'symmetric_coords {np.array_str(self.symmetric_coords[:2], precision=2)}')
