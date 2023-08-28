@@ -5,7 +5,6 @@ from itertools import product
 from symdesign.protocols.fragdock import fragment_dock
 # from utils.path import biological_fragment_db_pickle
 # from utils import unpickle
-# from resources.EulerLookup import euler_factory
 from symdesign.utils.path import program_command
 
 raise NotImplementedError(f'This tool has been depreciated. '

@@ -39,7 +39,6 @@ from symdesign.protocols.pose import PoseJob
 from symdesign.resources.job import JobResources, job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from symdesign.resources import distribute, ml, query as user_query, sql, structure_db, wrapapi
-from symdesign.structure.fragment.db import fragment_factory, euler_factory
 from symdesign.structure.model import Entity, Pose
 
 
@@ -212,6 +211,7 @@ def destruct_factories():
     """Remove data from existing singletons to destruct this session"""
     # factories = [JobResourcesFactory, ProteinMPNNFactory, APIDatabaseFactory, SymEntryFactory,
     #              FragmentDatabaseFactory, EulerLookupFactory, StructureDatabaseFactory]
+    from symdesign.structure.fragment.db import fragment_factory, euler_factory
     factories = [job_resources_factory, ml.proteinmpnn_factory, wrapapi.api_database_factory, utils.SymEntry.symmetry_factory,
                  fragment_factory, euler_factory, structure_db.structure_database_factory]
     for factory in factories:
@@ -806,12 +806,13 @@ def main():
     logger.info(f'Using resources in Database located at "{job.data}"')
     uses_fragments = [flags.nanohedra, flags.generate_fragments, flags.design, flags.analysis]
     if job.module in uses_fragments:
-        job.fragment_db = fragment_factory(source=args.fragment_database)
-        # Initialize EulerLookup class
-        euler_factory()
+        # Todo
+        #  Include when other database types are available
+        # job.fragment_db = fragment_factory(source=args.fragment_database)
         if job.module == flags.generate_fragments and job.fragment_db.source == putils.biological_interfaces:
-            logger.warning(f'The FragmentDatabase {job.fragment_db.source} has only been created with '
-                           'biological homo-oligomers. Use fragment information with caution')
+            logger.info(f'The FragmentDatabase {job.fragment_db.source} has only been created with '
+                        'biological homo-oligomers. Understand the caveats of using fragment information at '
+                        'non-interface positions')
     # -----------------------------------------------------------------------------------------------------------------
     #  Initialize the db.session, set into job namespace
     # -----------------------------------------------------------------------------------------------------------------

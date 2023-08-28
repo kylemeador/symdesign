@@ -60,7 +60,7 @@ class FragmentDatabase(info.FragmentInfo):
         self.representatives = {}
         self.paired_frags = {}
         self.indexed_ghosts = {}
-        # self.euler_lookup = euler_factory()
+        self.euler_lookup = None
 
         # if init_db:
         #     logger.info(f'Initializing {self.source} FragmentDatabase from disk. This may take awhile...')
@@ -321,6 +321,7 @@ class FragmentDatabaseFactory:
 
         Args:
             source: The FragmentDatabase source name
+            token: Provide the initialization token to skip construction
         Returns:
             The instance of the specified FragmentDatabase
         """
@@ -340,7 +341,7 @@ class FragmentDatabaseFactory:
             self._databases[source] = FragmentDatabase(source=source, **kwargs)
 
         logger.info(f'Initializing {FragmentDatabase.__name__}({source})')
-        # Attach the euler_lookup class
+        # Attach the EulerLookup singleton
         self._databases[source].euler_lookup = euler_factory()
 
         return self._databases[source]
@@ -349,7 +350,8 @@ class FragmentDatabaseFactory:
         """Return the specified FragmentDatabase object singleton
 
         Keyword Args:
-            source: The FragmentDatabase source name
+            source: str = putils.biological_interfaces - The FragmentDatabase source name
+            token: int = None - Provide the initialization token to skip construction
         Returns:
             The instance of the specified FragmentDatabase
         """

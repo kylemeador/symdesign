@@ -3024,19 +3024,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         Sets fragment_db for each dependent in 'structure_containers' attribute
         """
         super(Model, Model).fragment_db.fset(self, fragment_db)
-        # # self.log.critical(f'Found fragment_db {type(fragment_db)}. '
-        # #                   f'isinstance(fragment_db, FragmentDatabase) = {isinstance(fragment_db, FragmentDatabase)}')
-        # if not isinstance(fragment_db, FragmentDatabase):
-        #     # Todo add fragment_length, sql kwargs
-        #     self.log.debug(f'fragment_db was set to the default since a {type(fragment_db).__name__} was passed which '
-        #                    f'is not of the required type {FragmentDatabase.__name__}')
-        #     fragment_db = fragment_factory(source=putils.biological_interfaces)
-
-        # self._fragment_db = fragment_db
-        if self._fragment_db:
-            for structure_type in self.structure_containers:
-                for structure in self.__getattribute__(structure_type):
-                    structure.fragment_db = self._fragment_db
+        for structure_type in self.structure_containers:
+            for structure in self.__getattribute__(structure_type):
+                structure.fragment_db = self._fragment_db
 
     @property
     def chain_breaks(self) -> list[int]:

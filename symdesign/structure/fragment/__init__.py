@@ -524,7 +524,7 @@ class ResidueFragment(Fragment, ABC):
 
 def find_fragment_overlap(fragments1: Iterable[Fragment], fragments2: Sequence[Fragment],
                           clash_coords: np.ndarray = None, min_match_value: float = 2.,  # .2,
-                          euler_lookup: db.EulerLookup = None, **kwargs) -> list[tuple[GhostFragment, Fragment, float]]:
+                          **kwargs) -> list[tuple[GhostFragment, Fragment, float]]:
     #           entity1, entity2, entity1_interface_residue_numbers, entity2_interface_residue_numbers, max_z_value=2):
     """From two sets of Residues, score the fragment overlap according to Nanohedra's fragment matching
 
@@ -533,7 +533,6 @@ def find_fragment_overlap(fragments1: Iterable[Fragment], fragments2: Sequence[F
         fragments2: The Fragment instances to pair against fragments1 GhostFragment instances
         clash_coords: The coordinates to use for checking for GhostFragment clashes
         min_match_value: The minimum value which constitutes an acceptable fragment z_score
-        euler_lookup: Reference to the singleton EulerLookup instance if already available. Otherwise, will be retrieved
     Returns:
         The GhostFragment, Fragment pairs, along with their match score
     """
@@ -563,9 +562,7 @@ def find_fragment_overlap(fragments1: Iterable[Fragment], fragments2: Sequence[F
     # Check for matching Euler angles
     # Todo create a stand alone function
     # logger.debug('Starting Euler Lookup')
-    if euler_lookup is None:
-        # euler_lookup = euler_factory()
-        euler_lookup = fragments2[0].fragment_db.euler_lookup
+    euler_lookup = fragments2[0].fragment_db.euler_lookup
 
     overlapping_ghost_indices, overlapping_frag_indices = \
         euler_lookup.check_lookup_table(residue1_ghost_guide_coords, residue2_guide_coords)
