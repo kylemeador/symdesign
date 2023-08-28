@@ -96,6 +96,7 @@ sbatch_templates_tuple = (
     os.path.join(sbatch_template_dir, flags.predict_structure)
 )
 sbatch_templates = dict(zip(protocols, sbatch_templates_tuple))
+default_sbatch_template = sbatch_templates[flags.refine]
 # sbatch_templates = {
 #     flags.refine: os.path.join(sbatch_template_dir, flags.refine),
 #     flags.interface_design: os.path.join(sbatch_template_dir, flags.interface_design),
@@ -257,8 +258,12 @@ def distribute(file: AnyStr, scale: protocols_literal, number_of_commands: int, 
         #  if mpi:
         #      do_mpi_stuff = True
         if batch:
-            # grab and write sbatch template
-            with open(sbatch_templates[scale]) as template_f:
+            # Write sbatch template
+            template = sbatch_templates.get(scale)
+            if not template:
+                template = default_sbatch_template
+                logger.warning(f"Couldn't find an sbatch script template for '{scale}'")
+            with open(template) as template_f:
                 new_f.write(''.join(template_f.readlines()))
             out = f'output={output}/%A_%a.out'
             new_f.write(f'{sb_flag}{out}\n')
