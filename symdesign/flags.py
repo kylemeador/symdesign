@@ -26,7 +26,8 @@ from symdesign.utils.path import submodule_guide, submodule_help, force, sym_ent
     cluster_poses, orient, default_clustered_pose_file, interface_design, evolution_constraint, use_evolution, hbnet, \
     term_constraint, design_number, refine, structure_background, scout, design_profile, evolutionary_profile, \
     fragment_profile, select_sequences, program_name, nanohedra, predict_structure, output_interface, \
-    program_command, analysis, select_poses, output_fragments, output_oligomers, output_entities, protocol, current_energy_function, \
+    program_command, analysis, select_poses, output_fragments, output_oligomers, output_entities, protocol, \
+    current_energy_function, \
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, proteinmpnn, \
     output_trajectory, development, consensus, ca_only, sequences, structures, temperatures, optimize_species,\
     distribute_work, output_directory, output_surrounding_uc, skip_logging, output_file, avoid_tagging_helices, \
@@ -758,7 +759,7 @@ class StoreDictKeyPair(argparse.Action):
 # Todo Found the following for formatting the prog use case in subparsers
 #  {'refine': ArgumentParser(prog='{putils.program_command} module [module_arguments] [input_arguments]'
 #                                 '[optional_arguments] refine'
-
+flag_delimiter = '-'
 boolean_positional_prevent_msg = 'Use --no-{} to prevent'.format
 """Use this message in all help keyword arguments using argparse.BooleanOptionalAction with default=True to specify the
  --no- prefix when the argument should be False
