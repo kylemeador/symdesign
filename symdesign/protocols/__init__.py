@@ -879,10 +879,9 @@ def process_rosetta_metrics(job: pose.PoseJob) -> None:
     Args:
         job: The PoseJob for which the protocol should be performed on
     """
-    job.identify_interface()
-
     # Gather metrics for each design produced from other modules
     if os.path.exists(job.scores_file):
+        job.identify_interface()
         job.process_rosetta_metrics()
     else:
         raise InputError(
