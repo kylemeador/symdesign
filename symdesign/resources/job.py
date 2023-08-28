@@ -760,6 +760,7 @@ class JobResources:
 
         # Remove the program
         parsed_arguments = sys.argv[1:]
+        logger.debug(f'Starting with arguments {parsed_arguments}')
         # Todo
         #  Should the module be removed?
         #  sys.argv.remove(self.module)
@@ -768,7 +769,6 @@ class JobResources:
             + [arg for args in flags.pose_inputs.keys() for arg in args] \
             + [arg for args in flags.component_mutual1_arguments.keys() for arg in args] \
             + [arg for args in flags.component_mutual2_arguments.keys() for arg in args]
-        single_input_flags = (*flags.query_codes1, *flags.query_codes2)
         for input_arg in possible_input_args:
             try:
                 pop_index = parsed_arguments.index(input_arg)
@@ -776,7 +776,7 @@ class JobResources:
                 continue
             else:
                 removed_flag = parsed_arguments.pop(pop_index)
-                while parsed_arguments[pop_index][0] == flags.flag_delimiter:
+                while parsed_arguments[pop_index][0] != flags.flag_delimiter:
                     removed_arg = parsed_arguments.pop(pop_index)
                     logger.debug(f'From {removed_flag}, removed argument {removed_arg}')
                 # # If the flag requires an argument, pop the index a second time
