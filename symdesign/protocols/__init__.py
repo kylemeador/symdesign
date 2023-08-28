@@ -19,8 +19,8 @@ from scipy.spatial.distance import pdist
 from . import align, cluster, config, fragdock, pose, select
 from symdesign import flags, metrics
 from symdesign.resources.config import default_pca_variance
-from symdesign.resources.distribute import write_script
-from symdesign.resources.job import job_resources_factory
+from symdesign.resources import distribute
+from symdesign.resources.job import job_resources_factory  # job has namespace overloaded
 from symdesign.sequence import optimize_protein_sequence, protein_letters_1to3, protein_letters_3to1, \
     read_fasta_file, write_sequences
 from symdesign.structure.model import Models, MultiModel, Pose
@@ -236,8 +236,8 @@ def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None
 
     # Create executable to gather interface Metrics on all Designs
     if job.job.distribute_work:
-        analysis_cmd = job.make_analysis_cmd()
-        job.current_script = write_script(
+        analysis_cmd = job.get_cmd_process_rosetta_metrics()
+        job.current_script = distribute.write_script(
             list2cmdline(generate_files_cmd), name=f'{starttime}_{script_name}.sh', out_path=job.scripts_path,
             additional=[list2cmdline(cmd)] + [list2cmdline(analysis_cmd)])
         # Todo metrics: [list2cmdline(command) for command in metric_cmds]
@@ -320,8 +320,8 @@ def interface_metrics(job: pose.PoseJob):
 
     # Create executable to gather interface Metrics on all Designs
     if job.job.distribute_work:
-        analysis_cmd = job.make_analysis_cmd()
-        job.current_script = write_script(
+        analysis_cmd = job.get_cmd_process_rosetta_metrics()
+        job.current_script = distribute.write_script(
             list2cmdline(metric_cmd_bound), name=f'{starttime}_{job.protocol}.sh', out_path=job.scripts_path,
             additional=[list2cmdline(command) for command in entity_metric_cmds]
             + [list2cmdline(analysis_cmd)])
@@ -838,8 +838,8 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
 
     # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
     if job.job.distribute_work:
-        analysis_cmd = job.make_analysis_cmd()
-        self.current_script = write_script(
+        analysis_cmd = job.get_cmd_process_rosetta_metrics()
+        self.current_script = distribute.write_script(
             list2cmdline(design_cmd), name=f'{starttime}_{job.protocol}.sh', out_path=job.scripts_path,
             additional=[list2cmdline(generate_files_cmd)]
             + [list2cmdline(command) for command in metric_cmds] + [list2cmdline(analysis_cmd)])
@@ -858,7 +858,7 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
 
 
 @protocol_decorator()
-def process_rosetta_metrics(job: pose.PoseJob):
+def process_rosetta_metrics(job: pose.PoseJob) -> None:
     """From Rosetta based protocols, tally the resulting metrics and integrate with the metrics database
 
     Args:
@@ -875,7 +875,7 @@ def process_rosetta_metrics(job: pose.PoseJob):
 
 
 @protocol_decorator()
-def analysis(job: pose.PoseJob, designs: Iterable[Pose] | Iterable[AnyStr] = None) -> pd.Series:
+def analysis(job: pose.PoseJob, designs: Iterable[Pose] | Iterable[AnyStr] = None) -> None:
     """Retrieve all metrics information from a PoseJob
 
     Args:
@@ -889,7 +889,7 @@ def analysis(job: pose.PoseJob, designs: Iterable[Pose] | Iterable[AnyStr] = Non
     # Acquire the pose_metrics if None have been made yet
     job.calculate_pose_metrics()
 
-    return job.analyze_pose_designs(designs=designs)
+    job.analyze_pose_designs(designs=designs)
 
 
 @protocol_decorator()

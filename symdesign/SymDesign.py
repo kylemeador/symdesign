@@ -587,6 +587,7 @@ def main():
 
     remove_dummy: bool = handle_atypical_inputs([args.module])
     if args.module == flags.all_flags:
+        # Overwrite the specified arguments to just print the program help
         sys.argv = [putils.program_exe, '--help']
     elif args.module == flags.protocol:
         remove_dummy = handle_atypical_inputs(args.modules)

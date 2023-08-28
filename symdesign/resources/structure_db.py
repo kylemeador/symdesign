@@ -782,7 +782,7 @@ class StructureDatabase(Database):
                 if use_alphafold and self.job.gpu_available:
                     if batch_commands:
                         # Write all commands to a file to perform in batches
-                        cmd = ['python', putils.program_exe, flags.initialize_building_blocks,
+                        cmd = [*putils.program_command_tuple, flags.initialize_building_blocks,
                                f'--{flags.loop_model_input}', f'--{flags.pdb_codes1}']
                         commands = [cmd.copy() + [protein.entity_id, f'--symmetry', protein.symmetry_group]
                                     for idx, protein in enumerate(protein_data_to_loop_model)]

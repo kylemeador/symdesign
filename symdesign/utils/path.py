@@ -25,7 +25,6 @@ except subprocess.CalledProcessError:
 
 program_name = 'SymDesign'
 program_exe = git_source
-# program_exe = os.path.join(git_source, program_name.lower())
 conda_environment = os.path.join(git_source, 'conda_env.yml')
 logging_cfg_file = os.path.join(python_source, 'logging.cfg')
 config_file = os.path.join(python_source, 'cfg.json')
@@ -33,6 +32,7 @@ third_party_dir = os.path.join(python_source, 'third_party')
 program_output = f'{program_name}Output'
 projects = 'Projects'
 program_command = f'{sys.executable} {program_exe}'
+program_command_tuple = (sys.executable, program_exe)
 submodule_guide = f'{program_command} MODULE --guide'
 program_help = f'{program_command} --help'
 submodule_help = f'{program_command} MODULE --help'

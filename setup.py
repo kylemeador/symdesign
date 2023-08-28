@@ -472,7 +472,7 @@ def setup(args):
     # Todo
     #  Set up the module to be found in the PYTHONPATH variable
     #  python -m symdesign or symdesign capability?
-    print(f'Set up complete, {putils.program_name} is now operational. Run the command {putils.program_exe} for '
+    print(f"Set up complete, {putils.program_name} is now operational. Run the command '{putils.program_command}' for "
           f"usage instructions or visit '{putils.git_url}' for more info")
     # print(f'All {putils.program_name} files are located in {putils.git_source}')
 

@@ -164,7 +164,7 @@ fragment_metrics = {
     'percent_residues_fragment_interface_center',
     'percent_residues_non_fragment_interface',
 }
-# These metrics are necessary for all calculations performed during the analysis script.
+# These metrics are necessary for all calculations performed during the analysis module
 # They are formatted differently from Rosetta output. If missing, something will fail
 rosetta_required = {
     'buried_unsatisfied_hbonds_complex', 'buns1_unbound', 'contact_count', 'coordinate_constraint',
@@ -189,8 +189,8 @@ rosetta_required = {
     # 'interface_b_factor_per_res',
 }
 columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation',
-                     'shape_complementarity_core_median_dist': 'interface_core_separation',
-                     'shape_complementarity_fragment_median_dist': 'interface_fragment_separation',
+                     'shape_complementarity_core_median_dist': 'interface_separation_core',
+                     'shape_complementarity_fragment_median_dist': 'interface_separation_fragment',
                      'ref': 'rosetta_reference_energy',
                      'interaction_energy_density_filter': 'interaction_energy_per_residue'
                      # 'relax_switch': protocol, 'no_constraint_switch': protocol, 'limit_to_profile_switch': protocol,
@@ -320,7 +320,7 @@ protocols_of_interest = {putils.design_profile, putils.structure_background, put
 protocol_column_types = ['mean', 'sequence_design']  # 'stats',
 # Specific columns of interest to distinguish between design trajectories
 significance_columns = [
-    'buried_unsatisfied_hbonds', 'contact_count', 'interface_energy_desnity', 'interface_area_total', 'number_hbonds',
+    'buried_unsatisfied_hbonds', 'contact_count', 'interface_energy_density', 'interface_area_total', 'number_hbonds',
     'percent_interface_area_hydrophobic', 'shape_complementarity', 'interface_solvation_energy_density']
 # sequence_columns = ['divergence_evolution_per_residue', 'divergence_fragment_per_residue',
 #                     'observed_evolution', 'observed_fragment']

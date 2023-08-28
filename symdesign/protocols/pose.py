@@ -1450,7 +1450,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             self.log.info(f'Wrote Pose file to: "{out_path}"')
 
         if self.job.output_to_directory:
-            if not os.path.exists(self.output_pose_path) or self.job.force:
+            if not os.path.exists(self.output_pose_path) or self.job.overwrite:
                 out_path = self.output_pose_path
                 self.pose.write(out_path=out_path)
                 self.log.info(f'Wrote Pose file to: "{out_path}"')
@@ -1686,9 +1686,17 @@ class PoseProtocol(PoseData):
 
         return entity_metric_commands
 
-    def make_analysis_cmd(self) -> list[str]:
-        """Generate a list compatible with subprocess.Popen()/subprocess.list2cmdline()"""
-        return ['python', putils.program_exe, flags.process_rosetta_metrics, '--single', self.pose_directory]
+    def get_cmd_process_rosetta_metrics(self) -> list[list[str], ...]:
+        """Generate a list of commands compatible with subprocess.Popen()/subprocess.list2cmdline() to run
+        process-rosetta-metrics
+        """
+        return [*putils.program_command_tuple, flags.process_rosetta_metrics, '--single', self.pose_directory] \
+            + self.job.parsed_arguments
+
+    # def get_cmd_analysis(self) -> list[list[str], ...]:
+    #     """Generate a list of commands compatible with subprocess.Popen()/subprocess.list2cmdline() to run analysis"""
+    #     return [*putils.program_command_tuple, flags.analysis, '--single', self.pose_directory] \
+    #         + self.job.parsed_arguments
 
     def thread_sequences_to_backbone(self, sequences: dict[str, str] = None):
         """From the starting Pose, thread sequences onto the backbone, modifying relevant side chains i.e., mutate the
@@ -2524,7 +2532,7 @@ class PoseProtocol(PoseData):
 
         # Create executable/Run FastRelax on Clean ASU with RosettaScripts
         if self.job.distribute_work:
-            analysis_cmd = self.make_analysis_cmd()
+            analysis_cmd = self.get_cmd_process_rosetta_metrics()
             self.current_script = distribute.write_script(
                 list2cmdline(relax_cmd), name=f'{starttime}_{self.protocol}.sh', out_path=flag_dir,
                 additional=[list2cmdline(generate_files_cmd)]
@@ -2651,7 +2659,7 @@ class PoseProtocol(PoseData):
 
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.job.distribute_work:
-            analysis_cmd = self.make_analysis_cmd()
+            analysis_cmd = self.get_cmd_process_rosetta_metrics()
             self.current_script = distribute.write_script(
                 list2cmdline(design_cmd), name=f'{starttime}_{self.protocol}', out_path=self.scripts_path,
                 additional=[list2cmdline(command) for command in additional_cmds]
@@ -2966,16 +2974,14 @@ class PoseProtocol(PoseData):
         # # Fill in all the missing values with that of the default pose_source
         # scores_df = pd.concat([source_df, scores_df]).fillna(method='ffill')
         # Gather all columns into specific types for processing and formatting
-        per_res_columns = []
-        for column in scores_df.columns.tolist():
-            if 'res_' in column:
-                per_res_columns.append(column)
+        per_res_columns = [column for column in scores_df.columns.tolist() if 'res_' in column]
 
         # Check proper input
         metric_set = metrics.rosetta_required.difference(set(scores_df.columns))
         if metric_set:
             self.log.debug(f'Score columns present before required metric check: {scores_df.columns.tolist()}')
-            raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
+            raise DesignError(
+                f'Missing required metrics: "{", ".join(metric_set)}"')
 
         # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
         # Todo learn know how to produce Rosetta score terms in output score file. Not in FastRelax...
@@ -4505,7 +4511,8 @@ class PoseProtocol(PoseData):
             # Check proper input
             metric_set = metrics.rosetta_required.difference(set(scores_df.columns))
             if metric_set:
-                raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
+                raise DesignError(
+                    f'Missing required metrics: "{", ".join(metric_set)}"')
 
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
             # Todo learn know how to produce Rosetta score terms in output score file. Not in FastRelax...
@@ -4515,8 +4522,8 @@ class PoseProtocol(PoseData):
             # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
             residue_info.update(self.pose.process_rosetta_residue_scores(structure_design_scores))
             # Can't use residue_processing (clean) ^ in the case there is a design without metrics... columns not found!
-            residue_info = metrics.process_residue_info(residue_info,
-                                                        hbonds=self.pose.rosetta_hbond_processing(structure_design_scores))
+            residue_info = metrics.process_residue_info(
+                residue_info, hbonds=self.pose.rosetta_hbond_processing(structure_design_scores))
             # residue_info = metrics.incorporate_sequence_info(residue_info, pose_sequences)
 
             # Drop designs where required data isn't present
@@ -4526,10 +4533,11 @@ class PoseProtocol(PoseData):
                 # Todo remove not DEV
                 scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
                 scores_df.loc[scout_indices, putils.protocol] = putils.scout
-                structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
+                structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index
+                                           if 'no_constraint' in idx]
                 scores_df.loc[structure_bkgnd_indices, putils.protocol] = putils.structure_background
                 # Todo Done remove
-                # protocol_s.replace({'combo_profile': putils.design_profile}, inplace=True)  # ensure proper profile name
+                # protocol_s.replace({'combo_profile': putils.design_profile}, inplace=True)  # Ensure proper name
 
                 scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
                 # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')

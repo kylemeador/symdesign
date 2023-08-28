@@ -756,7 +756,7 @@ class StoreDictKeyPair(argparse.Action):
 # argument default. The available specifiers include the program name, %(prog)s and most keyword arguments to
 # add_argument(), e.g. %(default)s, %(type)s, etc.:
 # Todo Found the following for formatting the prog use case in subparsers
-#  {'refine': ArgumentParser(prog='python {program_exe} module [module_arguments] [input_arguments]'
+#  {'refine': ArgumentParser(prog='{putils.program_command} module [module_arguments] [input_arguments]'
 #                                 '[optional_arguments] refine'
 
 boolean_positional_prevent_msg = 'Use --no-{} to prevent'.format
@@ -1615,7 +1615,7 @@ input_help = f'Specify where/which poses should be included in processing.\n{dir
 parser_input = dict(description=input_help)  # , help=input_help
 parser_input_group = dict(title=f'{"_" * len(input_title)}\n{input_title}',
                           description=f'\n{input_help}')
-input_arguments = {
+pose_inputs = {
     poses_args: dict(type=os.path.abspath, nargs='*', default=tuple(),
                      metavar=ex_path(default_path_file.format('TIMESTAMP', 'MODULE', 'LOCATION')),
                      help=f'For each run of {program_name}, a file will be created that\n'
@@ -1626,10 +1626,13 @@ input_arguments = {
     specification_file_args:
         dict(type=os.path.abspath, nargs='*', default=tuple(), metavar=ex_path('pose_design_specifications.csv'),
              help='Name of comma separated file with each line formatted:\n'
-             # 'poseID, [designID], [1:directive 2-9:directive ...]\n'
+             #      'poseID, [designID], [1:directive 2-9:directive ...]\n'
                   '"pose_identifier, [design_name], [1:directive 2-9:directive ...]"\n'
                   'where [] indicate optional arguments. Both individual residue\n'
                   'numbers and ranges (specified with "-") are possible indicators'),
+    }
+input_arguments = {
+    **pose_inputs,
     cluster_map_args: cluster_map_kwargs,
     ('-df', f'--{dataframe}'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
                                     help=f'A DataFrame created by {program_name} analysis containing\n'

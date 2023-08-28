@@ -856,7 +856,7 @@ metrics = {
         dict(description='The particular SymEntry specification of the Pose',
              direction=None, function=None, filter=True),
     'symmetric_interface':
-        dict(description='Whether the Pose contains inter-Entity interfaces that arise because of the global symmetry. '
+        dict(description='Whether the Pose contains inter-entity interfaces that arise because of the global symmetry. '
                          'These interfaces are not specified in the local symmetry of the Entity assembly alone',
              direction=None, function=None, filter=True),
     'symmetry':

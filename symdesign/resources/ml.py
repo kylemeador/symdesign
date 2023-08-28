@@ -442,7 +442,7 @@ class ProteinMPNNFactory:
                 model.device = device
                 model.model_name = model_name_key
 
-            model.log.info(f'ProteinMPNN model "{model_name_key}" on device "{device}" has '
+            model.log.info(f"ProteinMPNN model '{model_name_key}' on device '{device}' has "
                            f'{checkpoint["num_edges"]} edges and {checkpoint["noise_level"]} Angstroms of training '
                            'noise')
             # number_of_mpnn_model_parameters = sum([math.prod(param.size()) for param in model.parameters()])
