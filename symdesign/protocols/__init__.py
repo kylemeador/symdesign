@@ -116,6 +116,21 @@ def protocol_decorator(errors: tuple[Type[Exception], ...] = (SymDesignException
     def wrapper(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapped(job, *args, **kwargs) -> Any:
+            # Todo
+            #  Ensure that the below setting doesn't conflict with PoseJob inherent setting
+            #  job.protocol = job.job.module
+            # distribute_protocol()
+            if job.job.distribute_work:
+                # Skip any execution, instead create the command and add as job.current_script attribute
+                base_cmd = list(putils.program_command_tuple) + job.job.get_parsed_arguments()
+                base_cmd += ['--single', job.pose_directory]
+                # cmd, *additional_cmds = getattr(job, f'get_cmd_{job.protocol}')()
+                job.current_script = distribute.write_script(
+                    list2cmdline(base_cmd), name=f'{starttime}_{job.job.module}.sh', out_path=job.scripts_path,
+                    # additional=[list2cmdline(_cmd) for _cmd in additional_cmds]
+                )
+                return None
+
             logger.info(f'Processing {func.__name__}({repr(job)})')
             # handle_design_errors()
             try:

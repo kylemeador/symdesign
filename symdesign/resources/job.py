@@ -744,6 +744,55 @@ class JobResources:
         # Start with None and set this once a session is opened
         self.job_protocol = None
         # self.job_protocol = self.load_job_protocol()
+        self.parsed_arguments = None
+
+    # @staticmethod
+    def get_parsed_arguments(self) -> list[str]:
+        """Return the arguments submitted during application initialization
+
+        Returns:
+            Each of the submitted flags, removed of input arguments, and formatted such as were parsed at runtime,
+                i.e. --file, --poses, or -d are removed, and the remainder are left in the same order so as coule be
+                formatted by subprocess.list2cmdline()
+        """
+        if self.parsed_arguments:
+            return self.parsed_arguments
+
+        # Remove the program
+        parsed_arguments = sys.argv[1:]
+        # Todo
+        #  Should the module be removed?
+        #  sys.argv.remove(self.module)
+        # Remove the input
+        possible_input_args = [arg for args in flags.input_mutual_arguments.keys() for arg in args] \
+            + [arg for args in flags.pose_inputs.keys() for arg in args] \
+            + [arg for args in flags.component_mutual1_arguments.keys() for arg in args] \
+            + [arg for args in flags.component_mutual2_arguments.keys() for arg in args]
+        single_input_flags = (*flags.query_codes1, *flags.query_codes2)
+        for input_arg in possible_input_args:
+            try:
+                pop_index = parsed_arguments.index(input_arg)
+            except ValueError:  # Not in list
+                continue
+            else:
+                parsed_arguments.pop(pop_index)
+                # If the flag requires an argument, pop the index a second time
+                if input_arg not in single_input_flags:
+                    parsed_arguments.pop(pop_index)
+
+        # Remove distribution flags
+        for arg in flags.distribute_args:
+            try:
+                pop_index = parsed_arguments.index(arg)
+            except ValueError:  # Not in list
+                continue
+            else:
+                parsed_arguments.pop(pop_index)
+
+        # Set for the next time
+        self.parsed_arguments = parsed_arguments
+
+        return parsed_arguments
 
     @property
     def id(self) -> int:

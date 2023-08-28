@@ -437,38 +437,32 @@ def main():
             #         logger.info(f'Analysis of all Trajectories and Residues written to {job.all_scores}')
 
             # Set up sbatch scripts for processed Poses
-            if job.module == flags.design:
-                if job.design.interface:
-                    if job.design.method == putils.consensus:
-                        # Todo ensure consensus sbatch generator working
-                        design_stage = flags.refine
-                    elif job.design.method == putils.proteinmpnn:
-                        design_stage = putils.proteinmpnn
-                    else:  # if job.design.method == putils.rosetta_str:
-                        design_stage = putils.scout if job.design.scout \
-                            else (putils.hbnet_design_profile if job.design.hbnet
-                                  else (putils.structure_background if job.design.structure_background
-                                        else putils.interface_design))
+            def _get_module_specific_protocol(module: str) -> str:
+                if module == flags.design:
+                    if job.design.interface:
+                        if job.design.method == putils.consensus:
+                            scale = flags.refine
+                        elif job.design.method == putils.proteinmpnn:
+                            scale = putils.proteinmpnn
+                        else:  # if job.design.method == putils.rosetta_str:
+                            scale = putils.scout if job.design.scout \
+                                else (putils.hbnet_design_profile if job.design.hbnet
+                                      else (putils.structure_background if job.design.structure_background
+                                            else putils.interface_design))
+                    else:
+                        # Todo make viable rosettascripts
+                        scale = flags.design
+                        # custom_script: os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0]
                 else:
-                    # Todo make viable rosettascripts
-                    design_stage = flags.design
-            else:
-                design_stage = None
+                    scale = module
 
-            module_files = {
-                flags.design: design_stage,
-                # flags.interface_design: design_stage,
-                flags.nanohedra: flags.nanohedra,
-                flags.refine: flags.refine,
-                flags.interface_metrics: flags.interface_metrics,
-                flags.optimize_designs: flags.optimize_designs
-                # custom_script: os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],
-            }
-            stage = module_files.get(job.module)
-            if stage and job.distribute_work:
+                return scale
+
+            if job.distribute_work:
                 scripts_to_distribute = [pose_job.current_script for pose_job in successful_pose_jobs]
                 distribute.check_scripts_exist(directives=scripts_to_distribute)
-                distribute.commands(scripts_to_distribute, name='_'.join(job.default_output_tuple), protocol=stage,
+                distribute.commands(scripts_to_distribute, name='_'.join(job.default_output_tuple),
+                                    protocol=_get_module_specific_protocol(job.module),
                                     out_path=job.sbatch_scripts, commands_out_path=job.job_paths)
 
                 # Todo this mechanism fell out of favor, but really should be suggested to the user
@@ -1080,40 +1074,14 @@ def main():
                 sys.exit(1)
             # Todo
             #  This could be moved above Entity/Pose load as it's not necessary in that situation
-            elif job.distribute_work:
+            if job.distribute_work:
                 # Write all commands to a file and distribute a batched job
-                # The theory of the new command is to keep everything that was submitted however modify the input
-                # arguments so that a single command contains a pair of input models
-
-                possible_input_args = [arg for args in flags.component_mutual1_arguments.keys() for arg in args] \
-                                      + [arg for args in flags.component_mutual2_arguments.keys() for arg in args]
-                #     + list(flags.distribute_args)
-                submitted_args = sys.argv[1:]
-                for input_arg in possible_input_args:
-                    try:
-                        pop_index = submitted_args.index(input_arg)
-                    except ValueError:  # Not in list
-                        continue
-                    else:
-                        submitted_args.pop(pop_index)
-
-                    if input_arg in ('-Q1', f'--{flags.query_codes1}', '-Q2', f'--{flags.query_codes2}'):
-                        continue
-                    else:  # Pop the index twice if the argument requires an input
-                        submitted_args.pop(pop_index)
-
-                for arg in flags.distribute_args:
-                    try:
-                        pop_index = submitted_args.index(arg)
-                    except ValueError:  # Not in list
-                        continue
-                    else:
-                        submitted_args.pop(pop_index)
+                # The new command will be the same, but contain a pair of inputs
 
                 # Format all commands given model pair
-                cmd = ['python', putils.program_exe] + submitted_args
-                commands = [cmd.copy() + [f'--{flags.pdb_codes1}', model1.name,
-                                          f'--{flags.pdb_codes2}', model2.name]
+                base_cmd = list(putils.program_command_tuple) + job.get_parsed_arguments()
+                commands = [base_cmd + [f'--{flags.pdb_codes1}', model1.name,
+                                        f'--{flags.pdb_codes2}', model2.name]
                             for idx, (model1, model2) in enumerate(pose_jobs)]
                 # Write commands
                 distribute.commands([list2cmdline(cmd) for cmd in commands], name='_'.join(job.default_output_tuple),
@@ -1539,12 +1507,13 @@ def main():
     #  Set up Job specific details and resources
     # -----------------------------------------------------------------------------------------------------------------
     # Format computational requirements
-    distribute_modules = [
-        flags.nanohedra, flags.refine, flags.design, flags.interface_metrics, flags.optimize_designs
-    ]  # flags.interface_design,
-    if job.module in distribute_modules:
-        if job.distribute_work:
-            logger.info('Writing module commands out to file, no modeling will occur until commands are executed')
+    if job.distribute_work:
+        logger.info('Writing module commands out to file, no modeling will occur until commands are executed')
+        distribute_modules = [
+            flags.nanohedra, flags.refine, flags.design, flags.interface_metrics, flags.optimize_designs, flags.analysis
+        ]  # flags.interface_design,
+        if job.module not in distribute_modules:
+            logger.warning(f"The module '{job.module}' hasn't been tested for distribution methods")
 
     if job.multi_processing:
         logger.info(f'Starting multiprocessing using {job.cores} cores')
