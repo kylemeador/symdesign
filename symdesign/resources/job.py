@@ -775,10 +775,12 @@ class JobResources:
             except ValueError:  # Not in list
                 continue
             else:
-                parsed_arguments.pop(pop_index)
-                # If the flag requires an argument, pop the index a second time
-                if input_arg not in single_input_flags:
-                    parsed_arguments.pop(pop_index)
+                removed_flag = parsed_arguments.pop(pop_index)
+                while parsed_arguments[pop_index][0] == flags.flag_delimiter:
+                    removed_arg = parsed_arguments.pop(pop_index)
+                    logger.debug(f'From {removed_flag}, removed argument {removed_arg}')
+                # # If the flag requires an argument, pop the index a second time
+                # if input_arg not in single_input_flags:
 
         # Remove distribution flags
         for arg in flags.distribute_args:
