@@ -1257,18 +1257,21 @@ class JobResources:
         putils.make_path(self.sequences)
         if uniprot_entities is not None:
             for uniprot_entity in uniprot_entities:
-                evolutionary_profile = self.api_db.hhblits_profiles.retrieve_data(name=uniprot_entity.id)
-                if not evolutionary_profile:
+                # evolutionary_profile = self.api_db.hhblits_profiles.retrieve_data(name=uniprot_entity.id)
+                evolutionary_profile_file = self.api_db.hhblits_profiles.retrieve_file(name=uniprot_entity.id)
+                # if not evolutionary_profile:
+                if not evolutionary_profile_file:
                     hhblits_cmds.append(hhblits(uniprot_entity.id,
                                                 sequence=uniprot_entity.reference_sequence,
                                                 out_dir=self.profiles, threads=self.threads,
                                                 return_command=True))
                     # all_entity_ids.append(uniprot_entity.id)
-                    msa = None
+                    msa_file = None
                 else:
-                    msa = self.api_db.alignments.retrieve_data(name=uniprot_entity.id)
+                    # msa = self.api_db.alignments.retrieve_data(name=uniprot_entity.id)
+                    msa_file = self.api_db.alignments.retrieve_file(name=uniprot_entity.id)
 
-                if not msa:
+                if not msa_file:
                     sto_cmd = [
                         putils.reformat_msa_exe_path, 'a3m', 'sto',
                         f"{os.path.join(self.profiles, f'{uniprot_entity.id}.a3m')}", '.sto', '-num', '-uc']
