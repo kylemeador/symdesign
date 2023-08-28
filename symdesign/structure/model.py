@@ -7620,9 +7620,9 @@ class Pose(SymmetricModel, Metrics):
         pose_metrics['percent_interface_strand'] = number_strand_residues / number_residues_interface
         pose_metrics['percent_interface_coil'] = number_loop_residues / number_residues_interface
         if self.interface_residues_by_interface == self.interface_residues_by_interface_unique:
-            pose_metrics['symmetric_interface'] = True
-        else:
             pose_metrics['symmetric_interface'] = False
+        else:
+            pose_metrics['symmetric_interface'] = True
 
         # if self.is_symmetric():
         #     pose_metrics['design_dimension'] = self.dimension
