@@ -3500,6 +3500,8 @@ class PoseProtocol(PoseData):
             # # Each of these could have different index/column, so we use concat to perform an outer merge
             # residues_df = residues_df.join([mpnn_residues_df, sequences_df])
             residues_df = residues_df.join(mpnn_residues_df)
+        else:
+            entity_designs_df = pd.DataFrame()
 
         if scores:
             # pose_source_id = self.pose_source.id
