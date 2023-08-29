@@ -152,6 +152,7 @@ require_chains = 'require_chains'
 rosetta = 'rosetta'
 alphafold_database = 'alphafold_database'
 hhsuite_database = 'hhsuite_database'
+use_proteinmpnn = 'use_proteinmpnn'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
     as_objects, cluster_map, cluster_mode, cluster_number
@@ -252,6 +253,7 @@ expand_asu = format_for_cmdline(expand_asu)
 rename_chains = format_for_cmdline(rename_chains)
 evolution_constraint = format_for_cmdline(evolution_constraint)
 use_evolution = format_for_cmdline(use_evolution)
+use_proteinmpnn = format_for_cmdline(use_proteinmpnn)
 term_constraint = format_for_cmdline(term_constraint)
 design_number = format_for_cmdline(design_number)
 design_method = format_for_cmdline(design_method)
@@ -783,6 +785,11 @@ usage_str = module_usage_str.format(f'module [{arg_cat_usage(module_title)}]')
 
 # Reused arguments
 distribute_args = ('-D', f'--{distribute_work}')
+use_proteinmpnn_args = (f'--{use_proteinmpnn}',)
+use_proteinmpnn_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
+                              help='Whether to perform calculations with ProteinMPNN\n'
+                                   'sequences/profile during the job\n'
+                                   f'{boolean_positional_prevent_msg(use_evolution)}')
 use_evolution_args = (f'--{use_evolution}',)
 use_evolution_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
                             help='Whether to perform calculations with an evolution profile\n'
@@ -882,6 +889,7 @@ options_arguments = {
                                 help="Run in development mode. Only use if you're actively\n"
                                      'developing and understand the side effects'),
     use_evolution_args: use_evolution_kwargs,
+    use_proteinmpnn_args: use_proteinmpnn_kwargs,
     distribute_args: dict(action='store_true',
                           help='Should individual jobs be formatted for distribution across\n'
                                'computational resources? This is useful on a cluster\nDefault=%(default)s'),

@@ -512,6 +512,7 @@ class JobResources:
         self.interface = kwargs.get('interface')
         self.interface_only = kwargs.get('interface_only')
         self.oligomeric_interfaces = kwargs.get('oligomeric_interfaces')
+        self.use_proteinmpnn = kwargs.get('use_proteinmpnn')
         self.use_evolution = kwargs.get('use_evolution')
         # Explicitly set to false if not designing or predicting
         use_evolution_modules = [
