@@ -266,14 +266,14 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None,
     #         warned = True
     replace_values = {np.nan: None, float('inf'): 1e6, float('-inf'): -1e6}
 
-    if poses is not None:
+    if poses is not None and not poses.empty:
         # warn = True
         df = poses.replace(replace_values).reset_index()
         table = sql.PoseMetrics
         dataframe_function(session, table=table, df=df, **transaction_kwargs)
         logger.info(f'Wrote {table.__tablename__} to Database')
 
-    if designs is not None:
+    if designs is not None and not designs.empty:
         # warn_multiple_update_results()
         # warn = True
         df = designs.replace(replace_values).reset_index()
@@ -281,7 +281,7 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None,
         dataframe_function(session, table=table, df=df, **transaction_kwargs)
         logger.info(f'Wrote {table.__tablename__} to Database')
 
-    if entity_designs is not None:
+    if entity_designs is not None and not entity_designs.empty:
         # warn_multiple_update_results()
         # warn = True
         df = entity_designs.replace(replace_values).reset_index()
@@ -289,7 +289,7 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None,
         dataframe_function(session, table=table, df=df, **transaction_kwargs)
         logger.info(f'Wrote {table.__tablename__} to Database')
 
-    if design_residues is not None:
+    if design_residues is not None and not design_residues.empty:
         # warn_multiple_update_results()
         # warn = True
         df = format_residues_df_for_write(design_residues).replace(replace_values).reset_index()
@@ -297,7 +297,7 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None,
         dataframe_function(session, table=table, df=df, **transaction_kwargs)
         logger.info(f'Wrote {table.__tablename__} to Database')
 
-    if residues is not None:
+    if residues is not None and not residues.empty:
         # warn_multiple_update_results()
         # warn = True
         df = format_residues_df_for_write(residues).replace(replace_values).reset_index()
@@ -305,7 +305,7 @@ def write_dataframe(session: Session, designs: pd.DataFrame = None,
         dataframe_function(session, table=table, df=df, **transaction_kwargs)
         logger.info(f'Wrote {table.__tablename__} to Database')
 
-    if pose_residues is not None:
+    if pose_residues is not None and not pose_residues.empty:
         # warn_multiple_update_results()
         # warn = True
         df = format_residues_df_for_write(pose_residues).replace(replace_values).reset_index()
