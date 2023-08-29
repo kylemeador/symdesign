@@ -3530,8 +3530,12 @@ class PoseProtocol(PoseData):
         if output_residues:  # Todo job.metrics.residues
             self.output_metrics(session, residues=residues_df)
         else:  # Only save the 'design_residue' columns
-            residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
-            self.output_metrics(session, design_residues=residues_df)
+            try:
+                residues_df = residues_df.loc[:, idx_slice[:, sql.DesignResidues.design_residue.name]]
+            except KeyError:  # When self.job.use_proteinmpnn is false
+                pass
+            else:
+                self.output_metrics(session, design_residues=residues_df)
         metrics.sql.write_dataframe(session, entity_designs=entity_designs_df)
         #     # Commit the newly acquired metrics
         #     session.commit()
