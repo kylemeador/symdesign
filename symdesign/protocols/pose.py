@@ -530,7 +530,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 if project == '':
                     raise InputError(
                         f"Couldn't get the project from the path '{path}'. Please provide "
-                        f"project name with --{flags.project_name}")
+                        f"project name with {flags.format_args(flags.project_name_args)}")
 
             return cls(name=name, project=project, source_path=path, **kwargs)
         elif os.path.isdir(path):
@@ -589,7 +589,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             if project == '':
                 raise InputError(
                     f"Couldn't get the project from the path '{file}'. Please provide "
-                    f"project name with --{flags.project_name}")
+                    f"project name with {flags.format_args(flags.project_name_args)}")
 
         return cls(name=name, project=project, source_path=file, **kwargs)
 

@@ -863,9 +863,10 @@ options_help = 'Control runtime considerations and miscellaneous\n' \
 parser_options = dict(description=options_help, help=options_help)
 parser_options_group = dict(title=f'{"_" * len(options_title)}\n{options_title}',
                             description=f'\n{options_help}')
-cores_args = ('-C', '--cores')
+cores_args = ('--cores',)
 multiprocessing_args = ('-M', f'--{multi_processing}')
 multiprocessing_kwargs = dict(action='store_true', help='Should job be run with multiple processors?')
+project_name_args = (f'--{project_name}',)
 options_arguments = {
     cores_args: dict(type=int, default=cpu_count(logical=False) - 1, metavar='INT',
                      help=f'Number of cores to use with {format_args(multiprocessing_args)}\n'
@@ -912,8 +913,8 @@ options_arguments = {
     ('--mpi',): dict(type=int, metavar='INT',
                      help='If commands should be run as MPI parallel processes,\n'
                           'how many processes should be invoked for each job?\nDefault=%(default)s'),
-    (f'--{project_name}',): dict(help='If desired, the name of the initialized project\n'
-                                      'Default is inferred from input'),
+    project_name_args: dict(help='If desired, the name of the initialized project\n'
+                                 'Default is inferred from input'),
     multiprocessing_args: multiprocessing_kwargs,
     (f'--{profile_memory}',): dict(action='store_true',
                                    help='Use memory_profiler.profile() to understand memory usage of a module.\n'
