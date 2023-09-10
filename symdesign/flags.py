@@ -39,8 +39,7 @@ logger = logging.getLogger(__name__)
 design_programs_literal = Literal['consensus', 'proteinmpnn', 'rosetta']
 design_programs: tuple[str, ...] = get_args(design_programs_literal)
 nstruct = 20
-query_codes1 = 'query_codes1'
-query_codes2 = 'query_codes2'
+query_codes = 'query_codes'
 nanohedra_output = 'nanohedra_output'
 modules = 'modules'
 score = 'score'
@@ -115,9 +114,6 @@ pre_refined = 'pre_refined'
 initialize_building_blocks = 'initialize_building_blocks'
 background_profile = 'background_profile'
 pdb_code = 'pdb_code'
-# pdb_code2 = 'pdb_code2'
-pdb_codes1 = 'pdb_codes1'
-pdb_codes2 = 'pdb_codes2'
 update_metadata = 'update_metadata'
 proteinmpnn_model_name = 'proteinmpnn_model_name'
 tag_linker = 'tag_linker'
@@ -225,8 +221,7 @@ def format_args(flag_args: Sequence[str]) -> str:
 
 
 as_objects = format_for_cmdline(as_objects)
-query_codes1 = format_for_cmdline(query_codes1)
-query_codes2 = format_for_cmdline(query_codes2)
+query_codes = format_for_cmdline(query_codes)
 predict_structure = format_for_cmdline(predict_structure)
 predict_method = format_for_cmdline(predict_method)
 num_predictions_per_model = format_for_cmdline(num_predictions_per_model)
@@ -336,9 +331,6 @@ pre_refined = format_for_cmdline(pre_refined)
 initialize_building_blocks = format_for_cmdline(initialize_building_blocks)
 background_profile = format_for_cmdline(background_profile)
 pdb_code = format_for_cmdline(pdb_code)
-# pdb_code2 = format_for_cmdline(pdb_code2)
-pdb_codes1 = format_for_cmdline(pdb_codes1)
-pdb_codes2 = format_for_cmdline(pdb_codes2)
 update_metadata = format_for_cmdline(update_metadata)
 proteinmpnn_model_name = format_for_cmdline(proteinmpnn_model_name)
 tag_linker = format_for_cmdline(tag_linker)
@@ -1105,8 +1097,10 @@ align_component2_args = ('-c2', f'--{component2}', f'--aligned')
 # Todo make multiple files?
 component_kwargs = dict(type=os.path.abspath, metavar=ex_path('[file.ext,directory]'),
                         help=f'Path to component file, either directory or single file')
-pdb_codes1_args = ('-C1', f'--{pdb_code}1', f'--{pdb_code}s1')
+pdb_codes_args = ('-C', f'--{pdb_code}', f'--{pdb_code}s')
 pdb_codes2_args = ('-C2', f'--{pdb_code}2', f'--{pdb_code}s2')
+query_pdb_codes_args = ('-Q', f'--{query_codes}')
+query_pdb_codes2_args = ('-Q2', f'--{query_codes}2')
 align_pdb_codes1_args = ('-C1', f'--target-{pdb_code}', f'--target-{pdb_code}s')
 align_pdb_codes2_args = ('-C2', f'--aligned-{pdb_code}', f'--aligned-{pdb_code}s')
 pdb_codes_kwargs = dict(nargs='*',  default=tuple(),  # default=None,
@@ -1115,19 +1109,19 @@ pdb_codes_kwargs = dict(nargs='*',  default=tuple(),  # default=None,
 parser_component_mutual1_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
 component_mutual1_arguments = {
     component1_args: component_kwargs,
-    pdb_codes1_args: pdb_codes_kwargs,
-    ('-Q1', f'--{query_codes1}'): query_codes_kwargs
+    pdb_codes_args: pdb_codes_kwargs,
+    query_pdb_codes_args: query_codes_kwargs
 }
 # parser_component_mutual2 = parser_dock.add_mutually_exclusive_group()
 parser_component_mutual2_group = dict()  # required=False
 component_mutual2_arguments = {
     component2_args: component_kwargs,
     pdb_codes2_args: pdb_codes_kwargs,
-    ('-Q2', f'--{query_codes2}'): query_codes_kwargs
+    query_pdb_codes2_args: query_codes_kwargs
 }
 align_component_mutual1_arguments = component_mutual1_arguments.copy()
 align_component_mutual1_arguments[align_component1_args] = align_component_mutual1_arguments.pop(component1_args)
-align_component_mutual1_arguments[align_pdb_codes1_args] = align_component_mutual1_arguments.pop(pdb_codes1_args)
+align_component_mutual1_arguments[align_pdb_codes1_args] = align_component_mutual1_arguments.pop(pdb_codes_args)
 align_component_mutual2_arguments = component_mutual2_arguments.copy()
 align_component_mutual2_arguments[align_component2_args] = align_component_mutual2_arguments.pop(component2_args)
 align_component_mutual2_arguments[align_pdb_codes2_args] = align_component_mutual2_arguments.pop(pdb_codes2_args)
@@ -1695,6 +1689,8 @@ input_mutual_arguments = {
     single_args: dict(type=os.path.abspath, nargs='*', default=tuple(),
                       metavar=ex_path(program_output, projects, 'yourProject', 'single_pose[.pdb]'),
                       help='Operate on single pose(s) in a project'),
+    pdb_codes_args: pdb_codes_kwargs,
+    query_pdb_codes_args: query_codes_kwargs
 }
 output_help = 'Specify where output should be written'
 parser_output = dict(description=output_help)  # , help=output_help

@@ -420,28 +420,28 @@ class JobResources:
 
         self.update_metadata = kwargs.get('update_metadata')
         self.component1 = kwargs.get('component1')
-        self.query_codes1 = kwargs.get('query_codes1')
-        pdb_code1 = kwargs.get('pdb_code1', kwargs.get('target_pdb_code'))
-        if pdb_code1:
+        self.query_codes = kwargs.get('query_codes')
+        pdb_codes = kwargs.get('pdb_code', kwargs.get('target_pdb_code'))
+        if pdb_codes:
             # Collect all provided codes required for component 1 processing
             codes = []
-            for code_or_file in pdb_code1:
+            for code_or_file in pdb_codes:
                 codes.extend(utils.to_iterable(code_or_file))
-            self.pdb_code1 = utils.remove_duplicates(codes)
+            self.pdb_codes = utils.remove_duplicates(codes)
         else:
-            self.pdb_code1 = None
+            self.pdb_codes = None
 
         self.component2 = kwargs.get('component2')
         self.query_codes2 = kwargs.get('query_codes2')
-        pdb_code2 = kwargs.get('pdb_code2', kwargs.get('aligned_pdb_code'))
-        if pdb_code2:
+        pdb_codes2 = kwargs.get('pdb_code2', kwargs.get('aligned_pdb_code'))
+        if pdb_codes2:
             # Collect all provided codes required for component 1 processing
             codes = []
-            for code_or_file in pdb_code2:
+            for code_or_file in pdb_codes2:
                 codes.extend(utils.to_iterable(code_or_file))
-            self.pdb_code2 = utils.remove_duplicates(codes)
+            self.pdb_codes2 = utils.remove_duplicates(codes)
         else:
-            self.pdb_code2 = None
+            self.pdb_codes2 = None
 
         # Docking flags
         self.dock = Dock.from_flags(**kwargs)
