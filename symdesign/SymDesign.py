@@ -39,7 +39,7 @@ from symdesign.protocols.pose import PoseJob
 from symdesign.resources.job import JobResources, job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from symdesign.resources import distribute, ml, query as user_query, sql, structure_db, wrapapi
-from symdesign.structure.model import Entity, Pose
+from symdesign.structure.model import Entity, Model, Pose
 
 
 def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.UniProtEntity],
@@ -188,6 +188,71 @@ def initialize_structures(job: JobResources, sym_entry: utils.SymEntry.SymEntry 
 
     # Select entities, orient them, then load ProteinMetadata for further processing
     return job.structure_db.orient_structures(structure_names, sym_entry=sym_entry, by_file=by_file)
+
+
+def load_models_from_structure_and_entity_pairs(job: JobResources,
+                                                structure_id_to_entity_ids: dict[str, Iterable[str]] | list[Model],
+                                                all_protein_metadata: list[sql.ProteinMetadata]) -> list[Model]:
+    structures = []
+    if not structure_id_to_entity_ids:
+        pass
+    elif isinstance(structure_id_to_entity_ids, dict):
+        structures = []
+        for structure_id, entity_ids in structure_id_to_entity_ids.items():
+            entities = []
+            if entity_ids:
+                for entity_id in entity_ids:
+                    # # This data may not be the one that is initialized, grab the correct one
+                    # data = all_uniprot_id_to_prot_data[uniprot_ids]
+                    for data in all_protein_metadata:
+                        if data.entity_id == entity_id:
+                            break
+                    else:
+                        print([data.entity_id for data in all_protein_metadata])
+                        raise utils.SymDesignException(
+                            f"Indexing the correct entity_id for {entity_id} has failed")
+
+                    if not data.model_source:
+                        raise RuntimeError(
+                            f"There was an issue with locating the .model_source during processing the "
+                            f"Entity {data.entity_id} for input. {putils.report_issue}"
+                        )
+                    entity = Entity.from_file(data.model_source, name=data.entity_id, metadata=data)
+                    entities.append(entity)
+
+                # For Pose constructor, don't include symmetry.
+                # Symmetry is initialized by protocols
+                pose = Pose.from_entities(entities, name=structure_id)
+            else:  # Just load the whole model based off of the name
+                # This is useful in the case when CRYST record is used in crystalline symmetries
+                whole_model_file = os.path.join(os.path.dirname(job.structure_db.oriented.location),
+                                                f'{structure_id}.pdb*')
+                matching_files = glob(whole_model_file)
+                if matching_files:
+                    if len(matching_files) > 1:
+                        logger.warning(f"{len(matching_files)} matching files for {structure_id} at "
+                                       f"'{whole_model_file}'. Choosing the first")
+                    pose = Pose.from_file(matching_files[0], name=structure_id)
+                else:
+                    logger.warning(f"No matching files for {structure_id} at '{whole_model_file}'")
+                    continue
+
+            # Set .metadata attribute to carry through protocol
+            for entity in pose.entities:
+                for data in all_protein_metadata:
+                    if data.entity_id == entity.name:
+                        break
+                else:
+                    print([data.entity_id for data in all_protein_metadata])
+                    raise utils.SymDesignException(
+                        f"Indexing the correct entity_id for {entity.name} has failed")
+
+                entity.metadata = data
+            structures.append(pose)
+    else:  # These are already processed Structure instances
+        structures = structure_id_to_entity_ids
+
+    return structures
 
 
 def parse_results_for_exceptions(pose_jobs: list[PoseJob], results: Iterable[Any], **kwargs) \
@@ -988,67 +1053,8 @@ def main():
             # Correct existing ProteinMetadata, now that Entity instances are processed
             structures_grouped_by_component = []
             for structure_id_to_entity_ids in grouped_structures_entity_ids:
-                structures = []
-                if not structure_id_to_entity_ids:
-                    pass
-                elif isinstance(structure_id_to_entity_ids, dict):
-                    structures = []
-                    # for orient_structure, structure_uniprot_ids in zip(orient_structures, structures_uniprot_ids):
-                    for structure_id, entity_ids in structure_id_to_entity_ids.items():
-                        entities = []
-                        # for uniprot_ids in structure_uniprot_ids:
-                        for entity_id in entity_ids:
-                            # This data may not be the one that is initialized, grab the correct one
-                            # data = all_uniprot_id_to_prot_data[uniprot_ids]
-                            for data in all_protein_metadata:
-                                if data.entity_id == entity_id:
-                                    break
-                            else:
-                                raise utils.SymDesignException(
-                                    f"Indexing the correct entity_id has failed")
-                                # break  # continue
-                            entity = Entity.from_file(data.model_source, name=data.entity_id, metadata=data)
-                            entity.stride(to_file=job.api_db.stride.path_to(name=data.entity_id))
-                            data.n_terminal_helix = entity.is_termini_helical()
-                            data.c_terminal_helix = entity.is_termini_helical('c')
-                            # Set .metadata attribute to carry through protocol
-                            entity.metadata = data
-                            entities.append(entity)
-                        # For Pose constructor, don't include symmetry.
-                        # Symmetry is initialized by fragdock.fragment_dock() and align.align_helices()
-                        if entities:
-                            structures.append(Pose.from_entities(entities, name=structure_id))
-                        else:  # Just load the whole model based off of the name
-                            # This is useful in the case when CRYST record is used in crystalline symmetries
-                            whole_model_file = os.path.join(os.path.dirname(job.structure_db.oriented.location),
-                                                            f'{structure_id}.pdb*')
-                            matching_files = glob(whole_model_file)
-                            if matching_files:
-                                if len(matching_files) > 1:
-                                    logger.warning(f"{len(matching_files)} matching files for {structure_id} at "
-                                                   f"'{whole_model_file}'. Choosing the first")
-                                pose = Pose.from_file(matching_files[0], name=structure_id)
-                            else:
-                                logger.warning(f"No matching files for {structure_id} at '{whole_model_file}'")
-                                continue
-
-                            for entity in pose.entities:
-                                for data in all_protein_metadata:
-                                    if data.entity_id == entity.name:
-                                        break
-                                else:
-                                    print([data.entity_id for data in all_protein_metadata])
-                                    raise utils.SymDesignException(
-                                        f"Indexing the correct entity_id for {entity.name} has failed")
-                                    # break  # continue
-                                entity.stride(to_file=job.api_db.stride.path_to(name=data.entity_id))
-                                data.n_terminal_helix = entity.is_termini_helical()
-                                data.c_terminal_helix = entity.is_termini_helical('c')
-                                # Set .metadata attribute to carry through protocol
-                                entity.metadata = data
-                            structures.append(pose)
-                else:  # These are already processed Structures
-                    structures = structure_id_to_entity_ids
+                structures = load_models_from_structure_and_entity_pairs(
+                    job, structure_id_to_entity_ids, all_protein_metadata)
                 structures_grouped_by_component.append(structures)
             session.commit()
 
@@ -1127,12 +1133,33 @@ def main():
         elif select_from_directory:
             # Can make an empty pose_jobs when the program_root is args.directory
             job.location = args.directory
-        else:  # args.file or args.directory
-            # Todo file_paths from fasta
+        elif args.file or args.directory:
             file_paths, job.location = utils.collect_designs(files=args.file, directory=args.directory)
-            if file_paths:
-                pose_jobs = [PoseJob.from_path(path, project=project_name)
-                             for path in job.get_range_slice(file_paths)]
+            pose_jobs = [PoseJob.from_path(path, project=project_name)
+                         for path in job.get_range_slice(file_paths)]
+        else:  # job.pdb_codes job.query_codes
+            # Load PoseJob from pdb codes or a pdb query...
+            structure_id_to_entity_ids, possibly_new_uniprot_to_prot_metadata = \
+                initialize_structures(job, sym_entry=job.sym_entry,  # paths=job.component1,
+                                      pdb_codes=job.pdb_codes, query_codes=job.query_codes)
+
+            # Write new data to the database and fetch existing data
+            with job.db.session(expire_on_commit=False) as session:
+                all_uniprot_id_to_prot_data = sql.initialize_metadata(session, possibly_new_uniprot_to_prot_metadata)
+                # Finalize additions to the database
+                session.commit()
+
+            all_protein_metadata = []
+            for protein_metadata in all_uniprot_id_to_prot_data.values():
+                all_protein_metadata.extend(protein_metadata)
+
+            range_structure_id_to_entity_ids = {
+                struct_id: structure_id_to_entity_ids[struct_id]
+                for struct_id in job.get_range_slice(list(structure_id_to_entity_ids.keys()))}
+            poses = load_models_from_structure_and_entity_pairs(
+                job, range_structure_id_to_entity_ids, all_protein_metadata)
+            pose_jobs = [PoseJob.from_pose(pose, project=project_name) for pose in poses]
+
         if job.module not in flags.select_modules:  # select_from_directory:
             if not pose_jobs and not select_from_directory:
                 # Todo this needs a more informative error. Is the location of the correct format?

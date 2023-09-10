@@ -638,6 +638,18 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 f"Couldn't coerce {pose_identifier} to 'project' {os.sep} 'name'. Please ensure the "
                 f'pose_identifier is passed with the "project{os.sep}name" string')
         return cls(name=name, project=project, **kwargs)
+
+    @classmethod
+    def from_pose(cls, pose: Pose, project: str = None, **kwargs):
+        """Load the PoseJob from an existing Pose
+
+        Args:
+            pose: The Pose to initialize the PoseJob with
+            project: The project where the file should be included
+        Returns:
+            The PoseJob instance
+        """
+        return cls(name=pose.name, project=project, pose=pose, **kwargs)
     # END classmethods where the PoseData hasn't been initialized from sqlalchemy
 
     # def pose_string_to_path(self, root: AnyStr, pose_id: str):
@@ -716,8 +728,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 else:
                     self.source_path = None
 
-    def __init__(self, name: str = None, project: str = None, source_path: AnyStr = None, protocol: str = None,
-                 pose_source: sql.DesignData = None,
+    def __init__(self, name: str = None, project: str = None, source_path: AnyStr = None, pose: Pose = None,
+                 protocol: str = None, pose_source: sql.DesignData = None,
                  # pose_transformation: Sequence[types.TransformationMapping] = None,
                  # entity_metadata: list[sql.EntityData] = None,
                  # entity_names: Sequence[str] = None,
@@ -743,6 +755,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         # Most __init__ code is called in __init_from_db__() according to sqlalchemy needs and DRY principles
         self.__init_from_db__()
+        self.pose = pose
 
         # Save job variables to the state during initialization
         # Todo does seting this variable change the database?
@@ -1236,7 +1249,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         """Issue a standard informational message indicating the location of further error information"""
         return f"See the log '{self.log_path}' for further information"
 
-    def load_pose(self, file: str = None, entities: list[Structure] = None):
+    def load_pose(self, file: str = None, entities: list[Structure] = None) -> None:
         """For the design info given by a PoseJob source, initialize the Pose with self.source_path file,
         self.symmetry, self.job, self.fragment_database, and self.log objects
 
@@ -1249,99 +1262,92 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # Check to see if Pose is already loaded and nothing new provided
         if self.pose and file is None and entities is None:
             return
-
-        # rename_chains = True  # Because the result of entities, we should rename
-        if entities is not None:
-            pass  # Use the entities as provided
-        elif self.source_path is None or not os.path.exists(self.source_path):
-            # In case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
-            # if not self.job.structure_db:
-            #     raise RuntimeError(f"Couldn't {self.get_entities.__name__} as there was no "
-            #                        f"{resources.structure_db.StructureDatabase.__name__}"
-            #                        f" attached to the {self.__class__.__name__}")
-            self.log.info(f"No '.source_path' found. Fetching structure_source from "
-                          f'{type(self.job.structure_db).__name__} and transforming to Pose')
-            # Minimize I/O with transform...
-            entities = self.transform_entities_to_pose()
-            # entities = self.entities
-            # entities = []
-            # for entity in self.entities:
-            #     entities.extend(entity.entities)
-            # # Because the file wasn't specified on the way in, no chain names should be binding
-            # # rename_chains = True
-
-        # Initialize the Pose with the pdb in PDB numbering so that residue_selectors are respected
-        # name = f'{self.pose_identifier}-asu' if self.sym_entry else self.pose_identifier
-        # name = self.pose_identifier
-        # name = self.name  # Ensure this name is the tracked across Pose init from fragdock() to _design() methods
-        if entities:
-            self.structure_source = 'Database'
-            # Because entities were passed we should rename_chains if the chain_id's are the same
-            if len(set([entity.chain_id for entity in entities])) != len(entities):
-                rename = True
-            else:
-                rename = False
-            self.pose = Pose.from_entities(entities, name=self.name, rename_chains=rename, **self.pose_kwargs)
-            self.pose.set_contacting_asu()
-        elif self.initial_model:  # This is a fresh Model, and we already loaded so reuse
-            self.structure_source = self.source_path
-            # Remove the entity_info from pose_kwargs as it isn't available yet. Use that already parsed
-            # Careful, if processing has occurred to the initial_model, then this may be wrong!
-            self.pose = Pose.from_model(self.initial_model, entity_info=self.initial_model.entity_info,
-                                        name=self.name, **self.job_kwargs)
-            # Todo should use the ProteinMetadata version if the constituent Entity coordinates aren't modified by
-            #  some small amount as this will ensure that we are refined, and that loops are included...
-            # We have to collect the EntityTransform for these if they are symmetric. Actually, we need the transform
-            # regardless of symmetry since the file will be coming from the oriented/origin position...
         else:
-            self.structure_source = file if file else self.source_path
-            self.pose = Pose.from_file(self.structure_source, name=self.name, **self.pose_kwargs)
+            # rename_chains = True  # Because the result of entities, we should rename
+            if entities is not None:
+                pass  # Use the entities as provided
+            elif self.source_path is None or not os.path.exists(self.source_path):
+                # In case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
+                # if not self.job.structure_db:
+                #     raise RuntimeError(f"Couldn't {self.get_entities.__name__} as there was no "
+                #                        f"{resources.structure_db.StructureDatabase.__name__}"
+                #                        f" attached to the {self.__class__.__name__}")
+                self.log.info(f"No '.source_path' found. Fetching structure_source from "
+                              f'{type(self.job.structure_db).__name__} and transforming to Pose')
+                # Minimize I/O with transform...
+                entities = self.transform_entities_to_pose()
+                # entities = self.entities
+                # entities = []
+                # for entity in self.entities:
+                #     entities.extend(entity.entities)
+                # # Because the file wasn't specified on the way in, no chain names should be binding
+                # # rename_chains = True
 
-        try:
-            self.pose.is_clash(measure=self.job.design.clash_criteria,
-                               distance=self.job.design.clash_distance,
-                               warn=not self.job.design.ignore_clashes)
-        except ClashError:  # as error:
-            if self.job.design.ignore_pose_clashes:
-                self.format_error_for_log()
-                self.log.warning(f"The Pose from '{self.structure_source}' contains clashes. "
-                                 f"{self.format_see_log_msg()}")
-            else:
-                # Todo get the message from error and raise a ClashError(
-                #      f'{message}. If you would like to proceed regardless, re-submit the job with '
-                #      f'{flags.format_args(flags.ignore_pose_clashes_args)}'
-                raise
-        if self.pose.is_symmetric():
-            if self.pose.symmetric_assembly_is_clash(measure=self.job.design.clash_criteria,
-                                                     distance=self.job.design.clash_distance):
-                if self.job.design.ignore_symmetric_clashes:
-                    # self.format_error_for_log()
-                    self.log.warning(f"The Pose symmetric assembly from '{self.structure_source}' contains clashes. ")
-                    #                  f"{self.format_see_log_msg()}")
+            # Initialize the Pose using provided PDB numbering so that design_selectors are respected
+            if entities:
+                self.structure_source = 'Database'
+                # Because entities were passed we should rename_chains if the chain_id's are the same
+                if len(set([entity.chain_id for entity in entities])) != len(entities):
+                    rename = True
                 else:
-                    raise ClashError(
-                        "The symmetric assembly contains clashes and won't be considered. If you "
-                        'would like to proceed regardless, re-submit the job with '
-                        f'{flags.format_args(flags.ignore_symmetric_clashes_args)}')
+                    rename = False
+                self.pose = Pose.from_entities(entities, name=self.name, rename_chains=rename, **self.pose_kwargs)
+                self.pose.set_contacting_asu()
+            elif self.initial_model:  # This is a fresh Model, and we already loaded so reuse
+                self.structure_source = self.source_path
+                # Remove the entity_info from pose_kwargs as it isn't available yet. Use that already parsed
+                # Careful, if processing has occurred to the initial_model, then this may be wrong!
+                self.pose = Pose.from_model(self.initial_model, entity_info=self.initial_model.entity_info,
+                                            name=self.name, **self.job_kwargs)
+                # Todo should use the ProteinMetadata version if the constituent Entity coordinates aren't modified by
+                #  some small amount as this will ensure that we are refined, and that loops are included...
+                # We have to collect the EntityTransform for these if they are symmetric. Actually, we need the transform
+                # regardless of symmetry since the file will be coming from the oriented/origin position...
+            else:
+                self.structure_source = file if file else self.source_path
+                self.pose = Pose.from_file(self.structure_source, name=self.name, **self.pose_kwargs)
 
-            # If there is an empty list for the pose_transformation, save the identified transformations from the Pose
             try:
-                any_database_transformations = any(self.transformations)
-            except DetachedInstanceError:
-                any_database_transformations = False
+                self.pose.is_clash(measure=self.job.design.clash_criteria,
+                                   distance=self.job.design.clash_distance,
+                                   warn=not self.job.design.ignore_clashes)
+            except ClashError:  # as error:
+                if self.job.design.ignore_pose_clashes:
+                    self.format_error_for_log()
+                    self.log.warning(f"The Pose from '{self.structure_source}' contains clashes. "
+                                     f"{self.format_see_log_msg()}")
+                else:
+                    # Todo get the message from error and raise a ClashError(
+                    #      f'{message}. If you would like to proceed regardless, re-submit the job with '
+                    #      f'{flags.format_args(flags.ignore_pose_clashes_args)}'
+                    raise
+            if self.pose.is_symmetric():
+                if self.pose.symmetric_assembly_is_clash(measure=self.job.design.clash_criteria,
+                                                         distance=self.job.design.clash_distance):
+                    if self.job.design.ignore_symmetric_clashes:
+                        # self.format_error_for_log()
+                        self.log.warning(f"The Pose symmetric assembly from '{self.structure_source}' contains clashes. ")
+                        #                  f"{self.format_see_log_msg()}")
+                    else:
+                        raise ClashError(
+                            "The symmetric assembly contains clashes and won't be considered. If you "
+                            'would like to proceed regardless, re-submit the job with '
+                            f'{flags.format_args(flags.ignore_symmetric_clashes_args)}')
 
-            if not any_database_transformations:
-                # Add the transformation data to the database
-                for data, transformation in zip(self.entity_data, self.pose.entity_transformations):
-                    # Make an empty EntityTransform
-                    data.transform = sql.EntityTransform()
-                    data.transform.transformation = transformation
-                # Ensure this information is persistent
-                self._update_db()
+                # If there is an empty list for the transformations, save the transformations identified from the Pose
+                try:
+                    any_database_transformations = any(self.transformations)
+                except DetachedInstanceError:
+                    any_database_transformations = False
 
-        # if not self.entity_names:  # Store the entity names if they were never generated
-        #     self.entity_names = [entity.name for entity in self.pose.entities]
-        #     self.log.info(f'Input Entities: {", ".join(self.entity_names)}')
+                if not any_database_transformations:
+                    # Add the transformation data to the database
+                    for data, transformation in zip(self.entity_data, self.pose.entity_transformations):
+                        # Make an empty EntityTransform
+                        data.transform = sql.EntityTransform()
+                        data.transform.transformation = transformation
+                    # Ensure this information is persistent
+                    self._update_db()
 
         # Save the Pose asu
         if not os.path.exists(self.pose_path) or self.job.overwrite or self.job.load_to_db:
