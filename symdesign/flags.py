@@ -1469,11 +1469,6 @@ parser_select_poses = dict(description=select_poses_help, help=select_poses_help
 select_poses_arguments = {
     **select_arguments,
     select_number_args: pose_select_number_kwargs,
-    # total_args: dict(action='store_true',
-    #                  help='Should poses be selected based on their ranking in the total\npose pool? This will select '
-    #                       'the top poses based on the\naverage of all designs in that pose for the metrics specified\n'
-    #                       'unless --protocol is invoked, then the protocol average\nwill be used instead'),
-    # }
     # # parser_filter_mutual = parser_select_poses.add_mutually_exclusive_group(required=True)
     # parser_select_poses_mutual_group = dict(required=True)
     # parser_select_poses_mutual_arguments = {

@@ -970,16 +970,16 @@ class JobResources:
         else:
             raise ValueError(f"Couldn't handle the provided location type {type(location).__name__}")
 
-    def get_range_slice(self, paths: Sequence) -> Sequence[Any]:
+    def get_range_slice(self, jobs: Sequence) -> Sequence[Any]:
         """Slice the input work by a set increment. This is parsed from the flags.range_args
 
         Args:
-            paths: The work that should be sliced by the specified range
+            jobs: The work that should be sliced by the specified range
         Returns:
             The work, limited to the range provided by -r/--range input flag
         """
         if self.range:
-            path_number = len(paths)
+            path_number = len(jobs)
             # Adding 0.5 to ensure rounding occurs
             low_range = int((self.low/100) * path_number + 0.5)
             high_range = int((self.high/100) * path_number + 0.5)
@@ -991,7 +991,7 @@ class JobResources:
         else:
             range_slice = slice(None)
 
-        return paths[range_slice]
+        return jobs[range_slice]
 
     @property
     def input_source(self) -> str:

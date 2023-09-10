@@ -187,7 +187,6 @@ def upsert_dataframe(session: Session, table: sql.Base, df: pd.DataFrame, mysql:
             set_=update_dict
         )
     start_time = time()
-    # result = session.execute(do_update_stmt, df.to_dict('records'))
     session.execute(do_update_stmt, df.to_dict('records'))
     logger.debug(f'Transaction with table "{tablename}" took {time() - start_time:8f}s')
     # session.commit()

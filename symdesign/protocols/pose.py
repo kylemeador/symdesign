@@ -331,71 +331,6 @@ class PoseDirectory:
     # @id.setter
     # def id(self, _id: int):
     #     self._id = self.info['id'] = _id
-    #
-    # # SymEntry object attributes
-    # @property
-    # def sym_entry(self) -> SymEntry | None:
-    #     """The SymEntry"""
-    #     try:
-    #         return self._sym_entry
-    #     except AttributeError:
-    #         self._sym_entry = symmetry_factory.get(*self.info['sym_entry_specification']) \
-    #             if 'sym_entry_specification' in self.info else None
-    #         # temp_sym_entry = SymEntry(self.info['sym_entry_specification'][0])
-    #         # self._sym_entry = symmetry_factory(self.info['sym_entry_specification'][0],
-    #         #                                    [temp_sym_entry.resulting_symmetry] +
-    #         #                                    list(self.info['sym_entry_specification'][1].values())) \
-    #         #     if 'sym_entry_specification' in self.info else None
-    #         # self.info['sym_entry_specification'] = \
-    #         #     (self.info['sym_entry_specification'][0], [temp_sym_entry.resulting_symmetry] +
-    #         #      list(self.info['sym_entry_specification'][1].values()))
-    #         return self._sym_entry
-    #
-    # @sym_entry.setter
-    # def sym_entry(self, sym_entry: SymEntry):
-    #     self.info['sym_entry_specification'] = self.sym_entry.number, self.sym_entry.sym_map
-    #     self._sym_entry = sym_entry
-    #
-    # @property
-    # def symmetry(self) -> str | None:
-    #     """The result of the SymEntry"""
-    #     try:
-    #         return self.sym_entry.resulting_symmetry
-    #     except AttributeError:
-    #         return None
-    #
-    # @property
-    # def sym_entry_number(self) -> int | None:
-    #     """The entry number of the SymEntry"""
-    #     try:
-    #         return self.sym_entry.number
-    #     except AttributeError:
-    #         return None
-    #
-    # @property
-    # def sym_entry_map(self) -> list[str] | None:
-    #     """The symmetry map of the SymEntry"""
-    #     try:
-    #         # return [self.sym_entry.resulting_symmetry] + list(self.sym_entry.sym_map.values())
-    #         return self.sym_entry.sym_map
-    #     except AttributeError:
-    #         return None
-    #
-    # @property
-    # def sym_entry_combination(self) -> str | None:
-    #     """The combination string of the SymEntry"""
-    #     try:
-    #         return self.sym_entry.specification
-    #     except AttributeError:
-    #         return None
-    #
-    # @property
-    # def symmetry_dimension(self) -> int | None:
-    #     """The dimension of the SymEntry"""
-    #     try:
-    #         return self.sym_entry.dimension
-    #     except AttributeError:
-    #         return None
 
     @property
     def symmetry_definition_files(self) -> list[AnyStr]:
@@ -513,7 +448,14 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
     # START classmethod where PoseData hasn't been initialized from sqlalchemy
     @classmethod
     def from_path(cls, path: str, project: str = None, **kwargs):
-        # path = os.path.abspath(path)
+        """Load the PoseJob from a path with file types or a directory
+
+        Args:
+            path: The path where the PoseJob instance should load Structure instances
+            project: The project where the file should be included
+        Returns:
+            The PoseJob instance
+        """
         if not os.path.exists(path):
             raise FileNotFoundError(
                 f"The specified {cls.__name__} path '{path}' wasn't found")
@@ -522,11 +464,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if extension != '':  # Initialize from input file
             project_path, name = os.path.split(filename)
             if project is None:
-                # path_components = filename.split(os.sep)
                 remainder, project = os.path.split(project_path)
-                # try:
-                #     project = path_components[-2]
-                # except IndexError:  # We only have a 2 index list
                 if project == '':
                     raise InputError(
                         f"Couldn't get the project from the path '{path}'. Please provide "
@@ -541,7 +479,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 raise InputError(
                     f"Couldn't coerce {path} to a {cls.__name__}. The directory must contain the "
                     f'"project{os.sep}pose_name" string')
-            return cls(name=name, project=project, **kwargs)  # source_path=None,
+            return cls(name=name, project=project, **kwargs)
         else:
             raise InputError(
                 f"{cls.__name__} couldn't load the specified source path '{path}'")
@@ -581,11 +519,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         #     file = os.path.join(file, putils.asu)
 
         if project is None:
-            # path_components = filename.split(os.sep)
             remainder, project = os.path.split(project_path)
-            # try:
-            #     project = path_components[-2]
-            # except IndexError:  # We only have a 2 index list
             if project == '':
                 raise InputError(
                     f"Couldn't get the project from the path '{file}'. Please provide "
@@ -594,7 +528,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         return cls(name=name, project=project, source_path=file, **kwargs)
 
     @classmethod
-    def from_directory(cls, source_path: str, **kwargs):  # root: AnyStr,
+    def from_directory(cls, source_path: str, **kwargs):
         """Assumes the PoseJob is constructed from the pose_name (project/pose_name) and job.projects
 
         Args:
@@ -602,7 +536,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Returns:
             The PoseJob instance
         """
-        #     root: The base directory which contains the provided source_path
         try:
             name, project, *_ = reversed(source_path.split(os.sep))
         except ValueError:  # Only got 1 value during unpacking... This isn't a "pose_directory" identifier
@@ -610,7 +543,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 f"Couldn't coerce {source_path} to a {cls.__name__}. The directory must contain the "
                 f'"project{os.sep}pose_name" string')
 
-        return cls(name=name, project=project, **kwargs)  # source_path=os.path.join(root, source_path),
+        return cls(name=name, project=project, **kwargs)
 
     @classmethod
     def from_name(cls, name: str = None, project: str = None, **kwargs):
@@ -651,22 +584,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         """
         return cls(name=pose.name, project=project, pose=pose, **kwargs)
     # END classmethods where the PoseData hasn't been initialized from sqlalchemy
-
-    # def pose_string_to_path(self, root: AnyStr, pose_id: str):
-    #     """Set self.pose_directory to the root/poseID where the poseID is converted from dash "-" separation to path separators"""
-    #     # if root is None:
-    #     #     raise ValueError("No 'root' argument was passed. Can't use a pose_id without a root directory")
-    #
-    #     if self.job.nanohedra_output:
-    #         self.pose_directory = os.path.join(root, pose_id.replace('-', os.sep))
-    #     else:
-    #         self.pose_directory = os.path.join(root, putils.projects, pose_id)  # .replace(f'_{putils.pose_directory}-')
-    #         # # Dev only
-    #         # if '_Designs-' in pose_id:
-    #         #     self.pose_directory = os.path.join(root, putils.projects, pose_id.replace('_Designs-', f'_Designs{os.sep}'))
-    #         # else:
-    #         #     self.pose_directory = os.path.join(root, putils.projects, pose_id.replace(f'_{putils.pose_directory}-',
-    #         #                                                                     f'_{putils.pose_directory}{os.sep}'))
 
     @reconstructor
     def __init_from_db__(self):
@@ -748,10 +665,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         self.name = name
         self.project = project
         self.source_path = source_path
-        # self.pose_identifier = f'{self.project}{os.sep}{self.name}'
-        # self.designs = [sql.DesignData(name=name)]
-        # self.designs.append(sql.DesignData(name=name))
-        # self.designs.append(sql.DesignData(name=name, design_parent=None))
 
         # Most __init__ code is called in __init_from_db__() according to sqlalchemy needs and DRY principles
         self.__init_from_db__()
@@ -1351,10 +1264,6 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         # Save the Pose asu
         if not os.path.exists(self.pose_path) or self.job.overwrite or self.job.load_to_db:
-            # if not self.job.construct_pose:  # This is only true when self.job.nanohedra_output is True
-            #     return
-            # elif self.job.output_to_directory:
-            #     return
             # Set the pose_path as the source_path
             self.source_path = out_path = self.pose_path
             # # Propagate to the PoseJob parent DesignData
@@ -1393,8 +1302,8 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                         # break
                 # if not rename_success:
                 if not new_success and not same_success:
-                    raise DesignError(f"Your requested fusion of chain {fusion_nterm} with chain {fusion_cterm} didn't "
-                                      f"work!")
+                    raise DesignError(
+                        f"Your requested fusion of chain '{fusion_nterm}' with chain '{fusion_cterm}' didn't work")
                     # self.log.critical('Your requested fusion of chain %s with chain %s didn\'t work!' %
                     #                   (fusion_nterm, fusion_cterm))
                 else:  # Won't be accessed unless entity_new_chain_idx is set
@@ -1413,7 +1322,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     self.pose.write(assembly=True, out_path=assembly_path,
                                     increment_chains=self.job.increment_chains,
                                     surrounding_uc=self.job.output_surrounding_uc)
-                    self.log.info(f'Symmetric assembly written to: "{assembly_path}"')
+                    self.log.info(f"Symmetric assembly written to: '{assembly_path}'")
             if self.job.output_oligomers:  # Write out Entity.oligomer instances to the PoseJob
                 for idx, entity in enumerate(self.pose.entities):
                     if self.job.output_to_directory:
@@ -1422,7 +1331,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                         oligomer_path = os.path.join(self.pose_directory, f'{entity.name}_oligomer.pdb')
                     if not os.path.exists(oligomer_path) or self.job.overwrite:
                         entity.write(oligomer=True, out_path=oligomer_path)
-                        self.log.info(f'Entity {entity.name} oligomer written to: "{oligomer_path}"')
+                        self.log.info(f"Entity {entity.name} oligomer written to: '{oligomer_path}'")
 
         if self.job.output_entities:  # Write out Entity instances to the PoseJob
             for idx, entity in enumerate(self.pose.entities):
@@ -1432,7 +1341,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     entity_path = os.path.join(self.pose_directory, f'{entity.name}_entity.pdb')
                 if not os.path.exists(entity_path) or self.job.overwrite:
                     entity.write(out_path=entity_path)
-                    self.log.info(f'Entity {entity.name} written to: "{entity_path}"')
+                    self.log.info(f"Entity {entity.name} written to: '{entity_path}'")
 
         if self.job.output_fragments:
             # if not self.pose.fragment_pairs:
@@ -1453,13 +1362,13 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         if out_path:
             self.pose.write(out_path=out_path)
-            self.log.info(f'Wrote Pose file to: "{out_path}"')
+            self.log.info(f"Wrote Pose file to: '{out_path}'")
 
         if self.job.output_to_directory:
             if not os.path.exists(self.output_pose_path) or self.job.overwrite:
                 out_path = self.output_pose_path
                 self.pose.write(out_path=out_path)
-                self.log.info(f'Wrote Pose file to: "{out_path}"')
+                self.log.info(f"Wrote Pose file to: '{out_path}'")
 
     def set_up_evolutionary_profile(self, **kwargs):
         """Add evolutionary profile information for each Entity to the Pose
@@ -1471,7 +1380,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             if self.measure_evolution is None and self.measure_alignment is None:
                 self.measure_evolution, self.measure_alignment = \
                     load_evolutionary_profile(self.job.api_db, self.pose, **kwargs)
-            # else:  # We already set these
+            # else:  # Already set these
             #     return
 
     def generate_fragments(self, interface: bool = False, oligomeric_interfaces: bool = False, entities: bool = False):

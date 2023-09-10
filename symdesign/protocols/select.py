@@ -970,7 +970,6 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 # source_entity.retrieve_api_metadata()
                 # source_entity.reference_sequence
                 sequence_id = f'{pose_job}_{source_entity.name}'
-                # design_string = '%s_design_%s_%s' % (pose_job, design, source_entity.name)  # [i])), pdb_code)
                 design_string = f'{design}_{source_entity.name}'
                 termini_availability = pose_job.pose.get_termini_accessibility(source_entity)
                 logger.debug(f'Designed Entity {sequence_id} has the following termini accessible for tags: '

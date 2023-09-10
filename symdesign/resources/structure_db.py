@@ -48,22 +48,15 @@ def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = Fa
         if asu:
             clean_pdb = f'{clean_pdb}.pdb'
         else:
-            # assembly = pdb[-3:]
-            # try:
-            #     assembly = assembly.split('_')[1]
-            # except IndexError:
-            #     assembly = '1'
             clean_pdb = f'{clean_pdb}.pdb{assembly}'
 
-        # clean_pdb = '%s.pdb%d' % (clean_pdb, assembly)
         file_name = os.path.join(out_dir, clean_pdb)
         current_file = sorted(glob(file_name))
-        # print('Found the files %s' % current_file)
-        # current_files = os.listdir(location)
+        # logger.debug('Found the files: {', '.join(current_file)}')
         # if clean_pdb not in current_files:
-        if not current_file:  # glob will return an empty list if the file is missing and therefore should be downloaded
+        if not current_file:
+            # The desired file is missing and should be retrieved
             # Always returns files in lowercase
-            # status = os.system(f'wget -q -O {file_name} https://files.rcsb.org/download/{clean_pdb}')
             cmd = ['wget', '-q', '-O', file_name, f'https://files.rcsb.org/download/{clean_pdb}']
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             p.communicate()
@@ -277,8 +270,8 @@ class StructureDatabase(Database):
             by_file: Whether to parse the structure_identifiers as file paths. Default treats as PDB EntryID or EntityID
         Returns:
             The tuple consisting of (
-                A map of the Model name to each Entity instance in the model,
-                A mapping of the UniProtEntity mapped to ProteinMetadata for every Entity instance identified
+                A map of the Model name to each Entity name in the Model,
+                A mapping of the UniprotID's to their ProteinMetadata instance for every Entity loaded
             )
         """
         if not structure_identifiers:
@@ -297,8 +290,8 @@ class StructureDatabase(Database):
                     # This is a crystalline symmetry, so we should use a TOKEN to use the CRYST record
                     resulting_symmetry = CRYST
                 else:
-                    logger.info(f'The requested {"files" if by_file else "IDs"} are being checked for proper orientation '
-                                f'with symmetry {resulting_symmetry}: {", ".join(structure_identifiers)}')
+                    logger.info(f'The requested {"files" if by_file else "IDs"} are being checked for proper '
+                                f'orientation with symmetry {resulting_symmetry}: {", ".join(structure_identifiers)}')
             else:  # This is entry_number 0, which is a TOKEN to use the CRYST record
                 resulting_symmetry = CRYST
         else:  # Treat as asymmetric - i.e. C1

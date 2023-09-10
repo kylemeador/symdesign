@@ -225,14 +225,12 @@ class DataStore:
 class Database:  # Todo ensure that the single object is completely loaded before multiprocessing... Queues and whatnot
     sources: list[DataStore]
 
-    def __init__(self, sql=None, log: Logger = logger):  # sql: sqlite = None
+    def __init__(self, sql=None, log: Logger = logger):
         super().__init__()  # object
         if sql:
-            raise NotImplementedError('SQL set up has not been completed!')
-            self.sql = sql
-        else:
-            self.sql = sql
+            raise NotImplementedError('SQL set up has not been completed')
 
+        self.sql = sql
         self.log = log
         self.job: 'resources.job.JobResources' | None = None
 
@@ -242,7 +240,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
             try:
                 source.load_all_data()
             except ValueError:
-                raise ValueError(f'Issue loading data from source {source}')
+                raise ValueError(
+                    f'Issue loading data from source {source}')
 
     def source(self, name: str) -> DataStore:
         """Return on of the various DataStores supported by the Database

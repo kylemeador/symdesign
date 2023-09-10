@@ -136,7 +136,7 @@ def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.Un
 
 
 def initialize_structures(job: JobResources, sym_entry: utils.SymEntry.SymEntry = None, paths: Iterable[AnyStr] = False,
-                          pdb_codes: list[str] = False, query_codes: bool = False) \
+                          pdb_codes: list[str] = None, query_codes: bool = False) \
         -> tuple[dict[str, tuple[str, ...]], dict[tuple[str, ...], list[sql.ProteinMetadata]]]:
     """From provided codes, files, or query directive, load structures into the runtime and orient them in the database
 
@@ -148,12 +148,10 @@ def initialize_structures(job: JobResources, sym_entry: utils.SymEntry.SymEntry 
         query_codes: Whether a PDB API query should be initiated
     Returns:
         The tuple consisting of (
-            A map of the Model name to each Entity instance in the model,
-            A mapping of the UniProtEntity mapped to ProteinMetadata for every Entity instance identified
+            A map of the Model name to each Entity name in the Model,
+            A mapping of the UniprotID's to their ProteinMetadata instance for every Entity loaded
         )
     """
-    # symmetry: str = None,
-    #  symmetry: The symmetry used to perform the orient protocol on the specified structure identifiers
     # Set up variables for the correct parsing of provided file paths
     by_file = False
     if paths:
@@ -167,8 +165,6 @@ def initialize_structures(job: JobResources, sym_entry: utils.SymEntry.SymEntry 
                 logger.warning(f'Found no {extension} files at {paths}')
         # Set filepaths to structure_names, reformat the file paths to the file_name for structure_names
         structure_names = pdb_filepaths
-        # eventual_structure_names1 = \
-        #     list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb1_filepaths]))
     elif pdb_codes:
         # Make all names lowercase
         structure_names = list(map(str.lower, pdb_codes))
@@ -181,10 +177,6 @@ def initialize_structures(job: JobResources, sym_entry: utils.SymEntry.SymEntry 
         structure_names = list(map(str.lower, structure_names))
     else:
         structure_names = []
-
-    # # Ensure all_entities are symmetric. As of now, all orient_structures returns are the symmetrized structure
-    # for entity in [entity for structure in all_structures for entity in structure.entities]:
-    #     entity.make_oligomer(symmetry=entity.symmetry)
 
     # Select entities, orient them, then load ProteinMetadata for further processing
     return job.structure_db.orient_structures(structure_names, sym_entry=sym_entry, by_file=by_file)
@@ -893,7 +885,7 @@ def main():
     logger.info(f'Setting up input for {job.module}')
     if job.module == flags.initialize_building_blocks:
         logger.critical(f'Ensuring provided building blocks are oriented')
-        # symmetry = job.sym_entry.group1
+        # Create a SymEntry for just group1
         sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=job.sym_entry.group1)
         _, possibly_new_uniprot_to_prot_metadata = \
             initialize_structures(job, sym_entry=sym_entry, paths=job.component1,
@@ -962,11 +954,9 @@ def main():
         # Transform input entities to canonical orientation, i.e. "orient" and return their metadata
         if job.module == flags.nanohedra:
             job.sym_entry.log_parameters()
-            # symmetry1 = job.sym_entry.group1
+            # Create a SymEntry for just group1
             sym_entry1 = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=job.sym_entry.group1)
         elif job.module == flags.align_helices:
-            # symmetry1 = job.sym_entry.resulting_symmetry
-            # sym_entry1 = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=job.sym_entry.resulting_symmetry)
             sym_entry1 = job.sym_entry
         else:
             raise NotImplementedError(
@@ -990,10 +980,9 @@ def main():
             grouped_structures_entity_ids.append(structure_id_to_entity_ids)
 
         if job.module == flags.nanohedra:
-            # symmetry2 = job.sym_entry.group2
+            # Create a SymEntry for just group2
             sym_entry2 = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=job.sym_entry.group2)
         elif job.module == flags.align_helices:
-            # symmetry2 = None
             sym_entry2 = None
         else:
             raise NotImplementedError(
@@ -1119,15 +1108,15 @@ def main():
             # These are not part of the db, but exist in a program_output
             if args.project or args.single:
                 paths, job.location = utils.collect_designs(projects=args.project, singles=args.single)
-                #                                             directory = symdesign_directory,
+                #                                             directory=symdesign_directory,
             # elif select_from_directory:
             #     paths, job.location = utils.collect_designs(directory=args.directory)
             else:
                 raise utils.InputError(
                     f"Can't --load-to-db without passing {flags.format_args(flags.project_args)} or "
                     f"{flags.format_args(flags.single_args)}")
-            if paths:  # There are files present
-                pose_jobs = [PoseJob.from_directory(path) for path in job.get_range_slice(paths)]
+
+            pose_jobs = [PoseJob.from_directory(path) for path in job.get_range_slice(paths)]
         elif args.poses or args.specification_file or args.project or args.single:
             pose_jobs = fetch_pose_jobs_from_database(args, in_root=root_in_current)
         elif select_from_directory:
@@ -1208,7 +1197,7 @@ def main():
                         pose_entity_mapping = {row[0]: row[1:] for row in csv.reader(f)}
 
             for idx, pose_job in enumerate(pose_jobs):
-                if pose_job.id is None:
+                if pose_job.id is None:  # Not loaded previously
                     # Todo expand the definition of SymEntry/Entity to include
                     #  specification of T:{T:{C3}{C3}}{C1}
                     #  where an Entity is composed of multiple Entity (Chain) instances

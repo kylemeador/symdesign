@@ -20,7 +20,6 @@ def create_trajectory(design_directories, name='docking_trajectory', output_dir=
 def merge_pose_pdbs(des_dir, frags=True):
     # all_pdbs = SDUtils.get_directory_file_paths(des_dir.composition, extension='.pdb')
 
-    # pdb_codes = str(os.path.basename(des_dir.composition)).split('_')
     pdb_codes = des_dir.entity_names
     oligomers, taken_chains = {}, []
     for name in pdb_codes:
