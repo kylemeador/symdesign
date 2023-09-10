@@ -7358,8 +7358,7 @@ class Pose(SymmetricModel, Metrics):
             parsed_secondary_structure = retrieve_stride_info(name=entity.name)
             if parsed_secondary_structure:
                 entity.secondary_structure = parsed_secondary_structure
-            else:
-                entity.secondary_structure  # stride()  # to_file=self.api_db.stride.path_to(entity.name))
+
             n_term = True if n_term and entity.is_termini_helical() else False
             c_term = True if c_term and entity.is_termini_helical(termini='c') else False
 
@@ -7374,7 +7373,8 @@ class Pose(SymmetricModel, Metrics):
             The dictionary of {'contact_order': array of shape (number_of_residues,)}
         """
         if oligomeric_interfaces:
-            raise NotImplementedError('Need to perform this calculation "oligomeric_interfaces" on the Entity.oligomer')
+            raise NotImplementedError(
+                "Need to perform this calculation 'oligomeric_interfaces' on the Entity.oligomer")
 
         contact_order = []
         for idx, entity in enumerate(self.entities):

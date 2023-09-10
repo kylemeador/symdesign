@@ -329,6 +329,9 @@ class StructureDatabase(Database):
                     symmetry_group=entity.symmetry,
                     model_source=entity.file_path
                 )
+                entity.calculate_secondary_structure(to_file=self.stride.path_to(name=entity.name))
+                protein_metadata.n_terminal_helix = entity.is_termini_helical()
+                protein_metadata.c_terminal_helix = entity.is_termini_helical('c')
 
                 try:
                     ''.join(entity.uniprot_ids)
@@ -340,6 +343,7 @@ class StructureDatabase(Database):
                 uniprot_ids = entity.uniprot_ids
 
                 uniprot_id_to_protein_metadata[uniprot_ids].append(protein_metadata)
+
             if resulting_symmetry == CRYST:
                 structure_identifier_tuples[model.name] = tuple()
             else:

@@ -1292,7 +1292,7 @@ def main():
                             entity.secondary_structure = parsed_secondary_structure
                         else:
                             # entity = Entity.from_file(data.model_source, name=data.entity_id, metadata=data)
-                            entity.stride(to_file=job.api_db.stride.path_to(name=entity.name))
+                            entity.calculate_secondary_structure(to_file=job.api_db.stride.path_to(name=entity.name))
                         protein_metadata.n_terminal_helix = entity.is_termini_helical()
                         protein_metadata.c_terminal_helix = entity.is_termini_helical('c')
 
@@ -1397,24 +1397,8 @@ def main():
                 session.add_all(uniprot_entities)
                 initialize_entities(job, uniprot_entities, [],  # all_uniprot_id_to_prot_data.values())
                                     batch_commands=job.distribute_work)
-                #
                 # # Todo replace the passed files with the processed versions?
                 # #  See PoseJob.load_pose()
-                # # for pose_job in pose_jobs:
-                # #     for idx, entity in enumerate(pose_job.initial_model.entities):
-                # #         pose_job.initial_model.entities[idx]
-                #
-                # for uniprot_ids, data in all_uniprot_id_to_prot_data.items():
-                #     # Try to get the already parsed secondary structure information
-                #     parsed_secondary_structure = retrieve_stride_info(name=entity.name)
-                #     if parsed_secondary_structure:
-                #         continue  # We already have this SS information
-                #         # entity.secondary_structure = parsed_secondary_structure
-                #     else:
-                #         entity = Entity.from_file(data.model_source, name=data.entity_id, metadata=data)
-                #         entity.stride(to_file=job.api_db.stride.path_to(name=data.entity_id))
-                #         data.n_terminal_helix = entity.is_termini_helical()
-                #         data.c_terminal_helix = entity.is_termini_helical('c')
 
                 if pose_jobs_to_commit:
                     # Write new data to the database with correct ProteinMetadata and UniProtEntity entries

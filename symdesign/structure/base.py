@@ -2883,7 +2883,7 @@ class ContainsResiduesMixin(StructureBase, ABC):
 
     def calculate_secondary_structure(self):
         """"""
-        self.stride()
+        self.__getattribute__(DEFAULT_SS_PROGRAM)()  # self.stride()
         secondary_structure = self.secondary_structure
 
         ss_sequence_indices, ss_type_sequence = [], []
@@ -5186,32 +5186,32 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         self.secondary_structure = ''.join(residue.secondary_structure for residue in residues)
 
-    def parse_stride(self, stride_file: AnyStr, **kwargs):
-        """From a Stride file, parse information for residue level secondary structure assignment
-
-        Sets:
-            self.secondary_structure
-        """
-        self.secondary_structure = stutils.parse_stride(stride_file)
-
-        # Set each Residue secondard_structure
-        for residue, ss_type in zip(self.residues, self.secondary_structure):
-            residue.secondary_structure = ss_type
-
-        # with open(stride_file, 'r') as f:
-        #     stride_output = f.readlines()
-        #
-        # # residue_idx = 0
-        # # residues = self.residues
-        # for line in stride_output:
-        #     # residue_idx = int(line[10:15])
-        #     if line[0:3] == 'ASG':
-        #         # residue_idx = int(line[15:20])  # one-indexed, use in Structure version...
-        #         # line[10:15].strip().isdigit():  # residue number -> line[10:15].strip().isdigit():
-        #         self.residue(int(line[10:15].strip()), pdb=True).secondary_structure = line[24:25]
-        #         # residues[residue_idx].secondary_structure = line[24:25]
-        #         # residue_idx += 1
-        # self.secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
+    # def parse_stride(self, stride_file: AnyStr, **kwargs):  # UNUSED
+    #     """From a Stride file, parse information for residue level secondary structure assignment
+    #
+    #     Sets:
+    #         self.secondary_structure
+    #     """
+    #     self.secondary_structure = stutils.parse_stride(stride_file)
+    #
+    #     # Set each Residue secondard_structure
+    #     for residue, ss_type in zip(self.residues, self.secondary_structure):
+    #         residue.secondary_structure = ss_type
+    #
+    #     # with open(stride_file, 'r') as f:
+    #     #     stride_output = f.readlines()
+    #     #
+    #     # # residue_idx = 0
+    #     # # residues = self.residues
+    #     # for line in stride_output:
+    #     #     # residue_idx = int(line[10:15])
+    #     #     if line[0:3] == 'ASG':
+    #     #         # residue_idx = int(line[15:20])  # one-indexed, use in Structure version...
+    #     #         # line[10:15].strip().isdigit():  # residue number -> line[10:15].strip().isdigit():
+    #     #         self.residue(int(line[10:15].strip()), pdb=True).secondary_structure = line[24:25]
+    #     #         # residues[residue_idx].secondary_structure = line[24:25]
+    #     #         # residue_idx += 1
+    #     # self.secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
 
     def is_termini_helical(self, termini: termini_literal = 'n', window: int = 5) -> bool:
         """Using assigned secondary structure, probe for helical termini using a segment of 'window' residues. Will
@@ -5243,7 +5243,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     @property
     def secondary_structure(self) -> str:
-        """The Structure secondary structure assignment as provided by the program Stride"""
+        """The Structure secondary structure assignment as provided by the DEFAULT_SS_PROGRAM"""
         try:
             return self._secondary_structure
         except AttributeError:
@@ -5254,9 +5254,13 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             # self._secondary_structure = self.fill_secondary_structure()
             return self._secondary_structure
 
-    def calculate_secondary_structure(self):
-        """Perform the secondary structure calculation for the Structure using the DEFAULT_SS_PROGRAM"""
-        self.__getattribute__(DEFAULT_SS_PROGRAM)()  # self.stride()
+    def calculate_secondary_structure(self, **kwargs):
+        """Perform the secondary structure calculation for the Structure using the DEFAULT_SS_PROGRAM
+
+        Keyword Args:
+            to_file: AnyStr = None - The location of a file to save secondary structure calculations
+        """
+        self.__getattribute__(DEFAULT_SS_PROGRAM)(**kwargs)  # self.stride()
 
     @secondary_structure.setter
     def secondary_structure(self, secondary_structure: Sequence[str]):
@@ -5268,7 +5272,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             else:
                 self.log.warning(f"The passed secondary_structure length, {len(secondary_structure)} != "
                                  f'{self.number_of_residues}, the number of residues')  # . Recalculating...')
-                # Todo? # self.stride()  # We tried for efficiency, but its inaccurate, recalculate
 
     def termini_proximity_from_reference(self, termini: termini_literal = 'n',
                                          reference: np.ndarray = utils.symmetry.origin, **kwargs) -> float:
@@ -5786,16 +5789,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             f.write('%s\n' % '\n'.join(residue_lines))
 
         return res_file
-
-    # def read_secondary_structure(self, filename=None, source='stride'):
-    #     if source == 'stride':
-    #         secondary_structure = self.parse_stride(filename)
-    #     elif source == 'dssp':
-    #         secondary_structure = None
-    #     else:
-    #         raise utils.DesignError('Must pass a source to %s' % Structure.read_secondary_structure.__name__)
-    #
-    #     return secondary_structure
 
     def set_b_factor_by_attribute(self, dtype: residue_attributes_literal):  # Todo ContainsResiduesMixin
         """Set the b-factor entry for every Residue to a Residue attribute
