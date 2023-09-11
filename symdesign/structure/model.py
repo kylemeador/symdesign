@@ -2772,6 +2772,18 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         """Initialize from an existing Model"""
         return cls(model=model, **kwargs)
 
+    @staticmethod
+    def reset_structures_states(structs: list[Structure] | Structures):
+        """Given a container of Structure instances, reset the states and renumber indices in the order passed"""
+        struct0, *other_structs = structs
+        struct0.reset_state()
+        struct0._start_indices(at=0, dtype='atom')
+        struct0._start_indices(at=0, dtype='residue')
+        for prior_struct, struct in zip(structs, other_structs):
+            struct.reset_state()
+            struct._start_indices(at=prior_struct.end_index + 1, dtype='atom')
+            struct._start_indices(at=prior_struct.residue_indices[-1] + 1, dtype='residue')
+
     def __init__(self,
                  chains: bool | list[Chain] | Structures = True,
                  entities: bool | list[Entity] | Structures = True,
@@ -2869,16 +2881,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 coords.append(structure.coords)
             self._assign_residues(residues, atoms=atoms, coords=coords)
 
-        def reset_passed_structures(structs: list[Structure]):
-            struct0, *other_structs = structs
-            struct0.reset_state()
-            struct0._start_indices(at=0, dtype='atom')
-            struct0._start_indices(at=0, dtype='residue')
-            for prior_struct, struct in zip(structs, other_structs):
-                struct.reset_state()
-                struct._start_indices(at=prior_struct.end_index + 1, dtype='atom')
-                struct._start_indices(at=prior_struct.residue_indices[-1] + 1, dtype='residue')
-
         self.chains = []
         if chains:  # Populate chains
             self.structure_containers.append('chains')
@@ -2888,7 +2890,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self.chains = chains  # .copy()  # Copy the passed chains
                 self._copy_structure_containers()  # Copy each Chain in chains
                 # Reindex all residue and atom indices
-                reset_passed_structures(self.chains)
+                self.reset_structures_states(self.chains)
                 # Set the parent attribute for all containers
                 self._update_structure_container_attributes(_parent=self)
                 # By using extend, self.original_chain_ids are set as well
@@ -2910,7 +2912,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self.entities = entities  # .copy()  # Copy the passed entities
                 self._copy_structure_containers()  # Copy each Entity in entities
                 # Reindex all residue and atom indices
-                reset_passed_structures(self.entities)
+                self.reset_structures_states(self.entities)
                 # Set the parent attribute for all containers
                 self._update_structure_container_attributes(_parent=self)
                 if rename_chains:  # Set each successive Entity to have an incrementally higher chain id
@@ -6112,45 +6114,28 @@ class SymmetricModel(Model):  # Models):
             self.log.debug(f'Setting the {self.__class__.__name__} to an ASU from a symmetric representation. '
                            "This method hasn't been thoroughly debugged")
             # Set base Structure attributes
-            # Can't do this as they may not be symmetric!
-            # # Set the symmetric coords according to existing coords
-            # self._models_coords = self._coords
-            number_of_atoms = self.number_of_atoms
-            desired_number_of_atoms, remainder = divmod(number_of_atoms, number_of_symmetry_mates)
-            # if remainder > 0:
-            #     raise SymmetryError(f"Couldn't split assembly into an even asymmetric unit: number_of_atoms "
-            #                         f"({number_of_atoms}), number_of_symmetry_mates ({number_of_symmetry_mates})")
-            # self._coords = Coords(self.coords[:desired_number_of_atoms])
-            # Must solve for the chains that are in the ASU
-            total_atom_increment = last_atom_increment = chain_idx = 0
-            for chain_idx, chain in enumerate(self.chains, chain_idx):
-                total_atom_increment += chain.number_of_atoms
-                if total_atom_increment > desired_number_of_atoms:
-                    increment_offset = total_atom_increment - desired_number_of_atoms
-                    last_increment_offset = desired_number_of_atoms - last_atom_increment
-                    if last_increment_offset < increment_offset:
-                        # desired_number_of_atoms is closer to the last chain number_of_atoms. Use it as the ASU boundary
-                        total_atom_increment -= chain.number_of_atoms
-                        chain_idx -= 1
-                    break  # End the search
-                else:
-                    last_atom_increment = total_atom_increment
+            new_coords = []
+            new_atoms = []
+            new_residues = []
+            for entity_idx, entity in enumerate(self.entities):  # , entity_idx):
+                new_coords.append(entity.coords)
+                new_atoms.extend(entity.atoms)
+                new_residues.extend(entity.residues)
 
-            # self.coords = self.coords[:total_atom_increment]
-            self._coords = Coords(self.coords[:total_atom_increment])
-            self._atom_indices = list(range(total_atom_increment))
-            self._atoms.delete(list(range(total_atom_increment + 1, number_of_atoms)))
-            number_of_residues = self.number_of_residues
-            # desired_number_of_residues, remainder = divmod(number_of_residues, number_of_symmetry_mates)
-            desired_number_of_residues = self.chains[chain_idx].c_terminal_residue.index + 1
-            self._residue_indices = list(range(desired_number_of_residues))
-            self._residues.delete(list(range(desired_number_of_residues + 1, number_of_residues)))
+            # number_of_atoms = len(new_atoms)
+            # number_of_residues = len(new_residues)
+
+            self._coords = Coords(np.concatenate(new_coords))
+            self._atom_indices = list(range(len(new_atoms)))
+            self._atoms.set(new_atoms)
+            self._residue_indices = list(range(len(new_residues)))
+            self._residues.set(new_residues)
             self._set_coords_indexed()
 
-            # Remove extra chains. Both from self and from entities
-            self.chains = self.chains[:chain_idx + 1]  # Add 1 for the slice operation to get all desired indices
-            # for entity in self.entities:
-            #     entity.remove_mate_chains()
+            # Remove extra chains by creating fresh
+            self._create_chains()
+            # Update entities to reflect new indices
+            self.reset_structures_states(self.entities)
         else:
             self.log.debug(f'Setting {self.__class__.__name__}.coords to the ASU with the most contacting interface')
             entities = self.find_contacting_asu(**kwargs)
