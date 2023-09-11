@@ -16,7 +16,7 @@ from random import random
 from typing import IO, Sequence, Container, Literal, get_args, Callable, Any, AnyStr, Iterable
 
 import numpy as np
-from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
+from sklearn.neighbors import BallTree
 
 from .coords import Coords, superposition3d
 from . import fragment, utils as stutils
@@ -1375,23 +1375,36 @@ class Atoms:
             for idx, struct in enumerate(self, start_at):
                 struct.index = idx
 
-    def delete(self, indices: Sequence[int]):
-        """Delete Atom instances from the Atoms container
+    def append(self, new_structures: list[Atom] | np.ndarray):  # Todo StructureContainer ready
+        """Append additional Structure instances into the StructureContainer
 
         Args:
-            indices: The indices to delete from the Coords array
+            new_structures: The Atom instances to include into Atoms
+        Sets:
+            self.atoms = numpy.concatenate((self.atoms, new_structures))
+        """
+        self.atoms = np.concatenate((self.atoms, new_structures))
+
+    def delete(self, indices: Sequence[int]):  # Todo StructureContainer ready
+        """Delete Structure instances from the StructureContainer
+
+        Args:
+            indices: The indices to delete from the StructureContainer array
+        Sets:
+            self.atoms = numpy.delete(self.atoms, indices)
         """
         self.atoms = np.delete(self.atoms, indices)
 
-    def insert(self, at: int, new_atoms: list[Atom] | np.ndarray):
-        """Insert Atom objects into the Atoms container
+    def insert(self, at: int, new_structures: list[Atom] | np.ndarray):  # Todo StructureContainer ready
+        """Insert Structure instances into the StructureContainer
 
         Args:
             at: The index to perform the insert at
-            new_atoms: The Atom instances to include into Atoms
+            new_structures: The Structure instances to insert
         """
         self.atoms = np.concatenate(
-            (self.atoms[:at], new_atoms if isinstance(new_atoms, Iterable) else [new_atoms], self.atoms[at:]))
+            (self.atoms[:at], new_structures if isinstance(new_structures, Iterable) else [new_structures],
+             self.atoms[at:]))
 
     def append(self, new_atoms: list[Atom] | np.ndarray):
         """Append additional Atom instances into the Atoms container
@@ -1404,15 +1417,15 @@ class Atoms:
         self.atoms = np.concatenate((self.atoms, new_atoms))
 
     def reset_state(self):  # Todo StructureContainer ready
-        """Remove any attributes from the Atom instances that are part of the current Structure state
+        """Remove any attributes from the Structure instances that are part of the current Structure state
 
-        This is useful for transfer of ownership, or changes in the Atom state that need to be overwritten
+        This is useful for transfer of ownership, or changes in the state that need to be overwritten
         """
         for struct in self:
             struct.reset_state()
 
     def set_attributes(self, **kwargs):  # Todo StructureContainer ready
-        """Set Atom attributes passed by keyword to their corresponding value"""
+        """Set Structure attributes passed by keyword to their corresponding value"""
         for struct in self:
             for key, value in kwargs.items():
                 setattr(struct, key, value)
@@ -1577,7 +1590,7 @@ class ContainsAtomsMixin(StructureBase, ABC):
         try:
             return self._atoms.atoms[self._atom_indices].tolist()
         except AttributeError:  # When self._atoms isn't set or is None and doesn't have .atoms
-            return
+            return None
 
     # @property
     def neighboring_atom_indices(self, distance: float = 8., **kwargs) -> list[int]:  # np.ndarray:
@@ -2095,7 +2108,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     #     try:
     #         return self._atom_indices
     #     except AttributeError:
-    #         return
+    #         return None
 
     # @atom_indices.setter
     # def atom_indices(self, indices: list[int]):
@@ -3038,23 +3051,35 @@ class Residues:
                 struct.start_index = prior_struct.end_index + 1
                 prior_struct = struct
 
-    def delete(self, indices: Sequence[int]):
-        """Delete Residue instances from the Residues container
+    def append(self, new_structures: list[Residue] | np.ndarray):  # Todo StructureContainer ready
+        """Append additional Structure instances into the StructureContainer
 
         Args:
-            indices: The indices to delete from the Residues array
+            new_structures: The Structure instances to append
+        Sets:
+            self.residues = numpy.concatenate((self.residues, new_structures))
+        """
+        self.residues = np.concatenate((self.residues, new_structures))
+
+    def delete(self, indices: Sequence[int]):  # Todo StructureContainer ready
+        """Delete Structure instances from the StructureContainer
+
+        Args:
+            indices: The indices to delete from the StructureContainer array
+        Sets:
+            self.residues = numpy.delete(self.residues, indices)
         """
         self.residues = np.delete(self.residues, indices)
 
-    def insert(self, at: int, new_residues: list[Residue] | np.ndarray):
-        """Insert Residue instances into the Residues object
+    def insert(self, at: int, new_structures: list[Residue] | np.ndarray):  # Todo StructureContainer ready
+        """Insert Structure instances into the StructureContainer
 
         Args:
             at: The index to perform the insert at
-            new_residues: The Residue instances to include into Residues
+            new_structures: The Structure instances to insert
         """
         self.residues = np.concatenate(
-            (self.residues[:at], new_residues if isinstance(new_residues, Iterable) else [new_residues],
+            (self.residues[:at], new_structures if isinstance(new_structures, Iterable) else [new_structures],
              self.residues[at:]))
 
     def append(self, new_residues: list[Residue] | np.ndarray):
@@ -3068,15 +3093,15 @@ class Residues:
         self.residues = np.concatenate((self.residues, new_residues))
 
     def reset_state(self):  # Todo StructureContainer ready
-        """Remove any attributes from the Residue instances that are part of the current Structure state
+        """Remove any attributes from the Structure instances that are part of the current Structure state
 
-        This is useful for transfer of ownership, or changes in the Atom state that need to be overwritten
+        This is useful for transfer of ownership, or changes in the state that need to be overwritten
         """
         for struct in self:
             struct.reset_state()
 
     def set_attributes(self, **kwargs):  # Todo StructureContainer ready
-        """Set Residue attributes passed by keyword to their corresponding value"""
+        """Set Structure attributes passed by keyword to their corresponding value"""
         for struct in self:
             for key, value in kwargs.items():
                 setattr(struct, key, value)

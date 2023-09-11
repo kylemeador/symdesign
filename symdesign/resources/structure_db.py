@@ -26,6 +26,7 @@ putils = utils.path
 
 # Todo adjust the logging level for this module?
 logger = logging.getLogger(__name__)
+rcsb_download_url = 'https://files.rcsb.org/download/'
 
 
 def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = False, out_dir: AnyStr = os.getcwd(),
@@ -46,18 +47,17 @@ def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = Fa
     for pdb_code in utils.to_iterable(pdb_codes):
         clean_pdb = pdb_code[:4].lower()
         if asu:
-            clean_pdb = f'{clean_pdb}.pdb'
+            pdb_file = f'{clean_pdb}.pdb'
         else:
-            clean_pdb = f'{clean_pdb}.pdb{assembly}'
+            pdb_file = f'{clean_pdb}.pdb{assembly}'
 
-        file_name = os.path.join(out_dir, clean_pdb)
+        file_name = os.path.join(out_dir, pdb_file)
         current_file = sorted(glob(file_name))
         # logger.debug('Found the files: {', '.join(current_file)}')
-        # if clean_pdb not in current_files:
         if not current_file:
             # The desired file is missing and should be retrieved
             # Always returns files in lowercase
-            cmd = ['wget', '-q', '-O', file_name, f'https://files.rcsb.org/download/{clean_pdb}']
+            cmd = ['wget', '-q', '-O', file_name, f'{rcsb_download_url}{pdb_file}']
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             p.communicate()
             if p.returncode != 0:
@@ -992,7 +992,6 @@ class StructureDatabase(Database):
                     # Indicate that this ProteinMetadata has been processed
                     for protein in protein_data_to_refine:
                         protein.loop_modeled = True
-                        # protein.model_source = self.refined.path_to(name=protein.entity_id)
             else:  # Indicate that this ProteinMetadata hasn't been processed
                 for protein in protein_data_to_loop_model:
                     protein.loop_modeled = False
@@ -1078,7 +1077,6 @@ class StructureDatabase(Database):
                 # Indicate that this ProteinMetadata has been processed
                 for protein in protein_data_to_refine:
                     protein.refined = True
-                    # protein.model_source = self.refined.path_to(name=protein.entity_id)
             else:  # Indicate that this ProteinMetadata hasn't been processed
                 for protein in protein_data_to_refine:
                     protein.refined = False

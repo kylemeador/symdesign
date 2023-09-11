@@ -804,7 +804,7 @@ class ContainsChainsMixin:
         """
         residues = self.residues
         residue_idx_start, idx = 0, 1
-        try:  # If there are no residues, we have an empty Model
+        try:  # If there are no residues, there is an empty Model
             prior_residue, *other_residues = residues
         except TypeError:   # self.residues is None, cannot unpack non-iterable NoneType object
             return
@@ -1270,11 +1270,12 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             self._api_data = {}
 
         if self._api_data is not None:
-            for data_type, data in self._api_data.items():  # [next(iter(self._api_data))]
-                # print('Retrieving UNP ID for %s\nAPI DATA for chain %s:\n%s' % (self.name, chain, api_data))
+            for data_type, data in self._api_data.items():
+                # self.log.debug('Retrieving UNP ID for {self.name}\nAPI DATA for chain {chain}:\n{api_data}')
                 if data_type == 'reference_sequence':
                     self._reference_sequence = data
-                elif data_type == 'thermophilicity':  # Todo remove self.thermophilicity once sql load more streamlined
+                elif data_type == 'thermophilicity':
+                    # Todo remove self.thermophilicity once sql load more streamlined
                     self.thermophilicity = data
                 elif data_type == 'dbref':
                     if data.get('db') == query.utils.UKB:
@@ -2128,7 +2129,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 log_file = getattr(self.log.handlers[0], 'baseFilename', None)
             except IndexError:  # No handlers attached
                 log_file = None
-            log_message = f'. Check {log_file} for more information' if log_file else ''
+            log_message = f'. Check {log_file} for more information' if log_file else \
+                f': {stderr.decode()}' if stderr else ''
+            clean_orient_input_output()
             raise utils.SymDesignException(
                 f"{putils.orient_exe_path} couldn't orient {file_name}{log_message}")
 
@@ -2673,7 +2676,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         other = super().__copy__()
         # Mate Entity instances are a "parent", however, they are under the control of their captain instance
         if self._is_captain:  # If the copier is a captain
-            other._captain = None  # Initialize the copy as a captain -> None
+            other._captain = None  # Initialize the copy as a captain i.e. _captain = None
             if self.is_dependent() and other.is_dependent():
                 # self.log.debug('is parent copy_structure_containers')
                 # A parent is making the copy. Update all structure_containers with new instance accordingly
@@ -2785,26 +2788,23 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             struct._start_indices(at=prior_struct.residue_indices[-1] + 1, dtype='residue')
 
     def __init__(self,
-                 chains: bool | list[Chain] | Structures = True,
-                 entities: bool | list[Entity] | Structures = True,
-                 # chains: list[Chain] | Structures | bool = None, entities: list[Entity] | Structures | bool = None,
-                 cryst_record: str = None, entity_info: dict[str, dict[dict | list | str]] = None,
-                 fragment_db: FragmentDatabase = None,
+                 chains: bool | list[Chain] | Structures = True, entities: bool | list[Entity] | Structures = True,
                  model: Structure = None,
-                 pose_format: bool = False, rename_chains: bool = False, resolution: float = None,
-                 # api_db: resources.wrapapi.APIDatabase = None,
-                 reference_sequence: dict[str, str] = None,
-                 # metadata: Model = None,
+                 cryst_record: str = None, entity_info: dict[str, dict[dict | list | str]] = None,
+                 fragment_db: FragmentDatabase = None, pose_format: bool = False, rename_chains: bool = False,
+                 resolution: float = None, reference_sequence: dict[str, str] = None,
+                 # api_db: resources.wrapapi.APIDatabase = None, metadata: Model = None,
                  **kwargs):
         """Process various types of Structure containers to update the Model with the corresponding information
 
         Args:
-            pose_format: Whether to initialize Structure with residue numbering from 1 until the end
             chains: Whether to create Chain instances from passed Structure container instances, or existing Chain
                 instances to create the Model with
-            rename_chains: Whether to name each chain an incrementally new Alphabetical character
             entities: Whether to create Entity instances from passed Structure container instances, or existing Entity
                 instances to create the Model with
+            model: Whether to create this Model from another Model instance
+            pose_format: Whether to initialize Structure with residue numbering from 1 until the end
+            rename_chains: Whether to name each chain an incrementally new Alphabetical character
         Keyword Args:
             entity_names: Sequence = None - Names explicitly passed for the Entity instances. Length must equal number
                 of entities. Names will take precedence over query_by_sequence if passed
@@ -2959,51 +2959,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             raise ValueError(
                 f"{self.__class__.__name__} received no valid structure instances"
             )
-
-    # Todo, rework for all Structure
-    #  copy full attribute dict without selected elements
-    # def copy_metadata(self, other):
-    #     temp_metadata = \
-    #         {'api_entry': other.__dict__['api_entry'],
-    #          'cryst_record': other.__dict__['cryst_record'],
-    #          # 'cryst': other.__dict__['cryst'],
-    #          'design': other.__dict__['design'],
-    #          'entity_info': other.__dict__['entity_info'],
-    #          '_name': other.__dict__['_name'],
-    #          # 'space_group': other.__dict__['space_group'],
-    #          # '_uc_dimensions': other.__dict__['_uc_dimensions'],
-    #          'header': other.__dict__['header'],
-    #          # 'reference_aa': other.__dict__['reference_aa'],
-    #          'resolution': other.__dict__['resolution'],
-    #          'rotation_d': other.__dict__['rotation_d'],
-    #          'max_symmetry_chain_idx': other.__dict__['max_symmetry_chain_idx'],
-    #          'dihedral_chain': other.__dict__['dihedral_chain'],
-    #          }
-    #     # temp_metadata = other.__dict__.copy()
-    #     # temp_metadata.pop('atoms')
-    #     # temp_metadata.pop('residues')
-    #     # temp_metadata.pop('secondary_structure')
-    #     # temp_metadata.pop('number_of_atoms')
-    #     # temp_metadata.pop('number_of_residues')
-    #     self.__dict__.update(temp_metadata)
-    #
-    # def update_attributes_from_pdb(self, pdb):
-    #     # self.atoms = pdb.atoms
-    #     self.resolution = pdb.resolution
-    #     self.cryst_record = pdb.cryst_record
-    #     # self.cryst = pdb.cryst
-    #     self.dbref = pdb.dbref
-    #     self.design = pdb.design
-    #     self.header = pdb.header
-    #     self.reference_sequence = pdb._reference_sequence
-    #     # self.atom_sequences = pdb.atom_sequences
-    #     self.file_path = pdb.file_path
-    #     # self.chain_ids = pdb.chain_ids
-    #     self.entity_info = pdb.entity_info
-    #     self.name = pdb.name
-    #     self.secondary_structure = pdb.secondary_structure
-    #     # self.cb_coords = pdb.cb_coords
-    #     # self.bb_coords = pdb.bb_coords
 
     # @property
     # def fragment_db(self) -> FragmentDatabase:
@@ -3204,7 +3159,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 log_file = getattr(self.log.handlers[0], 'baseFilename', None)
             except IndexError:  # No handlers attached
                 log_file = None
-            log_message = f'. Check {log_file} for more information' if log_file else ''
+            log_message = f'. Check {log_file} for more information' if log_file else \
+                f': {stderr.decode()}' if stderr else ''
+            clean_orient_input_output()
             raise utils.SymDesignException(
                 f"{putils.orient_exe_path} couldn't orient {file_name}{log_message}")
 
@@ -3495,7 +3452,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # Set the index to the index that was stopped at
         idx = next(idx)
 
-        # len(parsed_name) == 4 at some point
+        # At some point, len(parsed_name) == 4
         if self.biological_assembly:
             # query_args.update(assembly_integer=self.assembly)
             # # self.api_entry.update(_get_assembly_info(self.name))
@@ -4861,8 +4818,8 @@ class SymmetricModel(Model):  # Models):
             self._symmetric_coords_split_by_entity = []
             for entity_indices in self.atom_indices_per_entity:
                 # self._symmetric_coords_split_by_entity.append(symmetric_coords_split[:, entity_indices])
-                self._symmetric_coords_split_by_entity.append([symmetric_split[entity_indices]
-                                                               for symmetric_split in symmetric_coords_split])
+                self._symmetric_coords_split_by_entity.append(
+                    [symmetric_split[entity_indices] for symmetric_split in symmetric_coords_split])
 
             return self._symmetric_coords_split_by_entity
 
@@ -6206,7 +6163,7 @@ class SymmetricModel(Model):  # Models):
             # Last, we take out those indices that are inclusive of the model_asu_indices like below
             return self._assembly_tree
 
-    def orient(self, symmetry: str = None):  # Similar function in Entity
+    def orient(self, symmetry: str = None):
         """Orient is not available for SymmetricModel!
         Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
 
