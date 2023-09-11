@@ -858,6 +858,14 @@ class ContainsChainsMixin:
         """Return the number of Chain instances in the Structure"""
         return len(self.chains)
 
+    def are_chains_pdb_compatible(self) -> bool:
+        """Returns True if the chain_ids are compatible with legacy PDB format"""
+        for chain in self.chain_ids:
+            if len(chain) > 1:
+                return False
+
+        return True
+
     def rename_chains(self, exclude_chains: Sequence = None):
         """Renames chains using Structure.available_letters
 
@@ -2898,7 +2906,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             else:  # Create Chain instances from Residues
                 self._create_chains()
 
-            if rename_chains:
+            if rename_chains or not self.are_chains_pdb_compatible():
                 self.rename_chains()
             self.log.debug(f'Original chain_ids: {",".join(self.original_chain_ids)} | '
                            f'Loaded chain_ids: {",".join(self.chain_ids)}')
