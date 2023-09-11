@@ -9,7 +9,7 @@ import time
 from abc import ABC
 from collections import UserList, defaultdict
 from copy import copy
-from itertools import count
+from itertools import count, repeat
 from logging import Logger
 from pathlib import Path
 from random import random
@@ -24,12 +24,10 @@ from symdesign.sequence import protein_letters3_alph1, protein_letters_alph1, pr
     protein_letters_3to1_extended
 from symdesign import utils
 from symdesign.metrics import default_sasa_burial_threshold
-# from symdesign.third_party.pdbecif.src.pdbecif.mmcif_io import CifFileReader
-# Before use, need to fix the issue with pdbecif not referring to itself within symdesign.third_party....
-#   File "/home/kmeador/symdesign/symdesign/third_party/pdbecif/src/pdbecif/mmcif_io.py", line 7, in <module>
-#     from pdbecif.globalphasing.startools import StarTokeniser
+from symdesign.third_party.pdbecif.src.pdbecif.mmcif_io import CifFileReader
 
-# globals
+# Globals
+cif_reader = CifFileReader()
 logger = logging.getLogger(__name__)
 protein_letters_3to1_extended_mse = protein_letters_3to1_extended.copy()
 protein_letters_3to1_extended_mse['MSE'] = 'M'
@@ -316,11 +314,13 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
         else:
             assembly = None
     else:
-        raise ValueError(f'{read_pdb_file.__name__}: Must provide the argument "file" or "pdb_lines"')
+        raise ValueError(
+            f"{read_pdb_file.__name__}: Must provide the argument 'file' or 'pdb_lines'")
 
     # PDB
     # type to info index:   1    2    3    4    5    6    7     11     12   13   14
-    temp_info: list[tuple[int, str, str, str, str, int, str, float, float, str, str]] = []
+    temp_info: list[tuple[str, str, str, str, str, str, str, str, str, str, str]] = []
+    # temp_info: list[tuple[int, str, str, str, str, int, str, float, float, str, str]] = []
     # if separate_coords:
     #     # type to info index:   1    2    3    4    5    6    7 8,9,10    11     12   13   14
     #     atom_info: list[tuple[int, str, str, str, str, int, str, None, float, float, str, str]] = []
@@ -331,16 +331,12 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
 
     # atom_info: dict[int | str | list[float]] = {}
     coords: list[list[float]] = []
-    # cryst: dict[str, str | tuple[float]] = {}
     cryst_record: str = None
     dbref: dict[str, dict[str, str]] = {}
     entity_info: dict[str, dict[dict | list | str]] = {}
     header: list = []
-    multimodel: bool = False
     resolution: float | None = None
-    # space_group: str | None = None
     seq_res_lines: list[str] = []
-    # uc_dimensions: list[float] = []
     # Structure
     biomt: list = []
     biomt_header: str = ''
@@ -375,26 +371,16 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
             else:
                 atom_type = line[slice_atom_type].strip()
             # prepare line information for population of Atom objects
-            temp_info.append((int(line[slice_number]), atom_type, alt_loc_str, residue_type, line[slice_chain],
-                              int(line[slice_residue_number]), line[slice_code_for_insertion].strip(),
-                              float(line[slice_occ]), float(line[slice_temp_fact]),
+            temp_info.append((line[slice_number], atom_type, alt_loc_str, residue_type, line[slice_chain],
+                              line[slice_residue_number], line[slice_code_for_insertion].strip(),
+                              line[slice_occ], line[slice_temp_fact],
                               line[slice_element].strip(), line[slice_charge].strip()))
-            # atom_info.append((int(line[slice_number]), atom_type, alt_loc_str, residue_type, line[slice_chain],
-            #                   int(line[slice_residue_number]), line[slice_code_for_insertion].strip(), None,
+            # temp_info.append((int(line[slice_number]), atom_type, alt_loc_str, residue_type, line[slice_chain],
+            #                   int(line[slice_residue_number]), line[slice_code_for_insertion].strip(),
             #                   float(line[slice_occ]), float(line[slice_temp_fact]),
             #                   line[slice_element].strip(), line[slice_charge].strip()))
-            # atom_info.append(dict(number=int(line[slice_number]), type=atom_type, alt_location=alt_loc_str,
-            #                       residue_type=residue_type, chain_id=line[slice_chain],
-            #                       residue_number=int(line[slice_residue_number]),
-            #                       code_for_insertion=line[slice_code_for_insertion].strip(),
-            #                       coords=[float(line[slice_x]), float(line[slice_y]), float(line[slice_z])]
-            #                       occupancy=float(line[slice_occ]), b_factor=float(line[slice_temp_fact]),
-            #                       element_symbol=line[slice_element].strip(),
-            #                       charge=line[slice_charge].strip()))
-            # prepare the atomic coordinates for addition to numpy array
+            # Prepare the atomic coordinates for addition to numpy array
             coords.append([float(line[slice_x]), float(line[slice_y]), float(line[slice_z])])
-        elif remark == 'MODEL ':
-            multimodel = True
         elif remark == 'SEQRES':
             seq_res_lines.append(line[11:])
         elif remark == 'REMARK':
@@ -424,8 +410,8 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
                     if operation_number != current_operation:  # we reached a new transformation matrix
                         current_operation = operation_number
                         biomt.append([])
-                    # add the transformation to the current matrix
-                    biomt[-1].append(list(map(float, [x, y, z, tx])))
+                    # Add the transformation to the current matrix
+                    biomt[-1].append([x, y, z, tx])
             elif remark_number == '   2 ':  # 6:11 ' RESOLUTION'
                 try:
                     resolution = float(line[22:30].strip().split()[0])
@@ -462,9 +448,10 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
 
     if not temp_info:
         if file:
-            raise ValueError(f'The file {file} has no ATOM records')
+            raise ValueError(
+                f'The file {file} has no ATOM records')
         else:
-            raise ValueError(f'The provided pdb_lines have no ATOM records')
+            raise ValueError("The provided 'pdb_lines' have no ATOM records")
 
     # Combine entity_info with the reference_sequence info and dbref info
     if seq_res_lines:
@@ -488,9 +475,8 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
     # reference_sequence = list(reference_sequence.values())
 
     parsed_info = \
-        dict(biological_assembly=assembly,
-             atoms=[Atom.without_coordinates(idx, *info) for idx, info in enumerate(temp_info)] if separate_coords
-             else
+        dict(atoms=[Atom.without_coordinates(idx, *info) for idx, info in enumerate(temp_info)]
+             if separate_coords else
              # initialize with individual coords. Not sure why anyone would do this, but include for compatibility
              [Atom(number=number, atom_type=atom_type, alt_location=alt_location, residue_type=residue_type,
                    chain_id=chain_id, residue_number=residue_number, code_for_insertion=code_for_insertion,
@@ -498,28 +484,301 @@ def read_pdb_file(file: AnyStr = None, pdb_lines: Iterable[str] = None, separate
               for idx, (number, atom_type, alt_location, residue_type, chain_id, residue_number, code_for_insertion,
                         occupancy, b_factor, element, charge)
               in enumerate(temp_info)],
-             biomt=biomt,  # go to Structure
+             biological_assembly=assembly,
+             biomt=np.array(biomt, dtype=float),  # go to Structure
              biomt_header=biomt_header,  # go to Structure
              coords=coords if separate_coords else None,
-             # cryst=cryst,
              cryst_record=cryst_record,
-             # dbref=dbref,
              entity_info=entity_info,
              header=header,
-             multimodel=multimodel,
+             # multimodel=multimodel,
              name=name,
              resolution=resolution,
              reference_sequence=reference_sequence,
-             # space_group=space_group,
-             # uc_dimensions=uc_dimensions,
              )
-    # Explictly overwrite any parsing if argument was passed to caller
+    # Explicitly overwrite any parsing if argument was passed to caller
     parsed_info.update(**kwargs)
     return parsed_info
 
 
-mmcif_error = f'This type of parsing is not available yet, but YOU can make it happen! Modify ' \
-              f'{read_pdb_file.__name__}() slightly to parse a .cif file and create read_mmcif_file()'
+def read_mmcif_file(file: AnyStr = None, **kwargs) -> dict[str, Any]:
+    """Reads .cif file and returns structural information pertaining to parsed file
+
+    By default, returns the coordinates as a separate numpy.ndarray which is parsed directly by Structure. This will be
+    associated with each Atom however, separate parsing is done for efficiency. To include coordinate info with the
+    individual Atom instances, pass separate_coords=False. (Not recommended)
+
+    Args:
+        file: The path to the file to parse
+    Returns:
+        The dictionary containing all the parsed structural information
+    """
+    # if lines:
+    #     # path, extension = None, None
+    #     assembly: str | None = None
+    #     name = None
+    # el
+    if file is not None:
+        path, extension = os.path.splitext(file)
+        name = os.path.basename(path)
+        # Todo
+        #  Add all fields that are not:
+        #  '_atom_site', '_cell', '_symmetry', '_reflns', '_entity_poly', '_struct_ref', '_pdbx_struct_oper_list'
+        ignore_fields = []
+        data: dict[str, dict[str, Any]] = cif_reader.read(file, ignore=ignore_fields)
+        if extension[-1].isdigit():
+            # If last character is not a letter, then the file is an assembly, or the extension was provided weird
+            assembly: str | None = extension.translate(utils.keep_digit_table)
+        # Todo debug reinstate v
+        elif 'assembly' in name:
+            assembly = name[name.find('assembly'):].translate(utils.keep_digit_table)
+        else:
+            assembly = None
+    else:
+        raise ValueError(
+            f"{read_mmcif_file.__name__}: Must provide the argument 'file'"
+            # f" or 'lines'")
+        )
+
+    # name = kwargs.pop('name', None)
+    # if not name:
+    #     name = os.path.basename(os.path.splitext(file)[0])
+
+    # input(data.keys())
+    # for k, v_ in data.items():
+    #     # input(f'{list(v_.keys())}')
+    #     # ['_entry', '_audit_conform', '_database_2', '_pdbx_database_PDB_obs_spr', '_pdbx_database_related',
+    #     #  '_pdbx_database_status', '_audit_author', '_citation', '_citation_author', '_cell', '_symmetry',
+    #     #  '_entity', '_entity_poly', '_entity_poly_seq', '_entity_src_gen', '_struct_ref', '_struct_ref_seq',
+    #     #  '_struct_ref_seq_dif', '_chem_comp', '_exptl', '_exptl_crystal', '_exptl_crystal_grow', '_diffrn',
+    #     #  '_diffrn_detector', '_diffrn_radiation', '_diffrn_radiation_wavelength', '_diffrn_source', '_reflns',
+    #     #  '_reflns_shell', '_refine', '_refine_hist', '_refine_ls_restr', '_refine_ls_shell', '_pdbx_refine',
+    #     #  '_struct', '_struct_keywords', '_struct_asym', '_struct_biol', '_struct_conf', '_struct_conf_type',
+    #     #  '_struct_mon_prot_cis', '_struct_sheet', '_struct_sheet_order', '_struct_sheet_range',
+    #     #  '_pdbx_struct_sheet_hbond', '_atom_sites', '_atom_type', '_atom_site', '_atom_site_anisotrop',
+    #     #  '_pdbx_poly_seq_scheme', '_pdbx_struct_assembly', '_pdbx_struct_assembly_gen',
+    #     #  '_pdbx_struct_assembly_prop', '_pdbx_struct_oper_list', '_pdbx_audit_revision_history',
+    #     #  '_pdbx_audit_revision_details', '_pdbx_audit_revision_group', '_pdbx_refine_tls',
+    #     #  '_pdbx_refine_tls_group', '_pdbx_phasing_MR', '_phasing', '_software', '_pdbx_validate_torsion',
+    #     #  '_pdbx_unobs_or_zero_occ_atoms', '_pdbx_unobs_or_zero_occ_residues', '_space_group_symop']
+    #     for idx, (k, v) in enumerate(v_.items()):
+    #         # if k == '_atom_sites':
+    #         #     input(v.keys())
+    #         # if k in ['_database_2', '_pdbx_database_PDB_obs_spr', '_pdbx_database_related', '_pdbx_database_status']:
+    #         #     print('Database key', k)
+    #         #     input(v)
+    #         # if k in ['_entity', '_entity_poly', '_entity_poly_seq', '_struct_ref']:  # '_entity_src_gen', '_struct_ref_seq'
+    #         #     print('Sequence key', k)
+    #         #     input(v)
+    #         # if k in ['_cell', '_symmetry',
+    #         #          # '_space_group_symop'
+    #         #          ]:
+    #         #     print('Symmetry key', k)
+    #         #     input(v)
+    #         # if k in ['_reflns', '_reflns_shell', '_refine', '_refine_hist', '_refine_ls_restr', '_refine_ls_shell', '_pdbx_refine',]:
+    #         #     print('Diffraction key', k)
+    #         #     input(v)
+    #         # if k in [
+    #         #     # '_struct', '_struct_keywords', '_struct_asym', '_struct_biol',
+    #         #     '_pdbx_struct_assembly', '_pdbx_struct_assembly_gen',
+    #         #     # '_pdbx_struct_assembly_prop',
+    #         #     '_pdbx_struct_oper_list',
+    #         # ]:
+    #         #     print('struct key', k)
+    #         #     input(v)
+    #         # if k == '_atom_site':
+    #         #     """
+    #         #     key group_PDB
+    #         #     values ['ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM', 'ATOM']
+    #         #     key id
+    #         #     values ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
+    #         #     key type_symbol
+    #         #     values ['N', 'C', 'C', 'O', 'C', 'O', 'N', 'C', 'C', 'O']
+    #         #     key label_atom_id
+    #         #     values ['N', 'CA', 'C', 'O', 'CB', 'OG', 'N', 'CA', 'C', 'O']
+    #         #     key label_alt_id
+    #         #     values ['.', '.', '.', '.', '.', '.', '.', '.', '.', '.']
+    #         #     key label_comp_id
+    #         #     values ['SER', 'SER', 'SER', 'SER', 'SER', 'SER', 'VAL', 'VAL', 'VAL', 'VAL']
+    #         #     key label_asym_id
+    #         #     values ['A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A']
+    #         #     key label_entity_id
+    #         #     values ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1']
+    #         #     key label_seq_id
+    #         #     values ['3', '3', '3', '3', '3', '3', '4', '4', '4', '4']
+    #         #     key pdbx_PDB_ins_code
+    #         #     values ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?']
+    #         #     key Cartn_x
+    #         #     values ['25.947', '25.499', '24.208', '23.310', '26.585', '27.819', '24.126', '22.943', '22.353', '23.081']
+    #         #     key Cartn_y
+    #         #     values ['8.892', '10.149', '9.959', '10.800', '10.734', '10.839', '8.851', '8.533', '7.200', '6.224']
+    #         #     key Cartn_z
+    #         #     values ['43.416', '42.828', '42.038', '42.084', '41.925', '42.615', '41.310', '40.519', '40.967', '41.152']
+    #         #     key occupancy
+    #         #     values ['1.00', '1.00', '1.00', '1.00', '1.00', '1.00', '1.00', '1.00', '1.00', '1.00']
+    #         #     key B_iso_or_equiv
+    #         #     values ['67.99', '79.33', '61.67', '60.15', '81.39', '86.58', '62.97', '56.54', '56.17', '85.78']
+    #         #     key pdbx_formal_charge
+    #         #     values ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?']
+    #         #     key auth_seq_id
+    #         #     values ['3', '3', '3', '3', '3', '3', '4', '4', '4', '4']
+    #         #     key auth_comp_id
+    #         #     values ['SER', 'SER', 'SER', 'SER', 'SER', 'SER', 'VAL', 'VAL', 'VAL', 'VAL']
+    #         #     key auth_asym_id
+    #         #     values ['A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A']
+    #         #     key auth_atom_id
+    #         #     values ['N', 'CA', 'C', 'O', 'CB', 'OG', 'N', 'CA', 'C', 'O']
+    #         #     key pdbx_PDB_model_num
+    #         #     values ['1', '1', '1', '1', '1', '1', '1', '1', '1', '1']
+    #         #     """
+    #         #     for k__, v__ in v.items():
+    #         #         # ['group_PDB', 'id', 'type_symbol', 'label_atom_id', 'label_alt_id', 'label_comp_id', 'label_asym_id', 'label_entity_id', 'label_seq_id', 'pdbx_PDB_ins_code', 'Cartn_x', 'Cartn_y', 'Cartn_z', 'occupancy', 'B_iso_or_equiv', 'pdbx_formal_charge', 'auth_seq_id', 'auth_comp_id', 'auth_asym_id', 'auth_atom_id', 'pdbx_PDB_model_num']
+    #         #         print('key', k__)
+    #         #         input(f'values {v__[:10]}')
+    #         #     input('DONE')
+    #         pass
+
+    provided_dataname, *_ = data.keys()
+    if _:
+        raise ValueError(
+            f"Found multiple values for the cif 'provided_dataname'={_}")
+
+    # Extract the data of interest as saved by the provided_dataname
+    data = data[provided_dataname]
+
+    # def format_mmcif_dict(data: dict[str, Any], name: str = None, **kwargs) -> dict:
+    atom_data = data.get('_atom_site')
+    atom_numbers = atom_data.get('id')
+    number_of_atoms = len(atom_numbers)
+    atom_types = atom_data.get('label_atom_id')
+    alt_locations = atom_data.get('label_alt_id', repeat(' ', number_of_atoms))
+    residue_types = atom_data.get('label_comp_id')
+    chains = atom_data.get('label_asym_id')
+    residue_numbers = atom_data.get('label_seq_id')
+    occupancies = atom_data.get('occupancy')
+    code_for_insertion = atom_data.get('', repeat(' ', number_of_atoms))
+    b_factors = atom_data.get('B_iso_or_equiv')
+    element = atom_data.get('type_symbol', repeat(None, number_of_atoms))
+    charge = atom_data.get('pdbx_formal_charge', repeat(None, number_of_atoms))
+    alt_locations = ''.join(alt_locations).replace('.', ' ')
+    code_for_insertion = ''.join(code_for_insertion).replace('.', ' ')
+    charge = ''.join(charge).replace('?', ' ')
+
+    atoms = [Atom.without_coordinates(idx, *info) for idx, info in enumerate(
+        zip(atom_numbers, atom_types, alt_locations, residue_types, chains, residue_numbers, code_for_insertion,
+            occupancies, b_factors, element, charge))]
+
+    coords = np.array([atom_data.get('Cartn_x'),
+                       atom_data.get('Cartn_y'),
+                       atom_data.get('Cartn_z')], dtype=float).T
+    cell_data = data.get('_cell')
+    if cell_data:
+        # 'length_a': '124.910', 'length_b': '189.250', 'length_c': '376.830',
+        # 'angle_alpha': '90.00', 'angle_beta': '90.02', 'angle_gamma': '90.00'
+        # Formatted in Hermann-Mauguin notation
+        space_group = data.get('_symmetry', {}).get('space_group_name_H-M')
+        cryst_record = utils.symmetry.generate_cryst1_record(
+            list(map(float, (cell_data['length_a'], cell_data['length_b'], cell_data['length_c'],
+                             cell_data['angle_alpha'], cell_data['angle_beta'], cell_data['angle_gamma']))),
+            space_group)
+    else:
+        cryst_record = None
+
+    reflections_data = data.get('_reflns')
+    if reflections_data:
+        resolution = reflections_data['d_resolution_high']
+    else:
+        resolution = None
+
+    # _struct_ref
+    # Get the cannonical sequence
+    entity_data = data.get('_entity_poly')
+    db_data = data.get('_struct_ref')
+    if db_data:
+        # 'db_name': ['UNP', 'UNP'], 'db_code': ['B0BGB0_9BACT', 'Q4Q413_LEIMA'],
+        # 'pdbx_db_accession': ['B0BGB0', 'Q4Q413'], 'entity_id': ['1', '2'],
+        # 'pdbx_seq_one_letter_code': ['MESVNTSFLSPSLVTIRDFDNGQFAVLRIGRTGFPADKGDIDLCLDKMKGVRDAQQSIGDDTEFGFKGPHIRIRCVDIDD\nKHTYNAMVYVDLIVGTGASEVERETAEELAKEKLRAALQVDIADEHSCVTQFEMKLREELLSSDSFHPDKDEYYKDFL', 'MPVIQTFVSTPLDHHKRENLAQVYRAVTRDVLGKPEDLVMMTFHDSTPMHFFGSTDPVACVRVEALGGYGPSEPEKVTSI\nVTAAITKECGIVADRIFVLYFSPLHCGWNGTNF']
+        entity_info = {f'{name}_{entity_id}': {'chains': [],
+                                               'reference_sequence': reference_sequence.replace('\n', ''),
+                                               'dbref': {'db': db_name, 'accession': db_accession}}
+                       for entity_id, reference_sequence, db_name, db_accession in zip(
+                db_data.get('entity_id'),
+                entity_data.get('pdbx_seq_one_letter_code_can'),  # db_data.get('pdbx_seq_one_letter_code'),
+                db_data.get('db_name'), db_data.get('pdbx_db_accession'))
+                       }
+    else:
+        entity_info = {}
+    # Todo
+    #  'rcsb_polymer_entity_container_identifiers' 'asym_id'
+    # struct key _struct_asym
+    # {'id': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'BA', 'CA', 'DA', 'EA', 'FA', 'GA', 'HA', 'IA', 'JA', 'KA', 'LA', 'MA', 'NA', 'OA', 'PA', 'QA', 'RA', 'SA', 'TA', 'UA', 'VA', 'WA', 'XA', 'YA', 'ZA', 'AB', 'BB', 'CB', 'DB', 'EB', 'FB', 'GB', 'HB', 'IB', 'JB', 'KB', 'LB', 'MB', 'NB', 'OB', 'PB', 'QB', 'RB', 'SB', 'TB', 'UB', 'VB', 'WB', 'XB', 'YB', 'ZB', 'AC', 'BC', 'CC', 'DC', 'EC', 'FC', 'GC', 'HC', 'IC', 'JC', 'KC', 'LC', 'MC', 'NC', 'OC', 'PC', 'QC', 'RC'],
+    # struct key _struct_biol
+    # {'id': '1', 'details': 'The biological assembly is a protein cage with tetrahedral point group symmetry that comprises twenty-four subunits, where twelve each are a total of four homotrimers.'}
+    # struct key _pdbx_struct_assembly
+    # {'id': ['1', '2', '3', '4'], 'details': ['author_and_software_defined_assembly', 'author_and_software_defined_assembly', 'author_and_software_defined_assembly', 'author_and_software_defined_assembly'], 'method_details': ['PISA', 'PISA', 'PISA', 'PISA'], 'oligomeric_details': ['24-meric', '24-meric', '24-meric', '24-meric'], 'oligomeric_count': ['24', '24', '24', '24']}
+    # struct key _pdbx_struct_assembly_gen
+    # {'assembly_id': ['1', '2', '3', '4'], 'oper_expression': ['1', '1', '1', '1'], 'asym_id_list': ['A,B,C,D,E,F,G,H,I,J,K,L,M,XA,YA,ZA,AB,BB,CB,DB,EB,FB,GB,HB', 'N,O,P,Q,R,S,T,U,V,W,X,Y,IB,JB,KB,LB,MB,NB,OB,PB,QB,RB,SB,TB', 'Z,AA,BA,CA,DA,EA,FA,GA,HA,IA,JA,KA,UB,VB,WB,XB,YB,ZB,AC,BC,CC,DC,EC,FC', 'LA,MA,NA,OA,PA,QA,RA,SA,TA,UA,VA,WA,GC,HC,IC,JC,KC,LC,MC,NC,OC,PC,QC,RC']}
+    operations = data.get('_pdbx_struct_oper_list')
+    if operations:
+        biomt = np.array(
+            [operations['matrix[1][1]'], operations['matrix[1][2]'], operations['matrix[1][3]'],
+             operations['vector[1]'],
+             operations['matrix[2][1]'], operations['matrix[2][2]'], operations['matrix[2][3]'],
+             operations['vector[2]'],
+             operations['matrix[3][1]'], operations['matrix[3][2]'], operations['matrix[3][3]'],
+             operations['vector[3]']], dtype=float)
+        # print('biomt', biomt)
+
+        if isinstance(operations['id'], list):
+            biomt = biomt.T
+        biomt = biomt.reshape(-1, 3, 4).tolist()
+        # print('biomt', biomt)
+    else:
+        biomt = None
+
+    # # Separated...
+    # rotations = np.array(
+    #     [operations['matrix[1][1]'], operations['matrix[1][2]'], operations['matrix[1][3]'],
+    #      operations['matrix[2][1]'], operations['matrix[2][2]'], operations['matrix[2][3]'],
+    #      operations['matrix[3][1]'], operations['matrix[3][2]'], operations['matrix[3][3]']], dtype=float)
+    # translations = np.array([operations['vector[1]'], operations['vector[2]'], operations['vector[3]']],
+    #                         dtype=float)
+    # print('rotations', rotations)
+    # print('translations', translations)
+    # if isinstance(operations['id'], list):
+    #     # number_of_operations = len(operations['id'])
+    #     rotations = rotations.T  # .reshape(-1, 3, 3)
+    #     # rotations = rotations.reshape(-1, number_of_operations)
+    #     translations = translations.T
+    # # else:
+    # #     pass
+    # translations = translations.reshape(-1, 3)
+    # rotations = rotations.reshape(-1, 3, 3)
+    #
+    # print('rotations', rotations)
+    # print('translations', translations)
+    # # biomt = rotations, translations
+
+    # reference_sequence = {chain: reference_sequence}
+    formatted_info = dict(
+        atoms=atoms,
+        biological_assembly=assembly,
+        biomt=biomt,  # go to Structure
+        # biomt_header=biomt_header,  # go to Structure
+        coords=coords,
+        # coords=coords if separate_coords else None,
+        cryst_record=cryst_record,
+        entity_info=entity_info,
+        # header=header,  # Todo
+        name=name,
+        resolution=resolution,
+        # reference_sequence=reference_sequence,
+    )
+    # Explicitly overwrite any parsing if argument was passed to caller
+    formatted_info.update(**kwargs)
+
+    return formatted_info
+    # return format_mmcif_dict(data[provided_dataname], name=name, **kwargs)
 
 
 class Log:
@@ -620,7 +879,7 @@ class StructureBase(SymmetryMixin, ABC):
 
     def __init__(self, parent: StructureBase = None, log: Log | Logger | bool = True, coords: np.ndarray | Coords = None
                  , name: str = None, biological_assembly=None, cryst_record=None, entities=None, entity_info=None,
-                 entity_names=None, file_path=None, header=None, metadata=None, multimodel=None, pose_format=None,
+                 entity_names=None, file_path=None, header=None, metadata=None, pose_format=None,
                  query_by_sequence=True, rename_chains=None, resolution=None, reference_sequence=None, sequence=None,
                  **kwargs):
         self._copier = False
@@ -800,6 +1059,15 @@ class Atom(StructureBase):
     charge: str | None
     state_attributes = StructureBase.state_attributes | {'_sasa'}
 
+    @classmethod
+    def without_coordinates(cls, idx, number, atom_type, alt_location, residue_type, chain_id, residue_number,
+                            code_for_insertion, occupancy, b_factor, element, charge):
+        """Initialize Atom record data without coordinates. Performs all type casting"""
+        return cls(index=idx, number=int(number), atom_type=atom_type, alt_location=alt_location,
+                   residue_type=residue_type, chain_id=chain_id, residue_number=int(residue_number),
+                   code_for_insertion=code_for_insertion, occupancy=float(occupancy), b_factor=float(b_factor),
+                   element=element, charge=charge, coords=[])  # Use a list for speed
+
     def __init__(self, index: int = None, number: int = None, atom_type: str = None, alt_location: str = ' ',
                  residue_type: str = None, chain_id: str = None, residue_number: int = None,
                  code_for_insertion: str = ' ', x: float = None, y: float = None, z: float = None,
@@ -834,14 +1102,6 @@ class Atom(StructureBase):
         # if parent:
         #     self._atoms = parent._atoms  # Todo make empty Atoms for Structure objects?
         #     self._residues = parent._residues  # Todo make empty Residues for Structure objects?
-
-    @classmethod
-    def without_coordinates(cls, idx, number, atom_type, alt_location, residue_type, chain_id, residue_number,
-                            code_for_insertion, occupancy, b_factor, element, charge):
-        """Initialize without coordinates"""
-        return cls(index=idx, number=number, atom_type=atom_type, alt_location=alt_location, residue_type=residue_type,
-                   chain_id=chain_id, residue_number=residue_number, code_for_insertion=code_for_insertion,
-                   occupancy=occupancy, b_factor=b_factor, element=element, charge=charge, coords=[])  # list for speed
 
     def detach_from_parent(self):
         """Remove the current instance from the parent that created it"""
@@ -2941,7 +3201,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     _sap: float  # Todo ContainsResiduesMixin
     _secondary_structure: str  # Todo ContainsResiduesMixin
     _sequence: str  # Todo ContainsResiduesMixin
-    biomt: list
+    biomt: np.ndarray | None
     biomt_header: str
     file_path: AnyStr | None
     name: str
@@ -2955,7 +3215,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     def __init__(self, atoms: list[Atom] | Atoms = None,
                  residues: list[Residue] | Residues = None, residue_indices: list[int] = None, file_path: AnyStr = None,
-                 biological_assembly: str | int = None, biomt: list = None, biomt_header: str = None, **kwargs):
+                 biological_assembly: str | int = None, biomt: np.ndarray = None, biomt_header: str = None, **kwargs):
         """ Todo Docstring
 
         Args:
@@ -2980,7 +3240,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # self._residues = None
         # self._residue_indices = None
         self.biological_assembly = biological_assembly
-        self.biomt = biomt if biomt else []  # list of vectors to format
+        self.biomt = biomt if biomt else None  # numpy array of vectors with [x, y, z, tx], ...
         self.biomt_header = biomt_header if biomt_header else ''  # str with already formatted header
         self.file_path = file_path
         self.nucleotides_present = False
@@ -3033,10 +3293,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         elif '.cif' in file:
             return cls.from_mmcif(file, **kwargs)
         else:
-            raise NotImplementedError(f"{cls.__name__}: The file type {os.path.splitext(file)[-1]} isn't "
-                                      'supported for parsing. Please use the supported types ".pdb" or ".cif". '
-                                      'Alternatively use those constructors instead (ex: from_pdb(), from_mmcif()) if '
-                                      'the file extension is nonsense, but the file format is respected')
+            raise NotImplementedError(
+                f"{cls.__name__}: The file type {os.path.splitext(file)[-1]} isn't supported for parsing. Please use "
+                f"the supported types '.pdb' or '.cif'. Alternatively use those constructors instead (ex: from_pdb(), "
+                'from_mmcif()) if the file extension is nonsense, but the file format is respected')
 
     @classmethod
     def from_pdb(cls, file: AnyStr, **kwargs):
@@ -3061,10 +3321,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     @classmethod
     def from_mmcif(cls, file: AnyStr, **kwargs):
         """Create a new Structure from a .cif formatted file"""
-        raise NotImplementedError(mmcif_error)
-        # data = CifFileReader().read(file)
-        return cls(data)
-        # return cls(file_path=file, **read_mmcif_file(file, **kwargs))
+        return cls(file_path=file, **read_mmcif_file(file, **kwargs))
 
     @classmethod
     def from_residues(cls, residues: list[Residue] | Residues, **kwargs):
@@ -5346,11 +5603,12 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """
         if self.biomt_header != '':
             return self.biomt_header
-        elif self.biomt:
+        elif self.biomt is not None:
             return '%s\n' \
                 % '\n'.join('REMARK 350   BIOMT{:1d}{:4d}{:10.6f}{:10.6f}{:10.6f}{:15.5f}            '
                             .format(v_idx, m_idx, *vec)
-                            for m_idx, matrix in enumerate(self.biomt, 1) for v_idx, vec in enumerate(matrix, 1))
+                            for m_idx, matrix in enumerate(self.biomt.tolist(), 1)
+                            for v_idx, vec in enumerate(matrix, 1))
         else:
             return self.biomt_header  # This is '' if not set
 
