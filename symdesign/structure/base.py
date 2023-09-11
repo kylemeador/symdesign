@@ -1406,15 +1406,16 @@ class Atoms:
             (self.atoms[:at], new_structures if isinstance(new_structures, Iterable) else [new_structures],
              self.atoms[at:]))
 
-    def append(self, new_atoms: list[Atom] | np.ndarray):
-        """Append additional Atom instances into the Atoms container
+    def set(self, new_structures: list[Atom] | np.ndarray):  # Todo StructureContainer ready
+        """Set the StructureContainer with new Structure instances
 
         Args:
-            new_atoms: The Atom instances to include into Atoms
+            new_structures: The new instances which should make up the container
         Sets:
-            self.atoms = numpy.concatenate((self.atoms, new_atoms))
+            self.atoms = numpy.array(new_instances)
         """
-        self.atoms = np.concatenate((self.atoms, new_atoms))
+        self.atoms = np.array(new_structures)
+        self.reindex()
 
     def reset_state(self):  # Todo StructureContainer ready
         """Remove any attributes from the Structure instances that are part of the current Structure state
@@ -3082,15 +3083,16 @@ class Residues:
             (self.residues[:at], new_structures if isinstance(new_structures, Iterable) else [new_structures],
              self.residues[at:]))
 
-    def append(self, new_residues: list[Residue] | np.ndarray):
-        """Append additional Residue instances into the Residues container
+    def set(self, new_structures: list[Residue] | np.ndarray):  # Todo StructureContainer ready
+        """Set the StructureContainer with new Structure instances
 
         Args:
-            new_residues: The Residue instances to include into Residues
+            new_structures: The new instances which should make up the container
         Sets:
-            self.residues = numpy.concatenate((self.residues, new_residues))
+            self.residues = numpy.array(new_instances)
         """
-        self.residues = np.concatenate((self.residues, new_residues))
+        self.residues = np.array(new_structures)
+        self.reindex()
 
     def reset_state(self):  # Todo StructureContainer ready
         """Remove any attributes from the Structure instances that are part of the current Structure state
