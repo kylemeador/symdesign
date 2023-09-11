@@ -820,7 +820,6 @@ class ContainsChainsMixin:
         chain_residue_indices.append(list(range(residue_idx_start, idx + 1)))  # Increment as if next residue
 
         # To check for multimodel structures, use original_chain_ids.extend() as chain_ids is the same object
-        # self.chain_ids = utils.remove_duplicates([residue.chain_id for residue in residues])
         self.original_chain_ids = original_chain_ids = \
             [residues[residue_indices[0]].chain_id for residue_indices in chain_residue_indices]
         unique_chain_ids = utils.remove_duplicates(original_chain_ids)
@@ -850,6 +849,7 @@ class ContainsChainsMixin:
         else:
             self.chain_ids = chain_ids
 
+        self.chains.clear()
         for residue_indices, chain_id in zip(chain_residue_indices, self.chain_ids):
             self.chains.append(Chain(residue_indices=residue_indices, chain_id=chain_id, parent=self, **kwargs))
 
@@ -914,13 +914,13 @@ class ContainsChainsMixin:
         return None
 
     def set_reference_sequence_from_seqres(self, reference_sequence: dict[str, str]):
-        """If SEQRES was parsed, set the reference_sequence attribute from each parsed chain_id. Ensure that this is called after
-        self._create_chains()
+        """If SEQRES was parsed, set the reference_sequence attribute from each parsed chain_id. Ensure that this is
+        called after self._create_chains()
         """
         for original_chain, chain in zip(self.original_chain_ids, self.chains):
             try:
                 chain._reference_sequence = reference_sequence[original_chain]
-            except KeyError:  # Original_chain wasn't in SEQRES
+            except KeyError:  # original_chain not parsed in SEQRES
                 pass
 
     @staticmethod
@@ -942,16 +942,15 @@ class Chain(SequenceProfile, Structure):
     """
     _chain_id: str
     _disorder: dict[int, dict[str, str]]
-    _entity_id: str
+    _entity: Entity
     _reference_sequence: str
 
     def __init__(self, chain_id: str = None, name: str = None, as_mate: bool = False, **kwargs):
         super().__init__(name=name if name else chain_id, **kwargs)
-        # only if this instance is a Chain, set residues_attributes as in chain_id.setter
+        # Only if this instance is a Chain, set residues_attributes as in chain_id.setter
         if type(self) == Chain and chain_id is not None:
             self.set_residues_attributes(chain_id=chain_id)
             self._chain_id = chain_id
-            self._entity_id = None
 
         if as_mate:
             self.detach_from_parent()
@@ -971,19 +970,17 @@ class Chain(SequenceProfile, Structure):
         self._chain_id = chain_id
 
     @property
+    def entity(self) -> Entity | None:
+        """The Entity associated with the instance"""
+        try:
+            return self._entity
+        except AttributeError:
+            return None
+
+    @property
     def entity_id(self) -> str:
         """The Entity ID associated with the instance"""
-        return self._entity_id
-        # try:
-        #     return self._entity_id
-        # except AttributeError:
-        #     self._entity_id = self.residues[0].entity_id
-        #     return self._entity_id
-
-    @entity_id.setter
-    def entity_id(self, entity_id: str):
-        # self.set_residues_attributes(entity_id=entity_id)
-        self._entity_id = entity_id
+        return getattr(self._entity, 'name', None)
 
     @property
     def reference_sequence(self) -> str:
@@ -995,13 +992,13 @@ class Chain(SequenceProfile, Structure):
         try:
             return self._reference_sequence
         except AttributeError:
-            self.log.info("The reference sequence couldn't be found. Using the Structure sequence instead")
-            self._reference_sequence = self.sequence
+            try:
+                self._reference_sequence = self.entity.reference_sequence
+            except AttributeError:
+                self.log.info("The reference sequence couldn't be found. Using the Structure sequence instead")
+                self._reference_sequence = self.sequence
             return self._reference_sequence
 
-    # @reference_sequence.setter
-    # def reference_sequence(self, sequence):
-    #     self._reference_sequence = sequence
     @property
     def disorder(self) -> dict[int, dict[str, str]]:
         """Return the Residue number keys where disordered residues are found by comparison of the reference sequence
@@ -1094,11 +1091,11 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         else:  # Initialized with Structure constructor methods, handle using .is_parent() below
             additional_chains = residue_indices = None
 
+        self._chains = []
         super().__init__(residue_indices=residue_indices, **kwargs)
         if self.is_parent():  # Todo this logic isn't correct. Could be .from_chains() without parent passed!
             # This is used when Entity.from_file() is called
             # Must create all chains after parsing so that instance can be set up correctly
-            self._chains = []
             self._create_chains(as_mate=True, chain_ids=chain_ids)
             # Set chains now that _chains is parsed so self.chains can be used for mate chain functionality
             # Todo choose most symmetrically average chain
@@ -1113,7 +1110,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             self.chain_ids.extend([chain.chain_id for chain in chains])
 
         # Indicate that the first self.chain should be this instance
-        self._chains = [self]
+        self._chains.clear()
+        self._chains.append(self)
         self.structure_containers.append('_chains')  # Use '_chains' as 'chains' is okay to equal []
         if additional_chains:
             # Todo
@@ -1154,17 +1152,19 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         # reference_sequence must be set up after self.chains
         if metadata is None:
-            # self.__dict__.update(metadata.__dict__)
             if reference_sequence is not None:
                 if isinstance(reference_sequence, dict):  # Was parsed from file
-                    # self.log.debug(f'Found reference_sequence data: {reference_sequence}')
                     self.set_reference_sequence_from_seqres(reference_sequence)
+                    # for chain_id in self.chain_ids:
+                    #     try:
+                    #         self._reference_sequence = reference_sequence[chain_id]
+                    #     except KeyError:
+                    #         pass
+                    #     else:
+                    #         break
                 else:  # Assuming a string from create_entities()
                     self._reference_sequence = reference_sequence
-                if chains:
-                    # Set each of the constructing chains, chain.reference_sequence
-                    for chain in chains:
-                        chain._reference_sequence = reference_sequence
+
             # Todo remove self.thermophilicity once sql load more streamlined
             self.thermophilicity = thermophilicity
             if uniprot_ids is not None:
@@ -1172,10 +1172,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         else:
             if metadata.reference_sequence is not None:
                 self._reference_sequence = metadata.reference_sequence
-                if chains:
-                    # Set each of the constructing chains, chain.reference_sequence
-                    for chain in chains:
-                        chain._reference_sequence = reference_sequence
+
             # Todo remove self.thermophilicity once sql load more streamlined
             self.thermophilicity = metadata.thermophilicity
             if metadata.uniprot_entities is not None:
@@ -1339,10 +1336,6 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 self.log.info("The reference sequence couldn't be found. Using the Structure sequence instead")
                 self._reference_sequence = self.sequence
             return self._reference_sequence
-
-    # @reference_sequence.setter
-    # def reference_sequence(self, sequence):
-    #     self._reference_sequence = sequence
 
     def _retrieve_sequence_from_api(self) -> str | None:
         """Using the Entity ID, fetch information from the PDB API and set the instance reference_sequence
@@ -2630,7 +2623,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         This is useful for transfer of ownership, or changes in the Model state that should be overwritten
         """
         super().reset_state()
-        # Remove oligomeric chains. This should be generated fresh
+        # Remove oligomeric chains. They should be generated fresh
         self._chains.clear()
         self._chains.append(self)
 
@@ -2825,16 +2818,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             super().__init__(**kwargs)
 
         self.api_entry = None
-        # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
-        #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-        # self.chain_ids = []  # unique chain IDs
+        """
+        {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
+         'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
+        """
         self.cryst_record = cryst_record
         self.entity_info = {} if entity_info is None else entity_info
-        # [{'chains': [Chain objs], 'seq': 'GHIPLF...', 'name': 'A'}, ...]
-        # ^ ZERO-indexed for recap project!!!
-        # self.file_path = file_path
         self.header = []
-        # self.original_chain_ids = []  # [original_chain_id1, id2, ...]
         self.resolution = resolution
         # Todo standardize path with some state variable?
         # self.api_db = api_db if api_db else resources.wrapapi.api_database_factory()
@@ -2951,13 +2941,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self.chain_ids.extend([entity.chain_id for entity in self.entities])
                 # Todo DRY upon removing from above if isinstance(chains (list, Structures)):
                 #  self.chain_ids.extend([chain.chain_id for chain in self.chains])
+        else:  # self.chains (could) be viable at this point
+            if reference_sequence is not None:  # reference_sequence was parsed from file
+                self.set_reference_sequence_from_seqres(reference_sequence)
 
         if pose_format:
             self.pose_numbering()
 
-        # self.chains, self.entities (could) be viable at this point
-        if reference_sequence is not None:  # reference_sequence was parsed from file
-            self.set_reference_sequence_from_seqres(reference_sequence)
         # After structure containers are created, initialize fragment_db so the db is available to container
         self.fragment_db = fragment_db
 
@@ -3801,9 +3791,11 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
             # entity_data has attributes chains, dbref, and reference_sequence
             entity_data.pop('dbref')  # This isn't used anymore
-            self.entities.append(Entity.from_chains(**entity_data, name=entity_name, parent=self))
+            entity = Entity.from_chains(**entity_data, name=entity_name, parent=self)
             for chain in entity_chains:
-                chain.entity_id = entity_name
+                chain._entity = entity
+
+            self.entities.append(entity)
 
     def _get_entity_info_from_atoms(self, method: str = 'sequence', tolerance: float = 0.9,
                                     length_difference: float = None, **kwargs):
@@ -6609,7 +6601,7 @@ class Pose(SymmetricModel, Metrics):
                 #                                     for chain_id in chains))
                 # ^^ This is for the additive model
                 entity_set = set_function(
-                    entity_set, [self.entity(self.chain(chain_id).entity_id) for chain_id in chains])
+                    entity_set, [self.chain(chain_id).entity for chain_id in chains])
             if residues:  # is not None:
                 atom_indices = set_function(atom_indices, self.get_residue_atom_indices(numbers=list(residues)))
             if pdb_residues:  # is not None:

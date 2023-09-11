@@ -660,8 +660,7 @@ def bend(pose: Pose, joint_residue: Residue, direction: termini_literal, samples
         A list of the transformed pose coordinates at the bent site
     """
     residue_chain = pose.chain(joint_residue.chain_id)
-    # bending_entity = pose.match_entity_by_seq(residue_chain.sequence)
-    bending_entity = pose.entity(residue_chain.entity_id)
+    bending_entity = residue_chain.entity
 
     # Todo KM changed F to c, R to n where the side that should bend is c-terminal of the specified index
     #  So c is Todd's F direction
