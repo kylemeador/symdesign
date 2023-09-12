@@ -61,19 +61,21 @@ def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = Fa
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             p.communicate()
             if p.returncode != 0:
-                logger.error(f'PDB download failed for: {clean_pdb}. If you believe this PDB ID is correct, there may '
-                             "only be a .cif file available for this entry, which currently can't be parsed")
-                # Todo parse .cif file.
-                #  Super easy as the names of the columns are given in a loop and the ATOM records still start with ATOM
-                #  The additional benefits is that the records contain entity IDS as well as the residue index and the
-                #  author residue number. I think I will prefer this format from now on once parsing is possible.
+                failed_download = Path(file_name)
+                failed_download.unlink(missing_ok=False)
 
-            # file_request = requests.get('https://files.rcsb.org/download/%s' % clean_pdb)
-            # if file_request.status_code == 200:
-            #     with open(file_name, 'wb') as f:
-            #         f.write(file_request.content)
-            # else:
-            #     logger.error('PDB download failed for: %s' % pdb)
+                cif_file = f'{clean_pdb}-assembly{assembly}.cif'
+                # download_cif_file = cif_file
+                # Todo debug reinstate v
+                download_cif_file = f'{clean_pdb}.cif{assembly}'
+                file_name = os.path.join(out_dir, download_cif_file)
+                cmd = ['wget', '-q', '-O', file_name, f'{rcsb_download_url}{cif_file}']
+                # logger.debug(f'Pulling the .cif file with: {subprocess.list2cmdline(cmd)}')
+                p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                p.communicate()
+                if p.returncode != 0:
+                    continue
+
         file_names.append(file_name)
 
     return file_names
