@@ -667,7 +667,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         # Most __init__ code is called in __init_from_db__() according to sqlalchemy needs and DRY principles
         self.__init_from_db__()
-        self.pose = pose
+        self.pose = self.initial_model = pose
+        if self.pose:
+            self.output_pose()
 
         # Save job variables to the state during initialization
         # Todo does seting this variable change the database?
@@ -725,7 +727,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
     def load_initial_model(self):
         """Parse the Structure at the source_path attribute"""
-        if self.initial_model is None:
+        if self.pose:
+            self.initial_model = self.pose
+        elif self.initial_model is None:
             if self.source_path is None:
                 raise InputError(
                     f"Couldn't {self.load_initial_model.__name__}() for {self.name} as there isn't a specified file")
