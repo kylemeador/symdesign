@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session, reconstructor
 from sqlalchemy.orm.exc import DetachedInstanceError
 import torch
 
+from .utils import handle_design_errors, warn_missing_symmetry
 from symdesign import flags, metrics, resources
 from symdesign.resources import distribute, sql
 from symdesign.sequence import MultipleSequenceAlignment, read_fasta_file, write_sequences
@@ -37,7 +38,7 @@ from symdesign.structure.base import Structure
 from symdesign.structure.coords import superposition3d
 from symdesign.structure.model import Pose, Models, Model, Entity
 from symdesign.structure.sequence import sequence_difference, pssm_as_array, concatenate_profile, sequences_to_numeric
-from symdesign.structure.utils import DesignError, ClashError
+from symdesign.structure.utils import ClashError, DesignError, SymmetryError
 # import symdesign.third_party.alphafold.alphafold as af
 import symdesign.third_party.alphafold.alphafold.data.pipeline as af_pipeline
 from symdesign.third_party.alphafold.alphafold.common import residue_constants
@@ -394,23 +395,7 @@ class PoseDirectory:
         Returns:
             The sorted design files found in the designs directory with an absolute path
         """
-        # if design_type is None:
-        #     design_type = ''
         return sorted(glob(os.path.join(self.designs_path, f'*{design_type}*.pdb*')))
-
-    def pickle_info(self):
-        """Write any design attributes that should persist over program run time to serialized file"""
-        # if not self.job.construct_pose:  # This is only true when self.job.nanohedra_output is True
-        #     # Don't write anything as we are just querying
-        #     return
-        # try:
-        # Todo make better patch for numpy.ndarray compare value of array is ambiguous
-        # if the state has changed from the original version
-        if self.info.keys() != self._info.keys():
-            putils.make_path(self.data_path)
-            pickle_object(self.info, self.serialized_info, out_path='')
-        # except ValueError:
-        #     print(self.info)
 
 
 # This MRO requires __init__ in PoseMetadata to pass PoseDirectory kwargs
@@ -1449,6 +1434,38 @@ class PoseProtocol(PoseData):
                                            distance=self.job.interface_distance)
         # Todo
         #                                    oligomeric_interfaces=self.job.oligomeric_interfaces)
+
+    @handle_design_errors(errors=(SymDesignException,))
+    def orient(self, to_pose_directory: bool = True):
+        """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
+        job.symmetry is used to specify the orientation
+
+        Args:
+            to_pose_directory: Whether to write the file to the pose_directory or to another source
+        """
+        if not self.initial_model:
+            self.load_initial_model()
+
+        if self.symmetry:
+            self.initial_model.orient(symmetry=self.symmetry)
+
+            if to_pose_directory:
+                out_path = self.assembly_path
+            else:
+                putils.make_path(self.job.orient_dir)
+                out_path = os.path.join(self.job.orient_dir, f'{self.initial_model.name}.pdb')
+
+            orient_file = self.initial_model.write(out_path=out_path)
+            self.log.info(f'The oriented file was saved to {orient_file}')
+            for entity in self.initial_model.entities:
+                entity.remove_mate_chains()
+
+            # # Load the pose and save the oriented pose
+            # self.load_pose()
+            self.output_pose()
+        else:
+            raise SymmetryError(
+                warn_missing_symmetry % self.orient.__name__)
 
     def prepare_rosetta_flags(self, symmetry_protocol: str = None, sym_def_file: str = None, pdb_out_path: str = None,
                               out_dir: AnyStr = os.getcwd()) -> str:

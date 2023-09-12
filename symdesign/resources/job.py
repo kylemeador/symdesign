@@ -1033,8 +1033,6 @@ class JobResources:
             InputError if the inputs are found to be incompatible
         """
         protocol_module_allowed_modules = [
-            # 'find_asu',
-            flags.orient,
             flags.align_helices,
             flags.bend,
             flags.expand_asu,

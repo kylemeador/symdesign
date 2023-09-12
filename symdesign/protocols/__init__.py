@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import csv
-import functools
 import logging
 import os
-import traceback
 from itertools import count, repeat, combinations
 from subprocess import list2cmdline, Popen
-from typing import Iterable, AnyStr, Callable, Type, Any
+from typing import Iterable, AnyStr
 
 import numpy as np
 import pandas as pd
@@ -17,6 +15,7 @@ from Bio.SeqRecord import SeqRecord
 from scipy.spatial.distance import pdist
 
 from . import align, cluster, config, fragdock, pose, select
+from .utils import handle_job_errors, protocol_decorator, warn_missing_symmetry
 from symdesign import flags, metrics
 from symdesign.resources.config import default_pca_variance
 from symdesign.resources import distribute
@@ -27,132 +26,10 @@ from symdesign.structure.model import Models, MultiModel, Pose
 from symdesign.structure.sequence import write_pssm_file, sequence_difference
 from symdesign.structure.utils import SymmetryError
 from symdesign.utils import condensed_to_square, get_directory_file_paths, InputError, path as putils, \
-    ReportException, rosetta, starttime, sym, SymDesignException
+    rosetta, starttime, sym, SymDesignException
 
+# Globals
 logger = logging.getLogger(__name__)
-warn_missing_symmetry = \
-    f'Cannot %s without providing symmetry! Provide symmetry with "--symmetry" or "--{putils.sym_entry}"'
-
-
-def close_logs(func: Callable):
-    """Wrap a function/method to close the functions first arguments .log attribute FileHandlers after use"""
-    @functools.wraps(func)
-    def wrapped(job, *args, **kwargs):
-        func_return = func(job, *args, **kwargs)
-        # Adapted from https://stackoverflow.com/questions/15435652/python-does-not-release-filehandles-to-logfile
-        for handler in job.log.handlers:
-            handler.close()
-        return func_return
-    return wrapped
-
-
-def remove_structure_memory(func):
-    """Decorator to remove large memory attributes from the instance after processing is complete"""
-    @functools.wraps(func)
-    def wrapped(job, *args, **kwargs):
-        func_return = func(job, *args, **kwargs)
-        if job.job.reduce_memory:
-            job.clear_state()
-        return func_return
-    return wrapped
-
-
-def handle_design_errors(errors: tuple[Type[Exception], ...] = (SymDesignException,)) -> Callable:
-    """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
-
-    This argument is typically self and is in a class with .log attribute
-
-    Args:
-        errors: A tuple of exceptions to monitor. Must be a tuple even if single exception
-    Returns:
-        Function return upon proper execution, else is error if exception raised, else None
-    """
-    def wrapper(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapped(job, *args, **kwargs) -> Any:
-            try:
-                return func(job, *args, **kwargs)
-            except errors as error:
-                # Perform exception reporting using self.log
-                job.log.error(error)
-                job.format_error_for_log()
-                return ReportException(str(error))
-        return wrapped
-    return wrapper
-
-
-def handle_job_errors(errors: tuple[Type[Exception], ...] = (SymDesignException,)) -> Callable:
-    """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
-
-    This argument is typically self and is in a class with .log attribute
-
-    Args:
-        errors: A tuple of exceptions to monitor. Must be a tuple even if single exception
-    Returns:
-        Function return upon proper execution, else is error if exception raised, else None
-    """
-    def wrapper(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapped(*args, **kwargs) -> Any:
-            try:
-                return func(*args, **kwargs)
-            except errors as error:
-                # Perform exception reporting
-                return [ReportException(str(error))]
-        return wrapped
-    return wrapper
-
-
-def protocol_decorator(errors: tuple[Type[Exception], ...] = (SymDesignException,)) -> Callable:
-    """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
-
-    This argument is typically self and is in a class with .log attribute
-
-    Args:
-        errors: A tuple of exceptions to monitor. Must be a tuple even if single exception
-    Returns:
-        Function return upon proper execution, else is error if exception raised, else None
-    """
-    def wrapper(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapped(job, *args, **kwargs) -> Any:
-            # Todo
-            #  Ensure that the below setting doesn't conflict with PoseJob inherent setting
-            #  job.protocol = job.job.module
-            # distribute_protocol()
-            if job.job.distribute_work:
-                # Skip any execution, instead create the command and add as job.current_script attribute
-                base_cmd = list(putils.program_command_tuple) + job.job.get_parsed_arguments()
-                base_cmd += ['--single', job.pose_directory]
-                # cmd, *additional_cmds = getattr(job, f'get_cmd_{job.protocol}')()
-                job.current_script = distribute.write_script(
-                    list2cmdline(base_cmd), name=f'{starttime}_{job.job.module}.sh', out_path=job.scripts_path,
-                    # additional=[list2cmdline(_cmd) for _cmd in additional_cmds]
-                )
-                return None
-
-            logger.info(f'Processing {func.__name__}({repr(job)})')
-            # handle_design_errors()
-            try:
-                func_return = func(job, *args, **kwargs)
-            except errors as error:
-                # Perform exception reporting using job.log
-                job.log.error(error)
-                job.log.info(''.join(traceback.format_exc()))  # .format_exception(error)))
-                func_return = ReportException(str(error))
-            # remove_structure_memory()
-            if job.job.reduce_memory:
-                job.clear_state()
-            job.protocol = None
-            # close_logs()
-            # Adapted from https://stackoverflow.com/questions/15435652/python-does-not-release-filehandles-to-logfile
-            for handler in job.log.handlers:
-                handler.close()
-
-            return func_return
-        return wrapped
-    return wrapper
-
 
 # Protocols
 align_helices = handle_job_errors()(align.align_helices)
@@ -406,66 +283,24 @@ def rename_chains(job: pose.PoseJob):
     job.output_pose()
 
 
-@protocol_decorator(errors=(SymDesignException,))  # Todo remove RuntimeError from .orient()
-def orient(job: pose.PoseJob, to_pose_directory: bool = True):
-    """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
-    job.symmetry is used to specify the orientation
-
-    Args:
-        job: The PoseJob for which the protocol should be performed on
-        to_pose_directory: Whether to write the file to the pose_directory or to another source
-    """
-    # Todo
-    #  Should this module only be used with imported structures? Prohibit after import?
-    if not job.initial_model:
-        job.load_initial_model()
-
-    if job.symmetry:
-        if to_pose_directory:
-            out_path = job.assembly_path
-        else:
-            putils.make_path(job.job.orient_dir)
-            out_path = os.path.join(job.job.orient_dir, f'{job.initial_model.name}.pdb')
-
-        job.initial_model.orient(symmetry=job.symmetry)
-
-        orient_file = job.initial_model.write(out_path=out_path)
-        job.log.info(f'The oriented file was saved to {orient_file}')
-        for entity in job.initial_model.entities:
-            entity.remove_mate_chains()
-
-        # Load the pose and save the asu
-        job.load_pose()
-    else:
-        raise SymmetryError(warn_missing_symmetry % orient.__name__)
-
-
-@protocol_decorator()
-def find_asu(job: pose.PoseJob):
-    """From a PDB with multiple Chains from multiple Entities, return the minimal configuration of Entities.
-    ASU will only be a true ASU if the starting PDB contains a symmetric system, otherwise all manipulations find
-    the minimal unit of Entities that are in contact
-
-    Args:
-        job: The PoseJob for which the protocol should be performed on
-    """
-    # Check if the symmetry is known, otherwise this wouldn't work without the old, "symmetry-less", protocol
-    if job.is_symmetric():
-        if os.path.exists(job.assembly_path):
-            job.load_pose(file=job.assembly_path)
-        else:
-            job.load_pose()
-    else:
-        raise NotImplementedError(
-            'Not sure if asu format matches pose.get_contacting_asu() with no symmetry. This might cause issues...')
-        # Todo ensure asu format matches pose.get_contacting_asu() standard
-        # pdb = Model.from_file(job.structure_source, log=job.log)
-        # asu = pdb.return_asu()
-        job.load_pose()
-        # asu.update_attributes_from_pdb(pdb)
-
-    # Save the Pose.asu
-    job.output_pose()
+# @protocol_decorator()
+# def find_asu(job: pose.PoseJob):
+#     """From a PDB with multiple Chains from multiple Entities, return the minimal configuration of Entities.
+#     ASU will only be a true ASU if the starting PDB contains a symmetric system, otherwise all manipulations find
+#     the minimal unit of Entities that are in contact
+#
+#     Args:
+#         job: The PoseJob for which the protocol should be performed on
+#     """
+#     # Check if the symmetry is known, otherwise this wouldn't work without the old, "symmetry-less", protocol
+#     if job.is_symmetric():
+#         if os.path.exists(job.assembly_path):
+#             job.load_pose(file=job.assembly_path)
+#         else:
+#             job.load_pose()
+#
+#     # Save the Pose.asu
+#     job.output_pose()
 
 
 @protocol_decorator()
@@ -480,8 +315,8 @@ def expand_asu(job: pose.PoseJob):
     if job.is_symmetric():
         job.load_pose()
     else:
-        raise SymmetryError(warn_missing_symmetry % expand_asu.__name__)
-    # job.pickle_info()  # Todo remove once PoseJob state can be returned to the dispatch w/ MP
+        raise SymmetryError(
+            warn_missing_symmetry % expand_asu.__name__)
 
 
 @protocol_decorator()

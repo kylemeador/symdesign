@@ -23,7 +23,7 @@ from symdesign.utils.path import biological_interfaces, default_logging_level, e
 # These attributes ^ shouldn't be moved here. Below should be with proper handling of '-' vs. '_'
 from symdesign.utils.path import submodule_guide, submodule_help, force, sym_entry, program_output, projects, \
     interface_metrics, component1, component2, data, multi_processing, residue_selector, options, \
-    cluster_poses, orient, default_clustered_pose_file, interface_design, evolution_constraint, use_evolution, hbnet, \
+    cluster_poses, default_clustered_pose_file, interface_design, evolution_constraint, use_evolution, hbnet, \
     term_constraint, design_number, refine, structure_background, scout, design_profile, evolutionary_profile, \
     fragment_profile, select_sequences, program_name, nanohedra, predict_structure, output_interface, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, output_entities, protocol, \
@@ -1014,9 +1014,9 @@ predict_structure_arguments = {
         dict(action='store_true', help='Whether predictions should be relaxed using a GPU (if one is available)'),
 }
 # ---------------------------------------------------
-orient_help = 'Orient a symmetric assembly in a canonical orientation at the origin'
-parser_orient = dict(description=orient_help, help=orient_help)
-orient_arguments = {}
+# orient_help = 'Orient a symmetric assembly in a canonical orientation at the origin'
+# parser_orient = dict(description=orient_help, help=orient_help)
+# orient_arguments = {}
 # ---------------------------------------------------
 helix_bending_help = 'Bend helices along known modes of helical flexibility'
 parser_helix_bending = dict(description=helix_bending_help, help=helix_bending_help)
@@ -1744,7 +1744,7 @@ symmetry_parser_groups = dict(symmetry=parser_symmetry_group)
 residue_selector_parser_groups = {residue_selector: parser_residue_selector_group}
 mutual_keyword = '_mutual'
 module_parser_groups = {
-    orient: parser_orient,
+    # orient: parser_orient,
     f'{align_helices}{mutual_keyword}1': parser_component_mutual1_group,
     f'{align_helices}{mutual_keyword}2': parser_component_mutual2_group,
     align_helices: parser_align_helices,
@@ -1794,7 +1794,7 @@ module_parser_groups = {
 #  }
 module_required = [f'{nanohedra}{mutual_keyword}1']
 parser_arguments = {
-    orient: orient_arguments,
+    # orient: orient_arguments,
     f'{align_helices}{mutual_keyword}1': align_component_mutual1_arguments,  # mutually_exclusive_group
     f'{align_helices}{mutual_keyword}2': align_component_mutual2_arguments,  # mutually_exclusive_group
     align_helices: align_helices_arguments,

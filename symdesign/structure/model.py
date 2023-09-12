@@ -6172,7 +6172,8 @@ class SymmetricModel(Model):  # Models):
             return self._assembly_tree
 
     def orient(self, symmetry: str = None):
-        """Orient is not available for SymmetricModel!
+        """Orient isn't available for SymmetricModel
+
         Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
 
         Returns the same Structure, just oriented. Therefore, all member chains will be their original parsed lengths

@@ -395,14 +395,8 @@ def main():
             results: The returned results from the module run. By convention contains results and exceptions
             output: Whether the module used requires a file to be output
         """
-        output_analysis = True
-        # # Save any information found during the command to it's serialized state
-        # try:
-        #     for pose_job in pose_jobs:
-        #         pose_job.pickle_info()
-        # except AttributeError:  # This isn't a PoseJob. Likely is a nanohedra job
-        #     pass
         nonlocal exceptions
+        output_analysis = True
         if results:
             exceptions += parse_results_for_exceptions(pose_jobs, results)
             successful_pose_jobs = pose_jobs
@@ -845,10 +839,9 @@ def main():
         pass
         # if job.module not in [flags.interface_design, flags.design, flags.refine, flags.optimize_designs,
         #                       flags.interface_metrics, flags.analysis, flags.process_rosetta_metrics,
-        #                       flags.generate_fragments, flags.orient, flags.expand_asu,
-        #                       flags.rename_chains, flags.check_clashes]:
-        #     # , 'custom_script', 'find_asu', 'status', 'visualize'
-        #     # We have no module passed. Print the guide and exit
+        #                       flags.generate_fragments, flags.expand_asu, flags.rename_chains, flags.check_clashes]:
+        #     # 'custom_script', 'status', 'visualize'
+        #     # No module passed. Print the guide and exit
         #     utils.guide.print_guide()
         #     sys.exit()
         # else:
@@ -1196,6 +1189,7 @@ def main():
                     with open(file) as f:
                         pose_entity_mapping = {row[0]: row[1:] for row in csv.reader(f)}
 
+            warn = True
             for idx, pose_job in enumerate(pose_jobs):
                 if pose_job.id is None:  # Not loaded previously
                     # Todo expand the definition of SymEntry/Entity to include
@@ -1335,8 +1329,18 @@ def main():
                         # sql.EntityData(pose=pose_job,
                         #                meta=protein_metadata
                         #                )
-                    # # Update PoseJob
-                    # pose_job.entity_data = entity_data
+
+                    if not pose_job.pose:
+                        # The pose was never set. Try to orient
+                        _orient_outcome = pose_job.orient()
+                        if _orient_outcome is not None:
+                            # Some aspect of loading didn't work. This may be fine if the molecules are already oriented
+                            if warn:
+                                logger.warning(f"Couldn't {pose_job.orient.__name__}. If the input is passed as an "
+                                               f"asymmetric unit, ensure that it is oriented in a canonical direction."
+                                               f"{putils.see_symmetry_documentation}")
+                                warn = False
+
                     pose_jobs_to_commit.append(pose_job)
                 else:  # PoseJob is initialized
                     # # Add each UniProtEntity to existing_uniprot_entities to limit work
@@ -1604,18 +1608,6 @@ def main():
         #                 if s:
         #                     logger.info('For "%s" stage, default settings should generate %d files'
         #                                 % (stage, putils.stage_f[stage]['len']))
-        # # ---------------------------------------------------
-        # Todo
-        # elif job.module == 'find_asu':
-        #     # Fetch the specified protocol
-        #     protocol = getattr(protocols, job.module)
-        #     if args.multi_processing:
-        #         results = utils.mp_map(protocol, pose_jobs, processes=job.cores)
-        #     else:
-        #         for pose_job in pose_jobs:
-        #             results.append(protocol(pose_job))
-        #
-        #     terminate(results=results)
         # # ---------------------------------------------------
         # Todo
         # elif job.module == 'check_unmodeled_clashes':
