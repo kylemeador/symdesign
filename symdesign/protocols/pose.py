@@ -105,11 +105,11 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
                 warn = True
                 entity.evolutionary_profile = entity.create_null_profile()
             else:
-                protocol_logger.debug(f'Adding {entity.name}.evolutionary_profile')
                 entity.evolutionary_profile = profile
                 # Ensure the file is attached as well
                 # entity.pssm_file = api_db.hhblits_profiles.retrieve_file(name=entity.name)
                 entity.pssm_file = api_db.hhblits_profiles.retrieve_file(name=uniprot_id)
+            logger.debug(f'Adding {entity.name}.evolutionary_profile')
 
         # Todo this routine to self.evolutionary_profile setter
         if not entity._verify_evolutionary_profile():
