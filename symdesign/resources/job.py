@@ -298,13 +298,10 @@ class JobResources:
         self.project_name = kwargs.get('project_name')
         # program_root subdirectories
         self.data = os.path.join(self.program_root, putils.data.title())
-        # if self.output_to_directory:
-        #     self.projects = ''
         self.projects = os.path.join(self.program_root, putils.projects)
         self.job_paths = os.path.join(self.program_root, putils.job_paths)
         self.sbatch_scripts = os.path.join(self.program_root, putils.scripts.title())
         self.all_scores = os.path.join(self.program_root, putils.all_scores)
-
         # data subdirectories
         self.clustered_poses = os.path.join(self.data, 'ClusteredPoses')
         self.structure_info = os.path.join(self.data, putils.structure_info)
@@ -339,7 +336,7 @@ class JobResources:
         self.api_db.job = self
         self.structure_db.job = self
         self.fragment_db: structure.fragment.db.FragmentDatabase | None = None
-        # if kwargs.get('database'):
+
         default_db = f'sqlite:///{os.path.join(self.data, f"{putils.program_name}.db")}'
         self.db_config = os.path.join(self.data, 'db.cfg')
         database_url = kwargs.get('database_url')
@@ -356,7 +353,7 @@ class JobResources:
                 if database_url is not None:
                     raise utils.InputError(
                         f"The --database-url '{database_url}' can't be used as this {putils.program_output} "
-                        f"was already initialized with the url='{db_cfg['url']}")
+                        f"was already initialized with the url='{db_cfg.get('url')}")
                 else:
                     database_url = db_cfg.get('url')
             else:  # This should always exist

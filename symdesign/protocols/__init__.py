@@ -179,7 +179,7 @@ def interface_metrics(job: pose.PoseJob):
                 file_paths.append(job.pose_path)
 
     if not file_paths:
-        raise SymDesignException(
+        raise InputError(
             f'No files found for {job.job.module}')
 
     design_files = \

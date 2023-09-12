@@ -2290,8 +2290,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             struct_file: The location of the input .pdb file
             out_path: The location the symmetry definition file should be written
         Keyword Args:
-            modify_sym_energy_for_cryst=False (bool): Whether the symmetric energy produced in the file should be modified
-            energy=2 (int): Scalar to modify the Rosetta energy by
+            modify_sym_energy_for_cryst: bool = False - Whether the symmetric energy in the file should be modified
+            energy: int = 2 - Scalar to modify the Rosetta energy by
         Returns:
             Symmetry definition filename
         """
@@ -2309,12 +2309,9 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             self.log.warning('Using experimental symmetry definition file generation, proceed with caution as Rosetta '
                              'runs may fail due to improper set up')
         else:
-            # if not struct_file:
-            #     struct_file = self.scout_symmetry(struct_file=struct_file)
             sdf_mode = 'NCS'
 
         if not struct_file:
-            # struct_file = self.scout_symmetry(struct_file=struct_file)
             struct_file = self.write(oligomer=True, out_path=f'make_sdf_input-{self.name}-{random() * 100000:.0f}.pdb')
 
         chains = [self.chain_ids[self.max_symmetry_chain_idx]]
@@ -2385,20 +2382,20 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 pass
 
         jumps_com_to_add = set(virtuals).difference(jumps_com)
-        count = 0
+        count_ = 0
         if jumps_com_to_add != set():
-            for count, jump_com in enumerate(jumps_com_to_add, count):
-                lines.insert(last_jump + count, 'connect_virtual JUMP%s_to_com VRT%s VRT%s_base'
-                             % (jump_com, jump_com, jump_com))
-            lines[-2] = lines[-2].strip() + (len(jumps_com_to_add) * ' JUMP%s_to_subunit') % tuple(jumps_com_to_add)
+            for count_, jump_com in enumerate(jumps_com_to_add, count_):
+                lines.insert(last_jump + count_,
+                             f'connect_virtual JUMP{jump_com}_to_com VRT{jump_com} VRT{jump_com}_base')
+            lines[-2] = lines[-2].strip() + (' JUMP%s_to_subunit' * len(jumps_com_to_add)) % tuple(jumps_com_to_add)
 
         jumps_subunit_to_add = set(virtuals).difference(jumps_subunit)
         if jumps_subunit_to_add != set():
-            for count, jump_subunit in enumerate(jumps_subunit_to_add, count):
-                lines.insert(last_jump + count, 'connect_virtual JUMP%s_to_subunit VRT%s_base SUBUNIT'
-                             % (jump_subunit, jump_subunit))
+            for count_, jump_subunit in enumerate(jumps_subunit_to_add, count_):
+                lines.insert(last_jump + count_,
+                             f'connect_virtual JUMP{jump_subunit}_to_subunit VRT{jump_subunit}_base SUBUNIT')
             lines[-1] = \
-                lines[-1].strip() + (len(jumps_subunit_to_add) * ' JUMP%s_to_subunit') % tuple(jumps_subunit_to_add)
+                lines[-1].strip() + (' JUMP%s_to_subunit' * len(jumps_subunit_to_add)) % tuple(jumps_subunit_to_add)
 
         if modify_sym_energy_for_cryst:
             # new energy should equal the energy multiplier times the scoring subunit plus additional complex subunits
@@ -2413,13 +2410,13 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 f'E = {energy}*{subunits[0]}+{"+".join(f"{energy}*({subunits[0]}:{pair})" for pair in subunits[1:])}'
 
         if not to_file:
-            to_file = os.path.join(out_path, '%s.sdf' % self.name)
+            to_file = os.path.join(out_path, f'{self.name}.sdf')
 
         with open(to_file, 'w') as f:
             f.write('%s\n' % '\n'.join(lines))
-        if count != 0:
-            self.log.info('Symmetry Definition File "%s" was missing %d lines, so a fix was attempted. '
-                          'Modelling may be affected' % (to_file, count))
+        if count_ != 0:
+            self.log.info(f"Symmetry Definition File '{to_file}' was missing {count_} lines. A fix was attempted and "
+                          'modeling may be affected')
         return to_file
 
     def format_missing_loops_for_design(self, max_loop_length: int = 12, exclude_n_term: bool = True,
