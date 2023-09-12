@@ -342,23 +342,23 @@ def commands(commands: Sequence[str], name: str, protocol: protocols_literal,
     return script_file
 
 
-# @handle_errors(errors=(FileNotFoundError,))
-def update_status(serialized_info: AnyStr, stage: str, mode: str = 'check'):
-    """Update the serialized info for a designs commands such as checking or removing status, and marking completed"""
-    info = unpickle(serialized_info)
-    if mode == 'check':
-        if info['status'][stage]:  # if the status of the stage is True
-            exit(1)
-    elif mode == 'set':
-        info['status'][stage] = True
-        pickle_object(info, name=serialized_info, out_path='')
-        # exit()
-    elif mode == 'remove':
-        info['status'][stage] = False
-        pickle_object(info, name=serialized_info, out_path='')
-        # sys.exit()
-    else:
-        sys.exit(1)
+# # @handle_errors(errors=(FileNotFoundError,))
+# def update_status(serialized_info: AnyStr, stage: str, mode: str = 'check'):
+#     """Update the serialized info for a designs commands such as checking or removing status, and marking completed"""
+#     info = unpickle(serialized_info)
+#     if mode == 'check':
+#         if info['status'][stage]:  # if the status of the stage is True
+#             exit(1)
+#     elif mode == 'set':
+#         info['status'][stage] = True
+#         pickle_object(info, name=serialized_info, out_path='')
+#         # exit()
+#     elif mode == 'remove':
+#         info['status'][stage] = False
+#         pickle_object(info, name=serialized_info, out_path='')
+#         # sys.exit()
+#     else:
+#         sys.exit(1)
 
 
 def write_script(command: str, name: str = 'script', out_path: AnyStr = os.getcwd(),

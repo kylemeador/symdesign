@@ -585,9 +585,6 @@ def main():
     #     else:
     #         flags.query_user_for_flags(mode=args.flags_module)
     # ---------------------------------------------------
-    # elif args.module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs
-    #     distribute.distribute(**vars(args))
-    # ---------------------------------------------------
     # elif args.residue_selector:  # Todo
     #     def generate_sequence_template(pdb_file):
     #         model = Model.from_file(pdb_file, entities=False)
@@ -1604,20 +1601,16 @@ def main():
         # ---------------------------------------------------
         # Todo
         # elif job.module == 'status':  # -n number, -s stage, -u update
-        #     if args.update:
-        #         for pose_job in pose_jobs:
-        #             update_status(pose_job.serialized_info, args.stage, mode=args.update)
+        #     if job.design.number:
+        #         logger.info('Checking for %d files based on --{flags.design_number}' % args.design_number)
+        #     if args.stage:
+        #         status(pose_jobs, args.stage, number=job.design.number)
         #     else:
-        #         if job.design.number:
-        #             logger.info('Checking for %d files based on --{flags.design_number}' % args.design_number)
-        #         if args.stage:
-        #             status(pose_jobs, args.stage, number=job.design.number)
-        #         else:
-        #             for stage in putils.stage_f:
-        #                 s = status(pose_jobs, stage, number=job.design.number)
-        #                 if s:
-        #                     logger.info('For "%s" stage, default settings should generate %d files'
-        #                                 % (stage, putils.stage_f[stage]['len']))
+        #         for stage in putils.stage_f:
+        #             s = status(pose_jobs, stage, number=job.design.number)
+        #             if s:
+        #                 logger.info('For "%s" stage, default settings should generate %d files'
+        #                             % (stage, putils.stage_f[stage]['len']))
         # # ---------------------------------------------------
         # Todo
         # elif job.module == 'check_unmodeled_clashes':
