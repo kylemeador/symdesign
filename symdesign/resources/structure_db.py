@@ -443,9 +443,10 @@ class StructureDatabase(Database):
                     pose = Pose.from_file(orient_asu_file, name=structure_identifier, **pose_kwargs)
                     if pose.symmetric_assembly_is_clash(measure=self.job.design.clash_criteria,
                                                         distance=self.job.design.clash_distance, warn=True):
-                        logger.critical(f"The '{structure_identifier}' Model isn't a viable symmetric assembly in the "
-                                        f"symmetry {resulting_symmetry}. Couldn't initialize")
-                        continue
+                        if not self.job.design.ignore_symmetric_clashes:
+                            logger.critical(f"The structure '{structure_identifier}' isn't a viable symmetric assembly "
+                                            f"in the symmetry {resulting_symmetry}. Couldn't initialize")
+                            continue
 
                     # Write each Entity as well
                     for entity in pose.entities:
@@ -460,9 +461,11 @@ class StructureDatabase(Database):
                     pose = Pose.from_file(orient_file, name=structure_identifier, **pose_kwargs)
                     if pose.symmetric_assembly_is_clash(measure=self.job.design.clash_criteria,
                                                         distance=self.job.design.clash_distance, warn=True):
-                        logger.critical(f"The '{structure_identifier}' Model isn't a viable symmetric assembly in the "
-                                        f"symmetry {resulting_symmetry}. Couldn't initialize")
-                        continue
+                        if not self.job.design.ignore_symmetric_clashes:
+                            logger.critical(f"The structure '{structure_identifier}' isn't a viable symmetric assembly "
+                                            f"in the symmetry {resulting_symmetry}. Couldn't initialize")
+                            continue
+
                     # Write out the Pose ASU
                     assembly_integer = '' if pose.biological_assembly is None else pose.biological_assembly
                     write_entities_and_asu(pose, assembly_integer)
