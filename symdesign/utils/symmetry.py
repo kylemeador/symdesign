@@ -42,6 +42,7 @@ space_group_cryst1_fmt_dict = {
     'P23': 'P 2 3', 'F23': 'F 2 3', 'I23': 'I 2 3', 'P213': 'P 21 3', 'I213': 'I 21 3', 'P432': 'P 4 3 2',
     'P4232': 'P 42 3 2', 'F432': 'F 4 3 2', 'F4132': 'F 41 3 2', 'I432': 'I 4 3 2', 'P4332': 'P 43 3 2',
     'P4132': 'P 41 3 2', 'I4132': 'I 41 3 2'}  # CUBIC
+space_group_hm_to_simple_dict = {v: k for k, v in space_group_cryst1_fmt_dict.items()}
 layer_groups = [
     'p1'
     'p2', 'p21', 'pg', 'p222', 'p2221', 'p22121',
@@ -59,6 +60,7 @@ layer_group_cryst1_fmt_dict = {
     'p4': 'P 4', 'p422': 'P 4 2 2', 'p4212': 'P 4 21 2',
     'p6': 'P 6', 'p622': 'P 6 2 2'
 }
+layer_group_hm_to_simple_dict = {v: k for k, v in layer_group_cryst1_fmt_dict.items()}
 layer_group_entry_numbers = {2, 4, 10, 12, 17, 19, 20, 21, 23,
                              27, 29, 30, 37, 38, 42, 43, 53, 59, 60, 64, 65, 68,
                              71, 78, 74, 78, 82, 83, 84, 89, 93, 97, 105, 111, 115}
@@ -71,6 +73,9 @@ space_group_number_operations = \
      'I422': 16, 'I213': 24, 'R32': 6, 'P4212': 8, 'I432': 48, 'P4132': 24, 'I4132': 48, 'P3': 3, 'P6': 6,
      'I4122': 16, 'P4': 4, 'C222': 8, 'P222': 4, 'P213': 12, 'F4132': 96, 'P422': 8, 'P432': 24, 'F432': 96,
      'P4232': 24}
+for sg, z_number in list(space_group_number_operations.items()):
+    space_group_number_operations[space_group_cryst1_fmt_dict[sg]] = z_number
+
 cubic_point_groups = ['T', 'O', 'I']
 point_group_symmetry_operators: dict[str, np.ndarray] = \
     unpickle(putils.point_group_symmetry_operator_location)
@@ -202,13 +207,12 @@ def generate_cryst1_record(dimensions: list[float], space_group: str) -> str:
     Returns:
         The CRYST1 record
     """
-    if space_group in space_group_cryst1_fmt_dict:
-        formatted_space_group = space_group_cryst1_fmt_dict[space_group]
-    elif space_group in layer_group_cryst1_fmt_dict:
-        formatted_space_group = layer_group_cryst1_fmt_dict[space_group]
+    if space_group in space_group_cryst1_fmt_dict or space_group in space_group_hm_to_simple_dict:
+        formatted_space_group = space_group_cryst1_fmt_dict.get(space_group, space_group)
+    elif space_group in layer_group_cryst1_fmt_dict or space_group in layer_group_hm_to_simple_dict:
+        formatted_space_group = layer_group_cryst1_fmt_dict.get(space_group, space_group)
         dimensions[2] = 1.
-        dimensions[4] = 90.
-        dimensions[5] = 90.
+        dimensions[4] = dimensions[5] = 90.
     else:
         raise ValueError(
             f"The space group '{space_group}' isn't supported")
