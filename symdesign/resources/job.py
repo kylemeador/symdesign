@@ -1358,17 +1358,16 @@ class JobResources:
                 all_evolutionary_commands = hhblits_cmds + msa_cmds
                 evolutionary_cmds_file = distribute.write_commands(
                     all_evolutionary_commands, name=f'{utils.starttime}-{putils.hhblits}', out_path=self.profiles)
-                number_of_hhblits_cmds = len(all_evolutionary_commands)
 
                 if distribute.is_sbatch_available():
                     shell = distribute.sbatch
-                    max_jobs = number_of_hhblits_cmds
+                    max_jobs = len(hhblits_cmds)  # number_of_hhblits_cmds
                 else:
                     shell = distribute.default_shell
                     max_jobs = self.evolutionary_profile_processes()
 
                 hhblits_kwargs = dict(out_path=self.sbatch_scripts, scale=putils.hhblits,
-                                      max_jobs=max_jobs, number_of_commands=number_of_hhblits_cmds,
+                                      max_jobs=max_jobs, number_of_commands=len(all_evolutionary_commands),
                                       log_file=hhblits_log_file)
                 # reformat_msa_cmds_script = distribute.distribute(file=reformat_msa_cmd_file, **hhblits_kwargs)
                 hhblits_script = distribute.distribute(file=evolutionary_cmds_file, **hhblits_kwargs)
@@ -1392,7 +1391,7 @@ class JobResources:
                     p = subprocess.Popen(cmd, stdout=f, stderr=f)
                     p.communicate()
 
-            # Todo this would be more preferable
+            # Todo this would be preferable
             # for cmd in hhblits_cmds:
             #     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             #     stdout, stderr = p.communicate()

@@ -1134,11 +1134,11 @@ refine_help = 'Process Structures into an energy function'
 parser_refine = dict(description=refine_help, help=refine_help)
 refine_arguments = {
     ('-ala', f'--{interface_to_alanine}'): dict(action=argparse.BooleanOptionalAction, default=False,
-                                                help='Whether to mutate all interface residues to alanine before '
-                                                     'refinement'),
+                                                help='Whether to mutate interface residues to alanine before '
+                                                     'refinement\n'),
     measure_pose_args: measure_pose_kwargs,
     ('-met', f'--{_metrics}'): dict(action=argparse.BooleanOptionalAction, default=True,
-                                    help='Whether to calculate metrics for contained interfaces after refinement\n'
+                                    help='Whether to calculate interface metrics after refinement\n'
                                          f'{boolean_positional_prevent_msg(_metrics)}')
 }
 # ---------------------------------------------------
