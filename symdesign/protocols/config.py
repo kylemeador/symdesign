@@ -2,7 +2,6 @@ from symdesign import flags
 
 
 run_on_pose_job = (
-    flags.orient,
     flags.helix_bending,
     flags.expand_asu,
     flags.rename_chains,
