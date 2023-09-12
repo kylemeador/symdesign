@@ -655,6 +655,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if pose:  # This was passed and should be saved
             self.initial_model = pose
             self.initial_model.write(out_path=self.pose_path)
+            self.source_path = self.pose_path
 
         # Save job variables to the state during initialization
         # Todo does seting this variable change the database?
@@ -999,13 +1000,14 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             oriented: bool = False - Whether to use oriented models from the StructureDatabase
         """
         entities = self.get_entities(**kwargs)
-        if self.transformations:  # pose_transformation:
-            self.log.debug('Entities were transformed to the found docking parameters')
+        if self.transformations:
             entities = [entity.get_transformed_copy(**transformation)
                         for entity, transformation in zip(entities, self.transformations)]
-        else:  # Todo change below to handle asymmetric cases...
-            # raise SymmetryError("The design couldn't be transformed as it is missing the required "
+            self.log.debug('Entities were transformed to the found docking parameters')
+        else:
+            # Todo change below to handle asymmetric cases...
             self.log.error(missing_pose_transformation)
+
         return entities
 
     def transform_structures_to_pose(self, structures: Iterable[Structure], **kwargs) -> list[Structure]:
@@ -1017,15 +1019,17 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         Returns:
             The transformed Structure objects if a transformation was possible
         """
-        if self.transformations:  # pose_transformation:
+        if self.transformations:
+            # Todo
+            #  Assumes a 1:1 correspondence between structures and transforms (component group numbers) CHANGE
+            structures = [structure.get_transformed_copy(**transformation)
+                          for structure, transformation in zip(structures, self.transformations)]
             self.log.debug('Structures were transformed to the found docking parameters')
-            # Todo assumes a 1:1 correspondence between structures and transforms (component group numbers) CHANGE
-            return [structure.get_transformed_copy(**transformation)
-                    for structure, transformation in zip(structures, self.transformations)]
         else:
-            # raise SymmetryError("The design couldn't be transformed as it is missing the required "
             self.log.error(missing_pose_transformation)
-            return list(structures)
+            structures = list(structures)
+
+        return structures
 
     def get_entities(self, refined: bool = True, oriented: bool = False, **kwargs) -> list[Entity]:
         """Retrieve Entity files from the design Database using either the oriented directory, or the refined directory.
@@ -1040,7 +1044,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         # Todo change to rely on EntityData
         source_preference = ['refined', 'oriented_asu', 'design']
         # Todo once loop_model works 'full_models'
-        # if self.job.structure_db:
+
         if refined:
             source_idx = 0
         elif oriented:
@@ -1049,9 +1053,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             source_idx = 2
             self.log.info(f'Falling back on Entity instances present in the {self.__class__.__name__} structure_source')
 
-        # self.entities.clear()
         entities = []
-        # for name in self.entity_names:
         for data in self.entity_data:
             name = data.name
             source_preference_iter = iter(source_preference)
@@ -1064,34 +1066,27 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 try:
                     source = next(source_preference_iter)
                 except StopIteration:
-                    raise DesignError(f"{self.get_entities.__name__}: Couldn't locate the required files")
+                    raise SymDesignException(
+                        f"{self.get_entities.__name__}: Couldn't locate the required files")
                 source_datastore = getattr(self.job.structure_db, source, None)
                 # Todo this course of action isn't set up anymore. It should be depreciated...
                 if source_datastore is None:  # Try to get file from the PoseDirectory
-                    search_path = os.path.join(self.pose_directory, f'{name}*.pdb*')
-                    file = sorted(glob(search_path))
-                    if file:
-                        if len(file) > 1:
-                            self.log.warning(f"Multiple files were found for the specified entity at '{search_path}'. "
-                                             f'Using the first')
-                        model = Model.from_file(file[0], log=self.log)
-                    else:
-                        raise FileNotFoundError(
-                            f"Couldn't locate the specified entity at '{search_path}'")
+                    raise SymDesignException(
+                        f"Couldn't locate the specified Entity '{name}' from any Database sources")
+
+                model = source_datastore.retrieve_data(name=name)
+                #  Error where the EntityID loaded from 2gtr_1.pdb was 2gtr_1_1
+                #  Below might help resolve this issue
+                # model_file = source_datastore.retrieve_file(name=name)
+                # if model_file:
+                #     model = Entity.from_file(model_file)
+                # else:
+                #     model = None
+                if isinstance(model, Structure):
+                    self.log.info(f'Found Entity at {source} DataStore and loaded into job')
                 else:
-                    model = source_datastore.retrieve_data(name=name)
-                    # Todo I ran into an error where the EntityID loaded from 2gtr_1.pdb was 2gtr_1_1
-                    #  This might help resolve this issue
-                    # model_file = source_datastore.retrieve_file(name=name)
-                    # if model_file:
-                    #     model = Entity.from_file(model_file)
-                    # else:
-                    #     model = None
-                    if isinstance(model, Structure):  # Model):  # Entity):
-                        self.log.info(f'Found Model at {source} DataStore and loaded into job')
-                    else:
-                        self.log.error(f"Couldn't locate the Model {name} at the Database source "
-                                       f'"{source_datastore.location}"')
+                    self.log.warning(f"Couldn't locate the Entity {name} at the Database source "
+                                     f"'{source_datastore.location}'")
 
             entities.extend([entity for entity in model.entities])
         # Todo is this useful or is the ProteinMetadata already set elsewhere?
@@ -1102,7 +1097,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         # self.log.debug(f'{len(entities)} matching entities found')
         if len(entities) != len(self.entity_data):
-            raise RuntimeError(
+            raise SymDesignException(
                 f'Expected {len(entities)} entities, but found {len(self.entity_data)}')
 
         return entities
@@ -1171,7 +1166,10 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                 self.log.info(f"No '.source_path' found. Fetching structure_source from "
                               f'{type(self.job.structure_db).__name__} and transforming to Pose')
                 # Minimize I/O with transform...
-                entities = self.transform_entities_to_pose()
+                # Must add the instance to a session to load any self.transformations present
+                with self.job.db.session(expire_on_commit=False) as session:
+                    session.add(self)
+                    entities = self.transform_entities_to_pose()
                 # Todo should use the ProteinMetadata version if the constituent Entity coordinates aren't modified by
                 #  some small amount as this will ensure that files are refined and that loops are included...
                 # Collect the EntityTransform for these regardless of symmetry since the file will be coming from the
@@ -1217,8 +1215,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                                                          distance=self.job.design.clash_distance):
                     if self.job.design.ignore_symmetric_clashes:
                         # self.format_error_for_log()
-                        self.log.warning(f"The Pose symmetric assembly from '{self.structure_source}' contains clashes. ")
-                        #                  f"{self.format_see_log_msg()}")
+                        self.log.warning(
+                            f"The Pose symmetric assembly from '{self.structure_source}' contains clashes.")
+                        #     f"{self.format_see_log_msg()}")
                     else:
                         raise ClashError(
                             "The symmetric assembly contains clashes and won't be considered. If you "
