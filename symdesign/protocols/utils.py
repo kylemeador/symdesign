@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import os
 import traceback
 from subprocess import list2cmdline
 from typing import Callable, Type, Any
@@ -108,6 +109,7 @@ def protocol_decorator(errors: tuple[Type[Exception], ...] = (SymDesignException
                 base_cmd = list(putils.program_command_tuple) + job.job.get_parsed_arguments()
                 base_cmd += ['--single', job.pose_directory]
                 # cmd, *additional_cmds = getattr(job, f'get_cmd_{job.protocol}')()
+                os.makedirs(job.scripts_path, exist_ok=True)
                 job.current_script = distribute.write_script(
                     list2cmdline(base_cmd), name=f'{starttime}_{job.job.module}.sh', out_path=job.scripts_path,
                     # additional=[list2cmdline(_cmd) for _cmd in additional_cmds]
