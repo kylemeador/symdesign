@@ -968,7 +968,8 @@ class JobResources:
                 # Reduce the size
                 self._input_source = self._input_source[:100]
         else:
-            raise ValueError(f"Couldn't handle the provided location type {type(location).__name__}")
+            raise ValueError(
+                f"Couldn't handle the provided location type {type(location).__name__}")
 
     def get_range_slice(self, jobs: Sequence) -> Sequence[Any]:
         """Slice the input work by a set increment. This is parsed from the flags.range_args

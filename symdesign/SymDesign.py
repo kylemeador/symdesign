@@ -185,6 +185,15 @@ def initialize_structures(job: JobResources, sym_entry: utils.SymEntry.SymEntry 
 def load_poses_from_structure_and_entity_pairs(job: JobResources,
                                                structure_id_to_entity_ids: dict[str, Iterable[str]] | list[Pose],
                                                all_protein_metadata: list[sql.ProteinMetadata]) -> list[Pose]:
+    """From specified identifiers, load the corresponding Pose and return all Structure instances
+
+    Args:
+        job:
+        structure_id_to_entity_ids:
+        all_protein_metadata:
+    Returns:
+        The loaded Pose instances. No symmetry properties are attached
+    """
     structures = []
     if not structure_id_to_entity_ids:
         pass
@@ -853,7 +862,7 @@ def main():
     reported_args = job.report_specified_arguments(args)
     logger.info('Starting with options:\n\t%s' % '\n\t'.join(utils.pretty_format_table(reported_args.items())))
 
-    logger.info(f'Using resources in Database located at "{job.data}"')
+    logger.info(f"Using resources in Database located at '{job.data}'")
     uses_fragments = [flags.nanohedra, flags.generate_fragments, flags.design, flags.analysis]
     if job.module in uses_fragments:
         # Todo
@@ -1124,6 +1133,7 @@ def main():
             structure_id_to_entity_ids, possibly_new_uniprot_to_prot_metadata = \
                 initialize_structures(job, sym_entry=job.sym_entry,  # paths=job.component1,
                                       pdb_codes=job.pdb_codes, query_codes=job.query_codes)
+            job.location = list(structure_id_to_entity_ids.keys())
 
             # Write new data to the database and fetch existing data
             with job.db.session(expire_on_commit=False) as session:
@@ -1500,7 +1510,7 @@ def main():
 
         # Todo
         #  f'Found {len(pose_jobs)}...' not accurate with select_from_directory
-        logger.info(f'Found {len(pose_jobs)} unique poses from provided input location "{job.location}"')
+        logger.info(f"Found {len(pose_jobs)} unique poses from provided input location '{job.location}'")
         if not job.debug and not job.skip_logging and not select_from_directory:
             representative_pose_job = next(iter(pose_jobs))
             if representative_pose_job.log_path:

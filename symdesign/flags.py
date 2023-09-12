@@ -984,10 +984,11 @@ protocol_arguments = {
     ('-m', f'--{modules}'): dict(nargs='*', default=tuple(), required=True, help='The modules to run in order'),
 }
 # ---------------------------------------------------
+predict_pose_args = (f'--{predict_pose}',)
 predict_structure_help = 'Predict 3D structures from specified sequences'
 parser_predict_structure = dict(description=f'{predict_structure_help}\nPrediction occurs on designed sequences by '
                                             f'default.\nIf prediction should be performed on the Pose, use '
-                                            f'--{predict_pose}', help=predict_structure_help)
+                                            f'{format_args(predict_pose_args)}', help=predict_structure_help)
 predict_structure_arguments = {
     ('-m', f'--{predict_method}'):
         dict(choices={'alphafold', 'thread'}, default='alphafold', metavar='',
@@ -1004,7 +1005,7 @@ predict_structure_arguments = {
                   f'{boolean_positional_prevent_msg(_metrics)}'),
     ('-E', f'--{predict_entities}'):
         dict(action='store_true', help='Whether individual entities should be predicted\ninstead of the entire Pose'),
-    (f'--{predict_pose}',):
+    predict_pose_args:
         dict(action='store_true', help='Whether individual entities should be predicted\ninstead of the entire Pose'),
     (f'--{models_to_relax}',):
         dict(type=str.lower, default='best', metavar='',

@@ -1258,7 +1258,7 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             session.add(self)
             session.commit()
 
-    def output_pose(self, out_path: AnyStr = 'POSE'):  # Todo to PoseProtocols?
+    def output_pose(self, out_path: AnyStr = 'POSE'):  # Todo to PoseProtocol?
         """Save a new Structure from multiple Chain or Entity objects including the Pose symmetry"""
         # if self.job.pose_format:
         #     self.pose.pose_numbering()
