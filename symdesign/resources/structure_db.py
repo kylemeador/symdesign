@@ -237,13 +237,15 @@ def query_qs_bio(entry_id: str) -> int:
 
 
 class StructureDatabase(Database):
-    def __init__(self, full_models: AnyStr | Path = None, oriented: AnyStr | Path = None,
+    def __init__(self, models: AnyStr | Path = None, full_models: AnyStr | Path = None, oriented: AnyStr | Path = None,
                  oriented_asu: AnyStr | Path = None, refined: AnyStr | Path = None, stride: AnyStr | Path = None,
                  **kwargs):
         # passed to Database
         # sql: sqlite = None, log: Logger = logger
         super().__init__(**kwargs)  # Database
 
+        self.models = DataStore(location=models, extension='.pdb', glob_extension='.pdb*',
+                                sql=self.sql, log=self.log, load_file=Model.from_pdb)
         # Old version when loop model came from an ensemble
         # self.full_models = DataStore(location=full_models, extension='_ensemble.pdb', glob_extension='_ensemble.pdb*',
         self.full_models = DataStore(location=full_models, extension='.pdb', glob_extension='.pdb*',
@@ -280,10 +282,8 @@ class StructureDatabase(Database):
             return {}, {}
 
         self.oriented.make_path()
-        orient_dir = self.oriented.location
-        models_dir = os.path.dirname(orient_dir)
-        # models_dir is this was because it was specified, not required...
         self.oriented_asu.make_path()
+        models_dir = self.models.location
 
         if isinstance(sym_entry, utils.SymEntry.SymEntry):
             if sym_entry.number:
@@ -394,11 +394,10 @@ class StructureDatabase(Database):
                 model = Pose.from_file(file)
                 if resulting_symmetry == CRYST:
                     model.set_symmetry(sym_entry=sym_entry)
-                    model.file_path = model.write(out_path=os.path.join(models_dir, f'{model.name}.pdb'))
+                    model.file_path = model.write(out_path=self.models.path_to(name=model.name))
                     # Set each Entity.file_path
                     for entity in model.entities:
-                        entity_cryst_path = os.path.join(models_dir, f'{entity.name}.pdb')
-                        entity.file_path = entity.write(out_path=entity_cryst_path)
+                        entity.file_path = entity.write(out_path=self.models.path_to(name=entity.name))
                 else:
                     try:
                         model.orient(symmetry=resulting_symmetry)
@@ -425,12 +424,13 @@ class StructureDatabase(Database):
         else:  # Orienting the selected files and save
             # First, check if using crystalline symmetry and prevent loading of existing files
             if resulting_symmetry == CRYST:
-                orient_asu_names = orient_names = []
+                orient_asu_names = orient_names = model_names = []
             else:
                 # Todo transfer the writing process to a SQL database
                 #  as the use of files and database constitutes bad unit of work
                 orient_names = self.oriented.retrieve_names()
                 orient_asu_names = self.oriented_asu.retrieve_names()
+                model_names = self.models.retrieve_names()
             # Using Pose simplifies ASU writing, however if the Pose isn't oriented correctly SymEntry won't work
             # Todo
             #  Should clashes be warned?
@@ -468,6 +468,8 @@ class StructureDatabase(Database):
                     write_entities_and_asu(pose, assembly_integer)
                 # Use entry_entity only if not processed before
                 else:  # They are missing, retrieve the proper files using PDB ID's
+                    if structure_identifier in model_names:
+                        continue
                     pose_models = download_structures([structure_identifier], out_dir=models_dir)
                     if pose_models:  # Not empty list. Get the first model and throw away the rest
                         pose, *_ = pose_models
@@ -478,12 +480,11 @@ class StructureDatabase(Database):
                     if resulting_symmetry == CRYST:
                         pose.set_symmetry(sym_entry=sym_entry)
                         # pose.file_path is already set
-                        # orient_file = os.path.join(models_dir, f'{structure_identifier}.pdb')
+                        # orient_file = self.models.path_to(name=structure_identifier)
                         # pose.file_path = pose.write(out_path=orient_file)
                         # Set each Entity.file_path
                         for entity in pose.entities:
-                            entity_cryst_path = os.path.join(models_dir, f'{entity.name}.pdb')
-                            entity.file_path = entity.write(out_path=entity_cryst_path)
+                            entity.file_path = entity.write(out_path=self.models.path_to(name=entity.name))
                     else:
                         try:  # Orient the Structure
                             pose.orient(symmetry=resulting_symmetry)
@@ -1111,10 +1112,6 @@ class StructureDatabaseFactory:
         Returns:
             The instance of the specified StructureDatabase
         """
-        # Todo potentially configure, however, we really only want a single database
-        # database = self._databases.get(source)
-        # if database:
-        #     return database
         if self._database:
             return self._database
         elif sql:
@@ -1137,12 +1134,9 @@ class StructureDatabaseFactory:
             putils.make_path(full_model_dir)
             logger.info(f'Initializing {StructureDatabase.__name__}({source})')
 
-            # self._databases[source] = \
-            #     StructureDatabase(orient_dir, orient_asu_dir, refine_dir, full_model_dir, stride_dir, sql=None)
             self._database = \
-                StructureDatabase(full_model_dir, orient_dir, orient_asu_dir, refine_dir, stride_dir, sql=None)
+                StructureDatabase(pdbs, full_model_dir, orient_dir, orient_asu_dir, refine_dir, stride_dir, sql=None)
 
-        # return self._databases[source]
         return self._database
 
     def get(self, **kwargs) -> StructureDatabase:
