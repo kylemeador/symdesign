@@ -39,7 +39,7 @@ from symdesign.protocols.pose import PoseJob
 from symdesign.resources.job import JobResources, job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from symdesign.resources import distribute, ml, query as user_query, sql, structure_db, wrapapi
-from symdesign.structure.model import Entity, Model, Pose
+from symdesign.structure.model import Entity, Pose
 
 
 def initialize_entities(job: JobResources, uniprot_entities: Iterable[wrapapi.UniProtEntity],
@@ -182,9 +182,9 @@ def initialize_structures(job: JobResources, sym_entry: utils.SymEntry.SymEntry 
     return job.structure_db.orient_structures(structure_names, sym_entry=sym_entry, by_file=by_file)
 
 
-def load_models_from_structure_and_entity_pairs(job: JobResources,
-                                                structure_id_to_entity_ids: dict[str, Iterable[str]] | list[Model],
-                                                all_protein_metadata: list[sql.ProteinMetadata]) -> list[Model]:
+def load_poses_from_structure_and_entity_pairs(job: JobResources,
+                                               structure_id_to_entity_ids: dict[str, Iterable[str]] | list[Pose],
+                                               all_protein_metadata: list[sql.ProteinMetadata]) -> list[Pose]:
     structures = []
     if not structure_id_to_entity_ids:
         pass
@@ -1042,7 +1042,7 @@ def main():
             # Correct existing ProteinMetadata, now that Entity instances are processed
             structures_grouped_by_component = []
             for structure_id_to_entity_ids in grouped_structures_entity_ids:
-                structures = load_models_from_structure_and_entity_pairs(
+                structures = load_poses_from_structure_and_entity_pairs(
                     job, structure_id_to_entity_ids, all_protein_metadata)
                 structures_grouped_by_component.append(structures)
             session.commit()
@@ -1145,7 +1145,7 @@ def main():
             range_structure_id_to_entity_ids = {
                 struct_id: structure_id_to_entity_ids[struct_id]
                 for struct_id in job.get_range_slice(list(structure_id_to_entity_ids.keys()))}
-            poses = load_models_from_structure_and_entity_pairs(
+            poses = load_poses_from_structure_and_entity_pairs(
                 job, range_structure_id_to_entity_ids, all_protein_metadata)
             pose_jobs = [PoseJob.from_pose(pose, project=project_name) for pose in poses]
 
