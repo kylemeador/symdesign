@@ -96,20 +96,20 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
             if not profile:
                 # # We can try and add... This would be better at the program level due to memory issues
                 # entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
-                # if not entity.pssm_file:
-                #     # Still no file found. this is likely broken
-                #     # raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
-                #     #                   f'protocol you must generate the profile!')
-                #     pass
-                measure_evolution = False
-                warn = True
-                entity.evolutionary_profile = entity.create_null_profile()
+                pass
             else:
-                entity.evolutionary_profile = profile
-                # Ensure the file is attached as well
-                # entity.pssm_file = api_db.hhblits_profiles.retrieve_file(name=entity.name)
-                entity.pssm_file = api_db.hhblits_profiles.retrieve_file(name=uniprot_id)
+                if evolutionary_profile:
+                    # Renumber the profile based on the current length
+                    profile = {entry_number: entry
+                               for entry_number, entry in enumerate(profile.items(), len(evolutionary_profile))}
+                evolutionary_profile.update(profile)
+
+        if not evolutionary_profile:
+            measure_evolution = False
+            warn = True
+        else:
             logger.debug(f'Adding {entity.name}.evolutionary_profile')
+            entity.evolutionary_profile = evolutionary_profile
 
         # Todo this routine to self.evolutionary_profile setter
         if not entity._verify_evolutionary_profile():
