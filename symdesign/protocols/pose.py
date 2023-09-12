@@ -652,9 +652,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         # Most __init__ code is called in __init_from_db__() according to sqlalchemy needs and DRY principles
         self.__init_from_db__()
-        self.pose = self.initial_model = pose
-        if self.pose:
-            self.output_pose()
+        if pose:  # This was passed and should be saved
+            self.initial_model = pose
+            self.initial_model.write(out_path=self.pose_path)
 
         # Save job variables to the state during initialization
         # Todo does seting this variable change the database?
