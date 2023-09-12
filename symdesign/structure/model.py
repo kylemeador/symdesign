@@ -2183,6 +2183,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         # center_of_mass = self.center_of_mass
         # symmetric_center_of_mass = self.center_of_mass_symmetric
         # self.log.debug(f'symmetric_center_of_mass={symmetric_center_of_mass}')
+        self.mate_rotation_axes.clear()
+        self.mate_rotation_axes.append({'sym': 1, 'axis': utils.symmetry.origin})
         self.log.debug(f'Reference chain is {self.chain_id}')
         ca_coords = self.ca_coords
         for chain in self.chains[1:]:
@@ -2253,11 +2255,11 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         """
         return self.number_of_symmetry_mates / self.max_symmetry == 2
 
-    def find_dihedral_chain(self) -> int | None:
+    def find_dihedral_chain(self) -> Entity | None:  # Todo python 3.11 self
         """From the symmetric system, find a dihedral chain and return the instance
 
         Returns:
-            The dihedral mate chain_id
+            The dihedral mate Chain
         """
         if not self.is_dihedral():
             return None
@@ -2274,7 +2276,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                                        'result in a malformed .sdf file')
                         pass  # This won't work in the make_symmdef.pl script, should choose orthogonal y-axis
                     else:
-                        return chain_idx
+                        return self.chains[chain_idx]
 
         return None
 
@@ -2317,7 +2319,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         chains = [self.chain_ids[self.max_symmetry_chain_idx]]
         if self.is_dihedral():
-            chains.append(self.find_dihedral_chain())
+            chains.append(self.find_dihedral_chain().chain_id)
 
         sdf_cmd = ['perl', putils.make_symmdef, '-m', sdf_mode, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i']\
             + chains
