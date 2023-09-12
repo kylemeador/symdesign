@@ -46,7 +46,7 @@ from symdesign.utils import all_vs_all, condensed_to_square, InputError, large_c
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory, parse_symmetry_specification
 
 # Globals
-protocol_logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 pose_logger = start_log(name='pose', handler_level=3, propagate=True)
 zero_offset = 1
 idx_slice = pd.IndexSlice
@@ -127,27 +127,26 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
                     measure_alignment = False
                     warn = True
                 else:
-                    protocol_logger.debug(f'Adding {entity.name}.msa')
+                    logger.debug(f'Adding {entity.name}.msa')
                     entity.msa_file = api_db.alignments.retrieve_file(name=uniprot_id)
                     entity.msa = msa
         except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
-            protocol_logger.info(f'{entity.name} {entity.__class__.__name__}.reference_sequence and provided alignment '
-                                 f'at {entity.msa_file} are different lengths: {error}')
+            logger.info(f'{entity.name} {entity.__class__.__name__}.reference_sequence and provided alignment '
+                        f'at {entity.msa_file} are different lengths: {error}')
             raise ValueError("This error shouldn't be reachable anymore")
             warn = True
 
     if warn_metrics and warn:
         if not measure_evolution and not measure_alignment:
-            protocol_logger.info("Metrics relying on evolution aren't being collected as the required files weren't "
-                                 f'found. These include: {", ".join(metrics.all_evolutionary_metrics)}')
+            logger.info("Metrics relying on evolution aren't being collected as the required files weren't "
+                        f'found. These include: {", ".join(metrics.all_evolutionary_metrics)}')
         elif not measure_alignment:
-            protocol_logger.info('Metrics relying on a multiple sequence alignment including: '
-                                 f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}'
-                                 "are being calculated with the reference sequence as there was no MSA found")
+            logger.info('Metrics relying on a multiple sequence alignment including: '
+                        f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}'
+                        "are being calculated with the reference sequence as there was no MSA found")
         else:
-            protocol_logger.info("Metrics relying on an evolutionary profile aren't being collected as "
-                                 'there was no profile found. These include: '
-                                 f'{", ".join(metrics.profile_dependent_metrics)}')
+            logger.info("Metrics relying on an evolutionary profile aren't being collected as there was no profile "
+                        f'found. These include: {", ".join(metrics.profile_dependent_metrics)}')
 
     # if measure_evolution:
     model.evolutionary_profile = \
@@ -248,7 +247,7 @@ class PoseDirectory:
         #                     serial_info.update(self.info)
         #                     self.info = serial_info
         #             except pickle.UnpicklingError as error:
-        #                 protocol_logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
+        #                 logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
         #                 raise error
         #
         #             # # Make a copy to check for changes to the current state
@@ -1176,25 +1175,18 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
         if self.pose and file is None and entities is None:
             return
         else:
-            # rename_chains = True  # Because the result of entities, we should rename
             if entities is not None:
                 pass  # Use the entities as provided
             elif self.source_path is None or not os.path.exists(self.source_path):
-                # In case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
-                # if not self.job.structure_db:
-                #     raise RuntimeError(f"Couldn't {self.get_entities.__name__} as there was no "
-                #                        f"{resources.structure_db.StructureDatabase.__name__}"
-                #                        f" attached to the {self.__class__.__name__}")
+                # In case a design was initialized without a file
                 self.log.info(f"No '.source_path' found. Fetching structure_source from "
                               f'{type(self.job.structure_db).__name__} and transforming to Pose')
                 # Minimize I/O with transform...
                 entities = self.transform_entities_to_pose()
-                # entities = self.entities
-                # entities = []
-                # for entity in self.entities:
-                #     entities.extend(entity.entities)
-                # # Because the file wasn't specified on the way in, no chain names should be binding
-                # # rename_chains = True
+                # Todo should use the ProteinMetadata version if the constituent Entity coordinates aren't modified by
+                #  some small amount as this will ensure that files are refined and that loops are included...
+                # Collect the EntityTransform for these regardless of symmetry since the file will be coming from the
+                # oriented/origin position...
 
             # Initialize the Pose using provided PDB numbering so that design_selectors are respected
             if entities:
@@ -1206,16 +1198,13 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
                     rename = False
                 self.pose = Pose.from_entities(entities, name=self.name, rename_chains=rename, **self.pose_kwargs)
                 self.pose.set_contacting_asu()
-            elif self.initial_model:  # This is a fresh Model, and we already loaded so reuse
-                self.structure_source = self.source_path
-                # Remove the entity_info from pose_kwargs as it isn't available yet. Use that already parsed
+            elif self.initial_model:
+                # This is a fresh Model that was already loaded so reuse
                 # Careful, if processing has occurred to the initial_model, then this may be wrong!
-                self.pose = Pose.from_model(self.initial_model, entity_info=self.initial_model.entity_info,
-                                            name=self.name, **self.job_kwargs)
-                # Todo should use the ProteinMetadata version if the constituent Entity coordinates aren't modified by
-                #  some small amount as this will ensure that we are refined, and that loops are included...
-                # We have to collect the EntityTransform for these if they are symmetric. Actually, we need the transform
-                # regardless of symmetry since the file will be coming from the oriented/origin position...
+                self.pose = Pose.from_model(self.initial_model, name=self.name, **self.job_kwargs,
+                                            entity_info=self.initial_model.entity_info)
+                # Use entity_info from already parsed
+                self.structure_source = self.source_path
             else:
                 self.structure_source = file if file else self.source_path
                 self.pose = Pose.from_file(self.structure_source, name=self.name, **self.pose_kwargs)
@@ -1696,9 +1685,9 @@ class PoseProtocol(PoseData):
                 elif self.job.overwrite:
                     sequences = {**pose_sequence, **sequences}
                 else:
-                    protocol_logger.warning(f"The flag --{flags.predict_pose} was specified, but the pose has already"
-                                            f" been predicted. If you meant to overwrite this pose, explicitly pass "
-                                            f"--overwrite")
+                    logger.warning(f"The flag --{flags.format_args(flags.predict_pose_args)} was specified, but the "
+                                   "pose has already been predicted. If you meant to overwrite this pose, explicitly "
+                                   "pass --overwrite")
         if not sequences:
             raise DesignError(
                 f"Couldn't find any sequences to {self.predict_structure.__name__}")
@@ -1740,7 +1729,7 @@ class PoseProtocol(PoseData):
         """
         self.load_pose()
         number_of_residues = self.pose.number_of_residues
-        protocol_logger.info(f'Performing structure prediction on {len(sequences)} sequences')
+        logger.info(f'Performing structure prediction on {len(sequences)} sequences')
         for design, sequence in sequences.items():
             # Todo if differentially sized sequence inputs
             self.log.debug(f'Found sequence {sequence}')
@@ -1966,7 +1955,7 @@ class PoseProtocol(PoseData):
             self.identify_interface()
             if self.job.predict.assembly:
                 if self.pose.number_of_symmetric_residues > resources.ml.MULTIMER_RESIDUE_LIMIT:
-                    protocol_logger.critical(
+                    logger.critical(
                         f"Predicting on a symmetric input with {self.pose.number_of_symmetric_residues} isn't "
                         'recommended due to memory limitations')
                 features = self.pose.get_alphafold_features(symmetric=True, multimer=run_multimer_system, no_msa=no_msa)
@@ -1987,10 +1976,10 @@ class PoseProtocol(PoseData):
             asu_design_scores = {}  # []  # scores_by_design = {}
             for design, sequence in sequences.items():
                 this_seq_features = get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
-                protocol_logger.debug(f'Found this_seq_features:\n\t%s'
+                logger.debug(f'Found this_seq_features:\n\t%s'
                                       % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
                 model_features = {'prev_pos': get_prev_pos_coords(sequence, assembly=self.job.predict.assembly)}
-                protocol_logger.info(f'Predicting Design {design.name} structure')
+                logger.info(f'Predicting Design {design.name} structure')
                 asu_structures, asu_scores = \
                     resources.ml.af_predict({**features, **this_seq_features, **model_features}, model_runners,
                                             gpu_relax=self.job.predict.use_gpu_relax,
@@ -2119,12 +2108,12 @@ class PoseProtocol(PoseData):
                     multimer_sequence_length = None
                     entity_number_of_residues = entity.number_of_residues
 
-                protocol_logger.debug(f'Found oligomer with length: {entity_number_of_residues}')
+                logger.debug(f'Found oligomer with length: {entity_number_of_residues}')
                 # If not an oligomer, then .oligomer/.chains should just pass the single entity
                 # model_features = {'prev_pos': jnp.asarray(entity.oligomer.alphafold_coords)}
-                # protocol_logger.debug(f'Found oligomer_atom_positions for "prev_pose" with shape: '
+                # logger.debug(f'Found oligomer_atom_positions for "prev_pose" with shape: '
                 #                       '{model_features["prev_pos"].shape}')
-                # protocol_logger.critical(f'Found oligomeric atom_positions[0] with values: '
+                # logger.critical(f'Found oligomeric atom_positions[0] with values: '
                 #                          f'{model_features["prev_pos"][0].tolist()}')
 
                 # if run_multimer_system:
@@ -2151,10 +2140,10 @@ class PoseProtocol(PoseData):
                     sequence = sequence[entity_slice]
                     this_seq_features = \
                         get_sequence_features_to_merge(sequence, multimer_length=multimer_sequence_length)
-                    protocol_logger.debug(f'Found this_seq_features:\n\t%s'
+                    logger.debug(f'Found this_seq_features:\n\t%s'
                                           % "\n\t".join((f"{k}={v}" for k, v in this_seq_features.items())))
                     model_features = {'prev_pos': get_prev_pos_coords(sequence, entity=entity_name)}
-                    protocol_logger.info(f'Predicting Design {design.name} Entity {entity_name} structure')
+                    logger.info(f'Predicting Design {design.name} Entity {entity_name} structure')
                     entity_structures, entity_scores = \
                         resources.ml.af_predict({**features, **this_seq_features, **model_features}, model_runners)
                     # NOT using relaxation as these won't be output for design so their coarse features are all that
@@ -2275,7 +2264,7 @@ class PoseProtocol(PoseData):
                     # entity_design_scores = []
                     # for design in sequences:
                     #     entity_scores = entity_scores_by_design[design]
-                    #     protocol_logger.debug(f'Found entity_scores with contents:\n{entity_scores}')
+                    #     logger.debug(f'Found entity_scores with contents:\n{entity_scores}')
                     #     scalar_scores = {score_type: sum([sum(scores[score_type]) for scores in entity_scores])
                     #                      / number_of_entities
                     #                      for score_type in score_types_mean}
@@ -2285,7 +2274,7 @@ class PoseProtocol(PoseData):
                     #     array_scores = {score_type: np.concatenate([scores[score_type] for scores in entity_scores])
                     #                     for score_type in score_types_concat}
                     #     scalar_scores.update(array_scores)
-                    #     protocol_logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
+                    #     logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
                     #     entity_design_scores.append(scalar_scores)
 
                     # scores = {}
@@ -2307,8 +2296,8 @@ class PoseProtocol(PoseData):
                     design_deviation_file = \
                         os.path.join(self.data_path, f'{starttime}-af_pose-entity-designs-deviation_scores.csv')
                     design_deviation_df.to_csv(design_deviation_file)
-                    protocol_logger.info(f'Wrote the design deviation file (between separate Entity instances and Pose)'
-                                         f' to: {design_deviation_file}')
+                    logger.info('Wrote the design deviation file (between separate Entity instances and Pose)'
+                                f' to: {design_deviation_file}')
                     residue_deviation_df = (predict_residues_df - entity_residues_df).abs()
                     deviation_file = \
                         os.path.join(self.data_path, f'{starttime}-af_pose-entity-residues-deviation_scores.csv')
@@ -3087,7 +3076,7 @@ class PoseProtocol(PoseData):
             # Replace missing values with the pose_source DesignData
             # This is loaded above at 'design_names = self.design_names'
             parents = scores_df.pop(putils.design_parent)  # .fillna(self.pose_source)
-            protocol_logger.critical("Setting parents functionality hasn't been tested. Proceed with caution")
+            logger.critical("Setting parents functionality hasn't been tested. Proceed with caution")
             for design, parent in parents.items():
                 if parent is np.nan:
                     parents[design] = self.pose_source
@@ -3529,7 +3518,7 @@ class PoseProtocol(PoseData):
         per_residue_data = {}
         design_scores = {}
         for design_name, scores in folding_scores.items():
-            protocol_logger.debug(f'Found metrics with contents:\n{scores}')
+            logger.debug(f'Found metrics with contents:\n{scores}')
             # This shouldn't fail as plddt should always be present
             array_scores = {}
             scalar_scores = {}
@@ -3590,8 +3579,8 @@ class PoseProtocol(PoseData):
                         plddt = score
                     array_scores['plddt'] = plddt[:pose_length]
 
-            protocol_logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
-            protocol_logger.debug(f'Found array_scores with contents:\n{array_scores}')
+            logger.debug(f'Found scalar_scores with contents:\n{scalar_scores}')
+            logger.debug(f'Found array_scores with contents:\n{array_scores}')
 
             per_residue_data[design_name] = array_scores
             design_scores[design_name] = scalar_scores
