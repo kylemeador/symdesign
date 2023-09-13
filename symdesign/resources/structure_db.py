@@ -845,7 +845,7 @@ class StructureDatabase(Database):
                                     continue
                                 entity.insert_residue_type(new_aa_type, index=residue_index, chain_id=entity.chain_id)
 
-                            # If the entity.msa_file is present, the prediction should succeed with high probability...
+                            # If the msa features are present, the prediction should succeed with high probability...
                             # Attach evolutionary info to the entity
                             evolution_loaded, alignment_loaded = load_evolutionary_profile(api_db, entity)
 

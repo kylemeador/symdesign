@@ -432,8 +432,7 @@ def interface_design(job: pose.PoseJob):
     # match job.job.design.method:  # Todo python 3.10
     #     case [putils.rosetta_str | putils.consensus]:
     #         # Write generated files
-    #         job.pose.pssm_file = \
-    #             write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
+    #         write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
     #         write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
     #         job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
     #         job.rosetta_interface_design()  # Sets job.protocol
@@ -443,8 +442,7 @@ def interface_design(job: pose.PoseJob):
     #         raise ValueError(f"The method '{job.job.design.method}' isn't available")
     if job.job.design.method in [putils.rosetta_str, putils.consensus]:
         # Write generated files
-        job.pose.pssm_file = \
-            write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
+        write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
         write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
         job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
         # Ensure the Pose is refined into the current_energy_function
@@ -521,8 +519,7 @@ def design(job: pose.PoseJob):
     # match job.job.design.method:  # Todo python 3.10
     #     case [putils.rosetta_str | putils.consensus]:
     #         # Write generated files
-    #         job.pose.pssm_file = \
-    #             write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
+    #         write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
     #         write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
     #         job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
     #         if job.job.design.interface:
@@ -536,8 +533,7 @@ def design(job: pose.PoseJob):
     #         raise ValueError(f"The method '{job.job.design.method}' isn't available")
     if job.job.design.method in [putils.rosetta_str, putils.consensus]:
         # Write generated files
-        job.pose.pssm_file = \
-            write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
+        write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
         write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
         job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
         # Ensure the Pose is refined into the current_energy_function

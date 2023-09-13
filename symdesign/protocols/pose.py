@@ -84,17 +84,17 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
         if entity.evolutionary_profile:
             continue
 
-        # profile = api_db.hhblits_profiles.retrieve_data(name=entity.name)
-        if len(entity.uniprot_ids) > 1:
-            # Todo make this possible by combining multiple profiles along the chimeric identifiers
-            raise SymDesignException(
-                f"Can't set the profile for an {entity.__class__.__name__} with number of UniProtIDs "
-                f"({len(entity.uniprot_ids)}) > 1. Please remove this or update the code")
+        # if len(entity.uniprot_ids) > 1:
+        #     raise SymDesignException(
+        #         f"Can't set the profile for an {entity.__class__.__name__} with number of UniProtIDs "
+        #         f"({len(entity.uniprot_ids)}) > 1. Please remove this or update the code")
         # for idx, uniprot_id in enumerate(entity.uniprot_ids):
+        evolutionary_profile = {}
         for uniprot_id in entity.uniprot_ids:
             profile = api_db.hhblits_profiles.retrieve_data(name=uniprot_id)
             if not profile:
-                # # We can try and add... This would be better at the program level due to memory issues
+                evolutionary_profile.update(entity.create_null_entries())
+                # # Try and add... This would be better at the program level due to memory issues
                 # entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
                 pass
             else:
@@ -111,29 +111,33 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
             logger.debug(f'Adding {entity.name}.evolutionary_profile')
             entity.evolutionary_profile = evolutionary_profile
 
-        # Todo this routine to self.evolutionary_profile setter
-        if not entity._verify_evolutionary_profile():
-            entity._fit_evolutionary_profile_to_structure()
-        if not entity.sequence_file:
-            entity.write_sequence_to_fasta('reference', out_dir=api_db.sequences.location)
-
         if entity.msa:
             continue
 
-        try:  # To fetch the multiple sequence alignment for further processing
-            # msa = api_db.alignments.retrieve_data(name=entity.name)
-            for uniprot_id in entity.uniprot_ids:
-                msa = api_db.alignments.retrieve_data(name=uniprot_id)
-                if not msa:
-                    measure_alignment = False
-                    warn = True
-                else:
-                    logger.debug(f'Adding {entity.name}.msa')
-                    entity.msa_file = api_db.alignments.retrieve_file(name=uniprot_id)
-                    entity.msa = msa
+        # Fetch the multiple sequence alignment for further processing
+        msas = []
+        for uniprot_id in entity.uniprot_ids:
+            msa = api_db.alignments.retrieve_data(name=uniprot_id)
+            if not msa:
+                measure_alignment = False
+                warn = True
+            else:
+                logger.debug(f'Adding {entity.name}.msa')
+                msas.append(msa)
+
+        # Combine all
+        msa, *other_msas = msas
+        combined_alignment = msa.alignment
+        for msa_ in other_msas:
+            combined_alignment += msa_.alignment
+        msa = MultipleSequenceAlignment(combined_alignment)
+
+        try:  # To create the full MultipleSequenceAlignment
+            entity.msa = msa
         except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
+            msa_file = api_db.alignments.retrieve_file(name=uniprot_id)
             logger.info(f'{entity.name} {entity.__class__.__name__}.reference_sequence and provided alignment '
-                        f'at {entity.msa_file} are different lengths: {error}')
+                        f"at '{msa_file}' are different lengths: {error}")
             raise ValueError("This error shouldn't be reachable anymore")
             warn = True
 
@@ -4297,7 +4301,8 @@ class PoseProtocol(PoseData):
                 entity_alignment = \
                     MultipleSequenceAlignment.from_dictionary(dict(zip(design_names, entity_sequences)))
                 # entity_alignment = msa_from_dictionary(entity_sequences[idx])
-                dca_design_residue_energies = entity.direct_coupling_analysis(msa=entity_alignment)
+                entity.msa = entity_alignment
+                dca_design_residue_energies = entity.direct_coupling_analysis()
                 dca_design_residues_concat.append(dca_design_residue_energies)
                 # dca_background_energies.append(dca_background_energies.sum(axis=1))
                 # dca_design_energies.append(dca_design_energies.sum(axis=1))
@@ -4770,10 +4775,12 @@ class PoseProtocol(PoseData):
                 entity.h_fields = self.job.api_db.bmdca_fields.retrieve_data(name=entity.name)
                 entity.j_couplings = self.job.api_db.bmdca_couplings.retrieve_data(name=entity.name)
                 dca_background_residue_energies = entity.direct_coupling_analysis()
-                # Todo INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
+                # Todo
+                #  Instead of below, split Pose.MultipleSequenceAlignment at entity.chain_break...
                 entity_alignment = MultipleSequenceAlignment.from_dictionary(entity_sequences[idx])
                 # entity_alignment = msa_from_dictionary(entity_sequences[idx])
-                dca_design_residue_energies = entity.direct_coupling_analysis(msa=entity_alignment)
+                entity.msa = entity_alignment
+                dca_design_residue_energies = entity.direct_coupling_analysis()
                 dca_design_residues_concat.append(dca_design_residue_energies)
                 # dca_background_energies.append(dca_background_energies.sum(axis=1))
                 # dca_design_energies.append(dca_design_energies.sum(axis=1))

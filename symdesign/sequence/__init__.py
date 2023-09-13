@@ -568,10 +568,8 @@ def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[s
     #  Create a ramdisk to store a database chunk to make hhblits/Jackhmmer run fast.
     #  sudo mkdir -m 777 --parents /tmp/ramdisk
     #  sudo mount -t tmpfs -o size=9G ramdisk /tmp/ramdisk
-    cmd = [putils.hhblits_exe, '-d', putils.uniclust_db, '-i', sequence_file,
-           '-ohhm', pssm_file, '-oa3m', a3m_file,  # '-Ofas', self.msa_file,
-           '-hide_cons', '-hide_pred', '-hide_dssp', '-E', '1E-06',
-           '-v', '1', '-cpu', str(threads)]
+    cmd = [putils.hhblits_exe, '-d', putils.uniclust_db, '-i', sequence_file, '-ohhm', pssm_file, '-oa3m', a3m_file,
+           '-hide_cons', '-hide_pred', '-hide_dssp', '-E', '1E-06', '-v', '1', '-cpu', str(threads)]
 
     if return_command:
         return cmd
@@ -1340,7 +1338,8 @@ class MultipleSequenceAlignment:
             observations - {1: 210, 2:211, ...}}
         """
         if alignment is None:
-            raise NotImplementedError(f"Can't create a {MultipleSequenceAlignment.__name__} with alignment=None")
+            raise NotImplementedError(
+                f"Can't create a {MultipleSequenceAlignment.__name__} with alignment=None")
 
         self.alignment = alignment
         # self.number_of_sequences = len(alignment)
@@ -1436,21 +1435,23 @@ class MultipleSequenceAlignment:
             self.sequence_weights = []
 
     @classmethod
-    def from_stockholm(cls, file, **kwargs):
+    def from_stockholm(cls, file, **kwargs) -> MultipleSequenceAlignment:
         try:
             return cls(alignment=read_alignment(file, alignment_type='stockholm'), **kwargs)
         except FileNotFoundError:
-            raise FileNotFoundError(f"The multiple sequence alignment file '{file}' doesn't exist")
+            raise FileNotFoundError(
+                f"The multiple sequence alignment file '{file}' doesn't exist")
 
     @classmethod
-    def from_fasta(cls, file):
+    def from_fasta(cls, file) -> MultipleSequenceAlignment:
         try:
             return cls(alignment=read_alignment(file))
         except FileNotFoundError:
-            raise FileNotFoundError(f"The multiple sequence alignment file '{file}' doesn't exist")
+            raise FileNotFoundError(
+                f"The multiple sequence alignment file '{file}' doesn't exist")
 
     @classmethod
-    def from_dictionary(cls, named_sequences: dict[str, str], **kwargs):
+    def from_dictionary(cls, named_sequences: dict[str, str], **kwargs) -> MultipleSequenceAlignment:
         """Create a MultipleSequenceAlignment from a dictionary of named sequences
 
         Args:
@@ -1463,7 +1464,7 @@ class MultipleSequenceAlignment:
              for name, sequence in named_sequences.items()]), **kwargs)
 
     @classmethod
-    def from_seq_records(cls, seq_records: Iterable[SeqRecord], **kwargs):
+    def from_seq_records(cls, seq_records: Iterable[SeqRecord], **kwargs) -> MultipleSequenceAlignment:
         """Create a MultipleSequenceAlignment from a SeqRecord Iterable
 
         Args:

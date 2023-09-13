@@ -410,8 +410,9 @@ class SequenceProfile(ABC):
     """
     _alpha: float
     _collapse_profile: np.ndarray  # pd.DataFrame
+    _evolutionary_profile: dict | ProfileDict
     _fragment_db: info.FragmentInfo | None
-    _fragment_profile: list[list[set[dict]]] | list[ProfileEntry] | None
+    # _fragment_profile: list[list[set[dict]]] | list[ProfileEntry] | None
     _hydrophobic_collapse: np.ndarray
     _msa: MultipleSequenceAlignment | None
     _sequence_array: np.ndarray
@@ -420,13 +421,15 @@ class SequenceProfile(ABC):
     alpha: list[float]
     # alpha: dict[int, float]
     disorder: dict[int, dict[str, str]]
-    evolutionary_profile: dict | ProfileDict
     # fragment_map: dict[int, dict[int, set[fragment_info_type]]] | None
     fragment_map: list[dict[int, set[FragObservation]]] | None
     """{1: {-2: {FragObservation(source=Literal['mapped', 'pairer'], cluster= tuple[int, int, int], match=float, 
                  weight=float, frequencies=info.aa_weighted_counts_type), ...}, 
             -1: {}, ...},
         2: {}, ...}
+    Where the outer list indices match Residue.index, and each dictionary holds the various fragment indices
+        (with fragment_length length) for that residue, where each index in the inner set can have multiple
+        observations
     """
     fragment_profile: Profile | None  # | ProfileDict
     h_fields: np.ndarray | None
@@ -443,25 +446,41 @@ class SequenceProfile(ABC):
     sequence: str
 
     def __init__(self, **kwargs):
-        # super().__init__()
         super().__init__(**kwargs)
-        # self.design_pssm_file = None
-        # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: id, match: score}, ...], ...}
         # self._fragment_db = None
-        self.a3m_file = None
-        self.alpha = []  # {}
-        # Using .profile as attribute instead
-        # self.design_profile = {}  # design specific scoring matrix
-        self.evolutionary_profile = {}  # position specific scoring matrix
-        self.fragment_map = None  # fragment information
+        self._evolutionary_profile = {}  # position specific scoring matrix
+        self.alpha = []
+        self.fragment_map = None
         self.fragment_profile = None  # fragment specific scoring matrix
-        # self._fragment_profile = None  # hidden fragment specific scoring matrix
         self.h_fields = None
         self.j_couplings = None
-        self.msa_file = None
         self.profile = {}  # design/structure specific scoring matrix
-        self.pssm_file = None
         self.sequence_file = None
+
+    @property
+    def evolutionary_profile(self) -> dict:
+        """Access the evolutionary_profile"""
+        return self._evolutionary_profile
+
+    @evolutionary_profile.setter
+    def evolutionary_profile(self, evolutionary_profile: dict[int, profile]) -> dict:
+        """Set the evolutionary_profile"""
+        self._evolutionary_profile = evolutionary_profile
+        if not self._verify_evolutionary_profile():
+            self._fit_evolutionary_profile_to_structure()
+
+        # # Check the profile and try to generate again if it is incorrect
+        # first = True
+        # while not self._verify_evolutionary_profile():
+        #     if first:
+        #         self.log.info(f'Generating a new profile for {self.name}')
+        #         self.add_evolutionary_profile(force=True, **kwargs)
+        #         first = False
+        #     else:
+        #         raise RuntimeError('evolutionary_profile generation got stuck')
+
+        if not self.sequence_file:
+            self.write_sequence_to_fasta('reference', out_dir=api_db.sequences.location)
 
     @property
     def offset_index(self) -> int:
@@ -588,16 +607,6 @@ class SequenceProfile(ABC):
         if evolution:  # Add evolutionary information to the SequenceProfile
             if not self.evolutionary_profile:
                 self.add_evolutionary_profile(**kwargs)
-
-            # Check the profile and try to generate again if it is incorrect
-            first = True
-            while not self._verify_evolutionary_profile():
-                if first:
-                    self.log.info(f'Generating a new profile for {self.name}')
-                    self.add_evolutionary_profile(force=True, **kwargs)
-                    first = False
-                else:
-                    raise RuntimeError('evolutionary_profile generation got stuck')
         else:  # Set the evolutionary_profile to null
             self.evolutionary_profile = self.create_null_profile()
 
@@ -626,15 +635,16 @@ class SequenceProfile(ABC):
 
     def _verify_evolutionary_profile(self) -> bool:
         """Returns True if the evolutionary_profile and Structure sequences are equivalent"""
-        if self.number_of_residues != len(self.evolutionary_profile):
+        evolutionary_profile_len = len(self._evolutionary_profile)
+        if self.number_of_residues != evolutionary_profile_len:
             self.log.debug(f'{self.name}: Profile and {self.__class__.__name__} are different lengths. Profile='
-                           f'{len(self.evolutionary_profile)}, Pose={self.number_of_residues}')
+                           f'{evolutionary_profile_len}, Pose={self.number_of_residues}')
             return False
 
         # Check sequence from Pose and self.profile to compare identity before proceeding
         warn = False
         mismatch_warnings = []
-        for residue, position_data in zip(self.residues, self.evolutionary_profile.values()):
+        for residue, position_data in zip(self.residues, self._evolutionary_profile.values()):
             profile_res_type = position_data['type']
             pose_res_type = protein_letters_3to1[residue.type]
             if profile_res_type != pose_res_type:
@@ -692,7 +702,7 @@ class SequenceProfile(ABC):
                 f'{", ".join(alignment_programs)}, not {profile_source}')
 
         if file is not None:
-            self.pssm_file = file
+            pssm_file = file
         else:  # Check to see if the files of interest already exist
             # Extract/Format Sequence Information. SEQRES is prioritized if available
             if self.sequence_file is None:  # Not made/provided before add_evolutionary_profile, make a new one
@@ -704,8 +714,8 @@ class SequenceProfile(ABC):
 
             # temp_file = os.path.join(out_path, f'{self.name}.hold')
             temp_file = Path(out_dir, f'{self.name}.hold')
-            self.pssm_file = os.path.join(out_dir, f'{self.name}.hmm')
-            if not os.path.exists(self.pssm_file) or force:
+            pssm_file = os.path.join(out_dir, f'{self.name}.hmm')
+            if not os.path.exists(pssm_file) or force:
                 if not os.path.exists(temp_file):  # No work on this pssm file has been initiated
                     # Create blocking file to prevent excess work
                     with open(temp_file, 'w') as f:
@@ -718,7 +728,7 @@ class SequenceProfile(ABC):
                     #     os.remove(temp_file)
                 else:  # Block is in place, another process is working
                     self.log.info(f'Waiting for "{self.name}" profile generation...')
-                    while not os.path.exists(self.pssm_file):
+                    while not os.path.exists(pssm_file):
                         if int(time.time()) - int(os.path.getmtime(temp_file)) > 5400:  # > 1 hr 30 minutes have passed
                             # os.remove(temp_file)
                             temp_file.unlink(missing_ok=True)
@@ -727,8 +737,11 @@ class SequenceProfile(ABC):
                                 'took longer than the time limit\nKilled')
                         time.sleep(20)
 
-        # These functions set self.evolutionary_profile
-        self.__getattribute__(f'parse_{profile_source}_pssm')()
+        # Set self.evolutionary_profile
+        # Todo
+        #  make dynamic based on hhblits or psiblast or other...
+        # self.evolutionary_profile = getattr(f'parse_{profile_source}_pssm')(pssm_file, null_background=null_background)
+        self.evolutionary_profile = parse_hhblits_pssm(pssm_file)
 
     def create_null_profile(self, nan: bool = False, zero_index: bool = False, **kwargs) -> ProfileDict:
         """Make a blank profile
@@ -789,7 +802,7 @@ class SequenceProfile(ABC):
         # but are missing in structure or structure missing in evolutionary_profile_sequence
         # Removal of unmodeled positions from self.evolutionary_profile and addition of unaligned structure regions
         # will produce a properly indexed profile
-        evolutionary_profile_sequence = ''.join(data['type'] for data in self.evolutionary_profile.values())
+        evolutionary_profile_sequence = ''.join(data['type'] for data in self._evolutionary_profile.values())
         evolutionary_gaps = \
             generate_mutations(evolutionary_profile_sequence, self.sequence, only_gaps=True, return_to=True)
         self.log.debug(f'evolutionary_gaps: {evolutionary_gaps}')
@@ -829,7 +842,7 @@ class SequenceProfile(ABC):
         # Renumber the structure_evolutionary_profile to offset all to 1
         new_entry_number = count(number_of_nterm_entries + 1)
         structure_evolutionary_profile.update({next(new_entry_number): residue_data
-                                               for entry_number, residue_data in self.evolutionary_profile.items()})
+                                               for entry_number, residue_data in self._evolutionary_profile.items()})
         structure_evolutionary_profile.update(cterm_extra_profile_entries)
 
         internal_sequence_characters = set(evolutionary_gaps.values()).difference(('-',))
@@ -867,10 +880,10 @@ class SequenceProfile(ABC):
                 structure_evolutionary_profile.pop(entry)
 
         self.log.debug(f'{self._fit_evolutionary_profile_to_structure.__name__}:\n\tOld:\n'
-                       # f'{"".join(res["type"] for res in self.evolutionary_profile.values())}\n\tNew:\n'
+                       # f'{"".join(res["type"] for res in self._evolutionary_profile.values())}\n\tNew:\n'
                        f'{evolutionary_profile_sequence}\n\tNew:\n'
                        f'{"".join(res["type"] for res in structure_evolutionary_profile.values())}')
-        self.evolutionary_profile = structure_evolutionary_profile
+        self._evolutionary_profile = structure_evolutionary_profile
 
     def _fit_msa_to_structure(self):
         """From a multiple sequence alignment to the reference sequence, align the profile to the Structure sequence.
@@ -977,52 +990,56 @@ class SequenceProfile(ABC):
     #                       self.secondary_structure, secondary_structure))
     #     self.secondary_structure = secondary_structure
 
-    def psiblast(self, out_dir: AnyStr = os.getcwd(), remote: bool = False):
-        """Generate a position specific scoring matrix using PSI-BLAST subprocess
+    # def psiblast(self, out_dir: AnyStr = os.getcwd(), remote: bool = False):
+    #     """Generate a position specific scoring matrix using PSI-BLAST subprocess
+    #
+    #     Args:
+    #         out_dir: Disk location where generated file should be written
+    #         remote: Whether to perform the search through the web. If False, need blast installed locally
+    #     Sets:
+    #         self.pssm_file (str): Name of the file generated by psiblast
+    #     """
+    #     pssm_file = os.path.join(out_dir, f'{self.name}.pssm')
+    #     cmd = ['psiblast', '-db', putils.alignmentdb, '-query', self.sequence_file + '.fasta', '-out_ascii_pssm',
+    #            pssm_file, '-save_pssm_after_last_round', '-evalue', '1e-6', '-num_iterations', '0']  # Todo # iters
+    #     if remote:
+    #         cmd.append('-remote')
+    #     else:
+    #         cmd.extend(['-num_threads', '8'])  # Todo
+    #
+    #     p = subprocess.Popen(cmd)
+    #     p.communicate()
 
-        Args:
-            out_dir: Disk location where generated file should be written
-            remote: Whether to perform the search through the web. If False, need blast installed locally
-        Sets:
-            self.pssm_file (str): Name of the file generated by psiblast
-        """
-        self.pssm_file = os.path.join(out_dir, f'{self.name}.pssm')
-        cmd = ['psiblast', '-db', putils.alignmentdb, '-query', self.sequence_file + '.fasta', '-out_ascii_pssm',
-               self.pssm_file, '-save_pssm_after_last_round', '-evalue', '1e-6', '-num_iterations', '0']  # Todo # iters
-        if remote:
-            cmd.append('-remote')
-        else:
-            cmd.extend(['-num_threads', '8'])  # Todo
-
-        p = subprocess.Popen(cmd)
-        p.communicate()
-
-    # @handle_errors(errors=(FileNotFoundError,))
-    def parse_psiblast_pssm(self, **kwargs):
-        """Take the contents of a pssm file, parse, and input into a sequence dictionary.
-        # Todo it's CURRENTLY IMPOSSIBLE to use in calculate_profile, CHANGE psiblast lod score parsing
-        Sets:
-            self.evolutionary_profile (ProfileDict): Dictionary containing residue indexed profile information
-            Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
-                 2: {}, ...}
-        """
-        with open(self.pssm_file, 'r') as f:
-            lines = f.readlines()
-
-        for line in lines:
-            line_data = line.strip().split()
-            if len(line_data) == 44:
-                residue_number = int(line_data[0])
-                self.evolutionary_profile[residue_number] = copy(aa_counts_alph3)
-                for i, aa in enumerate(protein_letters_alph3, 22):  # pose_dict[residue_number], 22):
-                    # Get normalized counts for pose_dict
-                    self.evolutionary_profile[residue_number][aa] = (int(line_data[i]) / 100.0)
-                self.evolutionary_profile[residue_number]['lod'] = {}
-                for i, aa in enumerate(protein_letters_alph3, 2):
-                    self.evolutionary_profile[residue_number]['lod'][aa] = line_data[i]
-                self.evolutionary_profile[residue_number]['type'] = line_data[1]
-                self.evolutionary_profile[residue_number]['info'] = float(line_data[42])
-                self.evolutionary_profile[residue_number]['weight'] = float(line_data[43])
+    # # @handle_errors(errors=(FileNotFoundError,))
+    # def parse_psiblast_pssm(self, **kwargs):
+    #     """Take the contents of a pssm file, parse, and input into a sequence dictionary.
+    #     # Todo
+    #     #  Currently impossible to use in calculate_profile. Change psiblast lod score parsing
+    #     Sets:
+    #         self.evolutionary_profile (ProfileDict): Dictionary containing residue indexed profile information
+    #         Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
+    #              2: {}, ...}
+    #     """
+    #     with open(pssm_file, 'r') as f:
+    #         lines = f.readlines()
+    #
+    #     evolutionary_profile = {}
+    #     for line in lines:
+    #         line_data = line.strip().split()
+    #         if len(line_data) == 44:
+    #             residue_number = int(line_data[0])
+    #             evolutionary_profile[residue_number] = copy(aa_counts_alph3)
+    #             for i, aa in enumerate(protein_letters_alph3, 22):  # pose_dict[residue_number], 22):
+    #                 # Get normalized counts for pose_dict
+    #                 evolutionary_profile[residue_number][aa] = (int(line_data[i]) / 100.0)
+    #             evolutionary_profile[residue_number]['lod'] = {}
+    #             for i, aa in enumerate(protein_letters_alph3, 2):
+    #                 evolutionary_profile[residue_number]['lod'][aa] = line_data[i]
+    #             evolutionary_profile[residue_number]['type'] = line_data[1]
+    #             evolutionary_profile[residue_number]['info'] = float(line_data[42])
+    #             evolutionary_profile[residue_number]['weight'] = float(line_data[43])
+    #
+    #     self.evolutionary_profile = evolutionary_profile
 
     def hhblits(self, out_dir: AnyStr = os.getcwd(), **kwargs) -> list[str] | None:
         """Generate a position specific scoring matrix from HHblits using Hidden Markov Models
@@ -1032,70 +1049,44 @@ class SequenceProfile(ABC):
         Keyword Args:
             threads: Number of cpu's to use for the process
             return_command: Whether to simply return the hhblits command
-        Sets:
-            self.pssm_file (str): Name of the .hmm file generated by psiblast
-            self.a3m_file (str): Name of the .a3m file generated by psiblast
-            self.msa_file (str): Name of the .sto file generated by psiblast
+        Returns:
+            The command if return_command is True, otherwise None
         """
         result = hhblits(self.name, sequence_file=self.sequence_file, out_dir=out_dir, **kwargs)
-        # Set these attributes according to the logic of hhblits()
-        self.pssm_file = os.path.join(out_dir, f'{self.name}.hmm')
-        self.a3m_file = os.path.join(out_dir, f'{self.name}.a3m')
 
         if result:  # return_command is True
             return result
-
         # Otherwise, make alignment file(s)
-        # Preferred alignment type
-        self.msa_file = os.path.join(out_dir, f'{self.name}.sto')
-        p = subprocess.Popen([putils.reformat_msa_exe_path, self.a3m_file, self.msa_file, '-num', '-uc'])
-        p.communicate()
+
+        # Set file attributes according to logic of hhblits()
+        a3m_file = os.path.join(out_dir, f'{self.name}.a3m')
+        msa_file = os.path.join(out_dir, f'{self.name}.sto')
         fasta_msa = os.path.join(out_dir, f'{self.name}.fasta')
-        p = subprocess.Popen([putils.reformat_msa_exe_path, self.a3m_file, fasta_msa, '-M', 'first', '-r'])
+        # Preferred alignment type
+        p = subprocess.Popen([putils.reformat_msa_exe_path, a3m_file, msa_file, '-num', '-uc'])
         p.communicate()
-        # # os.system('rm %s' % self.a3m_file)
+        p = subprocess.Popen([putils.reformat_msa_exe_path, a3m_file, fasta_msa, '-M', 'first', '-r'])
+        p.communicate()
 
-    # @handle_errors(errors=(FileNotFoundError,))
-    def parse_hhblits_pssm(self, null_background: bool = True, **kwargs):
-        """Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
-
-        Args:
-            null_background: Whether to use the profile specific null background
-        Sets:
-            self.evolutionary_profile (ProfileDict): Dictionary containing residue indexed profile information
-            Ex: {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
-                     'weight': 0.00}, {...}}
-        """
-        self.evolutionary_profile = parse_hhblits_pssm(self.pssm_file, null_background=null_background)
-
-    def add_msa(self, msa: str | MultipleSequenceAlignment = None):
+    def add_msa_from_file(self, msa_file: AnyStr, file_format: msa_supported_types_literal = 'stockholm'):
         """Add a multiple sequence alignment to the profile. Handles correct sizing of the MSA
 
         Args:
-            msa: The multiple sequence alignment object or file to use for collapse
+            msa_file: The multiple sequence alignment file to add to the Entity
+            file_format: The file type to read the multiple sequence alignment
         """
-        if msa is not None:
-            if isinstance(msa, MultipleSequenceAlignment):
-                self.msa = msa
-                return
-            else:
-                self.msa_file = msa
+        if file_format == 'stockholm':
+            constructor = MultipleSequenceAlignment.from_stockholm
+        elif file_format == 'fasta':
+            constructor = MultipleSequenceAlignment.from_fasta
+        else:
+            raise ValueError(
+                f"The file format '{file_format}' isn't an available format. Available formats include "
+                f"{msa_supported_types}")
 
-        if not self.msa_file:
-            # self.msa = self.api_db.alignments.retrieve_data(name=self.name)
-            raise AttributeError('No .msa_file attribute is specified yet!')
-        # self.msa = MultipleSequenceAlignment.from_stockholm(self.msa_file)
-        try:
-            self.msa = MultipleSequenceAlignment.from_stockholm(self.msa_file)
-            # self.msa = MultipleSequenceAlignment.from_fasta(self.msa_file)
-        except FileNotFoundError:
-            try:
-                self.msa = MultipleSequenceAlignment.from_fasta(f'{os.path.splitext(self.msa_file)[0]}.fasta')
-                # self.msa = MultipleSequenceAlignment.from_stockholm('%s.sto' % os.path.splitext(self.msa_file)[0])
-            except FileNotFoundError:
-                raise FileNotFoundError(f'No multiple sequence alignment exists at {self.msa_file}')
+        self.msa = constructor(msa_file)
 
-    def collapse_profile(self, msa: AnyStr | MultipleSequenceAlignment = None, **kwargs) -> np.ndarray:
+    def collapse_profile(self, msa_file: AnyStr = None, **kwargs) -> np.ndarray:
         """Make a profile out of the hydrophobic collapse index (HCI) for each sequence in a multiple sequence alignment
 
         Takes ~5-10 seconds depending on the size of the msa
@@ -1128,9 +1119,10 @@ class SequenceProfile(ABC):
         for each sequence in the native context, adjusted to the specific context of the protein sequence at hand
 
         Args:
-            msa: The multiple sequence alignment (file or object) to use for collapse.
-                Will use the instance .msa if not provided
+            msa_file: The multiple sequence alignment file to use for collapse. Will use .msa attribute if not provided
         Keyword Args:
+            file_format: msa_supported_types_literal = 'stockholm' - The file type to read the multiple sequence
+                alignment
             hydrophobicity: int = 'standard' – The hydrophobicity scale to consider. Either 'standard' (FILV),
                 'expanded' (FMILYVW), or provide one with 'custom' keyword argument
             custom: mapping[str, float | int] = None – A user defined mapping of amino acid type, hydrophobicity value
@@ -1149,7 +1141,7 @@ class SequenceProfile(ABC):
         except AttributeError:
             if not self.msa:
                 # try:
-                self.add_msa(msa)
+                self.add_msa_from_file(msa_file)
                 # except FileNotFoundError:
                 #     raise DesignError(f'Ensure that you have set up the .msa for this {self.__class__.__name__}. To '
                 #                       'do this, '
@@ -1181,28 +1173,40 @@ class SequenceProfile(ABC):
 
             return self._collapse_profile
 
-    def direct_coupling_analysis(self, msa: AnyStr | MultipleSequenceAlignment = None) -> np.ndarray:
+    def direct_coupling_analysis(self, msa_file: AnyStr = None, **kwargs) -> np.ndarray:
         """Using boltzmann machine direct coupling analysis (bmDCA), score each sequence in an alignment based on the
          statistical energy compared to the learned DCA model
 
         Args:
-            msa: The multiple sequence alignment (file or object) to use for collapse.
-                Will use the instance .msa if not provided
+            msa_file: The multiple sequence alignment file to use for collapse. Will use .msa attribute if not provided
+        Keyword Args:
+            file_format: msa_supported_types_literal = 'stockholm' - The file type to read the multiple sequence
+                alignment
         Returns:
             Array with shape (number_of_sequences, length) where the values are the energy for each residue/sequence
                 based on direct coupling analysis parameters
         """
-        if msa is None:
-            msa = self.msa
-        else:
-            if not self.msa:
-                # try:
-                self.add_msa(msa)
+        # Check if required attributes are present
+        _raise = False
+        missing_attrs = []
+        if not self.msa:
+            if msa_file:
+                self.add_msa_from_file(msa_file)
+            else:
+                _raise = True
+                missing_attrs.append('.msa')
+        if not self.h_fields:
+            _raise = True
+            missing_attrs.append('.h_fields')
+        if not self.j_couplings:
+            _raise = True
+            missing_attrs.append('.j_couplings')
+        if _raise:
+            raise AttributeError(
+                f"The required attribute(s) {', '.join(missing_attrs)} aren't available. Add to the "
+                f'Entity before {self.direct_coupling_analysis.__name__}')
 
-        if not self.h_fields or not self.j_couplings:
-            raise AttributeError('The required data .h_fields and .j_couplings are not available. Add them to the '
-                                 f'Entity before {self.direct_coupling_analysis.__name__}')
-            # return np.array([])
+        msa = self.msa
         analysis_length = msa.query_length
         idx_range = np.arange(analysis_length)
         # h_fields = bmdca.load_fields(os.path.join(data_dir, '%s_bmDCA' % self.name, 'parameters_h_final.bin'))
@@ -1297,7 +1301,7 @@ class SequenceProfile(ABC):
         Sets:
             self.fragment_map (list[list[dict[str, str | float]]]):
                 [{-2: {FragObservation(source=Literal['mapped', 'pairer'], cluster= tuple[int, int, int],
-                                          match=float, weight=float, frequencies=info.aa_weighted_counts_type), ...},
+                                       match=float, weight=float, frequencies=info.aa_weighted_counts_type), ...},
                   -1: {}, ...},
                  {}, ...]
                 Where the outer list indices match Residue.index, and each dictionary holds the various fragment indices
@@ -1382,8 +1386,9 @@ class SequenceProfile(ABC):
         """
         # keep_extras: Whether to keep values for all positions that are missing data
         if self.fragment_map is None:  # We need this for _calculate_alpha()
-            raise RuntimeError(f"Must {self.add_fragments_to_profile.__name__} before "
-                               f"{self.simplify_fragment_profile.__name__}. No fragments were set")
+            raise RuntimeError(
+                f"Must {self.add_fragments_to_profile.__name__} before "
+                f"{self.simplify_fragment_profile.__name__}. No fragments were set")
         database_bkgnd_aa_freq = self._fragment_db.aa_frequencies
         # Fragment profile is correct size for indexing all STRUCTURAL residues
         #  self.reference_sequence is not used for this. Instead, self.sequence is used in place since the use
@@ -1460,7 +1465,7 @@ class SequenceProfile(ABC):
 
             # Add results to final fragment_profile residue position
             fragment_profile[residue_index] = residue_frequencies
-            # Since we either copy from self.evolutionary_profile or remove, an empty dictionary is fine here
+            # Since self.evolutionary_profile is copied or removed, an empty dictionary is fine here
             # If this changes, maybe the == 0 condition needs an aa_counts_alph3.copy() instead of {}
 
         # if keep_extras:
@@ -1468,8 +1473,9 @@ class SequenceProfile(ABC):
             # If not an empty dictionary, add the corresponding value from evolution
             # For Rosetta, the packer palette is subtractive so the use of an overlapping evolution and
             # null fragment would result in nothing allowed during design...
+            evolutionary_profile = self.evolutionary_profile
             for residue_index in no_design:
-                fragment_profile[residue_index] = self.evolutionary_profile.get(residue_index + zero_offset)
+                fragment_profile[residue_index] = evolutionary_profile.get(residue_index + zero_offset)
         else:
             # null_profile = self.create_null_profile(zero_index=True)
             # for residue_index in no_design:
@@ -2312,7 +2318,9 @@ def clean_gaped_columns(alignment_dict, correct_index):  # UNUSED
     return {i: alignment_dict[index] for i, index in enumerate(correct_index)}
 
 
-msa_supported_types = {'fasta': '.fasta', 'stockholm': '.sto'}
+msa_supported_types_literal = Literal['fasta', 'stockholm']
+msa_supported_types: tuple[msa_supported_types_literal, ...] = get_args(msa_supported_types_literal)
+msa_format_extension = dict(zip(msa_supported_types, ('.fasta', '.sto')))
 msa_generation_function = SequenceProfile.hhblits.__name__
 
 

@@ -1898,8 +1898,8 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         }
         return template_features
 
-    def get_alphafold_features(self, symmetric: bool = False, heteromer: bool = False, no_msa: bool = False,
-                               templates: bool = False, **kwargs) -> af_pipeline.FeatureDict:
+    def get_alphafold_features(self, symmetric: bool = False, heteromer: bool = False, msas: Sequence = tuple(),
+                               no_msa: bool = False, templates: bool = False, **kwargs) -> af_pipeline.FeatureDict:
         # multimer: bool = False,
         """Retrieve the required feature dictionary for this instance to use in Alphafold inference
 
@@ -1908,6 +1908,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 fully process the FeatureDict in the symmetric form compatible with Alphafold multimer
             heteromer: Whether Alphafold should be run as a heteromer. Features directly used in
                 Alphafold from this instance should never be used with heteromer=True
+            msas: A sequence of multiple sequence alignments if they should be included in the features
             no_msa: Whether multiple sequence alignments should be included in the features
             templates: Whether the Entity should be returned with it's template features
         Returns:
@@ -1915,9 +1916,10 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
         """
         if heteromer:
             if symmetric:
-                raise ValueError(f"Couldn't {self.get_alphafold_features.__name__} with both 'symmetric' and "
-                                 f"'heteromer' True. Only run with symmetric True if this {self.__class__.__name__} "
-                                 "instance alone should be predicted as a multimer")
+                raise ValueError(
+                    f"Couldn't {self.get_alphafold_features.__name__} with both 'symmetric' and "
+                    f"'heteromer' True. Only run with symmetric True if this {self.__class__.__name__} "
+                    "instance alone should be predicted as a multimer")
         # if templates:
         #     if symmetric:
         #         # raise ValueError(f"Couldn't {self.get_alphafold_features.__name__} with both 'symmetric' and "
@@ -1951,41 +1953,13 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
 
         # Multiple sequence alignment processing
         msa = self.msa
-        msas = tuple()
-        if no_msa or msa is None or self.msa_file is None:
-            # When no msa_used, construct our own
-            num_sequences = 1
-            deletion_matrix = np.zeros((num_sequences, number_of_residues), dtype=np.int32)
-            species_ids = ['']  # Must include an empty '' as the first "reference" sequence
-            msa_numeric = sequences_to_numeric([sequence], translation_table=
-                                               numerical_translation_alph1_unknown_gaped_bytes).astype(dtype=np.int32)
-        elif msa:
-            deletion_matrix = msa.deletion_matrix.astype(np.int32)  # [:, msa.query_indices]
-            num_sequences = msa.number_of_sequences
-            species_ids = msa.sequence_identifiers
-            # Set the msa.alphabet_type to ensure the numerical_alignment is embedded correctly
-            msa.alphabet_type = protein_letters_alph1_unknown_gaped
-            msa_numeric = msa.numerical_alignment[:, msa.query_indices]
-            # self.log.critical(f'982 Found {len(np.flatnonzero(msa.query_indices))} indices utilized in design')
-        elif os.path.exists(self.msa_file):
-            with open(self.msa_file, 'r') as f:
-                uniclust_lines = f.read()
-            file, extension = os.path.splitext(self.msa_file)
-            if extension == '.sto':
-                uniclust30_msa = af_data_parsers.parse_stockholm(uniclust_lines)
-            else:
-                raise ValueError(f"Currently, the multiple sequence alignment file type '{extension}' isn't supported\n"
-                                 f"\tOffending file located at: {self.msa_file}")
-            msas = (uniclust30_msa,)
-        else:
-            raise ValueError(f"Couldn't acquire the msa features...")
-
         if msas:
-            msa_features = af_pipeline.make_msa_features(msas)  # <- I can use a single one...
-            #                                           (uniref90_msa, bfd_msa, mgnify_msa))
+            msa_features = af_pipeline.make_msa_features(msas)
+            # Can use a single one...
+            # Other types from AlphaFold include: (uniref90_msa, bfd_msa, mgnify_msa)
             if heteromer:
                 # Todo ensure that uniref90 runner was used...
-                #  OR equivalent so that we ensure each sequence in a multimeric msa is able to be paired
+                #  OR equivalent so that each sequence in a multimeric msa is paired
                 # Stockholm format looks like
                 # #=GF DE                          path/to/profiles/entity_id
                 # #=GC RF                          AY--R...
@@ -1993,13 +1967,43 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 # UniRef100_A0A455ABB#2            NC--R...
                 # UniRef100_UPI00106966C#3         CI--L...
                 raise NotImplementedError('No uniprot90 database hooked up...')
-                with open(self.msa_file, 'r') as f:
-                    uniref90_lines = f.read()
+                # with open(self.msa_file, 'r') as f:
+                #     uniref90_lines = f.read()
 
                 uniref90_msa = af_data_parsers.parse_stockholm(uniref90_lines)
                 msa_features = af_pipeline.make_msa_features((uniref90_msa,))
                 msa_features.update(make_msa_features_multimeric(msa_features))
         else:
+            if no_msa or msa is None:  # or self.msa_file is None:
+                # When no msa_used, construct our own
+                num_sequences = 1
+                deletion_matrix = np.zeros((num_sequences, number_of_residues), dtype=np.int32)
+                species_ids = ['']  # Must include an empty '' as the first "reference" sequence
+                msa_numeric = sequences_to_numeric([sequence], translation_table=
+                numerical_translation_alph1_unknown_gaped_bytes).astype(dtype=np.int32)
+            elif msa:
+                deletion_matrix = msa.deletion_matrix.astype(np.int32)  # [:, msa.query_indices]
+                num_sequences = msa.number_of_sequences
+                species_ids = msa.sequence_identifiers
+                # Set the msa.alphabet_type to ensure the numerical_alignment is embedded correctly
+                msa.alphabet_type = protein_letters_alph1_unknown_gaped
+                msa_numeric = msa.numerical_alignment[:, msa.query_indices]
+                # self.log.critical(f'982 Found {len(np.flatnonzero(msa.query_indices))} indices utilized in design')
+            # Todo move to additional AlphaFold set up function...
+            # elif os.path.exists(self.msa_file):
+            #     with open(self.msa_file, 'r') as f:
+            #         uniclust_lines = f.read()
+            #     file, extension = os.path.splitext(self.msa_file)
+            #     if extension == '.sto':
+            #         uniclust30_msa = af_data_parsers.parse_stockholm(uniclust_lines)
+            #     else:
+            #         raise ValueError(
+            #             f"Currently, the multiple sequence alignment file type '{extension}' isn't supported\n"
+            #             f"\tOffending file located at: {self.msa_file}")
+            #     msas = (uniclust30_msa,)
+            else:
+                raise ValueError(f"Couldn't acquire AlphaFold msa features")
+
             self.log.debug(f"Found the first 5 species_ids: {species_ids[:5]}")
             msa_features = {
                 'deletion_matrix_int': deletion_matrix,
@@ -2023,7 +2027,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             template_features = self.get_alphafold_template_features()  # symmetric=symmetric, heteromer=heteromer)
         else:
             template_features = empty_placeholder_template_features(num_templates=0, num_res=number_of_residues)
-        # Debug features
+        # Debug template features
         for feat, values in template_features.items():
             self.log.debug(f'For feature {feat}, found shape {values.shape}')
 
@@ -6593,7 +6597,7 @@ class Pose(SymmetricModel, Metrics):
         self.log.debug(f'Entities: {", ".join(entity.name for entity in self.entities)}')
         self.log.debug(f'Active Entities: {", ".join(entity.name for entity in self.active_entities)}')
 
-    def get_alphafold_features(self, symmetric: bool = False, multimer: bool = False, no_msa: bool = False, **kwargs) \
+    def get_alphafold_features(self, symmetric: bool = False, multimer: bool = False, **kwargs) \
             -> af_pipeline.FeatureDict:
         """Retrieve the required feature dictionary for this instance to use in Alphafold inference
 
@@ -6601,7 +6605,9 @@ class Pose(SymmetricModel, Metrics):
             symmetric: Whether the symmetric version of the Pose should be used for feature production
             multimer: Whether to run as a multimer. If multimer is True while symmetric is False, the Pose will
                 be processed according to the ASU
-            no_msa: Whether multiple sequence alignments should be included in the features
+        Keyword Args:
+            msas: Sequence - A sequence of multiple sequence alignments if they should be included in the features
+            no_msa: bool = False - Whether multiple sequence alignments should be included in the features
         Returns:
             The alphafold FeatureDict which is essentially a dictionary with dict[str, np.ndarray]
         """
@@ -6635,7 +6641,7 @@ class Pose(SymmetricModel, Metrics):
         available_chain_ids = list(chain_id_generator())[:self.number_of_entities * self.number_of_symmetry_mates]
         available_chain_ids_iter = iter(available_chain_ids)
         for entity_idx, entity in enumerate(self.entities):
-            entity_features = entity.get_alphafold_features(heteromer=heteromer, no_msa=no_msa)
+            entity_features = entity.get_alphafold_features(heteromer=heteromer, **kwargs)  # no_msa=no_msa)
             # The above function creates most of the work for the adaptation
             # particular importance needs to be given to the MSA used.
             # Should fragments be utilized in the MSA? If so, naming them in some way to pair is required!
