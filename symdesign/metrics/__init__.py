@@ -42,7 +42,7 @@ log_pseudovalue0p1 = -9.9657
 log_pseudovalue0p01 = -13.2877
 log_pseudovalue0p001 = -16.6096
 log_pseudovalue0p0001 = -19.9315
-zero_probability_frag_value = log_pseudovalue0p001  # Was -20, a pseudovalue of ~0.001% (0.000953%)
+zero_probability_frag_value = 20  # log_pseudovalue0p001  # 20 is a pseudovalue of ~0.001% (0.000953%)
 zero_probability_evol_value = log_pseudovalue0p001  # Targets a pseudovalue of 0.001%
 proteinmpnn_scores = ['sequences', 'proteinmpnn_loss_complex', 'proteinmpnn_loss_unbound', 'design_indices']
 # Only slice the final 3 values
