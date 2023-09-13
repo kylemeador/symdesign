@@ -2179,7 +2179,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         batch_evolutionary_profile = \
             torch.from_numpy(np.tile(evolutionary_profile_array, (batch_length, 1, 1)))
     else:  # Make an empty collapse_profile
-        # pose.add_profile(null=True) ACTUALLY, don't use, keep pose.evolutionary_profile == {}
+        # pose.add_profile(null=True)  # <- Actually, don't use, keep pose.evolutionary_profile == {}
         measure_evolution = measure_alignment = False
         collapse_profile = np.empty(0)
         evolutionary_profile_array = corrected_log_evolutionary_profile = None

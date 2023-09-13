@@ -372,91 +372,6 @@ def refine(job: pose.PoseJob):
 
 
 @protocol_decorator()
-def interface_design(job: pose.PoseJob):
-    """For the design info given by a PoseJob source, initialize the Pose then prepare all parameters for
-    interfacial redesign between Pose Entities. Aware of symmetry, design_selectors, fragments, and
-    evolutionary information in interface design
-
-    Args:
-        job: The PoseJob for which the protocol should be performed on
-    """
-    # Save the prior value then set after the protocol completes
-    prior_value = job.job.design.interface
-    job.job.design.interface = True
-    design_return = design(job)
-    job.job.design.interface = prior_value
-    return design_return
-    raise NotImplementedError('This protocol has been depreciated in favor of design() with job.design.interface=True')
-    job.identify_interface()
-
-    putils.make_path(job.data_path)
-    # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
-    if job.job.design.method == putils.rosetta_str:
-        # Update the Pose with the number of designs
-        raise NotImplementedError('Need to generate job.number_of_designs matching job.proteinmpnn_design()...')
-        # Todo update upon completion given results of designs list file...
-        job.update_design_data(design_parent=job.pose_source, number=job.job.design.number)
-        favor_fragments = evo_fill = True
-        if job.job.design.term_constraint:
-            job.generate_fragments(interface=True)
-            job.pose.calculate_fragment_profile(evo_fill=evo_fill)
-    else:
-        favor_fragments = evo_fill = False
-        job.generate_fragments(interface=True)
-        job.pose.calculate_fragment_profile(evo_fill=evo_fill)
-    # elif isinstance(job.fragment_observations, list):
-    #     raise NotImplementedError(f"Can't put fragment observations taken away from the pose onto the pose due to "
-    #                               f"entities")
-    #     job.pose.fragment_pairs = job.fragment_observations
-    #     job.pose.calculate_fragment_profile(evo_fill=evo_fill)
-    # elif os.path.exists(job.frag_file):
-    #     job.retrieve_fragment_info_from_file()
-
-    job.set_up_evolutionary_profile()
-
-    # job.pose.combine_sequence_profiles()
-    # I could also add the combined profile here instead of at each Entity
-    # job.pose.calculate_profile(favor_fragments=favor_fragments)
-    # Todo this is required to simplify pose.profile from each source
-    job.pose.add_profile(evolution=job.job.design.evolution_constraint,
-                         fragments=job.job.design.term_constraint, favor_fragments=favor_fragments,
-                         out_dir=job.job.api_db.hhblits_profiles.location)
-
-    # -------------------------------------------------------------------------
-    # Todo job.solve_consensus()
-    # -------------------------------------------------------------------------
-    putils.make_path(job.designs_path)
-    # Acquire the pose_metrics if None have been made yet
-    job.calculate_pose_metrics()
-
-    # match job.job.design.method:  # Todo python 3.10
-    #     case [putils.rosetta_str | putils.consensus]:
-    #         # Write generated files
-    #         write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
-    #         write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
-    #         job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
-    #         job.rosetta_interface_design()  # Sets job.protocol
-    #     case putils.proteinmpnn:
-    #         job.proteinmpnn_design(interface=True, neighbors=job.job.design.neighbors)  # Sets job.protocol
-    #     case _:
-    #         raise ValueError(f"The method '{job.job.design.method}' isn't available")
-    if job.job.design.method in [putils.rosetta_str, putils.consensus]:
-        # Write generated files
-        write_pssm_file(job.pose.evolutionary_profile, file_name=job.evolutionary_profile_file)
-        write_pssm_file(job.pose.profile, file_name=job.design_profile_file)
-        job.pose.fragment_profile.write(file_name=job.fragment_profile_file)
-        # Ensure the Pose is refined into the current_energy_function
-        if not job.refined and not os.path.exists(job.refined_pdb):
-            job.refine(gather_metrics=False)
-        job.rosetta_interface_design()  # Sets job.protocol
-    elif job.job.design.method == putils.proteinmpnn:
-        job.proteinmpnn_design(interface=True, neighbors=job.job.design.neighbors)  # Sets job.protocol
-    else:
-        raise InputError(
-            f"The method '{job.job.design.method}' isn't available")
-
-
-@protocol_decorator()
 def design(job: pose.PoseJob):
     """For the design info given by a PoseJob source, initialize the Pose then prepare all parameters for
     sequence design. Aware of symmetry, design_selectors, fragments, and evolutionary information
@@ -478,19 +393,24 @@ def design(job: pose.PoseJob):
             pass
         else:
             raise NotImplementedError(
-                f"Can't perform design using Rosetta. Try {flags.interface_design} instead...")
+                f"Can't perform module 'design' using Rosetta. Try '{flags.interface_design}' instead")
         favor_fragments = evo_fill = True
         if job.job.design.term_constraint:
-            # Todo this is working but the information isn't really used...
-            #  ALSO Need to get oligomeric type frags
+            # Todo
+            #  Need to get oligomeric type frags
             job.generate_fragments(interface=True)  # job.job.design.interface
-            job.pose.calculate_fragment_profile(evo_fill=evo_fill)
+    elif job.job.design.method == putils.consensus:
+        raise NotImplementedError('Consensus calculation needs work')
+        # -------------------------------------------------------------------------
+        # Todo job.solve_consensus()
+        # -------------------------------------------------------------------------
     else:
         favor_fragments = evo_fill = False
-        # Todo this is working but the information isn't really used...
-        #  ALSO Need to get oligomeric type frags
+        # Todo
+        #  The information isn't really used. Also need to get oligomeric type frags
         job.generate_fragments(interface=True)  # job.job.design.interface
-        job.pose.calculate_fragment_profile(evo_fill=evo_fill)
+
+    job.pose.calculate_fragment_profile(evo_fill=evo_fill)
     # elif isinstance(job.fragment_observations, list):
     #     raise NotImplementedError(f"Can't put fragment observations taken away from the pose onto the pose due to "
     #                               f"entities")
@@ -503,15 +423,7 @@ def design(job: pose.PoseJob):
 
     # job.pose.combine_sequence_profiles()
     # I could also add the combined profile here instead of at each Entity
-    # job.pose.calculate_profile(favor_fragments=favor_fragments)
-    # Todo this is required to simplify pose.profile from each source
-    job.pose.add_profile(evolution=job.job.design.evolution_constraint,
-                         fragments=job.job.design.term_constraint, favor_fragments=favor_fragments,
-                         out_dir=job.job.api_db.hhblits_profiles.location)
-
-    # -------------------------------------------------------------------------
-    # Todo job.solve_consensus()
-    # -------------------------------------------------------------------------
+    job.pose.calculate_profile(favor_fragments=favor_fragments)
     putils.make_path(job.designs_path)
     # Acquire the pose_metrics if None have been made yet
     job.calculate_pose_metrics()

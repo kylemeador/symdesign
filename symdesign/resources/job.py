@@ -1256,18 +1256,14 @@ class JobResources:
         putils.make_path(self.sequences)
         if uniprot_entities is not None:
             for uniprot_entity in uniprot_entities:
-                # evolutionary_profile = self.api_db.hhblits_profiles.retrieve_data(name=uniprot_entity.id)
                 evolutionary_profile_file = self.api_db.hhblits_profiles.retrieve_file(name=uniprot_entity.id)
-                # if not evolutionary_profile:
                 if not evolutionary_profile_file:
                     hhblits_cmds.append(hhblits(uniprot_entity.id,
                                                 sequence=uniprot_entity.reference_sequence,
                                                 out_dir=self.profiles, threads=self.threads,
                                                 return_command=True))
-                    # all_entity_ids.append(uniprot_entity.id)
                     msa_file = None
                 else:
-                    # msa = self.api_db.alignments.retrieve_data(name=uniprot_entity.id)
                     msa_file = self.api_db.alignments.retrieve_file(name=uniprot_entity.id)
 
                 if not msa_file:
@@ -1278,7 +1274,6 @@ class JobResources:
                         putils.reformat_msa_exe_path, 'a3m', 'fas',
                         f"{os.path.join(self.profiles, f'{uniprot_entity.id}.a3m')}", '.fasta', '-M', 'first', '-r']
                     msa_cmds.extend([sto_cmd, fasta_cmd])
-                    # all_entity_ids.append(uniprot_entity.id)
 
                 # Todo reinstate
                 #  Solve .h_fields/.j_couplings
@@ -1293,20 +1288,27 @@ class JobResources:
                 f'{self.process_evolutionary_info.__name__}'
             )
             for entity in entities:
-                entity.sequence_file = self.api_db.sequences.retrieve_file(name=entity.name)
-                if not entity.sequence_file:
-                    entity.write_sequence_to_fasta('reference', out_dir=self.sequences)
+                evolutionary_profile_file = self.api_db.hhblits_profiles.retrieve_file(name=entity.name)
+                if not evolutionary_profile_file:
+                    sequence_file = self.api_db.sequences.retrieve_file(name=entity.name)
+                    if not sequence_file:
+                        sequence_file = entity.write_sequence_to_fasta('reference', out_dir=self.sequences)
+
+                    hhblits_cmds.append(entity.hhblits(sequence_file=sequence_file, out_dir=self.profiles,
+                                                       return_command=True))
+                    msa_file = None
                 else:
-                    entity.evolutionary_profile = self.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-                    # Todo reinstate
-                    #  entity.h_fields = self.api_db.bmdca_fields.retrieve_data(name=entity.name)
-                    #  entity.j_couplings = self.api_db.bmdca_couplings.retrieve_data(name=entity.name)
-                if not entity.evolutionary_profile:
-                    # To generate in current runtime
-                    # entity.add_evolutionary_profile(out_dir=self.api_db.hhblits_profiles.location)
-                    # To generate in a sbatch script
-                    hhblits_cmds.append(entity.hhblits(out_dir=self.profiles, return_command=True))
-                    # all_entity_ids.append(entity.name)
+                    msa_file = self.api_db.alignments.retrieve_file(name=entity.name)
+
+                if not msa_file:
+                    sto_cmd = [
+                        putils.reformat_msa_exe_path, 'a3m', 'sto',
+                        f"{os.path.join(self.profiles, f'{entity.name}.a3m')}", '.sto', '-num', '-uc']
+                    fasta_cmd = [
+                        putils.reformat_msa_exe_path, 'a3m', 'fas',
+                        f"{os.path.join(self.profiles, f'{entity.name}.a3m')}", '.fasta', '-M', 'first', '-r']
+                    msa_cmds.extend([sto_cmd, fasta_cmd])
+
                 # Todo
                 #  Implement the .h_fields/.j_couplings from above
                 #  Implement the msa command mechanism from above

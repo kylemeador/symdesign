@@ -583,7 +583,7 @@ def hhblits(name: str, sequence_file: Sequence[str] = None, sequence: Sequence[s
         temp_file.unlink(missing_ok=True)
         # if os.path.exists(temp_file):  # remove hold file blocking progress
         #     os.remove(temp_file)
-        raise RuntimeError(
+        raise utils.SymDesignException(
             f'Profile generation for {name} got stuck. Found return code {p.returncode}')  #
 
     # Preferred alignment type

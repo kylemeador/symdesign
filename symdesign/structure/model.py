@@ -8734,7 +8734,6 @@ class Pose(SymmetricModel, Metrics):
             self.fragment_profile = Profile(fragment_profile, dtype='fragment')
             self._alpha = entity._alpha  # Logic enforces entity is always referenced here
         else:
-            self._alpha = default_fragment_contribution
             self.alpha = [0 for _ in self.residues]  # Reset the data
             self.fragment_profile = Profile(list(self.create_null_profile(nan=True, zero_index=True).values()),
                                             dtype='fragment')

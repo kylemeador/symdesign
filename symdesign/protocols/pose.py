@@ -77,10 +77,6 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
     measure_evolution = measure_alignment = True
     warn = False
     for entity in model.entities:
-        # if entity not in model.active_entities:  # We shouldn't design, add a null profile instead
-        #     entity.add_profile(null=True)
-        #     continue
-
         if entity.evolutionary_profile:
             continue
 
@@ -4161,7 +4157,7 @@ class PoseProtocol(PoseData):
             per_residue_evolutionary_profile_loss = \
                 resources.ml.sequence_nllloss(torch_numeric_sequences, torch_log_evolutionary_profile)
         else:
-            # Because we use self.pose.calculate_profile() below, we need to ensure there is a null_profile attached
+            # Because self.pose.calculate_profile() is used below, need to ensure there is a null_profile attached
             if not self.pose.evolutionary_profile:
                 self.pose.evolutionary_profile = self.pose.create_null_profile()
             # per_residue_evolutionary_profile_loss = per_residue_design_profile_loss = nan_blank_data

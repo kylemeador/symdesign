@@ -442,12 +442,12 @@ class SequenceProfile(ABC):
     pssm_file: AnyStr | None
     reference_sequence: str
     residues: list['structure.base.Residue']
-    sequence_file: AnyStr | None
     sequence: str
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # self._fragment_db = None
+        self._alpha = default_fragment_contribution
         self._evolutionary_profile = {}  # position specific scoring matrix
         self.alpha = []
         self.fragment_map = None
@@ -455,7 +455,6 @@ class SequenceProfile(ABC):
         self.h_fields = None
         self.j_couplings = None
         self.profile = {}  # design/structure specific scoring matrix
-        self.sequence_file = None
 
     @property
     def evolutionary_profile(self) -> dict:
@@ -478,9 +477,6 @@ class SequenceProfile(ABC):
         #         first = False
         #     else:
         #         raise RuntimeError('evolutionary_profile generation got stuck')
-
-        if not self.sequence_file:
-            self.write_sequence_to_fasta('reference', out_dir=api_db.sequences.location)
 
     @property
     def offset_index(self) -> int:
@@ -573,65 +569,52 @@ class SequenceProfile(ABC):
             raise IndexError(f'The profile length {len(profile_of_interest)} != '
                              f'the number_of_residues {self.number_of_residues}')
 
-    def add_profile(self, evolution: bool = True, fragments: bool | list[fragment_info_type] = True,
-                    null: bool = False, **kwargs):
-        """Add the evolutionary and fragment profiles onto the SequenceProfile
-
-        Args:
-            evolution: Whether to add evolutionary information to the sequence profile
-            fragments: Whether to add fragment information to the sequence profile. Can pass fragment instances as well
-            null: Whether to use a null profile (non-functional) as the sequence profile
-        Keyword Args:
-            alignment_type: alignment_types_literal = 'mapped' – Either 'mapped' or 'paired' indicating how the fragment
-                observations were generated relative to this Structure. Is it mapped to this Structure or was it paired
-                to it?
-            out_dir: AnyStr = os.getcwd() - Location where sequence files should be written
-            favor_fragments: bool = False - Whether to favor fragment profile in the lod score of the resulting profile
-                Currently this routine is only used for Rosetta designs where the fragments should be favored by a
-                particular weighting scheme. By default, the boltzmann weighting scheme is applied
-            boltzmann: bool = False - Whether to weight the fragment profile by a Boltzmann probability scaling using
-                the formula lods = exp(lods[i]/kT)/Z, where Z = sum(exp(lods[i]/kT)), and kT is 1 by default.
-                If False, residues are weighted by the residue local maximum lod score in a linear fashion
-                All lods are scaled to a maximum provided in the Rosetta REF2015 per residue reference weight.
-        Sets:
-            self.profile (ProfileDict)
-        """
-        if null or (not evolution and not fragments):
-            self.profile = self.evolutionary_profile = self.create_null_profile()
-            self.fragment_profile = Profile(list(self.create_null_profile(nan=True, zero_index=True).values()),
-                                            dtype='fragment')
-            return
-            # evolution = fragments = False
-            # self.add_evolutionary_profile(null=null, **kwargs)
-
-        if evolution:  # Add evolutionary information to the SequenceProfile
-            if not self.evolutionary_profile:
-                self.add_evolutionary_profile(**kwargs)
-        else:  # Set the evolutionary_profile to null
-            self.evolutionary_profile = self.create_null_profile()
-
-        if isinstance(fragments, list):  # Add fragment information to the SequenceProfile
-            self.add_fragments_to_profile(fragments, **kwargs)
-            self.simplify_fragment_profile()
-        elif fragments:  # If was passed as True
-            if not self.alpha:
-                raise AttributeError(
-                    'Fragments were specified but have not been added to the SequenceProfile. '
-                    f'Call {self.add_fragments_to_profile.__name__} with fragment information or pass'
-                    f' fragments and alignment_type to {self.add_profile.__name__}')
-            # # Fragments have already been added, connect DB info
-            # elif self.fragment_db:
-            #     retrieve_fragments = [fragment['cluster'] for idx_d in self.fragment_map.values()
-            #                           for fragments in idx_d.values() for fragment in fragments]
-            #     self.fragment_db.load_cluster_info(ids=retrieve_fragments)
-            # else:
-            #     raise AttributeError('Fragments were specified but there is no fragment database attached. Ensure '
-            #                          f'{self.fragment_db.__name__} is set before requesting fragment information')
-
-            # # Process fragment profile from self.fragment_profile
-            # self.process_fragment_profile()
-
-        self.calculate_profile(**kwargs)
+    # def add_profile(self, evolution: bool = True, fragments: bool | list[fragment_info_type] = True,
+    #                 null: bool = False, **kwargs):
+    #     """Add the evolutionary and fragment profiles onto the SequenceProfile
+    #
+    #     Args:
+    #         evolution: Whether to add evolutionary information to the sequence profile
+    #         fragments: Whether to add fragment information to the sequence profile. Can pass fragment instances as well
+    #         null: Whether to use a null profile (non-functional) as the sequence profile
+    #     Keyword Args:
+    #         alignment_type: alignment_types_literal = 'mapped' – Either 'mapped' or 'paired' indicating how the fragment
+    #             observations were generated relative to this Structure. Is it mapped to this Structure or was it paired
+    #             to it?
+    #         out_dir: AnyStr = os.getcwd() - Location where sequence files should be written
+    #         favor_fragments: bool = False - Whether to favor fragment profile in the lod score of the resulting profile
+    #             Currently this routine is only used for Rosetta designs where the fragments should be favored by a
+    #             particular weighting scheme. By default, the boltzmann weighting scheme is applied
+    #         boltzmann: bool = False - Whether to weight the fragment profile by a Boltzmann probability scaling using
+    #             the formula lods = exp(lods[i]/kT)/Z, where Z = sum(exp(lods[i]/kT)), and kT is 1 by default.
+    #             If False, residues are weighted by the residue local maximum lod score in a linear fashion
+    #             All lods are scaled to a maximum provided in the Rosetta REF2015 per residue reference weight.
+    #     Sets:
+    #         self.profile (ProfileDict)
+    #     """
+    #     if null or (not evolution and not fragments):
+    #         self.profile = self.evolutionary_profile = self.create_null_profile()
+    #         self.fragment_profile = Profile(list(self.create_null_profile(nan=True, zero_index=True).values()),
+    #                                         dtype='fragment')
+    #         return
+    #
+    #     if evolution:  # Add evolutionary information to the SequenceProfile
+    #         if not self.evolutionary_profile:
+    #             self.add_evolutionary_profile(**kwargs)
+    #     else:  # Set the evolutionary_profile to null
+    #         self.evolutionary_profile = self.create_null_profile()
+    #
+    #     if isinstance(fragments, list):  # Add fragment information to the SequenceProfile
+    #         self.add_fragments_to_profile(fragments, **kwargs)
+    #         self.simplify_fragment_profile()
+    #     elif fragments:  # If was passed as True
+    #         if not self.alpha:
+    #             raise AttributeError(
+    #                 'Fragments were specified but have not been added to the SequenceProfile. '
+    #                 f'Call {self.add_fragments_to_profile.__name__} with fragment information or pass'
+    #                 f' fragments and alignment_type to {self.add_profile.__name__}')
+    #
+    #     self.calculate_profile(**kwargs)
 
     def _verify_evolutionary_profile(self) -> bool:
         """Returns True if the evolutionary_profile and Structure sequences are equivalent"""
@@ -705,14 +688,7 @@ class SequenceProfile(ABC):
             pssm_file = file
         else:  # Check to see if the files of interest already exist
             # Extract/Format Sequence Information. SEQRES is prioritized if available
-            if self.sequence_file is None:  # Not made/provided before add_evolutionary_profile, make a new one
-                self.sequence_file = self.write_sequence_to_fasta('reference', out_dir=out_dir)
-            elif not os.path.exists(self.sequence_file) or force:
-                self.log.debug(f'{self.name} Sequence={self.reference_sequence}')
-                self.write_sequence_to_fasta('reference', file_name=self.sequence_file)
-                self.log.debug(f'{self.name} sequence file: {self.sequence_file}')
-
-            # temp_file = os.path.join(out_path, f'{self.name}.hold')
+            sequence_file = self.write_sequence_to_fasta('reference', out_dir=out_dir)
             temp_file = Path(out_dir, f'{self.name}.hold')
             pssm_file = os.path.join(out_dir, f'{self.name}.hmm')
             if not os.path.exists(pssm_file) or force:
@@ -722,7 +698,7 @@ class SequenceProfile(ABC):
                         self.log.info(f'Fetching "{self.name}" sequence data')
 
                     self.log.info(f'Generating Evolutionary Profile for {self.name}')
-                    getattr(self, profile_source)(out_dir=out_dir)
+                    getattr(self, profile_source)(sequence_file=sequence_file, out_dir=out_dir)
                     temp_file.unlink(missing_ok=True)
                     # if os.path.exists(temp_file):
                     #     os.remove(temp_file)
@@ -732,7 +708,7 @@ class SequenceProfile(ABC):
                         if int(time.time()) - int(os.path.getmtime(temp_file)) > 5400:  # > 1 hr 30 minutes have passed
                             # os.remove(temp_file)
                             temp_file.unlink(missing_ok=True)
-                            raise RuntimeError(
+                            raise sdutils.SymDesignException(
                                 f'{self.add_evolutionary_profile.__name__}: Generation of the profile for {self.name} '
                                 'took longer than the time limit\nKilled')
                         time.sleep(20)
@@ -1000,7 +976,8 @@ class SequenceProfile(ABC):
     #         self.pssm_file (str): Name of the file generated by psiblast
     #     """
     #     pssm_file = os.path.join(out_dir, f'{self.name}.pssm')
-    #     cmd = ['psiblast', '-db', putils.alignmentdb, '-query', self.sequence_file + '.fasta', '-out_ascii_pssm',
+    #     sequence_file = self.write_sequence_to_fasta('reference', out_dir=out_dir)
+    #     cmd = ['psiblast', '-db', putils.alignmentdb, '-query', sequence_file, '-out_ascii_pssm',
     #            pssm_file, '-save_pssm_after_last_round', '-evalue', '1e-6', '-num_iterations', '0']  # Todo # iters
     #     if remote:
     #         cmd.append('-remote')
@@ -1042,17 +1019,18 @@ class SequenceProfile(ABC):
     #     self.evolutionary_profile = evolutionary_profile
 
     def hhblits(self, out_dir: AnyStr = os.getcwd(), **kwargs) -> list[str] | None:
-        """Generate a position specific scoring matrix from HHblits using Hidden Markov Models
+        """Generate a position specific scoring matrix from hhblits using Hidden Markov Models
 
         Args:
             out_dir: Disk location where generated file should be written
         Keyword Args:
+            sequence_file: AnyStr = None - The file containing the sequence to use
             threads: Number of cpu's to use for the process
             return_command: Whether to simply return the hhblits command
         Returns:
             The command if return_command is True, otherwise None
         """
-        result = hhblits(self.name, sequence_file=self.sequence_file, out_dir=out_dir, **kwargs)
+        result = hhblits(self.name, out_dir=out_dir, **kwargs)
 
         if result:  # return_command is True
             return result
@@ -1248,7 +1226,7 @@ class SequenceProfile(ABC):
 
     def write_sequence_to_fasta(self, sequence: str | sequence_type_literal, file_name: AnyStr = None,
                                 name: str = None, out_dir: AnyStr = os.getcwd()) -> AnyStr:
-        """Write a sequence to a .fasta file with fasta format and save file location as self.sequence_file.
+        """Write a sequence to a .fasta file with fasta format and return the file location.
         '.fasta' is appended if not specified in the name argument
 
         Args:
@@ -1260,7 +1238,8 @@ class SequenceProfile(ABC):
         Returns:
             The name of the output file
         """
-        if sequence in sequence_types:  # get the attribute from the instance
+        if sequence in sequence_types:
+            # Get the attribute from the instance
             sequence = getattr(self, f'{sequence}_sequence')
 
         if name is None:
@@ -1270,9 +1249,7 @@ class SequenceProfile(ABC):
             if not file_name.endswith('.fasta'):
                 file_name = f'{file_name}.fasta'
 
-        self.sequence_file = write_sequence_to_fasta(sequence=sequence, name=name, file_name=file_name)
-
-        return self.sequence_file
+        return write_sequence_to_fasta(sequence=sequence, name=name, file_name=file_name)
 
     # def process_fragment_profile(self, **kwargs):
     #     """From self.fragment_map, add the fragment profile to the SequenceProfile
@@ -1385,7 +1362,7 @@ class SequenceProfile(ABC):
                 fragment weight over the entire residue
         """
         # keep_extras: Whether to keep values for all positions that are missing data
-        if self.fragment_map is None:  # We need this for _calculate_alpha()
+        if self.fragment_map is None:  # Need this for _calculate_alpha()
             raise RuntimeError(
                 f"Must {self.add_fragments_to_profile.__name__} before "
                 f"{self.simplify_fragment_profile.__name__}. No fragments were set")
@@ -1523,12 +1500,12 @@ class SequenceProfile(ABC):
                 0 means no use of fragments in the .profile, while 1 means only use fragments
         """
         if not self._fragment_db:
-            raise AttributeError(f'{self._calculate_alpha.__name__}: No fragment database connected! Cannot calculate '
-                                 f'optimal fragment contribution without one')
+            raise AttributeError(
+                f"{self._calculate_alpha.__name__}: No fragment database connected. Can't calculate "
+                f'fragment contribution without one')
         if alpha <= 0 or 1 <= alpha:
-            raise ValueError(f'{self._calculate_alpha.__name__}: Alpha parameter must be bounded between 0 and 1')
-        else:
-            self._alpha = alpha
+            raise ValueError(
+                f'{self._calculate_alpha.__name__}: Alpha parameter must be bounded between 0 and 1')
 
         alignment_type_to_idx = {'mapped': 0, 'paired': 1}  # could move to class, but not used elsewhere
         match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
@@ -1573,10 +1550,8 @@ class SequenceProfile(ABC):
             # Modify alpha proportionally to cluster average weight and match_modifier
             # If design frag weight is less than db cluster average weight
             if frag_weight_average < stats_average:
-                # self.alpha.append(self._alpha * match_modifier * (frag_weight_average/stats_average))
                 self.alpha[entry] = self._alpha * match_modifier * (frag_weight_average/stats_average)
             else:
-                # self.alpha.append(self._alpha * match_modifier)
                 self.alpha[entry] = self._alpha * match_modifier
 
     def calculate_profile(self, favor_fragments: bool = False, boltzmann: bool = True, **kwargs):
@@ -1605,7 +1580,8 @@ class SequenceProfile(ABC):
                 {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
                      'type': 'W', 'info': 0.00, 'weight': 0.00}, ...}, ...}
         """
-        if self._alpha == 0:  # We get a division error
+        if self._alpha == 0:
+            # Round up to avoid division error
             self.log.debug(f'{self.calculate_profile.__name__}: _alpha set with 1e-5 tolerance due to 0 value')
             self._alpha = 0.000001
 
