@@ -26,6 +26,8 @@ putils = utils.path
 
 # Todo adjust the logging level for this module?
 logger = logging.getLogger(__name__)
+# rcsb_download_url = 'https://files.wwpdb.org/pub/pdb/data/'  # biounit/PDB or assemblies/mmcif
+# Could add .gz to all downloads to speed transfer and load. Change the load options to use .gz version?
 rcsb_download_url = 'https://files.rcsb.org/download/'
 
 
@@ -265,13 +267,13 @@ class StructureDatabase(Database):
     def orient_structures(self, structure_identifiers: Iterable[str], sym_entry: SymEntry = None,
                           by_file: bool = False) \
             -> tuple[dict[str, tuple[str, ...]], dict[tuple[str, ...], list[sql.ProteinMetadata]]]:
-        """Given EntryIDs/EntityIDs, and their corresponding symmetry, retrieve .pdb files, orient and save files to
-        the Database, then return the symmetric Model for each
+        """Given structure identifiers and their corresponding symmetry, retrieve, orient, and save oriented files to
+        the Database, then return metadata for each
 
         Args:
             structure_identifiers: The names of all entity_ids requiring orientation
             sym_entry: The SymEntry used to treat each passed Entity as symmetric. Default assumes no symmetry
-            by_file: Whether to parse the structure_identifiers as file paths. Default treats as PDB EntryID or EntityID
+            by_file: Whether to parse the structure_identifiers as file paths. Default treats as PDB EntryID/EntityID
         Returns:
             The tuple consisting of (
                 A map of the Model name to each Entity name in the Model,
@@ -289,7 +291,7 @@ class StructureDatabase(Database):
             if sym_entry.number:
                 resulting_symmetry = sym_entry.resulting_symmetry
                 if resulting_symmetry in utils.symmetry.space_group_cryst1_fmt_dict:
-                    # This is a crystalline symmetry, so we should use a TOKEN to use the CRYST record
+                    # This is a crystalline symmetry, so use a TOKEN to specify use of the CRYST record
                     resulting_symmetry = CRYST
                 else:
                     logger.info(f'The requested {"files" if by_file else "IDs"} are being checked for proper '
@@ -455,10 +457,11 @@ class StructureDatabase(Database):
                             entity.write(out_path=self.oriented_asu.path_to(name=entity.name))
                         # Set the Entity.file_path for ProteinMetadata
                         entity.file_path = entity_asu_file
-                elif structure_identifier in orient_names:  # ASU files don't exist though. Load oriented and save asu
+                elif structure_identifier in orient_names:  # ASU files don't exist. Load oriented and save asu
                     orient_file = self.oriented.retrieve_file(name=structure_identifier)
                     # These name=structure_identifier should be the default parsing method anyway...
                     pose = Pose.from_file(orient_file, name=structure_identifier, **pose_kwargs)
+                    pose.set_contacting_asu()
                     if pose.symmetric_assembly_is_clash(measure=self.job.design.clash_criteria,
                                                         distance=self.job.design.clash_distance, warn=True):
                         if not self.job.design.ignore_symmetric_clashes:
@@ -469,22 +472,22 @@ class StructureDatabase(Database):
                     # Write out the Pose ASU
                     assembly_integer = '' if pose.biological_assembly is None else pose.biological_assembly
                     write_entities_and_asu(pose, assembly_integer)
-                # Use entry_entity only if not processed before
-                else:  # They are missing, retrieve the proper files using PDB ID's
+                else:  # orient is missing, retrieve the proper files using PDB ID's
                     if structure_identifier in model_names:
-                        continue
-                    pose_models = download_structures([structure_identifier], out_dir=models_dir)
-                    if pose_models:  # Not empty list. Get the first model and throw away the rest
-                        pose, *_ = pose_models
-                    else:  # Empty list
-                        non_viable_structures.append(structure_identifier)
-                        continue
+                        model_file = self.models.retrieve_file(name=structure_identifier)
+                        pose = Pose.from_file(model_file, name=structure_identifier)
+                    else:
+                        pose_models = download_structures([structure_identifier], out_dir=models_dir)
+                        if pose_models:
+                            # Get the first model and throw away the rest
+                            pose, *_ = pose_models
+                        else:  # Empty list
+                            non_viable_structures.append(structure_identifier)
+                            continue
 
                     if resulting_symmetry == CRYST:
                         pose.set_symmetry(sym_entry=sym_entry)
                         # pose.file_path is already set
-                        # orient_file = self.models.path_to(name=structure_identifier)
-                        # pose.file_path = pose.write(out_path=orient_file)
                         # Set each Entity.file_path
                         for entity in pose.entities:
                             entity.file_path = entity.write(out_path=self.models.path_to(name=entity.name))
@@ -495,10 +498,9 @@ class StructureDatabase(Database):
                             orient_logger.error(str(error))
                             non_viable_structures.append(structure_identifier)
                             continue
-                        # else:  # Delete the source file(s) now that oriented correctly and saving elsewhere
-                        #     for pose_model in pose_models:
-                        #         model_file = Path(pose_model.file_path)
-                        #         model_file.unlink(missing_ok=True)
+                        pose.set_symmetry(sym_entry=sym_entry)
+                        # set_contacting_asu() is called when the number of chains doesn't match the number of entities
+                        # pose.set_contacting_asu()
                         assembly_integer = '' if pose.biological_assembly is None else pose.biological_assembly
                         # Write out files for the orient database
                         orient_file = os.path.join(self.oriented.location,
@@ -507,8 +509,6 @@ class StructureDatabase(Database):
                         if isinstance(pose, Entity):
                             # The symmetry attribute should be set from parsing, so oligomer=True will work
                             # and create_protein_metadata has access to .symmetry
-                            # Todo?
-                            #  pose.set_symmetry(sym_entry=sym_entry)
                             pose.write(oligomer=True, out_path=orient_file)
                             # Write out ASU file
                             asu_path = os.path.join(self.oriented_asu.location,
@@ -516,13 +516,12 @@ class StructureDatabase(Database):
                             # Set the Entity.file_path for ProteinMetadata
                             pose.file_path = pose.write(out_path=asu_path)
                         else:
-                            pose.set_symmetry(sym_entry=sym_entry)
                             pose.write(out_path=orient_file)
                             write_entities_and_asu(pose, assembly_integer)
 
                         orient_logger.info(f'Oriented: {orient_file}')
 
-                create_protein_metadata(pose)  # , sym_entry=sym_entry)
+                create_protein_metadata(pose)
 
         report_non_viable_structures()
         return structure_identifier_tuples, uniprot_id_to_protein_metadata
