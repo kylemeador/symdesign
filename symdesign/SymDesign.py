@@ -425,8 +425,8 @@ def main():
             exceptions_file = os.path.join(job_paths, putils.default_execption_file.format(*job.default_output_tuple))
             with open(exceptions_file, 'w') as f_out:
                 f_out.write('%s\n' % '\n'.join(str(pj) for pj, error_ in exceptions))
-            logger.critical(f"The file '{exceptions_file}' contains the pose identifier of every pose that failed "
-                            'checks/filters for this job')
+            logger.info(f"The file '{exceptions_file}' contains the pose identifier of every pose that failed "
+                        'checks/filters for this job')
 
         if output and successful_pose_jobs:
             poses_file = None

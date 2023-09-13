@@ -813,7 +813,7 @@ class JobResources:
                 interface=self.design.interface,
                 term_constraint=self.design.term_constraint,
                 neighbors=self.design.neighbors,
-                proteinmpnn_model_name=self.design.proteinmpnn_model_name,
+                proteinmpnn_model_name=self.design.proteinmpnn_model,
             )
         elif self.module == flags.nanohedra:
             protocol_kwargs = dict(
@@ -822,7 +822,7 @@ class JobResources:
                 initial_z_value=self.dock.initial_z_value,
                 match_value=self.dock.match_value,
                 minimum_matched=self.dock.minimum_matched,
-                proteinmpnn_model_name=self.design.proteinmpnn_model_name,
+                proteinmpnn_model_name=self.design.proteinmpnn_model,
             )
         elif self.module == flags.predict_structure:
             protocol_kwargs = dict(
@@ -833,7 +833,7 @@ class JobResources:
         elif self.module == flags.analysis:
             protocol_kwargs = dict(
                 ca_only=self.design.ca_only,
-                proteinmpnn_model_name=self.design.proteinmpnn_model_name,
+                proteinmpnn_model_name=self.design.proteinmpnn_model,
             )
         # Todo
         #  raise NotImplementedError()

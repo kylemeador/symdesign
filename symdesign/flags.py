@@ -115,7 +115,7 @@ initialize_building_blocks = 'initialize_building_blocks'
 background_profile = 'background_profile'
 pdb_code = 'pdb_code'
 update_metadata = 'update_metadata'
-proteinmpnn_model_name = 'proteinmpnn_model_name'
+proteinmpnn_model = 'proteinmpnn_model'
 tag_linker = 'tag_linker'
 update_db = 'update_db'
 measure_pose = 'measure_pose'
@@ -155,7 +155,7 @@ cluster_namespace = {
 }
 design_namespace = {
     consensus, ca_only, clash_distance, clash_criteria, design_method, design_number, evolution_constraint, hbnet,
-    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, interface, neighbors, proteinmpnn_model_name, scout,
+    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, interface, neighbors, proteinmpnn_model, scout,
     sequences, structure_background, structures, term_constraint, temperatures
 }
 dock_namespace = {
@@ -332,7 +332,7 @@ initialize_building_blocks = format_for_cmdline(initialize_building_blocks)
 background_profile = format_for_cmdline(background_profile)
 pdb_code = format_for_cmdline(pdb_code)
 update_metadata = format_for_cmdline(update_metadata)
-proteinmpnn_model_name = format_for_cmdline(proteinmpnn_model_name)
+proteinmpnn_model = format_for_cmdline(proteinmpnn_model)
 tag_linker = format_for_cmdline(tag_linker)
 update_db = format_for_cmdline(update_db)
 measure_pose = format_for_cmdline(measure_pose)
@@ -867,6 +867,13 @@ cores_args = ('--cores',)
 multiprocessing_args = ('-M', f'--{multi_processing}')
 multiprocessing_kwargs = dict(action='store_true', help='Should job be run with multiple processors?')
 project_name_args = (f'--{project_name}',)
+proteinmpnn_models = ['v_48_002', 'v_48_010', 'v_48_020', 'v_48_030']
+proteinmpnn_model_args = (f'--{proteinmpnn_model}',)
+proteinmpnn_model_kwargs = dict(choices=proteinmpnn_models, default='v_48_020', metavar='',
+                                help='The name of the model to use for ProteinMPNN design/scoring\n'
+                                     'where the model name takes the form v_X_Y, with X indicating\n'
+                                     'The number of neighbors, and Y indicating the training noise\n'
+                                     'Choices=%(choices)s\nDefault=%(default)s')
 options_arguments = {
     cores_args: dict(type=int, default=cpu_count(logical=False) - 1, metavar='INT',
                      help=f'Number of cores to use with {format_args(multiprocessing_args)}\n'
@@ -913,18 +920,19 @@ options_arguments = {
     ('--mpi',): dict(type=int, metavar='INT',
                      help='If commands should be run as MPI parallel processes,\n'
                           'how many processes should be invoked for each job?\nDefault=%(default)s'),
+    multiprocessing_args: multiprocessing_kwargs,
     project_name_args: dict(help='If desired, the name of the initialized project\n'
                                  'Default is inferred from input'),
-    multiprocessing_args: multiprocessing_kwargs,
+    proteinmpnn_model_args: proteinmpnn_model_kwargs,
+    setup_args: setup_kwargs,
+    (f'--{skip_logging}',): dict(action='store_true',
+                                 help='Skip logging to files and direct all logging to stream'),
     (f'--{profile_memory}',): dict(action='store_true',
                                    help='Use memory_profiler.profile() to understand memory usage of a module.\n'
                                         'Must be run with --development'),
     quick_args: dict(action='store_true',
                      help='Run Nanohedra in minimal sampling mode to generate enough hits to\n'
-                          'test quickly. This should only be used for active development'),  # Todo DEV branch
-    setup_args: setup_kwargs,
-    (f'--{skip_logging}',): dict(action='store_true',
-                                 help='Skip logging to files and direct all logging to stream'),
+                          'test quickly. This should only be used for active development'),
     (f'--{debug_db}',): dict(action='store_true', help='Whether to log SQLAlchemy output for db development'),
     (f'--{reset_db}',): dict(action='store_true', help='Whether to reset the database for development')
 }
@@ -1250,17 +1258,9 @@ cluster_poses_arguments = {
                                 f'Default={default_clustered_pose_file.format("TIMESTAMP", "LOCATION")}')
 }
 # ---------------------------------------------------
-# Todo add to design protocols...
-sequences_args = (f'--{sequences}',)
-sequences_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,  # action='store_true',
-                        help='For the protocol, create new sequences for each pose?\n'
-                             f'{boolean_positional_prevent_msg(sequences)}'),
 ca_only_args = (f'--{ca_only}',)
 ca_only_kwargs = dict(action='store_true',
                       help='Whether a minimal CA variant of the protein should be used for design calculations')
-structures_args = (f'--{structures}',)
-structures_kwargs = dict(action='store_true',
-                         help='Whether the structure of each new sequence should be calculated'),
 neighbors_args = (f'--{neighbors}',)
 neighbors_kwargs = \
     dict(action='store_true', help='Whether the neighboring residues should be considered during sequence design')
@@ -1271,13 +1271,6 @@ hbnet_args = ('-hb', f'--{hbnet}')
 hbnet_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
                     help=f'Whether to include hydrogen bond networks in the design.'
                          f'\n{boolean_positional_prevent_msg(hbnet)}')
-proteinmpnn_models = ['v_48_002', 'v_48_010', 'v_48_020', 'v_48_030']
-proteinmpnn_model_name_args = (f'--{proteinmpnn_model_name}',)
-proteinmpnn_model_name_kwargs = dict(choices=proteinmpnn_models, default='v_48_020', metavar='',
-                                     help='The name of the model to use for proteinmpnn design/scoring\n'
-                                          'where the model name takes the form v_X_Y, with X indicating\n'
-                                          'The number of neighbors, and Y indicating the training noise\n'
-                                          'Choices=%(choices)s\nDefault=%(default)s')
 structure_background_args = ('-sb', f'--{structure_background}')
 structure_background_kwargs = dict(action='store_true',  # action=argparse.BooleanOptionalAction, default=False,
                                    help='Whether to skip all constraints and measure the structure\nusing only the '
@@ -1313,7 +1306,7 @@ design_arguments = {
     design_number_args: design_number_kwargs,
     evolution_constraint_args: evolution_constraint_kwargs,
     hbnet_args: hbnet_kwargs,
-    proteinmpnn_model_name_args: proteinmpnn_model_name_kwargs,
+    proteinmpnn_model_args: proteinmpnn_model_kwargs,
     structure_background_args: structure_background_kwargs,
     scout_args: scout_kwargs,
     temperature_args: temperature_kwargs,

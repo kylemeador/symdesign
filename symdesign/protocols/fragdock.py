@@ -2307,7 +2307,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
         proteinmpnn_score = proteinmpnn_score or job.dock.proteinmpnn_score
         if proteinmpnn_score:
             # Retrieve the ProteinMPNN model
-            mpnn_model = ml.proteinmpnn_factory(ca_only=job.design.ca_only, model_name=job.design.proteinmpnn_model_name)
+            mpnn_model = ml.proteinmpnn_factory(ca_only=job.design.ca_only, model_name=job.design.proteinmpnn_model)
             # Set up model sampling type based on symmetry
             if pose.is_symmetric():
                 number_of_residues = pose.number_of_symmetric_residues
@@ -2571,7 +2571,7 @@ def fragment_dock(input_models: Iterable[Structure]) -> list[PoseJob] | list:
             fragment_profile_array = pose.fragment_profile.as_array()
             with catch_warnings():
                 simplefilter('ignore', category=RuntimeWarning)
-                # np.log causes -inf at 0, thus we correct these to a 'large' number
+                # np.log causes -inf at 0, so correct these to a "large" number
                 corrected_frag_array = np.nan_to_num(np.log(fragment_profile_array), copy=False,
                                                      nan=np.nan, neginf=metrics.zero_probability_frag_value)
             per_residue_fragment_profile_loss = \
