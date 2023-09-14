@@ -1070,7 +1070,7 @@ class SequenceProfile(ABC):
         Takes ~5-10 seconds depending on the size of the msa
 
         Calculate HCI for each sequence in the MSA (which are different lengths). This is the Hydro Collapse array. For
-        each sequence, make a Gap mask, with full shape (number_of_sequences, alignment_length) to account for gaps in
+        each sequence, make a Gap mask, with full shape (length, number_of_residues) to account for gaps in
         each sequence. Apply the mask using a map between the Gap mask and the Hydro Collapse array. Finally, drop the
         columns from the array that are gaps in the reference sequence.
 
@@ -1110,7 +1110,7 @@ class SequenceProfile(ABC):
             lower_window: int = 3 – The smallest window used to measure
             upper_window: int = 9 – The largest window used to measure
         Returns:
-            Array with shape (number_of_sequences, number_of_residues) containing the hydrophobic collapse values for
+            Array with shape (length, number_of_residues) containing the hydrophobic collapse values for
                 per-residue, per-sequence in the profile. The "query" sequence from the MultipleSequenceAlignment.query
                 is located at index 0 on axis=0
         """
@@ -1128,7 +1128,7 @@ class SequenceProfile(ABC):
                 #                       f'Supported formats:\n{pretty_format_table(msa_supported_types.items())}')
             msa = self.msa
             # Make the output array. Use one additional length to add np.nan value at the 0 index for gaps
-            evolutionary_collapse_np = np.zeros((msa.number_of_sequences, msa.length + 1))
+            evolutionary_collapse_np = np.zeros((msa.length, msa.number_of_residues + 1))
             evolutionary_collapse_np[:, 0] = np.nan  # np.nan for all missing indices
             for idx, sequence in enumerate(msa.sequences):
                 non_gaped_sequence = str(sequence).replace('-', '')
@@ -1161,7 +1161,7 @@ class SequenceProfile(ABC):
             file_format: msa_supported_types_literal = 'stockholm' - The file type to read the multiple sequence
                 alignment
         Returns:
-            Array with shape (number_of_sequences, length) where the values are the energy for each residue/sequence
+            Array with shape (length, number_of_residues) where the values are the energy for each residue/sequence
                 based on direct coupling analysis parameters
         """
         # Check if required attributes are present
@@ -1199,8 +1199,8 @@ class SequenceProfile(ABC):
         j_idx = np.tile(idx_range, analysis_length)
         i_aa = np.repeat(msa.numerical_alignment, analysis_length)
         j_aa = np.tile(msa.numerical_alignment, msa.query_length)
-        j_values = np.zeros((msa.number_of_sequences, len(i_idx)))
-        for idx in range(msa.number_of_sequences):
+        j_values = np.zeros((msa.length, len(i_idx)))
+        for idx in range(msa.length):
             j_values[idx] = self.j_couplings[i_idx, j_idx, i_aa, j_aa]
         # this mask is not necessary when the array comes in as a non-symmetry matrix. All i > j result in 0 values...
         # mask = np.triu(np.ones((analysis_length, analysis_length)), k=1).flatten()
@@ -1218,8 +1218,8 @@ class SequenceProfile(ABC):
         #    [
         # this stacks all arrays the transpose, which would match the indexing style on j_couplings much better...
         # couplings_idx = np.stack((i_idx, j_idx, i_aa, j_aa), axis=2)
-        # j_sum = np.zeros((self.msa.number_of_sequences, len(couplings_idx)))
-        # for idx in range(self.msa.number_of_sequences):
+        # j_sum = np.zeros((self.msa.length, len(couplings_idx)))
+        # for idx in range(self.msa.length):
         #     j_sum[idx] = j_couplings[couplings_idx[idx]]
         # return -h_sum - j_sum
         return -h_values - j_values

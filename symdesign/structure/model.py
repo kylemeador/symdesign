@@ -1952,7 +1952,6 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
             return {f'{k}_all_seq': v for k, v in msa_feats.items() if k in valid_feats}
 
         # Multiple sequence alignment processing
-        msa = self.msa
         if msas:
             msa_features = af_pipeline.make_msa_features(msas)
             # Can use a single one...
@@ -1974,6 +1973,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 msa_features = af_pipeline.make_msa_features((uniref90_msa,))
                 msa_features.update(make_msa_features_multimeric(msa_features))
         else:
+            msa = self.msa
             if no_msa or msa is None:  # or self.msa_file is None:
                 # When no msa_used, construct our own
                 num_sequences = 1
@@ -1983,7 +1983,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                 numerical_translation_alph1_unknown_gaped_bytes).astype(dtype=np.int32)
             elif msa:
                 deletion_matrix = msa.deletion_matrix.astype(np.int32)  # [:, msa.query_indices]
-                num_sequences = msa.number_of_sequences
+                num_sequences = msa.length
                 species_ids = msa.sequence_identifiers
                 # Set the msa.alphabet_type to ensure the numerical_alignment is embedded correctly
                 msa.alphabet_type = protein_letters_alph1_unknown_gaped
@@ -7345,7 +7345,7 @@ class Pose(SymmetricModel, Metrics):
                 a per-residue hydrophobic_collapse (number_of_residues),
                 and the hydrophobic_collapse profile (number_of_residues) based on Entity.evolutionary_profile instances
         """
-        #       and the hydrophobic_collapse profile (msa.number_of_sequences, msa.length) based on Entity.msa instances
+        #       and the hydrophobic_collapse profile (msa.length, msa.number_of_residues) based on Entity.msa instances
         # Measure the wild type (reference) entity versus modified entity(ies) to find the hci delta
         # Calculate Reference sequence statistics
         contact_order_z, hydrophobic_collapse, hydrophobic_collapse_profile = [], [], []
