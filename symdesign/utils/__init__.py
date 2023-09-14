@@ -166,12 +166,8 @@ def start_log(name: str = '', handler: int = 1, level: logging_level_literal = 2
     _logger.propagate = propagate
     if format_log:
         if no_log_name:
-            # log_format = Formatter('%(levelname)s: %(message)s')
-            # log_format = Formatter('\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
             message_fmt = '\033[38;5;208m{levelname}\033[0;0m: {message}'
         else:
-            # log_format = Formatter('[%(name)s]-%(levelname)s: %(message)s')  # \033[48;5;69m background
-            # log_format = Formatter('\033[38;5;93m%(name)s\033[0;0m-\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
             message_fmt = '\033[38;5;93m{name}\033[0;0m-\033[38;5;208m{levelname}\033[0;0m: {message}'
     else:
         message_fmt = '{message}'
@@ -179,10 +175,13 @@ def start_log(name: str = '', handler: int = 1, level: logging_level_literal = 2
     _handler = log_handler[handler]
     if handler == 2:
         # Check for extension. If one doesn't exist, add ".log"
-        lh = _handler(f'{location}.log' if os.path.splitext(location)[1] == '' else location, delay=True)
+        lh = _handler(f'{location}.log' if os.path.splitext(location)[1] == '' else location,
+                      delay=True)
         # Set delay=True to prevent the log from opening until the first emit() is called
         # Remove any coloring from the log
-        message_fmt = message_fmt.replace('\033[38;5;208m', '').replace('\033[38;5;93m', '').replace('\033[0;0m', '')
+        message_fmt = (message_fmt.replace('\033[38;5;208m', '')
+                       .replace('\033[38;5;93m', '')
+                       .replace('\033[0;0m', ''))
     else:
         # Check if a StreamHandler already exists
         remove_streams = []
@@ -204,7 +203,6 @@ def start_log(name: str = '', handler: int = 1, level: logging_level_literal = 2
     return _logger
 
 
-# logger = start_log(name=__name__)
 # def emit_info_and_lower(record) -> int:
 #     if record.levelno < 21:  # logging.INFO and logging.DEBUG
 #         return 1

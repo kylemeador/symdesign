@@ -4492,8 +4492,8 @@ class SymmetricModel(Model):  # Models):
                         )
                     self.sym_entry.uc_dimensions = uc_dimensions
                     self.sym_entry.cryst_record = self.cryst_record
-                else:
-                    self.sym_entry = sym_entry  # Attach as this is set up properly
+                else:  # SymEntry is set up properly
+                    self.sym_entry = sym_entry
             else:  # Try to solve using sym_entry as integer and any info in symmetry.
                 self.sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(
                     sym_entry_number=sym_entry, symmetry=symmetry)
@@ -4504,9 +4504,7 @@ class SymmetricModel(Model):  # Models):
                 # sym_map=[symmetry] + [entity.symmetry for entity in self.entities]
             )
         else:  # No symmetry was provided
-            # Since this is subclassed by Pose, ignore this error since self.symmetry can be explicitly False
-            # raise utils.SymmetryError('A SymmetricModel was initiated without any symmetry! Ensure you specify the
-            #                           'symmetry upon class initialization by passing symmetry=, or sym_entry=')
+            # Since SymmetricModel is subclassed by Pose, ignore this error as self.symmetry can be explicitly False
             return
 
         if operators is not None:  # Perhaps these would be from a fiber or some sort of BIOMT?
@@ -4553,11 +4551,6 @@ class SymmetricModel(Model):  # Models):
             else:
                 self._expand_matrices, self._expand_translations = \
                     utils.symmetry.space_group_symmetry_operatorsT[self.symmetry]
-
-        # Todo?
-        #  remove any existing symmetry attr from the Model
-        #  if not self.sym_entry:
-        #      del self._symmetry
 
         if self.is_symmetric():  # True if symmetry keyword args were passed
             # Ensure the number of Entity instances matches the SymEntry groups
@@ -9072,9 +9065,9 @@ class Pose(SymmetricModel, Metrics):
                 #     # pose_state could have either fsp (favor_sequence_profile) or cst (constraint) as well
                 #     metric_str = metadata[-2]  # pose_state - un, bound, complex
                 if metric == 'energysolv':
-                    metric_str = f'solv_{metadata[-2]}'  # pose_state - un, bound, complex
+                    metric_str = f'solv_{metadata[-2]}'  # pose_state - unbound, bound, complex
                 elif metric == 'energy':
-                    metric_str = metadata[-2]  # pose_state - un, bound, complex
+                    metric_str = metadata[-2]  # pose_state - unbound, bound, complex
                 else:  # Other residual...
                     if warn_additional:
                         warn_additional = False

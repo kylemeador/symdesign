@@ -595,16 +595,14 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
 
         putils.make_path(self.pose_directory)  # , condition=self.job.construct_pose)
 
-        # Initialize the logger for the Pose
-        log_path = self.log_path
+        # Initialize the logger for the PoseJob
         if self.job.debug:
+            log_path = None
             handler = level = 1  # Defaults to stdout, debug is level 1
             # Don't propagate, emit ourselves
             propagate = no_log_name = False
         elif self.log_path:
-            if self.job.force:
-                log_path = Path(self.log_path)
-                log_path.unlink(missing_ok=True)
+            log_path = self.log_path
             handler = level = 2  # To a file
             propagate = no_log_name = True
         else:  # Log to the __main__ file logger
@@ -612,9 +610,9 @@ class PoseData(PoseDirectory, sql.PoseMetadata):
             handler = level = 2  # To a file
             propagate = no_log_name = False
 
-        if self.job.skip_logging:  # or not self.job.construct_pose:  # Set up null_logger
+        if self.job.skip_logging:  # Set up null_logger
             self.log = logging.getLogger('null')
-        else:  # f'{__name__}.{self}'
+        else:
             self.log = start_log(name=f'pose.{self.project}.{self.name}', handler=handler, level=level,
                                  location=log_path, no_log_name=no_log_name, propagate=propagate)
             # propagate=True allows self.log to pass messages to 'pose' and 'project' logger
@@ -1569,6 +1567,7 @@ class PoseProtocol(PoseData):
         out_file = os.path.join(out_dir, 'flags')
         with open(out_file, 'w') as f:
             f.write('%s\n' % '\n'.join(rosetta_flags))
+        self.log.debug(f'Rosetta flags written to: {out_file}')
 
         return out_file
 
@@ -2354,10 +2353,8 @@ class PoseProtocol(PoseData):
             additional_flags = ['-no_scorefile', 'true']
 
         flags_file = os.path.join(flag_dir, 'flags')
-        if not os.path.exists(flags_file) or self.job.force:
-            self.prepare_rosetta_flags(pdb_out_path=pdb_out_path, out_dir=flag_dir)
-            self.log.debug(f'Pose flags written to: {flags_file}')
-            putils.make_path(pdb_out_path)
+        self.prepare_rosetta_flags(pdb_out_path=pdb_out_path, out_dir=flag_dir)
+        putils.make_path(pdb_out_path)
 
         # Assign designable residues to interface1/interface2 variables, not necessary for non-complexed PDB jobs
         if design_files is not None or in_file_list is not None:  # Run a list of files produced elsewhere
@@ -2548,9 +2545,7 @@ class PoseProtocol(PoseData):
                 nstruct_instruct = ['-nstruct', str(self.job.design.number)]
 
         # DESIGN: Prepare command and flags file
-        if not os.path.exists(self.flags) or self.job.force:
-            self.prepare_rosetta_flags(out_dir=self.scripts_path)
-            self.log.debug(f'Pose flags written to: {self.flags}')
+        self.prepare_rosetta_flags(out_dir=self.scripts_path)
 
         if self.job.design.method == putils.consensus:
             self.protocol = putils.consensus
@@ -3035,7 +3030,7 @@ class PoseProtocol(PoseData):
     def process_rosetta_metrics(self):
         """From Rosetta based protocols, tally the resulting metrics and integrate with SymDesign metrics database"""
         self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseJob(.path)
-        design_scores = metrics.parse_rosetta_scores(self.scores_file)
+        design_scores = metrics.parse_rosetta_scorefile(self.scores_file)
 
         pose_design_scores = design_scores.pop(self.name, None)
         if pose_design_scores:
@@ -4416,7 +4411,7 @@ class PoseProtocol(PoseData):
             # source_df['rmsd_complex'] = 0
             # source_df['rosetta_reference_energy'] = 0
             # source_df['shape_complementarity'] = 0
-            design_scores = metrics.parse_rosetta_scores(self.scores_file)
+            design_scores = metrics.parse_rosetta_scorefile(self.scores_file)
             self.log.debug(f'All designs with scores: {", ".join(design_scores.keys())}')
             # Find designs with scores and structures
             structure_design_scores = {}

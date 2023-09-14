@@ -76,9 +76,7 @@ def custom_rosetta_script(job: pose.PoseJob, script, file_list=None, native=None
     cmd = rosetta.script_cmd.copy()
     script_name = os.path.splitext(os.path.basename(script))[0]
 
-    if not os.path.exists(job.flags) or job.job.force:
-        job.prepare_rosetta_flags(out_dir=job.scripts_path)
-        job.log.debug(f'Pose flags written to: {job.flags}')
+    job.prepare_rosetta_flags(out_dir=job.scripts_path)
 
     if job.symmetry_dimension is not None and job.symmetry_dimension > 0:
         cmd += ['-symmetry_definition', 'CRYST1']
@@ -158,9 +156,7 @@ def interface_metrics(job: pose.PoseJob):
     job.protocol = putils.interface_metrics
     main_cmd = rosetta.script_cmd.copy()
 
-    if not os.path.exists(job.flags) or job.job.force:
-        job.prepare_rosetta_flags(out_dir=job.scripts_path)
-        job.log.debug(f'Pose flags written to: {job.flags}')
+    job.prepare_rosetta_flags(out_dir=job.scripts_path)
 
     if job.current_designs:
         file_paths = [design_.structure_path for design_ in job.current_designs if design_.structure_path]
@@ -206,8 +202,6 @@ def interface_metrics(job: pose.PoseJob):
     job.log.info(f'Metrics command for Pose: {list2cmdline(metric_cmd_bound)}')
     entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
                                           f'metrics_entity{"_DEV" if job.job.development else ""}.xml')]
-    # metric_cmds = [metric_cmd_bound]
-    # metric_cmds.extend(job.generate_entity_metrics_commands(entity_cmd))
     entity_metric_cmds = job.generate_entity_metrics_commands(entity_cmd)
 
     # Create executable to gather interface Metrics on all Designs
@@ -561,9 +555,8 @@ def optimize_designs(job: pose.PoseJob, threshold: float = 0.):
     main_cmd = rosetta.script_cmd.copy()
     if job.symmetry_dimension is not None and job.symmetry_dimension > 0:
         main_cmd += ['-symmetry_definition', 'CRYST1']
-    if not os.path.exists(job.flags) or job.job.force:
-        job.prepare_rosetta_flags(out_dir=job.scripts_path)
-        job.log.debug(f'Pose flags written to: {job.flags}')
+
+    job.prepare_rosetta_flags(out_dir=job.scripts_path)
 
     # DESIGN: Prepare command and flags file
     # Todo - Has this been solved?

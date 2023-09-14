@@ -1128,7 +1128,7 @@ def main():
         else:  # job.pdb_codes job.query_codes
             # Load PoseJob from pdb codes or a pdb query...
             structure_id_to_entity_ids, possibly_new_uniprot_to_prot_metadata = \
-                initialize_structures(job, sym_entry=job.sym_entry,  # paths=job.component1,
+                initialize_structures(job, sym_entry=job.sym_entry,
                                       pdb_codes=job.pdb_codes, query_codes=job.query_codes)
             job.location = list(structure_id_to_entity_ids.keys())
 
@@ -1401,14 +1401,11 @@ def main():
                 #     if not entities:  # Useful in a case where symmetry groups are the same or group is None
                 #         continue
                 #     # all_entities.extend(entities)
-                #     # job.structure_db.orient_structures(
-                #     #     [entity.name for entity in entities], symmetry=symmetry)
-                #     # Can't do this ^ as structure_db.orient_structures sets .name, .symmetry, and .file_path on each Entity
                 #     all_structures.extend(job.structure_db.orient_structures(
                 #         [entity.name for entity in entities], symmetry=symmetry))
                 #     # Todo orient Entity individually, which requires symmetric oligomer be made
                 #     #  This could be found from Pose._assign_pose_transformation() or new mechanism
-                #     #  Where oligomer is deduced from available surface fragment overlap with the specified symmetry...
+                #     #  Where oligomer is deduced from available surface fragment overlap with the specified symmetry
                 #     #  job.structure_db.orient_entities(entities, symmetry=symmetry)
                 #
                 # # Indicate for the ProteinMetadata the characteristics of the Structure in the database
@@ -1628,13 +1625,13 @@ def main():
         # elif job.module == 'custom_script':
         #     # Start pose processing and preparation for Rosetta
         #     if args.multi_processing:
-        #         zipped_args = zip(pose_jobs, repeat(args.script), repeat(args.force), repeat(args.file_list),
+        #         zipped_args = zip(pose_jobs, repeat(args.script), repeat(args.file_list),
         #                           repeat(args.native), repeat(job.suffix), repeat(args.score_only),
         #                           repeat(args.variables))
         #         results = utils.mp_starmap(PoseJob.custom_rosetta_script, zipped_args, processes=job.cores)
         #     else:
         #         for pose_job in pose_jobs:
-        #             results.append(pose_job.custom_rosetta_script(args.script, force=args.force,
+        #             results.append(pose_job.custom_rosetta_script(args.script,
         #                                                           file_list=args.file_list, native=args.native,
         #                                                           suffix=job.suffix, score_only=args.score_only,
         #                                                           variables=args.variables))

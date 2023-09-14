@@ -333,7 +333,7 @@ frag_profile_dependent_metrics = ['divergence_fragment_per_residue', 'observed_f
 # per_res_keys = ['jsd', 'des_jsd', 'int_jsd', 'frag_jsd']
 
 
-def parse_rosetta_scores(file: AnyStr, key: str = 'decoy') -> dict[str, dict[str, str]]:
+def parse_rosetta_scorefile(file: AnyStr, key: str = 'decoy') -> dict[str, dict[str, str]]:
     """Take a json formatted metrics file and incorporate entries into nested dictionaries with "key" as outer key
 
     Automatically formats scores according to conventional metric naming scheme, ex: "R_", "S_", or "M_" prefix removal
