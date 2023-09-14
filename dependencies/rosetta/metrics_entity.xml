@@ -50,9 +50,9 @@
 		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="true" residue_selector="interface_hbond_residues"/>
 		# find the per residue energy of residues in a residue_selector
 <!--		<PerResidueEnergyMetric name="S_M_int_energy_per_res" custom_type="" residue_selector="entity_interface_and_neighbors_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>-->
-		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="" residue_selector="entity_interface_and_neighbors" use_native="false" scoretype="total_score" scorefxn="2015"/>
+		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="" residue_selector="full_pose" use_native="false" scoretype="total_score" scorefxn="2015"/>
 <!--		<PerResidueEnergyMetric name="S_M_solvation_energy_per_res" custom_type="" residue_selector="entity_interface_and_neighbors_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano_solvation"/>-->
-		<PerResidueEnergyMetric name="M_solvation_energy_per_res" custom_type="" residue_selector="entity_interface_and_neighbors" use_native="false" scoretype="total_score" scorefxn="2015_solvation"/>
+		<PerResidueEnergyMetric name="M_solvation_energy_per_res" custom_type="" residue_selector="full_pose" use_native="false" scoretype="total_score" scorefxn="2015_solvation"/>
 	</SIMPLE_METRICS>
 
 	<MOVE_MAP_FACTORIES>
