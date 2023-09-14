@@ -127,8 +127,8 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
         combined_alignment = msa.alignment
         msa_: MultipleSequenceAlignment
         for msa_ in other_msas:
-            length_difference = msa_.length - max_alignment_size
-            if length_difference:
+            length_difference = max_alignment_size - msa_.length
+            if length_difference:  # Not 0
                 msa_.pad_alignment(length_difference)
             combined_alignment += msa_.alignment
         msa = MultipleSequenceAlignment(combined_alignment)

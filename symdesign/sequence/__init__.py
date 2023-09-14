@@ -1874,3 +1874,5 @@ class MultipleSequenceAlignment:
             self.reset_state()
         else:  # axis == 1
             self.insert(self.number_of_positions, '-' * length, msa_index=True)
+
+        logger.debug(f'padded alignment has shape ({self.length}, {self.number_of_positions})')
