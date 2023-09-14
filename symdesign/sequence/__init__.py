@@ -1853,7 +1853,18 @@ class MultipleSequenceAlignment:
             except AttributeError:
                 continue
 
-        # Todo: Need to additionally update:
-        #  observations_by_position, counts_by_position, gaps_by_position
-        #  which are mostly set in the __init__()
-        logger.debug(f'Inserted alignment is shape ({self.number_of_sequences}, {self.length})')
+    def pad_alignment(self, length, axis: int = 0):
+        """Extend the alignment by a set length
+
+        Args:
+            length: The length to pad the alignment
+            axis: The axis to pad. 0 pads the sequences, 1 pads the residues
+        Sets:
+            self.alignment with the specified padding
+        """
+        if axis == 0:
+            dummy_record = SeqRecord(Seq('-' * self.number_of_residues), id='dummy')
+            self.alignment.extend([dummy_record for _ in range(length)])
+            self.reset_state()
+        else:  # axis == 1
+            self.insert(self.number_of_residues, '-' * length, msa_index=True)
