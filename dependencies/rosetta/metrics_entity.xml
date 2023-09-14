@@ -96,7 +96,7 @@
 		# symmetric scorefunction metrics indicated by S_
 <!--		<RunSimpleMetrics name="S_run_metrics_bound" metrics="M_int_hbonds_res_selector,S_M_int_energy_per_res" prefix="" suffix="_%%entity%%_bound" override="false"/>-->
 		<RunSimpleMetrics name="run_metrics_bound" metrics="M_int_hbonds_res_selector,M_int_energy_per_res" prefix="" suffix="_%%entity%%_bound" override="false"/>
-		<RunSimpleMetrics name="run_metrics_total" metrics="M_int_energy_total,M_solvation_energy_total" prefix="" suffix="_%%entity%%_bound" override="false"/>
+		<RunSimpleMetrics name="run_metrics_total" metrics="M_int_energy_total,M_solvation_energy_total" prefix="" suffix="_%%entity%%_unbound" override="false"/>
 <!--		<RunSimpleMetrics name="S_run_solv_metrics_bound" metrics="S_M_solvation_energy_per_res" prefix="" suffix="solv_%%entity%%_bound" override="false"/>-->
 		<RunSimpleMetrics name="run_solv_metrics_bound" metrics="M_solvation_energy_per_res" prefix="" suffix="solv_%%entity%%_bound" override="false"/>
 <!--		<RunSimpleMetrics name="S_run_metrics_unbound" metrics="S_M_int_energy_per_res" prefix="" suffix="_%%entity%%_unbound" override="false"/>-->
@@ -131,12 +131,12 @@
 		# the main protocol to loop over for interface design
 		<ParsedProtocol name="metrics">
 			<Add mover_name="run_metrics_bound"/>
-			<Add mover_name="run_metrics_total"/>  # Added for 9/13/23 test
 			<Add mover_name="run_solv_metrics_bound"/>
 			<Add filter_name="R_buns%%entity%%_unbound"/>
 			<Add mover_name="repack_interface"/> # Unused in P432 for minimization of the unbound state
 			<Add filter_name="R_entity%%entity%%_interface_connectivity"/>
 			<Add mover_name="run_metrics_unbound"/>
+			<Add mover_name="run_metrics_total"/>  # Added for 9/13/23 test
 			<Add mover_name="run_solv_metrics_unbound"/>
 		</ParsedProtocol>
 	</MOVERS>
