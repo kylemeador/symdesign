@@ -1128,7 +1128,7 @@ class SequenceProfile(ABC):
                 #                       f'Supported formats:\n{pretty_format_table(msa_supported_types.items())}')
             msa = self.msa
             # Make the output array. Use one additional length to add np.nan value at the 0 index for gaps
-            evolutionary_collapse_np = np.zeros((msa.length, msa.number_of_residues + 1))
+            evolutionary_collapse_np = np.zeros((msa.length, msa.number_of_positions + 1))
             evolutionary_collapse_np[:, 0] = np.nan  # np.nan for all missing indices
             for idx, sequence in enumerate(msa.sequences):
                 non_gaped_sequence = str(sequence).replace('-', '')

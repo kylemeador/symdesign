@@ -1390,7 +1390,7 @@ class MultipleSequenceAlignment:
             Weight of each sequence in the MSA - [2.390, 2.90, 5.33, 1.123, ...]
         """
         # create a 1/ obs * counts = positional_weights
-        #   alignment.number_of_residues - 0   1   2  ...
+        #  alignment.number_of_positions - 0   1   2  ...
         #      / obs 0 [[32]   count seq 0 '-' -  2   0   0  ...   [[ 64   0   0 ...]  \
         # 1 / |  obs 1  [33] * count seq 1 'A' - 10  10   0  ... =  [330 330   0 ...]   |
         #      \ obs 2  [33]   count seq 2 'C' -  8   8   1  ...    [270 270  33 ...]] /
@@ -1406,7 +1406,7 @@ class MultipleSequenceAlignment:
         logger.critical('New sequence_weights_', sequence_weights)
 
         # # Old calculation
-        # counts_ = [[0 for _ in self.alphabet] for _ in range(self.number_of_residues)]  # list[list]
+        # counts_ = [[0 for _ in self.alphabet] for _ in range(self.number_of_positions)]  # list[list]
         # for sequence in self.sequences:
         #     for _count, aa in zip(counts_, sequence):
         #         _count[numerical_translation_alph1_gaped[aa]] += 1
@@ -1445,7 +1445,7 @@ class MultipleSequenceAlignment:
         """If the alignment should be weighted, and weights are available, the weights for each sequence"""
         self._sequence_weights = sequence_weights
         #
-        # counts_ = [[0 for _ in self.alphabet] for _ in range(self.number_of_residues)]  # list[list]
+        # counts_ = [[0 for _ in self.alphabet] for _ in range(self.number_of_positions)]  # list[list]
         # for sequence in self.sequences:
         #     for i, (_count, aa) in enumerate(zip(counts_, sequence)):
         #         _count[numerical_translation_alph1_gaped[aa]] += sequence_weights_[i]
@@ -1457,7 +1457,7 @@ class MultipleSequenceAlignment:
     def update_counts_by_position_with_sequence_weights(self):
         """Overwrite the current counts with weighted counts"""
         # Add each sequence weight to the indices indicated by the numerical_alignment
-        self._counts_by_position = np.zeros((self.number_of_residues, self.alphabet_length))
+        self._counts_by_position = np.zeros((self.number_of_positions, self.alphabet_length))
         numerical_alignment = self.numerical_alignment
         sequence_weights = self.sequence_weights
         try:
@@ -1497,15 +1497,15 @@ class MultipleSequenceAlignment:
             return self._counts_by_position
         except AttributeError:
             # Set up the counts of each position in the alignment
-            number_of_residues = self.number_of_residues
+            number_of_positions = self.number_of_positions
             alphabet_length = self.alphabet_length
             numerical_alignment = self.numerical_alignment
-            self._counts_by_position = np.zeros((number_of_residues, alphabet_length))
+            self._counts_by_position = np.zeros((number_of_positions, alphabet_length))
 
             # Invert the "typical" format to length of the alignment in axis 0, and the numerical letters in axis 1
-            for residue_idx in range(number_of_residues):
-                self._counts_by_position[residue_idx, :] = \
-                    np.bincount(numerical_alignment[:, residue_idx], minlength=alphabet_length)
+            for position_idx in range(number_of_positions):
+                self._counts_by_position[position_idx, :] = \
+                    np.bincount(numerical_alignment[:, position_idx], minlength=alphabet_length)
 
     @property
     def gap_index(self) -> int:
@@ -1530,7 +1530,12 @@ class MultipleSequenceAlignment:
         """Set the aligned sequence used to query sequence databases for this Alignment"""
         self._query_aligned = sequence
         self.query = sequence.replace('-', '')
-        self.query_length = len(self.query)
+        # self.query_length = len(self.query)
+
+    @property
+    def query_length(self) -> int:
+        """The number of residues in the MultipleSequenceAlignment query"""
+        return len(self.query)
 
     @property
     def length(self) -> int:
@@ -1538,8 +1543,8 @@ class MultipleSequenceAlignment:
         return len(self.alignment)
 
     @property
-    def number_of_residues(self) -> int:
-        """The number of residues found in each sequence of the MultipleSequenceAlignment"""
+    def number_of_positions(self) -> int:
+        """The number of residues plus gaps found in each sequence of the MultipleSequenceAlignment"""
         return self.alignment.get_alignment_length()
 
     @property
@@ -1601,7 +1606,7 @@ class MultipleSequenceAlignment:
 
     @property
     def sequence_indices(self) -> np.ndarray:
-        """View the alignment as a boolean array (length, number_of_residues) where gap positions, "-", are
+        """View the alignment as a boolean array (length, number_of_positions) where gap positions, "-", are
         False
         """
         try:
@@ -1613,15 +1618,15 @@ class MultipleSequenceAlignment:
     @sequence_indices.setter
     def sequence_indices(self, sequence_indices: np.ndarray):
         """Set the indices that should be included in the sequence alignment"""
-        if sequence_indices.shape != (self.length, self.number_of_residues):
+        if sequence_indices.shape != (self.length, self.number_of_positions):
             raise ValueError(
                 f"The shape of the sequence_indices {sequence_indices.shape}, isn't equal to the alignment shape "
-                f"{(self.length, self.number_of_residues)}")
+                f"{(self.length, self.number_of_positions)}")
         self._sequence_indices = sequence_indices
 
     @property
     def numerical_alignment(self) -> np.ndarray:
-        """Return the alignment as an integer array (length, number_of_residues) of the amino acid characters
+        """Return the alignment as an integer array (length, number_of_positions) of the amino acid characters
 
         Maps the instance .alphabet characters to their resulting sequence index
         """
@@ -1639,7 +1644,7 @@ class MultipleSequenceAlignment:
 
     @property
     def array(self) -> np.ndarray:
-        """Return the alignment as a character array (length, number_of_residues) with numpy.string_ dtype"""
+        """Return the alignment as a character array (length, number_of_positions) with numpy.string_ dtype"""
         try:
             return self._array
         except AttributeError:
@@ -1734,9 +1739,10 @@ class MultipleSequenceAlignment:
         #                      for amino_acid_counts, observation in zip(self._counts, self._observations)]
         # logger.critical('OLD self._frequencies', self._frequencies)
 
-        # self.frequencies = np.zeros((self.number_of_residues, self.alphabet_length))  # self.counts.shape)
-        # for residue_idx in range(self.number_of_residues):
-        #     self.frequencies[residue_idx, :] = self.counts[:, :self.gap_index] / self.observations
+        # self.frequencies = np.zeros((self.number_of_positions, self.alphabet_length))  # self.counts.shape)
+        # gap_index = self.gap_index
+        # for position_idx in range(self.number_of_positions):
+        #     self.frequencies[position_idx, :] = self.counts[:, :gap_index] / self.observations
         try:
             return self._frequencies
         except AttributeError:  # Don't use gaped indices
@@ -1750,7 +1756,7 @@ class MultipleSequenceAlignment:
             return self._observations_by_position
         except AttributeError:
             # if count_gaps:
-            #     self._observations_by_position = np.array([self.length for _ in range(self.number_of_residues)])
+            #     self._observations_by_position = np.array([self.length for _ in range(self.number_of_positions)])
             # else:
             # gap_observations = [_aa_counts['-'] for _aa_counts in self.counts]  # list[dict]
             # gap_observations = [_aa_counts[0] for _aa_counts in self.counts]  # list[list]
@@ -1778,9 +1784,9 @@ class MultipleSequenceAlignment:
         of each residue in each sequence
 
         Args:
-            profile: A profile of values with shape (length, alphabet_length) where length is the number_of_residues
+            profile: A profile of values with shape (length, alphabet_length) where length is the number_of_positions
         Returns:
-            The array with shape (length, number_of_residues) with the value for each amino acid index in profile
+            The array with shape (length, number_of_positions) with the value for each amino acid index in profile
         """
         # transposed_alignment = self.numerical_alignment.T
         return np.take_along_axis(profile, self.numerical_alignment.T, axis=1).T
@@ -1809,7 +1815,7 @@ class MultipleSequenceAlignment:
             except IndexError:  # This index is outside of query
                 if at >= self.query_length:
                     # Treat as append
-                    at = self.number_of_residues
+                    at = self.number_of_positions
                 else:
                     raise NotImplementedError(f"Couldn't index with a negative index...")
         begin_slice = slice(at)
@@ -1841,7 +1847,7 @@ class MultipleSequenceAlignment:
 
         # Update alignment dependent features
         self.reset_state()
-        logger.debug(f'Inserted alignment has shape ({self.length}, {self.number_of_residues})')
+        logger.debug(f'Inserted alignment has shape ({self.length}, {self.number_of_positions})')
 
     def reset_state(self):
         """Remove any state attributes"""
@@ -1863,8 +1869,8 @@ class MultipleSequenceAlignment:
             self.alignment with the specified padding
         """
         if axis == 0:
-            dummy_record = SeqRecord(Seq('-' * self.number_of_residues), id='dummy')
+            dummy_record = SeqRecord(Seq('-' * self.number_of_positions), id='dummy')
             self.alignment.extend([dummy_record for _ in range(length)])
             self.reset_state()
         else:  # axis == 1
-            self.insert(self.number_of_residues, '-' * length, msa_index=True)
+            self.insert(self.number_of_positions, '-' * length, msa_index=True)
