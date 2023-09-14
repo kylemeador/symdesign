@@ -116,8 +116,8 @@
 		<PerResidueEnergyMetric name="M_int_energy_fsp_per_res" custom_type="" residue_selector="full_pose" use_native="false" scoretype="res_type_constraint" scorefxn="2015_cst"/>
 		# summarize the energy metrics from above
 <!--		<ResidueSummaryMetric name="S_M_int_energy_total" custom_type="interface_energy" metric="S_M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_complex"/> # cache_prefix="" MISSING FROM 20.47 bundle-->
-		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_complex"/> # cache_prefix="" MISSING FROM 20.47 bundle
-		<ResidueSummaryMetric name="M_solvation_energy_total" custom_type="solvation_energy" metric="M_solvation_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_complex"/> # cache_prefix="" MISSING FROM 20.47 bundle
+<!--  # Added for 9/13/23 test		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_complex"/> # cache_prefix="" MISSING FROM 20.47 bundle-->
+<!--  # Added for 9/13/23 test		<ResidueSummaryMetric name="M_solvation_energy_total" custom_type="solvation_energy" metric="M_solvation_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_complex"/> # cache_prefix="" MISSING FROM 20.47 bundle-->
 <!--		<TotalEnergyMetric name="S_M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_nano_solvation"/>-->
 <!--		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_solvation"/>-->
 		<RMSDMetric name="M_rmsd" custom_type="" residue_selector="tot_interface" residue_selector_ref="tot_interface" use_native="True" rmsd_type="rmsd_protein_bb_heavy"/>
@@ -128,7 +128,7 @@
 	<MOVERS>
 <!--		<RunSimpleMetrics name="S_run_metrics_complex" metrics="S_M_interaction_energy,S_M_int_energy_per_res" prefix="" suffix="_complex" override="false"/>-->
 		<RunSimpleMetrics name="run_metrics_complex" metrics="M_interaction_energy,M_int_energy_per_res" prefix="" suffix="_complex" override="false"/>
-		<RunSimpleMetrics name="run_metrics_total" metrics="M_int_energy_total,M_solvation_energy_total" prefix="" suffix="_complex" override="false"/>
+<!--  # Added for 9/13/23 test		<RunSimpleMetrics name="run_metrics_total" metrics="M_int_energy_total,M_solvation_energy_total" prefix="" suffix="_complex" override="false"/>-->
 <!--		<RunSimpleMetrics name="S_run_solv_metrics_complex" metrics="S_M_solvation_energy_per_res" prefix="" suffix="solv_complex" override="false"/>-->
 		<RunSimpleMetrics name="run_solv_metrics_complex" metrics="M_solvation_energy_per_res" prefix="" suffix="solv_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics" metrics="M_int_hbonds_res_selector,M_rmsd" prefix="" suffix="_complex" override="false"/>
@@ -186,7 +186,7 @@
 	<MOVERS>
 		<ParsedProtocol name="metrics">
 			<Add mover_name="run_metrics_complex"/>
-			<Add mover_name="run_metrics_total"/>  # Added for 9/13/23 test
+<!--			<Add mover_name="run_metrics_total"/>  # Added for 9/13/23 test-->
 			<Add mover_name="run_solv_metrics_complex"/>
 			<Add filter_name="R_full_stability_complex"/>
 			<Add filter_name="R_favor_residue_energy"/>

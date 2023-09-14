@@ -53,8 +53,8 @@
 		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="" residue_selector="full_pose" use_native="false" scoretype="total_score" scorefxn="2015"/>
 <!--		<PerResidueEnergyMetric name="S_M_solvation_energy_per_res" custom_type="" residue_selector="entity_interface_and_neighbors_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano_solvation"/>-->
 		<PerResidueEnergyMetric name="M_solvation_energy_per_res" custom_type="" residue_selector="full_pose" use_native="false" scoretype="total_score" scorefxn="2015_solvation"/>
-		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%entity%%_unbound"/> # cache_prefix="" MISSING FROM 20.47 bundle
-		<ResidueSummaryMetric name="M_solvation_energy_total" custom_type="solvation_energy" metric="M_solvation_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%entity%%_unbound"/> # cache_prefix="" MISSING FROM 20.47 bundle
+<!--  # Added for 9/13/23 test		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%entity%%_unbound"/> # cache_prefix="" MISSING FROM 20.47 bundle-->
+<!--  # Added for 9/13/23 test		<ResidueSummaryMetric name="M_solvation_energy_total" custom_type="solvation_energy" metric="M_solvation_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%entity%%_unbound"/> # cache_prefix="" MISSING FROM 20.47 bundle-->
 	</SIMPLE_METRICS>
 
 	<MOVE_MAP_FACTORIES>
@@ -96,7 +96,7 @@
 		# symmetric scorefunction metrics indicated by S_
 <!--		<RunSimpleMetrics name="S_run_metrics_bound" metrics="M_int_hbonds_res_selector,S_M_int_energy_per_res" prefix="" suffix="_%%entity%%_bound" override="false"/>-->
 		<RunSimpleMetrics name="run_metrics_bound" metrics="M_int_hbonds_res_selector,M_int_energy_per_res" prefix="" suffix="_%%entity%%_bound" override="false"/>
-		<RunSimpleMetrics name="run_metrics_total" metrics="M_int_energy_total,M_solvation_energy_total" prefix="" suffix="_%%entity%%_unbound" override="false"/>
+<!--  # Added for 9/13/23 test		<RunSimpleMetrics name="run_metrics_total" metrics="M_int_energy_total,M_solvation_energy_total" prefix="" suffix="_%%entity%%_unbound" override="false"/>-->
 <!--		<RunSimpleMetrics name="S_run_solv_metrics_bound" metrics="S_M_solvation_energy_per_res" prefix="" suffix="solv_%%entity%%_bound" override="false"/>-->
 		<RunSimpleMetrics name="run_solv_metrics_bound" metrics="M_solvation_energy_per_res" prefix="" suffix="solv_%%entity%%_bound" override="false"/>
 <!--		<RunSimpleMetrics name="S_run_metrics_unbound" metrics="S_M_int_energy_per_res" prefix="" suffix="_%%entity%%_unbound" override="false"/>-->
@@ -136,7 +136,7 @@
 			<Add mover_name="repack_interface"/> # Unused in P432 for minimization of the unbound state
 			<Add filter_name="R_entity%%entity%%_interface_connectivity"/>
 			<Add mover_name="run_metrics_unbound"/>
-			<Add mover_name="run_metrics_total"/>  # Added for 9/13/23 test
+<!--			<Add mover_name="run_metrics_total"/>  # Added for 9/13/23 test-->
 			<Add mover_name="run_solv_metrics_unbound"/>
 		</ParsedProtocol>
 	</MOVERS>
