@@ -117,7 +117,7 @@
 		# summarize the energy metrics from above
 <!--		<ResidueSummaryMetric name="S_M_int_energy_total" custom_type="interface_energy" metric="S_M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_complex"/> # cache_prefix="" MISSING FROM 20.47 bundle-->
 		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_complex"/> # cache_prefix="" MISSING FROM 20.47 bundle
-		<ResidueSummaryMetric name="M_solvation_energy_total" custom_type="interface_energy" metric="M_solvation_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_complex"/> # cache_prefix="" MISSING FROM 20.47 bundle
+		<ResidueSummaryMetric name="M_solvation_energy_total" custom_type="solvation_energy" metric="M_solvation_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_complex"/> # cache_prefix="" MISSING FROM 20.47 bundle
 <!--		<TotalEnergyMetric name="S_M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_nano_solvation"/>-->
 <!--		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_solvation"/>-->
 		<RMSDMetric name="M_rmsd" custom_type="" residue_selector="tot_interface" residue_selector_ref="tot_interface" use_native="True" rmsd_type="rmsd_protein_bb_heavy"/>

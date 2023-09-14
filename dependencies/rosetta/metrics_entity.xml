@@ -54,7 +54,7 @@
 <!--		<PerResidueEnergyMetric name="S_M_solvation_energy_per_res" custom_type="" residue_selector="entity_interface_and_neighbors_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano_solvation"/>-->
 		<PerResidueEnergyMetric name="M_solvation_energy_per_res" custom_type="" residue_selector="full_pose" use_native="false" scoretype="total_score" scorefxn="2015_solvation"/>
 		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%entity%%_unbound"/> # cache_prefix="" MISSING FROM 20.47 bundle
-		<ResidueSummaryMetric name="M_solvation_energy_total" custom_type="interface_energy" metric="M_solvation_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%entity%%_unbound"/> # cache_prefix="" MISSING FROM 20.47 bundle
+		<ResidueSummaryMetric name="M_solvation_energy_total" custom_type="solvation_energy" metric="M_solvation_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%entity%%_unbound"/> # cache_prefix="" MISSING FROM 20.47 bundle
 	</SIMPLE_METRICS>
 
 	<MOVE_MAP_FACTORIES>
