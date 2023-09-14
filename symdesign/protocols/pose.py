@@ -97,7 +97,7 @@ def load_evolutionary_profile(api_db: resources.wrapapi.APIDatabase, model: Mode
                 if evolutionary_profile:
                     # Renumber the profile based on the current length
                     profile = {entry_number: entry
-                               for entry_number, entry in enumerate(profile.items(), len(evolutionary_profile))}
+                               for entry_number, entry in enumerate(profile.values(), len(evolutionary_profile))}
                 evolutionary_profile.update(profile)
 
         if not evolutionary_profile:
