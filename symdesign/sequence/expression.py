@@ -18,6 +18,7 @@ putils = utils.path
 # Globals
 tags = expression_tags
 logger = logging.getLogger(__name__)
+termini_literal = Literal['n', 'c']
 uniprot_pdb_d = utils.unpickle(putils.uniprot_pdb_map)
 
 
@@ -670,9 +671,6 @@ def remove_internal_tags(sequence: str, tag_names: list[str] = None) -> str:
         sequence = sequence[:tag_index] + sequence[tag_index + len(tag_sequence):]
 
     return sequence
-
-
-termini_literal = Literal['n', 'c']
 
 
 def remove_terminal_tags(sequence: str, tag_names: list[str] = None, termini: termini_literal = None) -> str:

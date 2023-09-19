@@ -15,7 +15,7 @@ from symdesign.sequence import constants, optimization_species_literal
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
-from symdesign.structure.base import termini_literal, default_clash_criteria, default_clash_distance, coords_types
+from symdesign.structure.utils import coords_types, default_clash_criteria, default_clash_distance, termini_literal
 from symdesign.utils import handle_errors, InputError, log_level, remove_digit_table, path as putils, \
     pretty_format_table, to_iterable, logging_levels
 from symdesign.utils.SymEntry import query_mode_args

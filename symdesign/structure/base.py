@@ -60,16 +60,11 @@ SS_TURN_IDENTIFIERS = 'TS'
 SS_HELIX_IDENTIFIERS = 'H'  # Todo is 310 helix desired?
 SS_TURN_IDENTIFIERS = 'T'
 SS_DISORDER_IDENTIFIERS = 'C'
-coords_type_literal = Literal['all', 'backbone', 'backbone_and_cb', 'ca', 'cb', 'heavy']
-coords_types: tuple[coords_type_literal, ...] = get_args(coords_type_literal)
-default_clash_criteria = 'backbone_and_cb'
-default_clash_distance = 2.1
 directives = Literal['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding',
                      'branched']
 mutation_directives: tuple[directives, ...] = get_args(directives)
 atom_or_residue_literal = Literal['atom', 'residue']
 structure_container_types = Literal['atoms', 'residues', 'chains', 'entities']
-termini_literal = Literal['n', 'c']
 protein_backbone_atom_types = {'N', 'CA', 'C', 'O'}
 protein_backbone_and_cb_atom_types = {'N', 'CA', 'C', 'O', 'CB'}
 phosphate_backbone_atom_types = {'P', 'OP1', 'OP2'}
@@ -3846,7 +3841,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         return len(self._residue_indices)
 
     def get_coords_subset(self, residue_numbers: Container[int] = None, indices: Iterable[int] = None,
-                          start: int = None, end: int = None, dtype: coords_type_literal = 'ca') -> np.ndarray:
+                          start: int = None, end: int = None, dtype: stutils.coords_type_literal = 'ca') -> np.ndarray:
         """Return a view of a subset of the Coords from the Structure specified by a range of Residue numbers
         
         Args:
@@ -4255,7 +4250,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """Retrieve the Residue from the c-termini"""
         return self.residues[-1]
 
-    def add_ideal_helix(self, termini: termini_literal = 'n', length: int = 5, alignment_length: int = 5):
+    def add_ideal_helix(self, termini: stutils.termini_literal = 'n', length: int = 5, alignment_length: int = 5):
         """Add an ideal helix to a termini given by a certain length
         
         Args:
@@ -4806,7 +4801,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #     """
     #     return ''.join([protein_letters_3to1_extended.get(res.type, '-') for res in self.residues])
 
-    def delete_termini(self, how: str = 'unstructured', termini: termini_literal = None):
+    def delete_termini(self, how: str = 'unstructured', termini: stutils.termini_literal = None):
         """Remove Residue instances from the Structure termini that are not helices
 
         Uses the default secondary structure prediction program's SS_HELIX_IDENTIFIERS (typically 'H') to search for
@@ -5031,7 +5026,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         return [residue.local_density for residue in self.residues]
 
-    def is_clash(self, measure: coords_type_literal = default_clash_criteria, distance: float = default_clash_distance,
+    def is_clash(self, measure: stutils.coords_type_literal = stutils.default_clash_criteria,
+                 distance: float = stutils.default_clash_distance,
                  warn: bool = False, silence_exceptions: bool = False,
                  report_hydrogen: bool = False) -> bool:
         """Check if the Structure contains any self clashes. If clashes occur with the Backbone, return True. Reports
@@ -5497,7 +5493,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #     #         # residue_idx += 1
     #     # self.secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
 
-    def is_termini_helical(self, termini: termini_literal = 'n', window: int = 5) -> bool:
+    def is_termini_helical(self, termini: stutils.termini_literal = 'n', window: int = 5) -> bool:
         """Using assigned secondary structure, probe for helical termini using a segment of 'window' residues. Will
         remove any disordered residues from the specified termini before checking, with the assumption that the
         disordered terminal residues are not integral to the structure
@@ -5518,7 +5514,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             term_window = self.secondary_structure.rstrip(SS_DISORDER_IDENTIFIERS)[-search_window:]
         else:
             raise ValueError(
-                f"The termini value {termini} isn't allowed. Must indicate one of {get_args(termini_literal)}")
+                f"The termini value {termini} isn't allowed. Must indicate one of {get_args(stutils.termini_literal)}")
 
         if 'H' * window in term_window:
             return True  # 1
@@ -5557,7 +5553,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 self.log.warning(f"The passed secondary_structure length, {len(secondary_structure)} != "
                                  f'{self.number_of_residues}, the number of residues')  # . Recalculating...')
 
-    def termini_proximity_from_reference(self, termini: termini_literal = 'n',
+    def termini_proximity_from_reference(self, termini: stutils.termini_literal = 'n',
                                          reference: np.ndarray = utils.symmetry.origin, **kwargs) -> float:
         """From an Entity, find the orientation of the termini from the origin (default) or from a reference point
 

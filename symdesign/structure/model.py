@@ -24,12 +24,13 @@ from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementatio
 # from sqlalchemy.ext.hybrid import hybrid_property
 
 from . import fragment
-from .base import Structure, Structures, Residue, StructureBase, atom_or_residue_literal, default_clash_distance, coords_type_literal, default_clash_criteria
+from .base import Structure, Structures, Residue, StructureBase, atom_or_residue_literal
 from .coords import Coords, superposition3d, superposition3d_quat, transform_coordinate_sets
 from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type
 from .sequence import SequenceProfile, Profile, pssm_as_array, default_fragment_contribution, sequence_to_numeric, \
     sequence_to_one_hot, sequences_to_numeric
-from .utils import DesignError, SymmetryError, chain_id_generator
+from .utils import DesignError, SymmetryError, chain_id_generator, coords_type_literal, default_clash_criteria, \
+    default_clash_distance
 from symdesign import flags, metrics, resources, utils
 from symdesign.resources import ml, query, sql
 from symdesign.sequence import default_substitution_matrix_array, default_substitution_matrix_translation_table, \

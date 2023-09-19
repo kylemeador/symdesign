@@ -17,10 +17,10 @@ from sqlalchemy.orm import selectinload
 from symdesign import flags, utils, structure
 from symdesign.protocols.pose import PoseJob
 from symdesign.resources import job as symjob, sql
-from symdesign.structure.base import Residue, SS_HELIX_IDENTIFIERS, Structure, termini_literal
+from symdesign.structure.base import Residue, SS_HELIX_IDENTIFIERS, Structure
 from symdesign.structure.coords import superposition3d
 from symdesign.structure.model import Chain, Entity, Model, Pose
-from symdesign.structure.utils import chain_id_generator, DesignError
+from symdesign.structure.utils import chain_id_generator, DesignError, termini_literal
 from symdesign.utils import types
 from symdesign.utils.SymEntry import SymEntry
 putils = utils.path
