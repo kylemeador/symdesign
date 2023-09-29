@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def predict_best_pose_from_transformation_cluster(train_trajectories_file, training_clusters):  # UNUSED
-    """From full training Nanohedra, Rosetta Sequecnce Design analyzed trajectories, train a linear model to select the
+    """From full training Nanohedra, Rosetta Sequence Design analyzed trajectories, train a linear model to select the
     best trajectory from a group of clustered poses given only the Nanohedra Metrics
 
     Args:

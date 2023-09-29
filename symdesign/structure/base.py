@@ -60,8 +60,8 @@ SS_TURN_IDENTIFIERS = 'TS'
 SS_HELIX_IDENTIFIERS = 'H'  # Todo is 310 helix desired?
 SS_TURN_IDENTIFIERS = 'T'
 SS_DISORDER_IDENTIFIERS = 'C'
-directives = Literal['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding',
-                     'branched']
+directives = Literal[
+    'special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding', 'branched']
 mutation_directives: tuple[directives, ...] = get_args(directives)
 atom_or_residue_literal = Literal['atom', 'residue']
 structure_container_types = Literal['atoms', 'residues', 'chains', 'entities']
@@ -89,29 +89,28 @@ rna_sugar_atom_types = dna_sugar_atom_types | {"O2'"}
 # N1, C2, O2, N3, C4, O4, C5, C6
 # For DT, i.e. deoxythymidine
 # N1, C2, O2, N3, C4, O4, C5, C7, C6
-
-# mutation_directives = \
-#     ['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding', 'branched']
-residue_properties = {'ALA': {'hydrophobic', 'apolar'},
-                      'CYS': {'special', 'hydrophobic', 'apolar', 'polar', 'hbonding'},
-                      'ASP': {'charged', 'polar', 'hbonding'},
-                      'GLU': {'charged', 'polar', 'hbonding'},
-                      'PHE': {'hydrophobic', 'apolar', 'aromatic'},
-                      'GLY': {'special'},
-                      'HIS': {'charged', 'polar', 'aromatic', 'hbonding'},
-                      'ILE': {'hydrophobic', 'apolar', 'branched'},
-                      'LYS': {'charged', 'polar', 'hbonding'},
-                      'LEU': {'hydrophobic', 'apolar', 'branched'},
-                      'MET': {'hydrophobic', 'apolar'},
-                      'ASN': {'polar', 'hbonding'},
-                      'PRO': {'special', 'hydrophobic', 'apolar'},
-                      'GLN': {'polar', 'hbonding'},
-                      'ARG': {'charged', 'polar', 'hbonding'},
-                      'SER': {'polar', 'hbonding'},
-                      'THR': {'polar', 'hbonding', 'branched'},
-                      'VAL': {'hydrophobic', 'apolar', 'branched'},
-                      'TRP': {'hydrophobic', 'apolar', 'aromatic', 'hbonding'},
-                      'TYR': {'hydrophobic', 'apolar', 'aromatic', 'hbonding'}}
+residue_properties = {
+    'ALA': {'hydrophobic', 'apolar'},
+    'CYS': {'special', 'hydrophobic', 'apolar', 'polar', 'hbonding'},
+    'ASP': {'charged', 'polar', 'hbonding'},
+    'GLU': {'charged', 'polar', 'hbonding'},
+    'PHE': {'hydrophobic', 'apolar', 'aromatic'},
+    'GLY': {'special'},
+    'HIS': {'charged', 'polar', 'aromatic', 'hbonding'},
+    'ILE': {'hydrophobic', 'apolar', 'branched'},
+    'LYS': {'charged', 'polar', 'hbonding'},
+    'LEU': {'hydrophobic', 'apolar', 'branched'},
+    'MET': {'hydrophobic', 'apolar'},
+    'ASN': {'polar', 'hbonding'},
+    'PRO': {'special', 'hydrophobic', 'apolar'},
+    'GLN': {'polar', 'hbonding'},
+    'ARG': {'charged', 'polar', 'hbonding'},
+    'SER': {'polar', 'hbonding'},
+    'THR': {'polar', 'hbonding', 'branched'},
+    'VAL': {'hydrophobic', 'apolar', 'branched'},
+    'TRP': {'hydrophobic', 'apolar', 'aromatic', 'hbonding'},
+    'TYR': {'hydrophobic', 'apolar', 'aromatic', 'hbonding'}
+}
 # useful in generating aa_by_property from mutation_directives and residue_properties
 # aa_by_property = {}
 # for type_ in mutation_directives:
@@ -165,8 +164,8 @@ atomic_polarity_table = {  # apolar = 0, polar = 1
     'GLN': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'OE1': 1, 'NE2': 1}),
     'GLU': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'OE1': 1, 'OE2': 1}),
     'GLY': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1}),
-    'HIS': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'ND1': 1, 'CD2': 0, 'CE1': 0,
-                                       'NE2': 1}),
+    'HIS': defaultdict(unknown_index,
+                       {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'ND1': 1, 'CD2': 0, 'CE1': 0, 'NE2': 1}),
     'ILE': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG1': 0, 'CG2': 0, 'CD1': 0}),
     'LEU': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD1': 0, 'CD2': 0}),
     'LYS': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'CE': 0, 'NZ': 1}),
@@ -187,16 +186,16 @@ hydrogens = {   # the doubled up numbers (and single number second) are from PDB
             '1HH2': 1, '2HH2': 1,
             'HB1': 0, 'HB2': 0, 'HG1': 0, 'HG2': 0, 'HD1': 0, 'HD2': 0, 'HH11': 1, 'HH12': 1, 'HH21': 1, 'HH22': 1},
     'ASN': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HD2': 1, '2HD2': 1, 'HB1': 0, 'HB2': 0, 'HD21': 1, 'HD22': 1,
-            '1HD1': 1, '2HD1': 1, 'HD11': 1, 'HD12': 1},  # these are the alternative specification
+            '1HD1': 1, '2HD1': 1, 'HD11': 1, 'HD12': 1},  # These are the alternative specification
     'ASP': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HB1': 0, 'HB2': 0},
     'CYS': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HB1': 0, 'HB2': 0, 'HG': 1},
     'GLN': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HE2': 1, '2HE2': 1, 'HB1': 0, 'HB2': 0, 'HG1': 0,
             'HG2': 0, 'HE21': 1, 'HE22': 1,
-            '1HE1': 1, '2HE1': 1, 'HE11': 1, 'HE12': 1},  # these are the alternative specification
+            '1HE1': 1, '2HE1': 1, 'HE11': 1, 'HE12': 1},  # These are the alternative specification
     'GLU': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, 'HB1': 0, 'HB2': 0, 'HG1': 0, 'HG2': 0},
     'GLY': {'H': 1, '1HA': 0, 'HA1': 0, '2HA': 0, 'HA2': 0, '3HA': 0, 'HA3': 0},
     'HIS': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 1, 'HD2': 0, 'HE1': 0, 'HE2': 1, 'HB1': 0, 'HB2': 0, '1HD': 1,
-            '2HD': 0, '1HE': 0, '2HE': 1},  # this assumes HD1 is on ND1, HE2 is on NE2
+            '2HD': 0, '1HE': 0, '2HE': 1},  # This assumes HD1 is on ND1, HE2 is on NE2
     'ILE': {'H': 1, 'HA': 0, 'HB': 0, '1HG1': 0, '2HG1': 0, '1HG2': 0, '2HG2': 0, '3HG2': 0, '1HD1': 0, '2HD1': 0,
             '3HD1': 0, 'HG11': 0, 'HG12': 0, 'HG21': 0, 'HG22': 0, 'HG23': 0, 'HD11': 0, 'HD12': 0, 'HD13': 0,
             'HG13': 0, '3HG1': 0},  # this is the alternative specification

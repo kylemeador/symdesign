@@ -396,7 +396,9 @@ class FragObservation(NamedTuple):
     source: str
     cluster: tuple[int, int, int]
     match: float
+    """The match of the entire fragment observation to the fragment cluster representative"""
     weight: float
+    """The contribution of the FragObservation to atomic interactions from the entire fragment observation"""
     frequencies: info.aa_weighted_counts_type
 
     def __hash__(self):
@@ -1376,7 +1378,7 @@ class SequenceProfile(ABC):
         no_design = []
         fragment_profile = [[{} for _ in range(self._fragment_db.fragment_length)]
                             for _ in range(self.number_of_residues)]
-        # for residue_index, indexed_observations in enumerate(self._fragment_profile):
+        indexed_observations: dict[int, set[FragObservation]]
         for residue_index, indexed_observations in enumerate(self.fragment_map):
             total_fragment_observations = total_fragment_weight = 0
             # for index, observations in enumerate(indexed_observations):
@@ -1418,8 +1420,6 @@ class SequenceProfile(ABC):
 
             # Combine all index observations into one residue frequency distribution
             # Set stats over all residue indices and observations
-            # residue_frequencies: dict[utils.profile_keys, str | lod_dictionary | float | list[float]] = \
-            #     aa_counts_alph3.copy()
             residue_frequencies = {'count': total_fragment_observations,
                                    'weight': total_fragment_weight,
                                    'info': 0.}
@@ -1445,7 +1445,6 @@ class SequenceProfile(ABC):
             # Since self.evolutionary_profile is copied or removed, an empty dictionary is fine here
             # If this changes, maybe the == 0 condition needs an aa_counts_alph3.copy() instead of {}
 
-        # if keep_extras:
         if evo_fill and self.evolutionary_profile:
             # If not an empty dictionary, add the corresponding value from evolution
             # For Rosetta, the packer palette is subtractive so the use of an overlapping evolution and
@@ -1462,9 +1461,6 @@ class SequenceProfile(ABC):
                 new_entry = nan_profile_entry.copy()
                 new_entry['type'] = sequence[residue_index]
                 fragment_profile[residue_index] = new_entry
-        # else:  # Remove missing residues from dictionary
-        #     for residue_index in no_design:
-        #         fragment_profile.pop(residue_index)
 
         # Format into fragment_profile Profile object
         self.fragment_profile = Profile(fragment_profile, dtype='fragment')
@@ -1508,8 +1504,9 @@ class SequenceProfile(ABC):
                 f'{self._calculate_alpha.__name__}: Alpha parameter must be bounded between 0 and 1')
 
         alignment_type_to_idx = {'mapped': 0, 'paired': 1}  # could move to class, but not used elsewhere
-        match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
+        match_score_default_value = 0.5  # When fragment pair RMSD is equal to the mean cluster size RMSD
         bounded_floor = 0.2
+        default_match_score_floor = match_score_default_value - bounded_floor
         fragment_stats = self._fragment_db.statistics
         # self.alpha.clear()  # Reset the data
         self.alpha = [0 for _ in self.residues]  # Reset the data
@@ -1517,42 +1514,44 @@ class SequenceProfile(ABC):
             # Can't use the match count as the fragment index may have no useful residue information
             # Instead use number of fragments with SC interactions count from the frequency map
             frag_count = data.get('count', None)
-            if not frag_count:  # When data is missing 'stats', or 'stats'[0] is 0
-                # self.alpha[entry] = 0.
-                continue  # Move on, this isn't a fragment observation, or we have no observed fragments
+            if not frag_count:  # When data is missing 'count' or count is 0
+                continue  # Move on, this isn't a fragment observation, or no observed fragments
+            else:  # Cast as a float
+                frag_count = float(frag_count)
 
             # Match score 'match' is bounded between [0.2, 1]
             match_sum = sum(observation.match
                             for index_observations in fragment_map.values()
                             for observation in index_observations)
-            # if count == 0:
-            #     # ensure that match modifier is 0 so self.alpha[entry] is 0, as there is no fragment information here!
-            #     count = match_sum * 5  # makes the match average = 0.5
 
-            match_average = match_sum / float(frag_count)
             # Find the match modifier which spans from 0 to 1
-            if match_average < match_score_average:
-                match_modifier = (match_average-bounded_floor) / (match_score_average-bounded_floor)
+            average_match_score = match_sum / frag_count
+            if average_match_score < match_score_default_value:
+                # The match score is below the mean cluster RMSD match score. Subtract the floor to set a useful value
+                match_modifier = (average_match_score-bounded_floor) / default_match_score_floor
             else:  # Set modifier to 1, the maximum bound
-                match_modifier = 1
+                match_modifier = 1.
 
             # Find the total contribution from a typical fragment of this type
-            contribution_total = sum(fragment_stats[f'{observation.cluster[0]}_{observation.cluster[1]}_0']
-                                     [0][alignment_type_to_idx[observation.source]]
-                                     for index_observations in fragment_map.values()
-                                     for observation in index_observations)
+            typical_fragment_weight_total = sum(
+                fragment_stats[f'{observation.cluster[0]}_{observation.cluster[1]}_0'][0]
+                [alignment_type_to_idx[observation.source]] for index_observations in fragment_map.values()
+                for observation in index_observations)
 
             # Get the average contribution of each fragment type
-            stats_average = contribution_total / frag_count
-            # Get entry average fragment weight. total weight for issm entry / count
+            db_cluster_average = typical_fragment_weight_total / frag_count
+            # Get the average fragment weight for this fragment_profile entry. Total weight/count
             frag_weight_average = data.get('weight') / match_sum
 
-            # Modify alpha proportionally to cluster average weight and match_modifier
-            # If design frag weight is less than db cluster average weight
-            if frag_weight_average < stats_average:
-                self.alpha[entry] = self._alpha * match_modifier * (frag_weight_average/stats_average)
+            # Find the weight modifier which spans from 0 to 1
+            if db_cluster_average > frag_weight_average:
+                # Scale the weight modifier by the difference between the cluster and the observations
+                weight_modifier = frag_weight_average / db_cluster_average
             else:
-                self.alpha[entry] = self._alpha * match_modifier
+                weight_modifier = 1.
+
+            # Modify alpha proportionally to match_modifier in addition to cluster average weight
+            self.alpha[entry] = self._alpha * match_modifier * weight_modifier
 
     def calculate_profile(self, favor_fragments: bool = False, boltzmann: bool = True, **kwargs):
         """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
@@ -1560,8 +1559,8 @@ class SequenceProfile(ABC):
         Using self.evolutionary_profile
             (ProfileDict): HHblits - {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
                                                  'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
-                                  PSIBLAST - {1: {'A': 0.13, 'R': 0.12, ..., 'lod': {'A': -5, 'R': 2, ...},
-                                                  'type': 'W', 'info': 3.20, 'weight': 0.73}, {...}}
+                           PSIBLAST - {1: {'A': 0.13, 'R': 0.12, ..., 'lod': {'A': -5, 'R': 2, ...},
+                                           'type': 'W', 'info': 3.20, 'weight': 0.73}, {...}}
         self.fragment_profile
             (dict[int, dict[str, float | list[float]]]):
                 {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'count': 4, 'weight': 0.274}, 50: {...}, ...}
@@ -1582,7 +1581,7 @@ class SequenceProfile(ABC):
         """
         if self._alpha == 0:
             # Round up to avoid division error
-            self.log.debug(f'{self.calculate_profile.__name__}: _alpha set with 1e-5 tolerance due to 0 value')
+            self.log.warning(f'{self.calculate_profile.__name__}: _alpha set with 1e-5 tolerance due to 0 value')
             self._alpha = 0.000001
 
         # Copy the evolutionary profile to self.profile (structure specific scoring matrix)

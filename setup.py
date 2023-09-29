@@ -269,21 +269,21 @@ def setup(args):
             ['Y', 'S'])
         while True:
             if choice1 == 'Y':
-                print('Next, you will want to move the downloaded tarball to a directory where all the Rosetta software '
-                      'will be stored. Follow typical software recommendations for the directory or choose your own.\n'
+                print('Next, you will want to move the downloaded tarball to a directory where all the Rosetta software'
+                      ' will be stored. Follow typical software recommendations for the directory or choose your own.\n'
                       'Once moved, you will want to unzip/extract all files in the tarball.\n'
                       'This can be done with the command tar -zxvf [tarball_name_here] in a new terminal')
                 input('This command may take some time.\n'
-                      f'In the meantime, you may be interested in reading about compilation "{rosetta_compile_url}" and '
-                      f'different features available for increasing computation time "{rosetta_extras_url}".'
+                      f'In the meantime, you may be interested in reading about compilation "{rosetta_compile_url}" and'
+                      f' different features available for increasing computation time "{rosetta_extras_url}".'
                       f'Once this is finished press "Enter" on your keyboard.{input_string}')
-                input("Finally, lets compile Rosetta. If you aren't familiar with this process and haven't looked at the "
-                      'above links, check them out for assistance. To take full advantage of computation time, think '
-                      'carefully about how your computing environment can be set up to work with Rosetta. It is recommended'
-                      ' for large design batches to simply use default options for compilation. If you want to have '
-                      'individual jobs finish quicker, MPI compatibility may be of interest. Navigate to the MPI resources '
-                      'in rosettacommons.org for more information on setting this up.\nPress "Enter" once you have '
-                      f'completed compilation.{input_string}')
+                input("Finally, lets compile Rosetta. If you aren't familiar with this process and haven't looked at "
+                      'the above links, check them out for assistance. To take full advantage of computation time, '
+                      'think carefully about how your computing environment can be set up to work with Rosetta. It is '
+                      'recommended for large design batches to simply use default options for compilation. If you want '
+                      'to have individual jobs finish quicker, MPI compatibility may be of interest. Navigate to the '
+                      'MPI resources in rosettacommons.org for more information on setting this up.\nPress "Enter" once'
+                      f' you have completed compilation.{input_string}')
                 break
             elif choice1 == 'S':
                 break
@@ -311,7 +311,7 @@ def setup(args):
                 if i == number_rosetta_variables:
                     while rosetta_env_variable == '':
                         print('Failed detection of Rosetta environmental variable = '
-                              f'{", ".join(op(rosetta_str) for op in string_ops)}')
+                              f'{", ".join(op(putils.rosetta_str) for op in string_ops)}')
                         print('For setup to be fully functional, the location of your Rosetta install needs to be '
                               'accessed. It is recommended to modify your shell to include an environmental variable '
                               "'ROSETTA' (accessed at '$ROSETTA'), leading to the 'main' directory of Rosetta.")

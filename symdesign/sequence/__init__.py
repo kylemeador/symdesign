@@ -273,23 +273,24 @@ default_substitution_matrix_array = np.array(default_substitution_matrix_)
 blastp_open_gap_score = -12.  # gap_penalty
 blastp_extend_gap_score = -1.  # gap_ext_penalty
 protein_alignment_variables = dict(
-    target_left_open_gap_score=0,
-    target_left_extend_gap_score=0,
-    target_right_open_gap_score=0,
-    target_right_extend_gap_score=0,
-    query_internal_open_gap_score=blastp_open_gap_score,
-    target_internal_open_gap_score=blastp_open_gap_score,
-    query_internal_extend_gap_score=blastp_extend_gap_score,
-    target_internal_extend_gap_score=blastp_extend_gap_score,
     query_left_open_gap_score=0,
     query_left_extend_gap_score=0,
+    target_left_open_gap_score=0,
+    target_left_extend_gap_score=0,
+    query_internal_open_gap_score=blastp_open_gap_score,
+    query_internal_extend_gap_score=blastp_extend_gap_score,
+    target_internal_open_gap_score=blastp_open_gap_score,
+    target_internal_extend_gap_score=blastp_extend_gap_score,
     query_right_open_gap_score=0,
     query_right_extend_gap_score=0,
+    target_right_open_gap_score=0,
+    target_right_extend_gap_score=0,
 )
 
 
 def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = default_substitution_matrix_name,
-                       local: bool = False, top_alignment: bool = True) -> Alignment | PairwiseAlignments:
+                       local: bool = False, top_alignment: bool = True, **alignment_kwargs) \
+        -> Alignment | PairwiseAlignments:
     """Use Biopython's pairwise2 to generate a sequence alignment
 
     Args:
@@ -298,6 +299,19 @@ def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = d
         matrix: The matrix used to compare character similarities
         local: Whether to run a local alignment. Only use for generally similar sequences!
         top_alignment: Only include the highest scoring alignment
+    Keyword Args:
+        query_left_open_gap_score: int = 0 - The score used for opening a gap in the alignment procedure
+        query_left_extend_gap_score: int = 0 - The score used for extending a gap in the alignment procedure
+        target_left_open_gap_score: int = 0 - The score used for opening a gap in the alignment procedure
+        target_left_extend_gap_score: int = 0 - The score used for extending a gap in the alignment procedure
+        query_internal_open_gap_score: int = -12 - The score used for opening a gap in the alignment procedure
+        query_internal_extend_gap_score: int = -1 - The score used for extending a gap in the alignment procedure
+        target_internal_open_gap_score: int = -12 - The score used for opening a gap in the alignment procedure
+        target_internal_extend_gap_score: int = -1 - The score used for extending a gap in the alignment procedure
+        query_right_open_gap_score: int = 0 - The score used for opening a gap in the alignment procedure
+        query_right_extend_gap_score: int = 0 - The score used for extending a gap in the alignment procedure
+        target_right_open_gap_score: int = 0 - The score used for opening a gap in the alignment procedure
+        target_right_extend_gap_score: int = 0 - The score used for extending a gap in the alignment procedure
     Returns:
         The resulting alignment(s). Will be an Alignment object if top_alignment is True else PairwiseAlignments object
     """
@@ -306,16 +320,22 @@ def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = d
         try:  # To get the new matrix and store for future ops
             matrix_ = _substitution_matrices_cache[matrix] = substitution_matrices.load(matrix)
         except FileNotFoundError:  # Missing this
-            raise KeyError(f"Couldn't find the substitution matrix '{matrix}' ")
+            raise KeyError(
+                f"Couldn't find the substitution matrix '{matrix}' ")
 
     if local:
         mode = 'local'
     else:
         mode = 'global'
 
+    if alignment_kwargs:
+        protein_alignment_variables_ = protein_alignment_variables.copy()
+        protein_alignment_variables_.update(**alignment_kwargs)
+    else:
+        protein_alignment_variables_ = protein_alignment_variables
     # logger.debug(f'Generating sequence alignment between:\n{seq1}\n\tAND:\n{seq2}')
     # Create sequence alignment
-    aligner = PairwiseAligner(mode=mode, substitution_matrix=matrix_, **protein_alignment_variables)
+    aligner = PairwiseAligner(mode=mode, substitution_matrix=matrix_, **protein_alignment_variables_)
     try:
         alignments = aligner.align(seq1, seq2)
     except ValueError:  # sequence contains letters not in the alphabet
@@ -1378,6 +1398,30 @@ class MultipleSequenceAlignment:
 
         # self.observations = find_column_observations(self.counts, **kwargs)
 
+    @property
+    def sequence_weights(self) -> list[float]:
+        """Weights for each sequence in the alignment. Default is based on the sequence "surprise", however provided
+        weights can also be set
+        """
+        try:
+            return self._sequence_weights
+        except AttributeError:
+            self._sequence_weights = self.weight_alignment_by_sequence()
+
+    @sequence_weights.setter
+    def sequence_weights(self, sequence_weights: list[float]):
+        """If the alignment should be weighted, and weights are available, the weights for each sequence"""
+        self._sequence_weights = sequence_weights
+        #
+        # counts_ = [[0 for _ in self.alphabet] for _ in range(self.number_of_positions)]  # list[list]
+        # for sequence in self.sequences:
+        #     for i, (_count, aa) in enumerate(zip(counts_, sequence)):
+        #         _count[numerical_translation_alph1_gaped[aa]] += sequence_weights_[i]
+        #         # self.counts[i][aa] += sequence_weights[i]
+        #
+        # self._counts = counts_
+        # logger.critical('OLD sequence_weight self._counts', self._counts)
+
     def weight_alignment_by_sequence(self) -> list[float]:
         """Measure diversity/surprise when comparing a single alignment entry to the rest of the alignment
 
@@ -1430,31 +1474,7 @@ class MultipleSequenceAlignment:
 
         return sequence_weights
 
-    @property
-    def sequence_weights(self) -> list[float]:
-        """Weights for each sequence in the alignment. Default is based on the sequence "surprise", however provided
-        weights can also be set
-        """
-        try:
-            return self._sequence_weights
-        except AttributeError:
-            self._sequence_weights = self.weight_alignment_by_sequence()
-
-    @sequence_weights.setter
-    def sequence_weights(self, sequence_weights: list[float]):
-        """If the alignment should be weighted, and weights are available, the weights for each sequence"""
-        self._sequence_weights = sequence_weights
-        #
-        # counts_ = [[0 for _ in self.alphabet] for _ in range(self.number_of_positions)]  # list[list]
-        # for sequence in self.sequences:
-        #     for i, (_count, aa) in enumerate(zip(counts_, sequence)):
-        #         _count[numerical_translation_alph1_gaped[aa]] += sequence_weights_[i]
-        #         # self.counts[i][aa] += sequence_weights[i]
-        #
-        # self._counts = counts_
-        # logger.critical('OLD sequence_weight self._counts', self._counts)
-
-    def update_counts_by_position_with_sequence_weights(self):
+    def update_counts_by_position_with_sequence_weights(self):  # UNUSED
         """Overwrite the current counts with weighted counts"""
         # Add each sequence weight to the indices indicated by the numerical_alignment
         self._counts_by_position = np.zeros((self.number_of_positions, self.alphabet_length))
