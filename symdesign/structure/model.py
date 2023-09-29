@@ -1287,7 +1287,7 @@ class Entity(Chain, ContainsChainsMixin, Metrics):
                     # Todo remove self.thermophilicity once sql load more streamlined
                     self.thermophilicity = data
                 elif data_type == 'dbref':
-                    if data.get('db') == query.utils.UKB:
+                    if data.get('db') == query.pdb.UKB:
                         self.uniprot_ids = data.get('accession')
         else:
             self.log.warning(f'Entity {self.name}: No information found from PDB API')
@@ -3687,14 +3687,14 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             dbref = data.get('dbref', None)
             if dbref is not None:
                 db_source = dbref.get('db')
-                if db_source == query.utils.UKB:  # This is a protein
+                if db_source == query.pdb.UKB:  # This is a protein
                     uniprot_ids = dbref['accession']
                     # Todo put all Entity.from_chains() in this flow control segment
                     #  once uniprot_ids can be queried with blastp
-                elif db_source == query.utils.GB:  # Nucleotide
+                elif db_source == query.pdb.GB:  # Nucleotide
                     self.log.critical(f'Found a PDB API database source of {db_source} for the Entity {entity_name}'
                                       f'This is currently not parsable')
-                elif db_source == query.utils.NOR:  # Nucleotide
+                elif db_source == query.pdb.NOR:  # Nucleotide
                     self.log.critical(f'Found a PDB API database source of {db_source} for the Entity {entity_name}'
                                       f'This is currently not parsable')
             else:

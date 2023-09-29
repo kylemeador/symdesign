@@ -10,13 +10,13 @@ from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean, sele
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.ext.orderinglist import ordering_list
-from sqlalchemy.orm import column_property, declarative_base, relationship, Session
+from sqlalchemy.orm import declarative_base, relationship, Session  # column_property
 # from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, declarative_base  # Todo sqlalchemy 2.0
 # from sqlalchemy import create_engine
 # from sqlalchemy.dialects.sqlite import insert
 
 from . import config
-from .query.utils import UKB
+from .query.pdb import UKB
 from symdesign.utils import path as putils, SymDesignException, symmetry, types
 
 

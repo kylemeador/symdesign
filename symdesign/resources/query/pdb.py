@@ -13,10 +13,16 @@ import requests
 
 from symdesign import utils
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, validate_input, invalid_string, \
-    header_string, format_string, connection_exception_handler, UKB, GB
+    header_string, format_string, connection_exception_handler
 putils = utils.path
 
 # Globals
+GB = 'GenBank'
+"""The module level identifier for a GenBankID"""
+NOR = 'Norine'
+"""The module level identifier for a NorineID"""
+UKB = 'UniProt'
+"""The module level identifier for a UniProtID"""
 logger = logging.getLogger(__name__)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 qsbio_confirmed: Annotated[dict[str, list[int]],
