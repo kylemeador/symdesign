@@ -145,9 +145,6 @@ mask_residues = 'mask_residues'
 mask_chains = 'mask_chains'
 require_residues = 'require_residues'
 require_chains = 'require_chains'
-rosetta = 'rosetta'
-alphafold_database = 'alphafold_database'
-hhsuite_database = 'hhsuite_database'
 use_proteinmpnn = 'use_proteinmpnn'
 # Set up JobResources namespaces for different categories of flags
 cluster_namespace = {
@@ -361,9 +358,6 @@ require_chains = format_for_cmdline(require_chains)
 design_residues = format_for_cmdline(design_residues)
 mask_residues = format_for_cmdline(mask_residues)
 mask_chains = format_for_cmdline(mask_chains)
-rosetta = format_for_cmdline(rosetta)
-alphafold_database = format_for_cmdline(alphafold_database)
-hhsuite_database = format_for_cmdline(hhsuite_database)
 
 select_modules = (
     select_poses,
@@ -812,21 +806,6 @@ output_directory_kwargs = dict(type=os.path.abspath, dest='output_directory',
                                     'Otherwise, one will be generated based on the time, input, and module')
 output_file_args = ('-Of', f'--{output_file}')
 quick_args = (f'--{quick}',)
-# ---- setup.py specific args ----
-setup_args = ('--setup',)
-setup_kwargs = dict(action='store_true', help=f'Show set up instructions')
-alphafold_database_args = (f'--{alphafold_database}',)
-alphafold_database_kwargs = \
-    dict(action='store_true', help=f'Whether {program_name} should be set up with AlphaFold databases')
-hhsuite_database_args = (f'--{hhsuite_database}',)
-hhsuite_database_kwargs = \
-    dict(action='store_true', help=f'Whether {program_name} should be set up with hhsuite databases')
-rosetta_args = (f'--{rosetta}',)
-rosetta_kwargs = \
-    dict(action='store_true', help=f'Whether {program_name} should be set up with Rosetta dependency')
-dry_run = 'dry_run'
-dry_run_args = (f'--{dry_run}',)
-dry_run_kwargs = dict(action='store_true', help=f'Is this a real install or a "dry run"?')
 # ---------------------------------------------------
 all_flags_help = f'Display all {program_name} flags'
 parser_all_flags = dict(description=all_flags_help, add_help=False)  # help=all_flags_help,

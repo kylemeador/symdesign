@@ -480,13 +480,31 @@ def setup(args):
 if __name__ == '__main__':
     # Todo
     #  setuptools.py aware
+    # ---- setup.py specific args ----
+    setup_args = ('--setup',)
+    setup_kwargs = dict(action='store_true', help=f'Show set up instructions')
+    # alphafold_database = 'alphafold_database'
+    # hhsuite_database = 'hhsuite_database'
+    alphafold_database_args = (f'--alphafold-database',)
+    alphafold_database_kwargs = \
+        dict(action='store_true', help=f'Whether {putils.program_name} should be set up with AlphaFold databases')
+    hhsuite_database_args = (f'--hhsuite-database',)
+    hhsuite_database_kwargs = \
+        dict(action='store_true', help=f'Whether {putils.program_name} should be set up with hhsuite databases')
+    rosetta_args = (f'--{putils.rosetta_str}',)
+    rosetta_kwargs = \
+        dict(action='store_true', help=f'Whether {putils.program_name} should be set up with Rosetta dependency')
+    dry_run = 'dry_run'
+    dry_run_args = (f'--{dry_run}',)
+    dry_run_kwargs = dict(action='store_true', help=f'Is this a real install or a "dry run"?')
+
     parser = argparse.ArgumentParser(
         description=f'{os.path.basename(__file__)}: Set up {putils.program_name} for usage')
     arguments = {
-        flags.alphafold_database_args: flags.alphafold_database_kwargs,
-        flags.dry_run_args: flags.dry_run_kwargs,
-        flags.hhsuite_database_args: flags.hhsuite_database_kwargs,
-        flags.rosetta_args: flags.rosetta_kwargs
+        alphafold_database_args: alphafold_database_kwargs,
+        dry_run_args: dry_run_kwargs,
+        hhsuite_database_args: hhsuite_database_kwargs,
+        rosetta_args: rosetta_kwargs
     }
     for _flags, flags_params in arguments.items():
         parser.add_argument(*_flags, **flags_params)
