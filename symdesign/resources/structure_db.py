@@ -1052,7 +1052,7 @@ class StructureDatabase(Database):
                     f.write('%s\n' % '\n'.join(_flags))
 
                 refine_cmd = [f'@{flags_file}', '-parser:protocol',
-                              os.path.join(putils.rosetta_scripts_dir, f'{putils.refine}.xml')]
+                              os.path.join(putils.rosetta_scripts_dir, f'refine.xml')]
                 refine_cmds = [utils.rosetta.script_cmd + refine_cmd
                                + ['-in:file:s', protein.model_source, '-parser:script_vars']
                                + [f'sdf={sym_def_files[protein.symmetry_group]}',

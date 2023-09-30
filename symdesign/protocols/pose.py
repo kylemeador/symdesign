@@ -2447,7 +2447,7 @@ class PoseProtocol(PoseData):
                          '-no_nstruct_label', 'true'] + metrics_pdb + ['-parser:protocol']
             dev_label = '_DEV' if self.job.development else ''
             metric_cmd_bound = main_cmd \
-                + [os.path.join(putils.rosetta_scripts_dir, f'{putils.interface_metrics}{dev_label}.xml')] \
+                + [os.path.join(putils.rosetta_scripts_dir, f'interface_metrics{dev_label}.xml')] \
                 + symmetry_definition
             entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir, f'metrics_entity{dev_label}.xml')]
             self.log.info(f'Metrics command for Pose: {list2cmdline(metric_cmd_bound)}')
@@ -2557,7 +2557,7 @@ class PoseProtocol(PoseData):
             design_cmd = main_cmd + rosetta.relax_flags_cmdline \
                 + [f'@{self.flags}', '-in:file:s', self.consensus_pdb,
                    # '-in:file:native', self.refined_pdb,
-                   '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{putils.consensus}.xml'),
+                   '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'consensus.xml'),
                    '-out:suffix', f'_{self.protocol}', '-parser:script_vars', f'switch={putils.consensus}']
         else:
             design_cmd = main_cmd + profile_cmd + \
