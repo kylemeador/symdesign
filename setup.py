@@ -481,8 +481,6 @@ if __name__ == '__main__':
     # Todo
     #  setuptools.py aware
     # ---- setup.py specific args ----
-    setup_args = ('--setup',)
-    setup_kwargs = dict(action='store_true', help=f'Show set up instructions')
     # alphafold_database = 'alphafold_database'
     # hhsuite_database = 'hhsuite_database'
     alphafold_database_args = (f'--alphafold-database',)

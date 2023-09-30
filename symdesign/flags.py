@@ -853,6 +853,8 @@ proteinmpnn_model_kwargs = dict(choices=proteinmpnn_models, default='v_48_020', 
                                      'where the model name takes the form v_X_Y, with X indicating\n'
                                      'The number of neighbors, and Y indicating the training noise\n'
                                      'Choices=%(choices)s\nDefault=%(default)s')
+setup_args = ('--setup',)
+setup_kwargs = dict(action='store_true', help=f'Show set up instructions')
 options_arguments = {
     cores_args: dict(type=int, default=cpu_count(logical=False) - 1, metavar='INT',
                      help=f'Number of cores to use with {format_args(multiprocessing_args)}\n'

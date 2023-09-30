@@ -566,15 +566,12 @@ def main():
             #           % (putils.ex_path('pymol'), putils.program_command.replace('python ', ''),
             #              putils.ex_path('pose_directory'), SDUtils.ex_path('DataFrame.csv'),
             #              putils.ex_path('design.paths')))
-        # else:  # Print the full program readme and exit
-        #     utils.guide.print_guide()
-        #     sys.exit()
     elif args.setup:
         utils.guide.setup_instructions()
         sys.exit()
     elif args.help:
         pass  # Let the entire_parser handle their formatting
-    else:  # Print the full program readme and exit
+    else:  # Print the full program README.md and exit
         utils.guide.print_guide()
         sys.exit()
 

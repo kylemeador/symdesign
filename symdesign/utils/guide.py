@@ -1,7 +1,6 @@
 from symdesign import flags
 from symdesign.resources import config
 from symdesign.utils import pretty_format_table, path as putils
-from symdesign.utils.path import program_command, program_name, current_energy_function, nano_publication, readme
 
 
 rosetta_required_metrics = []
@@ -12,7 +11,7 @@ pose_input_scalability = \
     ' issue interface_metrics to collect metrics for each of these designs. This logic holds for 10 poses with 10' \
     ' designs each, or 100 poses, etc.'
 module_help_string = \
-    f'\nEnter:{nltb}{program_command} MODULE --help\nto get help formatting program flags properly'
+    f'\nEnter:{nltb}{putils.program_command} MODULE --help\nto get help formatting program flags properly'
 help_sentence = ' If you need guidance on structuring your job submission, include --help in any command.'
 general_rosetta_module_flags = \
     (f"If the script should be run multiple times, include the flag '{flags.format_args(flags.design_number_args)}' "
@@ -21,7 +20,7 @@ general_rosetta_module_flags = \
      )
 available_design_methods = \
     'Currently, the available landscape can be sampled and scored according to ProteinMPNN or the Rosetta Energy ' \
-    f'Function (currently {current_energy_function}). '
+    f'Function (currently {putils.current_energy_function}). '
 # Select specific strings
 select_modules_str = f'{flags.select_poses}, {flags.select_designs}, or {flags.select_sequences} '
 protocol_usage_in_select = \
@@ -68,7 +67,7 @@ select_sequences = \
 expand_asu = f'Simply outputs each design as the fully expanded assembly from the ASU.{module_help_string}'
 interface_metrics = \
     f'Gathering accurate {flags.interface_metrics} is the most critical part of the interface design process. As such, ' \
-    f'{program_name} calculates interface_metrics after each design is processed from an {flags.interface_design} job.'\
+    f'{putils.program_name} calculates interface_metrics after each design is processed from an {flags.interface_design} job.'\
     f' This module is simply a helper module which instructs the program to take metrics for any interface that was' \
     f' generated from a design step or any design protocol that you are particularly interested in. In particular the' \
     f' {flags.interface_metrics} protocol describes the interface with a few key metrics that are collected from Rosetta ' \
@@ -76,7 +75,7 @@ interface_metrics = \
     f'the complexed atomic configuration yet removed from the bound complex, and an unbound state with atoms repacked' \
     f' as they adopt to a solvated state. If {flags.interface_metrics} are not performed on your designs, or a pose is simply' \
     f' loaded for analysis, then there will be missing metrics. These include {", ".join(rosetta_required_metrics)},' \
-    f' which are currently generated outside the {program_name} program environment. Many metrics such as surface' \
+    f' which are currently generated outside the {putils.program_name} program environment. Many metrics such as surface' \
     f' area, secondary structure, and fragment descriptions, various entity sequence based metrics and parameters are' \
     f' always available for analysis.{module_help_string}'
 orient = \
@@ -196,21 +195,21 @@ interface_design = \
 formatted_metrics = \
     pretty_format_table([(metric, attributes['description']) for metric, attributes in sorted(config.metrics.items())])
 analysis = \
-    f'After running "{program_command} {flags.analysis}", the following metrics will be available for each pose ' \
-    f'(unique design configuration) selected for analysis:\n\t{nltb.join(formatted_metrics)}\n\nAdditionally, you' \
-    f' can view the pose specific files [pose-id]_Trajectory.csv for comparison of different design trials for an' \
-    f' individual pose, and [pose-id]_Residues.csv for residue specific information over the various trajectories.' \
-    f' Usage of overall pose metrics across all poses should facilitate selection of the best configurations to move' \
-    f' forward with, while Trajectory and Residue information can inform your choice of sequence selection ' \
-    f'parameters. Selection of the resulting poses/designs/sequences can be accomplished through the modules ' \
-    f'"{select_modules_str}".{module_help_string}'
+    f"After running '{putils.program_command} {flags.analysis}', the following metrics will be available for each pose"\
+    f' (unique design configuration) selected for analysis:\n\t{nltb.join(formatted_metrics)}\n\nAdditionally, you' \
+    ' can view the pose specific files [pose-id]_Trajectory.csv for comparison of different design trials for an' \
+    ' individual pose, and [pose-id]_Residues.csv for residue specific information over the various trajectories.' \
+    ' Usage of overall pose metrics across all poses should facilitate selection of the best configurations to move' \
+    ' forward with, while Trajectory and Residue information can inform your choice of sequence selection ' \
+    'parameters. Selection of the resulting poses/designs/sequences can be accomplished through the modules ' \
+    f"'{select_modules_str}'.{module_help_string}"
 nanohedra = \
     f'{flags.nanohedra} operates the {flags.nanohedra.title()} program which carries out the fragment based docking ' \
-    f'routine described in {nano_publication}. Fragment based docking is the main way {program_name} samples new ' \
-    f'symmetric materials from component building blocks, but can also be used to dock any two proteins based on ' \
-    f'surface fragment complementarity or tertiary motifs (TERMs). To create new docked poses, protein surface patches'\
-    f' are queried for TERM similarities using paired interface fragment libraries. By finding the overlap of surface '\
-    f'motifs from one component with the potential TERMs on  a second component, two protein components can be ' \
+    f'routine described in {putils.nano_publication}. Fragment based docking is the main way {putils.program_name} ' \
+    'samples new symmetric materials from component building blocks, but can also be used to dock any two proteins ' \
+    'based on surface fragment complementarity or tertiary motifs (TERMs). To create new docked poses, protein surface'\
+    ' patches are queried for TERM similarities using paired interface fragment libraries. By finding the overlap of ' \
+    'surface motifs from one component with the potential TERMs on  a second component, two protein components can be '\
     f'sampled for docking potential.{module_help_string}'
 refine = \
     f'{flags.refine}, is useful for creating a more idealized structure to be put into subsequent design ' \
@@ -218,47 +217,48 @@ refine = \
     f'landscape, and then pulling metrics out of that design.{module_help_string}'
 optimize_designs = \
     f'{flags.optimize_designs} is used to fine-tune designs after identifying a viable set of designs. As the ' \
-    f'interface design protocol is agnostic to the number of mutations generated, it is useful to ensure that any ' \
+    'interface design protocol is agnostic to the number of mutations generated, it is useful to ensure that any ' \
     f'designed sequence does not contain more mutations than required. {flags.optimize_designs} can revert residue ' \
-    f'identities back to wild type for residues that are not directly contributing to the pose energetics. ' \
-    f'Additionally, designs may be optimized around additional goals, such as identifying poorly configured residues ' \
+    'identities back to wild type for residues that are not directly contributing to the pose energetics. ' \
+    'Additionally, designs may be optimized around additional goals, such as identifying poorly configured residues ' \
     f'in a design and specifying them for increased or altered degrees of freedom search.{nltb}For instance, if there ' \
-    f'is a hydrophobic residue which is particularly ill-suited, you can specify that you would like to try a range ' \
-    f'of non-hydrophobic residues at this site. This would test any polar amino acid which is ' \
-    f'conserved in the design profile, but not hydrophobic and subject it to mutational scanning. If a particular ' \
-    f'site is not indicated for any sort of specification, then the current design residue and the wild type residue' \
-    f' will be the only modifications tested. If there are no detrimental effects from the calculations, including' \
-    f' decreases in the shape_complementarity or an increase in the buried_unsatisfied_hbonds that are more ' \
-    f'significant than a small percent, the reversion to wild type will be used. Additionally, small decreases in the' \
-    f' interface_energy_density will be tolerated in an effort to reduce mutational burden.{module_help_string}'  # f'{nltb}{additional}'
+    'is a hydrophobic residue which is particularly ill-suited, you can specify that you would like to try a range ' \
+    'of non-hydrophobic residues at this site. This would test any polar amino acid which is ' \
+    'conserved in the design profile, but not hydrophobic and subject it to mutational scanning. If a particular ' \
+    'site is not indicated for any sort of specification, then the current design residue and the wild type residue' \
+    ' will be the only modifications tested. If there are no detrimental effects from the calculations, including' \
+    ' decreases in the shape_complementarity or an increase in the buried_unsatisfied_hbonds that are more ' \
+    'significant than a small percent, the reversion to wild type will be used. Additionally, small decreases in the' \
+    f' interface_energy_density will be tolerated in an effort to reduce mutational burden.{module_help_string}'
+#     f'{nltb}{additional}'
 # Todo include these sentences when the module is capable
 additional = \
     f'Additionally, {flags.optimize_designs} can perform mutational steps to increase thermal stability consistent ' \
-    f'with the Protein Repair One Stop Shop (PROSS) protocol. In this case, the protocol uses the evolutionary ' \
-    f'profile to mutate residue positions to highly favorable, evolutionarily acceptable, amino acid choices. ' \
+    'with the Protein Repair One Stop Shop (PROSS) protocol. In this case, the protocol uses the evolutionary ' \
+    'profile to mutate residue positions to highly favorable, evolutionarily acceptable, amino acid choices. ' \
     f'{flags.optimize_designs}' \
-    f' can also include these positions into the refinement protocol, by using the flag, "stabilize". When used, the ' \
-    f'stability of the designs at all non-interface locations may be modified to promote stability. In addition, the ' \
-    f'flag "solubilize" will perform optimization by taking surface exposed hydrophobic residues and attempt to ' \
-    f'mutate them polar residues, decreasing the overall hydrophobic burden. The final option "charge_match" will ' \
-    f'perform mutagenesis of surface positions to match the surface to the correct overall charge density for a ' \
-    f'specified organism. This may improve solubility by making the overall mobility within the cytosol equal to that' \
+    " can also include these positions into the refinement protocol, by using the flag, 'stabilize'. When used, the " \
+    'stability of the designs at all non-interface locations may be modified to promote stability. In addition, the ' \
+    "flag 'solubilize' will perform optimization by taking surface exposed hydrophobic residues and attempt to " \
+    "mutate them polar residues, decreasing the overall hydrophobic burden. The final option 'charge_match' will " \
+    'perform mutagenesis of surface positions to match the surface to the correct overall charge density for a ' \
+    'specified organism. This may improve solubility by making the overall mobility within the cytosol equal to that' \
     f' of the organism typical cytosolic electrostatics.{module_help_string}'
 
 
 def print_guide():
     """Print the program readme file"""
-    with open(readme, 'r') as f:
+    with open(putils.readme_file, 'r') as f:
         print(f.read(), end='')
 
 
 def setup_instructions():
     instructions = \
-        f'I have done this using the {putils.conda_environment} provided to initialize the {program_name}' \
+        f'I have done this using the {putils.conda_environment} provided to initialize the {putils.program_name}' \
         ' environment in conda. If you are using anaconda/conda (which I recommend), ' \
         f'"conda env create --file {putils.conda_environment}" will handle this for you. If you are using ' \
         'something else, there is probably an easy way to ensure your virtual environment is up to speed ' \
-        f"with {program_name}'s dependencies. Next, you must add the following variable to your .bashrc " \
+        f"with {putils.program_name}'s dependencies. Next, you must add the following variable to your .bashrc " \
         '(or .tschrc) so that the hhblits dependency can be correctly sourced. ' \
         'export PATH=/home/kmeador/symdesign/dependencies/hh-suite/build/bin:$PATH' \
         'or on .tcshrc' \

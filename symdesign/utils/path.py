@@ -176,7 +176,8 @@ baseline_program_memory = 3000000000  # 3GB
 nanohedra_memory = 30000000000  # 30Gb
 
 # Project paths
-readme = os.path.join(git_source, 'README.md')
+documentation_dir = os.path.join(git_source, 'docs')
+readme_file = os.path.join(documentation_dir, 'README.md')
 # dependency_dir = os.path.join(source, 'dependencies')
 dependency_dir = os.path.join(git_source, 'dependencies')
 tools = os.path.join(python_source, 'tools')

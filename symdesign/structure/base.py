@@ -180,7 +180,7 @@ atomic_polarity_table = {  # apolar = 0, polar = 1
     'TYR': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD1': 0, 'CD2': 0, 'CE1': 0,
                                        'CE2': 0, 'CZ': 0, 'OH': 1}),
     'VAL': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG1': 0, 'CG2': 0})}
-hydrogens = {   # the doubled up numbers (and single number second) are from PDB version of hydrogen inclusion
+hydrogens = {   # The doubled numbers (and single number second) are from PDB version of hydrogen inclusion
     'ALA': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '3HB': 0, 'HB1': 0, 'HB2': 0, 'HB3': 0},
     'ARG': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HD': 0, '2HD': 0, 'HE': 1, '1HH1': 1, '2HH1': 1,
             '1HH2': 1, '2HH2': 1,

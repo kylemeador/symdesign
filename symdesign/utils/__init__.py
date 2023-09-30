@@ -1360,4 +1360,4 @@ def condensed_to_square(k, n):
     return i, j
 
 
-from . import rosetta, SymEntry, symmetry
+from . import guide, rosetta, SymEntry, symmetry
