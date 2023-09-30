@@ -24,7 +24,7 @@ import numpy as np
 import psutil
 import torch
 
-from . import path as putils
+from . import path as putils, query
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -34,7 +34,6 @@ np_torch_int_types = (np.int8, np.int16, np.int32, np.int64,
 np_torch_float_types = (np.float16, np.float32, np.float64,
                         torch.float, torch.float16, torch.float32, torch.float64)
 np_torch_int_float_types = np_torch_int_types + np_torch_float_types
-input_string = '\nInput: '
 zero_offset = 1
 rmsd_threshold = 1.
 # from colorbrewer (https://colorbrewer2.org/)
@@ -489,27 +488,11 @@ def write_file(data: Iterable, file_name: AnyStr = None) -> AnyStr:
     """
     if not file_name:
         file_name = os.path.join(os.getcwd(), input('What is your desired filename? (appended to current working '
-                                                    f'directory){input_string}'))
+                                                    f'directory){query.input_string}'))
     with open(file_name, 'w') as f:
         f.write('%s\n' % '\n'.join(map(str, data)))
 
     return file_name
-
-
-def validate_input(prompt: str, response: Iterable[str]) -> str:  # Exact copy as in Query.utils
-    """Following a provided prompt, validate that the user input is a valid response then return the response outcome
-
-    Args:
-        prompt: The desired prompt
-        response: The response values to accept
-    Returns:
-        The data matching the chosen response key
-    """
-    _input = input(f'{prompt}\nChoose from [{", ".join(response)}]{input_string}')
-    while _input not in response:
-        _input = input(f'Invalid input... "{_input}" not a valid response. Try again{input_string}')
-
-    return _input
 
 
 def io_save(data: Iterable, file_name: AnyStr = None) -> AnyStr:
@@ -521,9 +504,9 @@ def io_save(data: Iterable, file_name: AnyStr = None) -> AnyStr:
     Returns:
         The name of the output file
     """
-    io_prompt = f'Enter "P" to print Data, "W" to write Data to file, or "B" for both{input_string}'
+    io_prompt = f"Enter 'P' to print Data, 'W' to write Data to file, or 'B' for both{query.input_string}"
     response = ['W', 'P', 'B', 'w', 'p', 'b']
-    _input = validate_input(io_prompt, response=response).lower()
+    _input = query.validate_input(io_prompt, response=response).lower()
 
     if _input in 'bp':
         logger.info('%s\n' % '\n'.join(map(str, data)))
@@ -1376,6 +1359,5 @@ def condensed_to_square(k, n):
 
     return i, j
 
-# from . import cluster
-# from . import distribute
+
 from . import rosetta, SymEntry, symmetry

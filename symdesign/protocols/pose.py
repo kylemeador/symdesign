@@ -1505,7 +1505,7 @@ class PoseProtocol(PoseData):
             constraint_percent = 0.5
             free_percent = 1 - constraint_percent
 
-        variables = rosetta.rosetta_variables \
+        variables = rosetta.variables \
             + [('dist', distance), ('repack', 'yes'),
                ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
         variables.extend([(putils.design_profile, self.design_profile_file)]
@@ -1560,7 +1560,7 @@ class PoseProtocol(PoseData):
         else:  # Get an out-of-bounds index
             variables.extend([('core_residues', out_of_bounds_residue)])
 
-        rosetta_flags = rosetta.rosetta_flags.copy()
+        rosetta_flags = rosetta.flags.copy()
         if pdb_out_path:
             rosetta_flags.extend([f'-out:path:pdb {pdb_out_path}', f'-scorefile {self.scores_file}'])
         else:

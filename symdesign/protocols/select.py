@@ -16,14 +16,14 @@ from tqdm import tqdm
 
 from . import cluster
 from .pose import PoseJob
-import symdesign.utils.path as putils
 from symdesign import flags, metrics, utils
 from symdesign.resources import sql, config
 from symdesign.resources.job import job_resources_factory
-from symdesign.resources.query.utils import input_string, boolean_choice, validate_input
+from symdesign.utils.query import input_string, boolean_choice, validate_input
 from symdesign.structure.model import Model
 from symdesign.sequence import constants, optimize_protein_sequence, write_sequences, expression, find_orf_offset, \
     generate_mutations, protein_letters_alph1
+putils = utils.path
 
 logger = logging.getLogger(__name__)
 
@@ -1093,7 +1093,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                         print('Helical Termini:\n\t%s'
                               % '\n\t'.join(f'{entity_name}\t{availability}'
                                             for entity_name, availability in entity_helical_termini.items()))
-                    satisfied = input('If this is acceptable, enter "continue", otherwise, '
+                    satisfied = input("If this is acceptable, enter 'continue', otherwise, "
                                       f'you can modify the tagging options with any other input.{input_string}')
                     if satisfied == 'continue':
                         number_of_found_tags = number_of_tags
@@ -1126,7 +1126,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                                     if termini.lower() in ['n', 'c']:
                                         break
                                     else:
-                                        print(f'"{termini}" is an invalid input. One of "n" or "c" is required')
+                                        print(f"'{termini}' is an invalid input. One of 'n' or 'c' is required")
                             else:
                                 while True:
                                     tag_input = input('What tag would you like to use? Enter the number of the '
@@ -1169,7 +1169,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                     while number_of_tags != number_of_found_tags:
                         tag_input = input(f'Which tag would you like to remove? Enter the number of the currently '
                                           'configured tag option that you would like to remove. If you would like '
-                                          f'to keep all, specify "keep"\n\t%s\n{input_string}'
+                                          f"to keep all, specify 'keep'\n\t%s\n{input_string}"
                                           % '\n\t'.join([f'{i} - {entity_name}\n\t\t{tag_options["tag"]}'
                                                          for i, (entity_name, tag_options)
                                                          in enumerate(sequences_and_tags.items(), 1)]))
@@ -1187,7 +1187,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                             else:
                                 print("Input doesn't match an integer from the available options. Please try again")
                         else:
-                            print(f'"{tag_input}" is an invalid input. Try again')
+                            print(f"'{tag_input}' is an invalid input. Try again")
                         number_of_found_tags = number_of_entities - sum(missing_tags)
 
             # Apply all tags to the sequences
@@ -1214,7 +1214,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                 # If there is an unrecognized amino acid, modify
                 if 'X' in design_sequence:
                     logger.critical(f'An unrecognized amino acid was specified in the sequence {design_string}. '
-                                    'This requires manual intervention!')
+                                    'This requires manual intervention.')
                     # idx = 0
                     seq_length = len(design_sequence)
                     while True:
@@ -1224,7 +1224,7 @@ def sequences(pose_jobs: list[PoseJob]) -> list[PoseJob]:
                         idx_range = (idx - 6 if idx - 6 > 0 else 0,
                                      idx + 6 if idx + 6 < seq_length else seq_length)
                         while True:
-                            new_amino_acid = input('What amino acid should be swapped for "X" in this sequence '
+                            new_amino_acid = input("What amino acid should be swapped for 'X' in this sequence "
                                                    f'context?\n\t{idx_range[0] + 1}'
                                                    f'{" " * (len(range(*idx_range)) - (len(str(idx_range[0])) + 1))}'
                                                    f'{idx_range[1] + 1}'

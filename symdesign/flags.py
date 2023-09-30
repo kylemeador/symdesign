@@ -13,7 +13,7 @@ from psutil import cpu_count
 
 from symdesign.sequence import constants, optimization_species_literal
 from symdesign.resources import config
-from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
+from symdesign.utils.query import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
 from symdesign.structure.utils import coords_types, default_clash_criteria, default_clash_distance, termini_literal
 from symdesign.utils import handle_errors, InputError, log_level, remove_digit_table, path as putils, \

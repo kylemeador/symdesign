@@ -38,7 +38,7 @@ from symdesign import flags, protocols, utils
 from symdesign.protocols.pose import PoseJob
 from symdesign.resources.job import JobResources, job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
-from symdesign.resources import distribute, ml, query as user_query, sql, structure_db, wrapapi
+from symdesign.resources import distribute, ml, sql, structure_db, wrapapi
 from symdesign.structure.model import Entity, Pose
 
 
@@ -169,7 +169,7 @@ def initialize_structures(job: JobResources, sym_entry: utils.SymEntry.SymEntry 
         # Make all names lowercase
         structure_names = list(map(str.lower, pdb_codes))
     elif query_codes:
-        save_query = user_query.validate_input_return_response_value(
+        save_query = utils.query.validate_input_return_response_value(
             'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
         print(f'\nStarting PDB query\n')
         structure_names = retrieve_pdb_entries_by_advanced_query(save=save_query, entity=True)
@@ -1188,11 +1188,11 @@ def main():
             if job.specify_entities:
                 print("You can use a map to relate the entity by its position in the pose with it's name. "
                       "Would you like to use a map?")
-                use_map = user_query.utils.boolean_choice()
+                use_map = utils.query.boolean_choice()
                 if use_map:
                     print('Please provide the name of a .csv file with a map in the form of:'
                           '\n\tPoseName,EntityName1,EntityName2,...')
-                    file = input(user_query.utils.input_string)
+                    file = input(utils.query.input_string)
                     with open(file) as f:
                         pose_entity_mapping = {row[0]: row[1:] for row in csv.reader(f)}
 
@@ -1227,7 +1227,7 @@ def main():
                                 else:
                                     proceed = False
                                     while not proceed:
-                                        specified_name = user_query.format_input(
+                                        specified_name = utils.query.format_input(
                                             f"Which name should be used for {entity.__class__.__name__} with name "
                                             f"'{entity.name}' and chainID '{entity.chain_id}'")
                                         if specified_name == entity.name:
@@ -1236,7 +1236,7 @@ def main():
                                         if len(specified_name) != 6:  # 6 is the length for pdb entities i.e. 1abc_1
                                             logger.warning(
                                                 f"'{specified_name}' isn't the expected number of characters (6)")
-                                        proceed = user_query.confirm_input_action(
+                                        proceed = utils.query.confirm_input_action(
                                             f"The name '{specified_name}' will be used instead of '{entity.name}'")
 
                                 using_names.append(specified_name)
@@ -1245,7 +1245,7 @@ def main():
                                 logger.info(f"Using identifiers '{pose_job.name}':{{{'}{'.join(using_names)}}}")
                                 print("If this isn't correct, you can repeat with 'n'."
                                       " Otherwise, press enter, or 'y'")
-                                if user_query.utils.boolean_choice():
+                                if utils.query.boolean_choice():
                                     break
                                 else:
                                     modify_map = True

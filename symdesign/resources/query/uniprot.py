@@ -4,7 +4,7 @@ import logging
 from requests import Response
 
 # from .pdb import thermophilic_taxonomy_ids
-from .utils import connection_exception_handler
+from symdesign.utils.query import connection_exception_handler
 
 # Globals
 logger = logging.getLogger(__name__)

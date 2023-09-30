@@ -7,7 +7,7 @@ from itertools import chain
 from symdesign.utils.path import rosetta_main, rosetta_extras, dalphaball, rosetta_scripts_dir, sym_weights, \
     solvent_weights_sym, solvent_weights
 
-min_cores_per_job = 1  # currently one for the MPI node, and 5 workers
+min_cores_per_job = 1  # Currently one for the MPI node, and 5 workers
 num_thread_per_process = 2
 reference_average_residue_weight = 3  # for REF2015
 run_cmds = defaultdict(lambda: [],
@@ -26,7 +26,7 @@ extras_flags = defaultdict(lambda: [],
                             'cxx11threadmpi': [f'-multithreading:total_threads {num_thread_per_process}']})
 script_cmd = [os.path.join(rosetta_main, 'source', 'bin', f'rosetta_scripts.{rosetta_extras}.linuxgccrelease'),
               '-database', os.path.join(rosetta_main, 'database')]
-rosetta_flags = extras_flags[rosetta_extras] + \
+flags = extras_flags[rosetta_extras] + \
     ['-ex1', '-ex2', '-extrachi_cutoff 5', '-ignore_unrecognized_res', '-ignore_zero_occupancy false',
      # '-overwrite',
      '-linmem_ig 10', '-out:file:scorefile_format json', '-output_only_asymmetric_unit true', '-no_chainend_ter true',
@@ -45,6 +45,6 @@ relax_singles = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:co
                  '-no_his_his_pairE']
 relax_flags = relax_singles + relax_pairs
 relax_flags_cmdline = relax_singles + list(chain.from_iterable(map(str.split, relax_pairs)))
-rosetta_variables = [('scripts', rosetta_scripts_dir), ('sym_score_patch', sym_weights),
-                     ('solvent_sym_score_patch', solvent_weights_sym),
-                     ('solvent_score_patch', solvent_weights)]
+variables = [('scripts', rosetta_scripts_dir), ('sym_score_patch', sym_weights),
+             ('solvent_sym_score_patch', solvent_weights_sym),
+             ('solvent_score_patch', solvent_weights)]

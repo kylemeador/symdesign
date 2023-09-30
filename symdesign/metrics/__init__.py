@@ -16,7 +16,7 @@ import torch
 
 from . import pose, sql
 from symdesign.resources import config
-from symdesign.resources.query.utils import input_string, validate_type, verify_choice, header_string
+from symdesign.utils.query import input_string, validate_type, verify_choice, header_string
 from symdesign import flags, sequence, utils
 putils = utils.path
 

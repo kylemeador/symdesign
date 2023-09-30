@@ -369,7 +369,7 @@ class JobResources:
         self.reset_db = kwargs.get('reset_db')
         if self.reset_db:
             response = input(f"All database information will be wiped if you proceed. Enter 'YES' to proceed"
-                             f"{query.utils.input_string}")
+                             f"{utils.query.input_string}")
             if response == 'YES':
                 logger.warning(f'Dropping all tables and data from DB')
                 # All tables are deleted

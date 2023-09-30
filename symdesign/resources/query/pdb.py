@@ -12,7 +12,7 @@ from typing import Annotated, Any, Iterable, Literal, get_args
 import requests
 
 from symdesign import utils
-from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, validate_input, invalid_string, \
+from symdesign.utils.query import input_string, confirmation_string, bool_d, validate_input, invalid_string, \
     header_string, format_string, connection_exception_handler
 putils = utils.path
 
@@ -452,23 +452,21 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
         # on recursion get (terminal_queries, grouping,
         terminal_queries = args[0]
         work_on_group = args[recursive_depth]
-        all_grouping_indices = {i for i in range(1, len(work_on_group) + 1)}
+        all_grouping_indices = {i for i in range(1, 1 + len(work_on_group))}
 
-        group_introduction = '\n%s\n' \
-                             'Because you have %d search queries, you need to combine these to a total search strategy'\
-                             '. This is accomplished by grouping your search queries together using the operations %s.'\
-                             ' You must eventually group all queries into a single logical operation. ' \
-                             '\nIf you have multiple groups, you will need to group those groups, so on and so forth.' \
-                             '\nIndicate your group selections with a space separated list! You will choose the group '\
-                             'operation to combine this list afterwards.\nFollow prior prompts if you need a reminder '\
-                             'of how group#\'s relate to query#\'s' \
-                             % (header_string % 'Grouping Instructions', len(terminal_queries), group_operators)
+        group_introduction = f'\n{header_string % "Grouping Instructions"}\n' \
+                             f'Because you have {len(terminal_queries)} search queries, you need to combine these to ' \
+                             'a total search strategy. This is accomplished by grouping your search queries together ' \
+                             f'using the operations {group_operators}. You must eventually group all queries into a ' \
+                             'single logical operation.\nIf you have multiple groups, you will need to group those ' \
+                             'groups, so on and so forth.\nIndicate your group selections with a space separated list!'\
+                             ' You will choose the group operation to combine this list afterwards.\nFollow prior ' \
+                             "prompts if you need a reminder of how group#'s relate to query#'s"
         group_grouping_intro = '\nGroups remain, you must group groups as before.'
         group_inquiry_string = '\nWhich of these (identified by #) would you like to combine into a group?%s' % \
                                input_string
         group_specification_string = 'You specified "%s" as a single group.'
-        group_logic_string = '\nWhat group operator %s would you like for this group?%s' % (group_operators,
-                                                                                            input_string)
+        group_logic_string = f'\nWhat group operator {group_operators} would you like for this group?{input_string}'
 
         available_query_string = '\nYour available queries are:\n%s\n' % \
                                  '\n'.join(query_display_string % (query_num, service.upper(), attribute,

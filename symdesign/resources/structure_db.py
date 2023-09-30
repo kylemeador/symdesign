@@ -14,11 +14,9 @@ import jax.numpy as jnp
 
 from . import distribute, sql
 from .database import Database, DataStore
-from .query.utils import boolean_choice
 from symdesign import flags, resources, structure, utils
 from symdesign.protocols.pose import load_evolutionary_profile
 from symdesign.sequence import generate_mutations, expression
-from symdesign.utils import rosetta
 from symdesign.structure.model import Entity, Model, Pose
 from symdesign.utils.SymEntry import SymEntry
 from symdesign.utils.symmetry import CRYST
@@ -923,7 +921,7 @@ class StructureDatabase(Database):
                     # if not os.path.exists(flags_file):
                     loop_model_flags = ['-remodel::save_top 0', '-run:chain A', '-remodel:num_trajectory 1']
                     #                   '-remodel:run_confirmation true', '-remodel:quick_and_dirty',
-                    _flags = rosetta.rosetta_flags.copy() + loop_model_flags
+                    _flags = utils.rosetta.flags.copy() + loop_model_flags
                     # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
                     _flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
                     # Generate 100 trial loops, 500 is typically sufficient
@@ -959,7 +957,7 @@ class StructureDatabase(Database):
                             #             self.full_models.path_to(protein_data.name))
                             continue
                         structure_blueprint = structure_.make_blueprint_file(out_path=full_model_dir)
-                        structure_cmd = rosetta.script_cmd + loop_model_cmd \
+                        structure_cmd = utils.rosetta.script_cmd + loop_model_cmd \
                             + [f'blueprint={structure_blueprint}', f'loop_file={structure_loop_file}',
                                '-in:file:s', self.refined.path_to(protein_data.name),
                                '-out:path:pdb', structure_out_path] \
@@ -1043,10 +1041,10 @@ class StructureDatabase(Database):
                 # Generate sbatch refine command
                 flags_file = os.path.join(refine_dir, 'refine_flags')
                 # if not os.path.exists(flags_file):
-                _flags = rosetta.rosetta_flags.copy() + rosetta.relax_flags
+                _flags = utils.rosetta.flags.copy() + utils.rosetta.relax_flags
                 _flags.extend([f'-out:path:pdb {refine_dir}', '-no_scorefile true'])
                 _flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
-                variables = rosetta.rosetta_variables.copy()
+                variables = utils.rosetta.variables.copy()
                 variables.append(('dist', 0))  # Todo modify if not point groups used
                 _flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
 
@@ -1055,7 +1053,7 @@ class StructureDatabase(Database):
 
                 refine_cmd = [f'@{flags_file}', '-parser:protocol',
                               os.path.join(putils.rosetta_scripts_dir, f'{putils.refine}.xml')]
-                refine_cmds = [rosetta.script_cmd + refine_cmd
+                refine_cmds = [utils.rosetta.script_cmd + refine_cmd
                                + ['-in:file:s', protein.model_source, '-parser:script_vars']
                                + [f'sdf={sym_def_files[protein.symmetry_group]}',
                                   f'symmetry={"asymmetric" if protein.symmetry_group == "C1" else "make_point_group"}']

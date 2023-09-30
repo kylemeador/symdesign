@@ -1755,7 +1755,7 @@ def query(mode: query_modes_literal, *additional_mode_args, nanohedra: bool = Tr
             mode_instructions = instructions[mode]
             more_info_prompt = f"For the query mode '{mode}', more information is needed\n" \
                                f"{mode_instructions}What {mode} is requested?"
-            additional_mode_args = resources.query.format_input(more_info_prompt)
+            additional_mode_args = utils.query.format_input(more_info_prompt)
 
         if mode == 'combination':
             combination, *_ = additional_mode_args

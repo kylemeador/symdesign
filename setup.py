@@ -9,11 +9,10 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-from symdesign import utils, flags
-from symdesign.utils import path as putils, input_string
+from symdesign import utils
+putils = utils.path
 
 logger = utils.start_log(name=__name__)
-# logger = logging.getLogger(__name__)
 rosetta_url = 'https://www.rosettacommons.org/software/license-and-download'
 rosetta_compile_url = 'https://www.rosettacommons.org/docs/latest/build_documentation/Build-Documentation'
 rosetta_extras_url = 'https://www.rosettacommons.org/docs/latest/rosetta_basics/running-rosetta-with-options#running-' \
@@ -274,16 +273,16 @@ def setup(args):
                       'Once moved, you will want to unzip/extract all files in the tarball.\n'
                       'This can be done with the command tar -zxvf [tarball_name_here] in a new terminal')
                 input('This command may take some time.\n'
-                      f'In the meantime, you may be interested in reading about compilation "{rosetta_compile_url}" and'
-                      f' different features available for increasing computation time "{rosetta_extras_url}".'
-                      f'Once this is finished press "Enter" on your keyboard.{input_string}')
+                      f"In the meantime, you may be interested in reading about compilation '{rosetta_compile_url}' and"
+                      f" different features available for increasing computation time '{rosetta_extras_url}'."
+                      f"Once this is finished press 'Enter'.{utils.query.input_string}")
                 input("Finally, lets compile Rosetta. If you aren't familiar with this process and haven't looked at "
                       'the above links, check them out for assistance. To take full advantage of computation time, '
                       'think carefully about how your computing environment can be set up to work with Rosetta. It is '
                       'recommended for large design batches to simply use default options for compilation. If you want '
                       'to have individual jobs finish quicker, MPI compatibility may be of interest. Navigate to the '
-                      'MPI resources in rosettacommons.org for more information on setting this up.\nPress "Enter" once'
-                      f' you have completed compilation.{input_string}')
+                      "MPI resources in rosettacommons.org for more information on setting this up.\nPress 'Enter' once"
+                      f' you have completed compilation.{utils.query.input_string}')
                 break
             elif choice1 == 'S':
                 break
@@ -315,7 +314,8 @@ def setup(args):
                         print('For setup to be fully functional, the location of your Rosetta install needs to be '
                               'accessed. It is recommended to modify your shell to include an environmental variable '
                               "'ROSETTA' (accessed at '$ROSETTA'), leading to the 'main' directory of Rosetta.")
-                        choice2 = input(f'If you have one, please enter it below or reply N to set one up.{input_string}')
+                        choice2 = input(f'If you have one, please enter it below or reply N to set one up.'
+                                        f'{utils.query.input_string}')
                         # choice2 = resources.query.format_input(
                         #     'If you have one, please enter it below or reply N to set one up')
                         choice2 = choice2.lstrip('$').strip()
@@ -326,8 +326,8 @@ def setup(args):
                                   'the command below to your ~/.profile file, replacing path/to/rosetta_src_20something'
                                   '.version#/main with your actual path.\n'
                                   'export ROSETTA=path/to/rosetta_src_20something.version#/main\n')
-                            input(f'Once completed, press Enter.{input_string}')
-                            resources.query.format_input(f'Once completed, press Enter')
+                            input(f'Once completed, press Enter.{utils.query.input_string}')
+                            utils.query.format_input(f'Once completed, press Enter')
                         else:
                             rosetta_main = str(os.environ.get(choice2))
 
@@ -347,7 +347,7 @@ def setup(args):
 
                         if rosetta_env_variable == '':
                             retry = input(f'Rosetta dependency set up failed. To retry Rosetta connection, enter '
-                                          f'"{retry_kw}"{input_string}')
+                                          f'"{retry_kw}"{utils.query.input_string}')
                             break
 
                 else:
