@@ -4,12 +4,12 @@ import os
 from collections import defaultdict
 from itertools import chain
 
-from symdesign.utils.path import rosetta_main, rosetta_extras, dalphaball, rosetta_scripts_dir, sym_weights, \
-    solvent_weights_sym, solvent_weights
+from symdesign.utils.path import rosetta_main, rosetta_extras, dalphaball, rosetta_scripts_dir
 
 min_cores_per_job = 1  # Currently one for the MPI node, and 5 workers
 num_thread_per_process = 2
-reference_average_residue_weight = 3  # for REF2015
+current_energy_function = 'REF2015'
+reference_average_residue_weight = 3  # For REF2015
 run_cmds = defaultdict(lambda: [],
                        {'default': '',
                         'python': '',
@@ -45,6 +45,9 @@ relax_singles = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:co
                  '-no_his_his_pairE']
 relax_flags = relax_singles + relax_pairs
 relax_flags_cmdline = relax_singles + list(chain.from_iterable(map(str.split, relax_pairs)))
+sym_weights = 'ref2015_sym.wts_patch'
+solvent_weights = 'ref2015_solvent.wts_patch'
+solvent_weights_sym = 'ref2015_sym_solvent.wts_patch'
 variables = [('scripts', rosetta_scripts_dir), ('sym_score_patch', sym_weights),
              ('solvent_sym_score_patch', solvent_weights_sym),
              ('solvent_score_patch', solvent_weights)]

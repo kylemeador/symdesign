@@ -13,32 +13,88 @@ from psutil import cpu_count
 
 from symdesign.sequence import constants, optimization_species_literal
 from symdesign.resources import config
-from symdesign.utils.query import input_string, confirmation_string, bool_d, invalid_string, header_string, \
-    format_string
 from symdesign.structure.utils import coords_types, default_clash_criteria, default_clash_distance, termini_literal
 from symdesign.utils import handle_errors, InputError, log_level, remove_digit_table, path as putils, \
     pretty_format_table, to_iterable, logging_levels
+from symdesign.utils.path import biological_interfaces, default_clustered_pose_file, default_logging_level, \
+    default_path_file, ex_path, fragment_dbs, program_output, program_command, program_name, projects, \
+    submodule_guide, submodule_help
+from symdesign.utils.path import design_profile, evolutionary_profile, fragment_profile, consensus
+from symdesign.utils.query import input_string, confirmation_string, bool_d, invalid_string, header_string, \
+    format_string
+from symdesign.utils.rosetta import current_energy_function
 from symdesign.utils.SymEntry import query_mode_args
-from symdesign.utils.path import biological_interfaces, default_logging_level, ex_path, fragment_dbs
-# These attributes ^ shouldn't be moved here. Below should be with proper handling of '-' vs. '_'
-from symdesign.utils.path import submodule_guide, submodule_help, force, sym_entry, program_output, projects, \
-    interface_metrics, component1, component2, data, multi_processing, residue_selector, options, \
-    cluster_poses, default_clustered_pose_file, interface_design, evolution_constraint, use_evolution, hbnet, \
-    term_constraint, design_number, refine, structure_background, scout, design_profile, evolutionary_profile, \
-    fragment_profile, select_sequences, program_name, nanohedra, predict_structure, output_interface, \
-    program_command, analysis, select_poses, output_fragments, output_oligomers, output_entities, protocol, \
-    current_energy_function, \
-    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, proteinmpnn, \
-    output_trajectory, development, consensus, ca_only, sequences, structures, temperatures, optimize_species,\
-    distribute_work, output_directory, output_surrounding_uc, skip_logging, output_file, avoid_tagging_helices, \
-    multicistronic, multicistronic_intergenic_sequence, generate_fragments, input_, output, output_assembly, \
-    preferred_tag, expand_asu, check_clashes, rename_chains, optimize_designs, perturb_dof, tag_entities, design, \
-    default_path_file, process_rosetta_metrics
 
+# Gloabls
 logger = logging.getLogger(__name__)
-design_programs_literal = Literal['consensus', 'proteinmpnn', 'rosetta']
-design_programs: tuple[str, ...] = get_args(design_programs_literal)
-nstruct = 20
+# Flag names
+force = 'force'
+sym_entry = 'sym_entry'
+interface_metrics = 'interface_metrics'
+component1 = 'component1'
+component2 = 'component2'
+data = 'data'
+multi_processing = 'multi_processing'
+residue_selector = 'residue_selector'
+options = 'options'
+cluster_poses = 'cluster_poses'
+interface_design = 'interface_design'
+evolution_constraint = 'evolution_constraint'
+use_evolution = 'use_evolution'
+hbnet = 'hbnet'
+term_constraint = 'term_constraint'
+design_number = 'design_number'
+refine = 'refine'
+structure_background = 'structure_background'
+scout = 'scout'
+profile = 'profile'
+# design_profile = 'design_profile'
+# evolutionary_profile = 'evolutionary_profile'
+# fragment_profile = 'fragment_profile'
+select_sequences = 'select_sequences'
+nanohedra = 'nanohedra'
+predict_structure = 'predict_structure'
+output_interface = 'output_interface'
+analysis = 'analysis'
+select_poses = 'select_poses'
+output_fragments = 'output_fragments'
+output_oligomers = 'output_oligomers'
+output_entities = 'output_entities'
+protocol = 'protocol'
+ignore_clashes = 'ignore_clashes'
+ignore_pose_clashes = 'ignore_pose_clashes'
+ignore_symmetric_clashes = 'ignore_symmetric_clashes'
+select_designs = 'select_designs'
+output_structures = 'output_structures'
+proteinmpnn = 'proteinmpnn'
+output_trajectory = 'output_trajectory'
+development = 'development'
+ca_only = 'ca_only'
+sequences = 'sequences'
+structures = 'structures'
+temperatures = 'temperatures'
+optimize_species = 'optimize_species'
+distribute_work = 'distribute_work'
+output_directory = 'output_directory'
+output_surrounding_uc = 'output_surrounding_uc'
+skip_logging = 'skip_logging'
+output_file = 'output_file'
+avoid_tagging_helices = 'avoid_tagging_helices'
+multicistronic = 'multicistronic'
+multicistronic_intergenic_sequence = 'multicistronic_intergenic_sequence'
+generate_fragments = 'generate_fragments'
+input_ = 'input'
+output = 'output'
+output_assembly = 'output_assembly'
+preferred_tag = 'preferred_tag'
+expand_asu = 'expand_asu'
+check_clashes = 'check_clashes'
+rename_chains = 'rename_chains'
+optimize_designs = 'optimize_designs'
+perturb_dof = 'perturb_dof'
+tag_entities = 'tag_entities'
+design = 'design'
+process_rosetta_metrics = 'process_rosetta_metrics'
 query_codes = 'query_codes'
 nanohedra_output = 'nanohedra_output'
 modules = 'modules'
@@ -74,6 +130,7 @@ clash_criteria = 'clash_criteria'
 cluster_map = 'cluster_map'
 cluster_mode = 'cluster_mode'
 cluster_number = 'cluster_number'
+specification_file = 'specification_file'
 poses = 'poses'
 specific_protocol = 'specific_protocol'
 directory = 'directory'
@@ -81,9 +138,10 @@ dataframe = 'dataframe'
 fragment_database = 'fragment_database'
 database_url = 'database_url'
 interface_to_alanine = 'interface_to_alanine'
-_metrics = 'metrics'
+metrics = 'metrics'
 increment_chains = 'increment_chains'
 number = 'number'
+bend = 'bend'
 select_number = 'select_number'
 nucleotide = 'nucleotide'
 as_objects = 'as_objects'
@@ -183,27 +241,54 @@ modify_options = dict(
     predict=[predict_assembly, predict_designs, predict_entities, predict_method, predict_pose],
 )
 
+argparse_flag_delimiter = '-'
 
-def format_for_cmdline(flag: str) -> str:
+
+def format_for_cmdline(string) -> str:
     """Format a flag for the command line
 
     Args:
-        flag: The string for a program flag
+        string: The string to format as a commandline flag
     Returns:
-        The flag formatted by replacing any underscores (_) with a dash (-)
+        The string formatted by replacing any underscores '_' with a dash '-'
     """
-    return flag.replace('_', '-')
+    return string.replace('_', argparse_flag_delimiter)
 
 
-def format_from_cmdline(flag: str) -> str:
-    """Format a flag from the command line format to a program acceptable string
+def format_from_cmdline(string) -> str:
+    """Format a string from the command line format to a program acceptable string
 
     Args:
-        flag: The string for a program flag
+        string: The string to format as a python string
     Returns:
         The flag formatted by replacing any dash '-' with an underscore '_'
     """
-    return flag.replace('-', '_')
+    return string.replace(argparse_flag_delimiter, '_')
+
+
+class Flag(str):
+    flag_character = argparse_flag_delimiter
+
+    def __new__(cls, string: str):
+        return super().__new__(cls, format_for_cmdline(string))
+
+    @property
+    def _(self) -> str:
+        """Format a string from the command line format to a program acceptable string
+
+        Returns:
+            The flag formatted by replacing any dash '-' with an underscore '_'
+        """
+        return format_from_cmdline(self)
+
+    @property
+    def long(self) -> str:
+        """Format a flag for the command line
+
+        Returns:
+            The flag formatted by replacing any underscore '_' with a dash '-'
+        """
+        return f'{self.flag_character}{self.flag_character}{self}'
 
 
 def format_args(flag_args: Sequence[str]) -> str:
@@ -217,147 +302,166 @@ def format_args(flag_args: Sequence[str]) -> str:
     return '/'.join(flag_args)
 
 
-as_objects = format_for_cmdline(as_objects)
-query_codes = format_for_cmdline(query_codes)
-predict_structure = format_for_cmdline(predict_structure)
-predict_method = format_for_cmdline(predict_method)
-num_predictions_per_model = format_for_cmdline(num_predictions_per_model)
-predict_pose = format_for_cmdline(predict_pose)
-predict_assembly = format_for_cmdline(predict_assembly)
-predict_designs = format_for_cmdline(predict_designs)
-predict_entities = format_for_cmdline(predict_entities)
-models_to_relax = format_for_cmdline(models_to_relax)
-cluster_poses = format_for_cmdline(cluster_poses)
-generate_fragments = format_for_cmdline(generate_fragments)
-fragment_database = format_for_cmdline(fragment_database)
-database_url = format_for_cmdline(database_url)
-interface_metrics = format_for_cmdline(interface_metrics)
-optimize_designs = format_for_cmdline(optimize_designs)
-interface_design = format_for_cmdline(interface_design)
-interface_only = format_for_cmdline(interface_only)
-oligomeric_interfaces = format_for_cmdline(oligomeric_interfaces)
-residue_selector = format_for_cmdline(residue_selector)
-select_designs = format_for_cmdline(select_designs)
-select_poses = format_for_cmdline(select_poses)
-select_sequences = format_for_cmdline(select_sequences)
-check_clashes = format_for_cmdline(check_clashes)
-expand_asu = format_for_cmdline(expand_asu)
-rename_chains = format_for_cmdline(rename_chains)
-evolution_constraint = format_for_cmdline(evolution_constraint)
-use_evolution = format_for_cmdline(use_evolution)
-use_proteinmpnn = format_for_cmdline(use_proteinmpnn)
-term_constraint = format_for_cmdline(term_constraint)
-design_number = format_for_cmdline(design_number)
-design_method = format_for_cmdline(design_method)
-select_number = format_for_cmdline(select_number)
-structure_background = format_for_cmdline(structure_background)
-# design_profile = format_for_cmdline(design_profile)
-# evolutionary_profile = format_for_cmdline(evolutionary_profile)
-# fragment_profile = format_for_cmdline(fragment_profile)
-cluster_map = format_for_cmdline(cluster_map)
-cluster_mode = format_for_cmdline(cluster_mode)
-cluster_number = format_for_cmdline(cluster_number)
-specification_file = format_for_cmdline(putils.specification_file)
-# poses = format_for_cmdline(poses)
-specific_protocol = format_for_cmdline(specific_protocol)
-sym_entry = format_for_cmdline(sym_entry)
-# dock_only = format_for_cmdline(dock_only)
-rotation_step1 = format_for_cmdline(rotation_step1)
-rotation_step2 = format_for_cmdline(rotation_step2)
-min_matched = format_for_cmdline(min_matched)
-minimum_matched = format_for_cmdline(minimum_matched)
-match_value = format_for_cmdline(match_value)
-initial_z_value = format_for_cmdline(initial_z_value)
-interface_distance = format_for_cmdline(interface_distance)
-only_write_frag_info = format_for_cmdline(only_write_frag_info)
-proteinmpnn_score = format_for_cmdline(proteinmpnn_score)
-contiguous_ghosts = format_for_cmdline(contiguous_ghosts)
-perturb_dof_steps = format_for_cmdline(perturb_dof_steps)
-perturb_dof_rot = format_for_cmdline(perturb_dof_rot)
-perturb_dof_tx = format_for_cmdline(perturb_dof_tx)
-perturb_dof_steps_rot = format_for_cmdline(perturb_dof_steps_rot)
-perturb_dof_steps_tx = format_for_cmdline(perturb_dof_steps_tx)
-dock_filter = format_for_cmdline(dock_filter)
-dock_filter_file = format_for_cmdline(dock_filter_file)
-dock_weight = format_for_cmdline(dock_weight)
-dock_weight_file = format_for_cmdline(dock_weight_file)
-ca_only = format_for_cmdline(ca_only)
-perturb_dof = format_for_cmdline(perturb_dof)
-distribute_work = format_for_cmdline(distribute_work)
-multi_processing = format_for_cmdline(multi_processing)
-output_assembly = format_for_cmdline(output_assembly)
-output_fragments = format_for_cmdline(output_fragments)
-output_oligomers = format_for_cmdline(output_oligomers)
-output_entities = format_for_cmdline(output_entities)
-output_structures = format_for_cmdline(output_structures)
-output_trajectory = format_for_cmdline(output_trajectory)
-output_directory = format_for_cmdline(output_directory)
-output_file = format_for_cmdline(output_file)
-output_surrounding_uc = format_for_cmdline(output_surrounding_uc)
-output_interface = format_for_cmdline(output_interface)
-clash_distance = format_for_cmdline(clash_distance)
-clash_criteria = format_for_cmdline(clash_criteria)
-ignore_clashes = format_for_cmdline(ignore_clashes)
-ignore_pose_clashes = format_for_cmdline(ignore_pose_clashes)
-ignore_symmetric_clashes = format_for_cmdline(ignore_symmetric_clashes)
-component1 = format_for_cmdline(component1)
-component2 = format_for_cmdline(component2)
-skip_logging = format_for_cmdline(skip_logging)
-interface_to_alanine = format_for_cmdline(interface_to_alanine)
-increment_chains = format_for_cmdline(increment_chains)
-tag_entities = format_for_cmdline(tag_entities)
-optimize_species = format_for_cmdline(optimize_species)
-avoid_tagging_helices = format_for_cmdline(avoid_tagging_helices)
-preferred_tag = format_for_cmdline(preferred_tag)
-multicistronic_intergenic_sequence = format_for_cmdline(multicistronic_intergenic_sequence)
-# allow_multiple_poses = format_for_cmdline(allow_multiple_poses)
-designs_per_pose = format_for_cmdline(designs_per_pose)
-project_name = format_for_cmdline(project_name)
-profile_memory = format_for_cmdline(profile_memory)
-process_rosetta_metrics = format_for_cmdline(process_rosetta_metrics)
-pose_format = format_for_cmdline(pose_format)
-use_gpu_relax = format_for_cmdline(use_gpu_relax)
-debug_db = format_for_cmdline(debug_db)
-reset_db = format_for_cmdline(reset_db)
-load_to_db = format_for_cmdline(load_to_db)
-all_flags = format_for_cmdline(all_flags)
-loop_model_input = format_for_cmdline(loop_model_input)
-refine_input = format_for_cmdline(refine_input)
-pre_loop_modeled = format_for_cmdline(pre_loop_modeled)
-pre_refined = format_for_cmdline(pre_refined)
-initialize_building_blocks = format_for_cmdline(initialize_building_blocks)
-background_profile = format_for_cmdline(background_profile)
-pdb_code = format_for_cmdline(pdb_code)
-update_metadata = format_for_cmdline(update_metadata)
-proteinmpnn_model = format_for_cmdline(proteinmpnn_model)
-tag_linker = format_for_cmdline(tag_linker)
-update_db = format_for_cmdline(update_db)
-measure_pose = format_for_cmdline(measure_pose)
-cluster_selection = format_for_cmdline(cluster_selection)
-number_of_commands = format_for_cmdline(number_of_commands)
-specify_entities = format_for_cmdline(specify_entities)
-helix_bending = format_for_cmdline(helix_bending)
-direction = format_for_cmdline(direction)
-joint_chain = format_for_cmdline(joint_chain)
-joint_residue = format_for_cmdline(joint_residue)
-sample_number = format_for_cmdline(sample_number)
-align_helices = format_for_cmdline(align_helices)
-target_start = format_for_cmdline(target_start)
-target_end = format_for_cmdline(target_end)
-target_chain = format_for_cmdline(target_chain)
-target_termini = format_for_cmdline(target_termini)
-trim_termini = format_for_cmdline(trim_termini)
-aligned_start = format_for_cmdline(aligned_start)
-aligned_end = format_for_cmdline(aligned_end)
-aligned_chain = format_for_cmdline(aligned_chain)
-extend = format_for_cmdline(extend)
-alignment_length = format_for_cmdline(alignment_length)
-design_chains = format_for_cmdline(design_chains)
-require_residues = format_for_cmdline(require_residues)
-require_chains = format_for_cmdline(require_chains)
-design_residues = format_for_cmdline(design_residues)
-mask_residues = format_for_cmdline(mask_residues)
-mask_chains = format_for_cmdline(mask_chains)
+development = Flag(development)
+force = Flag(force)
+quick = Flag(quick)
+nanohedra = Flag(nanohedra)
+protocol = Flag(protocol)
+nucleotide = Flag(nucleotide)
+multicistronic = Flag(multicistronic)
+number = Flag(number)
+interface = Flag(interface)
+directory = Flag(directory)
+dataframe = Flag(dataframe)
+neighbors = Flag(neighbors)
+temperatures = Flag(temperatures)
+poses = Flag(poses)
+modules = Flag(modules)
+scout = Flag(scout)
+bend = Flag(bend)
+hbnet = Flag(hbnet)
+as_objects = Flag(as_objects)
+query_codes = Flag(query_codes)
+predict_structure = Flag(predict_structure)
+predict_method = Flag(predict_method)
+num_predictions_per_model = Flag(num_predictions_per_model)
+predict_pose = Flag(predict_pose)
+predict_assembly = Flag(predict_assembly)
+predict_designs = Flag(predict_designs)
+predict_entities = Flag(predict_entities)
+models_to_relax = Flag(models_to_relax)
+cluster_poses = Flag(cluster_poses)
+generate_fragments = Flag(generate_fragments)
+fragment_database = Flag(fragment_database)
+database_url = Flag(database_url)
+interface_metrics = Flag(interface_metrics)
+optimize_designs = Flag(optimize_designs)
+interface_design = Flag(interface_design)
+interface_only = Flag(interface_only)
+oligomeric_interfaces = Flag(oligomeric_interfaces)
+residue_selector = Flag(residue_selector)
+select_designs = Flag(select_designs)
+select_poses = Flag(select_poses)
+select_sequences = Flag(select_sequences)
+check_clashes = Flag(check_clashes)
+expand_asu = Flag(expand_asu)
+rename_chains = Flag(rename_chains)
+evolution_constraint = Flag(evolution_constraint)
+use_evolution = Flag(use_evolution)
+use_proteinmpnn = Flag(use_proteinmpnn)
+term_constraint = Flag(term_constraint)
+design_number = Flag(design_number)
+design_method = Flag(design_method)
+select_number = Flag(select_number)
+structure_background = Flag(structure_background)
+# design_profile = Flag(design_profile)
+# evolutionary_profile = Flag(evolutionary_profile)
+# fragment_profile = Flag(fragment_profile)
+cluster_map = Flag(cluster_map)
+cluster_mode = Flag(cluster_mode)
+cluster_number = Flag(cluster_number)
+specification_file = Flag(specification_file)
+# poses = Flag(poses)
+specific_protocol = Flag(specific_protocol)
+sym_entry = Flag(sym_entry)
+# dock_only = Flag(dock_only)
+rotation_step1 = Flag(rotation_step1)
+rotation_step2 = Flag(rotation_step2)
+min_matched = Flag(min_matched)
+minimum_matched = Flag(minimum_matched)
+match_value = Flag(match_value)
+initial_z_value = Flag(initial_z_value)
+interface_distance = Flag(interface_distance)
+only_write_frag_info = Flag(only_write_frag_info)
+proteinmpnn_score = Flag(proteinmpnn_score)
+contiguous_ghosts = Flag(contiguous_ghosts)
+perturb_dof_steps = Flag(perturb_dof_steps)
+perturb_dof_rot = Flag(perturb_dof_rot)
+perturb_dof_tx = Flag(perturb_dof_tx)
+perturb_dof_steps_rot = Flag(perturb_dof_steps_rot)
+perturb_dof_steps_tx = Flag(perturb_dof_steps_tx)
+dock_filter = Flag(dock_filter)
+dock_filter_file = Flag(dock_filter_file)
+dock_weight = Flag(dock_weight)
+dock_weight_file = Flag(dock_weight_file)
+ca_only = Flag(ca_only)
+perturb_dof = Flag(perturb_dof)
+distribute_work = Flag(distribute_work)
+multi_processing = Flag(multi_processing)
+output_assembly = Flag(output_assembly)
+output_fragments = Flag(output_fragments)
+output_oligomers = Flag(output_oligomers)
+output_entities = Flag(output_entities)
+output_structures = Flag(output_structures)
+output_trajectory = Flag(output_trajectory)
+output_directory = Flag(output_directory)
+output_file = Flag(output_file)
+output_surrounding_uc = Flag(output_surrounding_uc)
+output_interface = Flag(output_interface)
+clash_distance = Flag(clash_distance)
+clash_criteria = Flag(clash_criteria)
+ignore_clashes = Flag(ignore_clashes)
+ignore_pose_clashes = Flag(ignore_pose_clashes)
+ignore_symmetric_clashes = Flag(ignore_symmetric_clashes)
+component1 = Flag(component1)
+component2 = Flag(component2)
+skip_logging = Flag(skip_logging)
+interface_to_alanine = Flag(interface_to_alanine)
+metrics = Flag(metrics)
+increment_chains = Flag(increment_chains)
+tag_entities = Flag(tag_entities)
+optimize_species = Flag(optimize_species)
+avoid_tagging_helices = Flag(avoid_tagging_helices)
+preferred_tag = Flag(preferred_tag)
+multicistronic_intergenic_sequence = Flag(multicistronic_intergenic_sequence)
+# allow_multiple_poses = Flag(allow_multiple_poses)
+designs_per_pose = Flag(designs_per_pose)
+project_name = Flag(project_name)
+profile_memory = Flag(profile_memory)
+process_rosetta_metrics = Flag(process_rosetta_metrics)
+pose_format = Flag(pose_format)
+use_gpu_relax = Flag(use_gpu_relax)
+debug_db = Flag(debug_db)
+reset_db = Flag(reset_db)
+load_to_db = Flag(load_to_db)
+all_flags = Flag(all_flags)
+loop_model_input = Flag(loop_model_input)
+refine_input = Flag(refine_input)
+pre_loop_modeled = Flag(pre_loop_modeled)
+pre_refined = Flag(pre_refined)
+initialize_building_blocks = Flag(initialize_building_blocks)
+background_profile = Flag(background_profile)
+pdb_code = Flag(pdb_code)
+update_metadata = Flag(update_metadata)
+proteinmpnn_model = Flag(proteinmpnn_model)
+tag_linker = Flag(tag_linker)
+update_db = Flag(update_db)
+measure_pose = Flag(measure_pose)
+cluster_selection = Flag(cluster_selection)
+number_of_commands = Flag(number_of_commands)
+specify_entities = Flag(specify_entities)
+helix_bending = Flag(helix_bending)
+direction = Flag(direction)
+joint_chain = Flag(joint_chain)
+joint_residue = Flag(joint_residue)
+sample_number = Flag(sample_number)
+align_helices = Flag(align_helices)
+target_start = Flag(target_start)
+target_end = Flag(target_end)
+target_chain = Flag(target_chain)
+target_termini = Flag(target_termini)
+trim_termini = Flag(trim_termini)
+aligned_start = Flag(aligned_start)
+aligned_end = Flag(aligned_end)
+aligned_chain = Flag(aligned_chain)
+extend = Flag(extend)
+alignment_length = Flag(alignment_length)
+design_chains = Flag(design_chains)
+require_residues = Flag(require_residues)
+require_chains = Flag(require_chains)
+design_residues = Flag(design_residues)
+mask_residues = Flag(mask_residues)
+mask_chains = Flag(mask_chains)
 
 select_modules = (
     select_poses,
@@ -382,8 +486,8 @@ def query_user_for_flags(mode=interface_design, template=False):
     while not write_file:
         flags_table = pretty_format_table(flags_header + flags_description)
         print('For a %s run, the following flags can be used to customize the design. You can include these in'
-              ' a flags file\nsuch as "my_design.flags" specified on the command line like "@my_design.flags" or '
-              'manually by typing them in.\nTo automatically generate a flags file template, run "%s flags --template"'
+              " a flags file\nsuch as 'my_design.flags' specified on the command line like '@my_design.flags' or "
+              "manually by typing them in.\nTo automatically generate a flags file template, run '%s flags --template'"
               ' then modify the defaults.\nAlternatively, input the number(s) corresponding to the flag(s) of '
               'interest from the table below to automatically\ngenerate this file. PDB numbering is defined here as an'
               ' input file with residue numbering reset at each chain. Pose\nnumbering is defined here as input file '
@@ -441,13 +545,13 @@ def query_user_for_flags(mode=interface_design, template=False):
 
 def load_flags(file):
     with open(file, 'r') as f:
-        return {dict(tuple(flag.lstrip('-').split())) for flag in f.readlines()}
+        return {dict(tuple(flag.lstrip(argparse_flag_delimiter).split())) for flag in f.readlines()}
 
 # def not_contains(__a: Container[object], __b: object) -> bool:
 #     return operator.not_(operator.contains(__a, __b))
 
 
-def not_contains(__a: pd.Sereies, __b: object) -> pd.Series:
+def not_contains(__a: pd.Series, __b: object) -> pd.Series:
     return operator.invert(pd.Series.isin(__a, __b))
 
 
@@ -747,7 +851,6 @@ class StoreDictKeyPair(argparse.Action):
 # Todo Found the following for formatting the prog use case in subparsers
 #  {'refine': ArgumentParser(prog='{putils.program_command} module [module_arguments] [input_arguments]'
 #                                 '[optional_arguments] refine'
-flag_delimiter = '-'
 boolean_positional_prevent_msg = 'Use --no-{} to prevent'.format
 """Use this message in all help keyword arguments using argparse.BooleanOptionalAction with default=True to specify the
  --no- prefix when the argument should be False
@@ -758,7 +861,10 @@ design_selector_title = 'Design Selector Arguments'
 input_title = 'Input Arguments'
 output_title = 'Output Arguments'
 module_title = 'Module Arguments'
-def arg_cat_usage(title): return f'--{"-".join(title.lower().split())}'
+
+
+def arg_cat_usage(title):
+    return f'{argparse_flag_delimiter}{argparse_flag_delimiter}{argparse_flag_delimiter.join(title.lower().split())}'
 
 
 module_usage_str = \
@@ -770,22 +876,22 @@ module_usage_str = \
 usage_str = module_usage_str.format(f'module [{arg_cat_usage(module_title)}]')
 
 # Reused arguments
-distribute_args = ('-D', f'--{distribute_work}')
-use_proteinmpnn_args = (f'--{use_proteinmpnn}',)
+distribute_args = ('-D', distribute_work.long)
+use_proteinmpnn_args = (use_proteinmpnn.long,)
 use_proteinmpnn_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
                               help='Whether to perform calculations with ProteinMPNN\n'
                                    'sequences/profile during the job\n'
                                    f'{boolean_positional_prevent_msg(use_evolution)}')
-use_evolution_args = (f'--{use_evolution}',)
+use_evolution_args = (use_evolution.long,)
 use_evolution_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
                             help='Whether to perform calculations with an evolution profile\n'
                                  'during the job. Will create one if not made.\n'
                                  f'{boolean_positional_prevent_msg(use_evolution)}')
-evolution_constraint_args = ('-ec', f'--{evolution_constraint}')
+evolution_constraint_args = ('-ec', evolution_constraint.long)
 evolution_constraint_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
                                    help='Whether to include evolutionary constraints during design.\n'
                                         f'{boolean_positional_prevent_msg(evolution_constraint)}')
-term_constraint_args = ('-tc', f'--{term_constraint}')
+term_constraint_args = ('-tc', term_constraint.long)
 term_constraint_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
                               help='Whether to include tertiary motif constraints during design.\n'
                                    f'{boolean_positional_prevent_msg(term_constraint)}')
@@ -795,17 +901,17 @@ guide_kwargs = dict(action='store_true', help=f'Display guides for the full {pro
 help_args = ('-h', '-help', '--help')
 help_kwargs = dict(action='store_true', help=f'Display argument help\nEx:'
                                              f" '{program_command} --help'")
-clash_distance_args = (f'--{clash_distance}',)
-clash_criteria_args = (f'--{clash_criteria}',)
-ignore_clashes_args = ('-ic', f'--{ignore_clashes}')
-ignore_pose_clashes_args = ('-ipc', f'--{ignore_pose_clashes}')
-ignore_symmetric_clashes_args = ('-isc', f'--{ignore_symmetric_clashes}')
-output_directory_args = ('-Od', '--outdir', f'--{output_directory}')
+clash_distance_args = (clash_distance.long,)
+clash_criteria_args = (clash_criteria.long,)
+ignore_clashes_args = ('-ic', ignore_clashes.long)
+ignore_pose_clashes_args = ('-ipc', ignore_pose_clashes.long)
+ignore_symmetric_clashes_args = ('-isc', ignore_symmetric_clashes.long)
+output_directory_args = ('-Od', '--outdir', output_directory.long)
 output_directory_kwargs = dict(type=os.path.abspath, dest='output_directory',
                                help='If provided, the name of the directory to output all created files.\n'
                                     'Otherwise, one will be generated based on the time, input, and module')
-output_file_args = ('-Of', f'--{output_file}')
-quick_args = (f'--{quick}',)
+output_file_args = ('-Of', output_file.long)
+quick_args = (quick.long,)
 # ---------------------------------------------------
 all_flags_help = f'Display all {program_name} flags'
 parser_all_flags = dict(description=all_flags_help, add_help=False)  # help=all_flags_help,
@@ -817,7 +923,7 @@ symmetry_kwargs = dict(metavar='RESULT:{GROUP1}{GROUP2}...',
                        help='The specific symmetry of the poses of interest. Preferably\n'
                             'in a composition formula such as T:{C3}{C3}... Can also\n'
                             "provide the keyword 'cryst' to use crystal symmetry")
-sym_entry_args = ('-E', f'--{sym_entry}', '--entry')
+sym_entry_args = ('-E', sym_entry.long, '--entry')
 sym_entry_kwargs = dict(type=int, metavar='INT',
                         help=f'The entry number of {nanohedra.title()} docking combinations to use.\n'
                              f'See {symmetry} --query for possible symmetries')
@@ -833,7 +939,7 @@ symmetry_arguments = {
     sym_query_args: dict(choices=query_mode_args,  # required=True
                          help='Query the symmetries available for modeling\n'
                               'Choices=%(choices)s'),
-    (f'--{nanohedra}',): dict(action='store_true',
+    (nanohedra.long,): dict(action='store_true',
                               help=f'True if only {nanohedra.title()} docking symmetries should be queried')
 }
 # ---------------------------------------------------
@@ -843,11 +949,11 @@ parser_options = dict(description=options_help, help=options_help)
 parser_options_group = dict(title=f'{"_" * len(options_title)}\n{options_title}',
                             description=f'\n{options_help}')
 cores_args = ('--cores',)
-multiprocessing_args = ('-M', f'--{multi_processing}')
+multiprocessing_args = ('-M', multi_processing.long)
 multiprocessing_kwargs = dict(action='store_true', help='Should job be run with multiple processors?')
-project_name_args = (f'--{project_name}',)
+project_name_args = (project_name.long,)
 proteinmpnn_models = ['v_48_002', 'v_48_010', 'v_48_020', 'v_48_030']
-proteinmpnn_model_args = (f'--{proteinmpnn_model}',)
+proteinmpnn_model_args = (proteinmpnn_model.long,)
 proteinmpnn_model_kwargs = dict(choices=proteinmpnn_models, default='v_48_020', metavar='',
                                 help='The name of the model to use for ProteinMPNN design/scoring\n'
                                      'where the model name takes the form v_X_Y, with X indicating\n'
@@ -863,10 +969,10 @@ options_arguments = {
     # ('--database',): dict(action=argparse.BooleanOptionalAction, default=True,
     #                       help=f'Whether to utilize the SQL database for result processing\n'
     #                            f'{boolean_positional_prevent_msg("database")}'),
-    (f'--{database_url}',): dict(help='The location/server used to connect to a SQL database.\nOnly used '
+    (database_url.long,): dict(help='The location/server used to connect to a SQL database.\nOnly used '
                                       f'during initial {program_output} directory set up.\nSubsequent jobs '
                                       'will use the same url'),
-    (f'--{development}',): dict(action='store_true',
+    (development.long,): dict(action='store_true',
                                 help="Run in development mode. Only use if you're actively\n"
                                      'developing and understand the side effects'),
     use_evolution_args: use_evolution_kwargs,
@@ -874,12 +980,12 @@ options_arguments = {
     distribute_args: dict(action='store_true',
                           help='Should individual jobs be formatted for distribution across\n'
                                'computational resources? This is useful on a cluster\nDefault=%(default)s'),
-    ('-F', f'--{force}'): dict(action='store_true', help='Force generation of new files for existing projects'),
+    ('-F', force.long): dict(action='store_true', help='Force generation of new files for existing projects'),
     guide_args: guide_kwargs,
-    (f'--{interface_distance}',): dict(type=float, default=9.0, metavar='FLOAT',
+    (interface_distance.long,): dict(type=float, default=9.0, metavar='FLOAT',
                                        help='The default value to use for querying Cb-Cb\n'
                                             'residue contacts across and interface'),
-    ('-i', f'--{fragment_database}'): dict(type=str.lower, choices=fragment_dbs, default=biological_interfaces,
+    ('-i', fragment_database.long): dict(type=str.lower, choices=fragment_dbs, default=biological_interfaces,
                                            metavar='',
                                            help='Database to match fragments for interface specific scoring matrices'
                                                 '\nChoices=%(choices)s\nDefault=%(default)s'),
@@ -906,16 +1012,16 @@ options_arguments = {
                                  'Default is inferred from input'),
     proteinmpnn_model_args: proteinmpnn_model_kwargs,
     setup_args: setup_kwargs,
-    (f'--{skip_logging}',): dict(action='store_true',
+    (skip_logging.long,): dict(action='store_true',
                                  help='Skip logging to files and direct all logging to stream'),
-    (f'--{profile_memory}',): dict(action='store_true',
+    (profile_memory.long,): dict(action='store_true',
                                    help='Use memory_profiler.profile() to understand memory usage of a module.\n'
                                         'Must be run with --development'),
     quick_args: dict(action='store_true',
                      help='Run Nanohedra in minimal sampling mode to generate enough hits to\n'
                           'test quickly. This should only be used for active development'),
-    (f'--{debug_db}',): dict(action='store_true', help='Whether to log SQLAlchemy output for db development'),
-    (f'--{reset_db}',): dict(action='store_true', help='Whether to reset the database for development')
+    (debug_db.long,): dict(action='store_true', help='Whether to log SQLAlchemy output for db development'),
+    (reset_db.long,): dict(action='store_true', help='Whether to reset the database for development')
 }
 # ---------------------------------------------------
 residue_selector_help = 'Residue selectors control which parts of the Pose are included during protocols'
@@ -923,32 +1029,32 @@ parser_residue_selector = dict(description=residue_selector_help, help=residue_s
 parser_residue_selector_group = dict(title=f'{"_" * len(design_selector_title)}\n{design_selector_title}',
                                      description=f'\n{residue_selector_help}')
 residue_selector_arguments = {
-    (f'--{design_chains}',):
+    (design_chains.long,):
         dict(metavar='',
              help="If design should ONLY occur on certain chains, specify\n"
                   "the chain ID's as a comma separated string\n"
                   "Ex: 'A,C,D'"),
-    (f'--{mask_chains}',):
+    (mask_chains.long,):
         dict(metavar='',
              help="If a design should NOT occur at certain chains, provide\n"
                   "the chain ID's as a comma separated string\n"
                   "Ex: 'B,C'"),
-    (f'--{require_chains}',):
+    (require_chains.long,):
         dict(metavar='',
              help='If design MUST occur on certain chains, specify their\n'
                   "chain ID's as a comma separated string.\n"
                   "Ex: 'A,D'"),
-    (f'--{design_residues}',):  # Todo make a ChainResidue parser like A27-35,B118,B281
+    (design_residues.long,):  # Todo make a ChainResidue parser like A27-35,B118,B281
         dict(metavar='',
              help='If design should ONLY occur at certain residues, specify\n'
                   'their numbers as a comma separated, range string\n'
                   "Ex: '23,24,35,41,100-110,267,289-293'"),
-    (f'--{mask_residues}',):  # Todo make a ChainResidue parser like A27-35,B118,B281
+    (mask_residues.long,):  # Todo make a ChainResidue parser like A27-35,B118,B281
         dict(metavar='',
              help='If design should NOT occur at certain residues, specify\n'
                   'their numbers as a comma separated, range string\n'
                   "Ex: '27-35,118,281'"),
-    (f'--{require_residues}',):  # Todo make a ChainResidue parser like A27-35,B118,B281
+    (require_residues.long,):  # Todo make a ChainResidue parser like A27-35,B118,B281
         dict(metavar='',
              help='If design MUST occur at certain residues, specify their\n'
                   'numbers as a comma separated, range string\n'
@@ -970,37 +1076,37 @@ residue_selector_arguments = {
 protocol_help = 'Perform a series of modules in a specified order'
 parser_protocol = dict(description=protocol_help, help=protocol_help)
 protocol_arguments = {
-    ('-m', f'--{modules}'): dict(nargs='*', default=tuple(), required=True, help='The modules to run in order'),
+    ('-m', modules.long): dict(nargs='*', default=tuple(), required=True, help='The modules to run in order'),
 }
 # ---------------------------------------------------
-predict_pose_args = (f'--{predict_pose}',)
+predict_pose_args = (predict_pose.long,)
 predict_structure_help = 'Predict 3D structures from specified sequences'
 parser_predict_structure = dict(description=f'{predict_structure_help}\nPrediction occurs on designed sequences by '
                                             f'default.\nIf prediction should be performed on the Pose, use '
                                             f'{format_args(predict_pose_args)}', help=predict_structure_help)
 predict_structure_arguments = {
-    ('-m', f'--{predict_method}'):
+    ('-m', predict_method.long):
         dict(choices={'alphafold', 'thread'}, default='alphafold', metavar='',
              help=f'The method utilized to {predict_structure}\nChoices=%(choices)s\nDefault=%(default)s'),
-    (f'--{num_predictions_per_model}', '--number-predictions-per-model'):  # '-n',
+    (num_predictions_per_model.long, '--number-predictions-per-model'):  # '-n',
         dict(type=int, metavar='INT',  # default=5,
              help=f'How many iterations of prediction should be used\nfor each individual Alphafold model.\n'
                   'Default=5(multimer mode),1(monomer mode)'),
-    ('-A', f'--{predict_assembly}'):
+    ('-A', predict_assembly.long):
         dict(action='store_true', help='Whether the assembly state should be predicted\ninstead of the ASU'),
-    (f'--{predict_designs}',):
+    (predict_designs.long,):
         dict(action=argparse.BooleanOptionalAction, default=True,
              help='Whether the full design state should be predicted\nincluding all entities\n'
-                  f'{boolean_positional_prevent_msg(_metrics)}'),
-    ('-E', f'--{predict_entities}'):
+                  f'{boolean_positional_prevent_msg(predict_designs)}'),
+    ('-E', predict_entities.long):
         dict(action='store_true', help='Whether individual entities should be predicted\ninstead of the entire Pose'),
     predict_pose_args:
         dict(action='store_true', help='Whether individual entities should be predicted\ninstead of the entire Pose'),
-    (f'--{models_to_relax}',):
+    (models_to_relax.long,):
         dict(type=str.lower, default='best', metavar='',
              choices=config.relax_options, help='Specify which predictions should be relaxed'
                                                 '\nChoices=%(choices)s\nDefault=%(default)s'),
-    (f'--{use_gpu_relax}',):
+    (use_gpu_relax.long,):
         dict(action='store_true', help='Whether predictions should be relaxed using a GPU (if one is available)'),
 }
 # ---------------------------------------------------
@@ -1010,19 +1116,19 @@ predict_structure_arguments = {
 # ---------------------------------------------------
 helix_bending_help = 'Bend helices along known modes of helical flexibility'
 parser_helix_bending = dict(description=helix_bending_help, help=helix_bending_help)
-joint_residue_args = (f'--{joint_residue}',)
-sample_number_args = (f'--{sample_number}',)
+joint_residue_args = (joint_residue.long,)
+sample_number_args = (sample_number.long,)
 sample_number_kwargs = dict(type=int, default=10, metavar='INT',
                             help='How many times should the bending be performed?\nDefault=%(default)s')
 possible_termini = get_args(termini_literal)
 helix_bending_arguments = {
-    (f'--{direction}',): dict(type=str.upper, required=True, choices=possible_termini, metavar='',
+    (direction.long,): dict(type=str.upper, required=True, choices=possible_termini, metavar='',
                               help='Which direction should the bending be applied?\n'
                                    f"Choices=%(choices)s where 'c' implies residues c-terminal to\n"
                                    f"{format_args(joint_residue_args)} will be bent"),
     joint_residue_args: dict(type=int, metavar='INT', required=True,
                              help='The chain where the bending is desired at'),
-    (f'--{joint_chain}',): dict(required=True, help='The residue number to perform the bending at'),
+    (joint_chain.long,): dict(required=True, help='The residue number to perform the bending at'),
     sample_number_args: sample_number_kwargs
 }
 # ---------------------------------------------------
@@ -1033,43 +1139,42 @@ align_helices_help = 'Align, then fuse, the helices of two protein systems. The 
 # To align helices where both components are symmetric, run Nanohedra to perform helical alignment in the available
 # Nanohedra symmetry combination materials (SCM)
 parser_align_helices = dict(description=align_helices_help, help=align_helices_help)
-target_start_args = (f'--{target_start}',)
+target_start_args = (target_start.long,)
 target_start_kwargs = dict(type=int, metavar='INT', help='First residue of the targe molecule to align on')
-target_end_args = (f'--{target_end}',)
+target_end_args = (target_end.long,)
 target_end_kwargs = dict(type=int, metavar='INT', help='Last residue of the targe molecule to align on')
-target_chain_args = (f'--{target_chain}',)
+target_chain_args = (target_chain.long,)
 target_chain_kwargs = dict(help='A desired chainID of the target molecule')
-target_termini_args = (f'--{target_termini}',)
+target_termini_args = (target_termini.long,)
 target_termini_kwargs = dict(type=str.lower, nargs='*', choices=possible_termini,
                              help="If particular termini of the target are desired, specify with 'n' and/or 'c'")
-trim_termini_args = (f'--{trim_termini}',)
+trim_termini_args = (trim_termini.long,)
 trim_termini_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
                            help='Whether the termini should be trimmed back to the nearest helix\n'
                                 f'{boolean_positional_prevent_msg(trim_termini)}')
-aligned_start_args = (f'--{aligned_start}',)
+aligned_start_args = (aligned_start.long,)
 aligned_start_kwargs = dict(type=int, metavar='INT', help='First residue of the aligned molecule to align on')
-aligned_end_args = (f'--{aligned_end}',)
+aligned_end_args = (aligned_end.long,)
 aligned_end_kwargs = dict(type=int, metavar='INT', help='Last residue of the aligned molecule to align on')
-aligned_chain_args = (f'--{aligned_chain}',)
+aligned_chain_args = (aligned_chain.long,)
 aligned_chain_kwargs = dict(help='A desired chainID of the aligned molecule')
-alignment_length_args = (f'--{alignment_length}',)  # f'--{length}',
+alignment_length_args = (alignment_length.long,)  # length.long,
 alignment_length_kwargs = dict(type=int, metavar='INT', help='The number of residues used to measure overlap')
-extend_args = (f'--{extend}',)
+extend_args = (extend.long,)
 # extend_kwargs = dict(action='store_true',
 #                      help='Whether to extend alignment termini with a ten residue ideal\n'
 #                           'alpha helix. All specified residues are modified accordingly\n')
 extend_kwargs = dict(type=int, metavar='INT',  # action='store_true',
                      help='Whether to extend target termini with an ideal alpha helix\n'
                           'Argument should specify how many residues to extend')
-bend = 'bend'
 align_helices_arguments = {
     aligned_chain_args: aligned_chain_kwargs,
     aligned_end_args: aligned_end_kwargs,
     aligned_start_args: aligned_start_kwargs,
     alignment_length_args: alignment_length_kwargs,
-    (f'--{bend}',): dict(type=int, metavar='INT',  # action='store_true',
-                         help=helix_bending_help
-                         + '\nArgument should specify how many bent positions should be sampled'),
+    (bend.long,): dict(type=int, metavar='INT',  # action='store_true',
+                       help=helix_bending_help
+                       + '\nArgument should specify how many bent positions should be sampled'),
     extend_args: extend_kwargs,
     # sample_number_args: sample_number_kwargs,
     target_chain_args: target_chain_kwargs,
@@ -1081,16 +1186,16 @@ align_helices_arguments = {
 # ---------------------------------------------------
 query_codes_kwargs = dict(action='store_true', help='Query the PDB API for corresponding codes')
 # parser_component_mutual1 = parser_dock.add_mutually_exclusive_group(required=True)
-component1_args = ('-c1', f'--{component1}')
-component2_args = ('-c2', f'--{component2}')
-align_component1_args = ('-c1', f'--{component1}', f'--target')
-align_component2_args = ('-c2', f'--{component2}', f'--aligned')
+component1_args = ('-c1', component1.long)
+component2_args = ('-c2', component2.long)
+align_component1_args = ('-c1', component1.long, f'--target')
+align_component2_args = ('-c2', component2.long, f'--aligned')
 # Todo make multiple files?
 component_kwargs = dict(type=os.path.abspath, metavar=ex_path('[file.ext,directory]'),
                         help=f'Path to component file, either directory or single file')
-pdb_codes_args = ('-C', f'--{pdb_code}', f'--{pdb_code}s')
+pdb_codes_args = ('-C', pdb_code.long, f'--{pdb_code}s')
 pdb_codes2_args = ('-C2', f'--{pdb_code}2', f'--{pdb_code}s2')
-query_pdb_codes_args = ('-Q', f'--{query_codes}')
+query_pdb_codes_args = ('-Q', query_codes.long)
 query_pdb_codes2_args = ('-Q2', f'--{query_codes}2')
 align_pdb_codes1_args = ('-C1', f'--target-{pdb_code}', f'--target-{pdb_code}s')
 align_pdb_codes2_args = ('-C2', f'--aligned-{pdb_code}', f'--aligned-{pdb_code}s')
@@ -1117,84 +1222,84 @@ align_component_mutual2_arguments = component_mutual2_arguments.copy()
 align_component_mutual2_arguments[align_component2_args] = align_component_mutual2_arguments.pop(component2_args)
 align_component_mutual2_arguments[align_pdb_codes2_args] = align_component_mutual2_arguments.pop(pdb_codes2_args)
 # ---------------------------------------------------
-measure_pose_args = (f'--{measure_pose}',)
+measure_pose_args = (measure_pose.long,)
 measure_pose_kwargs = dict(action='store_true', help=f'Whether the pose should be included in measurements')
 refine_help = 'Process Structures into an energy function'
 parser_refine = dict(description=refine_help, help=refine_help)
 refine_arguments = {
-    ('-ala', f'--{interface_to_alanine}'): dict(action=argparse.BooleanOptionalAction, default=False,
+    ('-ala', interface_to_alanine.long): dict(action=argparse.BooleanOptionalAction, default=False,
                                                 help='Whether to mutate interface residues to alanine before '
                                                      'refinement\n'),
     measure_pose_args: measure_pose_kwargs,
-    ('-met', f'--{_metrics}'): dict(action=argparse.BooleanOptionalAction, default=True,
-                                    help='Whether to calculate interface metrics after refinement\n'
-                                         f'{boolean_positional_prevent_msg(_metrics)}')
+    ('-met', metrics.long): dict(action=argparse.BooleanOptionalAction, default=True,
+                                 help='Whether to calculate interface metrics after refinement\n'
+                                      f'{boolean_positional_prevent_msg(metrics)}')
 }
 # ---------------------------------------------------
 nanohedra_help = f'Run {nanohedra.title()}.py'
 parser_nanohedra = dict(description=nanohedra_help, help=nanohedra_help)
 default_perturbation_steps = 3
-dock_filter_args = (f'--{dock_filter}',)
+dock_filter_args = (dock_filter.long,)
 dock_filter_kwargs = dict(nargs='*', default=tuple(), help='Whether to filter dock trajectory according to metrics')
-dock_filter_file_args = (f'--{dock_filter_file}',)
+dock_filter_file_args = (dock_filter_file.long,)
 dock_filter_file_kwargs = dict(type=os.path.abspath,
                                help='Whether to filter dock trajectory according to metrics provided in a file')
-dock_weight_args = (f'--{dock_weight}',)
+dock_weight_args = (dock_weight.long,)
 dock_weight_kwargs = dict(nargs='*', default=tuple(), help='Whether to filter dock trajectory according to metrics')
-dock_weight_file_args = (f'--{dock_weight_file}',)
+dock_weight_file_args = (dock_weight_file.long,)
 dock_weight_file_kwargs = dict(type=os.path.abspath,
                                help='Whether to filter dock trajectory according to metrics provided in a file')
 nanohedra_arguments = {
-    (f'--{contiguous_ghosts}',): dict(action='store_true',  # argparse.BooleanOptionalAction, default=False,
+    (contiguous_ghosts.long,): dict(action='store_true',  # argparse.BooleanOptionalAction, default=False,
                                       help='Whether to prioritize docking with ghost fragments that form continuous'
                                            '\nsegments on a single component\nDefault=%(default)s'),
     dock_filter_args: dock_filter_kwargs,
     dock_filter_file_args: dock_filter_file_kwargs,
     dock_weight_args: dock_weight_kwargs,
     dock_weight_file_args: dock_weight_file_kwargs,
-    ('-iz', f'--{initial_z_value}'): dict(type=float, default=1.,
+    ('-iz', initial_z_value.long): dict(type=float, default=1.,
                                           help='The standard deviation z-score threshold for initial fragment overlap\n'
                                                'Smaller values lead to more stringent matching overlaps\n'
                                                'Default=%(default)s'),
-    ('-mv', f'--{match_value}'):
+    ('-mv', match_value.long):
         dict(type=float, metavar='FLOAT', default=0.5,
              help='What is the minimum match score required for a high quality fragment?\n'
                   'Lower values more poorly overlap with a perfect overlap being 1'),
-    (f'--{minimum_matched}', f'--{min_matched}'):
+    (minimum_matched.long, min_matched.long):
         dict(type=int, metavar='INT', default=3,
              help='How many high quality fragment pairs are required for a Pose to pass?\nDefault=%(default)s'),
-    (f'--{only_write_frag_info}',): dict(action=argparse.BooleanOptionalAction, default=False,
+    (only_write_frag_info.long,): dict(action=argparse.BooleanOptionalAction, default=False,
                                          help='Used to write fragment information to a directory for C1 based docking'),
     output_directory_args:
         dict(type=os.path.abspath, default=None,
              help='Where should the output be written?\nDefault='
                   f'{ex_path(program_output, projects, "NanohedraEntry[ENTRYNUMBER]_[BUILDING-BLOCKS]_Poses")}'),
-    (f'--{perturb_dof}',): dict(action=argparse.BooleanOptionalAction, default=False,
+    (perturb_dof.long,): dict(action=argparse.BooleanOptionalAction, default=False,
                                 help='Whether the degrees of freedom should be finely sampled during\n by perturbing '
                                      'found transformations and repeating docking iterations'),
-    (f'--{perturb_dof_rot}',): dict(action=argparse.BooleanOptionalAction, default=False,
+    (perturb_dof_rot.long,): dict(action=argparse.BooleanOptionalAction, default=False,
                                     help='Whether the rotational degrees of freedom should be finely sampled in\n'
                                          'subsequent docking iterations'),
-    (f'--{perturb_dof_tx}',): dict(action=argparse.BooleanOptionalAction, default=False,
+    (perturb_dof_tx.long,): dict(action=argparse.BooleanOptionalAction, default=False,
                                    help='Whether the translational degrees of freedom should be finely sampled in\n'
                                         'subsequent docking iterations'),
     # These have no default since None is used to signify whether they were explicitly requested
-    (f'--{perturb_dof_steps}',): dict(type=int, metavar='INT',
+    (perturb_dof_steps.long,): dict(type=int, metavar='INT',
                                       help='How many dof steps should be used during subsequent docking iterations.\n'
                                            f'For each DOF, a total of --{perturb_dof_steps} will be sampled during '
                                            f'perturbation\nDefault={default_perturbation_steps}'),
-    (f'--{perturb_dof_steps_rot}',): dict(type=int, metavar='INT',
+    (perturb_dof_steps_rot.long,): dict(type=int, metavar='INT',
                                           help='How many rotational dof steps should be used during perturbations\n'
                                                f'Default={default_perturbation_steps}'),
-    (f'--{perturb_dof_steps_tx}',): dict(type=int, metavar='INT',
+    (perturb_dof_steps_tx.long,): dict(type=int, metavar='INT',
                                          help='How many translational dof steps should be used during perturbations\n'
                                               f'Default={default_perturbation_steps}'),
-    (f'--{proteinmpnn_score}',): dict(action=argparse.BooleanOptionalAction, default=False,
+    (proteinmpnn_score.long,): dict(action=argparse.BooleanOptionalAction, default=False,
                                       help='Whether docking fit should be measured using ProteinMPNN'),
-    ('-r1', f'--{rotation_step1}'): dict(type=float, metavar='FLOAT', default=3.,
+    ('-r1', rotation_step1.long): dict(type=float, metavar='FLOAT', default=3.,
                                          help='The size of degree increments to search during initial rotational\n'
                                               'degrees of freedom search\nDefault=%(default)s'),
-    ('-r2', f'--{rotation_step2}'): dict(type=float, metavar='FLOAT', default=3.,
+    ('-r2', rotation_step2.long): dict(type=float, metavar='FLOAT', default=3.,
                                          help='The size of degree increments to search during initial rotational\n'
                                               'degrees of freedom search\nDefault=%(default)s'),
     trim_termini_args: trim_termini_kwargs,
@@ -1209,29 +1314,29 @@ parser_initialize_building_blocks = dict(description=initialize_building_blocks_
                                          help=initialize_building_blocks_help)
 initialize_building_blocks_arguments = {
     **component_mutual1_arguments,
-    (f'--{update_metadata}',): dict(nargs='*', action=StoreDictKeyPair,
+    (update_metadata.long,): dict(nargs='*', action=StoreDictKeyPair,
                                     help='Whether ProteinMetadata should be update with some\n'
                                          'particular value in the database'),
 }
 # ---------------------------------------------------
-cluster_map_args = ('-c', f'--{cluster_map}')
+cluster_map_args = ('-c', cluster_map.long)
 cluster_map_kwargs = dict(type=os.path.abspath,
                           metavar=ex_path(default_clustered_pose_file.format('TIMESTAMP', 'LOCATION')),
                           help='The location of a serialized file containing spatially\nor interfacial '
                                'clustered poses')
-cluster_selection_args = ('-Cs', f'--{cluster_selection}')
+cluster_selection_args = ('-Cs', cluster_selection.long)
 cluster_selection_kwargs = dict(action='store_true',
                                 help='Whether clustering should be performed using select-* results')
 cluster_poses_help = 'Cluster all poses by their spatial or interfacial similarity. This is\n' \
                      'used to identify conformationally flexible docked configurations'
 parser_cluster = dict(description=cluster_poses_help, help=cluster_poses_help)
 cluster_poses_arguments = {
-    (f'--{as_objects}',): dict(action='store_true', help='Whether to store the resulting pose cluster file as '
+    (as_objects.long,): dict(action='store_true', help='Whether to store the resulting pose cluster file as '
                                                          'PoseJob objects\nDefault stores as pose IDs'),
-    (f'--{cluster_mode}',):
+    (cluster_mode.long,):
         dict(type=str.lower, choices={'ialign', 'rmsd', 'transform'}, default='transform', metavar='',
              help='Which type of clustering should be performed?\nChoices=%(choices)s\nDefault=%(default)s'),
-    (f'--{cluster_number}',):
+    (cluster_number.long,):
         dict(type=int, default=1, metavar='INT', help='The number of cluster members to return'),
     output_file_args: dict(type=os.path.abspath,
                            help='Name of the output .pkl file containing pose clusters.\n'
@@ -1239,27 +1344,30 @@ cluster_poses_arguments = {
                                 f'Default={default_clustered_pose_file.format("TIMESTAMP", "LOCATION")}')
 }
 # ---------------------------------------------------
-ca_only_args = (f'--{ca_only}',)
+ca_only_args = (ca_only.long,)
 ca_only_kwargs = dict(action='store_true',
                       help='Whether a minimal CA variant of the protein should be used for design calculations')
-neighbors_args = (f'--{neighbors}',)
+neighbors_args = (neighbors.long,)
 neighbors_kwargs = \
     dict(action='store_true', help='Whether the neighboring residues should be considered during sequence design')
-design_method_args = ('-m', f'--{design_method}')
+design_method_args = ('-m', design_method.long)
+design_programs_literal = Literal['consensus', 'proteinmpnn', 'rosetta']
+design_programs: tuple[str, ...] = get_args(design_programs_literal)
 design_method_kwargs = dict(type=str.lower, default=proteinmpnn, choices=design_programs, metavar='',
                             help='Which design method should be used?\nChoices=%(choices)s\nDefault=%(default)s')
-hbnet_args = ('-hb', f'--{hbnet}')
+hbnet_args = ('-hb', hbnet.long)
 hbnet_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
                     help=f'Whether to include hydrogen bond networks in the design.'
                          f'\n{boolean_positional_prevent_msg(hbnet)}')
-structure_background_args = ('-sb', f'--{structure_background}')
+structure_background_args = ('-sb', structure_background.long)
 structure_background_kwargs = dict(action='store_true',  # action=argparse.BooleanOptionalAction, default=False,
                                    help='Whether to skip all constraints and measure the structure\nusing only the '
                                         'selected energy function\nDefault=%(default)s')
-design_number_args = ('-n', f'--{design_number}')
+design_number_args = ('-n', design_number.long)
+nstruct = 20
 design_number_kwargs = dict(type=int, default=nstruct, metavar='INT',
                             help='How many unique sequences should be generated for each input?\nDefault=%(default)s')
-scout_args = ('-sc', f'--{scout}')
+scout_args = ('-sc', scout.long)
 scout_kwargs = dict(action='store_true',  # action=argparse.BooleanOptionalAction, default=False,
                     help='Whether to set up a low resolution scouting protocol to\n'
                          'survey designability\nDefault=%(default)s')
@@ -1271,7 +1379,7 @@ def temp_gt0(temp: str) -> float:
     return temp if temp > 0 else 0.0001
 
 
-temperature_args = ('-K', f'--{temperatures}')
+temperature_args = ('-K', temperatures.long)
 temperature_kwargs = dict(type=temp_gt0, nargs='*', default=(0.1,), metavar='FLOAT',
                           help="'Temperature', i.e. the value(s) to use as the denominator in\n"
                                'the equation: exp(G/T), where G=energy and T=temperature, when\n'
@@ -1306,13 +1414,13 @@ interface_metrics_help = f'Analyze {interface_metrics} for each pose'
 parser_metrics = dict(description=interface_metrics_help, help=interface_metrics_help)
 interface_metrics_arguments = {
     measure_pose_args: measure_pose_kwargs,
-    ('-sp', f'--{specific_protocol}'): dict(metavar='PROTOCOL',
+    ('-sp', specific_protocol.long): dict(metavar='PROTOCOL',
                                             help='A specific type of design protocol to perform metrics on.\n'
                                                  'If not provided, captures all design protocols')
 }
 # ---------------------------------------------------
-poses_args = (f'--{poses}',)
-specification_file_args = ('-sf', f'--{specification_file}')
+poses_args = (poses.long,)
+specification_file_args = ('-sf', specification_file.long)
 use_specification_file_str = f'The input flag {format_args(specification_file_args)} can be provided\n' \
                              'to restrict selection to specific designs from each pose'
 optimize_designs_help = f'Subtly and explicitly modify pose/designs. Useful for reverting\n' \
@@ -1321,7 +1429,7 @@ optimize_designs_help = f'Subtly and explicitly modify pose/designs. Useful for 
                         f'or modifying surface charge. {optimize_designs} is based on amino acid\n' \
                         f'frequency profiles. Use with {format_args(specification_file_args)} is suggested'
 parser_optimize_designs = dict(description=optimize_designs_help, help=optimize_designs_help)
-background_profile_args = ('-bg', f'--{background_profile}')
+background_profile_args = ('-bg', background_profile.long)
 optimize_designs_arguments = {
     background_profile_args: dict(type=str.lower, default=design_profile, metavar='',
                                   choices={design_profile, evolutionary_profile, fragment_profile},
@@ -1374,13 +1482,13 @@ parser_process_rosetta_metrics = dict(description=process_rosetta_metrics_help, 
 process_rosetta_metrics_arguments = {}
 # ---------------------------------------------------
 # Common selection arguments
-# allow_multiple_poses_args = ('-amp', f'--{allow_multiple_poses}')
+# allow_multiple_poses_args = ('-amp', allow_multiple_poses.long)
 # allow_multiple_poses_kwargs = dict(action='store_true',
 #                                    help='Allow multiple designs to be selected from the same Pose when using --total'
 #                                         '\nBy default, --total filters the selected designs by a single Pose')
 csv_args = ('--csv',)
 csv_kwargs = dict(action='store_true', help='Write the sequences file as a .csv instead of the default .fasta')
-designs_per_pose_args = (f'--{designs_per_pose}',)
+designs_per_pose_args = (designs_per_pose.long,)
 designs_per_pose_kwargs = dict(type=int, metavar='INT', default=1,
                                help='What is the maximum number of designs to select from each pose?\n'
                                     'Default=%(default)s')
@@ -1390,18 +1498,18 @@ filter_args = ('--filter',)
 all_filter_args = filter_args + filter_file_args
 filter_kwargs = dict(nargs='*', default=tuple(), help='Whether to filter selection using metrics')  # default=None,
 # filter_kwargs = dict(action='store_true', help='Whether to filter selection using metrics')
-optimize_species_args = ('-opt', f'--{optimize_species}')
+optimize_species_args = ('-opt', optimize_species.long)
 optimize_species_kwargs = dict(default='e_coli', choices=get_args(optimization_species_literal), metavar='',
                                help='The organism where nucleotide usage should be optimized\n'
                                     'Choices=%(choices)s\nDefault=%(default)s')
-output_structures_args = ('-Os', f'--{output_structures}')
-protocol_args = (f'--{protocol}',)
+output_structures_args = ('-Os', output_structures.long)
+protocol_args = (protocol.long,)
 protocol_kwargs = dict(nargs='*', default=tuple(), help='Use specific protocol(s) to filter designs?')
 pose_select_number_kwargs = \
     dict(type=int, default=sys.maxsize, metavar='INT', help='Number to return\nDefault=No Limit')
 save_total_args = ('--save-total',)
 save_total_kwargs = dict(action='store_true', help='Should the total dataframe accessed by selection be saved?')
-select_number_args = (f'--{select_number}',)
+select_number_args = (select_number.long,)
 select_number_kwargs = dict(type=int, default=sys.maxsize, metavar='INT',
                             help='Limit selection to a certain number. If not specified, returns all')
 # total_args = ('--total',)
@@ -1452,11 +1560,11 @@ select_poses_arguments = {
     #                                   '\nChoices=%(choices)s\nDefault=%(default)s'),
 }
 # ---------------------------------------------------
-intergenic_sequence_args = ('-ms', f'--{multicistronic_intergenic_sequence}')
+intergenic_sequence_args = ('-ms', multicistronic_intergenic_sequence.long)
 intergenic_sequence_kwargs = dict(default=constants.ncoI_multicistronic_sequence,
                                   help='The sequence to use in the intergenic region of a multicistronic expression '
                                        'output')
-nucleotide_args = (f'--{nucleotide}',)
+nucleotide_args = (nucleotide.long,)
 select_sequences_help = 'Select designs and output their sequences (nucleotide/protein) based on\n' \
                         'selection criteria and metrics. Generation of output sequences can take\n' \
                         'multiple forms depending on downstream needs. By default, disordered\n' \
@@ -1480,19 +1588,19 @@ parser_select_sequences = dict(description=select_sequences_help, help=select_se
 select_sequences_arguments = {
     **select_arguments,
     **_select_designs_arguments,
-    ('-ath', f'--{avoid_tagging_helices}'):
+    ('-ath', avoid_tagging_helices.long):
         dict(action='store_true', help='Should tags be avoided at termini with helices?'),
-    ('-m', f'--{multicistronic}'):
+    ('-m', multicistronic.long):
         dict(action='store_true',
              help='Should nucleotide sequences by output in multicistronic format?\nBy default, uses the pET-Duet '
                   'intergeneic sequence containing\na T7 promoter, LacO, and RBS'),
     nucleotide_args: dict(action=argparse.BooleanOptionalAction, default=True,
                                help='Should codon optimized nucleotide sequences be output?'
                                     f'\n{boolean_positional_prevent_msg(nucleotide)}'),
-    ('-t', f'--{preferred_tag}'): dict(type=str.lower, choices=constants.expression_tags.keys(), default='his_tag',
+    ('-t', preferred_tag.long): dict(type=str.lower, choices=constants.expression_tags.keys(), default='his_tag',
                                        metavar='', help='The name of your preferred expression tag\n'
                                                         'Choices=%(choices)s\nDefault=%(default)s'),
-    (f'--{tag_entities}',): dict(type=str.lower,  # choices=tagging_args,
+    (tag_entities.long,): dict(type=str.lower,  # choices=tagging_args,
                                  help='If there are specific entities in the designs you want to tag,\n'
                                       'indicate how tagging should occur. Choices:\n\t'
                                       '"single" - a single entity\n\t'
@@ -1502,7 +1610,7 @@ select_sequences_arguments = {
                                       '"1,0,1" where\n'
                                       '\t    - "1" indicates a tag is required\n'
                                       '\t    - "0" indicates no tag is required'),
-    (f'--{tag_linker}',): dict(type=str.upper,  # metavar='', choices=constants.expression_tags.keys(),
+    (tag_linker.long,): dict(type=str.upper,  # metavar='', choices=constants.expression_tags.keys(),
                                help='The amino acid sequence of the linker region between each\n'
                                     f'expression tag and the protein\nDefault={constants.default_tag_linker}'),
     **multicistronic_args,
@@ -1521,7 +1629,7 @@ multicistronic_help = 'Generate nucleotide sequences for selected designs by cod
                       'optimizing protein sequences, then concatenating nucleotide\n' \
                       f'sequences. Either .csv or .fasta file accepted with {format_args(file_args)}'
 parser_multicistronic = dict(description=multicistronic_help, help=multicistronic_help)
-number_args = ('-n', f'--{number}')
+number_args = ('-n', number.long)
 multicistronic_arguments = {
     **multicistronic_args,
     number_args: dict(type=int, metavar='INT', help='The number of protein sequences to concatenate into a '
@@ -1534,7 +1642,7 @@ update_db_arguments = {}
 # parser_distribute = {distribute: dict()}
 # distribute_arguments = {
 #     (f'--command',): dict(help='The command to distribute over the input specification'),  # required=True,
-#     (f'--{number_of_commands}',): dict(type=int, required=True, help='The number of commands to spawn'),
+#     (number_of_commands.long,): dict(type=int, required=True, help='The number of commands to spawn'),
 #     output_file_args: dict(required=True, help='The location to write the commands')
 # }
 # ---------------------------------------------------
@@ -1554,9 +1662,9 @@ generate_fragments_help = 'Generate fragment potentials for secondary structure 
                           'out. Default potential search is for intra-chain motifs'
 parser_generate_fragments = dict(description=generate_fragments_help, help=generate_fragments_help)
 generate_fragments_arguments = {
-    (f'--{interface}',): dict(action='store_true', help=f'Whether to {generate_fragments} at interface residues'),
-    (f'--{interface_only}',): dict(action='store_true', help=f'Whether to limit to interface residues'),
-    (f'--{oligomeric_interfaces}',):
+    (interface.long,): dict(action='store_true', help=f'Whether to {generate_fragments} at interface residues'),
+    (interface_only.long,): dict(action='store_true', help=f'Whether to limit to interface residues'),
+    (oligomeric_interfaces.long,):
         dict(action='store_true', help=f'Whether to {generate_fragments} at oligomeric interfaces in\naddition to '
                                        'hetrotypic interfaces')
 }
@@ -1573,14 +1681,14 @@ parser_rename_chains = dict(description=rename_chains_help, help=rename_chains_h
 # }
 # # ---------------------------------------------------
 fuse_chains_args = ('--fuse-chains',)
-load_to_db_args = (f'--{load_to_db}',)
+load_to_db_args = (load_to_db.long,)
 load_to_db_kwargs = dict(action='store_true',
                          help=f'Use this input flag to load files existing in a {putils.program_output} to the DB')
 range_args = ('-r', '--range')
 # ---------------------------------------------------
 project_args = ('-p', '--project')
 single_args = ('-s', '--single')
-directory_args = ('-d', f'--{directory}')
+directory_args = ('-d', directory.long)
 directory_needed = f'To locate poses from a file utilizing pose identifiers (--{poses}, -sf)\n' \
                    f'provide your working {program_output} directory with {format_args(directory_args)}.\n' \
                    f'If you run {program_name} in the context of an existing {program_output},\n' \
@@ -1608,7 +1716,7 @@ pose_inputs = {
 input_arguments = {
     **pose_inputs,
     cluster_map_args: cluster_map_kwargs,
-    ('-df', f'--{dataframe}'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
+    ('-df', dataframe.long): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
                                     help=f'A DataFrame created by {program_name} analysis containing\n'
                                          'pose metrics. File is output in .csv format'),
     fuse_chains_args: dict(nargs='*', default=tuple(), metavar='A:B C:D',
@@ -1620,18 +1728,18 @@ input_arguments = {
     load_to_db_args: load_to_db_kwargs,
     # ('-N', f'--{nanohedra}V1-output'): dict(action='store_true', dest=nanohedra_output,
     #                                         help='Is the input a Nanohedra wersion 1 docking output?'),
-    # ('-P', f'--{preprocessed}'): dict(action='store_true',
+    # ('-P', preprocessed.long): dict(action='store_true',
     #                                   help='Whether the designs of interest have been preprocessed for the '
     #                                        f'{current_energy_function}\nenergy function and/or missing loops'),
-    (f'--{loop_model_input}',):
+    (loop_model_input.long,):
         dict(action=argparse.BooleanOptionalAction, default=None,
              help='Whether the input building blocks should have missing regions modeled'),
-    (f'--{refine_input}',):
+    (refine_input.long,):
         dict(action=argparse.BooleanOptionalAction, default=None,
              help=f'Whether the input building blocks should be refined into {current_energy_function}'),
-    (f'--{pre_loop_modeled}',):
+    (pre_loop_modeled.long,):
         dict(action='store_true', help='Whether input building blocks have been preprocessed for\nmissing density'),
-    (f'--{pre_refined}',):
+    (pre_refined.long,):
         dict(action='store_true', help='Whether input building blocks have been preprocessed by\nrefinement into the'
                                        f' {current_energy_function}'),  # Todo change this
     range_args: dict(metavar='INT-INT',
@@ -1639,7 +1747,7 @@ input_arguments = {
                           'Specify a %% between 0 and 100, separating the range by "-"\n'
                           # Required ^ for formatting
                           'Ex: 0-25'),
-    (f'--{specify_entities}',): dict(action='store_true', help='Whether to initialize input Poses with user specified\n'
+    (specify_entities.long,): dict(action='store_true', help='Whether to initialize input Poses with user specified\n'
                                                                'identities of each constituent Entity')
 }
 directory_kwargs = dict(type=os.path.abspath, metavar=ex_path('your_pdb_files'),
@@ -1668,35 +1776,35 @@ parser_output = dict(description=output_help)  # , help=output_help
 parser_output_group = dict(title=f'{"_" * len(output_title)}\n{output_title}',
                            description='\nSpecify where output should be written')
 output_arguments = {
-    (f'--{increment_chains}',): dict(action='store_true',
+    (increment_chains.long,): dict(action='store_true',
                                      help='Whether assembly files should output with chain IDs incremented\n'
                                           "or in 'Multimodel' format. Multimodel format is useful for PyMol\n"
                                           "visualization with the command 'set all_states, on'. Chimera can\n"
                                           'utilize either format as the BIOMT record is respected'),
-    ('-Oa', f'--{output_assembly}'):
+    ('-Oa', output_assembly.long):
         dict(action='store_true',
              help='Whether the symmetric assembly should be output.\nInfinite assemblies are output as a unit cell'),
     output_directory_args: output_directory_kwargs,
     output_file_args: dict(type=os.path.abspath,
                            help='If provided, the name of the output pose file. Otherwise, one\n'
                                 'will be generated based on the time, input, and module'),
-    ('-OF', f'--{output_fragments}'):
+    ('-OF', output_fragments.long):
         dict(action='store_true', help='Write any fragments generated for each Pose'),
-    ('-Oi', f'--{output_interface}'):
+    ('-Oi', output_interface.long):
         dict(action='store_true', help='Write the residues that comprise the interface for each Pose'),
-    ('-Oo', f'--{output_oligomers}'):
+    ('-Oo', output_oligomers.long):
         dict(action=argparse.BooleanOptionalAction, default=False, help='Write any oligomers generated for each Pose'),
-    ('-Oe', f'--{output_entities}'):
+    ('-Oe', output_entities.long):
         dict(action=argparse.BooleanOptionalAction, default=False, help='Write the entities located for each Pose'),
     # output_structures_args:
     #     dict(action=argparse.BooleanOptionalAction, default=True,
     #          help=f'For any structures generated, write them.\n{boolean_positional_prevent_msg(output_structures)}'),
-    ('-Ou', f'--{output_surrounding_uc}'):
+    ('-Ou', output_surrounding_uc.long):
         dict(action='store_true', help='For infinite materials, whether surrounding unit cells are output'),
-    ('-Ot', f'--{output_trajectory}'):
+    ('-Ot', output_trajectory.long):
         dict(action='store_true', help=f'For all structures generated, write them as a single multimodel file'),
     ('--overwrite',): dict(action='store_true', help='Whether to overwrite existing structural info'),
-    ('-Pf', f'--{pose_format}'): dict(action='store_true',
+    ('-Pf', pose_format.long): dict(action='store_true',
                                       help='Whether outputs should be converted to pose number formatting,\n'
                                            'where residue numbers start at one and increase sequentially\n'
                                            'instead of using the original numbering'),

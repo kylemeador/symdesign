@@ -264,16 +264,16 @@ class JobResources:
         # """Whether to reissue commands, only if distribute_work=False"""
         self.log_level: bool = kwargs.get('log_level')
         self.debug: bool = True if self.log_level == logging.DEBUG else False
-        self.force: bool = kwargs.get(putils.force)
-        self.development: bool = kwargs.get(putils.development)
-        self.profile_memory: bool = kwargs.get(putils.profile)
+        self.force: bool = kwargs.get(flags.force._)
+        self.development: bool = kwargs.get(flags.development._)
+        self.profile_memory: bool = kwargs.get(flags.profile_memory._)
         if self.profile_memory and not self.development:
-            logger.warning(f"--{flags.profile_memory} was set but --development wasn't")
+            logger.warning(f"{flags.profile_memory.long} was set but {flags.development.long} wasn't")
 
         self.mpi: int = kwargs.get('mpi')
         if self.mpi is None:
             self.mpi = 0
-            self.distribute_work: bool = kwargs.get(putils.distribute_work)
+            self.distribute_work: bool = kwargs.get(flags.distribute_work._)
             # # Todo implement, see symdesign.utils and CommandDistributor
             # # extras = ' mpi {CommmandDistributer.mpi}'
             # number_mpi_processes = CommmandDistributer.mpi - 1
@@ -284,7 +284,7 @@ class JobResources:
             self.distribute_work = True
             raise NotImplementedError(f"Can't compute the number of resources to allocate using --mpi yet...")
 
-        self.multi_processing: int = kwargs.get(putils.multi_processing)
+        self.multi_processing: int = kwargs.get(flags.multi_processing._)
         if self.multi_processing:
             # Calculate the number of cores to use depending on computer resources
             self.cores = utils.calculate_mp_cores(cores=kwargs.get('cores'))  # Todo mpi=self.mpi
@@ -352,7 +352,7 @@ class JobResources:
                     db_cfg = json.load(f)
                 if database_url is not None:
                     raise utils.InputError(
-                        f"The --database-url '{database_url}' can't be used as this {putils.program_output} "
+                        f"The {flags.database_url.long} '{database_url}' can't be used as this {putils.program_output} "
                         f"was already initialized with the url='{db_cfg.get('url')}")
                 else:
                     database_url = db_cfg.get('url')
@@ -556,11 +556,11 @@ class JobResources:
         # self.pre_refined: bool = kwargs.get('pre_refined', True)
         # self.pre_loop_modeled: bool = kwargs.get('pre_loop_modeled', True)
         self.interface_to_alanine: bool = kwargs.get('interface_to_alanine')
-        self.metrics: bool = kwargs.get(flags._metrics)
+        self.metrics: bool = kwargs.get(flags.metrics._)
         self.measure_pose: str = kwargs.get('measure_pose')
         self.specific_protocol: str = kwargs.get('specific_protocol')
         # Process symmetry
-        sym_entry_number = kwargs.get(putils.sym_entry)
+        sym_entry_number = kwargs.get(flags.sym_entry._)
         symmetry = kwargs.get('symmetry')
         if sym_entry_number is None and symmetry is None:
             self.sym_entry: SymEntry.SymEntry | str | None = None
@@ -574,7 +574,7 @@ class JobResources:
         # Selection flags
         self.save_total = kwargs.get('save_total')
         # self.total = kwargs.get('total')
-        self.protocol = kwargs.get(putils.protocol)
+        self.protocol = kwargs.get(flags.protocol._)
         _filter = kwargs.get('filter')
         _filter_file = kwargs.get('filter_file')
         if _filter == list():
@@ -597,9 +597,9 @@ class JobResources:
         self.select_number = kwargs.get('select_number')
         self.designs_per_pose = kwargs.get('designs_per_pose')
         # self.allow_multiple_poses = kwargs.get('allow_multiple_poses')
-        self.tag_entities = kwargs.get(putils.tag_entities)
+        self.tag_entities = kwargs.get(flags.tag_entities._)
         # self.metric = kwargs.get('metric')
-        self.specification_file = kwargs.get(putils.specification_file)
+        self.specification_file = kwargs.get(flags.specification_file._)
         # Don't need this at the moment...
         # self.poses = kwargs.get(flags.poses)
         """Used to specify whether specific designs should be fetched for select_* modules"""
@@ -607,14 +607,14 @@ class JobResources:
         self.metric = kwargs.get('metric')
 
         # Sequence flags
-        self.avoid_tagging_helices = kwargs.get(putils.avoid_tagging_helices)
+        self.avoid_tagging_helices = kwargs.get(flags.avoid_tagging_helices._)
         self.csv = kwargs.get('csv')
         self.nucleotide = kwargs.get(flags.nucleotide)
-        self.optimize_species = kwargs.get(putils.optimize_species)
-        self.preferred_tag = kwargs.get(putils.preferred_tag)
+        self.optimize_species = kwargs.get(flags.optimize_species._)
+        self.preferred_tag = kwargs.get(flags.preferred_tag._)
         self.tag_linker = kwargs.get('tag_linker')
-        self.multicistronic = kwargs.get(putils.multicistronic)
-        self.multicistronic_intergenic_sequence = kwargs.get(putils.multicistronic_intergenic_sequence)
+        self.multicistronic = kwargs.get(flags.multicistronic._)
+        self.multicistronic_intergenic_sequence = kwargs.get(flags.multicistronic_intergenic_sequence._)
 
         # Output flags
         self.overwrite: bool = kwargs.get('overwrite')
@@ -636,13 +636,13 @@ class JobResources:
             if self.prefix == '':
                 # self.location must not be None
                 self.prefix = f'{utils.starttime}_{os.path.basename(os.path.splitext(self.input_source)[0])}_'
-            output_directory = kwargs.get(putils.output_directory)
+            output_directory = kwargs.get(flags.output_directory._)
             # if not self.output_to_directory:
             if not output_directory:
                 output_directory = os.path.join(os.path.dirname(self.program_root), f'SelectedDesigns')
                 #     os.path.join(os.path.dirname(self.program_root), f'{self.prefix}SelectedDesigns{self.suffix}')
         else:  # if output_directory:
-            output_directory = kwargs.get(putils.output_directory)
+            output_directory = kwargs.get(flags.output_directory._)
 
         if output_directory:
             self.output_directory = output_directory
@@ -653,7 +653,7 @@ class JobResources:
                 sys.exit(1)
             putils.make_path(self.output_directory)
 
-        output_file = kwargs.get(putils.output_file)
+        output_file = kwargs.get(flags.output_file._)
         if output_file:
             self.output_file = output_file
             if os.path.exists(self.output_file) and not self.overwrite:
@@ -667,16 +667,16 @@ class JobResources:
         if self.module == flags.expand_asu:
             self.output_assembly = True
         else:
-            self.output_assembly: bool = kwargs.get(putils.output_assembly)
-        self.output_surrounding_uc: bool = kwargs.get(putils.output_surrounding_uc)
-        self.output_fragments: bool = kwargs.get(putils.output_fragments)
-        self.output_interface: bool = kwargs.get(putils.output_interface)
-        self.output_oligomers: bool = kwargs.get(putils.output_oligomers)
-        self.output_entities: bool = kwargs.get(putils.output_entities)
-        self.output_structures: bool = kwargs.get(putils.output_structures)
-        self.output_trajectory: bool = kwargs.get(putils.output_trajectory)
+            self.output_assembly: bool = kwargs.get(flags.output_assembly._)
+        self.output_surrounding_uc: bool = kwargs.get(flags.output_surrounding_uc._)
+        self.output_fragments: bool = kwargs.get(flags.output_fragments._)
+        self.output_interface: bool = kwargs.get(flags.output_interface._)
+        self.output_oligomers: bool = kwargs.get(flags.output_oligomers._)
+        self.output_entities: bool = kwargs.get(flags.output_entities._)
+        self.output_structures: bool = kwargs.get(flags.output_structures._)
+        self.output_trajectory: bool = kwargs.get(flags.output_trajectory._)
 
-        self.skip_logging: bool = kwargs.get(putils.skip_logging)
+        self.skip_logging: bool = kwargs.get(flags.skip_logging._)
         self.merge: bool = kwargs.get('merge')
         self.save: bool = kwargs.get('save')
         self.figures: bool = kwargs.get('figures')
@@ -1149,7 +1149,7 @@ class JobResources:
         if self.module:
             reported_args['module'] = self.module
         if self.sym_entry:
-            reported_args[putils.sym_entry] = self.sym_entry.number
+            reported_args[flags.sym_entry._] = self.sym_entry.number
         # if self.design_selector:
         #     reported_args.pop('design_selector', None)
 

@@ -1,6 +1,6 @@
 from symdesign import flags
 from symdesign.resources import config
-from symdesign.utils import pretty_format_table, path as putils
+from symdesign.utils import pretty_format_table, path as putils, rosetta
 
 
 rosetta_required_metrics = []
@@ -20,7 +20,7 @@ general_rosetta_module_flags = \
      )
 available_design_methods = \
     'Currently, the available landscape can be sampled and scored according to ProteinMPNN or the Rosetta Energy ' \
-    f'Function (currently {putils.current_energy_function}). '
+    f'Function (currently {rosetta.current_energy_function}). '
 # Select specific strings
 select_modules_str = f'{flags.select_poses}, {flags.select_designs}, or {flags.select_sequences} '
 protocol_usage_in_select = \

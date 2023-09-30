@@ -2616,7 +2616,7 @@ class PoseProtocol(PoseData):
         Returns:
             None
         """
-        self.protocol = 'proteinmpnn'
+        self.protocol = putils.proteinmpnn
         self.log.info(f'Starting {self.protocol} design calculation with {self.job.design.number} '
                       f'designs over each of the temperatures: {self.job.design.temperatures}')
         # design_start = time.time()
