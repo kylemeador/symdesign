@@ -856,13 +856,15 @@ def main():
     logger.info(f"Using resources in Database located at '{job.data}'")
     uses_fragments = [flags.nanohedra, flags.generate_fragments, flags.design, flags.analysis]
     if job.module in uses_fragments:
-        # Todo
-        #  Include when other database types are available
-        # job.fragment_db = fragment_factory(source=args.fragment_database)
-        if job.module == flags.generate_fragments and job.fragment_db.source == putils.biological_interfaces:
-            logger.info(f'The FragmentDatabase {job.fragment_db.source} has only been created with '
-                        'biological homo-oligomers. Understand the caveats of using fragment information at '
-                        'non-interface positions')
+        if job.module == flags.generate_fragments:
+            # Todo
+            #  Include when other database types are available
+            from symdesign.structure.fragment.db import fragment_factory
+            job.fragment_db = fragment_factory(source=args.fragment_database)
+            if job.fragment_db.source == putils.biological_interfaces:
+                logger.info(f'The FragmentDatabase {job.fragment_db.source} has only been created with '
+                            'biological homo-oligomers. Understand the caveats of using fragment information at '
+                            'non-interface positions')
     # -----------------------------------------------------------------------------------------------------------------
     #  Initialize the db.session, set into job namespace
     # -----------------------------------------------------------------------------------------------------------------
