@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import _pickle
 import logging
 from collections.abc import Generator
 from typing import Literal, get_args
@@ -57,12 +56,3 @@ def parse_stride(stride_file, **kwargs):
         stride_output = f.readlines()
 
     return ''.join(line[24:25] for line in stride_output if line[0:3] == 'ASG')
-
-
-# 0 indexed, 1 letter aa, alphabetically sorted at the origin
-try:
-    reference_residues = utils.unpickle(putils.reference_residues_pkl)
-except (_pickle.UnpicklingError, ImportError, FileNotFoundError) as error:  # SyntaxError <- can't catch from 3.10
-    logger.error(f'The reference_residues ran into an error upon load. You need to regenerate the serialized version!')
-    logger.error(str(error))
-    reference_residues = None

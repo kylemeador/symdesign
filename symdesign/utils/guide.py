@@ -258,14 +258,16 @@ def setup_instructions():
         ' environment in conda. If you are using anaconda/conda (which I recommend), ' \
         f'"conda env create --file {putils.conda_environment}" will handle this for you. If you are using ' \
         'something else, there is probably an easy way to ensure your virtual environment is up to speed ' \
-        f"with {putils.program_name}'s dependencies. Next, you must add the following variable to your .bashrc " \
-        '(or .tschrc) so that the hhblits dependency can be correctly sourced. ' \
+        f"with {putils.program_name}'s dependencies." \
+        " Next, you must add the following variable to your .bashrc " \
+        '(or .tschrc, .zshrc, etc.) so that the hhblits dependency can be correctly sourced. ' \
         'export PATH=/home/kmeador/symdesign/dependencies/hh-suite/build/bin:$PATH' \
         'or on .tcshrc' \
         'setenv PATH /home/kmeador/symdesign/dependencies/hh-suite/build/bin:$PATH' \
         'Additionally, add this path if you want to build your own scripts with any of the modules for easy import ' \
-        'into python export PYTHONPATH=/yeates1/kmeador/symdesign:$PYTHONPATH or ' \
-        'setenv PYTHONPATH /yeates1/kmeador/symdesign:$PYTHONPATH'
+        'into python.\n' \
+        'export PYTHONPATH=/path/to/symdesign:$PYTHONPATH or ' \
+        'setenv PYTHONPATH /path/to/symdesign:$PYTHONPATH'
 
     print(instructions)
 

@@ -26,7 +26,7 @@ from symdesign.structure.model import Models, MultiModel, Pose
 from symdesign.structure.sequence import write_pssm_file, sequence_difference
 from symdesign.structure.utils import SymmetryError
 from symdesign.utils import condensed_to_square, get_directory_file_paths, InputError, path as putils, \
-    rosetta, starttime, sym, SymDesignException
+    rosetta, starttime, sym
 
 # Globals
 logger = logging.getLogger(__name__)

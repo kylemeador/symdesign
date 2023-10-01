@@ -52,7 +52,7 @@ def load_paired_fragment_representatives(cluster_representatives_path) \
     for cluster_name, file_path in identified_files.items():
         i_type, j_type, k_type = map(int, cluster_name.split('_'))
 
-        # We pass the token RELOAD_DB to ensure loading happens without default loading
+        # The token RELOAD_DB is passed to ensure loading happens without default loading
         ijk_frag_cluster_rep_pdb = model.Model.from_file(file_path, entities=False, log=None, fragment_db=RELOAD_DB)
         # Load as Model as we must look up the partner coords later by using chain_id stored in file_name
         partner_chain_idx = file_path.find('partnerchain')
@@ -72,35 +72,6 @@ def load_paired_fragment_representatives(cluster_representatives_path) \
         # # self.paired_frags[i_type][j_type][k_type] = ijk_frag_cluster_rep_pdb, ijk_cluster_rep_partner_chain
     return paired_frags
 
-    # for root, dirs, files in os.walk(self.cluster_representatives_path):
-    #     if not dirs:
-    #         i_cluster_type, j_cluster_type, k_cluster_type = map(int, os.path.basename(root).split('_'))
-    #
-    #         if i_cluster_type not in self.paired_frags:
-    #             self.paired_frags[i_cluster_type] = {}
-    #         if j_cluster_type not in self.paired_frags[i_cluster_type]:
-    #             self.paired_frags[i_cluster_type][j_cluster_type] = {}
-    #
-    #         for file in files:
-    #             ijk_frag_cluster_rep_pdb = \
-    #                 structure.model.Model.from_file(os.path.join(root, file), entities=False, log=None)
-    #             # mapped_chain_idx = file.find('mappedchain')
-    #             # ijk_cluster_rep_mapped_chain = file[mapped_chain_idx + 12:mapped_chain_idx + 13]
-    #             # must look up the partner coords later by using chain_id stored in file
-    #             partner_chain_idx = file.find('partnerchain')
-    #             ijk_cluster_rep_partner_chain = file[partner_chain_idx + 13:partner_chain_idx + 14]
-    #             self.paired_frags[i_cluster_type][j_cluster_type][k_cluster_type] = \
-    #                 (ijk_frag_cluster_rep_pdb, ijk_cluster_rep_partner_chain)  # ijk_cluster_rep_mapped_chain,
-
-
-# try:
-#     from symdesign.structure import base
-# except Exception as error:  # If something goes wrong, we should remake this too
-#     # Create and save the new reference_residues_pkl from scratch
-#     # Todo if this never catches then these aren't updated
-#     ref_aa = base.Structure.from_file(putils.reference_aa_file)
-#     move(putils.reference_residues_pkl, f'{putils.reference_residues_pkl}.bak')
-#     utils.pickle_object(ref_aa.residues, name=putils.reference_residues_pkl, out_path='')
 
 def main():
     ref_aa = base.Structure.from_file(putils.reference_aa_file)

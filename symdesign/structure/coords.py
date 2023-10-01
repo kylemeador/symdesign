@@ -6,7 +6,6 @@ from numba import jit
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-# from symdesign import utils
 from symdesign.utils.symmetry import identity_matrix
 
 

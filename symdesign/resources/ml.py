@@ -554,8 +554,8 @@ def batch_proteinmpnn_input(size: int = None, **kwargs) -> dict[str, np.ndarray]
     if size is None:  # Use X as is
         X = kwargs.get('X')
         if X is None:
-            raise ValueError(f'{batch_proteinmpnn_input.__name__} must pass keyword argument "X" if argument "size" '
-                             f'is None')
+            raise ValueError(
+                f"{batch_proteinmpnn_input.__name__} must pass keyword argument 'X' if argument 'size' is None")
         size = len(X)
     # else:
     #     X = np.tile(X, (size,) + (1,)*X.ndim)

@@ -324,7 +324,8 @@ class Profile(UserList):
 
         if file_name is None:
             if name is None:
-                raise ValueError(f'Must provide argument "file_name" or "name" as a str to {self.write.__name__}')
+                raise ValueError(
+                    f"Must provide argument 'file_name' or 'name' as a str to {self.write.__name__}")
             else:
                 file_name = os.path.join(out_dir, name)
 
@@ -1594,10 +1595,10 @@ class SequenceProfile(ABC):
         # log_string = []
         for entry, weight in enumerate(self.alpha):
             # Weight will be 0 if the fragment_profile is empty
-            if weight > 0:
+            if weight:
                 # log_string.append(f'Residue {entry + 1:5d}: {weight * 100:.0f}% fragment weight')
-                inverse_weight = 1 - weight
                 frag_profile_entry = fragment_profile[entry]
+                inverse_weight = 1 - weight
                 _profile_entry = self.profile[entry + zero_offset]
                 _profile_entry.update({aa: weight*frag_profile_entry[aa] + inverse_weight*_profile_entry[aa]
                                        for aa in protein_letters_alph3})

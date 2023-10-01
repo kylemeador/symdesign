@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import _pickle
 import abc
 import logging
 import os
 import subprocess
 import sys
 import time
+import traceback
 from abc import ABC
 from collections import UserList, defaultdict
 from copy import copy
@@ -6536,3 +6538,15 @@ class Structures(Structure, UserList):
 
     def __getitem__(self, idx: int) -> Structure:
         return self.data[idx]
+
+
+# 0 indexed, 1 letter aa, alphabetically sorted at the origin
+try:
+    reference_residues = utils.unpickle(putils.reference_residues_pkl)
+except (_pickle.UnpicklingError, ImportError, FileNotFoundError) as error:  # SyntaxError <- can't catch from 3.10
+    # raise
+    logger.error(''.join(traceback.format_exc()))
+    print('\n' * 3)
+    logger.error(f'The reference_residues ran into an error upon load. You need to regenerate the serialized version '
+                 f'using {putils.pickle_program_requirements_cmd}')
+    reference_residues = None

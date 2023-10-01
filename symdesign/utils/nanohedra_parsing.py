@@ -169,7 +169,7 @@ def get_sym_entry_from_nanohedra_directory(nanohedra_dir: AnyStr) -> utils.SymEn
                 if 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
                     return utils.SymEntry.symmetry_factory.get(int(line.split(':')[-1]))  # sym_map inclusion?
     except FileNotFoundError:
-        raise FileNotFoundError('Nanohedra master directory is malformed. '
-                                f'Missing required docking file {log_path}')
-    raise utils.InputError(f'Nanohedra master docking file {log_path} is malformed. Missing required info'
-                           ' "Nanohedra Entry Number:"')
+        raise FileNotFoundError(
+            f'Nanohedra master directory is malformed. Missing required docking file {log_path}')
+    raise utils.InputError(
+        f"Nanohedra master docking file {log_path} is malformed. Missing required info 'Nanohedra Entry Number:'")
